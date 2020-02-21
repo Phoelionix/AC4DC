@@ -1,25 +1,29 @@
 
-CPP := /usr/local/opt/llvm/bin/clang
+CPP := /usr/local/opt/llvm/bin/clang++
 
 SRCDIR := src
 BUILDDIR := build
 TARGET := bin/plasMD
 
-HOME := $(shell echo $HOME)
+
 
 SRCEXT := cpp
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
-OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
-CPPFLAGS := -O3 -std=c++11 -fopenmp
+RAW_OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
+OBJECTS := $(RAW_OBJECTS:$(BUILDDIR)/Wigner/%=$(BUILDDIR)/%)
+CPPFLAGS := -O3 -std=c++11 -fopenmp -stdlib=libc++
 LIB := -L/usr/local/opt/llvm/lib -L$(HOME)/Programming/lib
-INC := -I/usr/local/opt/llvm/include -I$(HOME)/Programming/include -I/usr/local/opt/llvm/include
+INC := -I/usr/local/opt/llvm/include -I$(HOME)/Programming/include
 
 $(TARGET): $(OBJECTS)
 	@echo " Linking..."
-	@echo " $(CPP) $^ -o $(TARGET) $(LIB) "; $(CC) $^ -o $(TARGET) $(LIB)
+	@echo " $(CPP) $^ -v -o $(TARGET) $(LIB) "; $(CC) $^ -v -o $(TARGET) $(LIB)
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
 	@mkdir -p $(BUILDDIR) bin
+	@echo " $(CPP) $(CPPFLAGS) $(INC) -c -o $@ $<"; $(CPP) $(CPPFLAGS) $(INC) -c -o $@ $<
+
+$(BUILDDIR)/%.o: $(SRCDIR)/Wigner/%.$(SRCEXT)
 	@echo " $(CPP) $(CPPFLAGS) $(INC) -c -o $@ $<"; $(CPP) $(CPPFLAGS) $(INC) -c -o $@ $<
 
 clean:
