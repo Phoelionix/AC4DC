@@ -1,4 +1,4 @@
-output/**
-bin/*
 build/*
+bin/*
 .vscode/
+.DS_Store

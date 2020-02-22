@@ -40,6 +40,11 @@ This file is part of AC4DC.
 
 using namespace std;
 
+/*
+USAGE: ac4dc input.inp
+*/
+
+
 int main(int argc, char *argv[])
 {
 	string logname = "./output/log_";
@@ -64,14 +69,14 @@ int main(int argc, char *argv[])
 		log << "no input file found. Exiting..." << endl;
 		log.flush();
 		log.close();
-		return 1;
+		return 101;
 	}
 
 	if (argc != 2)
 	{
 		log << "no input file found" << endl;
 
-		return 1;
+		return 102;
 	}
 
 	int c_start = clock();
@@ -81,7 +86,7 @@ int main(int argc, char *argv[])
 		// Molecular input.
 
 		MolInp Init(argv[1], log);
-		
+
 		// Loop through atomic species.
 		for (int a = 0; a < Init.Atomic.size(); a++) {
 			printf("Nuclear charge: %d\n", Init.Atomic[a].Nuclear_Z());
@@ -109,15 +114,15 @@ int main(int argc, char *argv[])
 		RateEquationSolver Dynamics(Init.Latts[0], Init.Orbits[0], Init.Pots[0], Init.Atomic[0]);
 
 		Dynamics.SetupAndSolve(Init, log);
-    
+
 	} else {
 
-		// Atomic input. 
+		// Atomic input.
 
 		Grid Lattice(0);//dummy grid. Will be modified by configuration class
 		vector<RadialWF> Orbitals;
 		Input Init(argv[1], Orbitals, Lattice, log);
-		
+
 		std::cout << "Nuclear charge: " << Init.Nuclear_Z() << endl;
 		std::cout << "Nuclear potential: pointlike Coulomb" << endl << endl;
 

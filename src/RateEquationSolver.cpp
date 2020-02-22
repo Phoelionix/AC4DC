@@ -38,7 +38,7 @@ void SmoothOrigin(vector<double>&, vector<double>&);
 
 using namespace CustomDataType;
 
-RateEquationSolver::RateEquationSolver(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp) : 
+RateEquationSolver::RateEquationSolver(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp) :
 lattice(Lattice), orbitals(Orbitals), u(U), input(Inp)
 {
 //Orbitals are HF wavefunctions. This configuration is an initial state.
@@ -105,10 +105,10 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 					N_elec += Orbitals[j].occupancy();
 				}
 				//Grid Lattice(lattice.size(), lattice.R(0), lattice.R(lattice.size() - 1) / (0.3*(u.NuclCharge() - N_elec) + 1), 4);
-				// Change Lattice to lattice for electron density evaluation. 
+				// Change Lattice to lattice for electron density evaluation.
 				Potential U(&lattice, u.NuclCharge(), u.Type());
 				HartreeFock HF(lattice, Orbitals, U, input, runlog);
-				
+
 				DecayRates Transit(lattice, Orbitals, u, input);
 
 				Tmp.from = i;
@@ -166,7 +166,7 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		sort(Store.Auger.begin(), Store.Auger.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		sort(Store.Fluor.begin(), Store.Fluor.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		GenerateRateKeys(Store.Auger);
-		
+
 		if (existPht) {
 			string dummy = RateLocation + "Photo.txt";
 			FILE * fl = fopen(dummy.c_str(), "w");
@@ -311,7 +311,7 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		sort(Store.Auger.begin(), Store.Auger.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		sort(Store.Fluor.begin(), Store.Fluor.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		GenerateRateKeys(Store.Auger);
-		
+
 		if (existPht) {
 			string dummy = RateLocation + "Photo.txt";
 			FILE * fl = fopen(dummy.c_str(), "w");
@@ -386,7 +386,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		// Electron impact ionization orbital enerrgy storage.
 		EIIdata tmpEIIparams;
 		int MaxBindInd = 0;
-		// Slippery assumption - electron impact cannot ionize more than the XFEL photon. 
+		// Slippery assumption - electron impact cannot ionize more than the XFEL photon.
 		while(Final_occ[MaxBindInd] == orbitals[MaxBindInd].occupancy()) MaxBindInd++;
 		tmpEIIparams.kin.clear();
 		tmpEIIparams.kin.resize(orbitals.size() - MaxBindInd, 0);
@@ -416,7 +416,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 					N_elec += Orbitals[j].occupancy();
 				}
 				//Grid Lattice(lattice.size(), lattice.R(0), lattice.R(lattice.size() - 1) / (0.3*(u.NuclCharge() - N_elec) + 1), 4);
-				// Change Lattice to lattice for electron density evaluation. 
+				// Change Lattice to lattice for electron density evaluation.
 				Potential U(&lattice, u.NuclCharge(), u.Type());
 				HartreeFock HF(lattice, Orbitals, U, input, runlog);
 
@@ -441,7 +441,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 					tmpEIIparams.kin[size] /= tmpEIIparams.ionB[size];
 					size++;
 				}
-				LocalEIIparams.push_back(tmpEIIparams);  
+				LocalEIIparams.push_back(tmpEIIparams);
 
 				DecayRates Transit(lattice, Orbitals, u, input);
 
@@ -501,7 +501,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		sort(Store.Fluor.begin(), Store.Fluor.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		sort(Store.EIIparams.begin(), Store.EIIparams.end(), [](EIIdata A, EIIdata B) {return (A.init < B.init);});
 		GenerateRateKeys(Store.Auger);
-				
+
 		if (existPht) {
 			string dummy = RateLocation + "Photo.txt";
 			FILE * fl = fopen(dummy.c_str(), "w");
@@ -673,7 +673,7 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog)
 			charge[tmp][m] += P[i][m];
 		}
 	}
-	
+
 	double t_tmp = 0;
 		for (int m = 0; m < T.size(); m++) {
 		T[m] = (T[m]-0.5*T.back())*Constant::fs_in_au;
@@ -688,19 +688,19 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog)
 			for (int i = 0; i < charge.size(); i++) {
 				chrg_tmp = charge[i][m];
 				if (chrg_tmp <= 0.00000001) charge_out << 0 << " ";
-				else charge_out << chrg_tmp << " ";			
+				else charge_out << chrg_tmp << " ";
 			}
 			charge_out << T[m];
 			if (m != T.size() - 1) charge_out << endl;
 		}
-		
+
 		charge_out.close();
 	}
 
 	if (input.Write_Intensity()) {
-		string IntensityName = "./output/Intensity_" + input.Name() + ".txt";	
+		string IntensityName = "./output/Intensity_" + input.Name() + ".txt";
 		ofstream intensity_out(IntensityName);
-		
+
 		double I_max = *max_element(begin(Intensity), end(Intensity));
 		for (int m = 0; m < T.size(); m++) {
 			intensity_out << Intensity[m] / I_max << " " << T[m];
@@ -710,7 +710,7 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog)
 		intensity_out.close();
 	}
 
-	
+
 
 	return 0;
 }
@@ -746,7 +746,7 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 			dT[i] *= scaling_T;
 		}
 		Intensity = generate_I(T, fluence, Sigma);
-           
+
 		//SmoothOrigin(T, Intensity);
  		Mxwll.resize(T.size());
 		IntegrateRateEquation Calc(dT, T, Input.Store, Mxwll, Intensity);
@@ -770,13 +770,13 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 			T_size *= 2;
 		}
 	}
-	
+
 	Intensity.clear();
 	Intensity = generate_I(T, fluence, Sigma);
 
 	double t_tmp = 0;
 	double I_max = *max_element(begin(Intensity), end(Intensity));
-  
+
 	for (int m = 0; m < T.size(); m++) {
 		T[m] = (T[m]-0.5*T.back())*Constant::fs_in_au;
 		dT[m] *= Constant::fs_in_au;
@@ -788,9 +788,9 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
   // Aggregate and output charges, plasma parameters, and other parameters into an output.
   // Charges.
   vector<vector<double>> AllAtomCharge(Input.Atomic.size(), vector<double>(T.size(), 0));
-  
+
 	for (int a = 0; a < Input.Atomic.size(); a++) {
-		
+
 		// Occupancies associated with the atom "a".
 		vector<vector<double*>> map_p(Input.Store[a].num_conf);
 		for (int i = 0; i < Input.Store[a].num_conf; i++) {
@@ -814,7 +814,7 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 		{
 			tmp = P_to_charge[i];
 			for (int m = 0; m < P[i].size(); m++) charge[tmp][m] += *(map_p[a][i] + m);
-		}		
+		}
 
     for (int m = 0; m < T.size(); m++) {
 			for (int i = 1; i < charge.size(); i++) {
@@ -832,17 +832,17 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 				for (int i = 0; i < charge.size(); i++) {
 					chrg_tmp = charge[i][m];
 					if (chrg_tmp <= 0.00000001) charge_out << 0 << " ";
-					else charge_out << chrg_tmp << " ";			
+					else charge_out << chrg_tmp << " ";
 				}
 				charge_out << T[m];
 				if (m != T.size() - 1) charge_out << endl;
 			}
-			
+
 			charge_out.close();
 		}
 
 	}
- 
+
 	if (Input.Write_MD_data()) {
 		string MD_Data = "./output/MD_Data.txt";
 		ofstream OutFile(MD_Data);
@@ -863,9 +863,9 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 	}
 
 	if (Input.Write_Intensity()) {
-		string IntensityName = "./output/Intensity_" + Input.name + ".txt";	
+		string IntensityName = "./output/Intensity_" + Input.name + ".txt";
 		ofstream intensity_out(IntensityName);
-		
+
 		double I_max = *max_element(begin(Intensity), end(Intensity));
 		for (int m = 0; m < T.size(); m++) {
 			intensity_out << Intensity[m] / I_max << " " << T[m];
@@ -874,7 +874,7 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 
 		intensity_out.close();
 	}
-  
+
 	return 0;
 }
 
@@ -1015,13 +1015,13 @@ vector<double> RateEquationSolver::generate_I(vector<double>& Time, double Fluen
 {
 
 	vector<double> Result(Time.size(), 0);
-	
+
 	double midpoint = 0.5*(T.back() + T[0]);
 	double denom = 2*Sigma*Sigma;
 	double norm = 1./sqrt(denom*Constant::Pi);
 	//include the window function to make it exactly 0 at the beginning and smoothly increase toward Gaussian
-  
-  
+
+
   int smooth = T.size()/10;
   double tmp = 0;
 	for (int i = 0; i < Time.size(); i++)
@@ -1032,15 +1032,15 @@ vector<double> RateEquationSolver::generate_I(vector<double>& Time, double Fluen
       Result[i] *= tmp*tmp*(3 - 2 * tmp);
     }
   }
-  
+
   /*
   for (int i = 0; i < Time.size(); i++)
 	{
     Result[i] = Fluence / T.back();
 	}
   */
-  
-  
+
+
 
 	return Result;
 }
@@ -1121,7 +1121,7 @@ double RateEquationSolver::T_avg_RMS(vector<pair<double, int>> conf_RMS)
   Grid Time(T, dT);
   Adams I(Time, 10);
 
-  return I.Integrate(&intensity, 0, T.size()-1);  
+  return I.Integrate(&intensity, 0, T.size()-1);
 }
 
 
@@ -1140,5 +1140,5 @@ double RateEquationSolver::T_avg_Charge()
   Grid Time(T, dT);
   Adams I(Time, 10);
 
-  return I.Integrate(&intensity, 0, T.size()-1);  
+  return I.Integrate(&intensity, 0, T.size()-1);
 }
