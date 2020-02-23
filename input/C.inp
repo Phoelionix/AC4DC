@@ -1,11 +1,11 @@
-// Average over configuration fractional occupancy is supported, so closed orbitals can have ocuppancy between 0 and 4L+2.
+// Average over configuration fractional occupancy is supported, so closed orbitals can have occupancy between 0 and 4L+2.
 
 #ATOM
 6            // Nuclear charge
 coulomb      // Nuclear potential model. Can be "coulomb" for point-like nucleus, "sphere" for spherical nucleus.
 HF           // Hamiltonian form. Can be HF, LDA.
 // Orbitals and their occupancies
-3	           // Number of orbitals. Can include virtual orbitals which have occupancy = 0.
+3	         // Number of orbitals. Can include virtual orbitals which have occupancy = 0.
 1s 2
 2s 2
 2p 2
@@ -20,10 +20,10 @@ length       // Gauge type for matrix elements involving photon absorption/emiss
 
 #NUMERICAL
 2000          // Number of grid points
-0.001	        // Origin of the coordinate grid. Should be > 0.
+0.001	      // Origin of the coordinate grid. Should be > 0.
 70	          // Box radius, maximum distance from the nucleus.
 1000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation soluving step.
-7             // Number of threads in OpenMP.
+2             // Number of threads in OpenMP.
 // Hartree-Fock implementation numerical parameters.
 -6            // Hartree-Fock tollerance.
 -10           // Radial Schroedinger equation solver, tollerance (Master).

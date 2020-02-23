@@ -57,7 +57,7 @@ public:
 	int Charge(int Iconf);
 	vector<double> PerturbMe(vector<RadialWF> & Virtual, double Dist, double Einit);
 	vector<double> Secular(vector<RadialWF> & Virtual, double Dist, double Einit);
-	
+
 	int NumPath() { return dimension; }
 	vector<double> generate_G();
 	vector<double> Times() { return T; }
@@ -78,7 +78,7 @@ protected:
 	Input & input;
 	vector<RadialWF> & orbitals;
 	Potential& u;
-	vector<CustomDataType::polarize> MixMe; 
+	vector<CustomDataType::polarize> MixMe;
 	int dimension;//number of configurations
 	vector<vector<double>> charge;
 	vector<double> T;// Time grid points.
@@ -93,10 +93,10 @@ private:
 	string InterpretIndex(int i);
 
 	AtomRateData Store;
-	
+
 	vector<CustomDataType::ffactor> FF;
 	vector<int> hole_posit;
-  
+
 	int extend_I(vector<double>& Intensity, double new_max_T, double step_T);
   vector<double> generate_I(vector<double>& T, double I_max, double HalfWidth);
 	vector<double> generate_T(vector<double>& dT);
@@ -104,11 +104,10 @@ private:
   double T_avg_RMS(vector<pair<double, int>> conf_RMS);
 	double T_avg_Charge();
 
-	static bool sortEIIbyInd(CustomDataType::EIIdata A, CustomDataType::EIIdata B) { return (A.init < B.init); } 
+	static bool sortEIIbyInd(CustomDataType::EIIdata A, CustomDataType::EIIdata B) { return (A.init < B.init); }
 	static bool sortRatesFrom(Rate A, Rate B) { return (A.from < B.from); }
 	static bool sortRatesTo(Rate A, Rate B) { return (A.to < B.to); }
 	// Keys allow to quickly find the required element. See the GenerateFromKeys().
 	vector<int> RatesFromKeys;
-	void GenerateRateKeys(vector<Rate> & ToSort); 
+	void GenerateRateKeys(vector<Rate> & ToSort);
 };
-

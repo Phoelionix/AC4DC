@@ -11,12 +11,12 @@ SRCEXT := cpp
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
 # OBJECTS := $(RAW_OBJECTS:$(BUILDDIR)/Wigner/%=$(BUILDDIR)/%)
-CPPFLAGS := -O3 -std=c++11 -fopenmp
+CPPFLAGS := -std=c++11 -fopenmp # -O3
 LIB := -L/usr/local/opt/llvm/lib -L$(HOME)/Programming/lib -fopenmp
 INC := -I/usr/local/opt/llvm/include -I$(HOME)/Programming/include
 
 $(TARGET): $(OBJECTS)
-	@echo " Linking..."
+	@echo " Linking... "
 	@echo " $(CPP) $^ -o $(TARGET) $(LIB) "; $(CPP) $^ -o $(TARGET) $(LIB)
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
@@ -26,6 +26,9 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
 clean:
 	@echo " Cleaning...";
 	@echo " $(RM) -r $(BUILDDIR) $(TARGET)"; $(RM) -r $(BUILDDIR) $(TARGET)
+
+debug: $(OBJECTS)
+	@echo " Linking with lldb flags... "
 
 # Tests
 tester:
