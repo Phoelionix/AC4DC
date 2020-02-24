@@ -69,14 +69,8 @@ int main(int argc, char *argv[])
 		log << "no input file found. Exiting..." << endl;
 		log.flush();
 		log.close();
-		return 101;
-	}
-
-	if (argc != 2)
-	{
-		log << "no input file found" << endl;
-
-		return 102;
+		std::cout << "no input file found. Exiting..." <<endl;
+		return 1;
 	}
 
 	int c_start = clock();
