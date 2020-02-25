@@ -19,6 +19,7 @@ This file is part of AC4DC.
  *  author: Alexander Kozlov <alexx.kozloff@gmail.com>
  *
  *  First posted: 20-01-2020
+ *  Modified: 24-02-2020 Alaric Sanders <alaric.sanders@gmail.com>
  */
 
 #include "stdafx.h"

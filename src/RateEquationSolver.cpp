@@ -202,6 +202,16 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
  	return dimension;
 }
 */
+
+inline FILE* safe_fopen(const char *filename, const char *mode)
+{
+	FILE* fp = fopen(filename, mode);
+	if (!fp){
+		cerr << "Could not open file '" << filename << "'" << endl;
+	}
+	return fp;
+}
+
 int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
 {
 	// Solves system of rate equations exactly.
@@ -210,11 +220,23 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 
 	if (!SetupIndex(Max_occ, Final_occ, runlog)) return 1;
 
+	// Make an output folder, if it doesn't exist yet
+	if (!exists_test("./output")) {
+		mkdir("output", ACCESSPERMS);
+	}
+
 	cout << "Check if there are pre-calculated rates..." << endl;
 	string RateLocation = "./output/" + input.Name() + "/Rates/";
+
+	// Make a data folder inside output
 	if (!exists_test("./output/" + input.Name())) {
 		string dirstring = "output/" + input.Name();
 		mkdir(dirstring.c_str(), ACCESSPERMS);
+	}
+
+	// Make a rate-containing folder inside the data folder
+	if (!exists_test(RateLocation)) {
+		mkdir(RateLocation.c_str(), ACCESSPERMS);
 	}
 
 	bool existPht = !ReadRates(RateLocation + "Photo.txt", Store.Photo);
@@ -314,19 +336,19 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 
 		if (existPht) {
 			string dummy = RateLocation + "Photo.txt";
-			FILE * fl = fopen(dummy.c_str(), "w");
+			FILE * fl = safe_fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Photo) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
 		if (existFlr) {
 			string dummy = RateLocation + "Fluor.txt";
-			FILE * fl = fopen(dummy.c_str(), "w");
+			FILE * fl = safe_fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Fluor) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
 		if (existPht) {
 			string dummy = RateLocation + "Auger.txt";
-			FILE * fl = fopen(dummy.c_str(), "w");
+			FILE * fl = safe_fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Auger) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
