@@ -35,7 +35,7 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 	map<string, vector<string>> FileContent;
 	string comment = "//";
 	string curr_key;
-	
+
 	while (!infile.eof() && infile.is_open()) {
 		string line;
 		getline(infile, line);
@@ -103,6 +103,8 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 		if (n == 8) stream >> max_HF_iterations;
 	}
 
+	// Assign a default value to avoid undefiend comparisons
+	num_orbitals = -10;
 	for (int n = 0; n < FileContent["#ATOM"].size(); n++) {
 		stringstream stream(FileContent["#ATOM"][n]);
 		if (n == 0) stream >> Z;
@@ -249,8 +251,8 @@ MolInp::MolInp(char* filename, ofstream & log)
   // Convert to number of photon flux.
   fluence /= omega/Constant::eV_in_au;
 	radius /= Constant::au_in_Angs;
-	unit_V /= Constant::au_in_Angs*Constant::au_in_Angs*Constant::au_in_Angs; 
-	
+	unit_V /= Constant::au_in_Angs*Constant::au_in_Angs*Constant::au_in_Angs;
+
 	for (int i = 0; i < num_atoms; i++) {
 		string at_name;
 		double at_num;
