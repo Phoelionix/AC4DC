@@ -62,17 +62,11 @@ int main(int argc, char *argv[])
 		if (lastslash != std::string::npos) filename = filename.substr(lastslash+1);
 
 		logname = logname + filename + ".txt";
-	}
-	else logname = logname + ".txt";
-	ofstream log(logname);
-
-	if (argc <= 1) {
-		log << "no input file found. Exiting..." << endl;
-		log.flush();
-		log.close();
+	} else {
 		std::cout << "no input file found. Exiting..." <<endl;
 		return 1;
 	}
+	ofstream log(logname);
 
 	int c_start = clock();
 
@@ -101,7 +95,7 @@ int main(int argc, char *argv[])
 			Init.Store[a] = Dynamics.SolvePlasmaBEB(max_occ, final_occ, log);
 			Init.Store[a].name = name;
 			Init.Store[a].nAtoms = nAtoms;
-      Init.Store[a].R = Init.dropl_R();
+      		Init.Store[a].R = Init.dropl_R();
 			Init.Index[a] = Dynamics.Get_Indexes();
 		}
 

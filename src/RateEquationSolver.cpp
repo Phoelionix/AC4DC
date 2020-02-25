@@ -249,7 +249,7 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 
 	string PolarFileName = "./output/Polar_" + input.Name() + ".txt";
 
-	{
+	if ( !existPht || !existFlr || !existAug ){
 		cout << "No rates found. Calculating..." << endl;
 		cout << "Total number of configurations: " << dimension << endl;
 		Rate Tmp;
@@ -257,9 +257,15 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		vector<Rate> LocalFluor(0);
 		vector<Rate> LocalAuger(0);
 
+		#ifdef __APPLE__
+		// macOS doesn't seem to like this
+		#pragma omp parallel default(none) num_threads(7) \
+		shared(cout, runlog, existAug, existFlr, existPht) private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor)
+		#else
 		omp_set_num_threads(input.Num_Threads());
 		#pragma omp parallel default(none) \
 		shared(cout, runlog, existAug, existFlr, existPht) private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor)
+
 		{
 			#pragma omp for schedule(dynamic) nowait
 			for (int i = 0; i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1

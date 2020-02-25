@@ -1,10 +1,10 @@
 // Lasso Peptide (3NJW)
 
 #ATOMS
-H 700 
-C 380 
-N 92 
-O 196 
+H 700
+C 380
+N 92
+O 196
 S 8
 
 #VOLUME
@@ -17,7 +17,7 @@ S 8
 10            // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
-4000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation soluving step.
+4000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12           // Number of threads in OpenMP.
 
 #OUTPUT
