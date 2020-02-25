@@ -48,3 +48,5 @@ echo "LIB := -fopenmp $LIB" >> Makefile
 echo "INC := $INC" >> Makefile
 
 cat .Makefile_template >> Makefile
+
+make

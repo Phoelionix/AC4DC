@@ -50,15 +50,15 @@ static const double gaussW_4[4] = {0.34785484513745, 0.65214515486255, 0.6521451
 static const double gaussX_5[5] = {-0.9061798459387, -0.5384693101057, 0., 0.5384693101057, 0.9061798459387};
 static const double gaussW_5[5] = {0.23692688505619, 0.47862867049937, 0.56888888888889, 0.47862867049937, 0.23692688505619};
 
-static const double gaussX_10[10] = {-0.973906528517, -0.865063366689, -0.679409568299, -0.433395394129, -0.148874338982, 
+static const double gaussX_10[10] = {-0.973906528517, -0.865063366689, -0.679409568299, -0.433395394129, -0.148874338982,
 									  0.148874338982, 0.433395394129, 0.679409568299, 0.865063366689, 0.973906528517};
-static const double gaussW_10[10] = {0.066671344308688, 0.14945134915058, 0.21908636251598, 0.26926671931000, 0.29552422471475, 
+static const double gaussW_10[10] = {0.066671344308688, 0.14945134915058, 0.21908636251598, 0.26926671931000, 0.29552422471475,
 									 0.29552422471475, 0.26926671931000, 0.21908636251598, 0.14945134915058, 0.066671344308688};
 
-static const double gaussX_13[13] = {-0.9841830547185881, -0.9175983992229779, -0.8015780907333099, -0.6423493394403401, 
-								-0.4484927510364467, -0.23045831595513477, 0., 0.23045831595513477, 0.4484927510364467, 
+static const double gaussX_13[13] = {-0.9841830547185881, -0.9175983992229779, -0.8015780907333099, -0.6423493394403401,
+								-0.4484927510364467, -0.23045831595513477, 0., 0.23045831595513477, 0.4484927510364467,
 								0.6423493394403401, 0.8015780907333099, 0.9175983992229779, 0.9841830547185881};
-static const double gaussW_13[13] = {0.04048400476531614, 0.09212149983772834, 0.13887351021978736, 0.17814598076194582, 
+static const double gaussW_13[13] = {0.04048400476531614, 0.09212149983772834, 0.13887351021978736, 0.17814598076194582,
 								0.20781604753688845, 0.2262831802628971, 0.23255155323087365, 0.2262831802628971, 0.20781604753688845,
 								0.17814598076194582, 0.13887351021978736, 0.09212149983772834, 0.04048400476531614};
 
@@ -282,7 +282,7 @@ double Adams::Integrate(std::vector<double>* Func, int start_pt, int end_pt)
 	vector<vector<double>> LeftMatr;
 	vector<double> RightVect;
 
-	int Lagrange_N = 9;//Always calculating first 10 points. If Adams_N < 10 it will overwrite an extra points
+	int Lagrange_N = 10;//Always calculating first 10 points. If Adams_N < 10 it will overwrite an extra points
 
 	LeftMatr.resize(Lagrange_N);
 	for (int i = 0; i < Lagrange_N; i++)
@@ -318,6 +318,8 @@ double Adams::Integrate(std::vector<double>* Func, int start_pt, int end_pt)
 
 	EigenSolver W;
 	W.SolveSystem(LeftMatr, RightVect, Lagrange_N);
+
+	assert(Result.size() <= RightVect.size());
 
 	for (int i = 0; i < Result.size(); i++)
 	{
@@ -778,7 +780,7 @@ GaussQuad::GaussQuad(int Order)
 	default:
 		GaussW.assign(gaussW_10, gaussW_10 + 10);
 		GaussX.assign(gaussX_10, gaussX_10 + 10);
-		break;	
+		break;
 	}
 }
 
@@ -803,12 +805,12 @@ void GaussQuad::set_order(int Order)
   case 10:
   	GaussW.assign(gaussW_10, gaussW_10 + 10);
 		GaussX.assign(gaussX_10, gaussX_10 + 10);
-		break;	
+		break;
 	default:
 		GaussW.assign(gaussW_13, gaussW_13 + 13);
 		GaussX.assign(gaussX_13, gaussX_13 + 13);
-		break;	
-	}	
+		break;
+	}
 }
 
 vector<double> GaussQuad::get_Gauss_X(double a, double b)
@@ -819,7 +821,7 @@ vector<double> GaussQuad::get_Gauss_X(double a, double b)
 	for (int i = 0; i < GaussX.size(); i++) {
 		Result[i] += 0.5*(b - a)*GaussX[i];
 	}
-	
+
 	return Result;
 }
 
