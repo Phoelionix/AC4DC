@@ -127,7 +127,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 			m++;
 		}
 		m = 0;
-	} 
+	}
 	if (check_orb == 1 && Orbitals[single].occupancy() == 1) {
 		Potential.Reset();
 		for (auto& Orb: Orbitals) Master(&Lattice, &Orb, &Potential, Master_tollerance, log);
@@ -143,7 +143,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 		else LDA_tollerance = No_exchange_tollerance;
 		bool Final_Check = false;
 		Orbitals_old = Orbitals;
-		
+
 		//=======================================================================================
 		// Hartree-Fock loop without exchange. Local exchange is evaluated here.
 		while (E_max_error > LDA_tollerance || m < 2)
@@ -155,7 +155,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 			}
 
 			Potential.LDA_upd_dir(Orbitals);
-			
+
 			// Smooth start for m = 0. Introduce latter tail correction. May help iof the original routine diverges.
 			/*
 			if (m == 0)	{
@@ -248,7 +248,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 					if (E_max_error < HF_tollerance * 100) p = 0.8;
 					else p = 0.5;
 					if (m == 0) p = 1;
-					
+
 					for (int j = 0; j < Lattice.size(); j++) {
 						Potential.V[j] = p*Potential.V[j] + (1 - p)*Direct_old[i][j];
 						Potential.Exchange[j] = p*Potential.Exchange[j] + (1 - p)*Exchange_old[i][j];
@@ -296,7 +296,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 						else {// New wavefunction have incorrect n. Iterate untill it is correct.
 							change_cs = 0.2*(Orbitals[i].check_nodes() - Orbitals[i].GetNodes()) / Orbitals[i].N();
 							if (fabs(change_cs) <= 0.2) correction_scaling = 1 + change_cs;
-							else correction_scaling = 1 + 0.2*change_cs/fabs(change_cs);							
+							else correction_scaling = 1 + 0.2*change_cs/fabs(change_cs);
 						}
 					} while (correction_scaling != 1);
 				}
@@ -322,7 +322,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 				}
 			}
 
-		}		
+		}
 	}
 
 	if (m >= max_HF_iterations && log.is_open()) {
@@ -484,7 +484,7 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 	// This routine does the same as "Master" by W. Johnson.
 	// 1) Takes Psi.Energy_0 and integrates the HF equations inwards and outwards
 	// 2) On each iteration the energy is corrected to the point when |Psi.Energy(i) - Psi.Energy(i-1)| < Epsilon
-	// 3) Normalizes Psi in the end of the routine 
+	// 3) Normalizes Psi in the end of the routine
 	double F_left, G_left = 1., F_right, G_right = -1., E_tmp = Psi->Energy, Norm = 0.0, old_Energy;
 	double E_low = -0.5*U->NuclCharge()*U->NuclCharge() / Psi->N() / Psi->N(), E_high = 0;
 	int Turn = 1, infinity = 0, NumNodes = 0.;

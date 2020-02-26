@@ -477,7 +477,7 @@ void Plasma::setup_EII(vector<RadialWF> &Virtual, double k_min, double k_max)
 
 	CntU = Potential(&CntLattice, u.NuclCharge());
 	CntU.LDA_upd_dir(CntOrbitals);
-	
+
 	RadialWF Cont(CntLattice.size());
 	RadialWF dCont(CntLattice.size());
 	Cont.set_N(-1);
