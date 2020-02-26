@@ -115,7 +115,7 @@ void Potential::ScaleNucl(double Scl_dir)
 {
 	double Scaling = Scl_dir / n_charge;
 	for (int i = 0; i < lattice->size(); i++) {
-		V[i] += Scaling * nuclear[i]; 
+		V[i] += Scaling * nuclear[i];
 	}
 }
 
@@ -126,8 +126,8 @@ std::string Potential::Type()
 
 int Potential::HF_upd_dir(RadialWF* Current, std::vector<RadialWF> &Orbitals)
 {
-	// Hartree-Fock Direct + Orbital self-interaction exchange. If Current is that orbital, than both 
-	// exchange and direct are included. If Current is some other orbital, only the direct part of 
+	// Hartree-Fock Direct + Orbital self-interaction exchange. If Current is that orbital, than both
+	// exchange and direct are included. If Current is some other orbital, only the direct part of
 	// the potential is evaluated.
 	vector<double> y_0(lattice->size(), 0.);
 	vector<double> y(lattice->size(), 0.);
@@ -227,7 +227,7 @@ int Potential::LDA_upd_dir(std::vector<RadialWF> &Orbitals)
 		if (infinity < Orbitals[i].pract_infinity()) infinity = Orbitals[i].pract_infinity();
 	}
 
-	if (N_elec == 1) { 
+	if (N_elec == 1) {
 		V = nuclear;
 		for (int i = 0; i < lattice->size(); i++) {
 			LocExc[i] = 0;
@@ -237,7 +237,7 @@ int Potential::LDA_upd_dir(std::vector<RadialWF> &Orbitals)
 	}
 	if (infinity != 0)	y_0 = Y_k(0, density, infinity, 2 * L_min);
 	int Z_eff = N_elec - n_charge - 1;
-	
+
 	double V_tmp = 0;
 	if (model == "coulomb") {
 		for (int i = 0; i < lattice->size(); i++) {
@@ -346,7 +346,7 @@ int Potential::HF_V_N1(RadialWF * Current, vector<RadialWF> & Orbitals, int c, b
 			}
 			MatrElem = I.Integrate(&density, 0, infty);
 
-			for (int i = 0; i <= infty; i++) Exchange[i] += MatrElem*Orb.F[i]; 
+			for (int i = 0; i <= infty; i++) Exchange[i] += MatrElem*Orb.F[i];
 		}
 	}
 
@@ -419,7 +419,7 @@ std::vector<double> Potential::Y_k(int k, std::vector<double> density, int infin
 	return Result;
 }
 
-vector<double> Potential::make_density(vector<RadialWF> & Orbitals) 
+vector<double> Potential::make_density(vector<RadialWF> & Orbitals)
 {
 	vector<double> Result(lattice->size(), 0.);
 	int infty = 0;
@@ -451,7 +451,7 @@ vector<float> Potential::Get_Kinetic(vector<RadialWF> & Orbitals, int start_with
 {
 	int size = 0;
 	for (int i = start_with; i < Orbitals.size(); i++) if (Orbitals[i].occupancy() != 0) size++;
-	
+
 	if (size == 0) return vector<float>(0);
 
 	vector<float> Result(size, 0);
