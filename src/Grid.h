@@ -26,7 +26,7 @@ class Grid
 	with "num_grid_pts" points. The grid has not constant node spacing. It is constant
 	for the following variable
 	S = R + beta*ln(R)
-	According to Vladimir Dzuba the best value for beth=4.
+	According to Vladimir Dzuba the best value for beta=4.
 	*/
 public:
 	Grid(int num_grid_pts, double r_min, double r_max, double Beta = 4);
