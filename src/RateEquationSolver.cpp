@@ -279,7 +279,7 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 
 				Tmp.from = i;
 
-				if (existPht) {
+				if (!existPht) {
 					vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega()/Constant::eV_in_au, runlog);
 					for (int k = 0; k < PhotoIon.size(); k++)
 					{
@@ -293,7 +293,7 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 
 				if (i != 0)
 				{
-					if (existFlr) {
+					if (!existFlr) {
 						vector<fluor> Fluor = Transit.Fluor();
 						for (int k = 0; k < Fluor.size(); k++)
 						{
@@ -305,7 +305,7 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 						}
 					}
 
-					if (existAug) {
+					if (!existAug) {
 						vector<auger> Auger = Transit.Auger(Max_occ, runlog);
 						for (int k = 0; k < Auger.size(); k++)
 						{
@@ -335,19 +335,19 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 
 		if (!existPht) {
 			string dummy = RateLocation + "Photo.txt";
-			FILE * fl = fopen(dummy.c_str(), "w");
+			FILE * fl = safe_fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Photo) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
 		if (!existFlr) {
 			string dummy = RateLocation + "Fluor.txt";
-			FILE * fl = fopen(dummy.c_str(), "w");
+			FILE * fl = safe_fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Fluor) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
 		if (!existPht) {
 			string dummy = RateLocation + "Auger.txt";
-			FILE * fl = fopen(dummy.c_str(), "w");
+			FILE * fl = safe_fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Auger) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
