@@ -340,19 +340,19 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		sort(Store.Fluor.begin(), Store.Fluor.end(), [](Rate A, Rate B) { return (A.from < B.from); });
 		GenerateRateKeys(Store.Auger);
 
-		if (existPht) {
+		if (!existPht) {
 			string dummy = RateLocation + "Photo.txt";
 			FILE * fl = safe_fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Photo) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
-		if (existFlr) {
+		if (!existFlr) {
 			string dummy = RateLocation + "Fluor.txt";
 			FILE * fl = safe_fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Fluor) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
-		if (existPht) {
+		if (!existPht) {
 			string dummy = RateLocation + "Auger.txt";
 			FILE * fl = safe_fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Auger) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
