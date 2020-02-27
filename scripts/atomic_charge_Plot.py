@@ -5,7 +5,7 @@ import os.path as path
 
 path = path.abspath(path.join(__file__ ,"../../output"))
 
-File = open(path + "/Charge_O.txt")
+File = open(path + "/Charge_Ne.txt")
 # read the content into a list "Rates"
 charge = []
 for line in File:
