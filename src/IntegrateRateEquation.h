@@ -57,7 +57,7 @@ class IntegrateRateEquation
 
 	int adams_n = 5;
 public:
-	// Rate equations for single atom. 
+	// Rate equations for single atom.
 	IntegrateRateEquation(vector<double>& dT, vector<double>& T, AtomRateData& Store, vector<double> InitCond, const vector<double>& Intensity = vector<double>());
 	int Solve(double P_min = 0, double P_max = 1, int storage_time_pts = 500);
 	// Rate equations for single chemical element + electron plasma.
@@ -70,7 +70,7 @@ public:
 	// P_min and P_max are upper and lower bound for P.
 	// storage_time_pts is the number of time points to store. Sometimes calculations might require
 	// too many time points, so it is cheaper to store some and interpolate later if needed.
-	
+
 	int Write(ofstream & charge);
 
 	vector<vector<double>> GetP() { return p_storage; }
@@ -82,6 +82,5 @@ public:
 
 class MonteCarlo
 {
-	// Monte Carlo implementation of rate equation solver. 
+	// Monte Carlo implementation of rate equation solver.
 };
-

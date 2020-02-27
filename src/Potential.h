@@ -78,6 +78,8 @@ public:
 		r_well = Other.r_well;
 		delete lattice;
 		lattice = Other.lattice;
+
+		return *this;
 	}
 
 protected:

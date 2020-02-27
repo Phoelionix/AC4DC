@@ -26,7 +26,8 @@ static const double Bashforth_5[5] = { 1901. / 720., -1378. / 360., 109. / 30., 
 inline bool CompareChar(vector<char>&, char);
 
 
-IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, AtomRateData& Store, vector<double> InitCond, const vector<double>& Intensity) : dt(dT), t(T), f(Intensity), store(Store)
+IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, AtomRateData& Store, vector<double> InitCond, const vector<double>& Intensity) :
+ t(T),dt(dT), f(Intensity), store(Store)
 {
 	adams_n = 5;
 	t.resize(dt.size());
@@ -105,9 +106,9 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 	// Recast plasma equations (instant thermalization of photoelectrons)
 	//
 	//  dNp[t]/dt = n*Sum{i} p[i][t]*( Pht[i] - Gesc[t]*Np[t] )
-	//  dEp[t]/dt = n*Sum{i} p[i][t]*( ePht[i] - Np[t]*(W[i] + eSp[i]) - Gesc[t]*Ep[t] - Cll[t](N,Np,E,Ep) )	
+	//  dEp[t]/dt = n*Sum{i} p[i][t]*( ePht[i] - Np[t]*(W[i] + eSp[i]) - Gesc[t]*Ep[t] - Cll[t](N,Np,E,Ep) )
 	//  dN[t]/dt = n*Sum{i} p[i][t]*( Aug[i][t] + N[t]*S[i][t] + Np[t]*Sp[i][t])
-	//  dE[t]/dt = n*Sum{i} p[i][t]*( eAug[i][t] - N[t]*eS[i] + Np[t]*W[i])	
+	//  dE[t]/dt = n*Sum{i} p[i][t]*( eAug[i][t] - N[t]*eS[i] + Np[t]*W[i])
 	//
 	//	e[ij] - ionization potential of electron with ion going from "i" to "j"
 	//  S[i][t] = Sum{j} * Sum{j} Int{_0^infty} dp*p^3*f(Maxwell)[p]*SigmaEII[p, i->j]         secondary-secondary EII
@@ -238,8 +239,8 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 			Elecs.dNpdt[m] = 0;
 			Elecs.dEpdt[m] = 0;
 
-			for (int a = 0; a < Store.size(); a++) {			
-		
+			for (int a = 0; a < Store.size(); a++) {
+
 				for (auto& rate: Store[a].Photo) {
 					tmp = rate.val*f[m];
 					A[a][rate.from] -= tmp;
@@ -267,7 +268,7 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 							eSp[a][EII.init] += old_p * EII.ionB[i];
 							X[a][EII.fin[i]] += *(map_p[a][EII.init] + m) * ( old_p * Elecs.Np[m] + tmp * Elecs.N[m] );
 							W[a][EII.init] += Factor * Elecs.sigmaBEBw1(e_t, EII.ionB[i], EII.kin[i], EII.occ[i]);
-						}				
+						}
 					}
 				}
 
@@ -275,7 +276,7 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 				tmp_dNdt = 0;
 				tmp_dEpdt = 0;
 				tmp_dNpdt = 0;
-				
+
 				// Correct atomic occupancies.
 				for (int i = 0; i < Store[a].num_conf; i++)
 				{
@@ -307,7 +308,7 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 					eS[a][i] = 0.;
 					Sp[a][i] = 0.;
 					eSp[a][i] = 0.;
-					W[a][i] = 0.;		
+					W[a][i] = 0.;
 				}
 
 				// Correct plasma.
@@ -348,9 +349,9 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 	// Recast plasma equations (instant thermalization of photoelectrons)
 	//
 	//  dNp[t]/dt = n*Sum{i} p[i][t]*( Pht[i] - Gesc[t]*Np[t] )
-	//  dEp[t]/dt = n*Sum{i} p[i][t]*( ePht[i] - Np[t]*(W[i] + eSp[i]) - Gesc[t]*Ep[t] - Cll[t](N,Np,E,Ep) )	
+	//  dEp[t]/dt = n*Sum{i} p[i][t]*( ePht[i] - Np[t]*(W[i] + eSp[i]) - Gesc[t]*Ep[t] - Cll[t](N,Np,E,Ep) )
 	//  dN[t]/dt = n*Sum{i} p[i][t]*( Aug[i][t] + N[t]*S[i][t] + Np[t]*Sp[i][t])
-	//  dE[t]/dt = n*Sum{i} p[i][t]*( eAug[i][t] - N[t]*eS[i] + Np[t]*W[i])	
+	//  dE[t]/dt = n*Sum{i} p[i][t]*( eAug[i][t] - N[t]*eS[i] + Np[t]*W[i])
 	//
 	//	e[ij] - ionization potential of electron with ion going from "i" to "j"
 	//  S[i][t] = Sum{j} * Sum{j} Int{_0^infty} dp*p^3*f(Maxwell)[p]*SigmaEII[p, i->j]         secondary-secondary EII
@@ -468,7 +469,7 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 						eSp[EII.init] += old_p * EII.ionB[i];
 						X[EII.fin[i]] += p[EII.init][m] * ( old_p * Elecs.Np[m] + tmp * Elecs.N[m] );
 						W[EII.init] += Factor * Elecs.sigmaBEBw1(e_t, EII.ionB[i], EII.kin[i], EII.occ[i]);
-					}				
+					}
 				}
 			}
 
@@ -502,7 +503,7 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 				eS[i] = 0.;
 				Sp[i] = 0.;
 				eSp[i] = 0.;
-				W[i] = 0.;		
+				W[i] = 0.;
 			}// Correct plasma.
 			Elecs.dNdt[m] *= store.nAtoms;
 			Elecs.dEdt[m] *= store.nAtoms;
@@ -654,9 +655,9 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, double P_min, double P_max, int
 	// Recast plasma equations (instant thermalization of photoelectrons)
 	//
 	//  dNp[t]/dt = n*Sum{i} p[i][t]*( Pht[i] - Gesc[t]*Np[t] )
-	//  dEp[t]/dt = n*Sum{i} p[i][t]*( ePht[i] - Np[t]*(W[i] + eSp[i]) - Gesc[t]*Ep[t] - Cll[t](N,Np,E,Ep) )	
+	//  dEp[t]/dt = n*Sum{i} p[i][t]*( ePht[i] - Np[t]*(W[i] + eSp[i]) - Gesc[t]*Ep[t] - Cll[t](N,Np,E,Ep) )
 	//  dN[t]/dt = n*Sum{i} p[i][t]*( Aug[i][t] + N[t]*S[i][t] + Np[t]*Sp[i][t] - N[t]*N[t]*Tbr[i][t] )
-	//  dE[t]/dt = n*Sum{i} p[i][t]*( eAug[i][t] - N[t]*eS[i] + Np[t]*W[i] + N[t]*N[t]*eTbr[i][t])	
+	//  dE[t]/dt = n*Sum{i} p[i][t]*( eAug[i][t] - N[t]*eS[i] + Np[t]*W[i] + N[t]*N[t]*eTbr[i][t])
 	//
 	// e[ij] - ionization potential of electron with ion going from "i" to "j"
 	//  S[i][t] = Sum{j} Int{_0^infty} dp*p^3*f(Maxwell)[p]*SigmaEII[p, i->j] = Sum{j} S[ij][t] ( "t" dependence through temperature)
@@ -723,7 +724,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, double P_min, double P_max, int
 
 	for (int m = adams_n; m < t.size(); m++) {
 		cout << "\r" << m << "/" << t.size();
-		
+
 		for (int i = 0; i < A.size(); i++) {
 			A[i] = 0.;
 			X[i] = 0.;
@@ -758,7 +759,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, double P_min, double P_max, int
 		e_t = Elecs.Ep[m] / Elecs.Np[m];
 		v_t = sqrt(2*e_t);
 		Gesc = v_t / store.R;
-		Factor = v_t * 0.25 / Constant::Pi;	
+		Factor = v_t * 0.25 / Constant::Pi;
 		Temperature = 2*Elecs.E[m]/3/Elecs.N[m];
 		Elecs.SetMaxwellPF(Temperature);
 
@@ -792,11 +793,11 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, double P_min, double P_max, int
 				eSp[EII.init] += mxw_tmp * EII.ionB[i];
 				X[EII.fin[i]] += p[EII.init].back() * (mxw_tmp * Elecs.Np[m] + tmp * Elecs.N[m]);
 				W[EII.init] += Factor * Elecs.sigmaBEBw1(e_t, EII.ionB[i], EII.kin[i], EII.occ[i]);
-			}		
+			}
 		}
-		
+
 		for (int i = 0; i < p.size(); i++) {// Free up last element in p[i] and erase the first one.
-			A[i] -= Elecs.N[m] * (S[i] + Elecs.N[m] * Tbr[i]) + Elecs.Np[m] * Sp[i];// 
+			A[i] -= Elecs.N[m] * (S[i] + Elecs.N[m] * Tbr[i]) + Elecs.Np[m] * Sp[i];//
 			tmp = A[i] * p[i].back() + X[i];
 			dpdt[i].back() = tmp;
 			Elecs.dNpdt[m] += p[i].back() * ( Pht[i] - Gesc * Elecs.Np[m] );
@@ -874,9 +875,9 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, double P_min, double P_max, int
 				eSp[EII.init] += mxw_tmp * EII.ionB[i];
 				X[EII.fin[i]] += p[EII.init][p_size - 2] * ( mxw_tmp * Elecs.Np[m] + tmp * Elecs.N[m] );
 				W[EII.init] += Factor * Elecs.sigmaBEBw1(e_t, EII.ionB[i], EII.kin[i], EII.occ[i]);
-			}		
+			}
 		}
-		
+
 		for (auto& rate: store.Photo) {//correct dpdt
 			tmp = rate.val*f[m];
 			A[rate.from] -= tmp;
@@ -892,7 +893,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, double P_min, double P_max, int
 			A[rate.from] -= rate.val;
 			X[rate.to] += rate.val * p[rate.from][p_size - 2];
 		}
-		
+
 		Elecs.dNdt[m] = 0.;// Correct plasma.
 		Elecs.dEdt[m] = 0.;
 		Elecs.dNpdt[m] = 0.;
@@ -906,7 +907,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, double P_min, double P_max, int
 			Elecs.dNpdt[m] += p[i][p_size - 2] * ( Pht[i] - Gesc * Elecs.Np[m] );
 			Elecs.dEpdt[m] += p[i][p_size - 2] * ( ePht[i] - Gesc * Elecs.Ep[m] - Elecs.Np[m] * (eSp[i] + W[i]) );
 			Elecs.dNdt[m] += p[i][p_size - 2] * ( Aug[i] + Elecs.N[m] * (S[i] - Elecs.N[m] * Tbr[i]) + Elecs.Np[m] * Sp[i] );
-			Elecs.dEdt[m] += p[i][p_size - 2] * ( eAug[i] - Elecs.N[m] * (eS[i] - Elecs.N[m] * eTbr[i]) + Elecs.Np[m] * W[i] );				
+			Elecs.dEdt[m] += p[i][p_size - 2] * ( eAug[i] - Elecs.N[m] * (eS[i] - Elecs.N[m] * eTbr[i]) + Elecs.Np[m] * W[i] );
 		}
 		Elecs.dNdt[m] *= store.nAtoms;
 		Elecs.dEdt[m] *= store.nAtoms;
@@ -934,9 +935,9 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, i
 	// Recast plasma equations (instant thermalization of photoelectrons)
 	//
 	//  dNp[t]/dt = n*Sum{i} p[i][t]*( Pht[i] - Gesc[t]*Np[t] )
-	//  dEp[t]/dt = n*Sum{i} p[i][t]*( ePht[i] - Np[t]*(W[i] + eSp[i]) - Gesc[t]*Ep[t] - Cll[t](N,Np,E,Ep) )	
+	//  dEp[t]/dt = n*Sum{i} p[i][t]*( ePht[i] - Np[t]*(W[i] + eSp[i]) - Gesc[t]*Ep[t] - Cll[t](N,Np,E,Ep) )
 	//  dN[t]/dt = n*Sum{i} p[i][t]*( Aug[i][t] + N[t]*S[i][t] + Np[t]*Sp[i][t] - N[t]*N[t]*Tbr[i][t] )
-	//  dE[t]/dt = n*Sum{i} p[i][t]*( eAug[i][t] - N[t]*eS[i] + Np[t]*W[i] + N[t]*N[t]*eTbr[i][t])	
+	//  dE[t]/dt = n*Sum{i} p[i][t]*( eAug[i][t] - N[t]*eS[i] + Np[t]*W[i] + N[t]*N[t]*eTbr[i][t])
 	//
 	// e[ij] - ionization potential of electron with ion going from "i" to "j"
 	//  S[i][t] = 4pi*Sum{j} Int{_0^infty} dp*p^3*f(Maxwell)[p]*SigmaEII[p, i->j] = Sum{j} S[ij][t] ( "t" dependence through temperature)
@@ -1105,7 +1106,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, i
 					eSp[a][EII.init] += mxw_tmp * EII.ionB[i];
 					X[a][EII.fin[i]] += *(map_p[a][EII.init] + adams_n) * (mxw_tmp * Elecs.Np[m] + tmp * Elecs.N[m]);
 					W[a][EII.init] += v_t * Elecs.sigmaBEBw1(e_t, EII.ionB[i], EII.kin[i], EII.occ[i]);
-				}		
+				}
 			}
 
 			tmp_dEdt = 0;
@@ -1113,7 +1114,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, i
 			tmp_dNpdt = 0;
 			tmp_dEpdt = 0;
 			for (int i = 0; i < tot_p_size; i++) {// Free up last element in p[i] and erase the first one.
-				A[a][i] -= Elecs.N[m] * (S[a][i] + Elecs.N[m] * Tbr[a][i] ) + Elecs.Np[m] * Sp[a][i]; 
+				A[a][i] -= Elecs.N[m] * (S[a][i] + Elecs.N[m] * Tbr[a][i] ) + Elecs.Np[m] * Sp[a][i];
 				tmp = A[a][i] * *(map_p[a][i] + adams_n) + X[a][i];
 				*(map_dpdt[a][i] + adams_n) = tmp;
 				tmp_dNpdt += *(map_p[a][i] + adams_n) * ( Pht[a][i] - Gesc * Elecs.Np[m] );
@@ -1157,7 +1158,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, i
 				W[a][i] = 0.;
 			}
 		}
-    
+
     // Photo-secondary collision.
     /*
     tmp = log(1.5*Temperature*sqrt(Temperature/Constant::Pi*Elecs.N[m]));
@@ -1176,7 +1177,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, i
 			Elecs.Ep[m] += Moulton_5[j] * Elecs.dEpdt[m - j] * dt[m - j];
 			Elecs.Np[m] += Moulton_5[j] * Elecs.dNpdt[m - j] * dt[m - j];
 		}
-		
+
 		e_t = Elecs.Ep[m] / Elecs.Np[m];
 		v_t = sqrt(2*e_t);
 		Gesc = 1.*v_t / store.R;
@@ -1191,7 +1192,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, i
 
 		for (int a = 0; a < Store.size(); a++) {
 			tot_p_size = Store[a].num_conf;
-			
+
 			//correct dpdt
 			for (auto& rate: Store[a].Photo) {
 				tmp = rate.val * f[m];
@@ -1223,7 +1224,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, i
 					eSp[a][EII.init] += mxw_tmp * EII.ionB[i];
 					X[a][EII.fin[i]] += *(map_p[a][EII.init] + adams_n - 1) * (mxw_tmp * Elecs.Np[m] + tmp * Elecs.N[m]);
 					W[a][EII.init] += v_t * Elecs.sigmaBEBw1(e_t, EII.ionB[i], EII.kin[i], EII.occ[i]);
-				}		
+				}
 			}
 
 			tmp_dNdt = 0;
@@ -1231,7 +1232,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, i
 			tmp_dNpdt = 0;
 			tmp_dEpdt = 0;
 			for (int i = 0; i < tot_p_size; i++) {
-				A[a][i] -= Elecs.N[m] * (S[a][i] + Elecs.N[m] * Tbr[a][i] ) + Elecs.Np[m] * Sp[a][i]; 
+				A[a][i] -= Elecs.N[m] * (S[a][i] + Elecs.N[m] * Tbr[a][i] ) + Elecs.Np[m] * Sp[a][i];
 				tmp = A[a][i] * *(map_p[a][i] + adams_n - 1) + X[a][i];
 				*(map_dpdt[a][i] + adams_n - 1) = tmp;
 				tmp_dNpdt += *(map_p[a][i] + adams_n - 1) * ( Pht[a][i] - Gesc * Elecs.Np[m] );
@@ -1244,7 +1245,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, i
 			Elecs.dNpdt[m] += Store[a].nAtoms * tmp_dNpdt;
 			Elecs.dEpdt[m] += Store[a].nAtoms * tmp_dEpdt;
 		}
-    
+
     // Photo-secondary collision.
     /*
     tmp = log(1.5*Temperature*sqrt(Temperature/Constant::Pi/Elecs.N[m]));
