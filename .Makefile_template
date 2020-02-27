@@ -1,5 +1,4 @@
 
-
 SRCDIR := src
 BUILDDIR := build
 TARGET := bin/ac4dc
@@ -7,7 +6,7 @@ TARGET := bin/ac4dc
 SRCEXT := cpp
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
-CPPFLAGS := -std=c++11 -fopenmp -g # -O3
+CPPFLAGS := -std=c++11 -Xpreprocessor -fopenmp -g
 
 $(TARGET): $(OBJECTS)
 	@echo " Linking... "
@@ -19,13 +18,6 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
 
 clean:
 	@echo " Cleaning...";
-	@echo " $(RM) -r $(BUILDDIR) $(TARGET)"; $(RM) -r $(BUILDDIR) $(TARGET)
-
-debug: $(OBJECTS)
-	@echo " Linking with lldb flags... "
-
-# Tests
-test:
-	$(CPP) $(CPPFLAGS) test/tester.cpp $(INC) $(LIB) -o bin/tester
+	@echo " $(RM) -r $(BUILDDIR)"; $(RM) -r $(BUILDDIR)
 
 .PHONY: clean

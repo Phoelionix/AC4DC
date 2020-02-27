@@ -102,7 +102,7 @@ vector<photo> DecayRates::Photo_Ion(double omega, ofstream & log)
 			density.resize(infinity + 1);
 			for (int s = 0; s < density.size(); s++) density[s] = pow(Orbitals[i].F[s], 2);
 			ME = I.Integrate(&density, 0, infinity);
-			
+
 			j = Orbitals[i].occupancy();
 			PhotoTmp.hole = i;
 			PhotoTmp.val = 0;
@@ -114,7 +114,7 @@ vector<photo> DecayRates::Photo_Ion(double omega, ofstream & log)
 				if (input.Hamiltonian() == 1) U.LDA_upd_dir(Orbitals);
 				else U.HF_upd_dir(&Continuum, Orbitals);
 				if (input.Exited_Pot_Model() == "V_N-1") U.HF_V_N1(&Continuum, Orbitals, i, true, false);
-				
+
 				for (int l = Orbitals[i].L() - 1; l <= Orbitals[i].L() + 1; l += 2)
 				{
 					if (l >= 0)
@@ -317,7 +317,7 @@ vector<auger> DecayRates::Auger(vector<int> Max_occ, ofstream & log)
 					}*/
 					if (input.Exited_Pot_Model() == "V_N-1no") Orbitals[e].set_occupancy(e_occ - 1);
 					Tmp.energy = E_cont;
-					
+
 					if (e == f)	{
 						N_fe = 1.* e_occ * f_occ / (4 * Orbitals[e].L() + 2) / (4 * Orbitals[e].L() + 1);
 						T = 1 / sqrt(2);
@@ -325,7 +325,7 @@ vector<auger> DecayRates::Auger(vector<int> Max_occ, ofstream & log)
 						N_fe = 1.* e_occ * f_occ / (4 * Orbitals[e].L() + 2) / (4 * Orbitals[f].L() + 2);
 						T = 1;
 					}
-					
+
 					N_fe *= Constant::Pi*N_h / (2 * Orbitals[h].L() + 1);
 					int min_L_cont;
 					if (abs(Orbitals[e].L() - Orbitals[f].L()) <= Orbitals[h].L() && Orbitals[e].L() + Orbitals[f].L() >= Orbitals[h].L()) { min_L_cont = 0; }
@@ -398,7 +398,7 @@ vector<auger> DecayRates::Auger(vector<int> Max_occ, ofstream & log)
 								Tmp.val += N_fe*(2 * L + 1)*(2 * S + 1) * M_LS[L - L_min][S] * M_LS[L - L_min][S];
 							}
 						}
-						
+
 					}
 					if (Tmp.val != 0) Result.push_back(Tmp);
 					if (input.Exited_Pot_Model() == "V_N-1no") Orbitals[e].set_occupancy(e_occ);
@@ -505,8 +505,9 @@ int DecayRates::IntegrateContinuum(Grid &Lattice, Potential &U, vector<RadialWF>
 
 double A_k(int k, int L, int la, int lb, int lc, int ld)
 {
-	//calculates <la||C_k||lc><lb||C_k||ld>/ la lb L \
-	 									   \ ld lc k /
+	//calculates <la||C_k||lc><lb||C_k||ld> [ la lb L ]
+	// 									    [ ld lc k ]
+	
 	double Result;
 	Result = Constant::Wigner3j(lc, k, la, 0, 0, 0);
 	if (Result == 0) return Result;

@@ -60,7 +60,7 @@ public:
 	// Int_0^(p*p/2 - B) dW W d(sigmaBED)/dW - first moment of a secondary electron energy.
 	double sigmaBEBw1(double T, double B, double u, int occ);
 
-	double SetMaxwellPF(double Temperature); // Set temperature and norm for Maxwellian PF.
+	void SetMaxwellPF(double Temperature); // Set temperature and norm for Maxwellian PF.
 	double MaxwellPF(double W);
 	double MaxwellEII(double B, double u, int occ);
 	double TESTMaxwellEII(double B, double u, int occ);

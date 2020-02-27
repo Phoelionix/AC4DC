@@ -239,9 +239,9 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		mkdir(RateLocation.c_str(), ACCESSPERMS);
 	}
 
-	bool existPht = !ReadRates(RateLocation + "Photo.txt", Store.Photo);
-	bool existFlr = !ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
-	bool existAug = !ReadRates(RateLocation + "Auger.txt", Store.Auger);
+	bool existPht = ReadRates(RateLocation + "Photo.txt", Store.Photo);
+	bool existFlr = ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
+	bool existAug = ReadRates(RateLocation + "Auger.txt", Store.Auger);
 
 	if (existPht) printf("Photoionization rates found. Reading...\n");
 	if (existFlr) printf("Fluorescence rates found. Reading...\n");

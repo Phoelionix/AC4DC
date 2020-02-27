@@ -73,7 +73,7 @@ vector<double> EigenSolver::EigenVals()
 		Result[i] = EigenValues(i);
 	}
 
-	return move(Result);
+	return Result;
 }
 
 vector<vector<double>> EigenSolver::EigenVecs()
@@ -85,5 +85,5 @@ vector<vector<double>> EigenSolver::EigenVecs()
 		}
 	}
 
-	return move(Result);
+	return Result;
 }

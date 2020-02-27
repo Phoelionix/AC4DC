@@ -79,7 +79,7 @@ void Plasma::resize(int size)
 	MaxwellNorm = 1;
 }
 
-double Plasma::SetMaxwellPF(double Temperature)
+void Plasma::SetMaxwellPF(double Temperature)
 {
 	MaxwellT = Temperature;
 	MaxwellNorm = pow(0.5/Temperature/Constant::Pi, 1.5);

@@ -44,14 +44,14 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 	// Initialize p, dpdt for the subsequent integration
 	vector<double> A(p.size(), 0);
 	vector<double> X(p.size(), 0);
-	double tollerance = 0.000001, error = 1, old_p = 0, tmp = 0;
+	double tolerance = 0.000001, error = 1, old_p = 0, tmp = 0;
 	for (int m = 0; m < adams_n; m++) {
 		if (m > 0) {
 			for (auto& v : p) {// Guess.
 				v[m] = v[m - 1];
 			}
 		}
-		while (error > tollerance) {
+		while (error > tolerance) {
 			error = 0;
 
 			for (auto& rate: Store.Photo) {
@@ -98,7 +98,9 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 }
 
 
-IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, vector<AtomRateData> & Store, Plasma & Elecs, const vector<double>& Intensity) : dt(dT), t(T), f(Intensity), store(Store[0])
+IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T,
+	 vector<AtomRateData> & Store, Plasma & Elecs, const vector<double>& Intensity) :
+ t(T), dt(dT),  f(Intensity), store(Store[0])
 {
 	// f(F) is intensity defined at times T[m].
 	// InitCond defines number of states and initial values for p.
@@ -170,7 +172,7 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 	vector<vector<double>> eSp(Store.size());// Summed EII rate of primary electron energy loss due to ionization potential.
 	vector<vector<double>> W(Store.size());// Summed EII rate of primary electron energy loss to secondary electron creation.
 
-	double tollerance = 0.000001, error = 1, old_p = 0, tmp = 0;
+	double tolerance = 0.000001, error = 1, old_p = 0, tmp = 0;
 	double Temperature = 0, e_t = 0;
 
 	for(int a = 0; a < Store.size(); a++) {
@@ -231,7 +233,7 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 			Elecs.Ep[m] = Elecs.Ep[m-1];
 		}
 
-		while (error > tollerance) {
+		while (error > tolerance) {
 			error = 0;
 
 			Elecs.dNdt[m] = 0;
@@ -341,7 +343,9 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 }
 
 
-IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, AtomRateData& Store, Plasma & Elecs, vector<double> InitCond, const vector<double>& Intensity) : dt(dT), t(T), f(Intensity), store(Store)
+IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T,
+	 AtomRateData& Store, Plasma & Elecs, vector<double> InitCond, const vector<double>& Intensity) :
+  t(T), dt(dT), f(Intensity), store(Store)
 {
 	// f(F) is intensity defined at times T[m].
 	// InitCond defines number of states and initial values for p.
@@ -391,7 +395,7 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 	vector<double> eSp(p.size(), 0);// Summed EII rate of primary electron energy loss due to ionization potential.
 	vector<double> W(p.size(), 0);// Summed EII rate of primary electron energy loss to secondary electron creation.
 
-	double tollerance = 0.000001, error = 1, old_p = 0, tmp = 0;
+	double tolerance = 0.000001, error = 1, old_p = 0, tmp = 0;
 	double Temperature = 0;
 
 	for (auto& rate: Store.Auger) {
@@ -434,7 +438,7 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 			Elecs.Ep[m] = Elecs.Ep[m-1];
 		}
 
-		while (error > tollerance) {
+		while (error > tolerance) {
 			error = 0;
 
 			Elecs.dNdt[m] = 0;
