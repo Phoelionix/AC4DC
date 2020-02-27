@@ -257,15 +257,8 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		vector<Rate> LocalFluor(0);
 		vector<Rate> LocalAuger(0);
 
-		#ifdef __APPLE__
-		// macOS doesn't seem to like this
-		#pragma omp parallel default(none) num_threads(7) \
+		#pragma omp parallel default(none) num_threads(input.Num_Threads()) \
 		shared(cout, runlog, existAug, existFlr, existPht) private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor)
-		#else
-		omp_set_num_threads(input.Num_Threads());
-		#pragma omp parallel default(none) \
-		shared(cout, runlog, existAug, existFlr, existPht) private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor)
-		#endif
 		{
 			#pragma omp for schedule(dynamic) nowait
 			for (int i = 0; i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
@@ -342,19 +335,19 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 
 		if (!existPht) {
 			string dummy = RateLocation + "Photo.txt";
-			FILE * fl = safe_fopen(dummy.c_str(), "w");
+			FILE * fl = fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Photo) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
 		if (!existFlr) {
 			string dummy = RateLocation + "Fluor.txt";
-			FILE * fl = safe_fopen(dummy.c_str(), "w");
+			FILE * fl = fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Fluor) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
 		if (!existPht) {
 			string dummy = RateLocation + "Auger.txt";
-			FILE * fl = safe_fopen(dummy.c_str(), "w");
+			FILE * fl = fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Auger) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
