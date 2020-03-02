@@ -1,8 +1,8 @@
 
 CPP := g++-9
 
-LIB := -fopenmp -L/usr/local/opt/llvm/lib -L/Users/alaric-mba/Programming/lib
-INC := -I/usr/local/opt/llvm/include -I/Users/alaric-mba/Programming/include
+LIB := -fopenmp -L/usr/local/opt/llvm/lib -L$(HOME)/Programming/lib
+INC := -I/usr/local/opt/llvm/include -I$(HOME)/Programming/include
 
 
 SRCDIR := src
