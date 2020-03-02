@@ -4,6 +4,7 @@ from math import log
 import os.path as path
 import sys
 import time
+import subprocess
 
 plt.rcParams["font.size"] = 14
 fig = plt.figure(figsize=(9, 6))
@@ -13,27 +14,30 @@ def eprint(*args, **kwargs):
 
 class Plotter:
     def __init__(self, species):
-        p = path.abspath(path.join(__file__ ,"../../output"))
+        self.p = path.abspath(path.join(__file__ ,"../../"))
 
         self.charge=np.zeros((1,1))
         self.intensity=np.zeros((1,1))
-        self.charge_file=p+"/Charge_"+ species+".txt"
-        self.intensity_file=p + "/Intensity_"+species+".txt"
+        self.charge_file= self.p+"/output/Charge_"+ species+".txt"
+        self.intensity_file= self.p + "/output/Intensity_"+species+".txt"
         self.species=species
         self.update()
         self.methods = [f for f in dir(self) if callable(getattr(self, f))]
         self.methods = [f for f in self.methods if not str(f).startswith('__')]
+        self.autorun = True
 
     def check_current(self):
-        inp = path.abspath(path.join(__file__ ,"../../input/"+self.species+".inp"))
-        oup = path.abspath(path.join(__file__ ,"../../output/log_"+self.species+".txt"))
+        inp = self.p+"/input/"+self.species+".inp"
+        oup = self.p+"/output/log_"+self.species+".txt"
 
         lastedit = path.getmtime(inp)
         lastrun = path.getmtime(oup)
 
         if lastrun < lastedit:
-            eprint("WARNING: file\n"+inp+"\n is newer than  \n"+oup)
-            eprint("You may be using old data.")
+            print("File\n"+inp+"\n is newer than  \n"+oup)
+            print("Rerunning ac4dc...")
+
+            subprocess.run(self.p+'/bin/ac4dc input/{}.inp'.format(self.species), shell=True, check=True)
 
     def update(self):
         self.check_current()
