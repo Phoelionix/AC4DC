@@ -16,9 +16,9 @@ length       // Gauge type for matrix elements involving photon absorption/emiss
 
 #PULSE
 // Parameters for time dynamics. The time interval is fixed and optimized to be 10x the width of the pulse.
-8000         // Photon energy in eV.
-40            // Pulse width in femtoseconds.
-16          // Pulse fluence in 10^4 (J/cm^2).
+4000          // Photon energy in eV.
+20            // Pulse width in femtoseconds.
+8             // Pulse fluence in 10^4 (J/cm^2).
 
 #NUMERICAL
 2000          // Number of grid points
