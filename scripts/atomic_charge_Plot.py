@@ -69,16 +69,22 @@ class Plotter:
         self.Z = charge.shape[1] - 2
         # One for the timestamp, one for zero
 
-    def plot_charges(self):
+    def setup_axes(self):
         fig.clf()
-        ax = fig.add_subplot(111)
+        ax1 = fig.add_subplot(111)
+        ax2 = ax1.twinx()
+        ax2.plot(self.intensity[1], self.intensity[0], lw = 2, c = 'black', ls = '--', alpha = 0.7)
+        ax2.set_ylabel('Pulse fluence')
+        ax1.set_xlabel("Time, fs")
+        return (ax1, ax2)
+
+    def plot_charges(self):
+        ax, pulseax = self.setup_axes()
 
         for i, elem in enumerate(self.charge[:-1]):
             ax.plot(self.charge[-1], elem, lw = 2, alpha = 0.7, label = str(i))
 
-        ax.plot(self.intensity[1], self.intensity[0], lw = 2, c = 'black', ls = '--', alpha = 0.7)
         ax.set_title("Charge state dynamics")
-        ax.set_xlabel("Time, fs")
         ax.set_ylabel("Probability")
 
         plt.figlegend(loc = (0.11, 0.43))
@@ -86,19 +92,19 @@ class Plotter:
 
         plt.show()
 
-    def plot_avg_charge(self):
-        fig.clf()
-        ax = fig.add_subplot(111)
+
+    def aggregate_charges(self):
         expect = np.zeros(self.charge.shape[1])
 
         for i, elem in enumerate(self.charge[:-1]):
             expect += elem*i
+        return expect
 
-        ax.plot(self.charge[-1], expect, lw = 2, alpha = 0.7, label = 'Average charge state')
+    def plot_avg_charge(self):
+        ax = self.setup_axes()
 
-        ax.plot(self.intensity[1], self.intensity[0], lw = 2, c = 'black', ls = '--', alpha = 0.7)
+        ax.plot(self.charge[-1], self.aggregate_charges(), lw = 2, alpha = 0.7, label = 'Average charge state')
         ax.set_title("Charge state dynamics")
-        ax.set_xlabel("Time, fs")
         ax.set_ylabel("Average charge")
 
         plt.figlegend(loc = (0.11, 0.43))
@@ -107,18 +113,10 @@ class Plotter:
         plt.show()
 
     def plot_bound(self):
-        fig.clf()
-        ax = fig.add_subplot(111)
-        expect = np.zeros(self.charge.shape[1])
+        ax, pulseax = self.setup_axes()
 
-        for i, elem in enumerate(self.charge[:-1]):
-            expect += elem*i
-
-        ax.plot(self.charge[-1], self.Z-expect, lw = 2, alpha = 0.7, label = 'Average charge state')
-
-        ax.plot(self.intensity[1], self.intensity[0], lw = 2, c = 'black', ls = '--', alpha = 0.7)
+        ax.plot(self.charge[-1], self.Z-self.aggregate_charges(), lw = 2, alpha = 0.7, label = 'Average charge state')
         ax.set_title("Charge state dynamics")
-        ax.set_xlabel("Time, fs")
         ax.set_ylabel("Average charge")
 
         plt.figlegend(loc = (0.11, 0.43))

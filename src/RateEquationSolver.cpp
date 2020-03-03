@@ -249,9 +249,12 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 
 	string PolarFileName = "./output/Polar_" + input.Name() + ".txt";
 
-	if ( !existPht || !existFlr || !existAug ){
-		cout << "No rates found. Calculating..." << endl;
-		cout << "Total number of configurations: " << dimension << endl;
+	// if ( !existPht || !existFlr || !existAug ){
+	// 	cout << "No rates found. Calculating..." << endl;
+	// 	cout << "Total number of configurations: " << dimension << endl;
+	{
+		cout << "Computing rates..." <<endl;
+
 		Rate Tmp;
 		vector<Rate> LocalPhoto(0);
 		vector<Rate> LocalFluor(0);
