@@ -178,13 +178,17 @@ int Potential::HF_upd_dir(RadialWF* Current, std::vector<RadialWF> &Orbitals)
 			continue;//orbital self inteaction is calculated exactly
 		}
 
-		if (Orbitals[i].L() < L_min) { L_min = Orbitals[i].L(); }
+		if (Orbitals[i].L() < L_min) {
+			L_min = Orbitals[i].L();
+		}
 
 		for (int j = 0; j < Orbitals[i].pract_infinity(); j++) {
 			density[j] += Q * Orbitals[i].F[j] * Orbitals[i].F[j];
 		}
 
-		if (infinity < Orbitals[i].pract_infinity()) { infinity = Orbitals[i].pract_infinity(); }
+		if (infinity < Orbitals[i].pract_infinity()) {
+			infinity = Orbitals[i].pract_infinity();
+		}
 	}
 
 	if (infinity != 0)	y_0 = Y_k(0, density, infinity, 2 * L_min);

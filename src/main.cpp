@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 
 		logname = logname + filename + ".txt";
 	} else {
-		std::cout << "no input file found. Exiting..." <<endl;
+		std::cout << "Could not find file" << filename << "Exiting..." <<endl;
 		return 1;
 	}
 	ofstream log(logname);

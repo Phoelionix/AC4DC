@@ -43,7 +43,7 @@ public:
 
 	void set_N(int X) { n = X; }
 	void set_infinity(int X) { infinity = X; }
-	void set_turn(int X) { turn = X; }// calculate number of nodes till turning point, discard the nodes after the turning point
+	void set_turn(int X) { turn = X; } // calculate number of nodes till turning point, discard the nodes after the turning point
 	void set_occupancy(int X) { occup_number = X; }//set custom occupancy, useful for average over configurations
 
 	int pract_infinity() { return infinity; }

@@ -507,7 +507,7 @@ double A_k(int k, int L, int la, int lb, int lc, int ld)
 {
 	//calculates <la||C_k||lc><lb||C_k||ld> [ la lb L ]
 	// 									    [ ld lc k ]
-	
+
 	double Result;
 	Result = Constant::Wigner3j(lc, k, la, 0, 0, 0);
 	if (Result == 0) return Result;

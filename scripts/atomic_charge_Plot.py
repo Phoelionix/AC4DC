@@ -4,6 +4,7 @@ from math import log
 import os.path as path
 import sys
 import time
+import subprocess
 
 plt.rcParams["font.size"] = 14
 fig = plt.figure(figsize=(9, 6))
@@ -13,27 +14,30 @@ def eprint(*args, **kwargs):
 
 class Plotter:
     def __init__(self, species):
-        p = path.abspath(path.join(__file__ ,"../../output"))
+        self.p = path.abspath(path.join(__file__ ,"../../"))
 
         self.charge=np.zeros((1,1))
         self.intensity=np.zeros((1,1))
-        self.charge_file=p+"/Charge_"+ species+".txt"
-        self.intensity_file=p + "/Intensity_"+species+".txt"
+        self.charge_file= self.p+"/output/Charge_"+ species+".txt"
+        self.intensity_file= self.p + "/output/Intensity_"+species+".txt"
         self.species=species
         self.update()
         self.methods = [f for f in dir(self) if callable(getattr(self, f))]
         self.methods = [f for f in self.methods if not str(f).startswith('__')]
+        self.autorun = True
 
     def check_current(self):
-        inp = path.abspath(path.join(__file__ ,"../../input/"+self.species+".inp"))
-        oup = path.abspath(path.join(__file__ ,"../../output/log_"+self.species+".txt"))
+        inp = self.p+"/input/"+self.species+".inp"
+        oup = self.p+"/output/log_"+self.species+".txt"
 
         lastedit = path.getmtime(inp)
         lastrun = path.getmtime(oup)
 
         if lastrun < lastedit:
-            eprint("WARNING: file\n"+inp+"\n is newer than  \n"+oup)
-            eprint("You may be using old data.")
+            print("File\n"+inp+"\n is newer than  \n"+oup)
+            print("Rerunning ac4dc...")
+
+            subprocess.run(self.p+'/bin/ac4dc input/{}.inp'.format(self.species), shell=True, check=True)
 
     def update(self):
         self.check_current()
@@ -65,16 +69,22 @@ class Plotter:
         self.Z = charge.shape[1] - 2
         # One for the timestamp, one for zero
 
-    def plot_charges(self):
+    def setup_axes(self):
         fig.clf()
-        ax = fig.add_subplot(111)
+        ax1 = fig.add_subplot(111)
+        ax2 = ax1.twinx()
+        ax2.plot(self.intensity[1], self.intensity[0], lw = 2, c = 'black', ls = '--', alpha = 0.7)
+        ax2.set_ylabel('Pulse fluence')
+        ax1.set_xlabel("Time, fs")
+        return (ax1, ax2)
+
+    def plot_charges(self):
+        ax, pulseax = self.setup_axes()
 
         for i, elem in enumerate(self.charge[:-1]):
             ax.plot(self.charge[-1], elem, lw = 2, alpha = 0.7, label = str(i))
 
-        ax.plot(self.intensity[1], self.intensity[0], lw = 2, c = 'black', ls = '--', alpha = 0.7)
         ax.set_title("Charge state dynamics")
-        ax.set_xlabel("Time, fs")
         ax.set_ylabel("Probability")
 
         plt.figlegend(loc = (0.11, 0.43))
@@ -82,19 +92,19 @@ class Plotter:
 
         plt.show()
 
-    def plot_avg_charge(self):
-        fig.clf()
-        ax = fig.add_subplot(111)
+
+    def aggregate_charges(self):
         expect = np.zeros(self.charge.shape[1])
 
         for i, elem in enumerate(self.charge[:-1]):
             expect += elem*i
+        return expect
 
-        ax.plot(self.charge[-1], expect, lw = 2, alpha = 0.7, label = 'Average charge state')
+    def plot_avg_charge(self):
+        ax = self.setup_axes()
 
-        ax.plot(self.intensity[1], self.intensity[0], lw = 2, c = 'black', ls = '--', alpha = 0.7)
+        ax.plot(self.charge[-1], self.aggregate_charges(), lw = 2, alpha = 0.7, label = 'Average charge state')
         ax.set_title("Charge state dynamics")
-        ax.set_xlabel("Time, fs")
         ax.set_ylabel("Average charge")
 
         plt.figlegend(loc = (0.11, 0.43))
@@ -103,18 +113,10 @@ class Plotter:
         plt.show()
 
     def plot_bound(self):
-        fig.clf()
-        ax = fig.add_subplot(111)
-        expect = np.zeros(self.charge.shape[1])
+        ax, pulseax = self.setup_axes()
 
-        for i, elem in enumerate(self.charge[:-1]):
-            expect += elem*i
-
-        ax.plot(self.charge[-1], self.Z-expect, lw = 2, alpha = 0.7, label = 'Average charge state')
-
-        ax.plot(self.intensity[1], self.intensity[0], lw = 2, c = 'black', ls = '--', alpha = 0.7)
+        ax.plot(self.charge[-1], self.Z-self.aggregate_charges(), lw = 2, alpha = 0.7, label = 'Average charge state')
         ax.set_title("Charge state dynamics")
-        ax.set_xlabel("Time, fs")
         ax.set_ylabel("Average charge")
 
         plt.figlegend(loc = (0.11, 0.43))
