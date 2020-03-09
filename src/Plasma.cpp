@@ -123,6 +123,8 @@ double Plasma::sigmaBEBw1(double T, double B, double u, int occ)
 	Result *= 0.5*Wmax;
 	return Result;
 }
+
+
 // TODO: VERIFY IF NORMALISATION IS ACCURATE.
 double Plasma::MaxwellEII(double B, double u, int occ)
 {

@@ -50,4 +50,4 @@ private:
 	Grid CntLattice = Grid(0);// Grid for continuum wave calculations.
 	Potential CntU;
 	vector<RadialWF> CntOrbitals;// Interpolated onto continuum grid "orbitals".
-};
+}

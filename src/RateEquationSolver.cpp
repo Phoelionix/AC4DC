@@ -544,6 +544,12 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 			for (auto& R : Store.Auger) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
+		if (existEIIparams) {
+			string dummy = RateLocation + "EIIparams.txt";
+			FILE * fl = fopen(dummy.c_str(), "w");
+			for (auto& R : Store.EIIParams) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
+			fclose(fl);
+		}
 	}
 
 	string IndexTrslt = "./output/" + input.Name() + "/index.txt";
