@@ -98,10 +98,10 @@ private:
 	vector<int> hole_posit;
 
 	int extend_I(vector<double>& Intensity, double new_max_T, double step_T);
-  vector<double> generate_I(vector<double>& T, double I_max, double HalfWidth);
+    vector<double> generate_I(vector<double>& T, double I_max, double HalfWidth);
 	vector<double> generate_T(vector<double>& dT);
 	vector<double> generate_dT(int num_elem);
-  double T_avg_RMS(vector<pair<double, int>> conf_RMS);
+    double T_avg_RMS(vector<pair<double, int>> conf_RMS);
 	double T_avg_Charge();
 
 	static bool sortEIIbyInd(CustomDataType::EIIdata A, CustomDataType::EIIdata B) { return (A.init < B.init); }

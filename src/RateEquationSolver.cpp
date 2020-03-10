@@ -31,6 +31,7 @@ This file is part of AC4DC.
 #include <utility>
 
 inline bool exists_test(const std::string&);
+inline FILE* safe_fopen(const char *filename, const char *mode)
 vector<double> generate_dT(int);
 vector<double> generate_T(vector<double>&);
 vector<double> generate_I(vector<double>&, double, double);
@@ -391,13 +392,15 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		mkdir(dirstring.c_str(), ACCESSPERMS);
 	}
 
-	bool existPht = !ReadRates(RateLocation + "Photo.txt", Store.Photo);
-	bool existFlr = !ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
-	bool existAug = !ReadRates(RateLocation + "Auger.txt", Store.Auger);
+	bool existPht = ReadRates(RateLocation + "Photo.txt", Store.Photo);
+	bool existFlr = ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
+	bool existAug = ReadRates(RateLocation + "Auger.txt", Store.Auger);
+	// bool existEII = !ReadRates(RateLocation + "EIIparams.txt", Store.EII);
 
-	if (existPht) printf("Photoionization rates found. Reading...\n");
-	if (existFlr) printf("Fluorescence rates found. Reading...\n");
-	if (existAug) printf("Auger rates found. Reading...\n");
+	if (!existPht) printf("Photoionization rates found. Reading...\n");
+	if (!existFlr) printf("Fluorescence rates found. Reading...\n");
+	if (!existAug) printf("Auger rates found. Reading...\n");
+	// if (existEII) printf("EII Parameters found. Reading...\n");
 
 	if (true)// EII parameters are not currently stored.
 	{
@@ -425,7 +428,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		density.clear();
 
 		omp_set_num_threads(input.Num_Threads());
-	  #pragma omp parallel default(none) \
+	  	#pragma omp parallel default(none) \
 		shared(cout, runlog, MaxBindInd, existAug, existFlr, existPht) \
 		private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor, LocalEIIparams, tmpEIIparams)
 		{
@@ -471,7 +474,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 
 				Tmp.from = i;
 
-				if (existPht) {
+				if (!existPht) {
 					vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega()/Constant::eV_in_au, runlog);
 					for (int k = 0; k < PhotoIon.size(); k++)
 					{
@@ -485,7 +488,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 
 				if (i != 0)
 				{
-					if (existFlr) {
+					if (!existFlr) {
 						vector<fluor> Fluor = Transit.Fluor();
 						for (int k = 0; k < Fluor.size(); k++)
 						{
@@ -497,7 +500,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 						}
 					}
 
-					if (existAug) {
+					if (!existAug) {
 						vector<auger> Auger = Transit.Auger(Max_occ, runlog);
 						for (int k = 0; k < Auger.size(); k++)
 						{
@@ -526,30 +529,30 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		sort(Store.EIIparams.begin(), Store.EIIparams.end(), [](EIIdata A, EIIdata B) {return (A.init < B.init);});
 		GenerateRateKeys(Store.Auger);
 
-		if (existPht) {
+		if (!existPht) {
 			string dummy = RateLocation + "Photo.txt";
 			FILE * fl = fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Photo) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
-		if (existFlr) {
+		if (!existFlr) {
 			string dummy = RateLocation + "Fluor.txt";
 			FILE * fl = fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Fluor) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
-		if (existPht) {
+		if (!existPht) {
 			string dummy = RateLocation + "Auger.txt";
 			FILE * fl = fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Auger) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
-		if (existEIIparams) {
-			string dummy = RateLocation + "EIIparams.txt";
-			FILE * fl = fopen(dummy.c_str(), "w");
-			for (auto& R : Store.EIIParams) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
-			fclose(fl);
-		}
+		// if (existEII) {
+		// 	string dummy = RateLocation + "EIIparams.txt";
+		// 	FILE * fl = fopen(dummy.c_str(), "w");
+		// 	for (auto& R : Store.EIIparams) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
+		// 	fclose(fl);
+		// }
 	}
 
 	string IndexTrslt = "./output/" + input.Name() + "/index.txt";
@@ -575,7 +578,6 @@ bool RateEquationSolver::ReadRates(const string & input, vector<Rate> & PutHere)
 		ifstream infile;
 		infile.open(input);
 
-		char type;
 		while (!infile.eof())
 		{
 			string line;
@@ -588,10 +590,11 @@ bool RateEquationSolver::ReadRates(const string & input, vector<Rate> & PutHere)
 		}
 
 		infile.close();
-		return true;
+		return true; // Returns true if exists
 	}
 	else return false;
 }
+
 
 int RateEquationSolver::Symbolic(const string & input, const string & output)
 {

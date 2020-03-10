@@ -16,7 +16,7 @@ This file is part of AC4DC.
 ===========================================================================*/
 #pragma once
 
-/* This header contains some Physical constants, 
+/* This header contains some Physical constants,
 functions for calculations of Wigner 3j, 6j symbols, and Clebsh-Gordan coefficients,
 and some data containers used througout the code. */
 #include <vector>
@@ -36,7 +36,7 @@ namespace Constant
 	const double au2_in_Mbarn = 5.2917721067*5.2917721067;//atomic units to Mega Barns.
 	const double RiemannZeta3 = 1.202056903159594;
 	const double au_in_Angs = 0.52917721067; // Bohr radius = 1 atomic unit in Angstrom.
-	
+
 	double Wigner3j(double, double, double, double, double, double);
 }
 
@@ -75,10 +75,10 @@ namespace CustomDataType
 	{
 		vector<int> reference;// Contains only occupancies of Orbitals, no Virtual included.
 		double refEnergy;// Energy of the reference configuration.
-		/* E1-selected excited configurations. 
+		/* E1-selected excited configurations.
 		excited[][0] - orbital in reference from which to excite.
 		excited[][1] - orbital in reference to which to excite.
-		*/							
+		*/
 		vector<vector<int>> excited;// Includes both Orbitals and Virtual.
 		vector<double> extEnergy;
 		vector<double> Dipoles; // Reduced transition dipole matrix elements form 'reference' to 'excited'.
@@ -91,10 +91,6 @@ namespace CustomDataType
 		vector<int> fin;
 		vector<int> occ;
 		vector<float> ionB;
-		vector<float> kin; 
+		vector<float> kin;
 	};
 }
-
-
-
-
