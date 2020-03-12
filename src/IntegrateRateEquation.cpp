@@ -200,10 +200,13 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 		}
 	}
 
+
+    // Electron temperature calculations
+    // This needs to be rethought for Boltzmann equation to be integrated.
 	e_t /= tmp;
 	double v_t = sqrt(2*e_t);
 	double Gesc = 1.5*v_t/Store[0].R;
-  double Pi4 = 4*Constant::Pi;
+    double Pi4 = 4*Constant::Pi;
 	tmp = 0;
 	for (auto& at_Store: Store) {
 		for (auto& eii: at_Store.EIIparams) {

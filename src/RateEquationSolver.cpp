@@ -375,7 +375,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 	// Final_occ defines the lowest possible occupancies for the initiall orbital.
 	// Intermediate orbitals are recalculated to obtain the corresponding rates.
 
-  // Example args:    vector<bool> args = {Init.Calc_R_ion(), Init.Calc_Pol_ion(), Init.Calc_FF_ion()};
+  	// Example args:    vector<bool> args = {Init.Calc_R_ion(), Init.Calc_Pol_ion(), Init.Calc_FF_ion()};
 
 	if (!SetupIndex(Max_occ, Final_occ, runlog)) return Store;
 

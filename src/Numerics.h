@@ -105,4 +105,3 @@ private:
 	vector<double> GaussW;
 	vector<double> GaussX;
 };
-
