@@ -15,12 +15,25 @@ Compile script "compile_script.sh" is located in the script folder. Change 'g++'
 
 ### Key Approximations:
 
-1) All atoms interact with X-rays independent of each other.
-2) At any time, an atom is described by an average-over-configuration state.
-3) Time evolution of atoms is described by a system of coupled rate equation (perturbation theory).
-4) Electron plasma is split into two components - energetic photo-electrons and cold secondary electrons.
-5) Photo-electrons have delta-function distribution around time-dependent average kinetic energy. No three-body reconbination (TBR) for photo-electrons, which can escape the sample.
-6) Secondary electrons have Boltzmann distribution with time-dependent number density and temperature. They are assumed to be trapped at all times. Electron impact ionization (EII) and TBR are determined by average number density of secondary electrons over the volume of a sample.
+1. All atoms interact with X-rays independent of each other.
+2. At any time, an atom is described by an average-over-configuration state.
+3. Time evolution of atoms is described by a system of coupled rate equation (perturbation theory).
+4. Electron plasma is split into two components - energetic photo-electrons and cold secondary electrons.
+5. Photo-electrons have delta-function distribution around time-dependent average kinetic energy. No three-body recombination (TBR) for photo-electrons, which can escape the sample.
+6. Secondary electrons have Boltzmann distribution with time-dependent number density and temperature. They are assumed to be trapped at all times. Electron impact ionisation (EII) and TBR are determined by average number density of secondary electrons over the volume of a sample.
+
+## Output format
+
+In the Rates folder, the program stores a series of data files in the format
+`[ rate value ] [ configuration transitioned to ] [ energy of transition ]`
+Corresponding lines in the `index.txt` file explain which configuration this corresponds to..
+
+
+
+### TODO
+
+1. Untangle the photoionization/Auger/eii rate calculations and actual rate equation solution into two different executables
+2. Develop a parallel executable to the above approach that performs a full Boltzmann equation solution rather than assuming primary electrons..
 
 ### Bibliography:
 

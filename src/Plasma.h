@@ -67,6 +67,8 @@ public:
 
 	double BettaInt(double y);// Auxillary function for photo-secondary electrons energy exchange.
 
+	void set_last(int m); // Sets variables[i]  = variables[i-1]
+
 	//void setup_EII(vector<RadialWF> &Virtual, double k_min, double k_max);
 private:
 	double MaxwellT = 1;

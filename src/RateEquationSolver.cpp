@@ -31,7 +31,7 @@ This file is part of AC4DC.
 #include <utility>
 
 inline bool exists_test(const std::string&);
-inline FILE* safe_fopen(const char *filename, const char *mode)
+inline FILE* safe_fopen(const char *filename, const char *mode);
 vector<double> generate_dT(int);
 vector<double> generate_T(vector<double>&);
 vector<double> generate_I(vector<double>&, double, double);
@@ -427,8 +427,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 
 		density.clear();
 
-		omp_set_num_threads(input.Num_Threads());
-	  	#pragma omp parallel default(none) \
+	  	#pragma omp parallel default(none) num_threads(input.Num_Threads())\
 		shared(cout, runlog, MaxBindInd, existAug, existFlr, existPht) \
 		private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor, LocalEIIparams, tmpEIIparams)
 		{
@@ -442,7 +441,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 					Orbitals[j].set_occupancy(orbitals[j].occupancy() - Index[i][j]);
 					N_elec += Orbitals[j].occupancy();
 				}
-				//Grid Lattice(lattice.size(), lattice.R(0), lattice.R(lattice.size() - 1) / (0.3*(u.NuclCharge() - N_elec) + 1), 4);
+				// Grid Lattice(lattice.size(), lattice.R(0), lattice.R(lattice.size() - 1) / (0.3*(u.NuclCharge() - N_elec) + 1), 4);
 				// Change Lattice to lattice for electron density evaluation.
 				Potential U(&lattice, u.NuclCharge(), u.Type());
 				HartreeFock HF(lattice, Orbitals, U, input, runlog);
@@ -664,7 +663,7 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog)
 		T = generate_T(dT);
 		scaling_T = 4 * input.Width()/Constant::fs_in_au / T.back();
 		for (int i = 0; i < T.size(); i++) {
-			T[i] *= scaling_T;
+			T[i]  *= scaling_T;
 			dT[i] *= scaling_T;
 		}
 		Intensity = generate_I(T, fluence, Sigma);

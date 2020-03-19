@@ -20,13 +20,14 @@ This file is part of AC4DC.
 #include <omp.h>
 #include <cmath>
 
-static const double Moulton_5[5] = { 251. / 720., 646. / 720., -264. / 720., 106. / 720., -19. / 720. }; //Adams�Moulton method
-static const double Bashforth_5[5] = { 1901. / 720., -1378. / 360., 109. / 30., -637. / 360., 251. / 720. }; //Adams�Bashforth method
+static const double Moulton_5[5] = { 251. / 720., 646. / 720., -264. / 720., 106. / 720., -19. / 720. }; //Adams-Moulton method
+static const double Bashforth_5[5] = { 1901. / 720., -1378. / 360., 109. / 30., -637. / 360., 251. / 720. }; //Adams-Bashforth method
 
 inline bool CompareChar(vector<char>&, char);
 
-
-IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, AtomRateData& Store, vector<double> InitCond, const vector<double>& Intensity) :
+// Rate equations for single atom. No plasma.
+IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, AtomRateData& Store,
+     vector<double> InitCond, const vector<double>& Intensity) :
  t(T),dt(dT), f(Intensity), store(Store)
 {
 	adams_n = 5;
@@ -97,7 +98,7 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 	}
 }
 
-
+// Rate equations for single chemical element, with thermal plasma.
 IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T,
 	 vector<AtomRateData> & Store, Plasma & Elecs, const vector<double>& Intensity) :
  t(T), dt(dT),  f(Intensity), store(Store[0])
@@ -202,7 +203,6 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 
 
     // Electron temperature calculations
-    // This needs to be rethought for Boltzmann equation to be integrated.
 	e_t /= tmp;
 	double v_t = sqrt(2*e_t);
 	double Gesc = 1.5*v_t/Store[0].R;
@@ -225,15 +225,12 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 	double tmp_dNdt = 0, tmp_dEdt = 0, tmp_dNpdt = 0, tmp_dEpdt = 0;
 
 	for (int m = 0; m < adams_n; m++) {
-		if (m > 0) {
-			for (auto& v : p) {// Guess.
-				v[m] = v[m - 1];
-			}
-
-			Elecs.N[m] = Elecs.N[m-1];
-			Elecs.E[m] = Elecs.E[m-1];
-			Elecs.Np[m] = Elecs.Np[m-1];
-			Elecs.Ep[m] = Elecs.Ep[m-1];
+		if (m > 0){
+            Elecs.set_last(m);
+			// Elecs.N[m] = Elecs.N[m-1];
+			// Elecs.E[m] = Elecs.E[m-1];
+			// Elecs.Np[m] = Elecs.Np[m-1];
+			// Elecs.Ep[m] = Elecs.Ep[m-1];
 		}
 
 		while (error > tolerance) {
@@ -345,7 +342,53 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 	}
 }
 
+// Rate equations for single chemical element, with non-thermal plasma.
+IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T,
+	 vector<AtomRateData> & Store, NTPlasma & Elecs, const vector<double>& Intensity) :
+ t(T), dt(dT),  f(Intensity), store(Store[0])
+{
+	// Compute time-evolution of the energy distribution
+	// InitCond defines number of states and initial values for p.
 
+    // Implementation of Morgan and Penetrante's ELENDIF Algorithm
+    // Morgan and Penetrante - 1990 - ELENDIF A time-dependent Boltzmann
+    // solver for partially ionized plasmas
+
+    // Plasma Equations, recast in terms of number density distribution:
+    // (e means energy, density is n)
+    // Assume external field in z-direction,
+    // f(v_z, v_rho) = f0(v_z, v_rho) + v_z*f1(v_z, v_rho)
+
+    // n(e) = n_e f
+    // dn(e)/dt = -J_f
+    // Q[n] =
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+
+
+
+    adams_n = 5;
+    t.resize(dt.size());
+    if (f.size() != dt.size()) f = vector<double>(dt.size(), 0);
+}
+
+// Rate equations for molecule + electron plasma.
 IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T,
 	 AtomRateData& Store, Plasma & Elecs, vector<double> InitCond, const vector<double>& Intensity) :
   t(T), dt(dT), f(Intensity), store(Store)
@@ -434,11 +477,7 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 			for (auto& v : p) {// Guess.
 				v[m] = v[m - 1];
 			}
-
-			Elecs.N[m] = Elecs.N[m-1];
-			Elecs.E[m] = Elecs.E[m-1];
-			Elecs.Np[m] = Elecs.Np[m-1];
-			Elecs.Ep[m] = Elecs.Ep[m-1];
+            Elecs.set_last(m);
 		}
 
 		while (error > tolerance) {
@@ -511,12 +550,14 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 				Sp[i] = 0.;
 				eSp[i] = 0.;
 				W[i] = 0.;
-			}// Correct plasma.
+			}
+            // Correct plasma.
 			Elecs.dNdt[m] *= store.nAtoms;
 			Elecs.dEdt[m] *= store.nAtoms;
 			Elecs.dNpdt[m] *= store.nAtoms;
 			Elecs.dEpdt[m] *= store.nAtoms;
 			if (m > 0) {
+                // Good old fashioned Euler integration of the plasma.
 				Elecs.N[m] = Elecs.N[m - 1] + dt[m - 1]*0.5*(Elecs.dNdt[m] + Elecs.dNdt[m-1]);
 				Elecs.E[m] = Elecs.E[m - 1] + dt[m - 1]*0.5*(Elecs.dEdt[m] + Elecs.dEdt[m-1]);
 				Elecs.Np[m] = Elecs.Np[m - 1] + dt[m - 1]*0.5*(Elecs.dNpdt[m] + Elecs.dNpdt[m-1]);

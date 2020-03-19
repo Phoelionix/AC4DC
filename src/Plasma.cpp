@@ -169,6 +169,14 @@ double Plasma::BettaInt(double y)
 	863.334618) ;
 }
 
+void Plasma::set_last(int m)
+{
+	N[m] = N[m-1];
+	E[m] = E[m-1];
+	Np[m] = Np[m-1];
+	Ep[m] = Ep[m-1];
+}
+
 /*
 void Plasma::Get_Ni(Grid & Lattice, vector<RadialWF> & Orbitals, vector<RadialWF> &Virtuals)
 {

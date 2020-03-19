@@ -72,7 +72,8 @@ public:
   // Atomic data containers.
 	vector<vector<double>> density = vector<vector<double>>(0);
 
-  Grid & Atom_Mesh() { return lattice; }
+  	Grid & Atom_Mesh() { return lattice; }
+
 protected:
 	Grid & lattice;
 	Input & input;
