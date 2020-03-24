@@ -25,6 +25,11 @@ static const double Bashforth_5[5] = { 1901. / 720., -1378. / 360., 109. / 30., 
 
 inline bool CompareChar(vector<char>&, char);
 
+IntegrateRateEquation::initialise_t(){
+
+}
+
+
 // Rate equations for single atom. No plasma.
 IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, AtomRateData& Store,
      vector<double> InitCond, const vector<double>& Intensity) :
@@ -342,52 +347,6 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 	}
 }
 
-// Rate equations for single chemical element, with non-thermal plasma.
-IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T,
-	 vector<AtomRateData> & Store, NTPlasma & Elecs, const vector<double>& Intensity) :
- t(T), dt(dT),  f(Intensity), store(Store[0])
-{
-	// Compute time-evolution of the energy distribution
-	// InitCond defines number of states and initial values for p.
-
-    // Implementation of Morgan and Penetrante's ELENDIF Algorithm
-    // Morgan and Penetrante - 1990 - ELENDIF A time-dependent Boltzmann
-    // solver for partially ionized plasmas
-
-    // Plasma Equations, recast in terms of number density distribution:
-    // (e means energy, density is n)
-    // Assume external field in z-direction,
-    // f(v_z, v_rho) = f0(v_z, v_rho) + v_z*f1(v_z, v_rho)
-
-    // n(e) = n_e f
-    // dn(e)/dt = -J_f
-    // Q[n] =
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-
-
-
-    adams_n = 5;
-    t.resize(dt.size());
-    if (f.size() != dt.size()) f = vector<double>(dt.size(), 0);
-}
-
 // Rate equations for molecule + electron plasma.
 IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T,
 	 AtomRateData& Store, Plasma & Elecs, vector<double> InitCond, const vector<double>& Intensity) :
@@ -519,7 +478,8 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 				}
 			}
 
-			for (int i = 0; i < p.size(); i++)// Correct atomic occupancies.
+            // Correct atomic occupancies.
+			for (int i = 0; i < p.size(); i++)
 			{
 				A[i] -= S[i] * Elecs.N[m] + Sp[i] * Elecs.Np[m];
 				if (A[i] == 0 && X[i] == 0) continue;
@@ -573,6 +533,82 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 			}
 		}
 		error = 1;
+	}
+}
+
+// Rate equations for molecule, with non-thermal plasma.
+IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T,
+	 vector<AtomRateData> & Store, NTPlasma & Elecs, const vector<double>& Intensity) :
+ t(T), dt(dT),  f(Intensity), store(Store[0])
+{
+	// Compute time-evolution of the energy distribution
+	// InitCond defines number of states and initial values for p.
+
+    // Implementation of Morgan and Penetrante's ELENDIF Algorithm
+    // Morgan and Penetrante - 1990 - ELENDIF A time-dependent Boltzmann
+    // solver for partially ionized plasmas
+
+    // Plasma Equations, recast in terms of number density distribution:
+    // (e means energy, density is n)
+    // Assume external field in z-direction,
+    // f(v_z, v_rho) = f0(v_z, v_rho) + v_z*f1(v_z, v_rho)
+
+    // n(e) = n_e f
+    // dn(e)/dt = -J_f
+    // Q[n] =
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+
+
+
+    adams_n = 5;
+    // Resize t, f arrays
+    t.resize(dt.size());
+
+    // Size of P_\lambda array, number of elemental configurations
+    int tot_p_size = 0;
+	int p_size = adams_n + 1;
+	for (auto& elem: Store) tot_p_size += elem.num_conf;
+
+	dpdt.resize(tot_p_size);
+	p.resize(tot_p_size);
+
+	for (int i = 0; i < tot_p_size; i++) {
+		dpdt[i].resize(p_size, 0.);
+		p[i].resize(p_size, 0.);
+	}
+
+	int init_p = 0;
+	for (auto& elem: Store) {
+		p[init_p][0] = 1.;
+		init_p += elem.num_conf;
+	}
+
+	vector<vector<double*>> map_p(Store.size());
+	vector<vector<double*>> map_dpdt(Store.size());
+	init_p = 0;
+	for (int a = 0; a < Store.size(); a++) {
+		for (int i = 0; i < Store[a].num_conf; i++) {
+			map_p[a].push_back(p[i + init_p].data());
+			map_dpdt[a].push_back(dpdt[i + init_p].data());
+		}
+		init_p += Store[a].num_conf;
 	}
 }
 
@@ -973,6 +1009,10 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, double P_min, double P_max, int
 
 	cout << endl;
 	return 0;
+}
+
+int IntegrateRateEquation::Solve(NTPlasma & Elecs, double P_min, double P_mac, int storage_time_pts){
+
 }
 
 int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, int storage_time_pts)
