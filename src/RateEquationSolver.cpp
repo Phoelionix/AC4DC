@@ -31,7 +31,7 @@ This file is part of AC4DC.
 #include <utility>
 
 inline bool exists_test(const std::string&);
-inline FILE* safe_fopen(const char *filename, const char *mode)
+inline FILE* safe_fopen(const char *filename, const char *mode);
 vector<double> generate_dT(int);
 vector<double> generate_T(vector<double>&);
 vector<double> generate_I(vector<double>&, double, double);
