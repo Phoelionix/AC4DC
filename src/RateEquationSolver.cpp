@@ -887,7 +887,7 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 			for (int a = 0; a < AllAtomCharge.size(); a++) {
 				OutFile << AllAtomCharge[a][m] << " ";
 			}
-			if (m != 0) OutFile << Mxwll.N[m] << " " << Mxwll.E[m];
+			if (m != 0) OutFile << Mxwll.state[m].N << " " << Mxwll.state[m].E;
 			else OutFile << 0 << " " << 0;
 		}
 

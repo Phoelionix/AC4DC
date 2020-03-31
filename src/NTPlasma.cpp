@@ -8,6 +8,6 @@ NTPlasma::NTPlasma(const int T_POINTS, Grid &lattice): Lattice(lattice) {
 }
 
 // Electron-Electron collision integral
-NTPlasma::EEcoll(int indx){
-    
+double NTPlasma::EEcoll(int indx){
+    return 0.;
 }

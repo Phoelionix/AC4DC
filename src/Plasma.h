@@ -18,8 +18,53 @@ This file is part of AC4DC.
 
 #include <vector>
 #include <fstream>
+#include "Constant.h"
 
 using namespace std;
+
+struct elec_state_t {
+	double N;
+	double E;
+	double Np;
+	double Ep;
+
+	elec_state_t operator+(const elec_state_t &a){
+		return {a.N+N, a.E+E, a.Np+Np, a.Ep+Ep};
+	}
+
+	// Scalar multiplication
+	elec_state_t operator*( double c){
+		return {c*N, c*E, c*Np, c*Ep};
+	}
+
+	// entrywise multiplication
+	elec_state_t operator*(const elec_state_t a){
+		return {a.N*N, a.E*E, a.Np*Np, a.Ep*Ep};
+	}
+
+	elec_state_t operator=(double c){
+		return {c,c,c,c};
+	}
+
+	elec_state_t operator=(int x){
+		double c = x;
+		return {c,c,c,c};
+	}
+	void operator+=(const elec_state_t &a){
+		*this = *this + a;
+	}
+	void operator*=(const double c){
+		*this = *this * c;
+	}
+	void operator*=(const elec_state_t &a){
+		*this = *this * a;
+	}
+	bool operator==(const elec_state_t &a){
+		return N==a.N && E==a.E && Np==a.Np && Ep == a.Ep;
+	}
+
+};
+
 
 class Plasma
 {
@@ -38,18 +83,10 @@ public:
 
 	~Plasma() {}
 
-	vector<double> Np;// Number of photoelectrons.
-	vector<double> Ep;// Total energy of photoelectrons.
-	vector<double> N;// Number of secondary electrons.
-	vector<double> E;// Total energy of secondary electrons.
-
-	vector<double> dNpdt;
-	vector<double> dEpdt;
-	vector<double> dNdt;
-	vector<double> dEdt;
+	vector<elec_state_t> state; // State vector
+	vector<elec_state_t> delta; // First derivatives
 
 	void resize(int size);
-
 
 	// p - impactor electron momentum
 	// p_s - secondary electron momentum
@@ -65,6 +102,9 @@ public:
 	double MaxwellEII(double B, double u, int occ);
 	double TESTMaxwellEII(double B, double u, int occ);
 
+	void update_AB(int m, vector<double>& dt);
+	void update_AM(int m, vector<double>& dt);
+
 	double BettaInt(double y);// Auxillary function for photo-secondary electrons energy exchange.
 
 	void set_last(int m); // Sets variables[i]  = variables[i-1]
@@ -74,9 +114,11 @@ private:
 	double MaxwellT = 1;
 	double MaxwellNorm = 1;
 
+	int adams_n = 5;
+
 	//void Get_Ni(Grid & Lattice, vector<RadialWF> & Orbitals, vector<RadialWF> &Virtuals);
 	//void Get_Qi(Grid & Lattice, vector<RadialWF> & Orbitals, vector<RadialWF> &Virtuals );
-	// Calculate "N_i" (BED) and "Q_i" (BEB), adn orbitals electron kinetic energies parameters EII model.
+	// Calculate "N_i" (BED) and "Q_i" (BEB), and orbitals electron kinetic energies parameters EII model.
 	//vector<double> N;
 	//vector<double> Q;
 };

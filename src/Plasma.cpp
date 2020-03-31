@@ -30,50 +30,20 @@ static const double gaussW_13[13] = {0.04048400476531614, 0.09212149983772834, 0
 								0.20781604753688845, 0.2262831802628971, 0.23255155323087365, 0.2262831802628971, 0.20781604753688845,
 								0.17814598076194582, 0.13887351021978736, 0.09212149983772834, 0.04048400476531614};
 
+static const elec_state_t zero_state = {0,0,0,0};
 
 Plasma::Plasma(int size)
 {
-	N.clear();
-	N.resize(size, 0); // Number of photoelectrons.
-	E.clear();
-	E.resize(size, 0);// Total energy of photoelectrons.
-	dNdt.clear();
-	dNdt.resize(size, 0);
-	dEdt.clear();
-	dEdt.resize(size, 0);
-
-	Np.clear();
-	Np.resize(size, 0); // Number of photoelectrons.
-	Ep.clear();
-	Ep.resize(size, 0);// Total energy of photoelectrons.
-	dNpdt.clear();
-	dNpdt.resize(size, 0);
-	dEpdt.clear();
-	dEpdt.resize(size, 0);
-
-	MaxwellT = 1;
-	MaxwellNorm = 1;
+	resize(size);
 }
 
 void Plasma::resize(int size)
 {
-	N.clear();
-	N.resize(size, 0); // Number of photoelectrons.
-	E.clear();
-	E.resize(size, 0);// Total energy of photoelectrons.
-	dNdt.clear();
-	dNdt.resize(size, 0);
-	dEdt.clear();
-	dEdt.resize(size, 0);
+	state.clear();
+	state.resize(size, zero_state); // Number of photoelectrons.
 
-	Np.clear();
-	Np.resize(size, 0); // Number of photoelectrons.
-	Ep.clear();
-	Ep.resize(size, 0);// Total energy of photoelectrons.
-	dNpdt.clear();
-	dNpdt.resize(size, 0);
-	dEpdt.clear();
-	dEpdt.resize(size, 0);
+	delta.clear();
+	delta.resize(size, zero_state); // Number of photoelectrons.
 
 	MaxwellT = 1;
 	MaxwellNorm = 1;
@@ -171,11 +141,37 @@ double Plasma::BettaInt(double y)
 
 void Plasma::set_last(int m)
 {
-	N[m] = N[m-1];
-	E[m] = E[m-1];
-	Np[m] = Np[m-1];
-	Ep[m] = Ep[m-1];
+	state[m] = state[m-1];
 }
+
+void Plasma::update_AB(int m, vector<double>& dt)
+{
+	elec_state_t st = state[m-1];
+
+	for (int j = 0; j < adams_n; j++) {
+		st += delta[m-j-1] * Bashforth_5[j] * dt[m - j - 1];
+		// st.E  += Bashforth_5[j] * st2.E * dt[m - j - 1];
+		// st.N  += Bashforth_5[j] * st2.N * dt[m - j - 1];
+		// st.Ep += Bashforth_5[j] * st2.Ep * dt[m - j - 1];
+		// st.Np += Bashforth_5[j] * st2.Np * dt[m - j - 1];
+	}
+	state[m] = st;
+}
+
+void Plasma::update_AM(int m, vector<double>& dt)
+{
+	elec_state_t st = state[m-1];
+	for (int j = 0; j < adams_n; j++) {
+		// st2 = delta[m-j-1];
+		// st.E  += Moulton_5[j] * st2.E * dt[m - j];
+		// st.N  += Moulton_5[j] * st2.N * dt[m - j];
+		// st.Ep += Moulton_5[j] * st2.Ep * dt[m - j];
+		// st.Np += Moulton_5[j] * st2.Np * dt[m - j];
+		st += delta[m-j-1] * Moulton_5[j] *  dt[m-j];
+	}
+	state[m] = st;
+}
+
 
 /*
 void Plasma::Get_Ni(Grid & Lattice, vector<RadialWF> & Orbitals, vector<RadialWF> &Virtuals)

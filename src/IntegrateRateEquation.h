@@ -20,6 +20,9 @@ This file is part of AC4DC.
 #include <fstream>
 #include "Constant.h"
 #include "Plasma.h"
+#include "NTPlasma.h"
+
+#include <assert.h>
 
 using namespace std;
 
@@ -73,6 +76,10 @@ public:
 	// P_min and P_max are upper and lower bound for P.
 	// storage_time_pts is the number of time points to store. Sometimes calculations might require
 	// too many time points, so it is cheaper to store some and interpolate later if needed.
+
+	IntegrateRateEquation(vector<double> &dT, vector<double> &T, vector<AtomRateData> & Store, NTPlasma & Elecs, const vector<double>& Intensity = vector<double>());
+	int Solve(NTPlasma & Electrons, vector<AtomRateData> & Store, int storage_time_pts = 500);
+
 
 	int Write(ofstream & charge);
 

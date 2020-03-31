@@ -6,10 +6,10 @@
 class NTPlasma{
     NTPlasma(const int T_POINTS, Grid &lattice);
 public:
-
+    double EEcoll(int indx);
 private:
     vector<vector<double>> n;
     Grid Lattice;
-}
+};
 
 #endif /* end of include guard: NTPLASMA_H */
