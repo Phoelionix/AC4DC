@@ -66,12 +66,17 @@ public:
 	// Rate equations for single chemical element + electron plasma.
 	IntegrateRateEquation(vector<double>& dT, vector<double>& T, AtomRateData& Store, Plasma & Electrons, vector<double> InitCond, const vector<double>& Intensity = vector<double>());
 	int Solve(Plasma & Electrons, double P_min = 0, double P_max = 1, int storage_time_pts = 500);
-	// Rate equations for sincle chemical element + nonthermal plasma.
+	// Rate equations for single chemical element + nonthermal plasma.
 	IntegrateRateEquation(vector<double> &dT, vector<double> &T, AtomRateData & Store, NTPlasma & Elecs, vector<double> InitCond, const vector<double>& Intensity = vector<double>());
 	int Solve(NTPlasma & Elecs, double P_min, double P_max, int storage_time_pts = 500);
-	// Rate equations for molecule + electron plasma.
+	// Rate equations for molecule + thermal electron plasma.
 	IntegrateRateEquation(vector<double>& dT, vector<double>& T, vector<AtomRateData> & Store, Plasma & Electrons, const vector<double>& Intensity = vector<double>());
 	int Solve(Plasma & Electrons, vector<AtomRateData> & Store, int storage_time_pts = 500);
+	// Rate equations for molecule + non-thermal electron plasma.
+	IntegrateRateEquation(vector<double>& dT, vector<double>& T, vector<AtomRateData> & Store, NTPlasma & Electrons, const vector<double>& Intensity = vector<double>());
+	int Solve(Plasma & Electrons, vector<AtomRateData> & Store, int storage_time_pts = 500);
+
+
 	int WriteCharge(vector<AtomRateData> & Store);
 	// P_min and P_max are upper and lower bound for P.
 	// storage_time_pts is the number of time points to store. Sometimes calculations might require

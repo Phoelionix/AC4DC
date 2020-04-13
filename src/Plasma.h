@@ -102,12 +102,14 @@ public:
 	double MaxwellEII(double B, double u, int occ);
 	double TESTMaxwellEII(double B, double u, int occ);
 
+
+	// Adams-Bashforth and Adams-Moulton single-step methods
 	void update_AB(int m, vector<double>& dt);
 	void update_AM(int m, vector<double>& dt);
 
 	double BettaInt(double y);// Auxillary function for photo-secondary electrons energy exchange.
 
-	void set_last(int m); // Sets variables[i]  = variables[i-1]
+	// void set_last(int m); // Sets variables[i]  = variables[i-1]
 
 	//void setup_EII(vector<RadialWF> &Virtual, double k_min, double k_max);
 private:

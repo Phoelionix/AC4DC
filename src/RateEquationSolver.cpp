@@ -667,23 +667,21 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog)
 			dT[i] *= scaling_T;
 		}
 		Intensity = generate_I(T, fluence, Sigma);
-		//SmoothOrigin(T, Intensity);
+		// SmoothOrigin(T, Intensity);
 		IntegrateRateEquation Calc(dT, T, Store, InitCond, Intensity);
 		converged = Calc.Solve(0, 1, input.Out_T_size());
-		if (converged == 0)
-		{
-			cout << "Final number of time steps: " << T_size << endl;
+		if (converged == 0) {
+			cout << "[Rates] Final number of time steps: " << T_size << endl;
 			P = Calc.GetP();
 			T.clear();
 			T = Calc.GetT();
 			dT.clear();
 			dT = vector<double>(T.size(), 0);
-      for (int m = 1; m < T.size(); m++) dT[m-1] = T[m] - T[m-1];
-      dT[T.size()-1] = dT[T.size()-2];
-		}
-		else
-		{
-			cout << "Diverged at step: " << converged << " of " << T_size << endl;
+		    for (int m = 1; m < T.size(); m++) dT[m-1] = T[m] - T[m-1];
+		    dT[T.size()-1] = dT[T.size()-2];
+		} else {
+			cout << "[Rates] Diverged at step: " << converged << " of " << T_size << endl;
+			cout << "Doubling timestep..." << endl;
 			T_size *= 2;
 		}
 	}

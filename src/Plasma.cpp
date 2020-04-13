@@ -129,7 +129,7 @@ double Plasma::DsigmaBEB(double T, double W, double B, double u, int occ)
 	double y = 1./(t - w);
 	double Result = -1*(x + y)/(t+1) + (x*x + y*y) + log(t)*(x*x*x + y*y*y);
 
-	Result *= Constant::Pi*occ/B/B/(t + u + 1);;
+	Result *= Constant::Pi*occ/B/B/(t + u + 1);
 	return Result;
 }
 
@@ -139,10 +139,10 @@ double Plasma::BettaInt(double y)
 	863.334618) ;
 }
 
-void Plasma::set_last(int m)
-{
-	state[m] = state[m-1];
-}
+// void Plasma::set_last(int m)
+// {
+// 	state[m] = state[m-1];
+// }
 
 void Plasma::update_AB(int m, vector<double>& dt)
 {
@@ -150,10 +150,6 @@ void Plasma::update_AB(int m, vector<double>& dt)
 
 	for (int j = 0; j < adams_n; j++) {
 		st += delta[m-j-1] * Bashforth_5[j] * dt[m - j - 1];
-		// st.E  += Bashforth_5[j] * st2.E * dt[m - j - 1];
-		// st.N  += Bashforth_5[j] * st2.N * dt[m - j - 1];
-		// st.Ep += Bashforth_5[j] * st2.Ep * dt[m - j - 1];
-		// st.Np += Bashforth_5[j] * st2.Np * dt[m - j - 1];
 	}
 	state[m] = st;
 }
@@ -162,11 +158,6 @@ void Plasma::update_AM(int m, vector<double>& dt)
 {
 	elec_state_t st = state[m-1];
 	for (int j = 0; j < adams_n; j++) {
-		// st2 = delta[m-j-1];
-		// st.E  += Moulton_5[j] * st2.E * dt[m - j];
-		// st.N  += Moulton_5[j] * st2.N * dt[m - j];
-		// st.Ep += Moulton_5[j] * st2.Ep * dt[m - j];
-		// st.Np += Moulton_5[j] * st2.Np * dt[m - j];
 		st += delta[m-j-1] * Moulton_5[j] *  dt[m-j];
 	}
 	state[m] = st;

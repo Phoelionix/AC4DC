@@ -349,6 +349,224 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 	}
 }
 
+// Rate equations for single chemical element, with non-thermal plasma.
+IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T,
+	 vector<AtomRateData> & Store, NTPlasma & Elecs, const vector<double>& Intensity) :
+ t(T), dt(dT),  f(Intensity), store(Store[0])
+{
+	// f(F) is intensity defined at times T[m].
+	// InitCond defines number of states and initial values for p.
+
+	// Plasma equations cast as
+	//
+    // df/dt = Q_eii[f](t) + Q_pi[f](t) + Q_a[f](t) + Q_ee[f] + Q_tbr[f](t)
+    // f = f(E)
+	//
+	//	e[ij] - ionization potential of electron with ion going from "i" to "j"
+	//  S[i][t] = Sum{j} * Sum{j} Int{_0^infty} dp*p^3*f(Maxwell)[p]*SigmaEII[p, i->j]         secondary-secondary EII
+	//  eS[i][t] = Sum{j} * Sum{j} e[ij]*Int{_0^infty} dp*p^3*f(Maxwell)[p]*SigmaEII[p, i->j]  secondary-secondary EII energy loss
+	// primary electron separate treatment:
+	//  Gesc[t] = v[t] / R = sqrt(2 * Ep[t] / Np[t]) / R                                       primary electrons excaping beam zone
+	//  Pht[i][t] = Sum{j} Sigma[i->j] * Intensity[t]
+	//  ePht[i][t] = Sum{j} Sigma[i->j] * Intensity[t] * (omega - e[ij])
+	//  Cll[t](N,Np,E,Ep)                                                                      primary-secondary energy exchange.
+	//  W[i][t] = v[t] * Sum{j} Int{_0^(0.5*v^2 - EII.ionB[ij]) dw*w*dSigmaEII[v[t], i->j]/dw}
+	//  Sp[i][t] = v[t] * Sum{j} SigmaEII[v[t], i->j]
+	//  eSp[i][t] = v[t] * Sum{j} e[ij]*SigmaEII[v[t], i->j]
+	adams_n = 5;
+	t.resize(dt.size());
+	if (f.size() != dt.size()) f = vector<double>(dt.size(), 0);
+
+	int tot_p_size = 0;
+	int p_size = adams_n + 1;
+	for (auto& elem: Store) tot_p_size += elem.num_conf;
+
+	dpdt.resize(tot_p_size);
+	p.resize(tot_p_size);
+
+	for (int i = 0; i < tot_p_size; i++) {
+		dpdt[i].resize(p_size, 0.);
+		p[i].resize(p_size, 0.);
+	}
+
+	int init_p = 0;
+	for (auto& elem: Store) {
+		p[init_p][0] = 1.;
+		init_p += elem.num_conf;
+	}
+
+	vector<vector<double*>> map_p(Store.size());
+	vector<vector<double*>> map_dpdt(Store.size());
+	init_p = 0;
+	for (int a = 0; a < Store.size(); a++) {
+		for (int i = 0; i < Store[a].num_conf; i++) {
+			map_p[a].push_back(p[i + init_p].data());
+			map_dpdt[a].push_back(dpdt[i + init_p].data());
+		}
+		init_p += Store[a].num_conf;
+	}
+
+	// Initialize p, dpdt for the subsequent integration.
+	init_p = 0;
+	vector<vector<double>> A(Store.size());
+	vector<vector<double>> X(Store.size());
+
+	vector<vector<double>> Pht(Store.size());
+	vector<vector<double>> ePht(Store.size());
+	vector<vector<double>> Aug(Store.size());
+	vector<vector<double>> eAug(Store.size());
+
+	vector<vector<double>> S(Store.size());// Summed secondary EII rate.
+	vector<vector<double>> eS(Store.size());// Summed secondary EII rate of electron energy loss (ion. potential).
+	vector<vector<double>> Sp(Store.size());// Summed primary EII rate.
+	vector<vector<double>> eSp(Store.size());// Summed EII rate of primary electron energy loss due to ionization potential.
+	vector<vector<double>> W(Store.size());// Summed EII rate of primary electron energy loss to secondary electron creation.
+
+	double tolerance = 0.000001, error = 1, old_p = 0, tmp = 0;
+	double Temperature = 0, e_t = 0;
+
+	for(int a = 0; a < Store.size(); a++) {
+		A[a].resize(Store[a].num_conf, 0.);
+		X[a].resize(Store[a].num_conf, 0.);
+		Pht[a].resize(Store[a].num_conf, 0.);
+		ePht[a].resize(Store[a].num_conf, 0.);
+		Aug[a].resize(Store[a].num_conf, 0.);
+		eAug[a].resize(Store[a].num_conf, 0.);
+		S[a].resize(Store[a].num_conf, 0.);
+		eS[a].resize(Store[a].num_conf, 0.);
+		Sp[a].resize(Store[a].num_conf, 0.);
+		eSp[a].resize(Store[a].num_conf, 0.);
+		W[a].resize(Store[a].num_conf, 0.);
+
+		for (auto& rate: Store[a].Auger) {
+			Aug[a][rate.from] += rate.val;
+			eAug[a][rate.from] += rate.val * rate.energy;
+		}
+		for (auto& rate: Store[a].Photo) {
+			if (rate.from == 0) {
+				e_t += rate.val * rate.energy;
+				tmp += rate.val;
+			}
+		}
+	}
+
+
+
+	for (int m = 0; m < adams_n; m++) {
+		if (m > 0){
+            Elecs.state[m] = Elecs.state[m-1];
+		}
+
+        elec_state_t elec_s = Elecs.state[m];
+
+		while (error > tolerance) {
+			error = 0;
+
+            Elecs.delta[m] = 0.;
+
+			for (int a = 0; a < Store.size(); a++) {
+
+				for (auto& rate: Store[a].Photo) {
+					tmp = rate.val*f[m];
+					A[a][rate.from] -= tmp;
+					Pht[a][rate.from] += tmp;
+					ePht[a][rate.from] += tmp * rate.energy;
+					X[a][rate.to] += tmp * *(map_p[a][rate.from] + m);
+				}
+				for (auto& rate: Store[a].Fluor) {
+					A[a][rate.from] -= rate.val;
+					X[a][rate.to] += rate.val * *(map_p[a][rate.from] + m);
+				}
+				for (auto& rate: Store[a].Auger) {
+					A[a][rate.from] -= rate.val;
+					X[a][rate.to] += rate.val * *(map_p[a][rate.from] + m);
+				}
+
+				if (m > 0) {
+					for (auto& EII: Store[a].EIIparams) {
+						for (int i = 0; i < EII.fin.size(); i++) {
+							tmp = Pi4*Elecs.MaxwellEII(EII.ionB[i], EII.kin[i], EII.occ[i]);
+							S[a][EII.init] += tmp;
+							eS[a][EII.init] += tmp*EII.ionB[i];
+							old_p = Factor * Elecs.sigmaBEB(e_t, EII.ionB[i], EII.kin[i], EII.occ[i]);
+							Sp[a][EII.init] += old_p;
+							eSp[a][EII.init] += old_p * EII.ionB[i];
+							X[a][EII.fin[i]] += *(map_p[a][EII.init] + m) * ( old_p * elec_s.Np + tmp * elec_s.N );
+							W[a][EII.init] += Factor * Elecs.sigmaBEBw1(e_t, EII.ionB[i], EII.kin[i], EII.occ[i]);
+						}
+					}
+				}
+
+                tmp_dsdt=0;
+                //
+				//! tmp_dEdt = 0;
+				//! tmp_dNdt = 0;
+				//! tmp_dEpdt = 0;
+				//! tmp_dNpdt = 0;
+
+				// Correct atomic occupancielec_s.
+				for (int i = 0; i < Store[a].num_conf; i++)
+				{
+					A[a][i] -= S[a][i] * elec_s.N + Sp[a][i] * elec_s.Np;
+					if (A[a][i] == 0 && X[a][i] == 0) continue;
+					*(map_dpdt[a][i] + m) = A[a][i]* *(map_p[a][i] + m) + X[a][i];
+
+					A[a][i] = 0.;
+					X[a][i] = 0.;
+
+					if (m > 0)
+					{
+						old_p = *(map_p[a][i] + m);
+						*(map_p[a][i] + m) = *(map_p[a][i] + m - 1) + dt[m - 1]*0.5*(*(map_dpdt[a][i] + m) + *(map_dpdt[a][i] + m - 1) );
+						if (old_p == 0) tmp = fabs(*(map_p[a][i] + m) - old_p);
+						else tmp = fabs(*(map_p[a][i] + m) - old_p) / *(map_p[a][i] + m);
+						if (error < tmp) error = tmp;
+					}
+
+					tmp_dsdt.N += *(map_p[a][i] + m) * ( Aug[a][i] + elec_s.N*S[a][i] + elec_s.Np*Sp[a][i] );
+					tmp_dsdt.E += *(map_p[a][i] + m) * ( eAug[a][i] - elec_s.N*eS[a][i] + elec_s.Np*W[a][i] );
+					tmp_dsdt.Np += *(map_p[a][i] + m) * ( Pht[a][i] - Gesc*elec_s.Np);
+					tmp_dsdt.Ep += *(map_p[a][i] + m) * ( ePht[a][i] - Gesc*elec_s.Ep - elec_s.Np*(eSp[a][i] + W[a][i]));
+
+					Pht[a][i] = 0.;
+					ePht[a][i] = 0.;
+
+					S[a][i] = 0.;
+					eS[a][i] = 0.;
+					Sp[a][i] = 0.;
+					eSp[a][i] = 0.;
+					W[a][i] = 0.;
+				}
+
+				// Correct plasma.
+                Elecs.delta[m] += tmp_dsdt * Store[a].nAtoms;
+				//! Elecs.dNdt[m] += Store[a].nAtoms * tmp_dNdt;
+				//! Elecs.dEdt[m] += Store[a].nAtoms * tmp_dEdt;
+				//! Elecs.dNpdt[m] += Store[a].nAtoms * tmp_dNpdt;
+				//! Elecs.dEpdt[m] += Store[a].nAtoms * tmp_dEpdt;
+			}
+
+
+			if (m > 0) {
+                Elecs.state[m] = Elecs.state[m-1] + (Elecs.delta[m] + Elecs.delta[m-1])*dt[m-1]*0.5;
+
+				Factor = Temperature;
+                elec_s = Elecs.state[m];
+				if (elec_s.N > 0) {
+					Temperature = 2*elec_s.E/3/elec_s.N;
+					Elecs.SetMaxwellPF(Temperature);
+					if (error < fabs(Temperature/Factor - 1) ) error = fabs(Temperature/Factor - 1);
+				}
+
+				e_t = elec_s.Ep/elec_s.Np;
+				v_t = sqrt(2*e_t);
+				Factor = v_t * 0.25/Constant::Pi;
+			}
+		}
+		error = 1;
+	}
+}
+
 // Rate equations for molecule + electron plasma.
 IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T,
 	 AtomRateData& Store, Plasma & Elecs, vector<double> InitCond, const vector<double>& Intensity) :
@@ -1106,7 +1324,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, i
 
     double e_t = elec_s.Ep/elec_s.Np;
 	double v_t = sqrt(2*e_t);
-	double Gesc = 1.*v_t/store.R;
+	double Gesc = 1.*v_t/store.R; // Escape fraction of photoelectrons
 	double Temperature = 2*elec_s.E/3/elec_s.N;
 	Elecs.SetMaxwellPF(Temperature);
 
