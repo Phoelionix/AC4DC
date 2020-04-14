@@ -23,14 +23,30 @@ This file is part of AC4DC.
 #include <fstream>
 #include "Constant.h"
 #include "Grid.h"
+#include "Plasma.h" // for dsigmaBEB methods
+
+typedef vector<double> nte_state_t;
 
 class NTPlasma{
-    NTPlasma(const int T_POINTS, Grid &lattice);
+    NTPlasma(const int T_POINTS, const Grid &lattice);
 public:
-    double EEcoll(int indx);
+    // df(e,t)/dt = Q_eii[f](t) + Q_pi[f](t) + Q_a[f](t) + Q_ee[f] + Q_tbr[f](t) - \Lambda
+    // Electron-impact ionisation collision term at timestep n
+    nte_state_t Q_eii(int n);
+    // Photoionisation flux at timestep n
+    nte_state_t Q_pi(int n);
+    // Auger effect
+    nte_state_t Q_a(int n);
+    // Electron-electron scattering
+    // nte_state_t Q_ee(int n);
+    // Density loss due to electrons leaving the system
+    nte_state_t Q_loss(int n);
+
+
 private:
-    vector<vector<double>> n;
-    Grid Lattice;
+    vector<nte_state_t> n;
+    vector<double> e_grid; // energy values
+    Grid Lattice; // Integration grid
 };
 
 #endif /* end of include guard: NTPLASMA_H */

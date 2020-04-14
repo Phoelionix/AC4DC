@@ -15,10 +15,12 @@ Alpha	src/Constant.h	/^	const double Alpha = 0.0072973525698;$/;"	m	namespace:Co
 Alpha2	src/Constant.h	/^	const double Alpha2 = Constant::Alpha * Constant::Alpha;$/;"	m	namespace:Constant
 Asympt	src/Potential.h	/^	vector<double> Asympt;\/\/ Tail correction for LDA.$/;"	m	class:Potential
 AtomRateData	src/IntegrateRateEquation.h	/^struct AtomRateData$/;"	s
+AtomRateData	src/_IntegrateRateEquation.h	/^struct AtomRateData$/;"	s
 Atom_Mesh	src/RateEquationSolver.h	/^  	Grid & Atom_Mesh() { return lattice; }$/;"	f	class:RateEquationSolver
 Atomic	src/Input.h	/^	vector<Input> Atomic;$/;"	m	class:MolInp
 Auger	src/DecayRates.cpp	/^vector<auger> DecayRates::Auger(vector<int> Max_occ, ofstream & log)$/;"	f	class:DecayRates
 Auger	src/IntegrateRateEquation.h	/^	vector<Rate> Auger = vector<Rate>(0);$/;"	m	struct:AtomRateData
+Auger	src/_IntegrateRateEquation.h	/^	vector<Rate> Auger = vector<Rate>(0);$/;"	m	struct:AtomRateData
 B	src/Numerics.h	/^	vector<double> A, B, C, D, X, Y;$/;"	m	class:Adams
 Bashforth_5	src/Constant.h	/^static const double Bashforth_5[5] = { 1901. \/ 720., -1378. \/ 360., 109. \/ 30., -637. \/ 360., 251. \/ 720. }; \/\/Adams-Bashforth method$/;"	v
 BettaInt	src/Plasma.cpp	/^double Plasma::BettaInt(double y)$/;"	f	class:Plasma
@@ -28,6 +30,7 @@ CntLattice	src/DecayRates.h	/^	Grid CntLattice = Grid(0);\/\/ Grid for continuum
 CntOrbitals	src/DecayRates.h	/^	vector<RadialWF> CntOrbitals;\/\/ Interpolated onto continuum grid "orbitals".$/;"	m	class:DecayRates
 CntU	src/DecayRates.h	/^	Potential CntU;$/;"	m	class:DecayRates
 CompareChar	src/IntegrateRateEquation.cpp	/^inline bool CompareChar(vector<char> &pat, char X)$/;"	f
+CompareChar	src/_IntegrateRateEquation.cpp	/^inline bool CompareChar(vector<char> &pat, char X)$/;"	f
 Conf_En	src/HartreeFock.cpp	/^double HartreeFock::Conf_En(vector<RadialWF> &Orbitals, Potential &U)$/;"	f	class:HartreeFock
 Conf_En	src/HartreeFock.cpp	/^double HartreeFock::Conf_En(vector<RadialWF> &Orbitals, vector<RadialWF> &Virtual, Potential &U)$/;"	f	class:HartreeFock
 Constant	src/Constant.cpp	/^namespace Constant$/;"	n	file:
@@ -36,14 +39,15 @@ CustomDataType	src/Constant.h	/^namespace CustomDataType$/;"	n
 D	src/Numerics.h	/^	vector<double> A, B, C, D, X, Y;$/;"	m	class:Adams
 DecayRates	src/DecayRates.cpp	/^DecayRates::DecayRates(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp) : lattice(Lattice), orbitals(Orbitals),$/;"	f	class:DecayRates
 DecayRates	src/DecayRates.h	/^class DecayRates$/;"	c
+Dipole	src/Plasma.h	/^namespace Dipole$/;"	n
 Dipole	src/Potential.cpp	/^double MatrixElems::Dipole(RadialWF &A, RadialWF &B, string gauge)$/;"	f	class:MatrixElems
 DipoleAvg	src/Potential.cpp	/^double MatrixElems::DipoleAvg(RadialWF & A, RadialWF & B, string gauge)$/;"	f	class:MatrixElems
 Dipoles	src/Constant.h	/^		vector<double> Dipoles; \/\/ Reduced transition dipole matrix elements form 'reference' to 'excited'.$/;"	m	struct:CustomDataType::polarize
-DsigmaBEB	src/Plasma.cpp	/^double Plasma::DsigmaBEB(double T, double W, double B, double u, int occ)$/;"	f	class:Plasma
+DsigmaBEB	src/Plasma.cpp	/^double Dipole::DsigmaBEB(double T, double W, double B, double u, int occ)$/;"	f	class:Dipole
 E	src/Plasma.h	/^	double E;$/;"	m	struct:elec_state_t
-EEcoll	src/NTPlasma.cpp	/^double NTPlasma::EEcoll(int indx){$/;"	f	class:NTPlasma
 EIIdata	src/Constant.h	/^	struct EIIdata$/;"	s	namespace:CustomDataType
 EIIparams	src/IntegrateRateEquation.h	/^	vector<CustomDataType::EIIdata> EIIparams = vector<CustomDataType::EIIdata>(0);$/;"	m	struct:AtomRateData
+EIIparams	src/_IntegrateRateEquation.h	/^	vector<CustomDataType::EIIdata> EIIparams = vector<CustomDataType::EIIdata>(0);$/;"	m	struct:AtomRateData
 EigenSolver	src/EigenSolver.cpp	/^EigenSolver::EigenSolver()$/;"	f	class:EigenSolver
 EigenSolver	src/EigenSolver.h	/^class EigenSolver$/;"	c
 EigenVals	src/EigenSolver.cpp	/^vector<double> EigenSolver::EigenVals()$/;"	f	class:EigenSolver
@@ -66,6 +70,7 @@ Fluence	src/Input.h	/^	double Fluence() {return 10000*fluence;}$/;"	f	class:MolI
 Fluence_in_au	src/Constant.h	/^	const double Fluence_in_au = 0.155689291;\/\/J\/cm^2$/;"	m	namespace:Constant
 Fluor	src/DecayRates.cpp	/^vector<fluor> DecayRates::Fluor()$/;"	f	class:DecayRates
 Fluor	src/IntegrateRateEquation.h	/^	vector<Rate> Fluor = vector<Rate>(0);$/;"	m	struct:AtomRateData
+Fluor	src/_IntegrateRateEquation.h	/^	vector<Rate> Fluor = vector<Rate>(0);$/;"	m	struct:AtomRateData
 Fm	src/Constant.h	/^	const double Fm = 1.8897261246 \/ 100000;$/;"	m	namespace:Constant
 G	src/PairFunction.h	/^	std::vector<double> F, G;  \/\/ Large and small components of radial wavefunction and it's derivatives$/;"	m	class:PairFunction
 Gauge	src/Input.h	/^	string Gauge() { return me_gauge; }$/;"	f	class:Input
@@ -79,7 +84,9 @@ GenerateTrial	src/Potential.cpp	/^void Potential::GenerateTrial(vector<RadialWF>
 GetAdamsOrder	src/Numerics.h	/^	int GetAdamsOrder() { return Adams_N; }$/;"	f	class:Adams
 GetNodes	src/RadialWF.h	/^	int GetNodes() { return (n-l-1); }$/;"	f	class:RadialWF
 GetP	src/IntegrateRateEquation.h	/^	vector<vector<double>> GetP() { return p_storage; }$/;"	f	class:IntegrateRateEquation
+GetP	src/_IntegrateRateEquation.h	/^	vector<vector<double>> GetP() { return p_storage; }$/;"	f	class:IntegrateRateEquation
 GetT	src/IntegrateRateEquation.h	/^	vector<double> GetT() { return time_storage; }$/;"	f	class:IntegrateRateEquation
+GetT	src/_IntegrateRateEquation.h	/^	vector<double> GetT() { return time_storage; }$/;"	f	class:IntegrateRateEquation
 Get_Indexes	src/RateEquationSolver.h	/^	vector<vector<int>> Get_Indexes() { return Index; }$/;"	f	class:RateEquationSolver
 Get_Kinetic	src/Potential.cpp	/^vector<float> Potential::Get_Kinetic(vector<RadialWF> & Orbitals, int start_with)$/;"	f	class:Potential
 GreenInfinity	src/HartreeFock.cpp	/^vector<double> GreensMethod::GreenInfinity(RadialWF * Psi_Inf)$/;"	f	class:GreensMethod
@@ -113,9 +120,15 @@ Integrate	src/Numerics.cpp	/^double GaussQuad::Integrate(vector<double> &F, vect
 Integrate	src/Numerics.cpp	/^void Adams::Integrate(RadialWF* Psi, int start_pt, int end_pt)$/;"	f	class:Adams
 Integrate	src/Numerics.cpp	/^void Adams::Integrate(std::vector<double> &Func, std::vector<double> &Result, int start_pt, int end_pt)$/;"	f	class:Adams
 IntegrateContinuum	src/DecayRates.cpp	/^int DecayRates::IntegrateContinuum(Grid &Lattice, Potential &U, vector<RadialWF> &Core, RadialWF* Current, int c)$/;"	f	class:DecayRates
-IntegrateRateEquation	src/IntegrateRateEquation.cpp	/^IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, AtomRateData& Store,$/;"	f	class:IntegrateRateEquation
-IntegrateRateEquation	src/IntegrateRateEquation.cpp	/^IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T,$/;"	f	class:IntegrateRateEquation
+IntegrateRateEquation	src/IntegrateRateEquation.cpp	/^IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, AtomRateData & Store, NTPlasma & Elecs, vector<double> InitCond, const vector<double>& Intensity) :$/;"	f	class:IntegrateRateEquation
+IntegrateRateEquation	src/IntegrateRateEquation.cpp	/^IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, AtomRateData& Store, Plasma & Elecs, vector<double> InitCond, const vector<double>& Intensity) :$/;"	f	class:IntegrateRateEquation
+IntegrateRateEquation	src/IntegrateRateEquation.cpp	/^IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, AtomRateData& Store, vector<double> InitCond, const vector<double>& Intensity) :$/;"	f	class:IntegrateRateEquation
+IntegrateRateEquation	src/IntegrateRateEquation.cpp	/^IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, vector<AtomRateData> & Store, NTPlasma & Elecs, const vector<double>& Intensity) :$/;"	f	class:IntegrateRateEquation
+IntegrateRateEquation	src/IntegrateRateEquation.cpp	/^IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, vector<AtomRateData> & Store, Plasma & Elecs, const vector<double>& Intensity) :$/;"	f	class:IntegrateRateEquation
 IntegrateRateEquation	src/IntegrateRateEquation.h	/^class IntegrateRateEquation$/;"	c
+IntegrateRateEquation	src/_IntegrateRateEquation.cpp	/^IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, AtomRateData& Store,$/;"	f	class:IntegrateRateEquation
+IntegrateRateEquation	src/_IntegrateRateEquation.cpp	/^IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T,$/;"	f	class:IntegrateRateEquation
+IntegrateRateEquation	src/_IntegrateRateEquation.h	/^class IntegrateRateEquation$/;"	c
 Integrate_ODE	src/Numerics.cpp	/^void Adams::Integrate_ODE(std::vector<double> &f, int start_pt, int end_pt)$/;"	f	class:Adams
 Intensity_in_au	src/Constant.h	/^	const double Intensity_in_au = 6.434;\/\/ x10^15 W\/cm^2 \/\/3.50944758;\/\/x10^2 W\/nm^2$/;"	m	namespace:Constant
 Interpolation	src/Numerics.cpp	/^Interpolation::Interpolation(int Order)$/;"	f	class:Interpolation
@@ -125,7 +138,7 @@ L	src/RadialWF.h	/^	int L() { return l; }$/;"	f	class:RadialWF
 LDA_upd_dir	src/Potential.cpp	/^int Potential::LDA_upd_dir(std::vector<RadialWF> &Orbitals)$/;"	f	class:Potential
 Lagrange	src/Numerics.cpp	/^static const double Lagrange[5][10] =$/;"	v	file:
 Lagrange_4	src/Numerics.cpp	/^static const double Lagrange_4[2][4] =$/;"	v	file:
-Lattice	src/NTPlasma.h	/^    Grid Lattice;$/;"	m	class:NTPlasma
+Lattice	src/NTPlasma.h	/^    Grid Lattice; \/\/ Integration grid$/;"	m	class:NTPlasma
 Lattice	src/Numerics.h	/^	Grid& Lattice;$/;"	m	class:Adams
 Latts	src/Input.h	/^	vector<Grid> Latts;$/;"	m	class:MolInp
 LocExc	src/Potential.h	/^	vector<double> LocExc;\/\/ Local density exchange approximation with tail correction.$/;"	m	class:Potential
@@ -145,12 +158,13 @@ MixOldNew	src/HartreeFock.cpp	/^void HartreeFock::MixOldNew(RadialWF * New_Orbit
 MolInp	src/Input.cpp	/^MolInp::MolInp(char* filename, ofstream & log)$/;"	f	class:MolInp
 MolInp	src/Input.h	/^class MolInp$/;"	c
 MonteCarlo	src/IntegrateRateEquation.h	/^class MonteCarlo$/;"	c
+MonteCarlo	src/_IntegrateRateEquation.h	/^class MonteCarlo$/;"	c
 Moulton_5	src/Constant.h	/^static const double Moulton_5[5] = { 251. \/ 720., 646. \/ 720., -264. \/ 720., 106. \/ 720., -19. \/ 720. }; \/\/Adams-Moulton method$/;"	v
 Msum	src/Potential.cpp	/^double MatrixElems::Msum(int La, int Lb, int k)$/;"	f	class:MatrixElems
 N	src/Plasma.h	/^	double N;$/;"	m	struct:elec_state_t
 N	src/RadialWF.h	/^	int N() { return n; }$/;"	f	class:RadialWF
 NTPLASMA_H	src/NTPlasma.h	/^#define NTPLASMA_H$/;"	d
-NTPlasma	src/NTPlasma.cpp	/^NTPlasma::NTPlasma(const int T_POINTS, Grid &lattice): Lattice(lattice) {$/;"	f	class:NTPlasma
+NTPlasma	src/NTPlasma.cpp	/^NTPlasma::NTPlasma(const int T_POINTS, const Grid &lattice): Lattice(lattice) {$/;"	f	class:NTPlasma
 NTPlasma	src/NTPlasma.h	/^class NTPlasma{$/;"	c
 Name	src/Input.h	/^	string Name() { return name; }$/;"	f	class:Input
 No_Exch_toll	src/Input.h	/^	double No_Exch_toll() {return No_exchange_tollerance; }$/;"	f	class:Input
@@ -175,6 +189,7 @@ P	src/RateEquationSolver.h	/^	vector<vector<double>> P;\/\/ P[i][m] is the proba
 PairFunction	src/PairFunction.h	/^	PairFunction(int size = 0)$/;"	f	class:PairFunction
 PairFunction	src/PairFunction.h	/^class PairFunction$/;"	c
 Photo	src/IntegrateRateEquation.h	/^	vector<Rate> Photo = vector<Rate>(0);$/;"	m	struct:AtomRateData
+Photo	src/_IntegrateRateEquation.h	/^	vector<Rate> Photo = vector<Rate>(0);$/;"	m	struct:AtomRateData
 Photo_Ion	src/DecayRates.cpp	/^vector<photo> DecayRates::Photo_Ion(double omega, ofstream & log)$/;"	f	class:DecayRates
 Pi	src/Constant.h	/^	const double Pi = 3.1415926535897932384626433832795;$/;"	m	namespace:Constant
 Plasma	src/Plasma.cpp	/^Plasma::Plasma(int size)$/;"	f	class:Plasma
@@ -186,8 +201,13 @@ Potential	src/Potential.h	/^	Potential(int i = 0) {}$/;"	f	class:Potential
 Potential	src/Potential.h	/^class Potential$/;"	c
 Pots	src/Input.h	/^	vector<Potential> Pots;$/;"	m	class:MolInp
 Probs	src/RateEquationSolver.h	/^	vector<double> Probs(int i) { return P[i]; }$/;"	f	class:RateEquationSolver
+Q_a	src/NTPlasma.cpp	/^nte_state_t NTPlasma::Q_a(int n){$/;"	f	class:NTPlasma
+Q_eii	src/NTPlasma.cpp	/^nte_state_t NTPlasma::Q_eii(int n){$/;"	f	class:NTPlasma
+Q_loss	src/NTPlasma.cpp	/^nte_state_t NTPlasma::Q_loss(int n){$/;"	f	class:NTPlasma
+Q_pi	src/NTPlasma.cpp	/^nte_state_t NTPlasma::Q_pi(int n){$/;"	f	class:NTPlasma
 R	src/Grid.cpp	/^double Grid::R(int i)$/;"	f	class:Grid
 R	src/IntegrateRateEquation.h	/^	double R = 189.; \/\/ 100nm focal spot radius.$/;"	m	struct:AtomRateData
+R	src/_IntegrateRateEquation.h	/^	double R = 189.; \/\/ 100nm focal spot radius.$/;"	m	struct:AtomRateData
 R_k	src/Potential.cpp	/^double Potential::R_k(int k, RadialWF &A, RadialWF &B, RadialWF &C, RadialWF &D)$/;"	f	class:Potential
 R_pow_k	src/Potential.cpp	/^double MatrixElems::R_pow_k(vector<RadialWF> & Orbitals, int k)$/;"	f	class:MatrixElems
 R_well	src/Potential.h	/^	double R_well() { return r_well; }$/;"	f	class:Potential
@@ -195,6 +215,7 @@ RadialWF	src/RadialWF.cpp	/^RadialWF::RadialWF(const RadialWF& other) : PairFunc
 RadialWF	src/RadialWF.h	/^	RadialWF(int size = 0) : PairFunction(size)$/;"	f	class:RadialWF
 RadialWF	src/RadialWF.h	/^class RadialWF : public PairFunction$/;"	c
 Rate	src/IntegrateRateEquation.h	/^struct Rate$/;"	s
+Rate	src/_IntegrateRateEquation.h	/^struct Rate$/;"	s
 RateEquationSolver	src/RateEquationSolver.cpp	/^RateEquationSolver::RateEquationSolver(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp) :$/;"	f	class:RateEquationSolver
 RateEquationSolver	src/RateEquationSolver.h	/^class RateEquationSolver$/;"	c
 RatesFromKeys	src/RateEquationSolver.h	/^	vector<int> RatesFromKeys;$/;"	m	class:RateEquationSolver
@@ -216,9 +237,14 @@ SetupAndSolve	src/RateEquationSolver.cpp	/^int RateEquationSolver::SetupAndSolve
 SetupIndex	src/RateEquationSolver.cpp	/^bool RateEquationSolver::SetupIndex(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)$/;"	f	class:RateEquationSolver
 SmoothOrigin	src/RateEquationSolver.cpp	/^void SmoothOrigin(vector<double> & T, vector<double> & F)$/;"	f
 Solve	src/IntegrateRateEquation.cpp	/^int IntegrateRateEquation::Solve(NTPlasma & Elecs, double P_min, double P_max, int storage_time_pts)$/;"	f	class:IntegrateRateEquation
+Solve	src/IntegrateRateEquation.cpp	/^int IntegrateRateEquation::Solve(NTPlasma & Elecs, vector<AtomRateData> & Store, int storage_time_pts)$/;"	f	class:IntegrateRateEquation
 Solve	src/IntegrateRateEquation.cpp	/^int IntegrateRateEquation::Solve(Plasma & Elecs, double P_min, double P_max, int storage_time_pts)$/;"	f	class:IntegrateRateEquation
 Solve	src/IntegrateRateEquation.cpp	/^int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, int storage_time_pts)$/;"	f	class:IntegrateRateEquation
 Solve	src/IntegrateRateEquation.cpp	/^int IntegrateRateEquation::Solve(double P_min, double P_max, int storage_time_pts)$/;"	f	class:IntegrateRateEquation
+Solve	src/_IntegrateRateEquation.cpp	/^int IntegrateRateEquation::Solve(NTPlasma & Elecs, double P_min, double P_max, int storage_time_pts)$/;"	f	class:IntegrateRateEquation
+Solve	src/_IntegrateRateEquation.cpp	/^int IntegrateRateEquation::Solve(Plasma & Elecs, double P_min, double P_max, int storage_time_pts)$/;"	f	class:IntegrateRateEquation
+Solve	src/_IntegrateRateEquation.cpp	/^int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, int storage_time_pts)$/;"	f	class:IntegrateRateEquation
+Solve	src/_IntegrateRateEquation.cpp	/^int IntegrateRateEquation::Solve(double P_min, double P_max, int storage_time_pts)$/;"	f	class:IntegrateRateEquation
 SolveFrozen	src/RateEquationSolver.cpp	/^int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)$/;"	f	class:RateEquationSolver
 SolveGenEig	src/EigenSolver.cpp	/^void EigenSolver::SolveGenEig(std::vector<std::vector<double>> &F, std::vector<std::vector<double>> &S)$/;"	f	class:EigenSolver
 SolvePlasmaBEB	src/RateEquationSolver.cpp	/^AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)$/;"	f	class:RateEquationSolver
@@ -258,6 +284,7 @@ adams_4	src/Numerics.cpp	/^static const double adams_4[4] = { 1. \/ 24., -5. \/ 
 adams_5	src/Numerics.cpp	/^static const double adams_5[5] = { 251. \/ 720., 646. \/ 720., -264. \/ 720., 106. \/ 720., -19. \/ 720. };$/;"	v	file:
 adams_n	src/IntegrateRateEquation.h	/^	int adams_n = 5;$/;"	m	class:IntegrateRateEquation
 adams_n	src/Plasma.h	/^	int adams_n = 5;$/;"	m	class:Plasma
+adams_n	src/_IntegrateRateEquation.h	/^	int adams_n = 5;$/;"	m	class:IntegrateRateEquation
 aggregate_charges	scripts/atomic_charge_Plot.py	/^    def aggregate_charges(self):$/;"	m	class:Plotter
 au2_in_Mbarn	src/Constant.h	/^	const double au2_in_Mbarn = 5.2917721067*5.2917721067;\/\/atomic units to Mega Barns.$/;"	m	namespace:Constant
 au2_in_barn	src/Constant.h	/^	const double au2_in_barn = 5.2917721067*5.2917721067*1000000;\/\/atomic units to Barns.$/;"	m	namespace:Constant
@@ -287,23 +314,28 @@ delta	src/Plasma.h	/^	vector<elec_state_t> delta; \/\/ First derivatives$/;"	m	c
 density	src/RateEquationSolver.h	/^	vector<vector<double>> density = vector<vector<double>>(0);$/;"	m	class:RateEquationSolver
 dimension	src/RateEquationSolver.h	/^	int dimension;\/\/number of configurations$/;"	m	class:RateEquationSolver
 dpdt	src/IntegrateRateEquation.h	/^	vector<vector<double>> dpdt;$/;"	m	class:IntegrateRateEquation
+dpdt	src/_IntegrateRateEquation.h	/^	vector<vector<double>> dpdt;$/;"	m	class:IntegrateRateEquation
 dr	src/Grid.h	/^	std::vector<double> r, dr;$/;"	m	class:Grid
 dropl_R	src/Input.h	/^	double dropl_R() {return radius;}$/;"	f	class:MolInp
 ds	src/Grid.h	/^	double ds;$/;"	m	class:Grid
 dt	src/IntegrateRateEquation.h	/^	vector<double>& dt;$/;"	m	class:IntegrateRateEquation
+dt	src/_IntegrateRateEquation.h	/^	vector<double>& dt;$/;"	m	class:IntegrateRateEquation
 eV_in_au	src/Constant.h	/^	const double eV_in_au = 27.211385;\/\/electron volts in atomic units$/;"	m	namespace:Constant
+e_grid	src/NTPlasma.h	/^    vector<double> e_grid; \/\/ energy values$/;"	m	class:NTPlasma
 eject	src/Constant.h	/^		int eject;$/;"	m	struct:CustomDataType::auger
 elec_state_t	src/Plasma.h	/^struct elec_state_t {$/;"	s
 electrons	scripts/MD_data_Plot.py	/^electrons = file_content[:, -2:]$/;"	v
 energy	src/Constant.h	/^		double energy = 0;$/;"	m	struct:CustomDataType::auger
 energy	src/Constant.h	/^		double energy;$/;"	m	struct:CustomDataType::photo
 energy	src/IntegrateRateEquation.h	/^	double energy = 0;$/;"	m	struct:Rate
+energy	src/_IntegrateRateEquation.h	/^	double energy = 0;$/;"	m	struct:Rate
 eprint	scripts/atomic_charge_Plot.py	/^def eprint(*args, **kwargs):$/;"	f
 excited	src/Constant.h	/^		vector<vector<int>> excited;\/\/ Includes both Orbitals and Virtual.$/;"	m	struct:CustomDataType::polarize
 exists_test	src/RateEquationSolver.cpp	/^inline bool exists_test(const std::string& name)$/;"	f
 extEnergy	src/Constant.h	/^		vector<double> extEnergy;$/;"	m	struct:CustomDataType::polarize
 extend_I	src/RateEquationSolver.cpp	/^int RateEquationSolver::extend_I(vector<double>& Intensity, double new_max_T, double step_T)$/;"	f	class:RateEquationSolver
 f	src/IntegrateRateEquation.h	/^	vector<double> f;$/;"	m	class:IntegrateRateEquation
+f	src/_IntegrateRateEquation.h	/^	vector<double> f;$/;"	m	class:IntegrateRateEquation
 ffactor	src/Constant.h	/^	struct ffactor\/\/form factor for Q_mesh values in FormFactor class$/;"	s	namespace:CustomDataType
 fig	scripts/MD_data_Plot.py	/^fig = plt.figure(figsize=(9, 6))$/;"	v
 fig	scripts/atomic_charge_Plot.py	/^fig = plt.figure(figsize=(9, 6))$/;"	v
@@ -316,18 +348,19 @@ fluence	src/Input.h	/^	double fluence = 0; \/\/ XFEL pulse fluence, 10^4 J\/cm^2
 fluence	src/Input.h	/^	double fluence = 0; \/\/ XFEL pulse fluence.$/;"	m	class:Input
 fluor	src/Constant.h	/^	struct fluor\/\/fluorescence rate$/;"	s	namespace:CustomDataType
 from	src/IntegrateRateEquation.h	/^	long int from = 0;$/;"	m	struct:Rate
+from	src/_IntegrateRateEquation.h	/^	long int from = 0;$/;"	m	struct:Rate
 fs_in_au	src/Constant.h	/^	const double fs_in_au = 0.02418884;\/\/femtosecond in au$/;"	m	namespace:Constant
+gaussW_10	src/Constant.h	/^static const double gaussW_10[10] = {0.066671344308688, 0.14945134915058, 0.21908636251598, 0.26926671931000, 0.29552422471475,$/;"	v
 gaussW_10	src/Numerics.cpp	/^static const double gaussW_10[10] = {0.066671344308688, 0.14945134915058, 0.21908636251598, 0.26926671931000, 0.29552422471475,$/;"	v	file:
-gaussW_10	src/Plasma.cpp	/^static const double gaussW_10[10] = {0.066671344308688, 0.14945134915058, 0.21908636251598, 0.26926671931000, 0.29552422471475,$/;"	v	file:
+gaussW_13	src/Constant.h	/^static const double gaussW_13[13] = {0.04048400476531614, 0.09212149983772834, 0.13887351021978736, 0.17814598076194582,$/;"	v
 gaussW_13	src/Numerics.cpp	/^static const double gaussW_13[13] = {0.04048400476531614, 0.09212149983772834, 0.13887351021978736, 0.17814598076194582,$/;"	v	file:
-gaussW_13	src/Plasma.cpp	/^static const double gaussW_13[13] = {0.04048400476531614, 0.09212149983772834, 0.13887351021978736, 0.17814598076194582,$/;"	v	file:
 gaussW_2	src/Numerics.cpp	/^static const double gaussW_2[2] = {1., 1.};$/;"	v	file:
 gaussW_4	src/Numerics.cpp	/^static const double gaussW_4[4] = {0.34785484513745, 0.65214515486255, 0.65214515486255, 0.34785484513745};$/;"	v	file:
 gaussW_5	src/Numerics.cpp	/^static const double gaussW_5[5] = {0.23692688505619, 0.47862867049937, 0.56888888888889, 0.47862867049937, 0.23692688505619};$/;"	v	file:
+gaussX_10	src/Constant.h	/^static const double gaussX_10[10] = {-0.973906528517, -0.865063366689, -0.679409568299, -0.433395394129, -0.148874338982,$/;"	v
 gaussX_10	src/Numerics.cpp	/^static const double gaussX_10[10] = {-0.973906528517, -0.865063366689, -0.679409568299, -0.433395394129, -0.148874338982,$/;"	v	file:
-gaussX_10	src/Plasma.cpp	/^static const double gaussX_10[10] = {-0.973906528517, -0.865063366689, -0.679409568299, -0.433395394129, -0.148874338982,$/;"	v	file:
+gaussX_13	src/Constant.h	/^static const double gaussX_13[13] = {-0.9841830547185881, -0.9175983992229779, -0.8015780907333099, -0.6423493394403401,$/;"	v
 gaussX_13	src/Numerics.cpp	/^static const double gaussX_13[13] = {-0.9841830547185881, -0.9175983992229779, -0.8015780907333099, -0.6423493394403401,$/;"	v	file:
-gaussX_13	src/Plasma.cpp	/^static const double gaussX_13[13] = {-0.9841830547185881, -0.9175983992229779, -0.8015780907333099, -0.6423493394403401,$/;"	v	file:
 gaussX_2	src/Numerics.cpp	/^static const double gaussX_2[2] = {-0.57735026918963, 0.57735026918963};$/;"	v	file:
 gaussX_4	src/Numerics.cpp	/^static const double gaussX_4[4] = {-0.8611363115941, -0.3399810435849, 0.3399810435849, 0.8611363115941};$/;"	v	file:
 gaussX_5	src/Numerics.cpp	/^static const double gaussX_5[5] = {-0.9061798459387, -0.5384693101057, 0., 0.5384693101057, 0.9061798459387};$/;"	v	file:
@@ -384,18 +417,22 @@ me_gauge	src/Input.h	/^	string me_gauge = "length";$/;"	m	class:Input
 model	src/Input.h	/^	string model;$/;"	m	class:Input
 model	src/Potential.h	/^	string model = "coulomb";$/;"	m	class:Potential
 mplcm	scripts/MD_data_Plot.py	/^import matplotlib.cm as mplcm$/;"	i
-n	src/NTPlasma.h	/^    vector<vector<double>> n;$/;"	m	class:NTPlasma
+n	src/NTPlasma.h	/^    vector<nte_state_t> n;$/;"	m	class:NTPlasma
 n	src/RadialWF.h	/^	int n;$/;"	m	class:RadialWF
 nAtoms	src/IntegrateRateEquation.h	/^	double nAtoms = 1.;\/\/ atomic number density$/;"	m	struct:AtomRateData
+nAtoms	src/_IntegrateRateEquation.h	/^	double nAtoms = 1.;\/\/ atomic number density$/;"	m	struct:AtomRateData
 n_charge	src/Potential.h	/^	int n_charge = 1;$/;"	m	class:Potential
 name	src/Input.h	/^	string name = "";$/;"	m	class:MolInp
 name	src/Input.h	/^	string name = "";\/\/ A name of argv[1] suppilied as filename without extension. Is added to output files.$/;"	m	class:Input
 name	src/IntegrateRateEquation.h	/^	string name = "";$/;"	m	struct:AtomRateData
+name	src/_IntegrateRateEquation.h	/^	string name = "";$/;"	m	struct:AtomRateData
 norm_max_chrg	scripts/MD_data_Plot.py	/^norm_max_chrg = (max_chrg \/ np.max( max_chrg ) + 0.1)\/1.1$/;"	v
 np	scripts/MD_data_Plot.py	/^import numpy as np$/;"	i
 np	scripts/atomic_charge_Plot.py	/^import numpy as np$/;"	i
+nte_state_t	src/NTPlasma.h	/^typedef vector<double> nte_state_t;$/;"	t
 nuclear	src/Potential.h	/^	std::vector<double> nuclear;$/;"	m	class:Potential
 num_conf	src/IntegrateRateEquation.h	/^	int num_conf = 1;$/;"	m	struct:AtomRateData
+num_conf	src/_IntegrateRateEquation.h	/^	int num_conf = 1;$/;"	m	struct:AtomRateData
 num_time_steps	src/Input.h	/^	int num_time_steps = 0; \/\/ Guess number of time steps for time dynamics.$/;"	m	class:Input
 num_time_steps	src/Input.h	/^	int num_time_steps = 1000; \/\/ Guess number of time steps for time dynamics.$/;"	m	class:MolInp
 occ	src/Constant.h	/^		vector<int> occ;$/;"	m	struct:CustomDataType::EIIdata
@@ -428,7 +465,9 @@ os	scripts/atomic_charge_Plot.py	/^import os.path as path$/;"	i
 out_T_size	src/Input.h	/^	int out_T_size = 0; \/\/ Unlike atomic input, causes to output all points.$/;"	m	class:MolInp
 out_time_steps	src/Input.h	/^	int out_time_steps = 500; \/\/ Guess number of time steps for time dynamics.$/;"	m	class:Input
 p	src/IntegrateRateEquation.h	/^	vector<vector<double>> p;$/;"	m	class:IntegrateRateEquation
+p	src/_IntegrateRateEquation.h	/^	vector<vector<double>> p;$/;"	m	class:IntegrateRateEquation
 p_storage	src/IntegrateRateEquation.h	/^	vector<vector<double>> p_storage;$/;"	m	class:IntegrateRateEquation
+p_storage	src/_IntegrateRateEquation.h	/^	vector<vector<double>> p_storage;$/;"	m	class:IntegrateRateEquation
 parse	scripts/atomic_input.py	/^def parse():$/;"	f
 path	scripts/MD_data_Plot.py	/^import os.path as path$/;"	i
 path	scripts/MD_data_Plot.py	/^path = path.abspath(path.join(__file__ ,"..\/..\/output"))$/;"	v
@@ -464,8 +503,8 @@ set_order	src/Numerics.cpp	/^void GaussQuad::set_order(int Order)$/;"	f	class:Ga
 set_turn	src/RadialWF.h	/^	void set_turn(int X) { turn = X; } \/\/ calculate number of nodes till turning point, discard the nodes after the turning point$/;"	f	class:RadialWF
 setup_axes	scripts/atomic_charge_Plot.py	/^    def setup_axes(self):$/;"	m	class:Plotter
 sgn	src/Wigner/commonFunctions.h	/^double sgn(T val)$/;"	f	namespace:WignerSymbols
-sigmaBEB	src/Plasma.cpp	/^double Plasma::sigmaBEB(double T, double B, double u, int occ)$/;"	f	class:Plasma
-sigmaBEBw1	src/Plasma.cpp	/^double Plasma::sigmaBEBw1(double T, double B, double u, int occ)$/;"	f	class:Plasma
+sigmaBEB	src/Plasma.cpp	/^double Dipole::sigmaBEB(double T, double B, double u, int occ)$/;"	f	class:Dipole
+sigmaBEBw1	src/Plasma.cpp	/^double Dipole::sigmaBEBw1(double T, double B, double u, int occ)$/;"	f	class:Dipole
 size	src/Grid.h	/^	int size() {$/;"	f	class:Grid
 size	src/PairFunction.h	/^	int size() { return static_cast<int>(F.size()); }$/;"	f	class:PairFunction
 sortEIIbyInd	src/RateEquationSolver.h	/^	static bool sortEIIbyInd(CustomDataType::EIIdata A, CustomDataType::EIIdata B) { return (A.init < B.init); }$/;"	f	class:RateEquationSolver
@@ -473,14 +512,18 @@ sortRatesFrom	src/RateEquationSolver.h	/^	static bool sortRatesFrom(Rate A, Rate
 sortRatesTo	src/RateEquationSolver.h	/^	static bool sortRatesTo(Rate A, Rate B) { return (A.to < B.to); }$/;"	f	class:RateEquationSolver
 state	src/Plasma.h	/^	vector<elec_state_t> state; \/\/ State vector$/;"	m	class:Plasma
 store	src/IntegrateRateEquation.h	/^	AtomRateData& store;$/;"	m	class:IntegrateRateEquation
+store	src/_IntegrateRateEquation.h	/^	AtomRateData& store;$/;"	m	class:IntegrateRateEquation
 subprocess	scripts/atomic_charge_Plot.py	/^import subprocess$/;"	i
 sys	scripts/atomic_charge_Plot.py	/^import sys$/;"	i
 sys	scripts/atomic_input.py	/^import sys$/;"	i
 t	src/IntegrateRateEquation.h	/^	vector<double>& t;$/;"	m	class:IntegrateRateEquation
+t	src/_IntegrateRateEquation.h	/^	vector<double>& t;$/;"	m	class:IntegrateRateEquation
 time	scripts/MD_data_Plot.py	/^time = file_content[:, 0]$/;"	v
 time	scripts/atomic_charge_Plot.py	/^import time$/;"	i
 time_storage	src/IntegrateRateEquation.h	/^	vector<double> time_storage;$/;"	m	class:IntegrateRateEquation
+time_storage	src/_IntegrateRateEquation.h	/^	vector<double> time_storage;$/;"	m	class:IntegrateRateEquation
 to	src/IntegrateRateEquation.h	/^	long int to = 0;$/;"	m	struct:Rate
+to	src/_IntegrateRateEquation.h	/^	long int to = 0;$/;"	m	struct:Rate
 turn	src/RadialWF.h	/^	int turn;$/;"	m	class:RadialWF
 turn_pt	src/RadialWF.h	/^	int turn_pt() { return turn; }$/;"	f	class:RadialWF
 u	src/DecayRates.h	/^	Potential& u;$/;"	m	class:DecayRates
@@ -496,6 +539,7 @@ val	src/Constant.h	/^		double val;\/\/value of the rate in a.u.$/;"	m	struct:Cus
 val	src/Constant.h	/^		double val;\/\/value of the rate in a.u.$/;"	m	struct:CustomDataType::photo
 val	src/Constant.h	/^		vector<double> val;$/;"	m	struct:CustomDataType::ffactor
 val	src/IntegrateRateEquation.h	/^	double val = 0;$/;"	m	struct:Rate
+val	src/_IntegrateRateEquation.h	/^	double val = 0;$/;"	m	struct:Rate
 width	src/Input.h	/^	double width = 5; \/\/ XFEL pulse width in femtoseconds. Gaussian profile hardcoded.$/;"	m	class:MolInp
 width	src/Input.h	/^	double width = 5; \/\/ XFEL pulse width. Gaussian profile hardcoded.$/;"	m	class:Input
 wigner3j	src/Wigner/wignerSymbols.cpp	/^double wigner3j(double l1, double l2, double l3,$/;"	f	namespace:WignerSymbols
@@ -520,6 +564,7 @@ zero_state	src/Plasma.cpp	/^static const elec_state_t zero_state = {0,0,0,0};$/;
 ~HartreeFock	src/HartreeFock.cpp	/^HartreeFock::~HartreeFock()$/;"	f	class:HartreeFock
 ~Input	src/Input.cpp	/^Input::~Input()$/;"	f	class:Input
 ~IntegrateRateEquation	src/IntegrateRateEquation.cpp	/^IntegrateRateEquation::~IntegrateRateEquation()$/;"	f	class:IntegrateRateEquation
+~IntegrateRateEquation	src/_IntegrateRateEquation.cpp	/^IntegrateRateEquation::~IntegrateRateEquation()$/;"	f	class:IntegrateRateEquation
 ~Interpolation	src/Numerics.h	/^	~Interpolation() {};$/;"	f	class:Interpolation
 ~MatrixElems	src/Potential.h	/^	~MatrixElems() {};$/;"	f	class:MatrixElems
 ~MolInp	src/Input.h	/^	~MolInp() {}$/;"	f	class:MolInp

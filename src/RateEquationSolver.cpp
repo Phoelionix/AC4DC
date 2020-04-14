@@ -371,7 +371,8 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 
 AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
 {
-	// Solves system of Atomic rate equations + Temperature and electron concentration in Plasma exactly.
+	// Uses BEB model to compute fundamental
+	// EII, Auger, Photoionisation and Fluorescence rates
 	// Final_occ defines the lowest possible occupancies for the initiall orbital.
 	// Intermediate orbitals are recalculated to obtain the corresponding rates.
 
@@ -781,7 +782,7 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
  		Mxwll.resize(T.size());
 		IntegrateRateEquation Calc(dT, T, Input.Store, Mxwll, Intensity);
 
-    T_size = T.size();
+    	T_size = T.size();
 
 		converged = Calc.Solve(Mxwll, Input.Store, Input.Out_T_size());
 

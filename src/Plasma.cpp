@@ -18,18 +18,6 @@ This file is part of AC4DC.
 #include <cmath>
 #include "Plasma.h"
 
-static const double gaussX_10[10] = {-0.973906528517, -0.865063366689, -0.679409568299, -0.433395394129, -0.148874338982,
-									  0.148874338982, 0.433395394129, 0.679409568299, 0.865063366689, 0.973906528517};
-static const double gaussW_10[10] = {0.066671344308688, 0.14945134915058, 0.21908636251598, 0.26926671931000, 0.29552422471475,
-									 0.29552422471475, 0.26926671931000, 0.21908636251598, 0.14945134915058, 0.066671344308688};
-
-static const double gaussX_13[13] = {-0.9841830547185881, -0.9175983992229779, -0.8015780907333099, -0.6423493394403401,
-								-0.4484927510364467, -0.23045831595513477, 0., 0.23045831595513477, 0.4484927510364467,
-								0.6423493394403401, 0.8015780907333099, 0.9175983992229779, 0.9841830547185881};
-static const double gaussW_13[13] = {0.04048400476531614, 0.09212149983772834, 0.13887351021978736, 0.17814598076194582,
-								0.20781604753688845, 0.2262831802628971, 0.23255155323087365, 0.2262831802628971, 0.20781604753688845,
-								0.17814598076194582, 0.13887351021978736, 0.09212149983772834, 0.04048400476531614};
-
 static const elec_state_t zero_state = {0,0,0,0};
 
 Plasma::Plasma(int size)
@@ -61,77 +49,6 @@ double Plasma::MaxwellPF(double W)
 	return MaxwellNorm*exp(-W/MaxwellT);
 }
 
-double Plasma::sigmaBEB(double T, double B, double u, int occ)
-{
-	// Electron impact ionization cross-section
-	// in Binary Encounter Bethe approximation : Kim, Rudd, PRA 50(5), 3954 (1994)
-	double t = T/B;
-	if (t < 1) return 0;
-	double lnt = log(t);
-	double S = Constant::Pi*occ/B/B;
-
-	//double Result = S/(t + u + 1)*(0.5*(1 - 1./t/t)*lnt + (1 - 1/t - lnt/(1+t)));
-	double Result = S/(t + u + 1)*(0.5*(1 - 1./t/t)*lnt + (1 - 1/t - lnt/(1+t)));
-	return Result;
-}
-
-
-double Plasma::sigmaBEBw1(double T, double B, double u, int occ)
-{
-	// Calculates the integral \int_0^(p*p/2 - B) dW W d(sigma)/dW using gaussian quadrature.
-	double Result = 0;
-	double Wmax = 0.5*(T - B);
-	// Critically important to capture the interval where d(sigma)/dW substantially != 0.
-	if (Wmax <= 0) return 0;
-	double W = 0, k = 0.5*Wmax;
-	// -1 .. 1 -> 0 .. Wmax [ W = 0.5*Wmax*(x + 1) ]
-	for (int i = 0; i < 13; i++) {
-		W = k*(gaussX_13[i] + 1);
-		Result += gaussW_13[i]*W*DsigmaBEB(T, W, B, u, occ);
-	}
-
-	Result *= 0.5*Wmax;
-	return Result;
-}
-
-
-// TODO: VERIFY IF NORMALISATION IS ACCURATE.
-double Plasma::MaxwellEII(double B, double u, int occ)
-{
-	// Secondary electron impact ionization cross-section.
-	// Integral : N(T)*dp*p^3*exp(-p^2/2/T)*sigmaBEB(p, B, u, occ).
-	// Find maximum value of p^3*exp(-p^2/2/T).
-	double W_min = B;
-	double W_max = min(12*MaxwellT + W_min, 300*W_min);// peak to cutoff ration of exp(-12) ~10^(-6).
-
-	double W = 0, Result = 0, k = 0.5*(W_max - W_min), l = 0.5*(W_max + W_min);
-	for (int i = 0; i < 13; i++) {
-		W = k*gaussX_13[i] + l;
-		Result += gaussW_13[i]*W*exp(-W/MaxwellT)*sigmaBEB(W, B, u, occ);
-	}
-	Result *= (W_max - W_min)*MaxwellNorm;// Extra 2 comes from p^2 = 2W in the integrandintegrand.
-	return Result;
-}
-
-double Plasma::DsigmaBEB(double T, double W, double B, double u, int occ)
-{
-	// p_i - impactor electron impulse.
-	// p_e - ejected electron impulse.
-	// i - orbital index from which p_e is ejected.
-	// Q[i] are set to 1. See commented functions if need to be calculated.
-	// see eq. (52)
-	double t = T/B;
-	double w = W/B;
-	if (t < 1 + w) return 0;
-
-	double F = 1.;//F2 first, Q = 1
-	double x = 1./(w + 1);
-	double y = 1./(t - w);
-	double Result = -1*(x + y)/(t+1) + (x*x + y*y) + log(t)*(x*x*x + y*y*y);
-
-	Result *= Constant::Pi*occ/B/B/(t + u + 1);
-	return Result;
-}
 
 double Plasma::BettaInt(double y)
 {
@@ -162,6 +79,80 @@ void Plasma::update_AM(int m, vector<double>& dt)
 	}
 	state[m] = st;
 }
+
+// TODO: VERIFY IF NORMALISATION IS ACCURATE.
+double Plasma::MaxwellEII(double B, double u, int occ)
+{
+	// Secondary electron impact ionization cross-section.
+	// Integral : N(T)*dp*p^3*exp(-p^2/2/T)*sigmaBEB(p, B, u, occ).
+	// Find maximum value of p^3*exp(-p^2/2/T).
+	double W_min = B;
+	double W_max = min(12*MaxwellT + W_min, 300*W_min);// peak to cutoff ration of exp(-12) ~10^(-6).
+
+	double W = 0, Result = 0, k = 0.5*(W_max - W_min), l = 0.5*(W_max + W_min);
+	for (int i = 0; i < 13; i++) {
+		W = k*gaussX_13[i] + l;
+		Result += gaussW_13[i]*W*exp(-W/MaxwellT)*Dipole::sigmaBEB(W, B, u, occ);
+	}
+	Result *= (W_max - W_min)*MaxwellNorm;// Extra 2 comes from p^2 = 2W in the integrandintegrand.
+	return Result;
+}
+
+
+double Dipole::sigmaBEB(double T, double B, double u, int occ)
+{
+	// Electron impact ionization cross-section
+	// in Binary Encounter Bethe approximation : Kim, Rudd, PRA 50(5), 3954 (1994)
+	double t = T/B;
+	if (t < 1) return 0;
+	double lnt = log(t);
+	double S = Constant::Pi*occ/B/B;
+
+	//double Result = S/(t + u + 1)*(0.5*(1 - 1./t/t)*lnt + (1 - 1/t - lnt/(1+t)));
+	double Result = S/(t + u + 1)*(0.5*(1 - 1./t/t)*lnt + (1 - 1/t - lnt/(1+t)));
+	return Result;
+}
+
+
+double Dipole::sigmaBEBw1(double T, double B, double u, int occ)
+{
+	// Calculates the integral \int_0^(p*p/2 - B) dW W d(sigma)/dW using gaussian quadrature.
+	double Result = 0;
+	double Wmax = 0.5*(T - B);
+	// Critically important to capture the interval where d(sigma)/dW substantially != 0.
+	if (Wmax <= 0) return 0;
+	double W = 0, k = 0.5*Wmax;
+	// -1 .. 1 -> 0 .. Wmax [ W = 0.5*Wmax*(x + 1) ]
+	for (int i = 0; i < 13; i++) {
+		W = k*(gaussX_13[i] + 1);
+		Result += gaussW_13[i]*W*Dipole::DsigmaBEB(T, W, B, u, occ);
+	}
+
+	Result *= 0.5*Wmax;
+	return Result;
+}
+
+
+double Dipole::DsigmaBEB(double T, double W, double B, double u, int occ)
+{
+	// p_i - impactor electron impulse.
+	// p_e - ejected electron impulse.
+	// i - orbital index from which p_e is ejected.
+	// Q[i] are set to 1. See commented functions if need to be calculated.
+	// see eq. (52)
+	double t = T/B;
+	double w = W/B;
+	if (t < 1 + w) return 0;
+
+	double F = 1.;//F2 first, Q = 1
+	double x = 1./(w + 1);
+	double y = 1./(t - w);
+	double Result = -1*(x + y)/(t+1) + (x*x + y*y) + log(t)*(x*x*x + y*y*y);
+
+	Result *= Constant::Pi*occ/B/B/(t + u + 1);
+	return Result;
+}
+
 
 
 /*
