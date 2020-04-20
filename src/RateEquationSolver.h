@@ -15,7 +15,6 @@ This file is part of AC4DC.
     along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
 ===========================================================================*/
 #pragma once
-
 #include "RadialWF.h"
 #include "Grid.h"
 #include "Potential.h"
@@ -23,6 +22,20 @@ This file is part of AC4DC.
 #include "Constant.h"
 #include "IntegrateRateEquation.h"
 #include "Input.h"
+#include "HartreeFock.h"
+#include "DecayRates.h"
+#include "Numerics.h"
+#include <fstream>
+#include <iostream>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <sstream>
+#include <string>
+#include <omp.h>
+#include <algorithm>
+#include "EigenSolver.h"
+#include "Plasma.h"
+#include <utility>
 
 using namespace std;
 
@@ -52,7 +65,7 @@ public:
 
 	//string CompareRates(string RateFile1, string RateFile2, ofstream & log);// Find the difference in rate equation using two different rates.
 
-	bool ReadRates(const string & input, vector<Rate> & PutHere);
+
 	int Symbolic(const string & input, const string & output);//convertes configuration indexes in human readable format
 	int Charge(int Iconf);
 	vector<double> PerturbMe(vector<RadialWF> & Virtual, double Dist, double Einit);
@@ -91,6 +104,10 @@ protected:
 	//int SetupAndSolve(vector<Rate> rates, double I_max, double HalfWidth, ofstream & log, int & start_T_size);
 
 private:
+	bool ReadRates(const string & input, vector<Rate> & PutHere);
+	bool ReadEIIParams(const string & input, vector<CustomDataType::EIIdata> & PutHere);
+	void WriteEIIParams(const string & input);
+
 	string InterpretIndex(int i);
 
 	AtomRateData Store;

@@ -135,9 +135,10 @@ double Dipole::sigmaBEBw1(double T, double B, double u, int occ)
 
 double Dipole::DsigmaBEB(double T, double W, double B, double u, int occ)
 {
-	// p_i - impactor electron impulse.
-	// p_e - ejected electron impulse.
-	// i - orbital index from which p_e is ejected.
+	// T - impactor electron energy.
+	// W - ejected electron energy.
+	// B - binding energy.
+	// i - orbital index from which W is ejected.
 	// Q[i] are set to 1. See commented functions if need to be calculated.
 	// see eq. (52)
 	double t = T/B;

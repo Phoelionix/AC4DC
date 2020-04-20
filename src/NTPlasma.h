@@ -22,31 +22,38 @@ This file is part of AC4DC.
 #include <vector>
 #include <fstream>
 #include "Constant.h"
+#include "Numerics.h"
 #include "Grid.h"
 #include "Plasma.h" // for dsigmaBEB methods
 
 typedef vector<double> nte_state_t;
 
+
+
+
 class NTPlasma{
-    NTPlasma(const int T_POINTS, const Grid &lattice);
 public:
-    // df(e,t)/dt = Q_eii[f](t) + Q_pi[f](t) + Q_a[f](t) + Q_ee[f] + Q_tbr[f](t) - \Lambda
-    // Electron-impact ionisation collision term at timestep n
-    nte_state_t Q_eii(int n);
-    // Photoionisation flux at timestep n
-    nte_state_t Q_pi(int n);
-    // Auger effect
-    nte_state_t Q_a(int n);
-    // Electron-electron scattering
-    // nte_state_t Q_ee(int n);
-    // Density loss due to electrons leaving the system
-    nte_state_t Q_loss(int n);
+    NTPlasma(const int T_POINTS, const Grid &lattice);
+    // Integrated versions of the elementwise methods below go here
+    // (perhaps in a federated public method)
 
 
 private:
-    vector<nte_state_t> n;
-    vector<double> e_grid; // energy values
-    Grid Lattice; // Integration grid
+    double fintegral(double (&g)(double));
+    // df(e,t)/dt = Q_eii[f](e) + Q_pi[f](e, t) + Q_a[f](e) + Q_ee[f](e) + Q_tbr[f](e) - Q_loss(e)
+    // Electron-impact ionisation collision term at timestep n
+    double Q_eii(nte_state_t &f, double e);
+    // Photoionisation flux at timestep n
+    double Q_pi(nte_state_t &f, double e);
+    // Auger effect
+    double Q_a(nte_state_t &f, double e);
+    // Electron-electron scattering
+    // double Q_ee(int n);
+    // Density loss due to electrons leaving the system
+    double Q_loss(nte_state_t &f, double e);
+
+    vector<nte_state_t> e_dist;
+    Grid Lattice;
 };
 
 #endif /* end of include guard: NTPLASMA_H */

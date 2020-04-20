@@ -14,7 +14,8 @@ This file is part of AC4DC.
     You should have received a copy of the GNU General Public License
     along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
 ===========================================================================*/
-#pragma once
+#ifndef AC4DC_INPUT_CXX_H
+#define AC4DC_INPUT_CXX_H
 
 #include "RadialWF.h"
 #include "Potential.h"
@@ -159,3 +160,5 @@ private:
 
 	double unit_V = 1.;
 };
+
+#endif /* end of include guard: AC4DC_INPUT_CXX_H */

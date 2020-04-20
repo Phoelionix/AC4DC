@@ -92,6 +92,14 @@ namespace CustomDataType
 		vector<int> occ;
 		vector<float> ionB;
 		vector<float> kin;
+		
+		void resize(size_t n)
+		{
+			fin.resize(n);
+			occ.resize(n);
+			ionB.resize(n);
+			kin.resize(n);
+		}
 	};
 }
 
