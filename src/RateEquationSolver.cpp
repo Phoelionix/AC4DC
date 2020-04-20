@@ -45,15 +45,6 @@ string find_bracket_contents(string &src){
 	return src.substr(first_idx+1, last_idx-first_idx-1);
 }
 
-RateEquationSolver::RateEquationSolver(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp) :
-lattice(Lattice), orbitals(Orbitals), u(U), input(Inp)
-{
-//Orbitals are HF wavefunctions. This configuration is an initial state.
-//Assuming there are no unoccupied states in initial configuration!!!
-}
-
-
-
 /*
 int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
 {
@@ -76,9 +67,9 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		mkdir(dirstring.c_str(), ACCESSPERMS);
 	}
 
-	bool existPht = !ReadRates(RateLocation + "Photo.txt", Store.Photo);
-	bool existFlr = !ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
-	bool existAug = !ReadRates(RateLocation + "Auger.txt", Store.Auger);
+	bool existPht = !RateIO::RateRates(RateLocation + "Photo.txt", Store.Photo);
+	bool existFlr = !RateIO::RateRates(RateLocation + "Fluor.txt", Store.Fluor);
+	bool existAug = !RateIO::RateRates(RateLocation + "Auger.txt", Store.Auger);
 
 	if (existPht) printf("Photoionization rates found. Reading...\n");
 	if (existFlr) printf("Fluorescence rates found. Reading...\n");
@@ -250,9 +241,9 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		mkdir(RateLocation.c_str(), ACCESSPERMS);
 	}
 
-	bool existPht = ReadRates(RateLocation + "Photo.txt", Store.Photo);
-	bool existFlr = ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
-	bool existAug = ReadRates(RateLocation + "Auger.txt", Store.Auger);
+	bool existPht = RateIO::RateRates(RateLocation + "Photo.txt", Store.Photo);
+	bool existFlr = RateIO::RateRates(RateLocation + "Fluor.txt", Store.Fluor);
+	bool existAug = RateIO::RateRates(RateLocation + "Auger.txt", Store.Auger);
 
 	if (existPht) printf("Photoionization rates found. Reading...\n");
 	if (existFlr) printf("Fluorescence rates found. Reading...\n");
@@ -399,10 +390,10 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		mkdir(dirstring.c_str(), ACCESSPERMS);
 	}
 
-	// bool existPht = ReadRates(RateLocation + "Photo.txt", Store.Photo);
-	// bool existFlr = ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
-	// bool existAug = ReadRates(RateLocation + "Auger.txt", Store.Auger);
-	// bool existEII = ReadEIIParams(RateLocation + "EII.json", Store.EIIparams);
+	// bool existPht = RateIO::RateRates(RateLocation + "Photo.txt", Store.Photo);
+	// bool existFlr = RateIO::RateRates(RateLocation + "Fluor.txt", Store.Fluor);
+	// bool existAug = RateIO::RateRates(RateLocation + "Auger.txt", Store.Auger);
+	// bool existEII = RateIO::ReadEIIParams(RateLocation + "EII.json", Store.EIIparams);
 	//
 	// if (existPht) printf("Photoionization rates found. Reading...\n");
 	// if (existFlr) printf("Fluorescence rates found. Reading...\n");
@@ -557,7 +548,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		}
 		if (!existEII) {
 			string dummy = RateLocation + "EII.json";
-			WriteEIIParams(dummy);
+			RateIO::WriteEIIParams(dummy);
 
 		}
 	}
@@ -575,7 +566,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
  	return Store;
 }
 
-bool RateEquationSolver::ReadRates(const string & input, vector<Rate> & PutHere)
+bool RateIO::ReadRates(const string & input, vector<Rate> & PutHere)
 {
 	if (exists_test(input))
 	{
@@ -601,7 +592,7 @@ bool RateEquationSolver::ReadRates(const string & input, vector<Rate> & PutHere)
 	else return false;
 }
 
-bool RateEquationSolver::ReadEIIParams(const string & input, vector<EIIdata> & PutHere)
+bool RateIO::ReadEIIParams(const string & input, vector<EIIdata> & PutHere)
 {
 	ifstream infile;
 	if (!exists_test(input)) return false;
@@ -661,8 +652,7 @@ bool RateEquationSolver::ReadEIIParams(const string & input, vector<EIIdata> & P
 
 }
 
-
-void RateEquationSolver::WriteEIIParams(const string& fname)
+void RateIO::WriteEIIParams(const string& fname)
 {
 	FILE * fl = safe_fopen(fname.c_str(), "w");
 	fprintf(fl, "# EII PARAMETERS\n[\n");

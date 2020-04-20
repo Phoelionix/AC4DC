@@ -52,7 +52,9 @@ using namespace std;
 class RateEquationSolver
 {
 public:
-	RateEquationSolver(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp);
+	//Orbitals are HF wavefunctions. This configuration is an initial state.
+	//Assuming there are no unoccupied states in initial configuration!!!
+	RateEquationSolver(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp) : lattice(Lattice), orbitals(Orbitals), u(U), input(Inp) {};
 	~RateEquationSolver();
 
 	// Halfwidth = 5/Constant::Time -> 5 fs half width.
@@ -101,13 +103,6 @@ protected:
 	vector<vector<int> > Index;
 	int mapOccInd(vector<RadialWF> & Orbitals);// Inverse of what Index returns.
 
-	//int SetupAndSolve(vector<Rate> rates, double I_max, double HalfWidth, ofstream & log, int & start_T_size);
-
-private:
-	bool ReadRates(const string & input, vector<Rate> & PutHere);
-	bool ReadEIIParams(const string & input, vector<CustomDataType::EIIdata> & PutHere);
-	void WriteEIIParams(const string & input);
-
 	string InterpretIndex(int i);
 
 	AtomRateData Store;
@@ -128,4 +123,12 @@ private:
 	// Keys allow to quickly find the required element. See the GenerateFromKeys().
 	vector<int> RatesFromKeys;
 	void GenerateRateKeys(vector<Rate> & ToSort);
+};
+
+
+
+namespace RateIO {
+	bool ReadRates(const string & input, vector<Rate> & PutHere);
+	bool ReadEIIParams(const string & input, vector<CustomDataType::EIIdata> & PutHere);
+	void WriteEIIParams(const string & input);
 };

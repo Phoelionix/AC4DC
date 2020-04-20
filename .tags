@@ -225,11 +225,12 @@ RadialWF	src/RadialWF.cpp	/^RadialWF::RadialWF(const RadialWF& other) : PairFunc
 RadialWF	src/RadialWF.h	/^	RadialWF(int size = 0) : PairFunction(size)$/;"	f	class:RadialWF
 RadialWF	src/RadialWF.h	/^class RadialWF : public PairFunction$/;"	c
 Rate	src/IntegrateRateEquation.h	/^struct Rate$/;"	s
-RateEquationSolver	src/RateEquationSolver.cpp	/^RateEquationSolver::RateEquationSolver(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp) :$/;"	f	class:RateEquationSolver
+RateEquationSolver	src/RateEquationSolver.h	/^	RateEquationSolver(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp) : lattice(Lattice), orbitals(Orbitals), u(U), input(Inp) {};$/;"	f	class:RateEquationSolver
 RateEquationSolver	src/RateEquationSolver.h	/^class RateEquationSolver$/;"	c
+RateIO	src/RateEquationSolver.h	/^namespace RateIO {$/;"	n
 RatesFromKeys	src/RateEquationSolver.h	/^	vector<int> RatesFromKeys;$/;"	m	class:RateEquationSolver
-ReadEIIParams	src/RateEquationSolver.cpp	/^bool RateEquationSolver::ReadEIIParams(const string & input, vector<EIIdata> & PutHere)$/;"	f	class:RateEquationSolver
-ReadRates	src/RateEquationSolver.cpp	/^bool RateEquationSolver::ReadRates(const string & input, vector<Rate> & PutHere)$/;"	f	class:RateEquationSolver
+ReadEIIParams	src/RateEquationSolver.cpp	/^bool RateIO::ReadEIIParams(const string & input, vector<EIIdata> & PutHere)$/;"	f	class:RateIO
+ReadRates	src/RateEquationSolver.cpp	/^bool RateIO::ReadRates(const string & input, vector<Rate> & PutHere)$/;"	f	class:RateIO
 RecalcWF	src/Numerics.cpp	/^int Interpolation::RecalcWF(RadialWF &S_old, Grid &Lattice_old, RadialWF &S_new, Grid &Lattice_new)$/;"	f	class:Interpolation
 Reset	src/Potential.cpp	/^void Potential::Reset()\/\/clear the Direct potential V and sets and equates it to the Nuclear$/;"	f	class:Potential
 RiemannZeta3	src/Constant.h	/^	const double RiemannZeta3 = 1.202056903159594;$/;"	m	namespace:Constant
@@ -285,7 +286,7 @@ Wigner3j	src/Constant.cpp	/^	double Wigner3j(double j1, double j2, double j3, do
 WignerSymbols	src/Wigner/commonFunctions.h	/^namespace WignerSymbols {$/;"	n
 WignerSymbols	src/Wigner/wignerSymbols.cpp	/^namespace WignerSymbols {$/;"	n	file:
 WignerSymbols	src/Wigner/wignerSymbols.h	/^namespace WignerSymbols {$/;"	n
-WriteEIIParams	src/RateEquationSolver.cpp	/^void RateEquationSolver::WriteEIIParams(const string& fname)$/;"	f	class:RateEquationSolver
+WriteEIIParams	src/RateEquationSolver.cpp	/^void RateIO::WriteEIIParams(const string& fname)$/;"	f	class:RateIO
 Write_Charges	src/Input.h	/^	bool Write_Charges() {return write_charges; }$/;"	f	class:Input
 Write_Charges	src/Input.h	/^	bool Write_Charges() {return write_charges; }$/;"	f	class:MolInp
 Write_Intensity	src/Input.h	/^	bool Write_Intensity() {return write_intensity; }$/;"	f	class:Input
@@ -323,6 +324,7 @@ au2_in_Mbarn	src/Constant.h	/^	const double au2_in_Mbarn = 5.2917721067*5.291772
 au2_in_barn	src/Constant.h	/^	const double au2_in_barn = 5.2917721067*5.2917721067*1000000;\/\/atomic units to Barns.$/;"	m	namespace:Constant
 au_in_Angs	src/Constant.h	/^	const double au_in_Angs = 0.52917721067; \/\/ Bohr radius = 1 atomic unit in Angstrom.$/;"	m	namespace:Constant
 auger	src/Constant.h	/^	struct auger\/\/auger decay rate$/;"	s	namespace:CustomDataType
+auger	src/solver.cpp	/^    vector<Rate> auger;$/;"	m	struct:rate_store	file:
 ax	scripts/MD_data_Plot.py	/^ax = fig.add_subplot(111)$/;"	v
 ax2	scripts/MD_data_Plot.py	/^ax2 = ax.twinx()$/;"	v
 begin	include/cxxopts.hpp	/^  begin(const icu::UnicodeString& s)$/;"	f	namespace:std
@@ -372,6 +374,7 @@ dt	src/IntegrateRateEquation.h	/^	vector<double>& dt;$/;"	m	class:IntegrateRateE
 dt	src/SystemSolver.h	/^    double dt;$/;"	m	class:SystemSolver
 eV_in_au	src/Constant.h	/^	const double eV_in_au = 27.211385;\/\/electron volts in atomic units$/;"	m	namespace:Constant
 e_dist	src/NTPlasma.h	/^    vector<nte_state_t> e_dist;$/;"	m	class:NTPlasma
+eii	src/solver.cpp	/^    vector<CustomDataType::EIIdata> eii;$/;"	m	struct:rate_store	file:
 eii_aux	src/NTPlasma.cpp	/^double eii_aux(double e)$/;"	f
 eject	src/Constant.h	/^		int eject;$/;"	m	struct:CustomDataType::auger
 elec_state_t	src/Plasma.h	/^struct elec_state_t {$/;"	s
@@ -402,6 +405,7 @@ fintegral	src/NTPlasma.cpp	/^double NTPlasma::fintegral(double (&g)(double))$/;"
 fluence	src/Input.h	/^	double fluence = 0; \/\/ XFEL pulse fluence, 10^4 J\/cm^2.$/;"	m	class:MolInp
 fluence	src/Input.h	/^	double fluence = 0; \/\/ XFEL pulse fluence.$/;"	m	class:Input
 fluor	src/Constant.h	/^	struct fluor\/\/fluorescence rate$/;"	s	namespace:CustomDataType
+fluor	src/solver.cpp	/^    vector<Rate> fluor;$/;"	m	struct:rate_store	file:
 format_description	include/cxxopts.hpp	/^    format_description$/;"	f	namespace:cxxopts::__anon4
 format_option	include/cxxopts.hpp	/^    format_option$/;"	f	namespace:cxxopts::__anon4
 from	src/IntegrateRateEquation.h	/^	long int from = 0;$/;"	m	struct:Rate
@@ -644,6 +648,7 @@ path	scripts/MD_data_Plot.py	/^import os.path as path$/;"	i
 path	scripts/MD_data_Plot.py	/^path = path.abspath(path.join(__file__ ,"..\/..\/output"))$/;"	v
 path	scripts/atomic_charge_Plot.py	/^import os.path as path$/;"	i
 photo	src/Constant.h	/^	struct photo\/\/photoionization rate$/;"	s	namespace:CustomDataType
+photo	src/solver.cpp	/^    vector<Rate> photo;$/;"	m	struct:rate_store	file:
 pl	scripts/atomic_charge_Plot.py	/^pl = Plotter(sys.argv[1])$/;"	v
 plot_avg_charge	scripts/atomic_charge_Plot.py	/^    def plot_avg_charge(self):$/;"	m	class:Plotter
 plot_bound	scripts/atomic_charge_Plot.py	/^    def plot_bound(self):$/;"	m	class:Plotter
@@ -659,6 +664,8 @@ psi	src/HartreeFock.h	/^	RadialWF * psi;$/;"	m	class:GreensMethod
 r	src/Grid.h	/^	std::vector<double> r, dr;$/;"	m	class:Grid
 r_well	src/Potential.h	/^	double r_well = 0.0000001;$/;"	m	class:Potential
 radius	src/Input.h	/^	double radius = 1000.;$/;"	m	class:MolInp
+rate_store	src/solver.cpp	/^struct rate_store {$/;"	s	file:
+read_data	src/solver.cpp	/^bool read_data( const string& stem, rate_store& store ){$/;"	f
 read_vector	src/RateEquationSolver.cpp	/^void read_vector(const string& s, vector<T>&v){$/;"	f
 refEnergy	src/Constant.h	/^		double refEnergy;\/\/ Energy of the reference configuration.$/;"	m	struct:CustomDataType::polarize
 reference	src/Constant.h	/^		vector<int> reference;\/\/ Contains only occupancies of Orbitals, no Virtual included.$/;"	m	struct:CustomDataType::polarize
