@@ -11,14 +11,14 @@ A	src/Numerics.h	/^	vector<double> A, B, C, D, X, Y;$/;"	m	class:Adams
 AB_COEFF	src/Adams_arrays.h	/^const double AB_COEFF[16][16] = {$/;"	m	namespace:AdamsArrays
 AC4DC_INPUT_CXX_H	src/Input.h	/^#define AC4DC_INPUT_CXX_H$/;"	d
 ADAMS_ARRAY_CXX_H	src/Adams_arrays.h	/^#define ADAMS_ARRAY_CXX_H$/;"	d
-ADAMS_CXX_H	src/Numerics2.hpp	/^#define ADAMS_CXX_H$/;"	d
+ADAMS_CXX_H	src/AdamsIntegrator.hpp	/^#define ADAMS_CXX_H$/;"	d
 AM_COEFF	src/Adams_arrays.h	/^const double AM_COEFF[16][16] = {$/;"	m	namespace:AdamsArrays
 A_k	src/DecayRates.cpp	/^double A_k(int k, int L, int la, int lb, int lc, int ld)$/;"	f
 Adams	src/Numerics.cpp	/^Adams::Adams(Grid &Latt, int AdamsOrder) : Lattice(Latt)$/;"	f	class:Adams
 Adams	src/Numerics.h	/^class Adams$/;"	c
-Adams	src/Numerics2.hpp	/^Adams_BM<T>::Adams(T& initial_state, T (* f)(const T& q, double t), double dt, int order):$/;"	f	class:Adams_BM
 AdamsArrays	src/Adams_arrays.h	/^namespace AdamsArrays{$/;"	n
-Adams_BM	src/Numerics2.hpp	/^class Adams_BM : public IVPSolver<T>{$/;"	c
+Adams_BM	src/AdamsIntegrator.hpp	/^Adams_BM<T>::Adams_BM(void (& f)(const T& q, T& qdot, const double t), int order):$/;"	f	class:Adams_BM
+Adams_BM	src/AdamsIntegrator.hpp	/^class Adams_BM : public IVPSolver<T>{$/;"	c
 Adams_Coeff	src/Numerics.h	/^	vector<double> Adams_Coeff;$/;"	m	class:Adams
 Adams_N	src/Numerics.h	/^	int Adams_N;$/;"	m	class:Adams
 AllProbs	src/RateEquationSolver.h	/^	vector<vector<double>> AllProbs() {return P;}$/;"	f	class:RateEquationSolver
@@ -67,7 +67,7 @@ EigenValues	src/EigenSolver.h	/^	Eigen::VectorXd EigenValues;$/;"	m	class:EigenS
 EigenVecs	src/EigenSolver.cpp	/^vector<vector<double>> EigenSolver::EigenVecs()$/;"	f	class:EigenSolver
 EigenVectors	src/EigenSolver.h	/^	Eigen::MatrixXd EigenVectors;$/;"	m	class:EigenSolver
 ElectronSolver	src/ElectronSolver.cpp	/^ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :$/;"	f	class:ElectronSolver
-ElectronSolver	src/ElectronSolver.h	/^class ElectronSolver : public MolInp$/;"	c
+ElectronSolver	src/ElectronSolver.h	/^class ElectronSolver : public MolInp, private Adams_BM<state_type>$/;"	c
 Energy	src/RadialWF.h	/^	double Energy = 0;$/;"	m	class:RadialWF
 Ep	src/Plasma.h	/^	double Ep;$/;"	m	struct:elec_state_t
 Exchange	src/Potential.h	/^	vector<double> Exchange;$/;"	m	class:Potential
@@ -123,8 +123,8 @@ HartreeFock	src/HartreeFock.cpp	/^HartreeFock::HartreeFock(Grid &Lattice, vector
 HartreeFock	src/HartreeFock.h	/^class HartreeFock$/;"	c
 HelpGroupDetails	include/cxxopts.hpp	/^  struct HelpGroupDetails$/;"	s	namespace:cxxopts
 HelpOptionDetails	include/cxxopts.hpp	/^  struct HelpOptionDetails$/;"	s	namespace:cxxopts
-IVPSolver	src/Numerics2.hpp	/^IVPSolver<T>::IVPSolver(T& initial_state, T (* f)(const T& q, double t), double dt){$/;"	f	class:IVPSolver
-IVPSolver	src/Numerics2.hpp	/^class IVPSolver{$/;"	c
+IVPSolver	src/AdamsIntegrator.hpp	/^IVPSolver<T>::IVPSolver(void (& f)(const T& q, T& qdot, const double t)){$/;"	f	class:IVPSolver
+IVPSolver	src/AdamsIntegrator.hpp	/^class IVPSolver{$/;"	c
 Index	src/Input.h	/^	vector<vector<vector<int>>> Index;$/;"	m	class:MolInp
 Index	src/RateEquationSolver.h	/^	vector<vector<int> > Index;$/;"	m	class:RateEquationSolver
 Input	src/Input.cpp	/^Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream & log)$/;"	f	class:Input
@@ -278,7 +278,6 @@ Store	src/Input.h	/^	vector<RateData::Atom> Store;$/;"	m	class:MolInp
 Store	src/RateEquationSolver.h	/^	RateData::Atom Store;$/;"	m	class:RateEquationSolver
 String	include/cxxopts.hpp	/^  typedef icu::UnicodeString String;$/;"	t	namespace:cxxopts
 Symbolic	src/RateEquationSolver.cpp	/^int RateEquationSolver::Symbolic(const string & input, const string & output)$/;"	f	class:RateEquationSolver
-T	src/ElectronSolver.h	/^    std::vector<double> T; \/\/ Times, in fs$/;"	m	class:ElectronSolver
 T	src/RateEquationSolver.h	/^	vector<double> T;\/\/ Time grid points.$/;"	m	class:RateEquationSolver
 T_avg_Charge	src/RateEquationSolver.cpp	/^double RateEquationSolver::T_avg_Charge()$/;"	f	class:RateEquationSolver
 T_avg_RMS	src/RateEquationSolver.cpp	/^double RateEquationSolver::T_avg_RMS(vector<pair<double, int>> conf_RMS)$/;"	f	class:RateEquationSolver
@@ -308,7 +307,6 @@ Write_Intensity	src/Input.h	/^	bool Write_Intensity() {return write_intensity; }
 Write_Intensity	src/Input.h	/^	bool Write_Intensity() {return write_intensity; }$/;"	f	class:MolInp
 Write_MD_data	src/Input.h	/^	bool Write_MD_data() {return write_md_data; }$/;"	f	class:MolInp
 X	src/Numerics.h	/^	vector<double> A, B, C, D, X, Y;$/;"	m	class:Adams
-Y	src/ElectronSolver.h	/^    std::vector<state_type> Y; \/\/ stores the state_t's$/;"	m	class:ElectronSolver
 Y	src/Numerics.h	/^	vector<double> A, B, C, D, X, Y;$/;"	m	class:Adams
 Y_k	src/Potential.cpp	/^std::vector<double> Potential::Y_k(int k, std::vector<double> density, int infinity, int L)$/;"	f	class:Potential
 Z	src/Input.h	/^	int Z;$/;"	m	class:Input
@@ -341,8 +339,8 @@ au_in_Angs	src/Constant.h	/^	const double au_in_Angs = 0.52917721067; \/\/ Bohr 
 auger	src/Constant.h	/^	struct auger\/\/auger decay rate$/;"	s	namespace:CustomDataType
 ax	scripts/MD_data_Plot.py	/^ax = fig.add_subplot(111)$/;"	v
 ax2	scripts/MD_data_Plot.py	/^ax2 = ax.twinx()$/;"	v
-b_AB	src/Numerics2.hpp	/^    const double* b_AB;$/;"	m	class:Adams_BM
-b_AM	src/Numerics2.hpp	/^    const double* b_AM;$/;"	m	class:Adams_BM
+b_AB	src/AdamsIntegrator.hpp	/^    const double* b_AB;$/;"	m	class:Adams_BM
+b_AM	src/AdamsIntegrator.hpp	/^    const double* b_AM;$/;"	m	class:Adams_BM
 begin	include/cxxopts.hpp	/^  begin(const icu::UnicodeString& s)$/;"	f	namespace:std
 beta	src/Grid.h	/^	double beta;$/;"	m	class:Grid
 bound_t	src/RateSystem.h	/^    typedef std::vector<double> bound_t; \/\/ Probabilities of state$/;"	t	class:state_type
@@ -386,9 +384,8 @@ dpdt	src/IntegrateRateEquation.h	/^	vector<vector<double>> dpdt;$/;"	m	class:Int
 dr	src/Grid.h	/^	std::vector<double> r, dr;$/;"	m	class:Grid
 dropl_R	src/Input.h	/^	double dropl_R() {return radius;}$/;"	f	class:MolInp
 ds	src/Grid.h	/^	double ds;$/;"	m	class:Grid
-dt	src/ElectronSolver.h	/^    double dt;$/;"	m	class:ElectronSolver
+dt	src/AdamsIntegrator.hpp	/^    double dt;$/;"	m	class:IVPSolver
 dt	src/IntegrateRateEquation.h	/^	vector<double>& dt;$/;"	m	class:IntegrateRateEquation
-dt	src/Numerics2.hpp	/^    double dt;$/;"	m	class:IVPSolver
 eV_in_au	src/Constant.h	/^	const double eV_in_au = 27.211385;\/\/electron volts in atomic units$/;"	m	namespace:Constant
 eject	src/Constant.h	/^		int eject;$/;"	m	struct:CustomDataType::auger
 elec_state_t	src/Plasma.h	/^struct elec_state_t {$/;"	s
@@ -426,7 +423,7 @@ format_option	include/cxxopts.hpp	/^    format_option$/;"	f	namespace:cxxopts::_
 from	src/Constant.h	/^		long int from = 0;$/;"	m	struct:RateData::Rate
 from	src/ElectronSolver.cpp	/^double Weight::from(size_t idx){$/;"	f	class:Weight
 fs_in_au	src/Constant.h	/^	const double fs_in_au = 0.02418884;\/\/femtosecond in au$/;"	m	namespace:Constant
-func	src/Numerics2.hpp	/^    T (* func)(const T& q, double t);$/;"	m	class:IVPSolver
+func	src/AdamsIntegrator.hpp	/^    void (& func)(const T& q, T& qdot, const double t);$/;"	m	class:IVPSolver
 gaussW_10	src/Constant.h	/^static const double gaussW_10[10] = {0.066671344308688, 0.14945134915058, 0.21908636251598, 0.26926671931000, 0.29552422471475,$/;"	v
 gaussW_10	src/Numerics.cpp	/^static const double gaussW_10[10] = {0.066671344308688, 0.14945134915058, 0.21908636251598, 0.26926671931000, 0.29552422471475,$/;"	v	file:
 gaussW_13	src/Constant.h	/^static const double gaussW_13[13] = {0.04048400476531614, 0.09212149983772834, 0.13887351021978736, 0.17814598076194582,$/;"	v
@@ -452,7 +449,7 @@ get_Gauss_X	src/Numerics.cpp	/^vector<double> GaussQuad::get_Gauss_X(double a, d
 get_default_value	include/cxxopts.hpp	/^      get_default_value() const$/;"	f	class:cxxopts::values::abstract_value
 get_file_names	src/solver.cpp	/^int get_file_names(const char* infile_, string &name, string &logfile) {$/;"	f
 get_implicit_value	include/cxxopts.hpp	/^      get_implicit_value() const$/;"	f	class:cxxopts::values::abstract_value
-get_order	src/Numerics2.hpp	/^int Adams_BM<T>::get_order(){$/;"	f	class:Adams_BM
+get_order	src/AdamsIntegrator.hpp	/^int Adams_BM<T>::get_order(){$/;"	f	class:Adams_BM
 get_value	src/Numerics.cpp	/^vector<double> Interpolation::get_value(PairFunction &S_old, Grid &Lattice_old, double X)$/;"	f	class:Interpolation
 get_value	src/Numerics.cpp	/^vector<double> Interpolation::get_value(vector<double> &f, vector<double> &x_ini, double X)$/;"	f	class:Interpolation
 group_help	include/cxxopts.hpp	/^Options::group_help(const std::string& group) const$/;"	f	class:cxxopts::Options
@@ -601,6 +598,7 @@ operator *=	src/Plasma.h	/^	void operator*=(const elec_state_t &a){$/;"	f	struct
 operator *=	src/RateSystem.h	/^    state_type& operator*=(const double x){$/;"	f	class:state_type
 operator +	include/cxxopts.hpp	/^    operator+(int32_t v)$/;"	f	class:cxxopts::UnicodeStringIterator
 operator +	src/Plasma.h	/^	elec_state_t operator+(const elec_state_t &a){$/;"	f	struct:elec_state_t
+operator +	src/RateSystem.h	/^    state_type operator+(const state_type& s2){$/;"	f	class:state_type
 operator ++	include/cxxopts.hpp	/^    operator++()$/;"	f	class:cxxopts::UnicodeStringIterator
 operator +=	src/Plasma.h	/^	void operator+=(const elec_state_t &a){$/;"	f	struct:elec_state_t
 operator +=	src/RateSystem.h	/^    state_type& operator+=(const state_type &s){$/;"	f	class:state_type
@@ -630,9 +628,9 @@ option_requires_argument_exception	include/cxxopts.hpp	/^  class option_requires
 options	include/cxxopts.hpp	/^    std::vector<HelpOptionDetails> options;$/;"	m	struct:cxxopts::HelpGroupDetails
 orbitals	src/DecayRates.h	/^	vector<RadialWF>& orbitals;$/;"	m	class:DecayRates
 orbitals	src/RateEquationSolver.h	/^	vector<RadialWF> & orbitals;$/;"	m	class:RateEquationSolver
+order	src/AdamsIntegrator.hpp	/^    int order;$/;"	m	class:Adams_BM
 order	src/Numerics.h	/^	int order;$/;"	m	class:GaussQuad
 order	src/Numerics.h	/^	int order;$/;"	m	class:Interpolation
-order	src/Numerics2.hpp	/^    int order;$/;"	m	class:Adams_BM
 os	scripts/MD_data_Plot.py	/^import os.path as path$/;"	i
 os	scripts/atomic_charge_Plot.py	/^import os.path as path$/;"	i
 out_T_size	src/Input.h	/^	int out_T_size = 0; \/\/ Unlike atomic input, causes to output all points.$/;"	m	class:MolInp
@@ -680,7 +678,7 @@ polarize	src/Constant.h	/^	struct polarize$/;"	s	namespace:CustomDataType
 positional_help	include/cxxopts.hpp	/^    positional_help(std::string help_text)$/;"	f	class:cxxopts::Options
 potential	src/Input.h	/^	string potential = "V_N";$/;"	m	class:Input
 pract_infinity	src/RadialWF.h	/^	int pract_infinity() { return infinity; }$/;"	f	class:RadialWF
-print	src/Numerics2.hpp	/^void IVPSolver<T>::print(){$/;"	f	class:IVPSolver
+print	src/AdamsIntegrator.hpp	/^void IVPSolver<T>::print(){$/;"	f	class:IVPSolver
 print_est	tests/plasma_logic.cpp	/^void print_est(elec_state_t &es){$/;"	f
 psi	src/HartreeFock.h	/^	RadialWF * psi;$/;"	m	class:GreensMethod
 r	src/Grid.h	/^	std::vector<double> r, dr;$/;"	m	class:Grid
@@ -703,13 +701,13 @@ scaling	scripts/MD_data_Plot.py	/^scaling = np.max(charge)*1.2$/;"	v
 set_L	src/RadialWF.cpp	/^void RadialWF::set_L(int X)$/;"	f	class:RadialWF
 set_N	src/RadialWF.h	/^	void set_N(int X) { n = X; }$/;"	f	class:RadialWF
 set_default_and_implicit	include/cxxopts.hpp	/^      set_default_and_implicit()$/;"	f	class:cxxopts::values::standard_value
+set_dt	src/AdamsIntegrator.hpp	/^void IVPSolver<T>::set_dt(const double _dt){$/;"	f	class:IVPSolver
 set_infinity	src/RadialWF.h	/^	void set_infinity(int X) { infinity = X; }$/;"	f	class:RadialWF
-set_initial_conditions	src/ElectronSolver.cpp	/^void ElectronSolver::set_initial_conditions(){$/;"	f	class:ElectronSolver
 set_occupancy	src/RadialWF.h	/^	void set_occupancy(int X) { occup_number = X; }\/\/set custom occupancy, useful for average over configurations$/;"	f	class:RadialWF
 set_order	src/Numerics.cpp	/^void GaussQuad::set_order(int Order)$/;"	f	class:GaussQuad
 set_parameters	src/ElectronSolver.cpp	/^void PhotonFlux::set_parameters(double fluence, double fwhm){$/;"	f	class:PhotonFlux
-set_steps	src/ElectronSolver.cpp	/^void ElectronSolver::set_steps(size_t num_steps){$/;"	f	class:ElectronSolver
 set_turn	src/RadialWF.h	/^	void set_turn(int X) { turn = X; } \/\/ calculate number of nodes till turning point, discard the nodes after the turning point$/;"	f	class:RadialWF
+set_y0	src/AdamsIntegrator.hpp	/^void IVPSolver<T>::set_y0(const T& initial_state){$/;"	f	class:IVPSolver
 setup_axes	scripts/atomic_charge_Plot.py	/^    def setup_axes(self):$/;"	m	class:Plotter
 sgn	src/Wigner/commonFunctions.h	/^double sgn(T val)$/;"	f	namespace:WignerSymbols
 short_name	include/cxxopts.hpp	/^    short_name() const$/;"	f	class:cxxopts::OptionDetails
@@ -720,8 +718,8 @@ size	src/ElectronSolver.h	/^    size_t size;$/;"	m	class:Weight
 size	src/Grid.h	/^	int size() {$/;"	f	class:Grid
 size	src/PairFunction.h	/^	int size() { return static_cast<int>(F.size()); }$/;"	f	class:PairFunction
 solve	scripts/coeff.py	/^from numpy.linalg import solve$/;"	i
+solve	src/AdamsIntegrator.hpp	/^double Adams_BM<T>::solve(double t_initial, size_t npoints){$/;"	f	class:Adams_BM
 solve	src/ElectronSolver.cpp	/^void ElectronSolver::solve(){$/;"	f	class:ElectronSolver
-solve	src/Numerics2.hpp	/^long Adams_BM<T>::solve(double t_initial, long npoints){$/;"	f	class:Adams_BM
 sortEIIbyInd	src/RateEquationSolver.h	/^	static bool sortEIIbyInd(CustomDataType::EIIdata A, CustomDataType::EIIdata B) { return (A.init < B.init); }$/;"	f	class:RateEquationSolver
 sortRatesFrom	src/RateEquationSolver.h	/^	static bool sortRatesFrom(RateData::Rate A, RateData::Rate B) { return (A.from < B.from); }$/;"	f	class:RateEquationSolver
 sortRatesTo	src/RateEquationSolver.h	/^	static bool sortRatesTo(RateData::Rate A, RateData::Rate B) { return (A.to < B.to); }$/;"	f	class:RateEquationSolver
@@ -735,8 +733,8 @@ state_type	src/RateSystem.h	/^    state_type(const vector<RateData::Atom>& atoms
 state_type	src/RateSystem.h	/^    state_type(const vector<int> P_sizes, const size_t f_size){$/;"	f	class:state_type
 state_type	src/RateSystem.h	/^class state_type$/;"	c
 std	include/cxxopts.hpp	/^namespace std$/;"	n
-step	src/Numerics2.hpp	/^void Adams_BM<T>::step(int n){$/;"	f	class:Adams_BM
-step_rk4	src/Numerics2.hpp	/^void Adams_BM<T>::step_rk4(int n){$/;"	f	class:Adams_BM
+step	src/AdamsIntegrator.hpp	/^void Adams_BM<T>::step(int n){$/;"	f	class:Adams_BM
+step_rk4	src/AdamsIntegrator.hpp	/^void Adams_BM<T>::step_rk4(int n){$/;"	f	class:Adams_BM
 store	src/IntegrateRateEquation.h	/^	RateData::Atom& store;$/;"	m	class:IntegrateRateEquation
 stringAppend	include/cxxopts.hpp	/^  stringAppend(String& s, Iterator begin, Iterator end)$/;"	f	namespace:cxxopts
 stringAppend	include/cxxopts.hpp	/^  stringAppend(String& s, int n, UChar32 c)$/;"	f	namespace:cxxopts
@@ -747,8 +745,8 @@ subprocess	scripts/atomic_charge_Plot.py	/^import subprocess$/;"	i
 sys	scripts/atomic_charge_Plot.py	/^import sys$/;"	i
 sys	scripts/atomic_input.py	/^import sys$/;"	i
 sys	src/ElectronSolver.cpp	/^void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){$/;"	f	class:ElectronSolver
+t	src/AdamsIntegrator.hpp	/^    vector<double> t;$/;"	m	class:IVPSolver
 t	src/IntegrateRateEquation.h	/^	vector<double>& t;$/;"	m	class:IntegrateRateEquation
-t	src/Numerics2.hpp	/^    vector<double> t;$/;"	m	class:IVPSolver
 time	scripts/MD_data_Plot.py	/^time = file_content[:, 0]$/;"	v
 time	scripts/atomic_charge_Plot.py	/^import time$/;"	i
 time_storage	src/IntegrateRateEquation.h	/^	vector<double> time_storage;$/;"	m	class:IntegrateRateEquation
@@ -798,13 +796,12 @@ write_charges	src/Input.h	/^	bool write_charges = false;$/;"	m	class:MolInp
 write_intensity	src/Input.h	/^	bool write_intensity = false;$/;"	m	class:Input
 write_intensity	src/Input.h	/^	bool write_intensity = false;$/;"	m	class:MolInp
 write_md_data	src/Input.h	/^	bool write_md_data = true;$/;"	m	class:MolInp
-y	src/Numerics2.hpp	/^    vector<T> y;$/;"	m	class:IVPSolver
+y	src/AdamsIntegrator.hpp	/^    vector<T> y;$/;"	m	class:IVPSolver
 zero_state	src/Plasma.cpp	/^static const elec_state_t zero_state = {0,0,0,0};$/;"	v	file:
-zero_y	src/Numerics2.hpp	/^    T zero_y;$/;"	m	class:IVPSolver
+zero_y	src/AdamsIntegrator.hpp	/^    T zero_y;$/;"	m	class:IVPSolver
 ~Adams	src/Numerics.cpp	/^Adams::~Adams()$/;"	f	class:Adams
 ~DecayRates	src/DecayRates.cpp	/^DecayRates::~DecayRates()$/;"	f	class:DecayRates
 ~EigenSolver	src/EigenSolver.h	/^	~EigenSolver() {}$/;"	f	class:EigenSolver
-~ElectronSolver	src/ElectronSolver.cpp	/^ElectronSolver::~ElectronSolver(){$/;"	f	class:ElectronSolver
 ~GaussQuad	src/Numerics.h	/^	~GaussQuad() {};$/;"	f	class:GaussQuad
 ~Grid	src/Grid.cpp	/^Grid::~Grid(void)$/;"	f	class:Grid
 ~HartreeFock	src/HartreeFock.cpp	/^HartreeFock::~HartreeFock()$/;"	f	class:HartreeFock

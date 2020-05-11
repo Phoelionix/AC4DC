@@ -37,31 +37,13 @@ double Weight::to(size_t idx){
 }
 
 ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
-    MolInp(filename, log), pf(width, 100000*fluence)
+    MolInp(filename, log), Adams_BM<state_type>([this](const state_type& s, state_type& sd, const double t){sys(s,sd,t);}), pf(width, 100000*fluence)
 {
     this->timespan = this->width*10;
     set_steps(this->num_time_steps);
-
-}
-
-ElectronSolver::~ElectronSolver(){
-    delete abm;
-}
-
-void ElectronSolver::set_steps(size_t num_steps){
-    this->dt = this->timespan/num_steps;
+    this->set_dt(this->timespan/num_steps);
+    this->set_y0(state_type(Store, num_elec_points));
     cout<<"Using timestep"<<this->dt<<"fs";
-    this->T.resize(num_steps);
-    this->Y.resize(num_steps);
-    set_initial_conditions();
-}
-
-void ElectronSolver::set_initial_conditions(){
-    // Set the initial T such that pulse peak occurs at T=0
-    T[0] = -timespan/2;
-    Y[0] = state_type(Store, num_elec_points);
-    this->abm = new Adams_BM<state_type> (Y[0], [this](const state_type& s, state_type& sdot, const double t) { this->sys(s,sdot,t); },
-        dt, 5);
 }
 
 void ElectronSolver::solve(){

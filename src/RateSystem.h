@@ -1,10 +1,11 @@
 #ifndef RATESYSTEM_CXX_H
 #define RATESYSTEM_CXX_H
 
-#include <Numerics2.hpp>
+
 #include <sstream>
 #include <assert.h>
 #include "Constant.h"
+#include "AdamsIntegrator.hpp"
 
 using namespace std;
 
@@ -78,6 +79,12 @@ public:
             f[i] *= x;
         }
         return *this;
+    }
+
+    state_type operator+(const state_type& s2){
+        state_type retval = *this;
+        retval += s2;
+        return retval;
     }
 
     // convenience members

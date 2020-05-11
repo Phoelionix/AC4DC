@@ -5,7 +5,7 @@
 This file should arguably be called RateEquationSOlver, however, for historical reasons it is not.
 */
 // #include <boost/numeric/odeint.hpp>
-#include <Numerics2.hpp>
+#include "AdamsIntegrator.hpp"
 #include "RateSystem.h"
 #include "Constant.h"
 #include "Input.h"
@@ -14,7 +14,7 @@ This file should arguably be called RateEquationSOlver, however, for historical 
 
 
 
-using namespace boost::numeric::odeint;
+// using namespace boost::numeric::odeint;
 
 // template<size_t Steps, typename State, typename Value = double,
 //          typename Deriv = State, typename Time = Value,
@@ -55,28 +55,22 @@ protected:
 };
 
 
-class ElectronSolver : public MolInp
+class ElectronSolver : public MolInp, private Adams_BM<state_type>
 {
 public:
     ElectronSolver(const char* filename, ofstream& log);
-    ~ElectronSolver();
     void solve();
     void print(const std::string& fname);
-    std::vector<double> T; // Times, in fs
-    std::vector<state_type> Y; // stores the state_t's
 private:
 
     Adams_BM<state_type> *abm;
-    double dt;
     double timespan;
-    void set_steps(size_t);
     // Model parameters
     PhotonFlux pf;
     void set_flux(double fluence_in_Jcm2);
     void set_initial_conditions();
     void sys(const state_type& s, state_type& sdot, const double t);
 
-    friend class Adams_BM<state_type>;
 };
 
 
