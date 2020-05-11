@@ -37,7 +37,16 @@ This file is part of AC4DC.
 #include "Plasma.h"
 #include <utility>
 
+
+namespace RateIO {
+	bool ReadRates(const string & input, vector<RateData::Rate> & PutHere);
+	bool ReadEIIParams(const string & input, vector<CustomDataType::EIIdata> & PutHere);
+	void WriteEIIParams(const string& fname, RateData::Atom& Store);
+};
+
 using namespace std;
+
+
 
 //Class for solving system of linear coupled diffecrential equations of the form
 //
@@ -59,7 +68,7 @@ public:
 
 	// Halfwidth = 5/Constant::Time -> 5 fs half width.
 	int SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & log);
-	AtomRateData SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & log);
+	RateData::Atom SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & log);
 	// Atomic.
 	int SetupAndSolve(ofstream & log);
 	// Molecular.
@@ -105,7 +114,7 @@ protected:
 
 	string InterpretIndex(int i);
 
-	AtomRateData Store;
+	RateData::Atom Store;
 
 	vector<CustomDataType::ffactor> FF;
 	vector<int> hole_posit;
@@ -118,17 +127,9 @@ protected:
 	double T_avg_Charge();
 
 	static bool sortEIIbyInd(CustomDataType::EIIdata A, CustomDataType::EIIdata B) { return (A.init < B.init); }
-	static bool sortRatesFrom(Rate A, Rate B) { return (A.from < B.from); }
-	static bool sortRatesTo(Rate A, Rate B) { return (A.to < B.to); }
+	static bool sortRatesFrom(RateData::Rate A, RateData::Rate B) { return (A.from < B.from); }
+	static bool sortRatesTo(RateData::Rate A, RateData::Rate B) { return (A.to < B.to); }
 	// Keys allow to quickly find the required element. See the GenerateFromKeys().
 	vector<int> RatesFromKeys;
-	void GenerateRateKeys(vector<Rate> & ToSort);
-};
-
-
-
-namespace RateIO {
-	bool ReadRates(const string & input, vector<Rate> & PutHere);
-	bool ReadEIIParams(const string & input, vector<CustomDataType::EIIdata> & PutHere);
-	void WriteEIIParams(const string & input);
+	void GenerateRateKeys(vector<RateData::Rate> & ToSort);
 };

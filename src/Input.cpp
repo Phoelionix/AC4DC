@@ -18,6 +18,7 @@ This file is part of AC4DC.
 #include "Constant.h"
 #include <fstream>
 #include <sstream>
+#include <iostream>
 #include <map>
 
 Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream & log)
@@ -161,11 +162,12 @@ Input::~Input()
 {
 }
 
-MolInp::MolInp(char* filename, ofstream & log)
+MolInp::MolInp(const char* filename, ofstream & log)
 {
 	// Input file for molecular ionization calculation.
 	map<string, vector<string>> FileContent;
 
+	std::cout<<"Attempting to open "<<filename<<"..."<<endl;
 	name = filename;
 	size_t lastdot = name.find_last_of(".");
 	if (lastdot != std::string::npos) name = name.substr(0, lastdot);
@@ -173,6 +175,7 @@ MolInp::MolInp(char* filename, ofstream & log)
 	if (lastdot != std::string::npos) name = name.substr(lastslash+1);
 
 	ifstream infile(filename);
+	std::cout<<"Success!"<<endl;
 	string comment = "//";
 	string curr_key = "";
 
@@ -246,12 +249,28 @@ MolInp::MolInp(char* filename, ofstream & log)
 
 		if (n == 0) stream >> num_time_steps;
 		if (n == 1) stream >> omp_threads;
+		// Optional parameters to flag use of non-thermal plasma
+		if (n == 3) {
+			string tmp;
+			stream >> tmp;
+			if (tmp == "nonthermal "){
+				use_thermal_plasma = false;
+				std::cout << "Nonthermal plasma selected..." << std::endl;
+			}
+		}
+		if (n == 2) stream >> min_elec_e;
+		if (n == 3) stream >> max_elec_e;
+		if (n == 4) stream >> num_elec_points;
+
 	}
 
   // Convert to number of photon flux.
   fluence /= omega/Constant::eV_in_au;
 	radius /= Constant::au_in_Angs;
 	unit_V /= Constant::au_in_Angs*Constant::au_in_Angs*Constant::au_in_Angs;
+
+	min_elec_e /= Constant::eV_in_au;
+	max_elec_e /= Constant::eV_in_au;
 
 	for (int i = 0; i < num_atoms; i++) {
 		string at_name;

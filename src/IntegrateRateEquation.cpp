@@ -24,7 +24,7 @@ inline bool CompareChar(vector<char>&, char);
 
 
 // Rate equations for single atom. No plasma.
-IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, AtomRateData& Store, vector<double> InitCond, const vector<double>& Intensity) :
+IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, RateData::Atom& Store, vector<double> InitCond, const vector<double>& Intensity) :
     t(T),dt(dT), f(Intensity), store(Store)
 {
 	adams_n = 5;
@@ -96,7 +96,7 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 }
 
 // Rate equations for a single chemical element (thermal plasma)
-IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, AtomRateData& Store, Plasma & Elecs, vector<double> InitCond, const vector<double>& Intensity) :
+IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, RateData::Atom& Store, Plasma & Elecs, vector<double> InitCond, const vector<double>& Intensity) :
     dt(dT), t(T), f(Intensity), store(Store)
 {
 	// f(F) is intensity defined at times T[m].
@@ -287,8 +287,9 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 	}
 }
 
+/*
 // Rate equations for single chemical element, with non-thermal plasma.
-IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, AtomRateData & Store, NTPlasma & Elecs, vector<double> InitCond, const vector<double>& Intensity) :
+IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, RateData::Atom & Store, NTPlasma & Elecs, vector<double> InitCond, const vector<double>& Intensity) :
     dt(dT), t(T), f(Intensity), store(Store)
 {
 	// // Compute time-evolution of the energy distribution
@@ -362,9 +363,10 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 	// }
 }
 
+*/
 
 // Rate equations for a molecule (thermal plasma).
-IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, vector<AtomRateData> & Store, Plasma & Elecs, const vector<double>& Intensity) :
+IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, vector<RateData::Atom> & Store, Plasma & Elecs, const vector<double>& Intensity) :
     dt(dT), t(T), f(Intensity), store(Store[0])
 {
 	// f(F) is intensity defined at times T[m].
@@ -615,8 +617,9 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 	}
 }
 
+/*
 // Rate equations for molecule, with non-thermal plasma.
-IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, vector<AtomRateData> & Store, NTPlasma & Elecs, const vector<double>& Intensity) :
+IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> &T, vector<RateData::Atom> & Store, NTPlasma & Elecs, const vector<double>& Intensity) :
     t(T), dt(dT),  f(Intensity), store(Store[0])
 {
 	// f(F) is intensity defined at times T[m].
@@ -834,6 +837,7 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 	// 	error = 1;
 	// }
 }
+*/
 
 // Solves for one atomic species (no plasma)
 int IntegrateRateEquation::Solve(double P_min, double P_max, int storage_time_pts)
@@ -1238,13 +1242,9 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, double P_min, double P_max, int
 	return 0;
 }
 
-// Solves for one atomic specis (dynamic thermalisation)
-int IntegrateRateEquation::Solve(NTPlasma & Elecs, double P_min, double P_max, int storage_time_pts)
-{
 
-}
 // Molecular Solver.
-int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, int storage_time_pts)
+int IntegrateRateEquation::Solve(Plasma & Elecs, vector<RateData::Atom> & Store, int storage_time_pts)
 {
 	// f(F) is intensity defined at times T[m].
 	// InitCond defines number of states and initial values for p.
@@ -1570,9 +1570,7 @@ int IntegrateRateEquation::Solve(Plasma & Elecs, vector<AtomRateData> & Store, i
 	return 0;
 }
 
-// Molecular Solver, (dynamic thermalisation).
-int IntegrateRateEquation::Solve(NTPlasma & Elecs, vector<AtomRateData> & Store, int storage_time_pts)
-{}
+
 
 IntegrateRateEquation::~IntegrateRateEquation()
 {

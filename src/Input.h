@@ -118,13 +118,13 @@ private:
 
 class MolInp
 {
-	// Molecular input fpr coupled atom/electron plasma calcualtions.
+	// Molecular input for coupled atom/electron plasma calcualtions.
 public:
-	MolInp(char* filename, ofstream & log);
+	MolInp(const char* filename, ofstream & log);
 	~MolInp() {}
 
 	vector<Input> Atomic;
-	vector<AtomRateData> Store;
+	vector<RateData::Atom> Store;
 
 	vector<Potential> Pots;
 	vector<vector<RadialWF>> Orbits;
@@ -133,7 +133,7 @@ public:
 
 	double Omega() {return omega;}
 	double Width() {return width;}
-	double Fluence() {return 10000*fluence;}
+	double Fluence() {return 10000*fluence;} // returns fluence in J/cm^2
 	int ini_T_size() {return num_time_steps;}
 	double dropl_R() {return radius;}
 
@@ -145,7 +145,7 @@ public:
 	int Out_T_size() {return out_T_size; }
 
 	string name = "";
-private:
+protected:
 	double omega = 5000;// XFEL photon energy, eV.
 	double width = 5; // XFEL pulse width in femtoseconds. Gaussian profile hardcoded.
 	double fluence = 0; // XFEL pulse fluence, 10^4 J/cm^2.
@@ -159,6 +159,14 @@ private:
 	bool write_md_data = true;
 
 	double unit_V = 1.;
+
+	// ONLY USED BY solver.cpp NONTHERMAL SIMULATION
+	// NOT READ BY AC4DC SIMULATION
+	double min_elec_e = 100;
+	double max_elec_e = 5000;
+	double num_elec_points = 200;
+
+	bool use_thermal_plasma = true;
 };
 
 #endif /* end of include guard: AC4DC_INPUT_CXX_H */

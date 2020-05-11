@@ -20,31 +20,10 @@ This file is part of AC4DC.
 #include <fstream>
 #include "Constant.h"
 #include "Plasma.h"
-#include "NTPlasma.h"
 
 #include <assert.h>
 
 using namespace std;
-
-struct Rate
-{
-	double val = 0;
-	long int from = 0;
-	long int to = 0;
-	double energy = 0;
-};
-
-struct AtomRateData
-{
-	string name = "";
-	double nAtoms = 1.;// atomic number density
-	double R = 189.; // 100nm focal spot radius.
-	int num_conf = 1;
-	vector<Rate> Photo = vector<Rate>(0);
-	vector<Rate> Fluor = vector<Rate>(0);
-	vector<Rate> Auger = vector<Rate>(0);
-	vector<CustomDataType::EIIdata> EIIparams = vector<CustomDataType::EIIdata>(0);
-};
 
 class IntegrateRateEquation
 {
@@ -61,32 +40,32 @@ class IntegrateRateEquation
 	vector<double>& t;
 	vector<double>& dt;
 	vector<double> f;
-	AtomRateData& store;
+	RateData::Atom& store;
 
 	int adams_n = 5;
 public:
 	// Rate equations for a single atom.
-	IntegrateRateEquation(vector<double>& dT, vector<double>& T, AtomRateData& Store, vector<double> InitCond, const vector<double>& Intensity = vector<double>());
+	IntegrateRateEquation(vector<double>& dT, vector<double>& T, RateData::Atom& Store, vector<double> InitCond, const vector<double>& Intensity = vector<double>());
 	int Solve(double P_min = 0, double P_max = 1, int storage_time_pts = 500);
 	// Rate equations for single chemical element + electron plasma.
-	IntegrateRateEquation(vector<double>& dT, vector<double>& T, AtomRateData& Store, Plasma & Electrons, vector<double> InitCond, const vector<double>& Intensity = vector<double>());
+	IntegrateRateEquation(vector<double>& dT, vector<double>& T, RateData::Atom& Store, Plasma & Electrons, vector<double> InitCond, const vector<double>& Intensity = vector<double>());
 	int Solve(Plasma & Electrons, double P_min = 0, double P_max = 1, int storage_time_pts = 500);
 	// Rate equations for molecule + electron plasma.
-	IntegrateRateEquation(vector<double>& dT, vector<double>& T, vector<AtomRateData> & Store, Plasma & Electrons, const vector<double>& Intensity = vector<double>());
-	int Solve(Plasma & Electrons, vector<AtomRateData> & Store, int storage_time_pts = 500);
+	IntegrateRateEquation(vector<double>& dT, vector<double>& T, vector<RateData::Atom> & Store, Plasma & Electrons, const vector<double>& Intensity = vector<double>());
+	int Solve(Plasma & Electrons, vector<RateData::Atom> & Store, int storage_time_pts = 500);
 
 
 
-	// Rate equations for single chemical element + nonthermal plasma.
-	IntegrateRateEquation(vector<double> &dT, vector<double> &T, AtomRateData & Store, NTPlasma & Elecs, vector<double> InitCond, const vector<double>& Intensity = vector<double>());
-	int Solve(NTPlasma & Elecs, double P_min, double P_max, int storage_time_pts = 500);
-	// Rate equations for molecule + non-thermal electron plasma.
-	IntegrateRateEquation(vector<double>& dT, vector<double>& T, vector<AtomRateData> & Store, NTPlasma & Electrons, const vector<double>& Intensity = vector<double>());
-	int Solve(NTPlasma & Electrons, vector<AtomRateData> & Store, int storage_time_pts = 500);
+	// // Rate equations for single chemical element + nonthermal plasma.
+	// IntegrateRateEquation(vector<double> &dT, vector<double> &T, RateData::Atom & Store, NTPlasma & Elecs, vector<double> InitCond, const vector<double>& Intensity = vector<double>());
+	// int Solve(NTPlasma & Elecs, double P_min, double P_max, int storage_time_pts = 500);
+	// // Rate equations for molecule + non-thermal electron plasma.
+	// IntegrateRateEquation(vector<double>& dT, vector<double>& T, vector<RateData::Atom> & Store, NTPlasma & Electrons, const vector<double>& Intensity = vector<double>());
+	// int Solve(NTPlasma & Electrons, vector<RateData::Atom> & Store, int storage_time_pts = 500);
 
 
 
-	int WriteCharge(vector<AtomRateData> & Store);
+	int WriteCharge(vector<RateData::Atom> & Store);
 	// P_min and P_max are upper and lower bound for P.
 	// storage_time_pts is the number of time points to store. Sometimes calculations might require
 	// too many time points, so it is cheaper to store some and interpolate later if needed.

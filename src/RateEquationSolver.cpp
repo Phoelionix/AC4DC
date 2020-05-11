@@ -15,7 +15,6 @@ This file is part of AC4DC.
     along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
 ===========================================================================*/
 #include "RateEquationSolver.h"
-#include "Constant.h"
 
 inline bool exists_test(const std::string&);
 inline FILE* safe_fopen(const char *filename, const char *mode);
@@ -45,6 +44,119 @@ string find_bracket_contents(string &src){
 	return src.substr(first_idx+1, last_idx-first_idx-1);
 }
 
+
+bool RateIO::ReadRates(const string & input, vector<RateData::Rate> & PutHere)
+{
+	if (exists_test(input))
+	{
+		RateData::Rate Tmp;
+		ifstream infile;
+		infile.open(input);
+
+		while (!infile.eof())
+		{
+			string line;
+			getline(infile, line);
+			if (line[0] == '#') continue; // skip comments
+
+			stringstream stream(line);
+			stream >> Tmp.val >> Tmp.from >> Tmp.to >> Tmp.energy;
+
+			PutHere.push_back(Tmp);
+		}
+
+		infile.close();
+		return true; // Returns true if exists
+	}
+	else return false;
+}
+
+bool RateIO::ReadEIIParams(const string & input, vector<EIIdata> & PutHere)
+{
+	ifstream infile;
+	if (!exists_test(input)) return false;
+	infile.open(input);
+
+	string line;
+
+	EIIdata tmp;
+	string prefix;
+
+	int i=0; // configuration counter
+	while (!infile.eof())
+	{
+
+		getline(infile, line);
+		if (line[0] == '#') continue; // skip comments
+
+		if(line.compare(0, prefix.size(), "'configuration ")){
+			// New entry in the array
+			i++;
+			int j = atoi(line.substr(prefix.size()).c_str());
+			tmp.init = j;
+			tmp.resize(0);
+			if(i != j) cerr<<"Unexpected index: got "<<j<<"expected"<<i<<endl;
+			continue;
+		}
+
+		if(line.compare(0, prefix.size(), "  'fin': ["))
+		{
+			read_vector<int>(find_bracket_contents(line), tmp.fin);
+			continue;
+		}
+
+		if(line.compare(0, prefix.size(), "  'occ': ["))
+		{
+			read_vector<int>(find_bracket_contents(line), tmp.occ);
+			continue;
+		}
+
+		if(line.compare(0, prefix.size(), "  'ionB': ["))
+		{
+			read_vector<float>(find_bracket_contents(line), tmp.ionB);
+			continue;
+		}
+
+		if(line.compare(0, prefix.size(), "  'kin': ["))
+		{
+			read_vector<float>(find_bracket_contents(line), tmp.kin);
+			continue;
+		}
+
+		PutHere.push_back(tmp);
+	}
+
+	infile.close();
+	return true; // Returns true if exists
+
+}
+
+void RateIO::WriteEIIParams(const string& fname, RateData::Atom& Store)
+{
+	FILE * fl = safe_fopen(fname.c_str(), "w");
+	fprintf(fl, "# EII PARAMETERS\n[\n");
+	for (auto&R : Store.EIIparams){
+		fprintf(fl, "'configuration %d': {\n", R.init);
+		// This will iterate in order of the inits anyway, so no need to explicitly store them
+		// Use a JSON style to deal with the multidimensional data
+		fprintf(fl, "  'fin': [");
+		for (auto& f : R.fin) fprintf(fl, "%ld, ", f);
+		fprintf(fl, "],\n");
+		fprintf(fl, "  'occ': [");
+		for (auto& f : R.occ) fprintf(fl, "%ld, ", f);
+		fprintf(fl, "],\n");
+		fprintf(fl, "  'ionB': [");
+		for (auto& f : R.ionB) fprintf(fl, "%lf, ", f);
+		fprintf(fl, "],\n");
+		fprintf(fl, "  'kin': [");
+		for (auto& f : R.kin) fprintf(fl, "%lf, ", f);
+		fprintf(fl, "]\n");
+		fprintf(fl, "},\n");
+	}
+	fprintf(fl, "]\n");
+	fclose(fl);
+}
+
 /*
 int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
 {
@@ -67,9 +179,9 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		mkdir(dirstring.c_str(), ACCESSPERMS);
 	}
 
-	bool existPht = !RateIO::RateRates(RateLocation + "Photo.txt", Store.Photo);
-	bool existFlr = !RateIO::RateRates(RateLocation + "Fluor.txt", Store.Fluor);
-	bool existAug = !RateIO::RateRates(RateLocation + "Auger.txt", Store.Auger);
+	bool existPht = !RateIO::ReadRates(RateLocation + "Photo.txt", Store.Photo);
+	bool existFlr = !RateIO::ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
+	bool existAug = !RateIO::ReadRates(RateLocation + "Auger.txt", Store.Auger);
 
 	if (existPht) printf("Photoionization rates found. Reading...\n");
 	if (existFlr) printf("Fluorescence rates found. Reading...\n");
@@ -86,9 +198,9 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		cout << "No rates found. Calculating..." << endl;
 		cout << "Total number of configurations: " << dimension << endl;
 		Rate Tmp;
-		vector<Rate> LocalPhoto(0);
-		vector<Rate> LocalFluor(0);
-		vector<Rate> LocalAuger(0);
+		vector<RateData::Rate> LocalPhoto(0);
+		vector<RateData::Rate> LocalFluor(0);
+		vector<RateData::Rate> LocalAuger(0);
 
 		omp_set_num_threads(input.Num_Threads());
 		#pragma omp parallel default(none) \
@@ -241,9 +353,9 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		mkdir(RateLocation.c_str(), ACCESSPERMS);
 	}
 
-	bool existPht = RateIO::RateRates(RateLocation + "Photo.txt", Store.Photo);
-	bool existFlr = RateIO::RateRates(RateLocation + "Fluor.txt", Store.Fluor);
-	bool existAug = RateIO::RateRates(RateLocation + "Auger.txt", Store.Auger);
+	bool existPht = RateIO::ReadRates(RateLocation + "Photo.txt", Store.Photo);
+	bool existFlr = RateIO::ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
+	bool existAug = RateIO::ReadRates(RateLocation + "Auger.txt", Store.Auger);
 
 	if (existPht) printf("Photoionization rates found. Reading...\n");
 	if (existFlr) printf("Fluorescence rates found. Reading...\n");
@@ -255,10 +367,10 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 	{
 		cout << "Computing missing rates..." <<endl;
 		cout << "Total number of configurations: " << dimension << endl;
-		Rate Tmp;
-		vector<Rate> LocalPhoto(0);
-		vector<Rate> LocalFluor(0);
-		vector<Rate> LocalAuger(0);
+		RateData::Rate Tmp;
+		vector<RateData::Rate> LocalPhoto(0);
+		vector<RateData::Rate> LocalFluor(0);
+		vector<RateData::Rate> LocalAuger(0);
 
 		#pragma omp parallel default(none) num_threads(input.Num_Threads()) \
 		shared(cout, runlog, existAug, existFlr, existPht) private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor)
@@ -331,9 +443,9 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 			}
 		}
 
-		sort(Store.Photo.begin(), Store.Photo.end(), [](Rate A, Rate B) { return (A.from < B.from); });
-		sort(Store.Auger.begin(), Store.Auger.end(), [](Rate A, Rate B) { return (A.from < B.from); });
-		sort(Store.Fluor.begin(), Store.Fluor.end(), [](Rate A, Rate B) { return (A.from < B.from); });
+		sort(Store.Photo.begin(), Store.Photo.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
+		sort(Store.Auger.begin(), Store.Auger.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
+		sort(Store.Fluor.begin(), Store.Fluor.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
 		GenerateRateKeys(Store.Auger);
 
 		if (!existPht) {
@@ -368,7 +480,7 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
  	return dimension;
 }
 
-AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
+RateData::Atom RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
 {
 	// Uses BEB model to compute fundamental
 	// EII, Auger, Photoionisation and Fluorescence rates
@@ -390,10 +502,10 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		mkdir(dirstring.c_str(), ACCESSPERMS);
 	}
 
-	// bool existPht = RateIO::RateRates(RateLocation + "Photo.txt", Store.Photo);
-	// bool existFlr = RateIO::RateRates(RateLocation + "Fluor.txt", Store.Fluor);
-	// bool existAug = RateIO::RateRates(RateLocation + "Auger.txt", Store.Auger);
-	// bool existEII = RateIO::ReadEIIParams(RateLocation + "EII.json", Store.EIIparams);
+	bool existPht = RateIO::ReadRates(RateLocation + "Photo.txt", Store.Photo);
+	bool existFlr = RateIO::ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
+	bool existAug = RateIO::ReadRates(RateLocation + "Auger.txt", Store.Auger);
+	bool existEII = RateIO::ReadEIIParams(RateLocation + "EII.json", Store.EIIparams);
 	//
 	// if (existPht) printf("Photoionization rates found. Reading...\n");
 	// if (existFlr) printf("Fluorescence rates found. Reading...\n");
@@ -404,10 +516,10 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 	{
 		cout << "Some rates are missing. Calculating..." << endl;
 		cout << "Total number of configurations: " << dimension << endl;
-		Rate Tmp;
-		vector<Rate> LocalPhoto(0);
-		vector<Rate> LocalFluor(0);
-		vector<Rate> LocalAuger(0);
+		RateData::Rate Tmp;
+		vector<RateData::Rate> LocalPhoto(0);
+		vector<RateData::Rate> LocalFluor(0);
+		vector<RateData::Rate> LocalAuger(0);
 		// Electron impact ionization orbital enerrgy storage.
 		EIIdata tmpEIIparams;
 		int MaxBindInd = 0;
@@ -520,9 +632,9 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 			}
 		}
 
-		sort(Store.Photo.begin(), Store.Photo.end(), [](Rate A, Rate B) { return (A.from < B.from); });
-		sort(Store.Auger.begin(), Store.Auger.end(), [](Rate A, Rate B) { return (A.from < B.from); });
-		sort(Store.Fluor.begin(), Store.Fluor.end(), [](Rate A, Rate B) { return (A.from < B.from); });
+		sort(Store.Photo.begin(), Store.Photo.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
+		sort(Store.Auger.begin(), Store.Auger.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
+		sort(Store.Fluor.begin(), Store.Fluor.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
 		sort(Store.EIIparams.begin(), Store.EIIparams.end(), [](EIIdata A, EIIdata B) {return (A.init < B.init);});
 		GenerateRateKeys(Store.Auger);
 
@@ -548,7 +660,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		}
 		if (!existEII) {
 			string dummy = RateLocation + "EII.json";
-			RateIO::WriteEIIParams(dummy);
+			RateIO::WriteEIIParams(dummy, Store);
 
 		}
 	}
@@ -566,118 +678,6 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
  	return Store;
 }
 
-bool RateIO::ReadRates(const string & input, vector<Rate> & PutHere)
-{
-	if (exists_test(input))
-	{
-		Rate Tmp;
-		ifstream infile;
-		infile.open(input);
-
-		while (!infile.eof())
-		{
-			string line;
-			getline(infile, line);
-			if (line[0] == '#') continue; // skip comments
-
-			stringstream stream(line);
-			stream >> Tmp.val >> Tmp.from >> Tmp.to >> Tmp.energy;
-
-			PutHere.push_back(Tmp);
-		}
-
-		infile.close();
-		return true; // Returns true if exists
-	}
-	else return false;
-}
-
-bool RateIO::ReadEIIParams(const string & input, vector<EIIdata> & PutHere)
-{
-	ifstream infile;
-	if (!exists_test(input)) return false;
-	infile.open(input);
-
-	string line;
-
-	EIIdata tmp;
-	string prefix;
-
-	int i=0; // configuration counter
-	while (!infile.eof())
-	{
-
-		getline(infile, line);
-		if (line[0] == '#') continue; // skip comments
-
-		if(line.compare(0, prefix.size(), "'configuration ")){
-			// New entry in the array
-			i++;
-			int j = atoi(line.substr(prefix.size()).c_str());
-			tmp.init = j;
-			tmp.resize(0);
-			if(i != j) cerr<<"Unexpected index: got "<<j<<"expected"<<i<<endl;
-			continue;
-		}
-
-		if(line.compare(0, prefix.size(), "  'fin': ["))
-		{
-			read_vector<int>(find_bracket_contents(line), tmp.fin);
-			continue;
-		}
-
-		if(line.compare(0, prefix.size(), "  'occ': ["))
-		{
-			read_vector<int>(find_bracket_contents(line), tmp.occ);
-			continue;
-		}
-
-		if(line.compare(0, prefix.size(), "  'ionB': ["))
-		{
-			read_vector<float>(find_bracket_contents(line), tmp.ionB);
-			continue;
-		}
-
-		if(line.compare(0, prefix.size(), "  'kin': ["))
-		{
-			read_vector<float>(find_bracket_contents(line), tmp.kin);
-			continue;
-		}
-
-		PutHere.push_back(tmp);
-	}
-
-	infile.close();
-	return true; // Returns true if exists
-
-}
-
-void RateIO::WriteEIIParams(const string& fname)
-{
-	FILE * fl = safe_fopen(fname.c_str(), "w");
-	fprintf(fl, "# EII PARAMETERS\n[\n");
-	for (auto&R : Store.EIIparams){
-		fprintf(fl, "'configuration %d': {\n", R.init);
-		// This will iterate in order of the inits anyway, so no need to explicitly store them
-		// Use a JSON style to deal with the multidimensional data
-		fprintf(fl, "  'fin': [");
-		for (auto& f : R.fin) fprintf(fl, "%ld, ", f);
-		fprintf(fl, "],\n");
-		fprintf(fl, "  'occ': [");
-		for (auto& f : R.occ) fprintf(fl, "%ld, ", f);
-		fprintf(fl, "],\n");
-		fprintf(fl, "  'ionB': [");
-		for (auto& f : R.ionB) fprintf(fl, "%lf, ", f);
-		fprintf(fl, "],\n");
-		fprintf(fl, "  'kin': [");
-		for (auto& f : R.kin) fprintf(fl, "%lf, ", f);
-		fprintf(fl, "]\n");
-		fprintf(fl, "},\n");
-	}
-	fprintf(fl, "]\n");
-	fclose(fl);
-}
-
 
 int RateEquationSolver::Symbolic(const string & input, const string & output)
 {
@@ -687,7 +687,7 @@ int RateEquationSolver::Symbolic(const string & input, const string & output)
 			ifstream Rates_in(input);
 			ofstream Rates_out(output);
 
-			Rate Tmp;
+			RateData::Rate Tmp;
 			char type;
 
 			while (!Rates_in.eof())
@@ -1196,7 +1196,7 @@ vector<double> RateEquationSolver::generate_G()
 	return generate_I(T, 1, Sigma);
 }
 
-void RateEquationSolver::GenerateRateKeys(vector<Rate> & ToSort)
+void RateEquationSolver::GenerateRateKeys(vector<RateData::Rate> & ToSort)
 {
 	int CurrentFrom = 0;
 	int start = 0;

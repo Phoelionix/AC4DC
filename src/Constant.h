@@ -20,6 +20,7 @@ This file is part of AC4DC.
 functions for calculations of Wigner 3j, 6j symbols, and Clebsh-Gordan coefficients,
 and some data containers used througout the code. */
 #include <vector>
+#include <string>
 using namespace std;
 
 namespace Constant
@@ -92,7 +93,7 @@ namespace CustomDataType
 		vector<int> occ;
 		vector<float> ionB;
 		vector<float> kin;
-		
+
 		void resize(size_t n)
 		{
 			fin.resize(n);
@@ -100,6 +101,29 @@ namespace CustomDataType
 			ionB.resize(n);
 			kin.resize(n);
 		}
+	};
+}
+
+namespace RateData {
+
+	struct Rate
+	{
+		double val = 0;
+		long int from = 0;
+		long int to = 0;
+		double energy = 0;
+	};
+
+	struct Atom
+	{
+		std::string name = "";
+		double nAtoms = 1.;// atomic number density
+		double R = 189.; // 100nm focal spot radius.
+		int num_conf = 1;
+		vector<RateData::Rate> Photo = vector<RateData::Rate>(0);
+		vector<RateData::Rate> Fluor = vector<RateData::Rate>(0);
+		vector<RateData::Rate> Auger = vector<RateData::Rate>(0);
+		vector<CustomDataType::EIIdata> EIIparams = vector<CustomDataType::EIIdata>(0);
 	};
 }
 
