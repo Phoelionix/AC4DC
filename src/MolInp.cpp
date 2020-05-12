@@ -21,7 +21,12 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	if (lastdot != std::string::npos) name = name.substr(lastslash+1);
 
 	ifstream infile(filename);
-	std::cout<<"Success!"<<endl;
+	if (infile.good())
+        std::cout<<"Success!"<<endl;
+    else {
+        std::cerr<<"Failed to open."<<endl;
+        return; 
+    }
 	string comment = "//";
 	string curr_key = "";
 

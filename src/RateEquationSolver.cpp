@@ -80,6 +80,7 @@ bool RateIO::ReadEIIParams(const string & input, vector<EIIdata> & PutHere)
 
 	EIIdata tmp;
 	string prefix="'configuration ";
+	bool has_opening_bracket = false;
 
 	int i=0; // configuration counter
 	while (!infile.eof())
@@ -87,8 +88,13 @@ bool RateIO::ReadEIIParams(const string & input, vector<EIIdata> & PutHere)
 
 		getline(infile, line);
 		if (line[0] == '#') continue; // skip comments
+		if (line[0] == '['){
+			has_opening_bracket = true;
+			continue;
+		}
+		if (!has_opening_bracket) continue;
 
-		if(line.compare(0, prefix.size(), prefix)){
+		if(line.compare(0, prefix.size(), prefix) == 0){
 			// New entry in the array
 			i++;
 			int j = atoi(line.substr(prefix.size()).c_str());
@@ -98,25 +104,25 @@ bool RateIO::ReadEIIParams(const string & input, vector<EIIdata> & PutHere)
 			continue;
 		}
 
-		if(line.compare(0, prefix.size(), "  'fin': ["))
+		if(line.compare(0, prefix.size(), "  'fin': [")==0)
 		{
 			read_vector<int>(find_bracket_contents(line), tmp.fin);
 			continue;
 		}
 
-		if(line.compare(0, prefix.size(), "  'occ': ["))
+		if(line.compare(0, prefix.size(), "  'occ': [")==0)
 		{
 			read_vector<int>(find_bracket_contents(line), tmp.occ);
 			continue;
 		}
 
-		if(line.compare(0, prefix.size(), "  'ionB': ["))
+		if(line.compare(0, prefix.size(), "  'ionB': [")==0)
 		{
 			read_vector<float>(find_bracket_contents(line), tmp.ionB);
 			continue;
 		}
 
-		if(line.compare(0, prefix.size(), "  'kin': ["))
+		if(line.compare(0, prefix.size(), "  'kin': [")==0)
 		{
 			read_vector<float>(find_bracket_contents(line), tmp.kin);
 			continue;
