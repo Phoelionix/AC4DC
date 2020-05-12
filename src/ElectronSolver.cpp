@@ -43,9 +43,15 @@ ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
     MolInp(filename, log), pf(width, 100000*fluence)
 {
     timespan = this->width*10;
-    this->setup(state_type(Store, num_elec_points), this->timespan/num_time_steps);
     cout<<"Using timestep "<<this->dt<<" fs"<<endl;
 }
+
+void ElectronSolver::compute_cross_sections(std::ofstream& _log) {
+    this->calc_rates(_log);
+    hasRates = true;
+    // Set up the rate equations!
+    this->setup(state_type(Store, num_elec_points), this->timespan/num_time_steps);
+};
 
 void ElectronSolver::solve(){
     if (!hasRates) {
@@ -58,11 +64,6 @@ Use ElectronSolver::compute_cross_sections(log)\n" << endl;
     // TODO: repeat this until convergence.
     this->iterate(-timespan/2, this->num_time_steps); // Inherited from ABM
 }
-
-void ElectronSolver::compute_cross_sections(std::ofstream& _log) {
-    this->calc_rates(_log);
-    hasRates = true;
-};
 
 //
 //  !TODO
