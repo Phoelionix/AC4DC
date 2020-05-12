@@ -38,6 +38,8 @@ int get_file_names(const char* infile_, string &name, string &logfile) {
     return 0;
 }
 
+
+
 int main(int argc, const char *argv[]) {
 
 
@@ -49,8 +51,6 @@ int main(int argc, const char *argv[]) {
     string in_name, logname;
 
     if (get_file_names(argv[1], in_name, logname) == 1) return 1;
-
-    // Assume the user isn't asking for trouble by including any spurious '/' characters
 
     cout<<"Running simulation for target "<<in_name<<endl;
     cout << "logfile name: " << logname <<endl;

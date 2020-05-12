@@ -5,22 +5,24 @@
 #include "Adams_arrays.h"
 #include <iostream>
 
-
 using namespace std;
+//
+// template<typename T>
+// using sysfunc_t = void (*)(const T&, T&, const double);
 
 template<typename T>
 class IVPSolver{
 public:
-    IVPSolver(void (& f)(const T& q, T& qdot, const double t));
-    void set_y0(const T& initial_state);
-    void set_dt(const double dt);
+    IVPSolver();
+    void setup(const T& initial_state, const double dt);
     double dt;
     void print();
+
     // void export_to(string fname);
 protected:
     vector<T> y;
     vector<double> t;
-    void (& func)(const T& q, T& qdot, const double t);
+    virtual void sys(const T& q, T& qdot, const double t) =0;
     T zero_y;
 
 };
@@ -28,9 +30,8 @@ protected:
 template<typename T>
 class Adams_BM : public IVPSolver<T>{
 public:
-    Adams_BM(void (& f)(const T& q, T& qdot, const double t), int order=5);
-    double solve(double t_initial, size_t npoints); // returns final time
-    int get_order();
+    Adams_BM(int order=5);
+    double iterate(double t_initial, size_t npoints); // returns final time
 
 private:
     int order;
@@ -42,22 +43,17 @@ private:
 };
 
 template<typename T>
-IVPSolver<T>::IVPSolver(void (& f)(const T& q, T& qdot, const double t)){
-    this->func = f;
+IVPSolver<T>::IVPSolver(){
     y.resize(1);
     t.resize(1);
 }
 
 template<typename T>
-void IVPSolver<T>::set_y0(const T& initial_state){
+void IVPSolver<T>::setup(const T& initial_state, double _dt ){
     this->y[0] = initial_state;
     // Makes a zero vector in a mildly spooky way
     this->zero_y = initial_state; // do this to make the underlying std::vector large enough
     this->zero_y = 0.; // set it to Z E R O
-}
-
-template<typename T>
-void IVPSolver<T>::set_dt(const double _dt){
     if (_dt < 1E-16){
         cerr<<"WARN: step size "<<dt<<"is smaller than machine precision"<<endl;
     }
@@ -75,31 +71,27 @@ void IVPSolver<T>::print(){
 ///////////////////////////////////
 
 template<typename T>
-int Adams_BM<T>::get_order(){
-    return this->order;
-}
-
-template<typename T>
-Adams_BM<T>::Adams_BM(void (& f)(const T& q, T& qdot, const double t), int order):
-    IVPSolver<T>(f)
+Adams_BM<T>::Adams_BM(int _order):
+    IVPSolver<T>()
     {
-    if (order < 2 || order > AdamsArrays::MAX_ADAMS_ORDER){
+    if (_order < 2 || _order > AdamsArrays::MAX_ADAMS_ORDER){
         cerr<<"ERROR: Adams order may not be greater than "<<AdamsArrays::MAX_ADAMS_ORDER;
     }
-    this->order = order;
+    this->order = _order;
     this->b_AB = AdamsArrays::AB_COEFF[order];
     this->b_AM = AdamsArrays::AM_COEFF[order];
 }
+
 
 // Computes y_n+1 based only on y_n
 // For initialisng the multistep method
 template<typename T>
 void Adams_BM<T>::step_rk4(int n){
-    T k1, k2, k3, k4;
-    this->func(this->y[n], k1, this->t[n]);
-    this->func(this->y[n]+k1*0.5, k2, this->t[n]+this->dt*0.5);
-    this->func(this->y[n]+k2*0.5, k3, this->t[n]+this->dt*0.5);
-    this->func(this->y[n]+k3,     k4, this->t[n]+this->dt    );
+    T k1, k2, k3, k4, tmp;
+    this->sys(this->y[n], k1, this->t[n]);
+    this->sys(this->y[n]+k1*0.5, k2, this->t[n]+this->dt*0.5);
+    this->sys(this->y[n]+k2*0.5, k3, this->t[n]+this->dt*0.5);
+    this->sys(this->y[n]+k3,     k4, this->t[n]+this->dt    );
 
     //y[n+1] = y[n] + (k1*(1./6) + k2*(1./3) + k3*(1./3) + k4*(1./6)) * this->dt;;
 
@@ -126,7 +118,8 @@ void Adams_BM<T>::step(int n){
     T ydot;
 
     for (size_t i = 0; i < order; i++) {
-        this->func(this->y[n-i], ydot, this->t[n-i]) * b_AB[i];
+        this->sys(this->y[n-i], ydot, this->t[n-i]);
+        ydot *= b_AB[i];
         tmp += ydot;
     }
 
@@ -140,10 +133,12 @@ void Adams_BM<T>::step(int n){
 
     // Adams-Moulton corrector step
     // Here, tmp is the y_n+1 guessed in the preceding step, handle i=0 explicitly:
-    this->func(tmp, tmp, this->t[n+1]) * b_AM[0];
+    this->sys(tmp, tmp, this->t[n+1]);
+    tmp *= b_AM[0];
     // Now tmp goes back to bein an aggregator
     for (size_t i = 1; i < order; i++) {
-        this->func(this->y[n-i+1], ydot, this->t[n-i+1]) * b_AM[i];
+        this->sys(this->y[n-i+1], ydot, this->t[n-i+1]);
+        ydot *= b_AM[i];
         tmp += ydot;
     }
     // Store the corrected value
@@ -156,7 +151,7 @@ void Adams_BM<T>::step(int n){
 // Fixed-step method
 // Maybe get fancier if it's a real problem
 template<typename T>
-double Adams_BM<T>::solve(double t_initial, size_t npoints){
+double Adams_BM<T>::iterate(double t_initial, size_t npoints){
     double h = this->dt;
 
     if (h < 1E-16){

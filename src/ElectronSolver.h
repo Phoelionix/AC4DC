@@ -8,6 +8,7 @@ This file should arguably be called RateEquationSOlver, however, for historical 
 #include "AdamsIntegrator.hpp"
 #include "RateSystem.h"
 #include "Constant.h"
+#include "MolInp.h"
 #include "Input.h"
 #include <iostream>
 #include <fstream>
@@ -55,22 +56,19 @@ protected:
 };
 
 
-class ElectronSolver : public MolInp, private Adams_BM<state_type>
+class ElectronSolver : private MolInp, private Adams_BM<state_type>
 {
 public:
-    ElectronSolver(const char* filename, ofstream& log);
+    ElectronSolver(const char* filename, std::ofstream& log);
     void solve();
     void print(const std::string& fname);
 private:
-
-    Adams_BM<state_type> *abm;
     double timespan;
     // Model parameters
     PhotonFlux pf;
     void set_flux(double fluence_in_Jcm2);
     void set_initial_conditions();
     void sys(const state_type& s, state_type& sdot, const double t);
-
 };
 
 

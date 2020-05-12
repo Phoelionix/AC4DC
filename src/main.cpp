@@ -74,35 +74,13 @@ int main(int argc, char *argv[])
 
 		// Molecular input.
 
-		MolInp Init(argv[1], log);
-
-		// Loop through atomic species.
-		for (int a = 0; a < Init.Atomic.size(); a++) {
-			printf("Nuclear charge: %d\n", Init.Atomic[a].Nuclear_Z());
-			HartreeFock HF(Init.Latts[a], Init.Orbits[a], Init.Pots[a], Init.Atomic[a], log);
-
-			RateEquationSolver Dynamics(Init.Latts[a], Init.Orbits[a], Init.Pots[a], Init.Atomic[a]);
-			vector<int> final_occ(Init.Orbits[a].size(), 0);
-			vector<int> max_occ(Init.Orbits[a].size(), 0);
-			for (int i = 0; i < max_occ.size(); i++) {
-				if (fabs(Init.Orbits[a][i].Energy) > Init.Omega()) final_occ[i] = Init.Orbits[a][i].occupancy();
-				max_occ[i] = Init.Orbits[a][i].occupancy();
-			}
-
-			string name = Init.Store[a].name;
-			double nAtoms = Init.Store[a].nAtoms;
-
-			Init.Store[a] = Dynamics.SolvePlasmaBEB(max_occ, final_occ, log);
-			Init.Store[a].name = name;
-			Init.Store[a].nAtoms = nAtoms;
-      		Init.Store[a].R = Init.dropl_R();
-			Init.Index[a] = Dynamics.Get_Indexes();
-		}
+		MolInp Molecule(argv[1], log);
+		Molecule.calc_rates(log);
 
 		// Solve a coupled system of equations for atoms and electron plasma.
-		RateEquationSolver Dynamics(Init.Latts[0], Init.Orbits[0], Init.Pots[0], Init.Atomic[0]);
+		RateEquationSolver Dynamics(Molecule.Latts[0], Molecule.Orbits[0], Molecule.Pots[0], Molecule.Atomic[0]);
 
-		Dynamics.SetupAndSolve(Init, log);
+		Dynamics.SetupAndSolve(Molecule, log);
 
 	} else {
 

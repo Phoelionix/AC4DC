@@ -1,4 +1,7 @@
 #include "ElectronSolver.h"
+#include "HartreeFock.h"
+#include "RateEquationSolver.h"
+
 
 void PhotonFlux::set_parameters(double fluence, double fwhm){
     // The photon flux model
@@ -37,21 +40,17 @@ double Weight::to(size_t idx){
 }
 
 ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
-    MolInp(filename, log), Adams_BM<state_type>([this](const state_type& s, state_type& sd, const double t){sys(s,sd,t);}), pf(width, 100000*fluence)
+    MolInp(filename, log), pf(width, 100000*fluence)
 {
-    this->timespan = this->width*10;
-    set_steps(this->num_time_steps);
-    this->set_dt(this->timespan/num_steps);
-    this->set_y0(state_type(Store, num_elec_points));
-    cout<<"Using timestep"<<this->dt<<"fs";
+    timespan = this->width*10;
+    this->setup(state_type(Store, num_elec_points), this->timespan/num_time_steps);
+    cout<<"Using timestep "<<this->dt<<" fs";
 }
 
 void ElectronSolver::solve(){
     bool converged = false;
     // TODO: repeat this until convergence.
-
-    abm->solve()
-
+    this->iterate(-timespan/2, this->num_time_steps); // Inherited from ABM
 }
 
 //

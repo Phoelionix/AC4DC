@@ -16,6 +16,7 @@ This file is part of AC4DC.
 ===========================================================================*/
 #pragma once
 
+#include "Input.h"
 #include "Grid.h"
 #include "RadialWF.h"
 #include "Potential.h"
@@ -23,7 +24,7 @@ This file is part of AC4DC.
 #include <fstream>
 #include "Numerics.h"
 #include "Constant.h"
-#include "Input.h"
+
 
 using namespace std;
 

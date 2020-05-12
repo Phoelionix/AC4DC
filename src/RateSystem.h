@@ -87,6 +87,12 @@ public:
         return retval;
     }
 
+    state_type operator*(double x){
+        state_type retval = *this;
+        retval *= x;
+        return retval;
+    }
+
     // convenience members
     state_type& operator=(const double x){
         for (size_t r = 0; r < atomP.size(); r++) {

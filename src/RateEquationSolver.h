@@ -22,6 +22,7 @@ This file is part of AC4DC.
 #include "Constant.h"
 #include "IntegrateRateEquation.h"
 #include "Input.h"
+#include "MolInp.h"
 #include "HartreeFock.h"
 #include "DecayRates.h"
 #include "Numerics.h"
