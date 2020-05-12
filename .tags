@@ -242,7 +242,7 @@ RadialWF	src/RadialWF.h	/^	RadialWF(int size = 0) : PairFunction(size)$/;"	f	cla
 RadialWF	src/RadialWF.h	/^class RadialWF : public PairFunction$/;"	c
 Rate	src/Constant.h	/^	struct Rate$/;"	s	namespace:RateData
 RateData	src/Constant.h	/^namespace RateData {$/;"	n
-RateEquationSolver	src/RateEquationSolver.h	/^	RateEquationSolver(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp) : lattice(Lattice), orbitals(Orbitals), u(U), input(Inp) {};$/;"	f	class:RateEquationSolver
+RateEquationSolver	src/RateEquationSolver.h	/^	RateEquationSolver(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, bool recalc=true) :$/;"	f	class:RateEquationSolver
 RateEquationSolver	src/RateEquationSolver.h	/^class RateEquationSolver$/;"	c
 RateIO	src/RateEquationSolver.h	/^namespace RateIO {$/;"	n
 RatesFromKeys	src/RateEquationSolver.h	/^	vector<int> RatesFromKeys;$/;"	m	class:RateEquationSolver
@@ -345,7 +345,7 @@ begin	include/cxxopts.hpp	/^  begin(const icu::UnicodeString& s)$/;"	f	namespace
 beta	src/Grid.h	/^	double beta;$/;"	m	class:Grid
 bound_t	src/RateSystem.h	/^    typedef std::vector<double> bound_t; \/\/ Probabilities of state$/;"	t	class:state_type
 cNorm	scripts/MD_data_Plot.py	/^cNorm = colors.Normalize(vmin=0, vmax=1)$/;"	v
-calc_rates	src/MolInp.cpp	/^void MolInp::calc_rates(ofstream &_log){$/;"	f	class:MolInp
+calc_rates	src/MolInp.cpp	/^void MolInp::calc_rates(ofstream &_log, bool recalc){$/;"	f	class:MolInp
 charge	scripts/MD_data_Plot.py	/^charge = file_content[:, 1:-2]$/;"	v
 charge	src/RateEquationSolver.h	/^	vector<vector<double>> charge;$/;"	m	class:RateEquationSolver
 check_current	scripts/atomic_charge_Plot.py	/^    def check_current(self):$/;"	m	class:Plotter
@@ -362,7 +362,7 @@ cm	scripts/MD_data_Plot.py	/^cm = plt.get_cmap('gist_rainbow')$/;"	v
 colors	scripts/MD_data_Plot.py	/^import matplotlib.colors as colors$/;"	i
 command	scripts/atomic_input.py	/^command = sys.argv[1]$/;"	v
 commands	scripts/atomic_input.py	/^commands = {$/;"	v
-compute_cross_sections	src/ElectronSolver.cpp	/^void ElectronSolver::compute_cross_sections(std::ofstream& _log) {$/;"	f	class:ElectronSolver
+compute_cross_sections	src/ElectronSolver.cpp	/^void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {$/;"	f	class:ElectronSolver
 consume_positional	include/cxxopts.hpp	/^ParseResult::consume_positional(std::string a)$/;"	f	class:cxxopts::ParseResult
 count	include/cxxopts.hpp	/^    count() const$/;"	f	class:cxxopts::OptionValue
 count	include/cxxopts.hpp	/^    count(const std::string& o) const$/;"	f	class:cxxopts::ParseResult
@@ -688,6 +688,7 @@ r	src/Grid.h	/^	std::vector<double> r, dr;$/;"	m	class:Grid
 r_well	src/Potential.h	/^	double r_well = 0.0000001;$/;"	m	class:Potential
 radius	src/MolInp.h	/^	double radius = 1000.;$/;"	m	class:MolInp
 read_vector	src/RateEquationSolver.cpp	/^void read_vector(const string& s, vector<T>&v){$/;"	f
+recalculate	src/RateEquationSolver.h	/^	bool recalculate; \/\/ Flag to determine behaviour$/;"	m	class:RateEquationSolver
 refEnergy	src/Constant.h	/^		double refEnergy;\/\/ Energy of the reference configuration.$/;"	m	struct:CustomDataType::polarize
 reference	src/Constant.h	/^		vector<int> reference;\/\/ Contains only occupancies of Orbitals, no Virtual included.$/;"	m	struct:CustomDataType::polarize
 resize	src/Constant.h	/^		void resize(size_t n)$/;"	f	struct:CustomDataType::EIIdata

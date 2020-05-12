@@ -64,7 +64,8 @@ class RateEquationSolver
 public:
 	//Orbitals are HF wavefunctions. This configuration is an initial state.
 	//Assuming there are no unoccupied states in initial configuration!!!
-	RateEquationSolver(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp) : lattice(Lattice), orbitals(Orbitals), u(U), input(Inp) {};
+	RateEquationSolver(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, bool recalc=true) :
+	 	lattice(Lattice), orbitals(Orbitals), u(U), input(Inp), recalculate(recalc) {};
 	~RateEquationSolver();
 
 	// Halfwidth = 5/Constant::Time -> 5 fs half width.
@@ -100,6 +101,8 @@ public:
   	Grid & Atom_Mesh() { return lattice; }
 
 protected:
+	bool recalculate; // Flag to determine behaviour
+
 	Grid & lattice;
 	Input & input;
 	vector<RadialWF> & orbitals;

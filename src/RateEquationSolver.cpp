@@ -80,6 +80,7 @@ bool RateIO::ReadEIIParams(const string & input, vector<EIIdata> & PutHere)
 
 	EIIdata tmp;
 	string prefix="'configuration ";
+	string tmpstr;
 	bool has_opening_bracket = false;
 
 	int i=0; // configuration counter
@@ -97,10 +98,11 @@ bool RateIO::ReadEIIParams(const string & input, vector<EIIdata> & PutHere)
 		if(line.compare(0, prefix.size(), prefix) == 0){
 			// New entry in the array
 			i++;
-			int j = atoi(line.substr(prefix.size()).c_str());
+			tmpstr = line.substr(prefix.size());
+			int j = atoi(tmpstr.substr(0,tmpstr.find('\'')).c_str());
 			tmp.init = j;
 			tmp.resize(0);
-			if(i != j) cerr<<"[ReadEII] Unexpected index: got "<<j<<"expected"<<i<<endl;
+			if(i != j) cerr<<"[ReadEII] Unexpected index: got "<<j<<" expected "<<i<<endl;
 			continue;
 		}
 
@@ -211,10 +213,12 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 
 	string PolarFileName = "./output/Polar_" + input.Name() + ".txt";
 
-	if ( !existPht || !existFlr || !existAug )
+	if ( true || !existPht || !existFlr || !existAug )
 	{
-		cout << "Computing missing rates..." <<endl;
+		cout <<endl<<"======================================================="<<endl;
 		cout << "Total number of configurations: " << dimension << endl;
+		cout <<" Beginning Hartree-Fock Frozen calculations... "<<endl;
+		cout <<"======================================================="<<endl;
 		RateData::Rate Tmp;
 		vector<RateData::Rate> LocalPhoto(0);
 		vector<RateData::Rate> LocalFluor(0);
@@ -227,7 +231,7 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 			for (int i = 0; i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
 			{
 				vector<RadialWF> Orbitals = orbitals;
-				cout << "configuration " << i << " thread " << omp_get_thread_num() << endl;
+				cout << "[HF Frozen] configuration " << i << " thread " << omp_get_thread_num() << endl;
 				int N_elec = 0;
 				for (int j = 0; j < Orbitals.size(); j++)
 				{
@@ -340,7 +344,7 @@ RateData::Atom RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<in
 
 	Store.num_conf = dimension;
 
-	cout << "Check if there are pre-calculated rates..." << endl;
+	// Check if there are pre-calculated rates
 	string RateLocation = "./output/" + input.Name() + "/Xsections/";
 	if (!exists_test("./output/" + input.Name())) {
 		string dirstring = "output/" + input.Name();
@@ -351,20 +355,26 @@ RateData::Atom RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<in
 		mkdir(dirstring.c_str(), ACCESSPERMS);
 	}
 
-	bool existPht = RateIO::ReadRates(RateLocation + "Photo.txt", Store.Photo);
-	bool existFlr = RateIO::ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
-	bool existAug = RateIO::ReadRates(RateLocation + "Auger.txt", Store.Auger);
-	bool existEII = RateIO::ReadEIIParams(RateLocation + "EII.json", Store.EIIparams);
-	//
-	// if (existPht) printf("Photoionization rates found. Reading...\n");
-	// if (existFlr) printf("Fluorescence rates found. Reading...\n");
-	// if (existAug) printf("Auger rates found. Reading...\n");
-	// if (existEII) printf("EII Parameters found. Reading...\n");
+	bool existAug, existEII, existPht, existFlr;
 
-	if (true)// EII parameters are not currently stored.
+	if (!recalculate){
+		existPht = RateIO::ReadRates(RateLocation + "Photo.txt", Store.Photo);
+		existFlr = RateIO::ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
+		existAug = RateIO::ReadRates(RateLocation + "Auger.txt", Store.Auger);
+		existEII = RateIO::ReadEIIParams(RateLocation + "EII.json", Store.EIIparams);
+
+		if (existPht) printf("Photoionization rates found. Reading...\n");
+		if (existFlr) printf("Fluorescence rates found. Reading...\n");
+		if (existAug) printf("Auger rates found. Reading...\n");
+		if (existEII) printf("EII Parameters found. Reading...\n");
+	}
+
+	if ( recalculate || !existAug || !existEII || !existPht || !existFlr )// EII parameters are not currently stored.
 	{
-		cout << "Some rates are missing. Calculating..." << endl;
+		cout <<endl<<"======================================================="<<endl;
 		cout << "Total number of configurations: " << dimension << endl;
+		cout <<"Beginning Hartree-Fock BEB calculations... "<<endl;
+		cout <<"======================================================="<<endl;
 		RateData::Rate Tmp;
 		vector<RateData::Rate> LocalPhoto(0);
 		vector<RateData::Rate> LocalFluor(0);
@@ -394,7 +404,7 @@ RateData::Atom RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<in
 			for (int i = 0; i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
 			{
 				vector<RadialWF> Orbitals = orbitals;
-				cout << "configuration " << i << " thread " << omp_get_thread_num() << endl;
+				cout << "[HF BEB] configuration " << i << " thread " << omp_get_thread_num() << endl;
 				int N_elec = 0;
 				for (int j = 0; j < Orbitals.size(); j++) {
 					Orbitals[j].set_occupancy(orbitals[j].occupancy() - Index[i][j]);

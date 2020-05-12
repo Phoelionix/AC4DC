@@ -33,7 +33,7 @@ public:
 
 	string name = "";
 
-    void calc_rates(ofstream &_log);
+    void calc_rates(ofstream &_log, bool recalc=true);
 
 protected:
 

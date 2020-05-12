@@ -45,8 +45,8 @@ ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
     timespan = this->width*10;
 }
 
-void ElectronSolver::compute_cross_sections(std::ofstream& _log) {
-    this->calc_rates(_log);
+void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
+    this->calc_rates(_log, recalc);
     hasRates = true;
     // Set up the rate equations!
     this->setup(state_type(Store, num_elec_points), this->timespan/num_time_steps);

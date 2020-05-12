@@ -62,7 +62,7 @@ public:
     void solve();
     void print(const std::string& fname);
     // Expose the underlying MolInp command
-    void compute_cross_sections(std::ofstream& _log);
+    void compute_cross_sections(std::ofstream& _log, bool recalc=true);
 private:
     double timespan;
     // Model parameters

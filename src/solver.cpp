@@ -42,11 +42,28 @@ int get_file_names(const char* infile_, string &name, string &logfile) {
 
 int main(int argc, const char *argv[]) {
 
-
+    bool recalc = false;
     if (argc < 2){
         cout << "No input file supplied. Exiting...";
         return 1;
     }
+    if (argc > 2){
+        // flags
+        if (argv[2][0] != '-') goto YES_THIS_IS_A_GOTO_SUE_ME;
+        char c;
+        int i = 0;
+        while ((c = argv[2][++i]) != '\0'){
+            switch (c) {
+                case 'r':
+                    // recalculate
+                    recalc = true;
+                    break;
+                default:
+                    cout<<"Flag '"<<c<<"' is not a recognised flag."<<endl;
+            }
+        }
+    }
+    YES_THIS_IS_A_GOTO_SUE_ME:
 
     string in_name, logname;
 
@@ -58,7 +75,7 @@ int main(int argc, const char *argv[]) {
     cout << "Initialising... " <<endl;
     ElectronSolver S(argv[1], log); // Contains all of the collision parameters.
 
-    S.compute_cross_sections(log);
+    S.compute_cross_sections(log, recalc);
     S.solve();
 
 
