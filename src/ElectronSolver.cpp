@@ -43,7 +43,6 @@ ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
     MolInp(filename, log), pf(width, 100000*fluence)
 {
     timespan = this->width*10;
-    cout<<"Using timestep "<<this->dt<<" fs"<<endl;
 }
 
 void ElectronSolver::compute_cross_sections(std::ofstream& _log) {
@@ -51,6 +50,7 @@ void ElectronSolver::compute_cross_sections(std::ofstream& _log) {
     hasRates = true;
     // Set up the rate equations!
     this->setup(state_type(Store, num_elec_points), this->timespan/num_time_steps);
+    cout<<"Using timestep "<<this->dt<<" fs"<<endl;
 };
 
 void ElectronSolver::solve(){
