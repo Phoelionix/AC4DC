@@ -11,7 +11,6 @@ This file should arguably be called RateEquationSOlver, however, for historical 
 #include "MolInp.h"
 #include "Input.h"
 #include <iostream>
-#include <fstream>
 
 
 
@@ -62,6 +61,8 @@ public:
     ElectronSolver(const char* filename, std::ofstream& log);
     void solve();
     void print(const std::string& fname);
+    // Expose the underlying MolInp command
+    void compute_cross_sections(std::ofstream& _log);
 private:
     double timespan;
     // Model parameters
@@ -69,6 +70,7 @@ private:
     void set_flux(double fluence_in_Jcm2);
     void set_initial_conditions();
     void sys(const state_type& s, state_type& sdot, const double t);
+    bool hasRates = false; // flags whether Store has been populated yet.
 };
 
 

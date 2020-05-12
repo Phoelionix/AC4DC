@@ -27,7 +27,7 @@ int get_file_names(const char* infile_, string &name, string &logfile) {
     size_t nameend = infile.rfind('.');
     namestart = (namestart==string::npos) ? 0 : namestart + 1;// Exclude leading slash
     nameend = (nameend==string::npos) ? infile.size() : nameend;
-    name = infile.substr(namestart, nameend);
+    name = infile.substr(namestart, nameend-namestart);
     logfile = "output/run_" + name + ".log";
     // check correct format
     string extension = infile.substr(nameend);
@@ -55,9 +55,10 @@ int main(int argc, const char *argv[]) {
     cout<<"Running simulation for target "<<in_name<<endl;
     cout << "logfile name: " << logname <<endl;
     ofstream log(logname);
-    cout << "Initialising... " << logname <<endl;
+    cout << "Initialising... " <<endl;
     ElectronSolver S(argv[1], log); // Contains all of the collision parameters.
 
+    S.compute_cross_sections(log);
     S.solve();
 
 
