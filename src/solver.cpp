@@ -21,16 +21,35 @@ using namespace std;
 // - Only photon energy affects the rate calculations.
 // Let scripts/run.py handle all of these details.
 
-int get_file_names(const char* infile_, string &name, string &logfile) {
+
+
+// Note. this code is NOT compatible with Windows.
+// Rewriting with boost::filesystem is a good idea if this is required.
+
+void try_mkdir(const std::string& fname){
+    if (mkdir(fname.c_str(), ACCESSPERMS) == -1) {
+        if (errno != EEXIST)
+            cerr<<"mkdir error attempting to create "<< fname << ":" << errno;
+    }
+}
+
+int get_file_names(const char* infile_, string &tag, string &logfile, string&outdir) {
+    // Takes infile of the form "DIR/Lysozyme.mol"
+    // Stores "Lysozyme" in tag, "output/log/run_Lysozyme" in logfile
     string infile = string(infile_);
-    size_t namestart = infile.rfind('/');
-    size_t nameend = infile.rfind('.');
-    namestart = (namestart==string::npos) ? 0 : namestart + 1;// Exclude leading slash
-    nameend = (nameend==string::npos) ? infile.size() : nameend;
-    name = infile.substr(namestart, nameend-namestart);
-    logfile = "output/run_" + name + ".log";
+    size_t tagstart = infile.rfind('/');
+    size_t tagend = infile.rfind('.');
+    tagstart = (tagstart==string::npos) ? 0 : tagstart + 1;// Exclude leading slash
+    tagend = (tagend==string::npos) ? infile.size() : tagend;
+    tag = infile.substr(tagstart, tagend-tagstart);
+    // guarantee the existence of a folder structure
+    try_mkdir("output");
+    try_mkdir("output/log");
+    try_mkdir("output/__Molecular");
+    logfile = "output/log/run_" + tag + ".log";
     // check correct format
-    string extension = infile.substr(nameend);
+    outdir = "output/__Molecular";
+    string extension = infile.substr(tagend);
     if (extension != ".mol") {
         cerr<<"This file is for coupled calculations. Please provide a .mol file similar to Lysozyme.mol"<<endl;
         return 1;
@@ -38,46 +57,59 @@ int get_file_names(const char* infile_, string &name, string &logfile) {
     return 0;
 }
 
+class CmdParser{
+public:
+    CmdParser(int argc, const char *argv[]){
+        if (argc < 2){
+            cout << "Usage: solver path/to/molecular/in.mol [-rh]";
+            valid_input = false;
+        }
+        for (int a=2; a<argc; a++){
+            if (argv[a][0] != '-')
+                continue;
 
-
-int main(int argc, const char *argv[]) {
-
-    bool recalc = false;
-    if (argc < 2){
-        cout << "No input file supplied. Exiting...";
-        return 1;
-    }
-    if (argc > 2){
-        // flags
-        if (argv[2][0] != '-') goto YES_THIS_IS_A_GOTO_SUE_ME;
-        char c;
-        int i = 0;
-        while ((c = argv[2][++i]) != '\0'){
-            switch (c) {
-                case 'r':
-                    // recalculate
-                    recalc = true;
-                    break;
-                default:
-                    cout<<"Flag '"<<c<<"' is not a recognised flag."<<endl;
+            int i=0;
+            while (argv[a][i++]!='\0'){
+                switch (argv[a][i]) {
+                    case 'r':
+                        // recalculate
+                        recalc = true;
+                        break;
+                    case 'h':
+                        // Usage help.
+                        cout<<"This is physics code, were you really expecting documentation?"<<endl;
+                        break;
+                    default:
+                        cout<<"Flag '"<<argv[a][i]<<"' is not a recognised flag."<<endl;
+                }
             }
         }
     }
-    YES_THIS_IS_A_GOTO_SUE_ME:
+    bool recalc = false;
+    bool valid_input = true;
+};
 
-    string in_name, logname;
 
-    if (get_file_names(argv[1], in_name, logname) == 1) return 1;
+int main(int argc, const char *argv[]) {
+    CmdParser runsettings(argc, argv);
+    if (!runsettings.valid_input){
+        return 1;
+    }
 
-    cout<<"Running simulation for target "<<in_name<<endl;
+    string name, logname, outdir;
+
+    if (get_file_names(argv[1], name, logname, outdir) == 1)
+        return 1;
+
+    cout<<"Running simulation for target "<<name<<endl;
     cout << "logfile name: " << logname <<endl;
     ofstream log(logname);
     cout << "Initialising... " <<endl;
     ElectronSolver S(argv[1], log); // Contains all of the collision parameters.
 
-    S.compute_cross_sections(log, recalc);
+    S.compute_cross_sections(log, runsettings.recalc);
     S.solve();
-
+    S.save(outdir);
 
 
     return 0;

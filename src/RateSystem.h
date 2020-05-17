@@ -28,31 +28,12 @@ public:
     std::vector<bound_t> atomP; // Probabilities of state for all atoms.
     std::vector<double> f; // Energy distribution function
 
-    // critical for definiton of vector-space algebra
     state_type(){
-        // Iterates over all atomic species' P's
-        for(bound_t P : atomP) {
-            P.reserve(0);
-        }
-        f.reserve(0);
-    }
-
-    state_type(const vector<int> P_sizes, const size_t f_size){
-        assert(P_sizes.size() == atomP.size());
+        atomP.reserve(P_sizes.size());
         for (size_t i = 0; i < atomP.size(); i++) {
             atomP[i].reserve(P_sizes[i]);
         }
-        f.reserve(f_size);
-    }
-
-    // Resizes the container to fit all of the states present in the atom ensemble
-    state_type(const vector<RateData::Atom>& atomsys, size_t f_size) {
-        atomP.reserve(atomsys.size());
-        // make the P's the right size lmao
-        for (size_t a = 0; a < atomsys.size(); a++) {
-            atomP[a].resize(atomsys[a].num_conf);
-        }
-        f.reserve(f_size);
+        f.reserve(f_grid.size());
     }
 
 
@@ -95,25 +76,43 @@ public:
 
     // convenience members
     state_type& operator=(const double x){
-        for (size_t r = 0; r < atomP.size(); r++) {
-            for (size_t i = 0; i < atomP[r].size(); i++) {
-                atomP[r][i] = x;
+        for (auto& P : atomP){
+            for (auto& p : P) {
+                p=x;
             }
         }
-        for (size_t i = 0; i < f.size(); i++) {
-            f[i] = x;
+        for (auto& d : f){
+            d=x;
         }
         return *this;
     }
 
+    // Resizes the container to fit all of the states present in the atom ensemble
+    static void set_P_shape(const vector<RateData::Atom>& atomsys) {
+        P_sizes.reserve(atomsys.size());
+        // make the P's the right size lmao
+        for (size_t a = 0; a < atomsys.size(); a++) {
+            P_sizes[a] = atomsys[a].num_conf;
+        }
+    }
 
-
-protected:
     // defines the binning of f
+    static void set_elec_points(size_t n){
+        f_grid.resize(n);
+        f_widths.resize(n);
+    }
+    // Defines number and style of atomP
+    static void set_P_shape(const vector<size_t>& shape){
+        P_sizes = shape;
+    }
+
     static vector<double> f_grid; // f energies
     static vector<double> f_widths; // bin widths
+private:
+    static vector<size_t> P_sizes;
 };
 
+ostream& operator<<(ostream& os, const state_type& st);
 /*         TODO: Fix these (do not currently habdle multiple P arrays implemented above.)
 // Algebra definition for error-controlled steppers
 state_type operator/( const state_type &s1 , const state_type &s2 ){

@@ -37,7 +37,6 @@ public:
 
 protected:
 
-
 	double omega = 5000;// XFEL photon energy, eV.
 	double width = 5; // XFEL pulse width in femtoseconds. Gaussian profile hardcoded.
 	double fluence = 0; // XFEL pulse fluence, 10^4 J/cm^2.
@@ -56,9 +55,9 @@ protected:
 	// NOT READ BY AC4DC SIMULATION
 	double min_elec_e = 100;
 	double max_elec_e = 5000;
-	double num_elec_points = 200;
+	size_t num_elec_points = 200; // Number of cells in the free-electron enegy model
 
-	bool use_thermal_plasma = true;
+	bool use_thermal_plasma = true; // TODO: check what this actually does...
 };
 
 

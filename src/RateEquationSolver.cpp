@@ -97,12 +97,12 @@ bool RateIO::ReadEIIParams(const string & input, vector<EIIdata> & PutHere)
 
 		if(line.compare(0, prefix.size(), prefix) == 0){
 			// New entry in the array
-			i++;
 			tmpstr = line.substr(prefix.size());
 			int j = atoi(tmpstr.substr(0,tmpstr.find('\'')).c_str());
 			tmp.init = j;
 			tmp.resize(0);
 			if(i != j) cerr<<"[ReadEII] Unexpected index: got "<<j<<" expected "<<i<<endl;
+			i++;
 			continue;
 		}
 
@@ -215,7 +215,7 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 
 	if ( true || !existPht || !existFlr || !existAug )
 	{
-		cout <<endl<<"======================================================="<<endl;
+		cout <<"======================================================="<<endl;
 		cout << "Total number of configurations: " << dimension << endl;
 		cout <<" Beginning Hartree-Fock Frozen calculations... "<<endl;
 		cout <<"======================================================="<<endl;
@@ -333,6 +333,7 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 }
 
 // Called for molecular inputs.
+// Computes molecular collision parameters.
 RateData::Atom RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
 {
 	// Uses BEB model to compute fundamental
@@ -371,9 +372,9 @@ RateData::Atom RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<in
 
 	if ( recalculate || !existAug || !existEII || !existPht || !existFlr )// EII parameters are not currently stored.
 	{
-		cout <<endl<<"======================================================="<<endl;
+		cout <<"======================================================="<<endl;
 		cout << "Total number of configurations: " << dimension << endl;
-		cout <<"Beginning Hartree-Fock BEB calculations... "<<endl;
+		cout <<"Beginning Hartree-Fock BEB calculations for atom "<< input.Name() <<endl;
 		cout <<"======================================================="<<endl;
 		RateData::Rate Tmp;
 		vector<RateData::Rate> LocalPhoto(0);
@@ -498,6 +499,7 @@ RateData::Atom RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<in
 		GenerateRateKeys(Store.Auger);
 
 		// Write rates to file
+		cout<<"Saving to folder "<<RateLocation<<"..."<<endl;
 
 		if (!existPht) {
 			string dummy = RateLocation + "Photo.txt";
@@ -525,14 +527,19 @@ RateData::Atom RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<in
 	}
 
 	string IndexTrslt = "./output/" + input.Name() + "/index.txt";
+
 	ofstream config_out(IndexTrslt);
-	for (int i = 0; i < Index.size(); i++) {
-		config_out << i << " | ";
-		for (int j = 0; j < Max_occ.size(); j++) {
-			config_out << Max_occ[j] - Index[i][j] << " ";
-		}
-		config_out << endl;
+	config_out<<"# idx | configuration";
+	// TODO: TEST THIS WITH A BREAKPOINT
+	for (size_t i = 0; i < Index.size(); i++) {
+		Store.index_names.push_back(InterpretIndex(i));
+		config_out << i << " | " << Store.index_names.back();
+		config_out<<endl;
+		// for (int j = 0; j < Max_occ.size(); j++) {
+		// 	config_out << Max_occ[j] - Index[i][j] << " ";
+		// }
 	}
+	config_out.close();
 
  	return Store;
 }
@@ -856,6 +863,8 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 
 string RateEquationSolver::InterpretIndex(int i)
 {
+	// Outputs electronic configuration referenced in the i^th entry of
+	// EIIparams, Auger, Photo, Fluor
 	// LaTeX output format for direct insertion into table.
 	string Result;
 	if (!Index.empty()) {

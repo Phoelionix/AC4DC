@@ -41,6 +41,8 @@ C	src/Numerics.h	/^	vector<double> A, B, C, D, X, Y;$/;"	m	class:Adams
 CXXOPTS_HAS_OPTIONAL	include/cxxopts.hpp	/^#define CXXOPTS_HAS_OPTIONAL$/;"	d
 CXXOPTS_HPP_INCLUDED	include/cxxopts.hpp	/^#define CXXOPTS_HPP_INCLUDED$/;"	d
 Charge	src/RateEquationSolver.cpp	/^int RateEquationSolver::Charge(int Iconf)$/;"	f	class:RateEquationSolver
+CmdParser	src/solver.cpp	/^    CmdParser(int argc, const char *argv[]){$/;"	f	class:CmdParser
+CmdParser	src/solver.cpp	/^class CmdParser{$/;"	c	file:
 CntLattice	src/DecayRates.h	/^	Grid CntLattice = Grid(0);\/\/ Grid for continuum wave calculations.$/;"	m	class:DecayRates
 CntOrbitals	src/DecayRates.h	/^	vector<RadialWF> CntOrbitals;\/\/ Interpolated onto continuum grid "orbitals".$/;"	m	class:DecayRates
 CntU	src/DecayRates.h	/^	Potential CntU;$/;"	m	class:DecayRates
@@ -212,6 +214,8 @@ Out_T_size	src/Input.h	/^	int Out_T_size() {return out_time_steps; }$/;"	f	class
 Out_T_size	src/MolInp.h	/^	int Out_T_size() {return out_T_size; }$/;"	f	class:MolInp
 Overlap	src/Potential.cpp	/^double Potential::Overlap(std::vector<double> density, int infinity)$/;"	f	class:Potential
 P	src/RateEquationSolver.h	/^	vector<vector<double>> P;\/\/ P[i][m] is the probabilities of having configurations "i" at time T[m].$/;"	m	class:RateEquationSolver
+P_sizes	src/RateSystem.cpp	/^vector<size_t> state_type::P_sizes  = vector<size_t>(0);$/;"	m	class:state_type	file:
+P_sizes	src/RateSystem.h	/^    static vector<size_t> P_sizes;$/;"	m	class:state_type
 PairFunction	src/PairFunction.h	/^	PairFunction(int size = 0)$/;"	f	class:PairFunction
 PairFunction	src/PairFunction.h	/^class PairFunction$/;"	c
 ParseResult	include/cxxopts.hpp	/^  class ParseResult$/;"	c	namespace:cxxopts
@@ -406,7 +410,9 @@ extend_I	src/RateEquationSolver.cpp	/^int RateEquationSolver::extend_I(vector<do
 f	scripts/coeff.py	/^f= open('src\/Adams_arrays.h', 'w')$/;"	v
 f	src/IntegrateRateEquation.h	/^	vector<double> f;$/;"	m	class:IntegrateRateEquation
 f	src/RateSystem.h	/^    std::vector<double> f; \/\/ Energy distribution function$/;"	m	class:state_type
+f_grid	src/RateSystem.cpp	/^vector<double> state_type::f_grid   = vector<double>(0);$/;"	m	class:state_type	file:
 f_grid	src/RateSystem.h	/^    static vector<double> f_grid; \/\/ f energies$/;"	m	class:state_type
+f_widths	src/RateSystem.cpp	/^vector<double> state_type::f_widths = vector<double>(0);$/;"	m	class:state_type	file:
 f_widths	src/RateSystem.h	/^    static vector<double> f_widths; \/\/ bin widths$/;"	m	class:state_type
 ffactor	src/Constant.h	/^	struct ffactor\/\/form factor for Q_mesh values in FormFactor class$/;"	s	namespace:CustomDataType
 fig	scripts/MD_data_Plot.py	/^fig = plt.figure(figsize=(9, 6))$/;"	v
@@ -448,7 +454,8 @@ generate_group_help	include/cxxopts.hpp	/^Options::generate_group_help$/;"	f	cla
 get	include/cxxopts.hpp	/^      get() const$/;"	f	class:cxxopts::values::abstract_value
 get_Gauss_X	src/Numerics.cpp	/^vector<double> GaussQuad::get_Gauss_X(double a, double b)$/;"	f	class:GaussQuad
 get_default_value	include/cxxopts.hpp	/^      get_default_value() const$/;"	f	class:cxxopts::values::abstract_value
-get_file_names	src/solver.cpp	/^int get_file_names(const char* infile_, string &name, string &logfile) {$/;"	f
+get_file_names	src/solver.cpp	/^int get_file_names(const char* infile_, string &tag, string &logfile, string&outdir) {$/;"	f
+get_ground_state	src/ElectronSolver.cpp	/^state_type ElectronSolver::get_ground_state() {$/;"	f	class:ElectronSolver
 get_implicit_value	include/cxxopts.hpp	/^      get_implicit_value() const$/;"	f	class:cxxopts::values::abstract_value
 get_value	src/Numerics.cpp	/^vector<double> Interpolation::get_value(PairFunction &S_old, Grid &Lattice_old, double X)$/;"	f	class:Interpolation
 get_value	src/Numerics.cpp	/^vector<double> Interpolation::get_value(vector<double> &f, vector<double> &x_ini, double X)$/;"	f	class:Interpolation
@@ -471,6 +478,7 @@ implicit_value	include/cxxopts.hpp	/^      implicit_value(const std::string& val
 implicit_value	include/cxxopts.hpp	/^    std::string implicit_value;$/;"	m	struct:cxxopts::HelpOptionDetails
 index	src/Constant.h	/^		int index = 0;$/;"	m	struct:CustomDataType::polarize
 index	src/Constant.h	/^		int index;$/;"	m	struct:CustomDataType::ffactor
+index_names	src/Constant.h	/^		vector<string> index_names = vector<string>(0);$/;"	m	struct:RateData::Atom
 infinity	src/RadialWF.h	/^	int infinity;$/;"	m	class:RadialWF
 ini_T_size	src/MolInp.h	/^	int ini_T_size() {return num_time_steps;}$/;"	f	class:MolInp
 init	src/Constant.h	/^		int init;$/;"	m	struct:CustomDataType::EIIdata
@@ -576,7 +584,7 @@ np	scripts/atomic_charge_Plot.py	/^import numpy as np$/;"	i
 np	scripts/coeff.py	/^import numpy as np$/;"	i
 nuclear	src/Potential.h	/^	std::vector<double> nuclear;$/;"	m	class:Potential
 num_conf	src/Constant.h	/^		int num_conf = 1;$/;"	m	struct:RateData::Atom
-num_elec_points	src/MolInp.h	/^	double num_elec_points = 200;$/;"	m	class:MolInp
+num_elec_points	src/MolInp.h	/^	size_t num_elec_points = 200; \/\/ Number of cells in the free-electron enegy model$/;"	m	class:MolInp
 num_time_steps	src/Input.h	/^	int num_time_steps = 0; \/\/ Guess number of time steps for time dynamics.$/;"	m	class:Input
 num_time_steps	src/MolInp.h	/^	int num_time_steps = 1000; \/\/ Guess number of time steps for time dynamics.$/;"	m	class:MolInp
 occ	src/Constant.h	/^		vector<int> occ;$/;"	m	struct:CustomDataType::EIIdata
@@ -605,6 +613,7 @@ operator +	src/RateSystem.h	/^    state_type operator+(const state_type& s2){$/;
 operator ++	include/cxxopts.hpp	/^    operator++()$/;"	f	class:cxxopts::UnicodeStringIterator
 operator +=	src/Plasma.h	/^	void operator+=(const elec_state_t &a){$/;"	f	struct:elec_state_t
 operator +=	src/RateSystem.h	/^    state_type& operator+=(const state_type &s){$/;"	f	class:state_type
+operator <<	src/RateSystem.cpp	/^ostream& operator<<(ostream& os, const state_type& st){$/;"	f
 operator =	src/Grid.h	/^	const Grid& operator=(const Grid& lattice)$/;"	f	class:Grid
 operator =	src/Input.h	/^	Input& operator=(Input other)$/;"	f	class:Input
 operator =	src/PairFunction.h	/^	const PairFunction& operator=(const PairFunction& Psi)$/;"	f	class:PairFunction
@@ -688,6 +697,7 @@ r	src/Grid.h	/^	std::vector<double> r, dr;$/;"	m	class:Grid
 r_well	src/Potential.h	/^	double r_well = 0.0000001;$/;"	m	class:Potential
 radius	src/MolInp.h	/^	double radius = 1000.;$/;"	m	class:MolInp
 read_vector	src/RateEquationSolver.cpp	/^void read_vector(const string& s, vector<T>&v){$/;"	f
+recalc	src/solver.cpp	/^    bool recalc = false;$/;"	m	class:CmdParser	file:
 recalculate	src/RateEquationSolver.h	/^	bool recalculate; \/\/ Flag to determine behaviour$/;"	m	class:RateEquationSolver
 refEnergy	src/Constant.h	/^		double refEnergy;\/\/ Energy of the reference configuration.$/;"	m	struct:CustomDataType::polarize
 reference	src/Constant.h	/^		vector<int> reference;\/\/ Contains only occupancies of Orbitals, no Virtual included.$/;"	m	struct:CustomDataType::polarize
@@ -699,12 +709,19 @@ s	include/cxxopts.hpp	/^    const icu::UnicodeString* s;$/;"	m	class:cxxopts::Un
 s	include/cxxopts.hpp	/^    std::string s;$/;"	m	struct:cxxopts::HelpOptionDetails
 s	scripts/coeff.py	/^        s = ',\\n\\t{'$/;"	v
 safe_fopen	src/RateEquationSolver.cpp	/^FILE* safe_fopen(const char *filename, const char *mode)$/;"	f
+save	src/ElectronSolver.cpp	/^void ElectronSolver::save(const std::string& _dir, bool saveSeparate){$/;"	f	class:ElectronSolver
+saveAll	src/ElectronSolver.cpp	/^void ElectronSolver::saveAll(const std::string& fname){$/;"	f	class:ElectronSolver
+saveBound	src/ElectronSolver.cpp	/^void ElectronSolver::saveBound(const std::string& dir){$/;"	f	class:ElectronSolver
+saveFree	src/ElectronSolver.cpp	/^void ElectronSolver::saveFree(const std::string& fname){$/;"	f	class:ElectronSolver
 scalarMap	scripts/MD_data_Plot.py	/^scalarMap = mplcm.ScalarMappable(norm=cNorm, cmap=cm)$/;"	v
 scale	src/PairFunction.h	/^	void scale(double norm)$/;"	f	class:PairFunction
 scaling	scripts/MD_data_Plot.py	/^scaling = np.max(charge)*1.2$/;"	v
 set_L	src/RadialWF.cpp	/^void RadialWF::set_L(int X)$/;"	f	class:RadialWF
 set_N	src/RadialWF.h	/^	void set_N(int X) { n = X; }$/;"	f	class:RadialWF
+set_P_shape	src/RateSystem.h	/^    static void set_P_shape(const vector<RateData::Atom>& atomsys) {$/;"	f	class:state_type
+set_P_shape	src/RateSystem.h	/^    static void set_P_shape(const vector<size_t>& shape){$/;"	f	class:state_type
 set_default_and_implicit	include/cxxopts.hpp	/^      set_default_and_implicit()$/;"	f	class:cxxopts::values::standard_value
+set_elec_points	src/RateSystem.h	/^    static void set_elec_points(size_t n){$/;"	f	class:state_type
 set_infinity	src/RadialWF.h	/^	void set_infinity(int X) { infinity = X; }$/;"	f	class:RadialWF
 set_occupancy	src/RadialWF.h	/^	void set_occupancy(int X) { occup_number = X; }\/\/set custom occupancy, useful for average over configurations$/;"	f	class:RadialWF
 set_order	src/Numerics.cpp	/^void GaussQuad::set_order(int Order)$/;"	f	class:GaussQuad
@@ -731,8 +748,6 @@ standard_value	include/cxxopts.hpp	/^    class standard_value : public abstract_
 standard_value	include/cxxopts.hpp	/^    class standard_value<bool> : public abstract_value<bool>$/;"	c	namespace:cxxopts::values
 state	src/Plasma.h	/^	vector<elec_state_t> state; \/\/ State vector$/;"	m	class:Plasma
 state_type	src/RateSystem.h	/^    state_type(){$/;"	f	class:state_type
-state_type	src/RateSystem.h	/^    state_type(const vector<RateData::Atom>& atomsys, size_t f_size) {$/;"	f	class:state_type
-state_type	src/RateSystem.h	/^    state_type(const vector<int> P_sizes, const size_t f_size){$/;"	f	class:state_type
 state_type	src/RateSystem.h	/^class state_type$/;"	c
 std	include/cxxopts.hpp	/^namespace std$/;"	n
 step	src/AdamsIntegrator.hpp	/^void Adams_BM<T>::step(int n){$/;"	f	class:Adams_BM
@@ -757,6 +772,7 @@ to	src/Constant.h	/^		long int to = 0;$/;"	m	struct:RateData::Rate
 to	src/ElectronSolver.cpp	/^double Weight::to(size_t idx){$/;"	f	class:Weight
 toLocalString	include/cxxopts.hpp	/^  toLocalString(std::string s)$/;"	f	namespace:cxxopts
 toUTF8String	include/cxxopts.hpp	/^  toUTF8String(const String& s)$/;"	f	namespace:cxxopts
+try_mkdir	src/solver.cpp	/^void try_mkdir(const std::string& fname){$/;"	f
 turn	src/RadialWF.h	/^	int turn;$/;"	m	class:RadialWF
 turn_pt	src/RadialWF.h	/^	int turn_pt() { return turn; }$/;"	f	class:RadialWF
 type_is_container	include/cxxopts.hpp	/^    struct type_is_container$/;"	s	namespace:cxxopts::values
@@ -768,13 +784,14 @@ unit_V	src/MolInp.h	/^	double unit_V = 1.;$/;"	m	class:MolInp
 update	scripts/atomic_charge_Plot.py	/^    def update(self):$/;"	m	class:Plotter
 update_AB	src/Plasma.cpp	/^void Plasma::update_AB(int m, vector<double>& dt)$/;"	f	class:Plasma
 update_AM	src/Plasma.cpp	/^void Plasma::update_AM(int m, vector<double>& dt)$/;"	f	class:Plasma
-use_thermal_plasma	src/MolInp.h	/^	bool use_thermal_plasma = true;$/;"	m	class:MolInp
+use_thermal_plasma	src/MolInp.h	/^	bool use_thermal_plasma = true; \/\/ TODO: check what this actually does...$/;"	m	class:MolInp
 v0_N1	src/Potential.h	/^	vector<double> v0_N1;$/;"	m	class:Potential
 val	src/Constant.h	/^		double val = 0;$/;"	m	struct:RateData::Rate
 val	src/Constant.h	/^		double val;$/;"	m	struct:CustomDataType::auger
 val	src/Constant.h	/^		double val;\/\/value of the rate in a.u.$/;"	m	struct:CustomDataType::fluor
 val	src/Constant.h	/^		double val;\/\/value of the rate in a.u.$/;"	m	struct:CustomDataType::photo
 val	src/Constant.h	/^		vector<double> val;$/;"	m	struct:CustomDataType::ffactor
+valid_input	src/solver.cpp	/^    bool valid_input = true;$/;"	m	class:CmdParser	file:
 value	include/cxxopts.hpp	/^      static constexpr bool value = false;$/;"	m	struct:cxxopts::values::type_is_container
 value	include/cxxopts.hpp	/^      static constexpr bool value = true;$/;"	m	struct:cxxopts::values::type_is_container
 value	include/cxxopts.hpp	/^    const Value& value() const {$/;"	f	class:cxxopts::OptionDetails

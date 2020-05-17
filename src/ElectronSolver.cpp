@@ -2,6 +2,7 @@
 #include "HartreeFock.h"
 #include "RateEquationSolver.h"
 #include <fstream>
+#include <sys/stat.h>
 
 void PhotonFlux::set_parameters(double fluence, double fwhm){
     // The photon flux model
@@ -45,11 +46,25 @@ ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
     timespan = this->width*10;
 }
 
+state_type ElectronSolver::get_ground_state() {
+    state_type initial_condition = {};
+    initial_condition = 0; // May not be necessary, but probably not a bad idea.
+    for (size_t a; a<initial_condition.atomP.size(); a++) {
+        initial_condition.atomP[a][0] = this->Store[a].nAtoms;
+    }
+    return initial_condition;
+}
+
 void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
     this->calc_rates(_log, recalc);
     hasRates = true;
-    // Set up the rate equations!
-    this->setup(state_type(Store, num_elec_points), this->timespan/num_time_steps);
+
+    // Set up the container class to have the correct size
+    state_type::set_elec_points(num_elec_points);
+    state_type::set_P_shape(this->Store);
+
+    // Set up the rate equations (setup called from parent Adams_BM)
+    this->setup(get_ground_state(), this->timespan/num_time_steps);
     cout<<"Using timestep "<<this->dt<<" fs"<<endl;
 };
 
@@ -65,18 +80,6 @@ Use ElectronSolver::compute_cross_sections(log)\n" << endl;
     this->iterate(-timespan/2, this->num_time_steps); // Inherited from ABM
 }
 
-//
-//  !TODO
-// void ElectronSolver::saveFree(const std::string&fname){
-//     ofstream f;
-//     f.open(fname);
-//     f << "# Free electron dynamics"<<endl;
-//     f << "# Energies \t Density [ UNITS ]" <<endl;
-//     for (size_t i = 0; i < count; i++) {
-//         f <<
-//     }
-//
-// }
 
 // The Big One: Incorporates all of the right hand side to the global
 // d/dt P[i] = \sum_i=1^N W_ij - W_ji P[j]
@@ -107,4 +110,82 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
             }
         }
     }
+}
+
+// IO functions
+void ElectronSolver::save(const std::string& _dir, bool saveSeparate){
+    string dir = _dir; // make a copy of the const value
+    if (dir.back() == '/') dir.pop_back();
+
+    if (saveSeparate){
+        saveFree(dir);
+        saveBound(dir+"/boundDist.csv");
+    } else {
+        saveAll(dir+"/dist.csv");
+    }
+
+}
+
+void ElectronSolver::saveAll(const std::string& fname){
+    ofstream f;
+    f.open(fname);
+    f << "# Electron dynamics"<<endl;
+    f << "# Time (fs) [ bound1 | bound2 | bound3 ] free" <<endl;
+    assert(y.size() == t.size());
+    for (int i=0; i<y.size(); i++){
+        f<<t[i]<<" "<<y[i]<<endl;
+    }
+    f.close();
+}
+
+void ElectronSolver::saveFree(const std::string& fname){
+    // Saves a table of free-electron dynamics to file fname
+    ofstream f;
+    f.open(fname);
+    f << "# Free electron dynamics"<<endl;
+    f << "# Time (fs) | Density [ UNITS ] @ energy:" <<endl;
+    f << "#           | ";
+    for (int i=0; i<num_elec_points; i++) {
+        f<<state_type::f_grid[i]<<" ";
+    }
+    f<<endl;
+    assert(y.size() == t.size());
+    for (int i=0; i<y.size(); i++){
+        f<<t[i]<<", ";
+        for (size_t j = 0; j < y[i].f.size(); j++) {
+            f<<y[i].f[j]<<", ";
+        }
+        f<<endl;
+    }
+    f.close();
+}
+
+void ElectronSolver::saveBound(const std::string& dir){
+    // saves a table of bound-electron dynamics , split by atom, to folder dir.
+    assert(y.size() == t.size());
+    // Iterate over atom types
+    for (size_t a=0; a<Store.size(); a++) {
+        ofstream f;
+        f.open(dir+"/dist_"+Store[a].name+".csv");
+        f << "# Ionic electron dynamics"<<endl;
+        f << "# Time (fs) | State occupancy (Probability times number of atoms)" <<endl;
+        f << "#           | States:";
+        // Index, Max_occ inherited from MolInp
+        for (auto& cfgname : Store[a].index_names){
+            f << cfgname << " ";
+        }
+        f<<endl;
+        // Iterate over time.
+        for (size_t i=0; i<y.size(); i++){
+            // Make sure all "natom-dimensioned" objects are the size expected
+            assert(Store.size() == y[i].atomP.size());
+            f<<t[i];
+            for (auto& state_prob : y[i].atomP[a]) {
+                f<<", "<<state_prob;
+            }
+            f<<endl;
+        }
+        f.close();
+    }
+
 }

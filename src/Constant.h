@@ -116,6 +116,7 @@ namespace RateData {
 
 	struct Atom
 	{
+		vector<string> index_names = vector<string>(0);
 		std::string name = "";
 		double nAtoms = 1.;// atomic number density
 		double R = 189.; // 100nm focal spot radius.

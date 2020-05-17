@@ -116,6 +116,7 @@ protected:
 	vector<vector<int> > Index;
 	int mapOccInd(vector<RadialWF> & Orbitals);// Inverse of what Index returns.
 
+	// Returns LaTeX formatted electron config referred to by index i
 	string InterpretIndex(int i);
 
 	RateData::Atom Store;
