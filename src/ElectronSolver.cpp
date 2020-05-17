@@ -127,6 +127,7 @@ void ElectronSolver::save(const std::string& _dir, bool saveSeparate){
 
 void ElectronSolver::saveAll(const std::string& fname){
     ofstream f;
+    cout << "[All] Saving to file "<<fname<<"..."<<endl;
     f.open(fname);
     f << "# Electron dynamics"<<endl;
     f << "# Time (fs) [ bound1 | bound2 | bound3 ] free" <<endl;
@@ -140,6 +141,7 @@ void ElectronSolver::saveAll(const std::string& fname){
 void ElectronSolver::saveFree(const std::string& fname){
     // Saves a table of free-electron dynamics to file fname
     ofstream f;
+    cout << "[Free] Saving to file "<<fname<<"..."<<endl;
     f.open(fname);
     f << "# Free electron dynamics"<<endl;
     f << "# Time (fs) | Density [ UNITS ] @ energy:" <<endl;
@@ -165,7 +167,9 @@ void ElectronSolver::saveBound(const std::string& dir){
     // Iterate over atom types
     for (size_t a=0; a<Store.size(); a++) {
         ofstream f;
-        f.open(dir+"/dist_"+Store[a].name+".csv");
+        string fname = dir+"/dist_"+Store[a].name+".csv";
+        cout << "[Bound] saving to file "<<fname<<"..."<<endl;
+        f.open(fname);
         f << "# Ionic electron dynamics"<<endl;
         f << "# Time (fs) | State occupancy (Probability times number of atoms)" <<endl;
         f << "#           | States:";
