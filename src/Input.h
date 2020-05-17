@@ -37,8 +37,8 @@ public:
 
 	Input& operator=(Input other) {
 		if (&other == this){
-			return *this
-		};
+			return *this;
+		}
 
 		swap(name, other.name);
 		swap(model, other.model);
