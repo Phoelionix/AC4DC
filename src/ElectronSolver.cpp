@@ -47,7 +47,7 @@ ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
 }
 
 state_type ElectronSolver::get_ground_state() {
-    state_type initial_condition = {};
+    state_type initial_condition;
     initial_condition = 0; // May not be necessary, but probably not a bad idea.
     for (size_t a; a<initial_condition.atomP.size(); a++) {
         initial_condition.atomP[a][0] = this->Store[a].nAtoms;
@@ -60,9 +60,8 @@ void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
     hasRates = true;
 
     // Set up the container class to have the correct size
-    state_type::set_elec_points(num_elec_points);
+    state_type::set_elec_points(num_elec_points, min_elec_e, max_elec_e);
     state_type::set_P_shape(this->Store);
-
     // Set up the rate equations (setup called from parent Adams_BM)
     this->setup(get_ground_state(), this->timespan/num_time_steps);
     cout<<"Using timestep "<<this->dt<<" fs"<<endl;

@@ -260,11 +260,11 @@ ScaleNucl	src/Potential.cpp	/^void Potential::ScaleNucl(double Scl_dir)$/;"	f	cl
 SetBoundaryValues	src/HartreeFock.cpp	/^int SetBoundaryValues(Grid* Lattice, RadialWF* Psi, Potential* U)$/;"	f
 SetBoundaryValuesApprox	src/HartreeFock.cpp	/^int SetBoundaryValuesApprox(Grid * Lattice, RadialWF * Psi, Potential* U)$/;"	f
 SetMaxwellPF	src/Plasma.cpp	/^void Plasma::SetMaxwellPF(double Temperature)$/;"	f	class:Plasma
-Set_Fluence	src/Input.h	/^  void Set_Fluence(double ext_fluence) {fluence = ext_fluence;}$/;"	f	class:Input
+Set_Fluence	src/Input.h	/^	void Set_Fluence(double ext_fluence) {fluence = ext_fluence;}$/;"	f	class:Input
 Set_Fluence	src/MolInp.h	/^  void Set_Fluence(double new_fluence) {fluence = new_fluence;}$/;"	f	class:MolInp
 Set_Num_Threads	src/Input.h	/^	void Set_Num_Threads(int new_num_threads) {omp_threads = new_num_threads; }$/;"	f	class:Input
-Set_Pulse	src/Input.h	/^  void Set_Pulse(double ext_omega, double ext_fluence, double ext_width, bool write_ch = false, bool write_int = false, int ext_T_size = 0) {$/;"	f	class:Input
-Set_Width	src/Input.h	/^  void Set_Width(double ext_width) {width = ext_width;}$/;"	f	class:Input
+Set_Pulse	src/Input.h	/^	void Set_Pulse(double ext_omega, double ext_fluence, double ext_width, bool write_ch = false, bool write_int = false, int ext_T_size = 0) {$/;"	f	class:Input
+Set_Width	src/Input.h	/^	void Set_Width(double ext_width) {width = ext_width;}$/;"	f	class:Input
 SetupAndSolve	src/RateEquationSolver.cpp	/^int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)$/;"	f	class:RateEquationSolver
 SetupAndSolve	src/RateEquationSolver.cpp	/^int RateEquationSolver::SetupAndSolve(ofstream & runlog)$/;"	f	class:RateEquationSolver
 SetupIndex	src/RateEquationSolver.cpp	/^bool RateEquationSolver::SetupIndex(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)$/;"	f	class:RateEquationSolver
@@ -615,7 +615,7 @@ operator +=	src/Plasma.h	/^	void operator+=(const elec_state_t &a){$/;"	f	struct
 operator +=	src/RateSystem.h	/^    state_type& operator+=(const state_type &s){$/;"	f	class:state_type
 operator <<	src/RateSystem.cpp	/^ostream& operator<<(ostream& os, const state_type& st){$/;"	f
 operator =	src/Grid.h	/^	const Grid& operator=(const Grid& lattice)$/;"	f	class:Grid
-operator =	src/Input.h	/^	Input& operator=(Input other)$/;"	f	class:Input
+operator =	src/Input.h	/^	Input& operator=(Input other) {$/;"	f	class:Input
 operator =	src/PairFunction.h	/^	const PairFunction& operator=(const PairFunction& Psi)$/;"	f	class:PairFunction
 operator =	src/Plasma.h	/^	elec_state_t operator=(double c){$/;"	f	struct:elec_state_t
 operator =	src/Plasma.h	/^	elec_state_t operator=(int x){$/;"	f	struct:elec_state_t
@@ -692,6 +692,7 @@ potential	src/Input.h	/^	string potential = "V_N";$/;"	m	class:Input
 pract_infinity	src/RadialWF.h	/^	int pract_infinity() { return infinity; }$/;"	f	class:RadialWF
 print	src/AdamsIntegrator.hpp	/^void IVPSolver<T>::print(){$/;"	f	class:IVPSolver
 print_est	tests/plasma_logic.cpp	/^void print_est(elec_state_t &es){$/;"	f
+print_info	src/RateSystem.cpp	/^void state_type::print_info(){$/;"	f	class:state_type
 psi	src/HartreeFock.h	/^	RadialWF * psi;$/;"	m	class:GreensMethod
 r	src/Grid.h	/^	std::vector<double> r, dr;$/;"	m	class:Grid
 r_well	src/Potential.h	/^	double r_well = 0.0000001;$/;"	m	class:Potential
@@ -721,7 +722,7 @@ set_N	src/RadialWF.h	/^	void set_N(int X) { n = X; }$/;"	f	class:RadialWF
 set_P_shape	src/RateSystem.h	/^    static void set_P_shape(const vector<RateData::Atom>& atomsys) {$/;"	f	class:state_type
 set_P_shape	src/RateSystem.h	/^    static void set_P_shape(const vector<size_t>& shape){$/;"	f	class:state_type
 set_default_and_implicit	include/cxxopts.hpp	/^      set_default_and_implicit()$/;"	f	class:cxxopts::values::standard_value
-set_elec_points	src/RateSystem.h	/^    static void set_elec_points(size_t n){$/;"	f	class:state_type
+set_elec_points	src/RateSystem.cpp	/^void state_type::set_elec_points(size_t n, double min_e, double max_e){$/;"	f	class:state_type
 set_infinity	src/RadialWF.h	/^	void set_infinity(int X) { infinity = X; }$/;"	f	class:RadialWF
 set_occupancy	src/RadialWF.h	/^	void set_occupancy(int X) { occup_number = X; }\/\/set custom occupancy, useful for average over configurations$/;"	f	class:RadialWF
 set_order	src/Numerics.cpp	/^void GaussQuad::set_order(int Order)$/;"	f	class:GaussQuad

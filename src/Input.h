@@ -35,9 +35,10 @@ public:
 	//Input(char* filename, vector<RadialWF> &Orbitals,  vector<RadialWF> &Virtual, Grid &Lattice, ofstream & log);
 	Input(const Input & Other);
 
-	Input& operator=(Input other)
-	{
-		if(&other == this) return *this;
+	Input& operator=(Input other) {
+		if (&other == this){
+			return *this
+		};
 
 		swap(name, other.name);
 		swap(model, other.model);
@@ -68,10 +69,10 @@ public:
 	double Omega() { return omega; }
 	double Width() { return width; }
 	double Fluence() { return 10000*fluence; }
-  void Set_Width(double ext_width) {width = ext_width;}
-  void Set_Fluence(double ext_fluence) {fluence = ext_fluence;}
+	void Set_Width(double ext_width) {width = ext_width;}
+	void Set_Fluence(double ext_fluence) {fluence = ext_fluence;}
 
-  void Set_Pulse(double ext_omega, double ext_fluence, double ext_width, bool write_ch = false, bool write_int = false, int ext_T_size = 0) {
+	void Set_Pulse(double ext_omega, double ext_fluence, double ext_width, bool write_ch = false, bool write_int = false, int ext_T_size = 0) {
 		omega = ext_omega;
 		fluence = ext_fluence;
 		width = ext_width;

@@ -4,6 +4,7 @@
 
 #include <sstream>
 #include <assert.h>
+#include <iostream>
 #include "Constant.h"
 #include "AdamsIntegrator.hpp"
 
@@ -29,11 +30,11 @@ public:
     std::vector<double> f; // Energy distribution function
 
     state_type(){
-        atomP.reserve(P_sizes.size());
+        atomP.resize(P_sizes.size());
         for (size_t i = 0; i < atomP.size(); i++) {
-            atomP[i].reserve(P_sizes[i]);
+            atomP[i].resize(P_sizes[i]);
         }
-        f.reserve(f_grid.size());
+        f.resize(f_grid.size());
     }
 
 
@@ -87,9 +88,11 @@ public:
         return *this;
     }
 
+    static void print_info();
+
     // Resizes the container to fit all of the states present in the atom ensemble
     static void set_P_shape(const vector<RateData::Atom>& atomsys) {
-        P_sizes.reserve(atomsys.size());
+        P_sizes.resize(atomsys.size());
         // make the P's the right size lmao
         for (size_t a = 0; a < atomsys.size(); a++) {
             P_sizes[a] = atomsys[a].num_conf;
@@ -97,10 +100,7 @@ public:
     }
 
     // defines the binning of f
-    static void set_elec_points(size_t n){
-        f_grid.resize(n);
-        f_widths.resize(n);
-    }
+    static void set_elec_points(size_t n, double min_e, double max_e);
     // Defines number and style of atomP
     static void set_P_shape(const vector<size_t>& shape){
         P_sizes = shape;
@@ -113,6 +113,9 @@ private:
 };
 
 ostream& operator<<(ostream& os, const state_type& st);
+
+
+
 /*         TODO: Fix these (do not currently habdle multiple P arrays implemented above.)
 // Algebra definition for error-controlled steppers
 state_type operator/( const state_type &s1 , const state_type &s2 ){
