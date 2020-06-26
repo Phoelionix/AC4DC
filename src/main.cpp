@@ -37,7 +37,7 @@ This file is part of AC4DC.
 #include <eigen3/Eigen/Dense>
 #include "DecayRates.h"
 #include "Plasma.h"
-
+#include <assert.h>
 
 using namespace std;
 
@@ -46,11 +46,30 @@ USAGE: ac4dc input.inp
 */
 
 
+void export_psi(string file_name, RadialWF& Psi, Grid& latt){
+	cout<<"Attempting to save orbital "<<file_name<<endl;
+	const int N = latt.size();
+	assert(Psi.G.size() == N && Psi.F.size() == N);
+
+	std::ofstream os;
+	os.open(file_name.c_str());
+	os<<"# n="<< Psi.N() << ", l="<< Psi.L() <<std::endl;
+	os<<"# r F G"<<std::endl;
+	for (size_t i = 0; i < N; i++) {
+		os << latt.R(i) <<' '<< Psi.F[i] <<' '<< Psi.G[i] << endl;
+	}
+	os.close();
+}
+
+
 int main(int argc, char *argv[])
 {
 	string logname = "./output/log_";
 	string filename;
 	string tail;
+
+	bool export_orbs = false;
+
 	if (argc > 1) {
 		filename = argv[1];
 		size_t lastdot = filename.find_last_of(".");
@@ -66,6 +85,9 @@ int main(int argc, char *argv[])
 		std::cout << "Could not find file" << filename << "Exiting..." <<endl;
 		return 1;
 	}
+	if (argc>2 && strcmp(argv[2], "--export_orbs") == 0) export_orbs=true;
+	cout<<argv[2]<<endl;
+
 	ofstream log(logname);
 
 	int c_start = clock();
@@ -96,6 +118,7 @@ int main(int argc, char *argv[])
 		Potential U(&Lattice, Init.Nuclear_Z(), Init.Pot_Model());
 		HartreeFock HF(Lattice, Orbitals, U, Init, log);
 
+
 		// Solve the system of equations for atomic charge state dynamics.
 		if (Init.TimePts() != 0) {
 			RateEquationSolver Dynamics(Lattice, Orbitals, U, Init);
@@ -109,6 +132,19 @@ int main(int argc, char *argv[])
 
 			Dynamics.SolveFrozen(max_occ, final_occ, log);
 			Dynamics.SetupAndSolve(log);
+		}
+
+		if (export_orbs){
+			string orbfile = "./output/";
+			orbfile+=filename+"/Orbital";
+			mkdir(orbfile.c_str(), ACCESSPERMS);
+			std::cout << "Exporting orbitals..." << endl;
+			for ( auto& psi : Orbitals) {
+				std::stringstream ss;
+				ss<<orbfile;
+				ss<<"/N"<<psi.N()<<"L"<<psi.L()<<".csv";
+				export_psi(ss.str(), psi, Lattice);
+			}
 		}
 	}
 
