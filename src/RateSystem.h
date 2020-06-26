@@ -8,8 +8,6 @@
 #include "Constant.h"
 #include "AdamsIntegrator.hpp"
 
-using namespace std;
-
 
 
 /*
@@ -19,6 +17,52 @@ class state_type :
     boost::multiplicative2< state_type , double > > >
     */
 
+// Represents a statistical distribution.
+class Distribution
+{
+public:
+    Distribution() {
+        f.resize(size);
+    }
+
+    double operator[](size_t n){
+        return this->f[n];
+    }
+
+    //double operator()(double val); // returns value at value 'val'
+    // vector-space algebra
+    Distribution& operator+=(Distribution d){
+        for (size_t i=0; i<size; i++) {
+            f[i] += d.f[i];
+        }
+        return *this;
+    }
+
+    Distribution& operator*=(double x){
+        for (auto& fi : f){
+            fi *= x;
+        }
+        return *this;
+    }
+
+    template<typename T>
+    T expect(T (& g) (double e)){
+        T tmp = 0;
+        for (size_t i = 0; i < size; i++) {
+            tmp += g(grid[i])*f[i]*widths[i];
+        }
+        return tmp;
+    }
+
+
+    // defines the f interpolation
+    static void set_elec_points(size_t n, double min_e, double max_e);
+
+    vector<double> f;
+    static vector<double> grid;
+    static size_t size;
+    static vector<double> widths;
+};
 
 // Class responsible for storing the system state.
 class state_type
@@ -27,93 +71,42 @@ public:
     typedef std::vector<double> bound_t; // Probabilities of state
 
     std::vector<bound_t> atomP; // Probabilities of state for all atoms.
-    std::vector<double> f; // Energy distribution function
+    Distribution F; // Energy distribution function
 
-    state_type(){
-        atomP.resize(P_sizes.size());
-        for (size_t i = 0; i < atomP.size(); i++) {
-            atomP[i].resize(P_sizes[i]);
-        }
-        f.resize(f_grid.size());
-    }
-
+    state_type();
 
     // Critical vector-space devices
-    state_type& operator+=(const state_type &s){
-        for (size_t r = 0; r < atomP.size(); r++) {
-            for (size_t i = 0; i < atomP[r].size(); i++) {
-                atomP[r][i] += s.atomP[r][i];
-            }
-        }
-        for (size_t i = 0; i < f.size(); i++) {
-            f[i] += s.f[i];
-        }
-        return *this;
-    }
-
-    state_type& operator*=(const double x){
-        for (size_t r = 0; r < atomP.size(); r++) {
-            for (size_t i = 0; i < atomP[r].size(); i++) {
-                atomP[r][i] *= x;
-            }
-        }
-        for (size_t i = 0; i < f.size(); i++) {
-            f[i] *= x;
-        }
-        return *this;
-    }
-
-    state_type operator+(const state_type& s2){
-        state_type retval = *this;
-        retval += s2;
-        return retval;
-    }
-
-    state_type operator*(double x){
-        state_type retval = *this;
-        retval *= x;
-        return retval;
-    }
-
+    state_type& operator+=(const state_type &s);
+    state_type& operator*=(const double x);
+    state_type operator+(const state_type& s2);
+    state_type operator*(double x);
     // convenience members
-    state_type& operator=(const double x){
-        for (auto& P : atomP){
-            for (auto& p : P) {
-                p=x;
-            }
-        }
-        for (auto& d : f){
-            d=x;
-        }
-        return *this;
-    }
+    state_type& operator=(const double x);
+    // state_type& operator=(const state_type& s2);
 
+    // pretty
     static void print_info();
 
-    // Resizes the container to fit all of the states present in the atom ensemble
-    static void set_P_shape(const vector<RateData::Atom>& atomsys) {
-        P_sizes.resize(atomsys.size());
-        // make the P's the right size lmao
-        for (size_t a = 0; a < atomsys.size(); a++) {
-            P_sizes[a] = atomsys[a].num_conf;
-        }
-    }
-
-    // defines the binning of f
-    static void set_elec_points(size_t n, double min_e, double max_e);
     // Defines number and style of atomP
+    // Resizes the container to fit all of the states present in the atom ensemble
+    static void set_P_shape(const vector<RateData::Atom>& atomsys);
     static void set_P_shape(const vector<size_t>& shape){
         P_sizes = shape;
     }
 
-    static vector<double> f_grid; // f energies
-    static vector<double> f_widths; // bin widths
 private:
     static vector<size_t> P_sizes;
 };
 
 ostream& operator<<(ostream& os, const state_type& st);
 
+ostream& operator<<(ostream& os, const Distribution& dist);
+
+// All f integrals have the form
+// df(e)/dt = Q [f] (e)
+// Expand in some basis f = \sum_k a_k(t) f_k
+// \sum_k da_k(t)/dt f_k(e) = Q[f] (e)
+// This does not make life easier, unless we take the f_k to have compact support.
 
 
 /*         TODO: Fix these (do not currently habdle multiple P arrays implemented above.)

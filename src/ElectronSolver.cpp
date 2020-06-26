@@ -49,8 +49,9 @@ ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
 state_type ElectronSolver::get_ground_state() {
     state_type initial_condition;
     initial_condition = 0; // May not be necessary, but probably not a bad idea.
-    for (size_t a; a<initial_condition.atomP.size(); a++) {
-        initial_condition.atomP[a][0] = this->Store[a].nAtoms;
+    assert(initial_condition.atomP.size() == Store.size());
+    for (size_t a=0; a<Store.size(); a++) {
+        initial_condition.atomP[a][0] = Store[a].nAtoms;
     }
     return initial_condition;
 }
@@ -60,7 +61,7 @@ void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
     hasRates = true;
 
     // Set up the container class to have the correct size
-    state_type::set_elec_points(num_elec_points, min_elec_e, max_elec_e);
+    Distribution::set_elec_points(num_elec_points, min_elec_e, max_elec_e);
     state_type::set_P_shape(this->Store);
     // Set up the rate equations (setup called from parent Adams_BM)
     this->setup(get_ground_state(), this->timespan/num_time_steps);
@@ -114,20 +115,21 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
 // IO functions
 void ElectronSolver::save(const std::string& _dir, bool saveSeparate){
     string dir = _dir; // make a copy of the const value
-    if (dir.back() == '/') dir.pop_back();
+    dir = (dir.back() == '/') ? dir : dir + "/";
 
     if (saveSeparate){
-        saveFree(dir);
-        saveBound(dir+"/boundDist.csv");
+        saveFree(dir+"freeDist.csv");
+        saveBound(dir);
     } else {
-        saveAll(dir+"/dist.csv");
+        saveAll(dir+"dist.csv");
     }
 
 }
 
+// Writes free and atomic dynamics to single file fname
 void ElectronSolver::saveAll(const std::string& fname){
     ofstream f;
-    cout << "[All] Saving to file "<<fname<<"..."<<endl;
+    cout << "[ All ] Saving to file "<<fname<<"..."<<endl;
     f.open(fname);
     f << "# Electron dynamics"<<endl;
     f << "# Time (fs) [ bound1 | bound2 | bound3 ] free" <<endl;
@@ -141,20 +143,20 @@ void ElectronSolver::saveAll(const std::string& fname){
 void ElectronSolver::saveFree(const std::string& fname){
     // Saves a table of free-electron dynamics to file fname
     ofstream f;
-    cout << "[Free] Saving to file "<<fname<<"..."<<endl;
+    cout << "[ Free ] Saving to file "<<fname<<"..."<<endl;
     f.open(fname);
     f << "# Free electron dynamics"<<endl;
     f << "# Time (fs) | Density [ UNITS ] @ energy:" <<endl;
     f << "#           | ";
     for (int i=0; i<num_elec_points; i++) {
-        f<<state_type::f_grid[i]<<" ";
+        f<<Distribution::grid[i]<<" ";
     }
     f<<endl;
     assert(y.size() == t.size());
     for (int i=0; i<y.size(); i++){
         f<<t[i]<<", ";
-        for (size_t j = 0; j < y[i].f.size(); j++) {
-            f<<y[i].f[j]<<", ";
+        for (size_t j = 0; j < Distribution::size; j++) {
+            f<<y[i].F[j]<<", ";
         }
         f<<endl;
     }
@@ -167,8 +169,8 @@ void ElectronSolver::saveBound(const std::string& dir){
     // Iterate over atom types
     for (size_t a=0; a<Store.size(); a++) {
         ofstream f;
-        string fname = dir+"/dist_"+Store[a].name+".csv";
-        cout << "[Bound] saving to file "<<fname<<"..."<<endl;
+        string fname = dir+"dist_"+Store[a].name+".csv";
+        cout << "[ Atom ] Saving to file "<<fname<<"..."<<endl;
         f.open(fname);
         f << "# Ionic electron dynamics"<<endl;
         f << "# Time (fs) | State occupancy (Probability times number of atoms)" <<endl;

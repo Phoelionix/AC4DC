@@ -529,7 +529,7 @@ RateData::Atom RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<in
 	string IndexTrslt = "./output/" + input.Name() + "/index.txt";
 
 	ofstream config_out(IndexTrslt);
-	config_out<<"# idx | configuration";
+	config_out<<"# idx | configuration"<<endl;
 	// TODO: TEST THIS WITH A BREAKPOINT
 	for (size_t i = 0; i < Index.size(); i++) {
 		Store.index_names.push_back(InterpretIndex(i));

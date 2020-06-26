@@ -48,7 +48,8 @@ int get_file_names(const char* infile_, string &tag, string &logfile, string&out
     try_mkdir("output/__Molecular");
     logfile = "output/log/run_" + tag + ".log";
     // check correct format
-    outdir = "output/__Molecular";
+    outdir = "output/__Molecular/"+tag+"/";
+    try_mkdir(outdir);
     string extension = infile.substr(tagend);
     if (extension != ".mol") {
         cerr<<"This file is for coupled calculations. Please provide a .mol file similar to Lysozyme.mol"<<endl;
