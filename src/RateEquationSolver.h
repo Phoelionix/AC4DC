@@ -65,7 +65,9 @@ public:
 	//Orbitals are HF wavefunctions. This configuration is an initial state.
 	//Assuming there are no unoccupied states in initial configuration!!!
 	RateEquationSolver(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, bool recalc=true) :
-	 	lattice(Lattice), orbitals(Orbitals), u(U), input(Inp), recalculate(recalc) {};
+	 	lattice(Lattice), orbitals(Orbitals), u(U), input(Inp), recalculate(recalc){
+			cerr<<"[DEBUG] Recalculate set to "<<recalc<<endl;
+		};
 	~RateEquationSolver();
 
 	// Halfwidth = 5/Constant::Time -> 5 fs half width.

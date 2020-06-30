@@ -3,6 +3,7 @@
 #include "RateEquationSolver.h"
 #include <fstream>
 #include <sys/stat.h>
+#include <algorithm>
 
 void PhotonFlux::set_parameters(double fluence, double fwhm){
     // The photon flux model
@@ -18,6 +19,7 @@ inline double PhotonFlux::operator()(double t){
 Weight::Weight(size_t _size){
     size = _size;
     W = (double*) malloc(sizeof(double)*size*size); // allocate the memory
+    std::fill(W, W+sizeof(double)*size*size, 0);
 }
 
 Weight::~Weight(){
@@ -90,10 +92,39 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         // create an appropriately-sized W[i][j]
         Weight W(s.atomP[a].size());
 
-        double J = pf(t); // photon flux in [TODO: UNITS] units
-        for ( auto& pht : Store[a].Photo) {
-            W(pht.to, pht.from) = pht.val*J;
+        // PHOTOIONISATION
+        double J = pf(t); // photon flux in uhhhhh [TODO: UNITS]
+        for ( auto& r : Store[a].Photo) {
+            W(r.to, r.from) += r.val*J;
+            sdot.F.addDeltaLike(r.energy, r.val*J);
         }
+
+        // FLUORESCENCE
+        for ( auto& r : Store[a].Fluor) {
+            W(r.to, r.from) += r.val;
+            // Energy from optical photon assumed lost
+        }
+
+        // AUGER
+        for ( auto& r : Store[a].Auger) {
+            W(r.to, r.from) += r.val;
+            sdot.F.addDeltaLike(r.energy, r.val);
+        }
+
+        // EII / TBR
+        for ( auto& ep : Store[a].EIIparams) {
+            for (size_t i = 0; i < ep.fin.size(); i++) {
+                // Number of Electrons
+                // INTEGRAL 0 infty n_a/2 (2e/m) de/m  f(e) sigmaBEB(e)
+                // n_a num atoms
+                double n, dN;
+                n = Store[a].nAtoms;
+                dN  = n*(s.F.eii_int(ep, i) + n*s.F.tbr_int(ep, i));
+                W(ep.fin[i], i) += dN;
+
+            }
+        }
+
 
         const state_type::bound_t& P = s.atomP[a];
         state_type::bound_t& Pdot = sdot.atomP[a];
@@ -109,6 +140,8 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
                 Pdot[i] += W(i, j) * P[j] - W(j, i) * P[i];
             }
         }
+
+
     }
 }
 
@@ -174,7 +207,7 @@ void ElectronSolver::saveBound(const std::string& dir){
         f.open(fname);
         f << "# Ionic electron dynamics"<<endl;
         f << "# Time (fs) | State occupancy (Probability times number of atoms)" <<endl;
-        f << "#           | States:";
+        f << "#           | States: ";
         // Index, Max_occ inherited from MolInp
         for (auto& cfgname : Store[a].index_names){
             f << cfgname << " ";

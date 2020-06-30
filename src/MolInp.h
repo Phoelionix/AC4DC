@@ -24,7 +24,7 @@ public:
 	int ini_T_size() {return num_time_steps;}
 	double dropl_R() {return radius;}
 
-  void Set_Fluence(double new_fluence) {fluence = new_fluence;}
+  	void Set_Fluence(double new_fluence) {fluence = new_fluence;}
 	bool Write_Charges() {return write_charges; }
 	bool Write_Intensity() {return write_intensity; }
 	bool Write_MD_data() {return write_md_data; }

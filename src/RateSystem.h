@@ -29,7 +29,10 @@ public:
         return this->f[n];
     }
 
-    //double operator()(double val); // returns value at value 'val'
+    double operator[](double e){
+        return this->f[i_from_e(e)];
+    }
+
     // vector-space algebra
     Distribution& operator+=(Distribution d){
         for (size_t i=0; i<size; i++) {
@@ -54,6 +57,11 @@ public:
         return tmp;
     }
 
+    double eii_int (const CustomDataType::EIIdata& eii, const int i) const;
+    double tbr_int (const CustomDataType::EIIdata& eii, const int i) const;
+
+    // N is the (dimensionless) count of the integrated energy desired
+    void addDeltaLike(double e, double N);
 
     // defines the f interpolation
     static void set_elec_points(size_t n, double min_e, double max_e);
@@ -62,6 +70,10 @@ public:
     static vector<double> grid;
     static size_t size;
     static vector<double> widths;
+private:
+    static double e_from_i(size_t i);
+    static size_t i_from_e(double e);
+    static double min_e, max_e;
 };
 
 // Class responsible for storing the system state.

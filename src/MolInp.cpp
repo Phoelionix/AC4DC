@@ -13,7 +13,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	// Input file for molecular ionization calculation.
 	map<string, vector<string>> FileContent;
 
-	std::cout<<"Opening file "<<filename<<"... ";
+	std::cout<<"Opening molecular file "<<filename<<"... ";
 	name = filename;
 	size_t lastdot = name.find_last_of(".");
 	if (lastdot != std::string::npos) name = name.substr(0, lastdot);
@@ -153,7 +153,7 @@ void MolInp::calc_rates(ofstream &_log, bool recalc){
 		HartreeFock HF(Latts[a], Orbits[a], Pots[a], Atomic[a], _log);
 
 		// This Computes the parameters for the rate equations to use, loading them into Init.
-		RateEquationSolver Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], recalc);
+		RateEquationSolver Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], false);
 		vector<int> final_occ(Orbits[a].size(), 0);
 		vector<int> max_occ(Orbits[a].size(), 0);
 		for (int i = 0; i < max_occ.size(); i++) {

@@ -15,10 +15,12 @@ This file is part of AC4DC.
     along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
 ===========================================================================*/
 #include "IntegrateRateEquation.h"
+#include "Dipole.h"
 #include <algorithm>
 #include <iostream>
 #include <omp.h>
 #include <cmath>
+
 
 inline bool CompareChar(vector<char>&, char);
 

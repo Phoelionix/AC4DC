@@ -9,6 +9,7 @@ A	scripts/coeff.py	/^        A = np.array([[j**i for j in range(N)] for i in ran
 A	src/ElectronSolver.h	/^    double A;$/;"	m	class:PhotonFlux
 A	src/Numerics.h	/^	vector<double> A, B, C, D, X, Y;$/;"	m	class:Adams
 AB_COEFF	src/Adams_arrays.h	/^const double AB_COEFF[16][16] = {$/;"	m	namespace:AdamsArrays
+AC4DC_CXX_DIPOLE_H	src/Dipole.h	/^#define AC4DC_CXX_DIPOLE_H$/;"	d
 AC4DC_CXX_MOLINP_H	src/MolInp.h	/^#define AC4DC_CXX_MOLINP_H$/;"	d
 AC4DC_INPUT_CXX_H	src/Input.h	/^#define AC4DC_INPUT_CXX_H$/;"	d
 ADAMS_ARRAY_CXX_H	src/Adams_arrays.h	/^#define ADAMS_ARRAY_CXX_H$/;"	d
@@ -55,13 +56,13 @@ CustomDataType	src/Constant.h	/^namespace CustomDataType$/;"	n
 D	src/Numerics.h	/^	vector<double> A, B, C, D, X, Y;$/;"	m	class:Adams
 DecayRates	src/DecayRates.cpp	/^DecayRates::DecayRates(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp) : lattice(Lattice), orbitals(Orbitals),$/;"	f	class:DecayRates
 DecayRates	src/DecayRates.h	/^class DecayRates$/;"	c
-Dipole	src/Plasma.h	/^namespace Dipole$/;"	n
+Dipole	src/Dipole.h	/^namespace Dipole$/;"	n
 Dipole	src/Potential.cpp	/^double MatrixElems::Dipole(RadialWF &A, RadialWF &B, string gauge)$/;"	f	class:MatrixElems
 DipoleAvg	src/Potential.cpp	/^double MatrixElems::DipoleAvg(RadialWF & A, RadialWF & B, string gauge)$/;"	f	class:MatrixElems
 Dipoles	src/Constant.h	/^		vector<double> Dipoles; \/\/ Reduced transition dipole matrix elements form 'reference' to 'excited'.$/;"	m	struct:CustomDataType::polarize
 Distribution	src/RateSystem.h	/^    Distribution() {$/;"	f	class:Distribution
 Distribution	src/RateSystem.h	/^class Distribution$/;"	c
-DsigmaBEB	src/Plasma.cpp	/^double Dipole::DsigmaBEB(double T, double W, double B, double u, int occ)$/;"	f	class:Dipole
+DsigmaBEB	src/Dipole.cpp	/^double Dipole::DsigmaBEB(double T, double W, double B, double u, int occ)$/;"	f	class:Dipole
 E	src/Plasma.h	/^	double E;$/;"	m	struct:elec_state_t
 EIIdata	src/Constant.h	/^	struct EIIdata$/;"	s	namespace:CustomDataType
 EIIparams	src/Constant.h	/^		vector<CustomDataType::EIIdata> EIIparams = vector<CustomDataType::EIIdata>(0);$/;"	m	struct:RateData::Atom
@@ -265,7 +266,7 @@ SetBoundaryValues	src/HartreeFock.cpp	/^int SetBoundaryValues(Grid* Lattice, Rad
 SetBoundaryValuesApprox	src/HartreeFock.cpp	/^int SetBoundaryValuesApprox(Grid * Lattice, RadialWF * Psi, Potential* U)$/;"	f
 SetMaxwellPF	src/Plasma.cpp	/^void Plasma::SetMaxwellPF(double Temperature)$/;"	f	class:Plasma
 Set_Fluence	src/Input.h	/^	void Set_Fluence(double ext_fluence) {fluence = ext_fluence;}$/;"	f	class:Input
-Set_Fluence	src/MolInp.h	/^  void Set_Fluence(double new_fluence) {fluence = new_fluence;}$/;"	f	class:MolInp
+Set_Fluence	src/MolInp.h	/^  	void Set_Fluence(double new_fluence) {fluence = new_fluence;}$/;"	f	class:MolInp
 Set_Num_Threads	src/Input.h	/^	void Set_Num_Threads(int new_num_threads) {omp_threads = new_num_threads; }$/;"	f	class:Input
 Set_Pulse	src/Input.h	/^	void Set_Pulse(double ext_omega, double ext_fluence, double ext_width, bool write_ch = false, bool write_int = false, int ext_T_size = 0) {$/;"	f	class:Input
 Set_Width	src/Input.h	/^	void Set_Width(double ext_width) {width = ext_width;}$/;"	f	class:Input
@@ -331,6 +332,7 @@ adams_4	src/Numerics.cpp	/^static const double adams_4[4] = { 1. \/ 24., -5. \/ 
 adams_5	src/Numerics.cpp	/^static const double adams_5[5] = { 251. \/ 720., 646. \/ 720., -264. \/ 720., 106. \/ 720., -19. \/ 720. };$/;"	v	file:
 adams_n	src/IntegrateRateEquation.h	/^	int adams_n = 5;$/;"	m	class:IntegrateRateEquation
 adams_n	src/Plasma.h	/^	int adams_n = 5;$/;"	m	class:Plasma
+addDeltaLike	src/RateSystem.cpp	/^void Distribution::addDeltaLike(double e, double mass){$/;"	f	class:Distribution
 add_one_option	include/cxxopts.hpp	/^Options::add_one_option$/;"	f	class:cxxopts::Options
 add_option	include/cxxopts.hpp	/^Options::add_option$/;"	f	class:cxxopts::Options
 add_options	include/cxxopts.hpp	/^Options::add_options(std::string group)$/;"	f	class:cxxopts::Options
@@ -401,6 +403,8 @@ ds	src/Grid.h	/^	double ds;$/;"	m	class:Grid
 dt	src/AdamsIntegrator.hpp	/^    double dt;$/;"	m	class:IVPSolver
 dt	src/IntegrateRateEquation.h	/^	vector<double>& dt;$/;"	m	class:IntegrateRateEquation
 eV_in_au	src/Constant.h	/^	const double eV_in_au = 27.211385;\/\/electron volts in atomic units$/;"	m	namespace:Constant
+e_from_i	src/RateSystem.cpp	/^double Distribution::e_from_i(size_t i){$/;"	f	class:Distribution
+eii_int	src/RateSystem.cpp	/^double Distribution::eii_int (const CustomDataType::EIIdata& eii, const int J) const {$/;"	f	class:Distribution
 eject	src/Constant.h	/^		int eject;$/;"	m	struct:CustomDataType::auger
 elec_state_t	src/Plasma.h	/^struct elec_state_t {$/;"	s
 electrons	scripts/MD_data_Plot.py	/^electrons = file_content[:, -2:]$/;"	v
@@ -485,6 +489,7 @@ hole	src/Constant.h	/^		int hole;\/\/orbital with hole$/;"	m	struct:CustomDataTy
 hole	src/Constant.h	/^		int hole;\/\/orbital with hole$/;"	m	struct:CustomDataType::photo
 hole_posit	src/RateEquationSolver.h	/^	vector<int> hole_posit;$/;"	m	class:RateEquationSolver
 i	include/cxxopts.hpp	/^    int32_t i;$/;"	m	class:cxxopts::UnicodeStringIterator
+i_from_e	src/RateSystem.cpp	/^size_t Distribution::i_from_e(double e){$/;"	f	class:Distribution
 implicit_value	include/cxxopts.hpp	/^      implicit_value(const std::string& value)$/;"	f	class:cxxopts::values::abstract_value
 implicit_value	include/cxxopts.hpp	/^    std::string implicit_value;$/;"	m	struct:cxxopts::HelpOptionDetails
 index	src/Constant.h	/^		int index = 0;$/;"	m	struct:CustomDataType::polarize
@@ -575,8 +580,12 @@ max_HF_iterations	src/Input.h	/^	int max_HF_iterations = 500;$/;"	m	class:Input
 max_HF_iters	src/Input.h	/^	int max_HF_iters() {return max_HF_iterations; }$/;"	f	class:Input
 max_Virt_iterations	src/HartreeFock.h	/^	int max_Virt_iterations = 70;$/;"	m	class:HartreeFock
 max_chrg	scripts/MD_data_Plot.py	/^max_chrg = charge[-1, :]$/;"	v
+max_e	src/RateSystem.cpp	/^double Distribution::max_e = 1e3f;$/;"	m	class:Distribution	file:
+max_e	src/RateSystem.h	/^    static double min_e, max_e;$/;"	m	class:Distribution
 max_elec_e	src/MolInp.h	/^	double max_elec_e = 5000;$/;"	m	class:MolInp
 me_gauge	src/Input.h	/^	string me_gauge = "length";$/;"	m	class:Input
+min_e	src/RateSystem.cpp	/^double Distribution::min_e = 10.f;$/;"	m	class:Distribution	file:
+min_e	src/RateSystem.h	/^    static double min_e, max_e;$/;"	m	class:Distribution
 min_elec_e	src/MolInp.h	/^	double min_elec_e = 100;$/;"	m	class:MolInp
 minor	include/cxxopts.hpp	/^    uint8_t major, minor, patch;$/;"	m	struct:cxxopts::__anon1
 missing_argument_exception	include/cxxopts.hpp	/^    missing_argument_exception(const std::string& option)$/;"	f	class:cxxopts::missing_argument_exception
@@ -642,6 +651,7 @@ operator =	src/RateSystem.cpp	/^state_type& state_type::operator=(const double x
 operator ==	include/cxxopts.hpp	/^    operator==(const UnicodeStringIterator& rhs) const$/;"	f	class:cxxopts::UnicodeStringIterator
 operator ==	src/Plasma.h	/^	bool operator==(const elec_state_t &a){$/;"	f	struct:elec_state_t
 operator []	include/cxxopts.hpp	/^    operator[](const std::string& option) const$/;"	f	class:cxxopts::ParseResult
+operator []	src/RateSystem.h	/^    double operator[](double e){$/;"	f	class:Distribution
 operator []	src/RateSystem.h	/^    double operator[](size_t n){$/;"	f	class:Distribution
 option_exists_error	include/cxxopts.hpp	/^    option_exists_error(const std::string& option)$/;"	f	class:cxxopts::option_exists_error
 option_exists_error	include/cxxopts.hpp	/^  class option_exists_error : public OptionSpecException$/;"	c	namespace:cxxopts
@@ -748,7 +758,7 @@ set_N	src/RadialWF.h	/^	void set_N(int X) { n = X; }$/;"	f	class:RadialWF
 set_P_shape	src/RateSystem.cpp	/^void state_type::set_P_shape(const vector<RateData::Atom>& atomsys) {$/;"	f	class:state_type
 set_P_shape	src/RateSystem.h	/^    static void set_P_shape(const vector<size_t>& shape){$/;"	f	class:state_type
 set_default_and_implicit	include/cxxopts.hpp	/^      set_default_and_implicit()$/;"	f	class:cxxopts::values::standard_value
-set_elec_points	src/RateSystem.cpp	/^void Distribution::set_elec_points(size_t n, double min_e, double max_e){$/;"	f	class:Distribution
+set_elec_points	src/RateSystem.cpp	/^void Distribution::set_elec_points(size_t n, double _min_e, double _max_e){$/;"	f	class:Distribution
 set_infinity	src/RadialWF.h	/^	void set_infinity(int X) { infinity = X; }$/;"	f	class:RadialWF
 set_occupancy	src/RadialWF.h	/^	void set_occupancy(int X) { occup_number = X; }\/\/set custom occupancy, useful for average over configurations$/;"	f	class:RadialWF
 set_order	src/Numerics.cpp	/^void GaussQuad::set_order(int Order)$/;"	f	class:GaussQuad
@@ -760,8 +770,8 @@ setup_axes	scripts/plot_molecular_charge.py	/^    def setup_axes(self):$/;"	m	cl
 sgn	src/Wigner/commonFunctions.h	/^double sgn(T val)$/;"	f	namespace:WignerSymbols
 short_name	include/cxxopts.hpp	/^    short_name() const$/;"	f	class:cxxopts::OptionDetails
 show_positional_help	include/cxxopts.hpp	/^    show_positional_help()$/;"	f	class:cxxopts::Options
-sigmaBEB	src/Plasma.cpp	/^double Dipole::sigmaBEB(double T, double B, double u, int occ)$/;"	f	class:Dipole
-sigmaBEBw1	src/Plasma.cpp	/^double Dipole::sigmaBEBw1(double T, double B, double u, int occ)$/;"	f	class:Dipole
+sigmaBEB	src/Dipole.cpp	/^double Dipole::sigmaBEB(double T, double B, double u, int occ)$/;"	f	class:Dipole
+sigmaBEBw1	src/Dipole.cpp	/^double Dipole::sigmaBEBw1(double T, double B, double u, int occ)$/;"	f	class:Dipole
 size	src/ElectronSolver.h	/^    size_t size;$/;"	m	class:Weight
 size	src/Grid.h	/^	int size() {$/;"	f	class:Grid
 size	src/PairFunction.h	/^	int size() { return static_cast<int>(F.size()); }$/;"	f	class:PairFunction
@@ -796,6 +806,7 @@ sys	scripts/plot_molecular_charge.py	/^import sys$/;"	i
 sys	src/ElectronSolver.cpp	/^void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){$/;"	f	class:ElectronSolver
 t	src/AdamsIntegrator.hpp	/^    vector<double> t;$/;"	m	class:IVPSolver
 t	src/IntegrateRateEquation.h	/^	vector<double>& t;$/;"	m	class:IntegrateRateEquation
+tbr_int	src/RateSystem.cpp	/^double Distribution::tbr_int (const CustomDataType::EIIdata& eii, const int J) const {$/;"	f	class:Distribution
 time	scripts/MD_data_Plot.py	/^time = file_content[:, 0]$/;"	v
 time	scripts/atomic_charge_Plot.py	/^import time$/;"	i
 time	scripts/plot_molecular_charge.py	/^import time$/;"	i

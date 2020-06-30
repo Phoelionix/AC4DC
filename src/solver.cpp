@@ -79,6 +79,7 @@ public:
                     case 'h':
                         // Usage help.
                         cout<<"This is physics code, were you really expecting documentation?"<<endl;
+                        cout<<"-r force recalculate"<<endl;
                         break;
                     default:
                         cout<<"Flag '"<<argv[a][i]<<"' is not a recognised flag."<<endl;

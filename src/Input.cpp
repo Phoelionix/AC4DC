@@ -31,7 +31,7 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 	size_t lastslash = name.find_last_of("/");
 	if (lastdot != std::string::npos) name = name.substr(lastslash+1);
 
-	cout << "Opening file "<< filename << "...";
+	cout << "Opening atomic file "<< filename << "...";
 	ifstream infile(filename);
 	cout << "... Success!" << endl;
 

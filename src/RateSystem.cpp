@@ -1,22 +1,85 @@
 #include "RateSystem.h"
+#include "Dipole.h"
+#include <math.h>
 
 vector<double> Distribution::grid   = vector<double>(0);
 vector<double> Distribution::widths = vector<double>(0);
 vector<size_t> state_type::P_sizes  = vector<size_t>(0);
 size_t Distribution::size=0;
+double Distribution::max_e = 1e3f;
+double Distribution::min_e = 10.f;
 
-void Distribution::set_elec_points(size_t n, double min_e, double max_e){
+
+void Distribution::set_elec_points(size_t n, double _min_e, double _max_e){
+    min_e = _min_e;
+    max_e = _max_e;
     size=n;
     grid.resize(n);
     widths.resize(n);
-    double step = (max_e - min_e) / n;
-    grid[0]=min_e;
+
+    grid[0] = min_e;
     for (size_t i=1; i<n; i++){
-        grid[i] = min_e + step*i;
+        grid[i] = e_from_i(i);
         widths[i] = grid[i]-grid[i-1];
     }
-    // Questionable decision: "Practical infinity"
-    widths[n-1] = 2*max_e;
+}
+
+double Distribution::eii_int (const CustomDataType::EIIdata& eii, const int J) const {
+    // Returns electrons ionised per atom for dat acorresponding to idx i.
+    // TODO: check that this integral makes SENSE
+    // INTEGRAL_0^\infty f(e) e/sqrt(2me) SigmaBEB
+    double tmp = 0;
+    for (size_t i = 0; i < size; i++) {
+        tmp += sqrt(grid[i])*f[i]* Dipole::sigmaBEB(grid[i], eii.ionB[J], eii.kin[J], eii.occ[J])*widths[i];
+    }
+    tmp /= 1.4142; // Electron mass = 1 in atomic units
+    return tmp;
+}
+
+double Distribution::tbr_int (const CustomDataType::EIIdata& eii, const int J) const {
+    // Detailed-Balance dual of eii per atom for data corresponding to idx i.
+    // TODO: check that this integral makes SENSE
+
+    double tmp = 0;
+    for (size_t i = 0; i < size; i++) {
+        double x = 0;
+        for (size_t j = 0; j < size; j++){
+            x += widths[j]*2*grid[j]*Dipole::DsigmaBEB( grid[i], grid[j], eii.ionB[J], eii.kin[J], eii.occ[J]) * f[grid[j] - grid[i] - eii.ionB[J]];
+        }
+        tmp += x * f[i]*widths[i];
+    }
+    tmp *= 248.05021; // (2pi)^3
+    return tmp;
+}
+
+
+
+// f geometry:
+/*
+                 ___________________
+        ________|                   |
+   f[0]|  f[1]  |      f[2]         |
+   w[0]|  w[1]  |      w[2]         |
+  |    |        |                   |
+  r[0] r[1]     r[2]                r[3]
+
+*/
+
+double Distribution::e_from_i(size_t i){
+    // Linear grid
+    return min_e + i*(max_e - min_e)/size;
+}
+
+size_t Distribution::i_from_e(double e){
+    long i= std::floor((e - min_e) * size /(max_e - min_e));
+    if (i < 0) return 0;
+    if (i >= size) return size-i;
+    return i;
+}
+
+void Distribution::addDeltaLike(double e, double mass){
+    size_t i = i_from_e(e);
+    f[i] += mass/widths[i];
 }
 
 state_type::state_type(){
