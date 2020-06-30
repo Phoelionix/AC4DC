@@ -11,15 +11,28 @@ void PhotonFlux::set_parameters(double fluence, double fwhm){
     B = fwhm*fwhm/(4*0.6931471806); // f^2/4ln(2)
     A = fluence/pow(Constant::Pi*B,0.5);
 }
+
 inline double PhotonFlux::operator()(double t){
     // Returns flux at time t
     return A*exp(-t*t/B);
-};
+}
+
+void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname){
+    ofstream f;
+    cout << "[ Flux ] Saving to file "<<fname<<"..."<<endl;
+    f.open(fname);
+    f << "# Free electron dynamics"<<endl;
+    f << "# Time (fs) | Intensity [ UNITS ] " <<endl;
+    for (auto& t : Tvec){
+        f << t << " "<< this->operator()(t)<<std::endl;
+    }
+    f.close();
+}
 
 Weight::Weight(size_t _size){
     size = _size;
-    W = (double*) malloc(sizeof(double)*size*size); // allocate the memory
-    std::fill(W, W+sizeof(double)*size*size, 0);
+    W = (double *) malloc(sizeof(double)*size*size); // allocate the memory
+    std::fill(W, W+size*size, 0);
 }
 
 Weight::~Weight(){
@@ -154,13 +167,14 @@ void ElectronSolver::save(const std::string& _dir, bool saveSeparate){
         saveFree(dir+"freeDist.csv");
         saveBound(dir);
     } else {
-        saveAll(dir+"dist.csv");
+        saveCombined(dir+"dist.csv");
     }
+    pf.save(this->t,dir+"intensity.csv");
 
 }
 
 // Writes free and atomic dynamics to single file fname
-void ElectronSolver::saveAll(const std::string& fname){
+void ElectronSolver::saveCombined(const std::string& fname){
     ofstream f;
     cout << "[ All ] Saving to file "<<fname<<"..."<<endl;
     f.open(fname);
@@ -187,9 +201,9 @@ void ElectronSolver::saveFree(const std::string& fname){
     f<<endl;
     assert(y.size() == t.size());
     for (int i=0; i<y.size(); i++){
-        f<<t[i]<<", ";
+        f<<t[i];
         for (size_t j = 0; j < Distribution::size; j++) {
-            f<<y[i].F[j]<<", ";
+            f<<" "<<y[i].F[j];
         }
         f<<endl;
     }
@@ -219,7 +233,7 @@ void ElectronSolver::saveBound(const std::string& dir){
             assert(Store.size() == y[i].atomP.size());
             f<<t[i];
             for (auto& state_prob : y[i].atomP[a]) {
-                f<<", "<<state_prob;
+                f<<" "<<state_prob;
             }
             f<<endl;
         }

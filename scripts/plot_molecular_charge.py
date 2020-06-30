@@ -3,7 +3,8 @@ import numpy as np
 from math import log
 import os.path as path
 import sys
-import glob
+# import glob
+import csv
 import time
 import subprocess
 
@@ -13,70 +14,94 @@ fig = plt.figure(figsize=(9, 6))
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
-def get_atom_files(filename):
-    atomlist = []
-    with open(filename, 'r') as f:
-        reading = False
-        for line in f:
-            if line.startswith("#ATOMS"):
-                reading=True
-                continue
-            elif line.startswith("#"):
-                reading=False
-                continue
-            if reading:
-                atomlist.append(line.split(' ')[0])
 
-    retval = []
-    for atom in atomlist:
-        retval.append(("/input/"+atom+".inp", None))
-    for pair in retval:
-        pair[1] = path.getmtime(pair[0])
-    return retval
 
 class Plotter:
-    def __init__(self, species):
+    def __init__(self, mol):
         self.p = path.abspath(path.join(__file__ ,"../../"))
-        dataDir = self.p + "output/__Molecular/"+species
-        self.freeFile = dataDir+"/freeDist.csv"
+        # Inputs
+        molfile = self.p+"/input/"+mol+".mol"
+        self.mol = {'name': mol, 'file': molfile, 'mtime': path.getmtime(molfile)}
+        self.atomlist = []
+
+        # Outputs
+        self.outDir = self.p + "/output/__Molecular/"+mol
+
+        self.freeFile = self.outDir+"/freeDist.csv"
         self.boundFiles =[]
-        for file in glob.glob(self.p + "output/__Molecular/"+species+"/dist_*.csv"):
-            self.boundFiles.append(file);
+        self.intFile = self.outDir + "/intensity.csv"
+
+        self.get_atoms()
         self.autorun=False
 
+    def get_atoms(self):
+        self.atomlist = []
+        with open(self.mol['file'], 'r') as f:
+            reading = False
+            for line in f:
+                if line.startswith("#ATOMS"):
+                    reading=True
+                    continue
+                elif line.startswith("#"):
+                    reading=False
+                    continue
+                if reading:
+                    a = line.split(' ')[0].strip()
+                    if len(a) != 0:
+                        file = self.p + '/input/' + a + '.inp'
+                        self.atomlist.append({'name': a, 'file': file, 'mtime': path.getmtime(file)})
+        self.boundFiles =[]
+        for atomic in self.atomlist:
+            self.boundFiles.append(self.outDir+"/dist_%s.csv"%atomic['name']);
+
+    def update_inputs(self):
+        self.get_atoms()
+        self.mol['mtime'] = path.getmtime(self.mol['file'])
+
     def rerun_ac4dc(self):
-        cmd = self.p+'/bin/rates'+self.p+'input/{}.inp'.format(self.species)
+        cmd = self.p+'/bin/rates '+self.mol['file']
         print("Running: ", cmd)
         subprocess.run(cmd, shell=True, check=True)
 
     def check_current(self):
-        inp = self.p+"/input/"+self.species+".mol"
+        # Pull most recent atom mod time
+        self.update_inputs()
+        # Outputs are made at roughly the same time: Take the oldest.
+        out_time = path.getmtime(self.freeFile)
+        for bfile in self.boundFiles:
+            out_time = min(out_time, path.getmtime(bfile))
 
-        lastedit = path.getmtime(inp)
-        lastrun = path.getmtime(oup)
+        if self.mol['mtime'] > out_time:
+            print("Master file %s is newer than most recent run" % self.mol['file'])
+            return False
 
-        if lastrun < lastedit:
-            print("Master file '"+inp+"' is newer than '"+oup+"'")
-            self.rerun_ac4dc()
-            return
-
-        # check if the atom files have been newly edited
-        for name, ledit in get_atom_files(inp):
-            if lastrun < ledit:
-                print("Dependent file '"+name+"' is newer than '"+oup+"'")
-                self.rerun_ac4dc()
-                return
+        for atomic in self.atomlist:
+            if atomic['mtime'] > out_time:
+                print("Dependent file %s is newer than most recent run" % atomic['file'])
+                return False
+        return True
 
     def update(self):
-        self.check_current()
-        with open(self.charge_file) as f:
+        raw = np.genfromtxt(self.intFile, comments='#')
+        self.intensity = raw[:,1]
+        self.time = raw[:, 0]
+        with open(self.freeFile) as f:
+            r = csv.reader(f, delimiter=' ', comment='#')
+            erow = []
+            for row in r:
+                print(row)
+                if row[0]=='#' and row[1]=='|':
+
+
+        raw = np.genfromtxt(self.freeFile, comments='#')
+
 
 
     def setup_axes(self):
         fig.clf()
         ax1 = fig.add_subplot(111)
         ax2 = ax1.twinx()
-        ax2.plot(self.intensity[1], self.intensity[0], lw = 2, c = 'black', ls = '--', alpha = 0.7)
+        ax2.plot(self.time, self.intensity, lw = 2, c = 'black', ls = '--', alpha = 0.7)
         ax2.set_ylabel('Pulse fluence')
         ax1.set_xlabel("Time, fs")
         return (ax1, ax2)

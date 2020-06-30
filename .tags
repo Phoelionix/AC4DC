@@ -322,7 +322,7 @@ Y	src/Numerics.h	/^	vector<double> A, B, C, D, X, Y;$/;"	m	class:Adams
 Y_k	src/Potential.cpp	/^std::vector<double> Potential::Y_k(int k, std::vector<double> density, int infinity, int L)$/;"	f	class:Potential
 Z	src/Input.h	/^	int Z;$/;"	m	class:Input
 __init__	scripts/atomic_charge_Plot.py	/^    def __init__(self, species):$/;"	m	class:Plotter
-__init__	scripts/plot_molecular_charge.py	/^    def __init__(self, species):$/;"	m	class:Plotter
+__init__	scripts/plot_molecular_charge.py	/^    def __init__(self, mol):$/;"	m	class:Plotter
 abstract_value	include/cxxopts.hpp	/^      abstract_value()$/;"	f	class:cxxopts::values::abstract_value
 abstract_value	include/cxxopts.hpp	/^      abstract_value(T* t)$/;"	f	class:cxxopts::values::abstract_value
 abstract_value	include/cxxopts.hpp	/^      abstract_value(const abstract_value& rhs)$/;"	f	class:cxxopts::values::abstract_value
@@ -380,6 +380,7 @@ compute_cross_sections	src/ElectronSolver.cpp	/^void ElectronSolver::compute_cro
 consume_positional	include/cxxopts.hpp	/^ParseResult::consume_positional(std::string a)$/;"	f	class:cxxopts::ParseResult
 count	include/cxxopts.hpp	/^    count() const$/;"	f	class:cxxopts::OptionValue
 count	include/cxxopts.hpp	/^    count(const std::string& o) const$/;"	f	class:cxxopts::ParseResult
+csv	scripts/plot_molecular_charge.py	/^import csv$/;"	i
 custom_help	include/cxxopts.hpp	/^    custom_help(std::string help_text)$/;"	f	class:cxxopts::Options
 cxxopts	include/cxxopts.hpp	/^namespace cxxopts$/;"	n
 dR	src/Grid.cpp	/^double Grid::dR(int i)$/;"	f	class:Grid
@@ -464,14 +465,13 @@ generate_dT	src/RateEquationSolver.cpp	/^vector<double> RateEquationSolver::gene
 generate_group_help	include/cxxopts.hpp	/^Options::generate_group_help$/;"	f	class:cxxopts::Options
 get	include/cxxopts.hpp	/^      get() const$/;"	f	class:cxxopts::values::abstract_value
 get_Gauss_X	src/Numerics.cpp	/^vector<double> GaussQuad::get_Gauss_X(double a, double b)$/;"	f	class:GaussQuad
-get_atom_files	scripts/plot_molecular_charge.py	/^def get_atom_files(filename):$/;"	f
+get_atoms	scripts/plot_molecular_charge.py	/^    def get_atoms(self):$/;"	m	class:Plotter
 get_default_value	include/cxxopts.hpp	/^      get_default_value() const$/;"	f	class:cxxopts::values::abstract_value
 get_file_names	src/solver.cpp	/^int get_file_names(const char* infile_, string &tag, string &logfile, string&outdir) {$/;"	f
 get_ground_state	src/ElectronSolver.cpp	/^state_type ElectronSolver::get_ground_state() {$/;"	f	class:ElectronSolver
 get_implicit_value	include/cxxopts.hpp	/^      get_implicit_value() const$/;"	f	class:cxxopts::values::abstract_value
 get_value	src/Numerics.cpp	/^vector<double> Interpolation::get_value(PairFunction &S_old, Grid &Lattice_old, double X)$/;"	f	class:Interpolation
 get_value	src/Numerics.cpp	/^vector<double> Interpolation::get_value(vector<double> &f, vector<double> &x_ini, double X)$/;"	f	class:Interpolation
-glob	scripts/plot_molecular_charge.py	/^import glob$/;"	i
 grid	src/RateSystem.cpp	/^vector<double> Distribution::grid   = vector<double>(0);$/;"	m	class:Distribution	file:
 grid	src/RateSystem.h	/^    static vector<double> grid;$/;"	m	class:Distribution
 group_help	include/cxxopts.hpp	/^Options::group_help(const std::string& group) const$/;"	f	class:cxxopts::Options
@@ -747,8 +747,9 @@ s	include/cxxopts.hpp	/^    std::string s;$/;"	m	struct:cxxopts::HelpOptionDetai
 s	scripts/coeff.py	/^        s = ',\\n\\t{'$/;"	v
 safe_fopen	src/RateEquationSolver.cpp	/^FILE* safe_fopen(const char *filename, const char *mode)$/;"	f
 save	src/ElectronSolver.cpp	/^void ElectronSolver::save(const std::string& _dir, bool saveSeparate){$/;"	f	class:ElectronSolver
-saveAll	src/ElectronSolver.cpp	/^void ElectronSolver::saveAll(const std::string& fname){$/;"	f	class:ElectronSolver
+save	src/ElectronSolver.cpp	/^void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname){$/;"	f	class:PhotonFlux
 saveBound	src/ElectronSolver.cpp	/^void ElectronSolver::saveBound(const std::string& dir){$/;"	f	class:ElectronSolver
+saveCombined	src/ElectronSolver.cpp	/^void ElectronSolver::saveCombined(const std::string& fname){$/;"	f	class:ElectronSolver
 saveFree	src/ElectronSolver.cpp	/^void ElectronSolver::saveFree(const std::string& fname){$/;"	f	class:ElectronSolver
 scalarMap	scripts/MD_data_Plot.py	/^scalarMap = mplcm.ScalarMappable(norm=cNorm, cmap=cm)$/;"	v
 scale	src/PairFunction.h	/^	void scale(double norm)$/;"	f	class:PairFunction
@@ -829,6 +830,7 @@ update	scripts/atomic_charge_Plot.py	/^    def update(self):$/;"	m	class:Plotter
 update	scripts/plot_molecular_charge.py	/^    def update(self):$/;"	m	class:Plotter
 update_AB	src/Plasma.cpp	/^void Plasma::update_AB(int m, vector<double>& dt)$/;"	f	class:Plasma
 update_AM	src/Plasma.cpp	/^void Plasma::update_AM(int m, vector<double>& dt)$/;"	f	class:Plasma
+update_inputs	scripts/plot_molecular_charge.py	/^    def update_inputs(self):$/;"	m	class:Plotter
 use_thermal_plasma	src/MolInp.h	/^	bool use_thermal_plasma = true; \/\/ TODO: check what this actually does...$/;"	m	class:MolInp
 v0_N1	src/Potential.h	/^	vector<double> v0_N1;$/;"	m	class:Potential
 val	src/Constant.h	/^		double val = 0;$/;"	m	struct:RateData::Rate
