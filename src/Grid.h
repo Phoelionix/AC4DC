@@ -56,7 +56,9 @@ public:
 		return *this;
 	}
 
-	int size() { return NumPts; }
+	int size() {
+		return NumPts;
+	}
 
 private:
 	std::vector<double> r, dr;

@@ -57,9 +57,9 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 //==========================================================================================================
 // Find initial Guess for wavefunctions. Check if there is a single orbital occupied. If there is
 // only one electron (hydrogenic case) solve problem.
-	Master_tollerance = Inp.Master_toll();
-	No_exchange_tollerance = Inp.No_Exch_toll();
-	HF_tollerance = Inp.HF_toll();
+	Master_tolerance = Inp.Master_toll();
+	No_exchange_tolerance = Inp.No_Exch_toll();
+	HF_tolerance = Inp.HF_toll();
 	max_HF_iterations = Inp.max_HF_iters();
 
 	double Norm = 0.;
@@ -90,7 +90,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 	if (check_orb == 1 && Orbitals[single].occupancy() == 1) Potential.Reset();
 
 	for (int i = 0; i < Orbitals.size(); i++) {
-		Master(&Lattice, &Orbitals[i], &Potential, Master_tollerance, log);
+		Master(&Lattice, &Orbitals[i], &Potential, Master_tolerance, log);
 	}
 
 //==========================================================================================================
@@ -106,7 +106,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 			if (Orbitals[i].occupancy() != 0) single = i;
 		}
 
-		while (E_rel_change[single] > HF_tollerance) {
+		while (E_rel_change[single] > HF_tolerance) {
 			if (m > 20) {
 				log << "Starting approximation does not converge... " << endl;
 				break;
@@ -119,7 +119,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 			if (m == 0) p = 0.5;
 			if (m == 6) p = 0.8;
 
-			Master(&Lattice, &Orbitals[single], &Potential, Master_tollerance, log);
+			Master(&Lattice, &Orbitals[single], &Potential, Master_tolerance, log);
 			E_rel_change[single] = fabs(Orbitals[single].Energy / Orbitals_old[single].Energy - 1);
 
 			Orbitals_old[single] = Orbitals[single];
@@ -130,7 +130,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 	}
 	if (check_orb == 1 && Orbitals[single].occupancy() == 1) {
 		Potential.Reset();
-		for (auto& Orb: Orbitals) Master(&Lattice, &Orb, &Potential, Master_tollerance, log);
+		for (auto& Orb: Orbitals) Master(&Lattice, &Orb, &Potential, Master_tolerance, log);
 	} else {
 		p = 0.5;
 		// There is more than one orbital.
@@ -138,15 +138,15 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 		// Set up starting approximation for the Hartree-Fock equations.
 		// Algorithm follows W. Johnson, but with Local Exchange.
 
-		double LDA_tollerance = No_exchange_tollerance;
-		if (Inp.Hamiltonian() == 1) LDA_tollerance = HF_tollerance;
-		else LDA_tollerance = No_exchange_tollerance;
+		double LDA_tolerance = No_exchange_tolerance;
+		if (Inp.Hamiltonian() == 1) LDA_tolerance = HF_tolerance;
+		else LDA_tolerance = No_exchange_tolerance;
 		bool Final_Check = false;
 		Orbitals_old = Orbitals;
 
 		//=======================================================================================
 		// Hartree-Fock loop without exchange. Local exchange is evaluated here.
-		while (E_max_error > LDA_tollerance || m < 2)
+		while (E_max_error > LDA_tolerance || m < 2)
 		{
 			if (m > 20 * Orbitals.size()) {
 				log << "Starting approximation does not converge... " << endl;
@@ -176,7 +176,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 				}*/
 				if (E_rel_change[i] < E_max_error && m != 0) continue;
 
-				if (Master(&Lattice, &Orbitals[i], &Potential, Master_tollerance, log)) {
+				if (Master(&Lattice, &Orbitals[i], &Potential, Master_tolerance, log)) {
 					// Master didn't converge. This is bad. Return to old solution and
 					// iterated second worst instead.
 					for (auto& orb: Orbitals) log << orb.occupancy() << " ";
@@ -210,9 +210,9 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 			}
 			m++;
 			// Final check. Varry all orbitals at once.
-			if ( !(E_max_error > LDA_tollerance || m < 2) && !Final_Check) {
+			if ( !(E_max_error > LDA_tolerance || m < 2) && !Final_Check) {
 				Final_Check = true;
-				E_max_error = 2*LDA_tollerance;
+				E_max_error = 2*LDA_tolerance;
 				for (vector<double>::iterator it = E_rel_change.begin(); it != E_rel_change.end(); ++it) *it = 1;
 			}
 			else Final_Check = false;
@@ -233,7 +233,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 			double max_norm_dev = 1;
 
 			// Hartree-Fock loop with exchange
-			while (E_max_error > HF_tollerance || m < 1)
+			while (E_max_error > HF_tolerance || m < 1)
 			{
 				if (m > max_HF_iterations) { break; }
 
@@ -245,7 +245,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 					Potential.HF_upd_dir(&Orbitals[i], Orbitals_old);
 					Potential.HF_upd_exc(&Orbitals[i], Orbitals_old);
 
-					if (E_max_error < HF_tollerance * 100) p = 0.8;
+					if (E_max_error < HF_tolerance * 100) p = 0.8;
 					else p = 0.5;
 					if (m == 0) p = 1;
 
@@ -255,7 +255,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 					}
 
 					if (m != 0) {
-						Master(&Lattice, &Orbitals[i], &Potential, Master_tollerance, log);
+						Master(&Lattice, &Orbitals[i], &Potential, Master_tolerance, log);
 						double numerator = 0, denominator = 0;
 						for (int j = 0; j < max(Orbitals[i].pract_infinity(), Orbitals_old[i].pract_infinity()); j++) {
 							numerator += Potential.Exchange[j] * Orbitals[i].F[j] * Lattice.dR(j);
@@ -279,7 +279,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 							}
 							Orbitals[i].Energy = Orbitals_old[i].Energy*(1+E_rel_change[i]);
 							Orbitals[i].F = Orbitals_old[i].F;
-							if (E_rel_change[new_max] > HF_tollerance) break;
+							if (E_rel_change[new_max] > HF_tolerance) break;
 						}
 						Orbitals[i].Energy *= correction_scaling;
 						GreensMethod P(&Lattice, &Orbitals[i], &Potential);
@@ -311,13 +311,13 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 					}
 				}
 				m++;
-				if (E_max_error < HF_tollerance && !Final_Check)
+				if (E_max_error < HF_tolerance && !Final_Check)
 				{
 					for (int i = 0; i < Orbitals.size(); i++)
 					{
 						E_rel_change[i] = 1;
 					}
-					E_max_error = 2 * HF_tollerance;
+					E_max_error = 2 * HF_tolerance;
 					Final_Check = true;
 				}
 			}
@@ -618,7 +618,7 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 GreensMethod::GreensMethod(Grid* Lattice, RadialWF* Psi, Potential* U) : Adams(*Lattice, 10), lattice(Lattice), psi(Psi), u(U)
 {
 	int infinity, track_sign, NumNodes = -1;
-	double dEnergy = Psi->Energy, E_tollerance = pow(10, -8), Norm_tollerance = pow(10, -10);
+	double dEnergy = Psi->Energy, E_tolerance = pow(10, -8), Norm_tolerance = pow(10, -10);
 	double W, Norm = 0, correct = 0;
 	std::vector<double> Integrand(Lattice->size(), 0);
 
@@ -667,7 +667,7 @@ GreensMethod::GreensMethod(Grid* Lattice, RadialWF* Psi, Potential* U) : Adams(*
 	double hEnergy = 0, lEnergy = 0;
 	//by this point we have unnormalized solution.
 	//refining the solution following Johnson's variation of parameter
-	while (fabs(dEnergy) > E_tollerance)
+	while (fabs(dEnergy) > E_tolerance)
 	{
 		//by this point we have unnormalized solution.
 		//refining the solution following Johnson's variation of parameter
@@ -741,7 +741,7 @@ GreensMethod::GreensMethod(Grid* Lattice, RadialWF* Psi, Potential* U) : Adams(*
 		}
 
 		//use the last bit again
-		if (fabs(dEnergy) > E_tollerance)
+		if (fabs(dEnergy) > E_tolerance)
 		{
 			for (int i = 0; i < Lattice->size(); i++)
 			{

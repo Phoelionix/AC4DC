@@ -14,7 +14,8 @@ This file is part of AC4DC.
     You should have received a copy of the GNU General Public License
     along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
 ===========================================================================*/
-#pragma once
+#ifndef AC4DC_INPUT_CXX_H
+#define AC4DC_INPUT_CXX_H
 
 #include "RadialWF.h"
 #include "Potential.h"
@@ -34,9 +35,10 @@ public:
 	//Input(char* filename, vector<RadialWF> &Orbitals,  vector<RadialWF> &Virtual, Grid &Lattice, ofstream & log);
 	Input(const Input & Other);
 
-	Input& operator=(Input other)
-	{
-		if(&other == this) return *this;
+	Input& operator=(Input other) {
+		if (&other == this){
+			return *this;
+		}
 
 		swap(name, other.name);
 		swap(model, other.model);
@@ -67,10 +69,10 @@ public:
 	double Omega() { return omega; }
 	double Width() { return width; }
 	double Fluence() { return 10000*fluence; }
-  void Set_Width(double ext_width) {width = ext_width;}
-  void Set_Fluence(double ext_fluence) {fluence = ext_fluence;}
+	void Set_Width(double ext_width) {width = ext_width;}
+	void Set_Fluence(double ext_fluence) {fluence = ext_fluence;}
 
-  void Set_Pulse(double ext_omega, double ext_fluence, double ext_width, bool write_ch = false, bool write_int = false, int ext_T_size = 0) {
+	void Set_Pulse(double ext_omega, double ext_fluence, double ext_width, bool write_ch = false, bool write_int = false, int ext_T_size = 0) {
 		omega = ext_omega;
 		fluence = ext_fluence;
 		width = ext_width;
@@ -115,47 +117,5 @@ private:
 	int max_HF_iterations = 500;
 };
 
-class MolInp
-{
-	// Molecular input fpr coupled atom/electron plasma calcualtions.
-public:
-	MolInp(char* filename, ofstream & log);
-	~MolInp() {}
 
-	vector<Input> Atomic;
-	vector<AtomRateData> Store;
-
-	vector<Potential> Pots;
-	vector<vector<RadialWF>> Orbits;
-	vector<Grid> Latts;
-	vector<vector<vector<int>>> Index;
-
-	double Omega() {return omega;}
-	double Width() {return width;}
-	double Fluence() {return 10000*fluence;}
-	int ini_T_size() {return num_time_steps;}
-	double dropl_R() {return radius;}
-
-  void Set_Fluence(double new_fluence) {fluence = new_fluence;}
-	bool Write_Charges() {return write_charges; }
-	bool Write_Intensity() {return write_intensity; }
-	bool Write_MD_data() {return write_md_data; }
-
-	int Out_T_size() {return out_T_size; }
-
-	string name = "";
-private:
-	double omega = 5000;// XFEL photon energy, eV.
-	double width = 5; // XFEL pulse width in femtoseconds. Gaussian profile hardcoded.
-	double fluence = 0; // XFEL pulse fluence, 10^4 J/cm^2.
-	int num_time_steps = 1000; // Guess number of time steps for time dynamics.
-	int out_T_size = 0; // Unlike atomic input, causes to output all points.
-	double radius = 1000.;
-	int omp_threads = 1;
-
-	bool write_charges = false;
-	bool write_intensity = false;
-	bool write_md_data = true;
-
-	double unit_V = 1.;
-};
+#endif /* end of include guard: AC4DC_INPUT_CXX_H */

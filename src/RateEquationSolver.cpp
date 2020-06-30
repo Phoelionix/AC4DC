@@ -15,20 +15,6 @@ This file is part of AC4DC.
     along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
 ===========================================================================*/
 #include "RateEquationSolver.h"
-#include "HartreeFock.h"
-#include "DecayRates.h"
-#include "Numerics.h"
-#include <fstream>
-#include <iostream>
-#include <sys/stat.h>
-#include <dirent.h>
-#include <sstream>
-#include <string>
-#include <omp.h>
-#include <algorithm>
-#include "EigenSolver.h"
-#include "Plasma.h"
-#include <utility>
 
 inline bool exists_test(const std::string&);
 inline FILE* safe_fopen(const char *filename, const char *mode);
@@ -39,183 +25,159 @@ void SmoothOrigin(vector<double>&, vector<double>&);
 
 using namespace CustomDataType;
 
-RateEquationSolver::RateEquationSolver(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp) :
-lattice(Lattice), orbitals(Orbitals), u(U), input(Inp)
-{
-//Orbitals are HF wavefunctions. This configuration is an initial state.
-//Assuming there are no unoccupied states in initial configuration!!!
+template<typename T>
+void read_vector(const string& s, vector<T>&v){
+	auto iss = istringstream(s);
+
+	string str;
+	T tmp;
+	while (iss >> str) {
+		auto ss = stringstream(str);
+		ss >> tmp;
+	    v.push_back(tmp);
+	}
 }
-/*
-int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
+
+string find_bracket_contents(string &src){
+	size_t first_idx = src.find('[');
+	size_t last_idx = src.rfind(']');
+	return src.substr(first_idx+1, last_idx-first_idx-1);
+}
+
+
+bool RateIO::ReadRates(const string & input, vector<RateData::Rate> & PutHere)
 {
-	// Solves system of rate equations exactly.
-	// Final_occ defines the lowest possible occupancies for the initiall orbital.
-	// Intermediate orbitals are recalculated to obtain the corresponding rates.
+	if (!exists_test(input)) return false;
 
-	if (!SetupIndex(Max_occ, Final_occ, runlog)) return 1;
+	RateData::Rate Tmp;
+	ifstream infile;
+	infile.open(input);
 
-	cout << "Check if there are pre-calculated rates..." << endl;
-	string RateLocation = "./output/" + input.Name() + "/Rates/";
-	if (!exists_test("./output/" + input.Name())) {
-		string dirstring = "output/" + input.Name();
-		mkdir(dirstring.c_str(), ACCESSPERMS);
-		dirstring += "/Rates";
-		mkdir(dirstring.c_str(), ACCESSPERMS);
-	}
-	if (!exists_test("./output/" + input.Name() + "/Rates")) {
-		string dirstring = "output/" + input.Name() + "/Rates";
-		mkdir(dirstring.c_str(), ACCESSPERMS);
-	}
-
-	bool existPht = !ReadRates(RateLocation + "Photo.txt", Store.Photo);
-	bool existFlr = !ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
-	bool existAug = !ReadRates(RateLocation + "Auger.txt", Store.Auger);
-
-	if (existPht) printf("Photoionization rates found. Reading...\n");
-	if (existFlr) printf("Fluorescence rates found. Reading...\n");
-	if (existAug) printf("Auger rates found. Reading...\n");
-
-	// Electron density evaluation.
-	density.clear();
-	density.resize(dimension - 1);
-	for (auto& dens: density) dens.resize(lattice.size(), 0.);
-  vector<pair<double, int>> conf_RMS(0);
-
-	if (existPht || existFlr || existAug || true)
+	while (!infile.eof())
 	{
-		cout << "No rates found. Calculating..." << endl;
-		cout << "Total number of configurations: " << dimension << endl;
-		Rate Tmp;
-		vector<Rate> LocalPhoto(0);
-		vector<Rate> LocalFluor(0);
-		vector<Rate> LocalAuger(0);
+		string line;
+		getline(infile, line);
+		if (line[0] == '#') continue; // skip comments
 
-		omp_set_num_threads(input.Num_Threads());
-		#pragma omp parallel default(none) \
-		shared(cout, runlog, existAug, existFlr, existPht) private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor)
-		{
-			#pragma omp for schedule(dynamic) nowait
-			for (int i = 0; i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
-			{
-				vector<RadialWF> Orbitals = orbitals;
-				cout << "configuration " << i << " thread " << omp_get_thread_num() << endl;
-				int N_elec = 0;
-				for (int j = 0; j < Orbitals.size(); j++)
-				{
-					Orbitals[j].set_occupancy(orbitals[j].occupancy() - Index[i][j]);
-					N_elec += Orbitals[j].occupancy();
-				}
-				//Grid Lattice(lattice.size(), lattice.R(0), lattice.R(lattice.size() - 1) / (0.3*(u.NuclCharge() - N_elec) + 1), 4);
-				// Change Lattice to lattice for electron density evaluation.
-				Potential U(&lattice, u.NuclCharge(), u.Type());
-				HartreeFock HF(lattice, Orbitals, U, input, runlog);
+		stringstream stream(line);
+		stream >> Tmp.val >> Tmp.from >> Tmp.to >> Tmp.energy;
 
-				DecayRates Transit(lattice, Orbitals, u, input);
-
-				Tmp.from = i;
-
-				if (existPht) {
-					vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega()/Constant::eV_in_au, runlog);
-					for (int k = 0; k < PhotoIon.size(); k++)
-					{
-						if (PhotoIon[k].val <= 0) continue;
-						Tmp.val = PhotoIon[k].val;
-						Tmp.to = i + hole_posit[PhotoIon[k].hole];
-						Tmp.energy = input.Omega()/Constant::eV_in_au - Orbitals[PhotoIon[k].hole].Energy;
-						LocalPhoto.push_back(Tmp);
-					}
-				}
-
-				if (i != 0)
-				{
-					if (existFlr) {
-						vector<fluor> Fluor = Transit.Fluor();
-						for (int k = 0; k < Fluor.size(); k++)
-						{
-							if (Fluor[k].val <= 0) continue;
-							Tmp.val = Fluor[k].val;
-							Tmp.to = i - hole_posit[Fluor[k].hole] + hole_posit[Fluor[k].fill];
-							Tmp.energy = Orbitals[Fluor[k].fill].Energy - Orbitals[Fluor[k].hole].Energy;
-							LocalFluor.push_back(Tmp);
-						}
-					}
-
-					if (existAug) {
-						vector<auger> Auger = Transit.Auger(Max_occ, runlog);
-						for (int k = 0; k < Auger.size(); k++)
-						{
-							if (Auger[k].val <= 0) continue;
-							Tmp.val = Auger[k].val;
-							Tmp.to = i - hole_posit[Auger[k].hole] + hole_posit[Auger[k].fill] + hole_posit[Auger[k].eject];
-							Tmp.energy = Auger[k].energy;
-							LocalAuger.push_back(Tmp);
-						}
-					}
-				}
-
-			}
-
-			#pragma omp critical
-			{
-				Store.Photo.insert(Store.Photo.end(), LocalPhoto.begin(), LocalPhoto.end());
-				Store.Fluor.insert(Store.Fluor.end(), LocalFluor.begin(), LocalFluor.end());
-				Store.Auger.insert(Store.Auger.end(), LocalAuger.begin(), LocalAuger.end());
-			}
-		}
-
-		sort(Store.Photo.begin(), Store.Photo.end(), [](Rate A, Rate B) { return (A.from < B.from); });
-		sort(Store.Auger.begin(), Store.Auger.end(), [](Rate A, Rate B) { return (A.from < B.from); });
-		sort(Store.Fluor.begin(), Store.Fluor.end(), [](Rate A, Rate B) { return (A.from < B.from); });
-		GenerateRateKeys(Store.Auger);
-
-		if (existPht) {
-			string dummy = RateLocation + "Photo.txt";
-			FILE * fl = fopen(dummy.c_str(), "w");
-			for (auto& R : Store.Photo) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
-			fclose(fl);
-		}
-		if (existFlr) {
-			string dummy = RateLocation + "Fluor.txt";
-			FILE * fl = fopen(dummy.c_str(), "w");
-			for (auto& R : Store.Fluor) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
-			fclose(fl);
-		}
-		if (existPht) {
-			string dummy = RateLocation + "Auger.txt";
-			FILE * fl = fopen(dummy.c_str(), "w");
-			for (auto& R : Store.Auger) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
-			fclose(fl);
-		}
-
+		PutHere.push_back(Tmp);
 	}
 
-	string IndexTrslt = "./output/" + input.Name() + "/index.txt";
-	ofstream config_out(IndexTrslt);
-	for (int i = 0; i < Index.size(); i++) {
-		config_out << i << " | ";
-		for (int j = 0; j < Max_occ.size(); j++) {
-			config_out << Max_occ[j] - Index[i][j] << " ";
-		}
-		config_out << endl;
-	}
-  config_out.close();
+	infile.close();
+	return true; // Returns true if exists
 
- 	return dimension;
 }
-*/
 
-inline FILE* safe_fopen(const char *filename, const char *mode)
+bool RateIO::ReadEIIParams(const string & input, vector<EIIdata> & PutHere)
+{
+	ifstream infile;
+	if (!exists_test(input)) return false;
+	infile.open(input);
+
+	string line;
+
+	EIIdata tmp;
+	string prefix="'configuration ";
+	string tmpstr;
+	bool has_opening_bracket = false;
+
+	int i=0; // configuration counter
+	while (!infile.eof())
+	{
+
+		getline(infile, line);
+		if (line[0] == '#') continue; // skip comments
+		if (line[0] == '['){
+			has_opening_bracket = true;
+			continue;
+		}
+		if (!has_opening_bracket) continue;
+
+		if(line.compare(0, prefix.size(), prefix) == 0){
+			// New entry in the array
+			tmpstr = line.substr(prefix.size());
+			int j = atoi(tmpstr.substr(0,tmpstr.find('\'')).c_str());
+			tmp.init = j;
+			tmp.resize(0);
+			if(i != j) cerr<<"[ReadEII] Unexpected index: got "<<j<<" expected "<<i<<endl;
+			i++;
+			continue;
+		}
+
+		if(line.compare(0, prefix.size(), "  'fin': [")==0)
+		{
+			read_vector<int>(find_bracket_contents(line), tmp.fin);
+			continue;
+		}
+
+		if(line.compare(0, prefix.size(), "  'occ': [")==0)
+		{
+			read_vector<int>(find_bracket_contents(line), tmp.occ);
+			continue;
+		}
+
+		if(line.compare(0, prefix.size(), "  'ionB': [")==0)
+		{
+			read_vector<float>(find_bracket_contents(line), tmp.ionB);
+			continue;
+		}
+
+		if(line.compare(0, prefix.size(), "  'kin': [")==0)
+		{
+			read_vector<float>(find_bracket_contents(line), tmp.kin);
+			continue;
+		}
+
+		PutHere.push_back(tmp);
+	}
+
+	infile.close();
+	return true; // Returns true if exists
+
+}
+
+void RateIO::WriteEIIParams(const string& fname, RateData::Atom& Store)
+{
+	FILE * fl = safe_fopen(fname.c_str(), "w");
+	fprintf(fl, "# EII PARAMETERS\n[\n");
+	for (auto&R : Store.EIIparams){
+		fprintf(fl, "'configuration %d': {\n", R.init);
+		// This will iterate in order of the inits anyway, so no need to explicitly store them
+		// Use a JSON style to deal with the multidimensional data
+		fprintf(fl, "  'fin': [");
+		for (auto& f : R.fin) fprintf(fl, "%ld, ", f);
+		fprintf(fl, "],\n");
+		fprintf(fl, "  'occ': [");
+		for (auto& f : R.occ) fprintf(fl, "%ld, ", f);
+		fprintf(fl, "],\n");
+		fprintf(fl, "  'ionB': [");
+		for (auto& f : R.ionB) fprintf(fl, "%lf, ", f);
+		fprintf(fl, "],\n");
+		fprintf(fl, "  'kin': [");
+		for (auto& f : R.kin) fprintf(fl, "%lf, ", f);
+		fprintf(fl, "]\n");
+		fprintf(fl, "},\n");
+	}
+	fprintf(fl, "]\n");
+	fclose(fl);
+}
+
+
+FILE* safe_fopen(const char *filename, const char *mode)
 {
 	FILE* fp = fopen(filename, mode);
-	if (!fp){
+	if (fp == NULL){
 		cerr << "Could not open file '" << filename << "'" << endl;
 	}
 	return fp;
 }
 
+// Called when atomic input is relevant.
 int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
 {
-	// Solves system of rate equations exactly.
+	// Calculates cross sections needed to solve rate equations.
 	// Final_occ defines the lowest possible occupancies for the initiall orbital.
 	// Intermediate orbitals are recalculated to obtain the corresponding rates.
 
@@ -226,8 +188,8 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		mkdir("output", ACCESSPERMS);
 	}
 
-	cout << "Check if there are pre-calculated rates..." << endl;
-	string RateLocation = "./output/" + input.Name() + "/Rates/";
+
+	string RateLocation = "./output/" + input.Name() + "/Xsections/";
 
 	// Make a data folder inside output
 	if (!exists_test("./output/" + input.Name())) {
@@ -240,9 +202,10 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 		mkdir(RateLocation.c_str(), ACCESSPERMS);
 	}
 
-	bool existPht = ReadRates(RateLocation + "Photo.txt", Store.Photo);
-	bool existFlr = ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
-	bool existAug = ReadRates(RateLocation + "Auger.txt", Store.Auger);
+	cout << "Check if there are pre-calculated rates..." << endl;
+	bool existPht = RateIO::ReadRates(RateLocation + "Photo.txt", Store.Photo);
+	bool existFlr = RateIO::ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
+	bool existAug = RateIO::ReadRates(RateLocation + "Auger.txt", Store.Auger);
 
 	if (existPht) printf("Photoionization rates found. Reading...\n");
 	if (existFlr) printf("Fluorescence rates found. Reading...\n");
@@ -250,16 +213,16 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 
 	string PolarFileName = "./output/Polar_" + input.Name() + ".txt";
 
-	// if ( !existPht || !existFlr || !existAug ){
-	// 	cout << "No rates found. Calculating..." << endl;
-
+	if ( true || !existPht || !existFlr || !existAug )
 	{
-		cout << "Computing rates..." <<endl;
+		cout <<"======================================================="<<endl;
 		cout << "Total number of configurations: " << dimension << endl;
-		Rate Tmp;
-		vector<Rate> LocalPhoto(0);
-		vector<Rate> LocalFluor(0);
-		vector<Rate> LocalAuger(0);
+		cout <<" Beginning Hartree-Fock Frozen calculations... "<<endl;
+		cout <<"======================================================="<<endl;
+		RateData::Rate Tmp;
+		vector<RateData::Rate> LocalPhoto(0);
+		vector<RateData::Rate> LocalFluor(0);
+		vector<RateData::Rate> LocalAuger(0);
 
 		#pragma omp parallel default(none) num_threads(input.Num_Threads()) \
 		shared(cout, runlog, existAug, existFlr, existPht) private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor)
@@ -268,7 +231,7 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 			for (int i = 0; i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
 			{
 				vector<RadialWF> Orbitals = orbitals;
-				cout << "configuration " << i << " thread " << omp_get_thread_num() << endl;
+				cout << "[HF Frozen] configuration " << i << " thread " << omp_get_thread_num() << endl;
 				int N_elec = 0;
 				for (int j = 0; j < Orbitals.size(); j++)
 				{
@@ -332,9 +295,9 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
 			}
 		}
 
-		sort(Store.Photo.begin(), Store.Photo.end(), [](Rate A, Rate B) { return (A.from < B.from); });
-		sort(Store.Auger.begin(), Store.Auger.end(), [](Rate A, Rate B) { return (A.from < B.from); });
-		sort(Store.Fluor.begin(), Store.Fluor.end(), [](Rate A, Rate B) { return (A.from < B.from); });
+		sort(Store.Photo.begin(), Store.Photo.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
+		sort(Store.Auger.begin(), Store.Auger.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
+		sort(Store.Fluor.begin(), Store.Fluor.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
 		GenerateRateKeys(Store.Auger);
 
 		if (!existPht) {
@@ -369,47 +332,54 @@ int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, 
  	return dimension;
 }
 
-AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
+// Called for molecular inputs.
+// Computes molecular collision parameters.
+RateData::Atom RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
 {
-	// Solves system of Atomic rate equations + Temperature and electron concentration in Plasma exactly.
-	// Final_occ defines the lowest possible occupancies for the initiall orbital.
+	// Uses BEB model to compute fundamental
+	// EII, Auger, Photoionisation and Fluorescence rates
+	// Final_occ defines the lowest possible occupancies for the initial orbital.
 	// Intermediate orbitals are recalculated to obtain the corresponding rates.
-
-  	// Example args:    vector<bool> args = {Init.Calc_R_ion(), Init.Calc_Pol_ion(), Init.Calc_FF_ion()};
 
 	if (!SetupIndex(Max_occ, Final_occ, runlog)) return Store;
 
 	Store.num_conf = dimension;
 
-	cout << "Check if there are pre-calculated rates..." << endl;
-	string RateLocation = "./output/" + input.Name() + "/Rates/";
+	// Check if there are pre-calculated rates
+	string RateLocation = "./output/" + input.Name() + "/Xsections/";
 	if (!exists_test("./output/" + input.Name())) {
 		string dirstring = "output/" + input.Name();
 		mkdir(dirstring.c_str(), ACCESSPERMS);
 	}
 	if (!exists_test(RateLocation)) {
-		string dirstring = "output/" + input.Name() + "/Rates";
+		string dirstring = "output/" + input.Name() + "/Xsections";
 		mkdir(dirstring.c_str(), ACCESSPERMS);
 	}
 
-	bool existPht = ReadRates(RateLocation + "Photo.txt", Store.Photo);
-	bool existFlr = ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
-	bool existAug = ReadRates(RateLocation + "Auger.txt", Store.Auger);
-	// bool existEII = !ReadRates(RateLocation + "EIIparams.txt", Store.EII);
+	bool existAug, existEII, existPht, existFlr;
 
-	if (!existPht) printf("Photoionization rates found. Reading...\n");
-	if (!existFlr) printf("Fluorescence rates found. Reading...\n");
-	if (!existAug) printf("Auger rates found. Reading...\n");
-	// if (existEII) printf("EII Parameters found. Reading...\n");
+	if (!recalculate){
+		existPht = RateIO::ReadRates(RateLocation + "Photo.txt", Store.Photo);
+		existFlr = RateIO::ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
+		existAug = RateIO::ReadRates(RateLocation + "Auger.txt", Store.Auger);
+		existEII = RateIO::ReadEIIParams(RateLocation + "EII.json", Store.EIIparams);
 
-	if (true)// EII parameters are not currently stored.
+		if (existPht) printf("Photoionization rates found. Reading...\n");
+		if (existFlr) printf("Fluorescence rates found. Reading...\n");
+		if (existAug) printf("Auger rates found. Reading...\n");
+		if (existEII) printf("EII Parameters found. Reading...\n");
+	}
+
+	if ( recalculate || !existAug || !existEII || !existPht || !existFlr )// EII parameters are not currently stored.
 	{
-		cout << "No rates found. Calculating..." << endl;
+		cout <<"======================================================="<<endl;
 		cout << "Total number of configurations: " << dimension << endl;
-		Rate Tmp;
-		vector<Rate> LocalPhoto(0);
-		vector<Rate> LocalFluor(0);
-		vector<Rate> LocalAuger(0);
+		cout <<"Beginning Hartree-Fock BEB calculations for atom "<< input.Name() <<endl;
+		cout <<"======================================================="<<endl;
+		RateData::Rate Tmp;
+		vector<RateData::Rate> LocalPhoto(0);
+		vector<RateData::Rate> LocalFluor(0);
+		vector<RateData::Rate> LocalAuger(0);
 		// Electron impact ionization orbital enerrgy storage.
 		EIIdata tmpEIIparams;
 		int MaxBindInd = 0;
@@ -427,8 +397,7 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 
 		density.clear();
 
-		omp_set_num_threads(input.Num_Threads());
-	  	#pragma omp parallel default(none) \
+	  	#pragma omp parallel default(none) num_threads(input.Num_Threads())\
 		shared(cout, runlog, MaxBindInd, existAug, existFlr, existPht) \
 		private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor, LocalEIIparams, tmpEIIparams)
 		{
@@ -436,13 +405,13 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 			for (int i = 0; i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
 			{
 				vector<RadialWF> Orbitals = orbitals;
-				cout << "configuration " << i << " thread " << omp_get_thread_num() << endl;
+				cout << "[HF BEB] configuration " << i << " thread " << omp_get_thread_num() << endl;
 				int N_elec = 0;
 				for (int j = 0; j < Orbitals.size(); j++) {
 					Orbitals[j].set_occupancy(orbitals[j].occupancy() - Index[i][j]);
 					N_elec += Orbitals[j].occupancy();
 				}
-				//Grid Lattice(lattice.size(), lattice.R(0), lattice.R(lattice.size() - 1) / (0.3*(u.NuclCharge() - N_elec) + 1), 4);
+				// Grid Lattice(lattice.size(), lattice.R(0), lattice.R(lattice.size() - 1) / (0.3*(u.NuclCharge() - N_elec) + 1), 4);
 				// Change Lattice to lattice for electron density evaluation.
 				Potential U(&lattice, u.NuclCharge(), u.Type());
 				HartreeFock HF(lattice, Orbitals, U, input, runlog);
@@ -523,76 +492,56 @@ AtomRateData RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 			}
 		}
 
-		sort(Store.Photo.begin(), Store.Photo.end(), [](Rate A, Rate B) { return (A.from < B.from); });
-		sort(Store.Auger.begin(), Store.Auger.end(), [](Rate A, Rate B) { return (A.from < B.from); });
-		sort(Store.Fluor.begin(), Store.Fluor.end(), [](Rate A, Rate B) { return (A.from < B.from); });
+		sort(Store.Photo.begin(), Store.Photo.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
+		sort(Store.Auger.begin(), Store.Auger.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
+		sort(Store.Fluor.begin(), Store.Fluor.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
 		sort(Store.EIIparams.begin(), Store.EIIparams.end(), [](EIIdata A, EIIdata B) {return (A.init < B.init);});
 		GenerateRateKeys(Store.Auger);
 
+		// Write rates to file
+		cout<<"Saving to folder "<<RateLocation<<"..."<<endl;
+
 		if (!existPht) {
 			string dummy = RateLocation + "Photo.txt";
-			FILE * fl = fopen(dummy.c_str(), "w");
+			FILE * fl = safe_fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Photo) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
 		if (!existFlr) {
 			string dummy = RateLocation + "Fluor.txt";
-			FILE * fl = fopen(dummy.c_str(), "w");
+			FILE * fl = safe_fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Fluor) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
-		if (!existPht) {
+		if (!existAug) {
 			string dummy = RateLocation + "Auger.txt";
-			FILE * fl = fopen(dummy.c_str(), "w");
+			FILE * fl = safe_fopen(dummy.c_str(), "w");
 			for (auto& R : Store.Auger) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 			fclose(fl);
 		}
-		// if (existEII) {
-		// 	string dummy = RateLocation + "EIIparams.txt";
-		// 	FILE * fl = fopen(dummy.c_str(), "w");
-		// 	for (auto& R : Store.EIIparams) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
-		// 	fclose(fl);
-		// }
+		if (!existEII) {
+			string dummy = RateLocation + "EII.json";
+			RateIO::WriteEIIParams(dummy, Store);
+
+		}
 	}
 
 	string IndexTrslt = "./output/" + input.Name() + "/index.txt";
+
 	ofstream config_out(IndexTrslt);
-	for (int i = 0; i < Index.size(); i++) {
-		config_out << i << " | ";
-		for (int j = 0; j < Max_occ.size(); j++) {
-			config_out << Max_occ[j] - Index[i][j] << " ";
-		}
-		config_out << endl;
+	config_out<<"# idx | configuration"<<endl;
+	// TODO: TEST THIS WITH A BREAKPOINT
+	for (size_t i = 0; i < Index.size(); i++) {
+		Store.index_names.push_back(InterpretIndex(i));
+		config_out << i << " | " << Store.index_names.back();
+		config_out<<endl;
+		// for (int j = 0; j < Max_occ.size(); j++) {
+		// 	config_out << Max_occ[j] - Index[i][j] << " ";
+		// }
 	}
+	config_out.close();
 
  	return Store;
-}
-
-
-
-bool RateEquationSolver::ReadRates(const string & input, vector<Rate> & PutHere)
-{
-	if (exists_test(input))
-	{
-		Rate Tmp;
-		ifstream infile;
-		infile.open(input);
-
-		while (!infile.eof())
-		{
-			string line;
-			getline(infile, line);
-
-			stringstream stream(line);
-			stream >> Tmp.val >> Tmp.from >> Tmp.to >> Tmp.energy;
-
-			PutHere.push_back(Tmp);
-		}
-
-		infile.close();
-		return true; // Returns true if exists
-	}
-	else return false;
 }
 
 
@@ -604,7 +553,7 @@ int RateEquationSolver::Symbolic(const string & input, const string & output)
 			ifstream Rates_in(input);
 			ofstream Rates_out(output);
 
-			Rate Tmp;
+			RateData::Rate Tmp;
 			char type;
 
 			while (!Rates_in.eof())
@@ -664,27 +613,25 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog)
 		T = generate_T(dT);
 		scaling_T = 4 * input.Width()/Constant::fs_in_au / T.back();
 		for (int i = 0; i < T.size(); i++) {
-			T[i] *= scaling_T;
+			T[i]  *= scaling_T;
 			dT[i] *= scaling_T;
 		}
 		Intensity = generate_I(T, fluence, Sigma);
-		//SmoothOrigin(T, Intensity);
+		// SmoothOrigin(T, Intensity);
 		IntegrateRateEquation Calc(dT, T, Store, InitCond, Intensity);
 		converged = Calc.Solve(0, 1, input.Out_T_size());
-		if (converged == 0)
-		{
-			cout << "Final number of time steps: " << T_size << endl;
+		if (converged == 0) {
+			cout << "[Rates] Final number of time steps: " << T_size << endl;
 			P = Calc.GetP();
 			T.clear();
 			T = Calc.GetT();
 			dT.clear();
 			dT = vector<double>(T.size(), 0);
-      for (int m = 1; m < T.size(); m++) dT[m-1] = T[m] - T[m-1];
-      dT[T.size()-1] = dT[T.size()-2];
-		}
-		else
-		{
-			cout << "Diverged at step: " << converged << " of " << T_size << endl;
+		    for (int m = 1; m < T.size(); m++) dT[m-1] = T[m] - T[m-1];
+		    dT[T.size()-1] = dT[T.size()-2];
+		} else {
+			cout << "[Rates] Diverged at step: " << converged << " of " << T_size << endl;
+			cout << "Halving timestep..." << endl;
 			T_size *= 2;
 		}
 	}
@@ -714,6 +661,7 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog)
 	}
 
 	if (input.Write_Charges()) {
+		cout << "Writing charges..."<<endl;
 		string ChargeName = "./output/Charge_" + input.Name() + ".txt";
 		ofstream charge_out(ChargeName);
 		double chrg_tmp = 0;
@@ -731,6 +679,7 @@ int RateEquationSolver::SetupAndSolve(ofstream & runlog)
 	}
 
 	if (input.Write_Intensity()) {
+		cout << "Writing intensity..."<<endl;
 		string IntensityName = "./output/Intensity_" + input.Name() + ".txt";
 		ofstream intensity_out(IntensityName);
 
@@ -784,7 +733,7 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
  		Mxwll.resize(T.size());
 		IntegrateRateEquation Calc(dT, T, Input.Store, Mxwll, Intensity);
 
-    T_size = T.size();
+    	T_size = T.size();
 
 		converged = Calc.Solve(Mxwll, Input.Store, Input.Out_T_size());
 
@@ -888,7 +837,7 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 			for (int a = 0; a < AllAtomCharge.size(); a++) {
 				OutFile << AllAtomCharge[a][m] << " ";
 			}
-			if (m != 0) OutFile << Mxwll.N[m] << " " << Mxwll.E[m];
+			if (m != 0) OutFile << Mxwll.state[m].N << " " << Mxwll.state[m].E;
 			else OutFile << 0 << " " << 0;
 		}
 
@@ -914,6 +863,8 @@ int RateEquationSolver::SetupAndSolve(MolInp & Input, ofstream & runlog)
 
 string RateEquationSolver::InterpretIndex(int i)
 {
+	// Outputs electronic configuration referenced in the i^th entry of
+	// EIIparams, Auger, Photo, Fluor
 	// LaTeX output format for direct insertion into table.
 	string Result;
 	if (!Index.empty()) {
@@ -1113,7 +1064,7 @@ vector<double> RateEquationSolver::generate_G()
 	return generate_I(T, 1, Sigma);
 }
 
-void RateEquationSolver::GenerateRateKeys(vector<Rate> & ToSort)
+void RateEquationSolver::GenerateRateKeys(vector<RateData::Rate> & ToSort)
 {
 	int CurrentFrom = 0;
 	int start = 0;

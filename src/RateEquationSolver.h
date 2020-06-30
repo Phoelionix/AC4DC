@@ -15,7 +15,6 @@ This file is part of AC4DC.
     along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
 ===========================================================================*/
 #pragma once
-
 #include "RadialWF.h"
 #include "Grid.h"
 #include "Potential.h"
@@ -23,8 +22,32 @@ This file is part of AC4DC.
 #include "Constant.h"
 #include "IntegrateRateEquation.h"
 #include "Input.h"
+#include "MolInp.h"
+#include "HartreeFock.h"
+#include "DecayRates.h"
+#include "Numerics.h"
+#include <fstream>
+#include <iostream>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <sstream>
+#include <string>
+#include <omp.h>
+#include <algorithm>
+#include "EigenSolver.h"
+#include "Plasma.h"
+#include <utility>
+
+
+namespace RateIO {
+	bool ReadRates(const string & input, vector<RateData::Rate> & PutHere);
+	bool ReadEIIParams(const string & input, vector<CustomDataType::EIIdata> & PutHere);
+	void WriteEIIParams(const string& fname, RateData::Atom& Store);
+};
 
 using namespace std;
+
+
 
 //Class for solving system of linear coupled diffecrential equations of the form
 //
@@ -39,12 +62,17 @@ using namespace std;
 class RateEquationSolver
 {
 public:
-	RateEquationSolver(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp);
+	//Orbitals are HF wavefunctions. This configuration is an initial state.
+	//Assuming there are no unoccupied states in initial configuration!!!
+	RateEquationSolver(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, bool recalc=true) :
+	 	lattice(Lattice), orbitals(Orbitals), u(U), input(Inp), recalculate(recalc){
+			cerr<<"[DEBUG] Recalculate set to "<<recalc<<endl;
+		};
 	~RateEquationSolver();
 
 	// Halfwidth = 5/Constant::Time -> 5 fs half width.
 	int SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & log);
-	AtomRateData SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & log);
+	RateData::Atom SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & log);
 	// Atomic.
 	int SetupAndSolve(ofstream & log);
 	// Molecular.
@@ -52,7 +80,7 @@ public:
 
 	//string CompareRates(string RateFile1, string RateFile2, ofstream & log);// Find the difference in rate equation using two different rates.
 
-	bool ReadRates(const string & input, vector<Rate> & PutHere);
+
 	int Symbolic(const string & input, const string & output);//convertes configuration indexes in human readable format
 	int Charge(int Iconf);
 	vector<double> PerturbMe(vector<RadialWF> & Virtual, double Dist, double Einit);
@@ -72,8 +100,11 @@ public:
   // Atomic data containers.
 	vector<vector<double>> density = vector<vector<double>>(0);
 
-  Grid & Atom_Mesh() { return lattice; }
+  	Grid & Atom_Mesh() { return lattice; }
+
 protected:
+	bool recalculate; // Flag to determine behaviour
+
 	Grid & lattice;
 	Input & input;
 	vector<RadialWF> & orbitals;
@@ -87,12 +118,10 @@ protected:
 	vector<vector<int> > Index;
 	int mapOccInd(vector<RadialWF> & Orbitals);// Inverse of what Index returns.
 
-	//int SetupAndSolve(vector<Rate> rates, double I_max, double HalfWidth, ofstream & log, int & start_T_size);
-
-private:
+	// Returns LaTeX formatted electron config referred to by index i
 	string InterpretIndex(int i);
 
-	AtomRateData Store;
+	RateData::Atom Store;
 
 	vector<CustomDataType::ffactor> FF;
 	vector<int> hole_posit;
@@ -105,9 +134,9 @@ private:
 	double T_avg_Charge();
 
 	static bool sortEIIbyInd(CustomDataType::EIIdata A, CustomDataType::EIIdata B) { return (A.init < B.init); }
-	static bool sortRatesFrom(Rate A, Rate B) { return (A.from < B.from); }
-	static bool sortRatesTo(Rate A, Rate B) { return (A.to < B.to); }
+	static bool sortRatesFrom(RateData::Rate A, RateData::Rate B) { return (A.from < B.from); }
+	static bool sortRatesTo(RateData::Rate A, RateData::Rate B) { return (A.to < B.to); }
 	// Keys allow to quickly find the required element. See the GenerateFromKeys().
 	vector<int> RatesFromKeys;
-	void GenerateRateKeys(vector<Rate> & ToSort);
+	void GenerateRateKeys(vector<RateData::Rate> & ToSort);
 };

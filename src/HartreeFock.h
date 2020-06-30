@@ -16,6 +16,7 @@ This file is part of AC4DC.
 ===========================================================================*/
 #pragma once
 
+#include "Input.h"
 #include "Grid.h"
 #include "RadialWF.h"
 #include "Potential.h"
@@ -23,7 +24,7 @@ This file is part of AC4DC.
 #include <fstream>
 #include "Numerics.h"
 #include "Constant.h"
-#include "Input.h"
+
 
 using namespace std;
 
@@ -36,7 +37,7 @@ public:
 
 	int Get_Virtual(vector<RadialWF> &Virtual, vector<RadialWF> &Orbitals, Potential &U, ofstream &log);
 	int LDA_Get_Virtual(vector<RadialWF> &Virtual, vector<RadialWF> &Orbitals, Potential &U, ofstream &log);
-	int Master(Grid * Lattice, RadialWF * Current, Potential * U, double Energy_tollerance, ofstream &log);
+	int Master(Grid * Lattice, RadialWF * Current, Potential * U, double Energy_tolerance, ofstream &log);
 	// Total configuration energy.
 	double Conf_En(vector<RadialWF> &Orbitals, Potential &U);
 	// Some electrons occupy virtual orbitals.
@@ -47,9 +48,10 @@ public:
 
 	~HartreeFock();
 private:
-	double Master_tollerance = pow(10, -10);
-	double No_exchange_tollerance = pow(10, -3);
-	double HF_tollerance = pow(10, -6);
+
+	double Master_tolerance = pow(10, -10);
+	double No_exchange_tolerance = pow(10, -3);
+	double HF_tolerance = pow(10, -6);
 	int max_HF_iterations = 500;
 	int max_Virt_iterations = 70;
 	Grid * lattice;
@@ -69,5 +71,3 @@ private:
 	RadialWF * psi;
 	Potential * u;
 };
-
-

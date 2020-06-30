@@ -101,7 +101,7 @@ class Plotter:
         return expect
 
     def plot_avg_charge(self):
-        ax = self.setup_axes()
+        ax, pulseax = self.setup_axes()
 
         ax.plot(self.charge[-1], self.aggregate_charges(), lw = 2, alpha = 0.7, label = 'Average charge state')
         ax.set_title("Charge state dynamics")
