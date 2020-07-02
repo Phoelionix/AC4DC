@@ -4,8 +4,6 @@
 #include <vector>
 #include "Adams_arrays.h"
 #include <iostream>
-
-using namespace std;
 //
 // template<typename T>
 // using sysfunc_t = void (*)(const T&, T&, const double);
@@ -16,12 +14,11 @@ public:
     IVPSolver();
     void setup(const T& initial_state, const double dt);
     double dt;
-    void print();
 
     // void export_to(string fname);
 protected:
-    vector<T> y;
-    vector<double> t;
+    std::vector<T> y;
+    std::vector<double> t;
     virtual void sys(const T& q, T& qdot, const double t) =0;
     T zero_y;
 
@@ -44,6 +41,7 @@ private:
 
 template<typename T>
 IVPSolver<T>::IVPSolver(){
+    // TODO: GLobal refactor of y and t to have more obvious names
     y.resize(1);
     t.resize(1);
 }
@@ -51,22 +49,15 @@ IVPSolver<T>::IVPSolver(){
 template<typename T>
 void IVPSolver<T>::setup(const T& initial_state, double _dt ){
     this->y[0] = initial_state;
-    // Makes a zero vector in a mildly spooky way
-    this->zero_y = initial_state; // do this to make the underlying std::vector large enough
-    this->zero_y = 0.; // set it to Z E R O
+    // Makes a zero std::vector in a mildly spooky way
+    this->zero_y = initial_state; // do this to make the underlying std::std::vector large enough
+    this->zero_y *= 0.; // set it to Z E R O
     if (_dt < 1E-16){
-        cerr<<"WARN: step size "<<dt<<"is smaller than machine precision"<<endl;
+        std::cerr<<"WARN: step size "<<dt<<"is smaller than machine precision"<<std::endl;
     }
     this->dt = _dt;
 }
 
-template<typename T>
-void IVPSolver<T>::print(){
-    cout<<"t\ty\n"<<endl;
-    for (size_t i = 0; i < y.size(); i++) {
-        cout<<t[i]<<'\t'<<y[i]<<endl;
-    }
-}
 
 ///////////////////////////////////
 
@@ -75,7 +66,7 @@ Adams_BM<T>::Adams_BM(int _order):
     IVPSolver<T>()
     {
     if (_order < 2 || _order > AdamsArrays::MAX_ADAMS_ORDER){
-        cerr<<"ERROR: Adams order may not be greater than "<<AdamsArrays::MAX_ADAMS_ORDER;
+        std::cerr<<"ERROR: Adams order may not be greater than "<<AdamsArrays::MAX_ADAMS_ORDER;
     }
     this->order = _order;
     this->b_AB = AdamsArrays::AB_COEFF[order];
@@ -89,10 +80,25 @@ template<typename T>
 void Adams_BM<T>::step_rk4(int n){
     T k1, k2, k3, k4, tmp;
     this->sys(this->y[n], k1, this->t[n]);
-    this->sys(this->y[n]+k1*0.5, k2, this->t[n]+this->dt*0.5);
-    this->sys(this->y[n]+k2*0.5, k3, this->t[n]+this->dt*0.5);
-    this->sys(this->y[n]+k3,     k4, this->t[n]+this->dt    );
+    //tmp = this->y[n]+k1*0.5
+    k1 *= this->dt;
+    tmp = k1;
+    tmp *= 0.5;
+    tmp += this->y[n];
+    this->sys(tmp, k2, this->t[n]+this->dt*0.5);
+    // tmp = this->y[n]+k2*0.5
+    k2 *= this->dt;
+    tmp = k2;
+    tmp *=0.5;
+    tmp += this->y[n];
+    this->sys(tmp, k3, this->t[n]+this->dt*0.5);
+    // tmp = this->y[n] + k3;
+    k3 *= this->dt;
+    tmp = k3;
+    tmp += this->y[n];
+    this->sys(tmp, k4, this->t[n]+this->dt    );
 
+    k4 *= this->dt;
     //y[n+1] = y[n] + (k1*(1./6) + k2*(1./3) + k3*(1./3) + k4*(1./6)) * this->dt;;
 
 
@@ -114,8 +120,8 @@ void Adams_BM<T>::step(int n){
     // Predicts the value y_n+1
     // Adams-Bashforth predictor routine:
 
-    T tmp=this->zero_y;
-    T ydot;
+    T tmp, ydot;
+    tmp = this->zero_y;
 
     for (size_t i = 0; i < order; i++) {
         this->sys(this->y[n-i], ydot, this->t[n-i]);
@@ -133,7 +139,8 @@ void Adams_BM<T>::step(int n){
 
     // Adams-Moulton corrector step
     // Here, tmp is the y_n+1 guessed in the preceding step, handle i=0 explicitly:
-    this->sys(tmp, tmp, this->t[n+1]);
+    T tmp2(tmp);
+    this->sys(tmp2, tmp, this->t[n+1]);
     tmp *= b_AM[0];
     // Now tmp goes back to bein an aggregator
     for (size_t i = 1; i < order; i++) {
@@ -155,9 +162,9 @@ double Adams_BM<T>::iterate(double t_initial, size_t npoints){
     double h = this->dt;
 
     if (h < 1E-16){
-        cerr<<"WARN: step size "<<h<<"is smaller than machine precision"<<endl;
+        std::cerr<<"WARN: step size "<<h<<"is smaller than machine precision"<<std::endl;
     } else if (h < 0) {
-        cerr<<"ERROR: step size is negative!"<<endl;
+        std::cerr<<"ERROR: step size is negative!"<<std::endl;
         return 0;
     }
 
@@ -175,7 +182,7 @@ double Adams_BM<T>::iterate(double t_initial, size_t npoints){
         step_rk4(n);
     }
     // Run those steps
-    for (size_t n = order - 1; n < npoints; n++) {
+    for (size_t n = order; n < npoints-1; n++) {
         step(n);
     }
     return this->t[npoints-1];

@@ -90,8 +90,8 @@ public:
     // Critical vector-space devices
     state_type& operator+=(const state_type &s);
     state_type& operator*=(const double x);
-    state_type operator+(const state_type& s2);
-    state_type operator*(double x);
+    // state_type operator+(const state_type& s2);
+    // state_type operator*(double x);
     // convenience members
     state_type& operator=(const double x);
     // state_type& operator=(const state_type& s2);
