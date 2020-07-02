@@ -5,3 +5,7 @@ bin/*
 .o
 output
 Makefile
+.err
+.tags
+tmp
+testOutput
