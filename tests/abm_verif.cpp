@@ -107,6 +107,7 @@ protected:
 int main(int argc, char const *argv[]) {
     if (argc <3){
         cerr<<"Usage: abm_verif [omega] [step] [order]"<<endl;
+        return 1;
     }
     double w = atof(argv[1]);
     double step = atof(argv[2]);

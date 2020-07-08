@@ -53,10 +53,9 @@ EII parameters are stored in "sort-of-json" format - please note that the progra
 
 ### TODO
 
-1. Include some comments in the Xsection output file columns themselves
-2. Electron plasma simulation part: sys
-3. Move printing code to `state_type` namespace
-4. Optimise with static arrays (if appropriate)
+1. Electron plasma simulation part: sys
+2. Include some comments in the Xsection output file columns themselves
+3. Optimise with static arrays - promote state_type to a N_FREE-dimensioned template for faster reads. (remains to be seen if this is a bottleneck)
 
 ### Bibliography:
 

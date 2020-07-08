@@ -363,18 +363,19 @@ RateData::Atom RateEquationSolver::SolvePlasmaBEB(vector<int> Max_occ, vector<in
 		existFlr = RateIO::ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
 		existAug = RateIO::ReadRates(RateLocation + "Auger.txt", Store.Auger);
 		existEII = RateIO::ReadEIIParams(RateLocation + "EII.json", Store.EIIparams);
-
-		if (existPht) printf("Photoionization rates found. Reading...\n");
-		if (existFlr) printf("Fluorescence rates found. Reading...\n");
-		if (existAug) printf("Auger rates found. Reading...\n");
-		if (existEII) printf("EII Parameters found. Reading...\n");
+		cout <<"======================================================="<<endl;
+		cout <<"Seeking rates for atom "<< input.Name() <<endl;
+		if (existPht) cout<<"Photoionization rates found. Reading..." <<endl;
+		if (existFlr) cout<<"Fluorescence rates found. Reading..."<<endl;
+		if (existAug) cout<<"Auger rates found. Reading..."<<endl;
+		if (existEII) cout<<"EII Parameters found. Reading..."<<endl;
 	}
 
 	if ( recalculate || !existAug || !existEII || !existPht || !existFlr )// EII parameters are not currently stored.
 	{
 		cout <<"======================================================="<<endl;
 		cout << "Total number of configurations: " << dimension << endl;
-		cout <<"Beginning Hartree-Fock BEB calculations for atom "<< input.Name() <<endl;
+		cout <<"Beginning Hartree-Fock BEB calculations for missing parameters " <<endl;
 		cout <<"======================================================="<<endl;
 		RateData::Rate Tmp;
 		vector<RateData::Rate> LocalPhoto(0);

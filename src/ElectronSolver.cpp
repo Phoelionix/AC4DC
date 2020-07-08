@@ -63,7 +63,7 @@ ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
 
 state_type ElectronSolver::get_ground_state() {
     state_type initial_condition;
-    initial_condition = 0; // May not be necessary, but probably not a bad idea.
+    initial_condition *= 0; // May not be necessary, but probably not a bad idea.
     assert(initial_condition.atomP.size() == Store.size());
     for (size_t a=0; a<Store.size(); a++) {
         initial_condition.atomP[a][0] = Store[a].nAtoms;
@@ -100,6 +100,7 @@ Use ElectronSolver::compute_cross_sections(log)\n" << endl;
 // d/dt P[i] = \sum_i=1^N W_ij - W_ji P[j]
 // d/dt f = Q_B[f](t)
 void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
+    sdot=0;
     for (size_t a = 0; a < s.atomP.size(); a++) {
 
         // create an appropriately-sized W[i][j]
@@ -153,38 +154,21 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
                 Pdot[i] += W(i, j) * P[j] - W(j, i) * P[i];
             }
         }
-
-
     }
+    // Changes in F
+    sdot.F.add_Qee(s.F); // Electron-electon repulsions
 }
 
 // IO functions
-void ElectronSolver::save(const std::string& _dir, bool saveSeparate){
+void ElectronSolver::save(const std::string& _dir){
     string dir = _dir; // make a copy of the const value
     dir = (dir.back() == '/') ? dir : dir + "/";
 
-    if (saveSeparate){
-        saveFree(dir+"freeDist.csv");
-        saveBound(dir);
-    } else {
-        saveCombined(dir+"dist.csv");
-    }
+    saveFree(dir+"freeDist.csv");
+    saveBound(dir);
+
     pf.save(this->t,dir+"intensity.csv");
 
-}
-
-// Writes free and atomic dynamics to single file fname
-void ElectronSolver::saveCombined(const std::string& fname){
-    ofstream f;
-    cout << "[ All ] Saving to file "<<fname<<"..."<<endl;
-    f.open(fname);
-    f << "# Electron dynamics"<<endl;
-    f << "# Time (fs) [ bound1 | bound2 | bound3 ] free" <<endl;
-    assert(y.size() == t.size());
-    for (int i=0; i<y.size(); i++){
-        f<<t[i]<<" "<<y[i]<<endl;
-    }
-    f.close();
 }
 
 void ElectronSolver::saveFree(const std::string& fname){
@@ -194,18 +178,11 @@ void ElectronSolver::saveFree(const std::string& fname){
     f.open(fname);
     f << "# Free electron dynamics"<<endl;
     f << "# Time (fs) | Density [ UNITS ] @ energy:" <<endl;
-    f << "#           | ";
-    for (int i=0; i<num_elec_points; i++) {
-        f<<Distribution::grid[i]<<" ";
-    }
-    f<<endl;
+    f << "#           | "<<Distribution::get_energies("eV")<<endl;
+
     assert(y.size() == t.size());
     for (int i=0; i<y.size(); i++){
-        f<<t[i];
-        for (size_t j = 0; j < Distribution::size; j++) {
-            f<<" "<<y[i].F[j];
-        }
-        f<<endl;
+        f<<t[i]<<y[i].F<<endl;
     }
     f.close();
 }
@@ -231,11 +208,7 @@ void ElectronSolver::saveBound(const std::string& dir){
         for (size_t i=0; i<y.size(); i++){
             // Make sure all "natom-dimensioned" objects are the size expected
             assert(Store.size() == y[i].atomP.size());
-            f<<t[i];
-            for (auto& state_prob : y[i].atomP[a]) {
-                f<<" "<<state_prob;
-            }
-            f<<endl;
+            f<<t[i] << ' ' << y[i].atomP[a]<<endl;
         }
         f.close();
     }

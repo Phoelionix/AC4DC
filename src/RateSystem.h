@@ -17,7 +17,8 @@ class state_type :
     boost::multiplicative2< state_type , double > > >
     */
 
-// Represents a statistical distribution.
+// Represents a statistical distribution of electrons.
+// grid defines spacing in Hartree.
 class Distribution
 {
 public:
@@ -29,12 +30,12 @@ public:
         return this->f[n];
     }
 
-    double operator[](double e){
+    double operator()(double e){
         return this->f[i_from_e(e)];
     }
 
     // vector-space algebra
-    Distribution& operator+=(Distribution d){
+    Distribution& operator+=(const Distribution& d){
         for (size_t i=0; i<size; i++) {
             f[i] += d.f[i];
         }
@@ -44,6 +45,18 @@ public:
     Distribution& operator*=(double x){
         for (auto& fi : f){
             fi *= x;
+        }
+        return *this;
+    }
+
+    Distribution& operator=(const Distribution& d){
+        f = d.f;
+        return *this;
+    }
+
+    Distribution& operator=(double y){
+        for (auto& fi : f){
+            fi=y;
         }
         return *this;
     }
@@ -59,18 +72,22 @@ public:
 
     double eii_int (const CustomDataType::EIIdata& eii, const int i) const;
     double tbr_int (const CustomDataType::EIIdata& eii, const int i) const;
+    void add_Qee(const Distribution& F);
 
     // N is the (dimensionless) count of the integrated energy desired
     void addDeltaLike(double e, double N);
 
+    // Sets the object to have a MB distribution
+    void set_maxwellian(double N, double T);
     // defines the f interpolation
     static void set_elec_points(size_t n, double min_e, double max_e);
-
+    static std::string get_energies(std::string units="eV");
     vector<double> f;
-    static vector<double> grid;
     static size_t size;
-    static vector<double> widths;
 private:
+    static vector<double> grid;
+
+    static vector<double> widths;
     static double e_from_i(size_t i);
     static size_t i_from_e(double e);
     static double min_e, max_e;
@@ -96,9 +113,6 @@ public:
     state_type& operator=(const double x);
     // state_type& operator=(const state_type& s2);
 
-    // pretty
-    static void print_info();
-
     // Defines number and style of atomP
     // Resizes the container to fit all of the states present in the atom ensemble
     static void set_P_shape(const vector<RateData::Atom>& atomsys);
@@ -111,7 +125,7 @@ private:
 };
 
 ostream& operator<<(ostream& os, const state_type& st);
-
+ostream& operator<<(ostream& os, const state_type::bound_t& dist);
 ostream& operator<<(ostream& os, const Distribution& dist);
 
 // All f integrals have the form

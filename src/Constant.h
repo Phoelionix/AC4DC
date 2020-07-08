@@ -37,6 +37,7 @@ namespace Constant
 	const double au2_in_Mbarn = 5.2917721067*5.2917721067;//atomic units to Mega Barns.
 	const double RiemannZeta3 = 1.202056903159594;
 	const double au_in_Angs = 0.52917721067; // Bohr radius = 1 atomic unit in Angstrom.
+	const double kb_in_au = 8.617333262145e-5*eV_in_au; // Boltzmann constant, Atomic units
 
 	double Wigner3j(double, double, double, double, double, double);
 }

@@ -1,6 +1,7 @@
 #include "RateSystem.h"
 #include "Dipole.h"
 #include <math.h>
+// #include <stringstream>
 
 vector<double> Distribution::grid   = vector<double>(0);
 vector<double> Distribution::widths = vector<double>(0);
@@ -44,12 +45,109 @@ double Distribution::tbr_int (const CustomDataType::EIIdata& eii, const int J) c
     for (size_t i = 0; i < size; i++) {
         double x = 0;
         for (size_t j = 0; j < size; j++){
-            x += widths[j]*2*grid[j]*Dipole::DsigmaBEB( grid[i], grid[j], eii.ionB[J], eii.kin[J], eii.occ[J]) * f[grid[j] - grid[i] - eii.ionB[J]];
+            double y= widths[j]*2*grid[j]*Dipole::DsigmaBEB( grid[i], grid[j], eii.ionB[J], eii.kin[J], eii.occ[J]);
+            y *= f[i_from_e(grid[j] - grid[i] - eii.ionB[J])];
+            x+= y;
         }
         tmp += x * f[i]*widths[i];
     }
     tmp *= 248.05021; // (2pi)^3
     return tmp;
+}
+
+void Distribution::set_maxwellian(double N, double T){
+    T *= Constant::kb_in_au; // convert T to units of Ha
+    for (size_t i=0; i<size; i++){
+        f[i] = N*exp(-grid[i]/T)/pow(grid[i]*Constant::Pi*T, 0.5);
+    }
+}
+
+std::string Distribution::get_energies(std::string units){
+    std::stringstream ss;
+    double conv=1;
+    if (units == "eV") conv=Constant::eV_in_au;
+    else if (units == "J") conv=Constant::eV_in_au*1.60217662e-19;
+    else if (units == "Ha") conv=1;
+    else if (units == "Rd") conv=2;
+
+    for (auto& e : grid){
+        ss<<e*conv<<' ';
+    }
+    return ss.str();
+}
+
+// Taken verbatim from Rockwood as quoted by Morgan and Penetrante in ELENDIF
+void Distribution::add_Qee(const Distribution& F) {
+    double alpha = 2.9619219588; // 2/3 pi e^4 * (2/m)^1/2, a.u.
+    alpha *= 4.6; // Coulomb logarithm, estimated from ln(100) for Plasma parameter [very rough]
+    double psi,dpsi,tmp; // psi = 3 I_0^e f(e') de' -1/e I_0^e e'f(e') de' + 2e^0.5 I_e^inf n(e') e'^-0.5 de'
+
+    double integral_nde = 0;
+    double integral_nede = 0;
+    double integral_nsde = 0; // integral n(ep)/sqrt(ep)
+
+    // Number of beginning and end points to exclude for numerical derivatives
+    const int der_order = 1;
+    double g[size]; // define g(e) = dn/de -n/2e
+
+    // Nasty numerical differentiation
+    for (size_t i=der_order; i<der_order*2; i++){
+        double h1 = widths[i-1];
+        double h2 = widths[i];
+        double de1 = (F.f[i] - F.f[i-1]) /h1;
+        double de2 = (F.f[i+1] - F.f[i]) /h2;
+        g[i] = (h2*de1 + h1*de2) / (h1+h2) - 2 * F.f[i]/grid[i];
+
+        // Compute edge values of f ignoring 2nd order gradient terms...
+        this->f[i] = 3*F.f[i]*F.f[i];
+        this->f[i] += psi*g[i];
+        this->f[i] *= alpha/pow(grid[i],0.5);
+    }
+
+    for (size_t i=size-der_order*2; i<size-der_order; i++){
+        double h1 = widths[i-1];
+        double h2 = widths[i];
+        double de1 = (F.f[i] - F.f[i-1]) /h1;
+        double de2 = (F.f[i+1] - F.f[i]) /h2;
+        g[i] = (h2*de1 + h1*de2) / (h1+h2) - 2 * F.f[i]/grid[i];
+
+        // Compute edge values of f ignoring 2nd order gradient terms...
+        this->f[i] = 3*F.f[i]*F.f[i];
+        this->f[i] += psi*g[i];
+        this->f[i] *= alpha/pow(grid[i],0.5);
+    }
+
+    for (size_t i=0; i < der_order; i++){
+        // Compute edge values of f ignoring gradient terms...
+        this->f[i] = alpha*3*F.f[i]*F.f[i]/pow(grid[i],0.5);
+        size_t j=size-der_order+i;
+        this->f[j] = alpha*3*F.f[j]*F.f[j]/pow(grid[j],0.5);
+    }
+
+    for (size_t i=der_order*2; i < size-der_order*2; i++){
+        double e = grid[i];
+        double e05 = pow(e,0.5);
+        tmp = F.f[i]*widths[i];
+
+        integral_nde += tmp;
+        integral_nede += e*tmp;
+        integral_nsde += tmp/e05;
+
+        dpsi = (integral_nede/e/e + integral_nsde/e05);
+        psi = 3*integral_nde -integral_nede/e + 2*e05*integral_nsde;
+
+        double h1 = widths[i-1];
+        double h2 = widths[i];
+        double de1 = (g[i] - g[i-1]) /h1;
+        double de2 = (g[i+1] - g[i]) /h2;
+        tmp = (h2*de1 + h1*de2) / (h1+h2) - 2 * g[i]/grid[i];
+
+        this->f[i] = 3*F.f[i]*F.f[i]/e05;
+        this->f[i] += 2*e05*e05*e05*tmp;
+        this->f[i] += psi*g[i]/e05;
+
+        this->f[i] *= alpha;
+    }
 }
 
 
@@ -130,26 +228,8 @@ state_type& state_type::operator=(const double x){
             p=x;
         }
     }
-    for (auto& fi : F.f){
-        fi=x;
-    }
+    F = 0;
     return *this;
-}
-
-void state_type::print_info(){
-    cout<<"P sizes:";
-    for (auto& s : P_sizes){
-        cout<<" "<<s;
-    }
-    cout<<endl<<"f description: "<<endl<<"e |";
-    for (auto& s : Distribution::grid) {
-        cout<<" "<<s;
-    }
-    cout<<endl<<" w |";
-    for (auto& s : Distribution::widths) {
-        cout<<" "<<s;
-    }
-    cout<<endl;
 }
 
 // Resizes the container to fit all of the states present in the atom ensemble
@@ -161,18 +241,12 @@ void state_type::set_P_shape(const vector<RateData::Atom>& atomsys) {
     }
 }
 
-ostream& operator<<(ostream& os, const state_type& st){
-    os<<"[ ";
-    for (size_t a=0; a<st.atomP.size(); a++){
-        for (size_t i=0; i<st.atomP[a].size(); i++){
-            os << st.atomP[a][i] << " ";
-        }
-        if (a != st.atomP.size()-1)
-            os<<"| ";
-    }
-    os<<"] ";
-    os<<st.F;
 
+// Intended usage: cout<<s.atomP[a]<<endl;
+ostream& operator<<(ostream& os, const state_type::bound_t& bound){
+    for (size_t i=0; i<bound.size(); i++){
+        os << bound[i] << " ";
+    }
     return os;
 }
 
@@ -180,6 +254,15 @@ ostream& operator<<(ostream& os, const Distribution& dist){
     for (size_t i= 0; i < Distribution::size; i++) {
         os<<dist.f[i]<<" ";
     }
+    return os;
+}
 
+ostream& operator<<(ostream& os, const state_type& st){
+    for (size_t a=0; a<st.atomP.size(); a++){
+        os << st.atomP[a];
+        if (a != st.atomP.size()-1)
+            os<<"| ";
+    }
+    os << st.F;
     return os;
 }
