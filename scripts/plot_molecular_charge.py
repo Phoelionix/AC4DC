@@ -85,12 +85,14 @@ class Plotter:
         raw = np.genfromtxt(self.intFile, comments='#')
         self.intensity = raw[:,1]
         self.time = raw[:, 0]
+        erow = []
         with open(self.freeFile) as f:
-            r = csv.reader(f, delimiter=' ', comment='#')
-            erow = []
+            r = csv.reader(f, delimiter=' ')
             for row in r:
                 print(row)
                 if row[0]=='#' and row[1]=='|':
+                    erow = row
+        erow = np.array(erow)[2:]
 
 
         raw = np.genfromtxt(self.freeFile, comments='#')

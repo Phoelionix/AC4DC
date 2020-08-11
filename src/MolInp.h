@@ -55,7 +55,7 @@ protected:
 	// NOT READ BY AC4DC SIMULATION
 	double min_elec_e = 100;
 	double max_elec_e = 5000;
-	size_t num_elec_points = 200; // Number of cells in the free-electron enegy model
+	size_t num_elec_points = 200; // Number of cells in the free-electron distribution expansion
 
 	bool use_thermal_plasma = true; // TODO: check what this actually does...
 };

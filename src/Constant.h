@@ -37,7 +37,8 @@ namespace Constant
 	const double au2_in_Mbarn = 5.2917721067*5.2917721067;//atomic units to Mega Barns.
 	const double RiemannZeta3 = 1.202056903159594;
 	const double au_in_Angs = 0.52917721067; // Bohr radius = 1 atomic unit in Angstrom.
-	const double kb_in_au = 8.617333262145e-5*eV_in_au; // Boltzmann constant, Atomic units
+	const double kb_eV = 8.617333262145e-5; // Boltzmann constant, electronvolt per Kelvin
+	const double kb_Ha = 8.617333262145e-5/eV_in_au; // Boltzmann constant, Ha per Kelvin
 
 	double Wigner3j(double, double, double, double, double, double);
 }
@@ -89,11 +90,11 @@ namespace CustomDataType
 
 	struct EIIdata
 	{
-		int init;
-		vector<int> fin;
-		vector<int> occ;
-		vector<float> ionB;
-		vector<float> kin;
+		int init; // initial state
+		vector<int> fin; // final states
+		vector<int> occ; // occupancy of state
+		vector<float> ionB; // ion binding energy
+		vector<float> kin; // u for atom in this state (see Kim and Rudd BEB for details)
 
 		void resize(size_t n)
 		{

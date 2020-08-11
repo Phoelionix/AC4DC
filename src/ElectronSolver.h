@@ -30,13 +30,41 @@ public:
         set_parameters(fluence, fwhm);
     };
     void set_parameters(double, double);
-    inline double operator()(double t); // Yields Photon flux in J/cm^2
+    inline double operator()(double t); // Yields Photon flux in same units as A
     void save(const vector<double>& T, const std::string& file);
 private:
     double A;
     double B;
 };
 
+
+class ElectronSolver : private MolInp, private Adams_BM<state_type>
+{
+public:
+    ElectronSolver(const char* filename, std::ofstream& log);
+    void solve();
+    void save(const std::string& folder);
+    // Expose the underlying MolInp command
+    void compute_cross_sections(std::ofstream& _log, bool recalc=true);
+private:
+    double timespan; // Atomic units
+    // Static arrays computed at class initialisation
+    static Eigen::SparseMatrix<double>* RATE_EII[Store.size()][num_elec_points];
+    static Eigen::SparseMatrix<double>* RATE_TBR[Store.size()][num_elec_points*(num_elec_points+1)/2];
+    // Model parameters
+    PhotonFlux pf;
+
+    void precompute_gamma_coeffs();
+    void set_flux(double fluence_in_Jcm2);
+    void set_initial_conditions();
+    void sys(const state_type& s, state_type& sdot, const double t);
+    bool hasRates = false; // flags whether Store has been populated yet.
+    void saveFree(const std::string& file);
+    void saveBound(const std::string& folder);
+    state_type get_ground_state();
+};
+
+/*
 // W_ij for the rate equaitons
 class Weight
 {
@@ -54,29 +82,7 @@ public:
 protected:
     size_t size;
 };
-
-
-class ElectronSolver : private MolInp, private Adams_BM<state_type>
-{
-public:
-    ElectronSolver(const char* filename, std::ofstream& log);
-    void solve();
-    void save(const std::string& folder);
-    // Expose the underlying MolInp command
-    void compute_cross_sections(std::ofstream& _log, bool recalc=true);
-private:
-    double timespan;
-    // Model parameters
-    PhotonFlux pf;
-    void set_flux(double fluence_in_Jcm2);
-    void set_initial_conditions();
-    void sys(const state_type& s, state_type& sdot, const double t);
-    bool hasRates = false; // flags whether Store has been populated yet.
-    void saveFree(const std::string& file);
-    void saveBound(const std::string& folder);
-    state_type get_ground_state();
-};
-
+*/
 
 
 #endif /* end of include guard: SYS_SOLVER_CXX_H */
