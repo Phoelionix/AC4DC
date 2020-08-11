@@ -71,7 +71,7 @@ void state_type::set_P_shape(const vector<RateData::Atom>& atomsys) {
 
 
 // Intended usage: cout<<s.atomP[a]<<endl;
-ostream& operator<<(ostream& os, const state_type::bound_t& bound){
+ostream& operator<<(ostream& os, const bound_t& bound){
     for (size_t i=0; i<bound.size(); i++){
         os << bound[i] << " ";
     }

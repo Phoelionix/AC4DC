@@ -4,6 +4,9 @@
 #include <fstream>
 #include <sys/stat.h>
 #include <algorithm>
+#include <eigen3/Eigen/StdVector>
+#include <eigen3/Eigen/SparseCore>
+#include <eigen3/Eigen/Dense>
 
 
 void PhotonFlux::set_parameters(double fluence, double fwhm){
@@ -34,7 +37,21 @@ void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname){
 ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
     MolInp(filename, log), pf(width*Constant::fs_in_au, 100000*fluence*Constant::Fluence_in_au)
 {
-    timespan = this->width*10*Constant::fs_in_au;
+    timespan_au = this->width*10*Constant::fs_in_au;
+    // create the tensor of coefficients
+    RATE_EII.resize(Store.size());
+    RATE_TBR.resize(Store.size());
+    for (size_t a=0; a<Store.size(); a++){
+        RATE_EII[a].resize(num_elec_points);
+        RATE_TBR[a].resize(num_elec_points*(num_elec_points+1)/2);
+        size_t dim = state_type::P_size(a);
+        for (auto& W : RATE_EII[a]){
+            W.resize(dim, dim);
+        }
+        for (auto& W : RATE_TBR[a]){
+            W.resize(dim, dim);
+        }
+    }
     precompute_gamma_coeffs();
 }
 
@@ -56,7 +73,7 @@ void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
     Distribution::set_elec_points(num_elec_points, min_elec_e, max_elec_e);
     state_type::set_P_shape(this->Store);
     // Set up the rate equations (setup called from parent Adams_BM)
-    this->setup(get_ground_state(), this->timespan/num_time_steps);
+    this->setup(get_ground_state(), this->timespan_au/num_time_steps);
     cout<<"Using timestep "<<this->dt<<" fs"<<endl;
 }
 
@@ -69,31 +86,22 @@ Use ElectronSolver::compute_cross_sections(log)\n" << endl;
     }
     bool converged = false;
     // TODO: repeat this until convergence.
-    this->iterate(-timespan/2, this->num_time_steps); // Inherited from ABM
+    this->iterate(-timespan_au/2, this->num_time_steps); // Inherited from ABM
 }
 
 void ElectronSolver::precompute_gamma_coeffs(){
     size_t N = Distribution::size;
-    size_t gamma_dim = Store[a].Photo.size();
-    for (size_t a = 0; a < s.atomP.size(); a++) {
-        for (size_t k=0; k<N*(N-1)/2; k++){
-            RATE_EII[a][k] = new Eigen::SparseMatrix<double>(gamma_dim, gamma_dim);
-        }
+    for (size_t a = 0; a < Store.size(); a++) {
         for (size_t n=0; n<N; n++){
-            RATE_EII[a][n] = new Eigen::SparseMatrix<double>(gamma_dim, gamma_dim);
-
             for (auto& eii: Store[a].EIIparams){
-                Eigen::SparseMatrix<double> Gamma(gamma_dim, gamma_dim);
-                Gamma_eii(Gamma, eii, n, a);
-                *RATE_EII[a][n] += Gamma;
-                for (size_t m=0; m<n; m++){
-                    size_t k = (N*(N+1)/2) - (N-m)*(N-m-1)/2 + n - m - 1
+                Eigen::SparseMatrix<double> Gamma;
+                Distribution::Gamma_eii(RATE_EII[a][n], eii, n, a);
+                for (size_t m=n+1; m<N; m++){
+                    size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                     // k = N-1... N(N+1)/2
-                    Gamma_tbr(Gamma, eii, n, m, a);
-                    *RATE_TBR[a][k] += Gamma;
+                    Distribution::Gamma_tbr(RATE_TBR[a][k], eii, n, m, a);
                 }
-                Gamma_tbr(Gamma, eii, n, n, a);
-                *RATE_TBR[a][n] += Gamma;
+                Distribution::Gamma_tbr(RATE_TBR[a][n], eii, n, n, a);
             }
         }
     }
@@ -132,21 +140,21 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         // EII / TBR
         double N = Distribution::size;
         for (size_t n=0; n<N; n++){
-            W += RATE_EII[a][n]*s.F.f[n];
+            W += RATE_EII[a][n]*s.F[n];
             // exploit the symmetry: goofy indexing to only store the upper triangular part.
-            for (size_t m=0; m<n; m++){
-                size_t k = (N*(N+1)/2) - (N-m)*(N-m-1)/2 + n - m - 1
+            for (size_t m=n+1; m<N; m++){
+                size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                 // k = N-1... N(N+1)/2
-                W += RATE_TBR[a][k]*s.F.f[n]*s.F.f[m]*2;
+                W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
             }
             // the diagonal
-            W += RATE_TBR[a][n]*s.F.f[n]*s.F.f[n];
+            W += RATE_TBR[a][n]*s.F[n]*s.F[n];
         }
 
 
 
-        const state_type::bound_t& P = s.atomP[a];
-        state_type::bound_t& Pdot = sdot.atomP[a];
+        const bound_t& P = s.atomP[a];
+        bound_t& Pdot = sdot.atomP[a];
 
         // Compute the changes in P
         for (size_t i = 0; i < P.size(); i++) {

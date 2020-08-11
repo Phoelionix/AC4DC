@@ -23,6 +23,8 @@ and some data containers used througout the code. */
 #include <string>
 using namespace std;
 
+typedef std::vector<double> bound_t; // Probabilities of state
+
 namespace Constant
 {
 	const double Pi = 3.1415926535897932384626433832795;

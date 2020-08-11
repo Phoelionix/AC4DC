@@ -1,5 +1,5 @@
-#ifndef RATESYSTEM_CXX_H
-#define RATESYSTEM_CXX_H
+#ifndef FREEDISTRIBUTION_CXX_H
+#define FREEDISTRIBUTION_CXX_H
 
 
 #include <sstream>
@@ -7,6 +7,7 @@
 #include <iostream>
 #include <eigen3/Eigen/SparseCore>
 #include <eigen3/Eigen/SparseCholesky>
+#include "Constant.h"
 
 #define BSPLINE_ORDER 4 // Cubics should be fine, increase if needed
 #define GAUSS_ORDER 10
@@ -18,34 +19,17 @@ public:
     double operator()(size_t i, double x);
     inline double supp_max(unsigned k);
     inline double supp_min(unsigned k);
+    size_t gridlen(){
+        return knot.size();
+    }
+    double grid(size_t i){
+        return knot[i];
+    }
     size_t num_funcs;
 private:
-    Eigen::SimplicalLLT<SparseMatrix<double> > cholmachine;
+    Eigen::SimplicialLLT<Eigen::SparseMatrix<double> > cholmachine;
     std::vector<double> knot;
     double overlap(size_t j, size_t k);
-    // Template voodoo stolen from stackexchange
-    template <unsigned k>
-    double BSpline(double x, double *t, unsigned n)
-    {
-        if (*t <= x && x < *(t+k))
-        {
-            double a = (x - *t) / (*(t+k-1) - *t);
-            double b = (*(t+k) - x) / (*(t+k) - *(t+1));
-
-            return a * BSpline<k-1>(x, t) + b * BSpline<k-1>(x, (t+1));
-        }
-        else
-            return 0;
-    }
-
-    template <>
-    double BSpline<1>(double x, double *t)
-    {
-        if (*t <= x && x < *(t+1))
-            return 1.;
-        else
-            return 0.;
-    }
 };
 
 // Represents a statistical distribution of electrons. Internal units are atomic units.
@@ -56,12 +40,8 @@ public:
         f.resize(size);
     }
 
-    double operator[](size_t n){
+    inline double operator[](size_t n) const{
         return this->f[n];
-    }
-
-    double operator()(double e){
-        return this->f[i_from_e(e)];
     }
 
     // vector-space algebra
@@ -73,8 +53,8 @@ public:
     }
 
     Distribution& operator*=(double x){
-        for (auto& fi : f){
-            fi *= x;
+        for (int i=0; i<f.size(); i++){
+            f[i] *= x;
         }
         return *this;
     }
@@ -85,23 +65,14 @@ public:
     }
 
     Distribution& operator=(double y){
-        for (auto& fi : f){
-            fi=y;
+        for (int i=0; i<f.size(); i++){
+            f[i] = y;
         }
         return *this;
     }
 
-    template<typename T>
-    T expect(T (& g) (double e)){
-        T tmp = 0;
-        for (size_t i = 0; i < size; i++) {
-            tmp += g(grid[i])*f[i]*widths[i];
-        }
-        return tmp;
-    }
-
-    static void Gamma_eii(Eigen::SparseMatrix<double>& Gamma, const CustomDataType::EIIdata& eii, size_t K, int k);
-    static void Gamma_tbr(Eigen::SparseMatrix<double>& Gamma, const CustomDataType::EIIdata& eii, size_t J, size_t K, int k);
+    static void Gamma_eii(Eigen::SparseMatrix<double>& Gamma, const CustomDataType::EIIdata& eii, size_t K, size_t a);
+    static void Gamma_tbr(Eigen::SparseMatrix<double>& Gamma, const CustomDataType::EIIdata& eii, size_t J, size_t K, size_t a);
     void add_Qeii (size_t a, const Distribution& F, const bound_t& P);
     void add_Qtbr (size_t a, const Distribution& F, const bound_t& P);
     void add_Qee(const Distribution& F);
@@ -112,11 +83,13 @@ public:
     // Sets the object to have a MB distribution
     void set_maxwellian(double N, double T);
 
+    static std::string get_energies_eV();
     // defines the f interpolation
     static void set_elec_points(size_t n, double min_e, double max_e);
     static size_t size;
 private:
-    vector<double> f;
+    // Eigen::VectorXd f;
+    std::vector<double> f;
     static BasisSet* basis;
     // static vector<double> grid; // Energy grid, Hartree
     // static double e_from_i(size_t i);

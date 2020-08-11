@@ -47,14 +47,15 @@ public:
     // Expose the underlying MolInp command
     void compute_cross_sections(std::ofstream& _log, bool recalc=true);
 private:
-    double timespan; // Atomic units
-    // Static arrays computed at class initialisation
-    static Eigen::SparseMatrix<double>* RATE_EII[Store.size()][num_elec_points];
-    static Eigen::SparseMatrix<double>* RATE_TBR[Store.size()][num_elec_points*(num_elec_points+1)/2];
+    double timespan_au; // Atomic units
     // Model parameters
     PhotonFlux pf;
 
-    void precompute_gamma_coeffs();
+    // arrays computed at class initialisation
+    vector<vector<Eigen::SparseMatrix<double> > > RATE_EII;
+    vector<vector<Eigen::SparseMatrix<double> > > RATE_TBR;
+
+    void precompute_gamma_coeffs(); // populates above two tensors
     void set_flux(double fluence_in_Jcm2);
     void set_initial_conditions();
     void sys(const state_type& s, state_type& sdot, const double t);

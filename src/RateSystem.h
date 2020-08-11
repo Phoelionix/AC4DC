@@ -11,8 +11,6 @@
 
 
 
-typedef std::vector<double> bound_t; // Probabilities of state
-
 // Class responsible for storing the system state.
 class state_type
 {
@@ -38,13 +36,16 @@ public:
     static void set_P_shape(const vector<size_t>& shape){
         P_sizes = shape;
     }
+    static size_t P_size(size_t a){
+        return P_sizes[a];
+    }
 
 private:
     static vector<size_t> P_sizes;
 };
 
 ostream& operator<<(ostream& os, const state_type& st);
-ostream& operator<<(ostream& os, const state_type::bound_t& dist);
+ostream& operator<<(ostream& os, const bound_t& dist);
 ostream& operator<<(ostream& os, const Distribution& dist);
 
 // All f integrals have the form
