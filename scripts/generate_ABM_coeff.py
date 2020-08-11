@@ -12,7 +12,7 @@ f= open('src/Adams_arrays.h', 'w')
 f.write('''
 #ifndef ADAMS_ARRAY_CXX_H
 #define ADAMS_ARRAY_CXX_H
-// This file was written by scripts/coeff.py gang
+// This file was written by scripts/generate_ABM_coeff.py gang
 // Do not edit it manually, unless you really know what you're doing.
 
 namespace AdamsArrays{
