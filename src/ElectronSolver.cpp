@@ -81,7 +81,7 @@ void ElectronSolver::solve(){
     if (!hasRates) {
         std::cerr <<
 "No rates have been loaded into the solver. \
-Use ElectronSolver::compute_cross_sections(log)\n" << endl;
+Use ElectronSolver::compute_cross_sections(log)\n" << std::endl;
         return;
     }
     bool converged = false;
@@ -90,8 +90,10 @@ Use ElectronSolver::compute_cross_sections(log)\n" << endl;
 }
 
 void ElectronSolver::precompute_gamma_coeffs(){
+    std::cout<<"Beginning coefficient computation..."<<std::endl;
     size_t N = Distribution::size;
     for (size_t a = 0; a < Store.size(); a++) {
+        std::cout<<"[rate precalc] Atom "<<a<<"/"<<Store.size()<<std::endl;
         for (size_t n=0; n<N; n++){
             for (auto& eii: Store[a].EIIparams){
                 Eigen::SparseMatrix<double> Gamma;
