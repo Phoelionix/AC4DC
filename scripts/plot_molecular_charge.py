@@ -8,7 +8,7 @@ import csv
 import time
 import subprocess
 
-plt.style.use('seaborn-white')
+plt.style.use('seaborn')
 
 plt.rcParams["font.size"] = 14
 fig = plt.figure(figsize=(9, 6))
