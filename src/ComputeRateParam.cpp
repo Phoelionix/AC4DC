@@ -594,8 +594,8 @@ int ComputeRateParam::SetupAndSolve(ofstream & runlog)
 	// first index represents the configuration
 	// second index represents the time. The routine will expand it itself unless
 	// you provide first adams_n points yourself.
-	double fluence = input.Fluence() / Constant::Fluence_in_au;
-	double Sigma = input.Width()/Constant::fs_in_au/ (2*sqrt(2*log(2.)));
+	double fluence = input.Fluence();
+	double Sigma = input.Width()/ (2*sqrt(2*log(2.)));
 	int T_size = input.TimePts();
 	vector<double> InitCond(dimension, 0);
 	InitCond[0] = 1;
@@ -612,7 +612,7 @@ int ComputeRateParam::SetupAndSolve(ofstream & runlog)
 		dT = generate_dT(T_size);
 		T.clear();
 		T = generate_T(dT);
-		scaling_T = 4 * input.Width()/Constant::fs_in_au / T.back();
+		scaling_T = 4 * input.Width() / T.back();
 		for (int i = 0; i < T.size(); i++) {
 			T[i]  *= scaling_T;
 			dT[i] *= scaling_T;
@@ -705,8 +705,8 @@ int ComputeRateParam::SetupAndSolve(MolInp & Input, ofstream & runlog)
 	// first index represents the configuration
 	// second index represents the time. The routine will expand it itself unless
 	// you provide first adams_n points yourself.
-	double fluence = Input.Fluence()/ Constant::Fluence_in_au;
-	double Sigma = Input.Width()/Constant::fs_in_au / (2*sqrt(2*log(2.)));
+	double fluence = Input.Fluence();
+	double Sigma = Input.Width()/ (2*sqrt(2*log(2.)));
 	int T_size = Input.ini_T_size();
 
 	P.clear();
@@ -722,7 +722,7 @@ int ComputeRateParam::SetupAndSolve(MolInp & Input, ofstream & runlog)
 		dT = generate_dT(T_size);
 		T.clear();
 		T = generate_T(dT);
-		scaling_T = 4*input.Width()/Constant::fs_in_au / T.back();
+		scaling_T = 4*input.Width() / T.back();
 		for (int i = 0; i < T.size(); i++) {
       //T[i] = T[i]-0.5*T.back();
 			T[i] *= scaling_T;

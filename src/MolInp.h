@@ -20,7 +20,7 @@ public:
 
 	double Omega() {return omega;}
 	double Width() {return width;}
-	double Fluence() {return 10000*fluence;} // returns fluence in J/cm^2
+	double Fluence() {return fluence;} 
 	int ini_T_size() {return num_time_steps;}
 	double dropl_R() {return radius;}
 
@@ -37,8 +37,8 @@ public:
 
 protected:
 
-	double omega = 5000;// XFEL photon energy, eV.
-	double width = 5; // XFEL pulse width in femtoseconds. Gaussian profile hardcoded.
+	double omega = 5000;// XFEL photon energy, au.
+	double width = 5; // XFEL pulse width in au. Gaussian profile hardcoded.
 	double fluence = 0; // XFEL pulse fluence, 10^4 J/cm^2.
 	int num_time_steps = 1000; // Guess number of time steps for time dynamics.
 	int out_T_size = 0; // Unlike atomic input, causes to output all points.
@@ -58,7 +58,6 @@ protected:
 	double max_elec_e = 5000;
 	size_t num_elec_points = 200; // Number of cells in the free-electron distribution expansion
 
-	bool use_thermal_plasma = true; // TODO: check what this actually does...
 };
 
 

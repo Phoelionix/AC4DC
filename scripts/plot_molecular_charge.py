@@ -169,9 +169,6 @@ class Plotter:
         plt.show()
         plt.colorbar()
 
-        plt.figlegend(loc = (0.11, 0.43))
-        plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
-
 
 
 

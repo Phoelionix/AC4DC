@@ -68,7 +68,7 @@ public:
 	string Name() { return name; }
 	double Omega() { return omega; }
 	double Width() { return width; }
-	double Fluence() { return 10000*fluence; }
+	double Fluence() { return fluence; }
 	void Set_Width(double ext_width) {width = ext_width;}
 	void Set_Fluence(double ext_fluence) {fluence = ext_fluence;}
 

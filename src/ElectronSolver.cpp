@@ -36,9 +36,9 @@ void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname){
 
 
 ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
-    MolInp(filename, log), pf(width*Constant::fs_in_au, 100000*fluence*Constant::Fluence_in_au)
+    MolInp(filename, log), pf(width, 100000*fluence)
 {
-    timespan_au = this->width*10*Constant::fs_in_au;
+    timespan_au = this->width*10;
 }
 
 state_type ElectronSolver::get_ground_state() {

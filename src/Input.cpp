@@ -130,6 +130,8 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 	Grid lattice(num_grid_pts, r_min/Z, r_box, 4);
 	Lattice = lattice;
 	fluence /= omega/Constant::eV_in_au;
+	fluence *= 10000;
+	fluence /= Constant::Fluence_in_au;
 }
 
 Input::Input(const Input & Other)
