@@ -180,8 +180,9 @@ void Distribution::addDeltaLike(double e, double height){
 BasisSet::BasisSet(size_t n, double min, double max) : num_funcs(n){
     knot.resize(n+BSPLINE_ORDER);
     knot[0] = min;
+    double de = 1.*(max-min)/(n+BSPLINE_ORDER+1);
     for(int i=1; i<n+BSPLINE_ORDER; i++){
-        knot[i] = knot[i-1] + i*(max-min)/(n+BSPLINE_ORDER);
+        knot[i] = knot[i-1] + de;
     }
     // Compute overlap matrix
     Eigen::SparseMatrix<double> S(num_funcs, num_funcs);
