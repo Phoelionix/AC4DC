@@ -49,6 +49,7 @@ protected:
 	bool write_intensity = false;
 	bool write_md_data = true;
 
+	// unit volume.
 	double unit_V = 1.;
 
 	// ONLY USED BY solver.cpp NONTHERMAL SIMULATION

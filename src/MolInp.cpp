@@ -101,17 +101,9 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 0) stream >> num_time_steps;
 		if (n == 1) stream >> omp_threads;
 		// Optional parameters to flag use of non-thermal plasma
-		if (n == 2) {
-			string tmp;
-			stream >> tmp;
-			if (tmp == "nonthermal "){
-				use_thermal_plasma = false;
-				std::cout << "Nonthermal plasma selected..." << std::endl;
-			}
-		}
-		if (n == 3) stream >> min_elec_e;
-		if (n == 4) stream >> max_elec_e;
-		if (n == 5) stream >> num_elec_points;
+		if (n == 2) stream >> min_elec_e;
+		if (n == 3) stream >> max_elec_e;
+		if (n == 4) stream >> num_elec_points;
 
 	}
 

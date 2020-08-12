@@ -15,7 +15,6 @@ Ne 1000
 #NUMERICAL
 4000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12           // Number of threads in OpenMP.
-nonthermal   // free-electron simulation style - thermal/nonthermal [NOT USED YET]
 100          // [only for nonthermal] minimum free-electron energy in eV
 20000        // [only for nonthermal] maximum free-electron energy in eV
 100          // [only for nonthermal] number of free-electron grid points

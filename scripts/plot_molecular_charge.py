@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.interpolate import BSpline
 from math import log
 import os.path as path
 import sys
@@ -15,10 +16,6 @@ fig = plt.figure(figsize=(9, 6))
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
-
-
-def calc_bsplines(knot, coeffs):
-    pass
 
 
 class Plotter:
@@ -40,7 +37,7 @@ class Plotter:
         self.boundData={}
         self.freeData=None
         self.intensityData=None
-        self.energyCoeffs=None
+        self.energyKnot=None
         self.timeData=None
 
         self.get_atoms()
@@ -120,14 +117,14 @@ class Plotter:
         return erow
 
     def update(self):
-        raw = np.genfromtxt(self.intFile, comments='#')
+        raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
         self.intensityData = raw[:,1]
         self.timeData = raw[:, 0]
-        self.energyCoeffs = np.array(self.parse_free_energy_spec())
-        raw = np.genfromtxt(self.freeFile, comments='#')
+        self.energyKnot = np.array(self.parse_free_energy_spec(), dtype=np.float64)
+        raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
         self.freeData = raw[:,1:]
         for a in self.atomdict:
-            raw = np.genfromtxt(self.atomdict[a]['out'], comments='#')
+            raw = np.genfromtxt(self.atomdict[a]['out'], comments='#', dtype=np.float64)
             self.boundData[a] = raw[:, 1:]
 
     # makes a blank plot showing the intensity curve
@@ -154,17 +151,28 @@ class Plotter:
 
     def plot_free(self):
         fig.clf()
-        ax = fig.add_subplot(111)
-        ax.contourf(self.timeData, self.energyCoeffs, self.freeData.T)
-        ax.set_title("Free electron energy distribution")
-        ax.set_ylabel("Energy (eV)")
-        ax.set_xlabel("Time, fs")
-        ax.colorbar()
+        # Need to turn freeData (matrix of BSpline coeffs)
+        # freeeData [t, c]
+        # into matrix of values.
+        num_E = 1000
+        min = self.energyKnot[0]
+        max = self.energyKnot[-1]
+        Y = np.linspace(min, max, num_E)
+        Z = np.zeros((num_E, self.timeData.shape[0]), dtype=np.float64)
+        for t in range(self.freeData.shape[0]):
+            inter = BSpline(self.energyKnot, self.freeData[t,:], 4)
+            Z[:,t] = inter(Y)
+        plt.contourf(self.timeData, Y, Z, cmap='RdGy')
+        plt.title("Free electron energy distribution")
+        plt.ylabel("Energy (eV)")
+        plt.xlabel("Time, fs")
+        plt.show()
+        plt.colorbar()
 
         plt.figlegend(loc = (0.11, 0.43))
         plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
 
-        plt.show()
+
 
 
 pl = Plotter(sys.argv[1])
