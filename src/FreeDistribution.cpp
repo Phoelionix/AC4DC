@@ -65,7 +65,7 @@ void Distribution::Gamma_eii(Eigen::SparseMatrix<double>& Gamma, const CustomDat
 }
 
 void Distribution::Gamma_tbr(Eigen::SparseMatrix<double>& Gamma, const CustomDataType::EIIdata& eii, size_t J, size_t K, size_t a) {
-    for (size_t xi; xi<eii.fin.size(); xi++) {
+    for (size_t xi = 0; xi<eii.fin.size(); xi++) {
         double tmp=0;
         double B=eii.ionB[xi];
 
@@ -188,9 +188,13 @@ BasisSet::BasisSet(size_t n, double min, double max) : num_funcs(n){
     Eigen::SparseMatrix<double> S(num_funcs, num_funcs);
     // Eigen::MatrixXd S(num_funcs, num_funcs);
     for (int i=0; i<num_funcs; i++){
-        for (int j=i; j<std::min<size_t>(i+BSPLINE_ORDER, num_funcs); j++){
-            S.insert(i,j) = overlap(i, j);
-            S.coeffRef(j,i) = S.coeffRef(i,j);
+        for (int j=i+1; j<num_funcs; j++){
+            double tmp=overlap(i, j);
+            if (tmp != 0){
+                S.insert(i,j) = tmp;
+                S.insert(j,i) = tmp;
+            }
+            S.insert(i,i) = overlap(i,i);
         }
     }
     // Compute the Cholesky decomposition
