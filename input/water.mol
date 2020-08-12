@@ -19,11 +19,11 @@ O 1
 nonthermal   // free-electron simulation style - thermal/nonthermal [NOT USED YET]
 100          // [only for nonthermal] minimum free-electron energy in eV
 10000        // [only for nonthermal] maximum free-electron energy in eV
-50          // [only for nonthermal] number of free-electron grid points
+15          // [only for nonthermal] number of free-electron grid points
 
 
 #OUTPUT
-2000         // Number of time steps in the output files.
+200         // Number of time steps in the output files.
 Y            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?

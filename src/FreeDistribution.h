@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <iostream>
 #include <eigen3/Eigen/SparseCore>
+#include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/SparseCholesky>
 #include "Constant.h"
 
@@ -27,7 +28,8 @@ public:
     }
     size_t num_funcs;
 private:
-    Eigen::SimplicialLLT<Eigen::SparseMatrix<double> > cholmachine;
+    // Eigen::LDLT<Eigen::MatrixXd > cholmachine;
+    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double> > cholmachine;
     std::vector<double> knot;
     double overlap(size_t j, size_t k);
 };

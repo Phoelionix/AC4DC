@@ -8,6 +8,8 @@ import csv
 import time
 import subprocess
 
+plt.style.use('seaborn-white')
+
 plt.rcParams["font.size"] = 14
 fig = plt.figure(figsize=(9, 6))
 
@@ -15,27 +17,40 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
+def calc_bsplines(knot, coeffs):
+    pass
+
 
 class Plotter:
+    # Initialistation: Plotter(water)
+    # expects there to be a control file named input/water.mol
     def __init__(self, mol):
         self.p = path.abspath(path.join(__file__ ,"../../"))
         # Inputs
         molfile = self.p+"/input/"+mol+".mol"
         self.mol = {'name': mol, 'file': molfile, 'mtime': path.getmtime(molfile)}
-        self.atomlist = []
+        # Stores the atomic input files read by ac4dc
+        self.atomdict = {}
 
         # Outputs
         self.outDir = self.p + "/output/__Molecular/"+mol
-
         self.freeFile = self.outDir+"/freeDist.csv"
-        self.boundFiles =[]
         self.intFile = self.outDir + "/intensity.csv"
 
+        self.boundData={}
+        self.freeData=None
+        self.intensityData=None
+        self.energyCoeffs=None
+        self.timeData=None
+
         self.get_atoms()
+        self.update()
         self.autorun=False
 
+    # Reads the control file specified by self.mol['file']
+    # and populates the atomdict data structure accordingly
     def get_atoms(self):
-        self.atomlist = []
+        self.atomlist = {}
         with open(self.mol['file'], 'r') as f:
             reading = False
             for line in f:
@@ -49,10 +64,10 @@ class Plotter:
                     a = line.split(' ')[0].strip()
                     if len(a) != 0:
                         file = self.p + '/input/' + a + '.inp'
-                        self.atomlist.append({'name': a, 'file': file, 'mtime': path.getmtime(file)})
-        self.boundFiles =[]
-        for atomic in self.atomlist:
-            self.boundFiles.append(self.outDir+"/dist_%s.csv"%atomic['name']);
+                        self.atomdict[a]={
+                            'file': file,
+                            'mtime': path.getmtime(file),
+                            'out': self.outDir+"/dist_%s.csv"%a}
 
     def update_inputs(self):
         self.get_atoms()
@@ -68,72 +83,67 @@ class Plotter:
         self.update_inputs()
         # Outputs are made at roughly the same time: Take the oldest.
         out_time = path.getmtime(self.freeFile)
-        for bfile in self.boundFiles:
-            out_time = min(out_time, path.getmtime(bfile))
+        for atomic in self.atomdict.values():
+            out_time = min(out_time, path.getmtime(atomic['out']))
 
         if self.mol['mtime'] > out_time:
             print("Master file %s is newer than most recent run" % self.mol['file'])
             return False
 
-        for atomic in self.atomlist:
+        for atomic in self.atomdict.values():
             if atomic['mtime'] > out_time:
-                print("Dependent file %s is newer than most recent run" % atomic['file'])
+                print("Dependent input file %s is newer than most recent run" % atomic['file'])
                 return False
         return True
 
-    def update(self):
-        raw = np.genfromtxt(self.intFile, comments='#')
-        self.intensity = raw[:,1]
-        self.time = raw[:, 0]
+    def parse_free_energy_spec(self):
         erow = []
         with open(self.freeFile) as f:
             r = csv.reader(f, delimiter=' ')
             for row in r:
-                print(row)
-                if row[0]=='#' and row[1]=='|':
-                    erow = row
-        erow = np.array(erow)[2:]
+                if row[0] != '#':
+                    raise Exception('parser could not find energy grid specification, expected #  |')
+                reading=False
+                for entry in row:
+                    # skip whitespace
+                    if entry == '' or entry == '#':
+                        continue
+                    # it's gotta be a pipe or nothin'
+                    if reading:
+                        erow.append(entry)
+                    elif entry == '|':
+                        reading=True
+                    else:
+                        break
+                if reading:
+                    break
+        return erow
 
-
+    def update(self):
+        raw = np.genfromtxt(self.intFile, comments='#')
+        self.intensityData = raw[:,1]
+        self.timeData = raw[:, 0]
+        self.energyCoeffs = np.array(self.parse_free_energy_spec())
         raw = np.genfromtxt(self.freeFile, comments='#')
+        self.freeData = raw[:,1:]
+        for a in self.atomdict:
+            raw = np.genfromtxt(self.atomdict[a]['out'], comments='#')
+            self.boundData[a] = raw[:, 1:]
 
-
-
+    # makes a blank plot showing the intensity curve
     def setup_axes(self):
         fig.clf()
         ax1 = fig.add_subplot(111)
         ax2 = ax1.twinx()
-        ax2.plot(self.time, self.intensity, lw = 2, c = 'black', ls = '--', alpha = 0.7)
+        ax2.plot(self.timeData, self.intensityData, lw = 2, c = 'black', ls = '--', alpha = 0.7)
         ax2.set_ylabel('Pulse fluence')
         ax1.set_xlabel("Time, fs")
         return (ax1, ax2)
 
-    def plot_charges(self):
+
+    def plot_atom_raw(self, a):
         ax, pulseax = self.setup_axes()
-
-        for i, elem in enumerate(self.charge[:-1]):
-            ax.plot(self.charge[-1], elem, lw = 2, alpha = 0.7, label = str(i))
-
-        ax.set_title("Charge state dynamics")
-        ax.set_ylabel("Probability")
-
-        plt.figlegend(loc = (0.11, 0.43))
-        plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
-
-        plt.show()
-
-
-    def aggregate_charges(self):
-        expect = np.zeros(self.charge.shape[1])
-
-        for i, elem in enumerate(self.charge[:-1]):
-            expect += elem*i
-        return expect
-
-    def plot_avg_charge(self):
-        ax, pulseax = self.setup_axes()
-
-        ax.plot(self.charge[-1], self.aggregate_charges(), lw = 2, alpha = 0.7, label = 'Average charge state')
+        ax.plot(self.timeData, self.boundData[a], label = 'Average charge state')
         ax.set_title("Charge state dynamics")
         ax.set_ylabel("Average charge")
 
@@ -142,12 +152,14 @@ class Plotter:
 
         plt.show()
 
-    def plot_bound(self):
-        ax, pulseax = self.setup_axes()
-
-        ax.plot(self.charge[-1], self.Z-self.aggregate_charges(), lw = 2, alpha = 0.7, label = 'Average charge state')
-        ax.set_title("Charge state dynamics")
-        ax.set_ylabel("Average charge")
+    def plot_free(self):
+        fig.clf()
+        ax = fig.add_subplot(111)
+        ax.contourf(self.timeData, self.energyCoeffs, self.freeData.T)
+        ax.set_title("Free electron energy distribution")
+        ax.set_ylabel("Energy (eV)")
+        ax.set_xlabel("Time, fs")
+        ax.colorbar()
 
         plt.figlegend(loc = (0.11, 0.43))
         plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
@@ -156,3 +168,4 @@ class Plotter:
 
 
 pl = Plotter(sys.argv[1])
+pl.plot_free()

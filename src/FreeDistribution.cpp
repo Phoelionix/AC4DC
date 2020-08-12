@@ -41,7 +41,7 @@ namespace BSpline{
 void Distribution::set_elec_points(size_t n, double min_e, double max_e){
     // Defines a grid of n+1 points
     basis = new BasisSet(n, min_e, max_e);
-    size=n;
+    Distribution::size=n;
 }
 
 // Computes all EII rates for specified transition for basis func k
@@ -184,18 +184,24 @@ BasisSet::BasisSet(size_t n, double min, double max) : num_funcs(n){
         knot[i] = knot[i-1] + i*(max-min)/(n+BSPLINE_ORDER);
     }
     // Compute overlap matrix
-    Eigen::SparseMatrix<double> S;
+    Eigen::SparseMatrix<double> S(num_funcs, num_funcs);
+    // Eigen::MatrixXd S(num_funcs, num_funcs);
     for (int i=0; i<num_funcs; i++){
-        for (int j=i; j<i+BSPLINE_ORDER; j++){
+        for (int j=i; j<std::min<size_t>(i+BSPLINE_ORDER, num_funcs); j++){
             S.insert(i,j) = overlap(i, j);
-            S.insert(j,i) = S.coeffRef(i,j);
+            S.coeffRef(j,i) = S.coeffRef(i,j);
         }
     }
     // Compute the Cholesky decomposition
     cholmachine.compute(S);
     if(cholmachine.info()!=Eigen::Success) {
-      std::cerr<<"Cholesky Factorisation of overlap matrix failed!";
+      std::cerr<<"Cholesky Factorisation of overlap matrix failed!"<<endl;
     }
+    // Dense only
+    // if(cholmachine.rcond() < 1e-6) {
+    //     std::cerr<<"Condition number is "<<1./cholmachine.rcond();
+    //     std::cerr<<"S-matrix inversion may be numerically unstable."<<endl;
+    // }
 
 }
 
@@ -243,7 +249,7 @@ double BasisSet::overlap(size_t j,size_t k){
 
 ostream& operator<<(ostream& os, const Distribution& dist){
     for (size_t i= 0; i < Distribution::size; i++) {
-        os<<dist[i]<<" ";
+        os<<" "<<dist[i];
     }
     return os;
 }

@@ -22,7 +22,7 @@ S 8
 nonthermal   // free-electron simulation style - thermal/nonthermal [NOT USED YET]
 100          // [only for nonthermal] minimum free-electron energy in eV
 20000        // [only for nonthermal] maximum free-electron energy in eV
-100          // [only for nonthermal] number of free-electron grid points
+15          // [only for nonthermal] number of free-electron grid points
 
 #OUTPUT
 4000         // Number of time steps in the output files.

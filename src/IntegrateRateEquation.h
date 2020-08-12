@@ -25,6 +25,15 @@ This file is part of AC4DC.
 
 using namespace std;
 
+//Class for solving system of linear coupled diffecrential equations of the form
+//
+// dP(i)/dt = Sum{j!=i} (R(j->i)P(j) - R(i->j)P(i))
+//
+//where the rates R(j->i) represent electronic transitions from configuration j to
+//configuration i (Photo-ionization, fluorescense, and Auger). Photoionization im
+//external beam with a given flux I(t) is assumed. Assumption - electron in the
+//continuum orbital is out of the system.
+
 class IntegrateRateEquation
 {
 	/*

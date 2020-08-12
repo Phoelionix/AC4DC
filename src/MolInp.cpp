@@ -5,7 +5,7 @@
 #include <iostream>
 #include <map>
 #include "HartreeFock.h"
-#include "RateEquationSolver.h"
+#include "ComputeRateParam.h"
 
 
 MolInp::MolInp(const char* filename, ofstream & log)
@@ -153,7 +153,7 @@ void MolInp::calc_rates(ofstream &_log, bool recalc){
 		HartreeFock HF(Latts[a], Orbits[a], Pots[a], Atomic[a], _log);
 
 		// This Computes the parameters for the rate equations to use, loading them into Init.
-		RateEquationSolver Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], false);
+		ComputeRateParam Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], false);
 		vector<int> final_occ(Orbits[a].size(), 0);
 		vector<int> max_occ(Orbits[a].size(), 0);
 		for (int i = 0; i < max_occ.size(); i++) {

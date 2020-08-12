@@ -1,6 +1,6 @@
 #include "ElectronSolver.h"
 #include "HartreeFock.h"
-#include "RateEquationSolver.h"
+#include "ComputeRateParam.h"
 #include <fstream>
 #include <sys/stat.h>
 #include <algorithm>
@@ -38,6 +38,26 @@ ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
     MolInp(filename, log), pf(width*Constant::fs_in_au, 100000*fluence*Constant::Fluence_in_au)
 {
     timespan_au = this->width*10*Constant::fs_in_au;
+}
+
+state_type ElectronSolver::get_ground_state() {
+    state_type initial_condition;
+    initial_condition *= 0; // May not be necessary, but probably not a bad idea.
+    assert(initial_condition.atomP.size() == Store.size());
+    for (size_t a=0; a<Store.size(); a++) {
+        initial_condition.atomP[a][0] = Store[a].nAtoms;
+    }
+    return initial_condition;
+}
+
+void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
+    this->calc_rates(_log, recalc);
+    hasRates = true;
+    // Set up the container class to have the correct size
+    Distribution::set_elec_points(num_elec_points, min_elec_e, max_elec_e);
+    state_type::set_P_shape(this->Store);
+    // Set up the rate equations (setup called from parent Adams_BM)
+    this->setup(get_ground_state(), this->timespan_au/num_time_steps);
     // create the tensor of coefficients
     RATE_EII.resize(Store.size());
     RATE_TBR.resize(Store.size());
@@ -55,29 +75,8 @@ ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
     precompute_gamma_coeffs();
 }
 
-state_type ElectronSolver::get_ground_state() {
-    state_type initial_condition;
-    initial_condition *= 0; // May not be necessary, but probably not a bad idea.
-    assert(initial_condition.atomP.size() == Store.size());
-    for (size_t a=0; a<Store.size(); a++) {
-        initial_condition.atomP[a][0] = Store[a].nAtoms;
-    }
-    return initial_condition;
-}
-
-void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
-    this->calc_rates(_log, recalc);
-    hasRates = true;
-
-    // Set up the container class to have the correct size
-    Distribution::set_elec_points(num_elec_points, min_elec_e, max_elec_e);
-    state_type::set_P_shape(this->Store);
-    // Set up the rate equations (setup called from parent Adams_BM)
-    this->setup(get_ground_state(), this->timespan_au/num_time_steps);
-    cout<<"Using timestep "<<this->dt<<" fs"<<endl;
-}
-
 void ElectronSolver::solve(){
+    cout<<"Using timestep "<<this->dt*Constant::fs_in_au<<" fs"<<endl;
     if (!hasRates) {
         std::cerr <<
 "No rates have been loaded into the solver. \
@@ -90,10 +89,10 @@ Use ElectronSolver::compute_cross_sections(log)\n" << std::endl;
 }
 
 void ElectronSolver::precompute_gamma_coeffs(){
-    std::cout<<"Beginning coefficient computation..."<<std::endl;
+    std::cout<<"[rate precalc] Beginning coefficient computation..."<<std::endl;
     size_t N = Distribution::size;
     for (size_t a = 0; a < Store.size(); a++) {
-        std::cout<<"[rate precalc] Atom "<<a<<"/"<<Store.size()<<std::endl;
+        std::cout<<"[rate precalc] Atom "<<a+1<<"/"<<Store.size()<<std::endl;
         for (size_t n=0; n<N; n++){
             for (auto& eii: Store[a].EIIparams){
                 Eigen::SparseMatrix<double> Gamma;
@@ -107,6 +106,7 @@ void ElectronSolver::precompute_gamma_coeffs(){
             }
         }
     }
+    std::cout<<"[rate precalc] Done."<<std::endl;
 }
 
 // The Big One: Incorporates all of the right hand side to the global
@@ -198,7 +198,7 @@ void ElectronSolver::saveFree(const std::string& fname){
     cout << "[ Free ] Saving to file "<<fname<<"..."<<endl;
     f.open(fname);
     f << "# Free electron dynamics"<<endl;
-    f << "# Time (fs) | Density [ UNITS ] @ energy:" <<endl;
+    f << "# Time (fs) | Density @ energy (eV):" <<endl;
     f << "#           | "<<Distribution::get_energies_eV()<<endl;
 
     assert(y.size() == t.size());

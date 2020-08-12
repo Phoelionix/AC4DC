@@ -5,7 +5,7 @@ Solver executable. Reads output of the bin/ratecalculator executable.
 
 */
 
-#include "RateEquationSolver.h"
+#include "ComputeRateParam.h"
 #include "ElectronSolver.h"
 #include "Input.h"
 #include "Constant.h"

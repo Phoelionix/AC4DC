@@ -30,7 +30,7 @@ This file is part of AC4DC.
 #include "DecayRates.h"
 #include <fstream>
 #include "HartreeFock.h"
-#include "RateEquationSolver.h"
+#include "ComputeRateParam.h"
 #include "Constant.h"
 #include <sys/stat.h>
 #include <ctime>
@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
 		Molecule.calc_rates(log);
 
 		// Solve a coupled system of equations for atoms and electron plasma.
-		RateEquationSolver Dynamics(Molecule.Latts[0], Molecule.Orbits[0], Molecule.Pots[0], Molecule.Atomic[0]);
+		ComputeRateParam Dynamics(Molecule.Latts[0], Molecule.Orbits[0], Molecule.Pots[0], Molecule.Atomic[0]);
 
 		Dynamics.SetupAndSolve(Molecule, log);
 
@@ -121,7 +121,7 @@ int main(int argc, char *argv[])
 
 		// Solve the system of equations for atomic charge state dynamics.
 		if (Init.TimePts() != 0) {
-			RateEquationSolver Dynamics(Lattice, Orbitals, U, Init);
+			ComputeRateParam Dynamics(Lattice, Orbitals, U, Init);
 			vector<int> final_occ(Orbitals.size(), 0);
 			vector<int> max_occ(Orbitals.size(), 0);
 
