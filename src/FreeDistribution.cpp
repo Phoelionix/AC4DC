@@ -194,8 +194,8 @@ BasisSet::BasisSet(size_t n, double min, double max) : num_funcs(n){
                 S.insert(i,j) = tmp;
                 S.insert(j,i) = tmp;
             }
-            S.insert(i,i) = overlap(i,i);
         }
+        S.insert(i,i) = overlap(i,i);
     }
     // Compute the Cholesky decomposition
     cholmachine.compute(S);
