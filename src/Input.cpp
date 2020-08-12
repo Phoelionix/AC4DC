@@ -33,7 +33,13 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 
 	cout << "Opening atomic file "<< filename << "...";
 	ifstream infile(filename);
-	cout << "... Success!" << endl;
+	if (infile.good())
+        std::cout<<"Success!"<<endl;
+    else {
+        std::cerr<<"Failed."<<endl;
+		exit(EXIT_FAILURE); // chuck a hissy fit and quit.
+        return;
+    }
 
 	map<string, vector<string>> FileContent;
 	string comment = "//";

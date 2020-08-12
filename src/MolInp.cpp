@@ -25,6 +25,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
         std::cout<<"Success!"<<endl;
     else {
         std::cerr<<"Failed."<<endl;
+		exit(EXIT_FAILURE); // chuck a hissy fit and quit.
         return;
     }
 	string comment = "//";
