@@ -11,13 +11,13 @@ class EEcoll : Adams_BM<Distribution>{
 public:
     EEcoll(double T, size_t num_points, double _dt, int _order) : Adams_BM<Distribution>(_order){
         //                            num, min, max
-        Distribution::set_elec_points(100, 0.5*T*Constant::kb_eV, 50*T*Constant::kb_eV);
+        Distribution::set_elec_points(100, 0.5*T*Constant::kb_Ha, 50*T*Constant::kb_Ha);
         Distribution init;
         // 100 electrons
         cerr<<"Initial conditions: N=100 Maxwellian T="<<T*Constant::kb_eV<<" eV, ";
         cerr<<"curve with N=100 delta at "<<4*T*Constant::kb_eV<<"eV"<<endl;
         init.set_maxwellian(100, T);
-        init.addDeltaLike(4*T*Constant::kb_eV, 100);
+        init.addDeltaLike(4*T*Constant::kb_Ha, 100);
         this->setup(init, _dt);
         this->iterate(0, num_points); // returns final time
         // this->y and this->t are now populated

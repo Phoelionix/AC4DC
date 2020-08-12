@@ -7,8 +7,8 @@
 
 // Initialise static things
 size_t Distribution::size=0;
-// This is bad style.
-BasisSet* Distribution::basis = NULL;
+BasisSet Distribution::basis;
+
 
 namespace BSpline{
     // Template voodoo stolen from stackexchange
@@ -40,7 +40,7 @@ namespace BSpline{
 // Psuedo-constructor thing
 void Distribution::set_elec_points(size_t n, double min_e, double max_e){
     // Defines a grid of n+1 points
-    basis = new BasisSet(n, min_e, max_e);
+    basis.set_parameters(n, min_e, max_e);
     Distribution::size=n;
 }
 
@@ -51,12 +51,12 @@ void Distribution::Gamma_eii(Eigen::SparseMatrix<double>& Gamma, const CustomDat
     // 4pi*sqrt(2) \int_0^\inf e^1/2 phi_k(e) sigma(e) de
 
     for (size_t xi = 0; xi < eii.fin.size(); xi++) {
-        double a = basis->supp_min(K);
-        double b = basis->supp_max(K);
+        double a = basis.supp_min(K);
+        double b = basis.supp_max(K);
         double tmp=0;
         for (int i=0; i<GAUSS_ORDER; i++){
             double e = gaussX_10[i]*(b-a)/2 + (a+b)/2;
-            tmp += gaussW_10[i]* (*basis)(K, e)*pow(e,0.5)*Dipole::sigmaBEB(e, eii.ionB[xi], eii.kin[xi], eii.occ[xi]);
+            tmp += gaussW_10[i]* basis(K, e)*pow(e,0.5)*Dipole::sigmaBEB(e, eii.ionB[xi], eii.kin[xi], eii.occ[xi]);
         }
         tmp *= (b-a)/2;
         tmp *= 4*Constant::Pi*1.4142; // Electron mass = 1 in atomic units
@@ -69,10 +69,10 @@ void Distribution::Gamma_tbr(Eigen::SparseMatrix<double>& Gamma, const CustomDat
         double tmp=0;
         double B=eii.ionB[xi];
 
-        double a1 = basis->supp_min(K);
-        double b1 = basis->supp_max(K);
-        double a2 = basis->supp_min(J);
-        double b2 = basis->supp_max(J);
+        double a1 = basis.supp_min(K);
+        double b1 = basis.supp_max(K);
+        double a2 = basis.supp_min(J);
+        double b2 = basis.supp_max(J);
 
         for (int i=0; i<GAUSS_ORDER; i++){
             double e = gaussX_10[i]*(b1-a1)/2 + (a1+b1)/2;
@@ -81,11 +81,11 @@ void Distribution::Gamma_tbr(Eigen::SparseMatrix<double>& Gamma, const CustomDat
             for (int j=0; j<GAUSS_ORDER; j++){
                 double s = gaussX_10[i]*(b2-a2)/2 + (a2+b2)/2;
                 double ep = s + e + B;
-                tmp2 += gaussW_10[j]*(*basis)(J, s)*ep*pow(s,-0.5)*
+                tmp2 += gaussW_10[j]*basis(J, s)*ep*pow(s,-0.5)*
                     Dipole::DsigmaBEB(ep, e, B, eii.kin[xi], eii.occ[xi]);
             }
             tmp2 *= (b2-a2)/2;
-            tmp += gaussW_10[i]*(*basis)(K, e)*tmp2/e;
+            tmp += gaussW_10[i]*basis(K, e)*tmp2/e;
         }
         tmp *= pow(2*Constant::Pi, 4) / 1.4142;
         tmp *= (b1-a1)/2;
@@ -129,14 +129,14 @@ void Distribution::set_maxwellian(double N, double T){
     Eigen::VectorXd v(size);
     for (size_t i=0; i<size; i++){
         f[i] = 0;
-        double a = basis->supp_min(i);
-        double b = basis->supp_max(i);
+        double a = basis.supp_min(i);
+        double b = basis.supp_max(i);
         for (int j=0; j<GAUSS_ORDER; j++){
             double e = (b-a)/2 *gaussX_10[j] + (a+b)/2;
-            v[i] += (b-a)/2 *gaussW_10[j]*exp(-e/T)*(*basis)(i, e)/pow(e*Constant::Pi*T, 0.5);
+            v[i] += (b-a)/2 *gaussW_10[j]*exp(-e/T)*basis(i, e)/pow(e*Constant::Pi*T, 0.5);
         }
     }
-    v = N*(this->basis->Sinv(v));
+    v = N*(this->basis.Sinv(v));
     for (size_t i=0; i<size; i++){
         f[i] = v[i];
     }
@@ -145,8 +145,8 @@ void Distribution::set_maxwellian(double N, double T){
 // Returns energies in eV
 std::string Distribution::get_energies_eV(){
     std::stringstream ss;
-    for (int i=0; i<basis->gridlen(); i++){
-        ss << basis->grid(i)*Constant::eV_in_au<<" ";
+    for (int i=0; i<basis.gridlen(); i++){
+        ss << basis.grid(i)*Constant::eV_in_au<<" ";
     }
     return ss.str();
 }
@@ -168,16 +168,17 @@ std::string Distribution::get_energies_eV(){
 void Distribution::addDeltaLike(double e, double height){
     Eigen::VectorXd v(size);
     for (int i=0; i<size; i++){
-        v[i] = (*basis)(i, e);
+        v[i] = basis(i, e);
     }
-    v= height*(this->basis->Sinv(v));
+    v= height*(this->basis.Sinv(v));
     for (size_t i=0; i<size; i++){
         f[i] += v[i];
     }
 }
 
 
-BasisSet::BasisSet(size_t n, double min, double max) : num_funcs(n){
+void BasisSet::set_parameters(size_t n, double min, double max) {
+    num_funcs = n;
     knot.resize(n+BSPLINE_ORDER);
     knot[0] = min;
     double de = 1.*(max-min)/(n+BSPLINE_ORDER+1);

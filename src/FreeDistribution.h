@@ -15,7 +15,8 @@
 
 class BasisSet{
 public:
-    BasisSet(size_t n, double min, double max);
+    BasisSet(){};
+    void set_parameters(size_t n, double min, double max);
     Eigen::VectorXd Sinv(Eigen::VectorXd deltaf);
     double operator()(size_t i, double x);
     inline double supp_max(unsigned k);
@@ -92,7 +93,7 @@ public:
 private:
     // Eigen::VectorXd f;
     std::vector<double> f;
-    static BasisSet* basis;
+    static BasisSet basis;
     // static vector<double> grid; // Energy grid, Hartree
     // static double e_from_i(size_t i);
     // static size_t i_from_e(double e);
