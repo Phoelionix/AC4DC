@@ -108,18 +108,18 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	}
 
 	// Convert to number of photon flux.
-	fluence /= omega/Constant::eV_in_au;
+	omega /= Constant::eV_per_Ha;
+	fluence /= Constant::eV_per_Ha;
 	fluence *= 10000;
-	fluence /= Constant::Fluence_in_au;
+	fluence /= Constant::Jcm2_per_Haa02;
 
 	// Convert to atomic units.
-	omega /= Constant::eV_in_au;
-	width /= Constant::fs_in_au;
-	radius /= Constant::au_in_Angs;
-	unit_V /= Constant::au_in_Angs*Constant::au_in_Angs*Constant::au_in_Angs;
+	width /= Constant::fs_per_au;
+	radius /= Constant::Angs_per_au;
+	unit_V = 1./Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
 
-	min_elec_e /= Constant::eV_in_au;
-	max_elec_e /= Constant::eV_in_au;
+	min_elec_e /= Constant::eV_per_Ha;
+	max_elec_e /= Constant::eV_per_Ha;
 
 	for (int i = 0; i < num_atoms; i++) {
 		string at_name;

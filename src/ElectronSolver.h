@@ -56,7 +56,7 @@ private:
     vector<vector<Eigen::SparseMatrix<double> > > RATE_TBR;
 
     void precompute_gamma_coeffs(); // populates above two tensors
-    void set_flux(double fluence_in_Jcm2);
+    void set_flux(double Jcm2_per_Haa02);
     void set_initial_conditions();
     void sys(const state_type& s, state_type& sdot, const double t);
     bool hasRates = false; // flags whether Store has been populated yet.

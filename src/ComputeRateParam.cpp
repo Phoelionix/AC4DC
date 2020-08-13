@@ -247,13 +247,13 @@ int ComputeRateParam::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, of
 				Tmp.from = i;
 
 				if (!existPht) {
-					vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega()/Constant::eV_in_au, runlog);
+					vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega(), runlog);
 					for (int k = 0; k < PhotoIon.size(); k++)
 					{
 						if (PhotoIon[k].val <= 0) continue;
 						Tmp.val = PhotoIon[k].val;
 						Tmp.to = i + hole_posit[PhotoIon[k].hole];
-						Tmp.energy = input.Omega()/Constant::eV_in_au - Orbitals[PhotoIon[k].hole].Energy;
+						Tmp.energy = input.Omega() - Orbitals[PhotoIon[k].hole].Energy;
 						LocalPhoto.push_back(Tmp);
 					}
 				}
@@ -445,13 +445,13 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				Tmp.from = i;
 
 				if (!existPht) {
-					vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega()/Constant::eV_in_au, runlog);
+					vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega()/Constant::eV_per_Ha, runlog);
 					for (int k = 0; k < PhotoIon.size(); k++)
 					{
 						if (PhotoIon[k].val <= 0) continue;
 						Tmp.val = PhotoIon[k].val;
 						Tmp.to = i + hole_posit[PhotoIon[k].hole];
-						Tmp.energy = input.Omega()/Constant::eV_in_au + Orbitals[PhotoIon[k].hole].Energy;
+						Tmp.energy = input.Omega()/Constant::eV_per_Ha + Orbitals[PhotoIon[k].hole].Energy;
 						LocalPhoto.push_back(Tmp);
 					}
 				}
@@ -657,8 +657,8 @@ int ComputeRateParam::SetupAndSolve(ofstream & runlog)
 
 	double t_tmp = 0;
 		for (int m = 0; m < T.size(); m++) {
-		T[m] = (T[m]-0.5*T.back())*Constant::fs_in_au;
-		dT[m] *= Constant::fs_in_au;
+		T[m] = (T[m]-0.5*T.back())*Constant::fs_per_au;
+		dT[m] *= Constant::fs_per_au;
 	}
 
 	if (input.Write_Charges()) {
@@ -761,8 +761,8 @@ int ComputeRateParam::SetupAndSolve(MolInp & Input, ofstream & runlog)
 	double I_max = *max_element(begin(Intensity), end(Intensity));
 
 	for (int m = 0; m < T.size(); m++) {
-		T[m] = (T[m]-0.5*T.back())*Constant::fs_in_au;
-		dT[m] *= Constant::fs_in_au;
+		T[m] = (T[m]-0.5*T.back())*Constant::fs_per_au;
+		dT[m] *= Constant::fs_per_au;
 	}
 
 	int shift = 0;
@@ -1060,7 +1060,7 @@ vector<double> ComputeRateParam::generate_G()
 {
 	// Intensity profile normalized to 1.
 	// Time is assumbed to be in FEM
-	double Sigma = input.Width()/(2*sqrt(2*log(2.)));//Constant::fs_in_au
+	double Sigma = input.Width()/(2*sqrt(2*log(2.)));//Constant::fs_per_au
 
 	return generate_I(T, 1, Sigma);
 }

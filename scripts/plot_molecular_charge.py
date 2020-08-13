@@ -140,7 +140,8 @@ class Plotter:
 
     def plot_atom_raw(self, a):
         ax, pulseax = self.setup_axes()
-        ax.plot(self.timeData, self.boundData[a], label = 'Average charge state')
+        for i in range(self.boundData[a].shape[1]):
+            ax.plot(self.timeData, self.boundData[a][:,i], label = 'Config '+str(i))
         ax.set_title("Charge state dynamics")
         ax.set_ylabel("Average charge")
 
@@ -173,4 +174,4 @@ class Plotter:
 
 
 pl = Plotter(sys.argv[1])
-pl.plot_free()
+#pl.plot_free()

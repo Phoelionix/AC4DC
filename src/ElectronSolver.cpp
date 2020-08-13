@@ -28,8 +28,8 @@ void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname){
     f << "# Intensity"<<endl;
     f << "# Time (fs) | Intensity (J/cm2)" <<endl;
     for (auto& t : Tvec){
-        f << t*Constant::fs_in_au << " ";
-        f << (*this)(t)*Constant::Fluence_in_au<<std::endl;
+        f << t*Constant::fs_per_au << " ";
+        f << (*this)(t)*Constant::Jcm2_per_Haa02<<std::endl;
     }
     f.close();
 }
@@ -77,7 +77,7 @@ void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
 }
 
 void ElectronSolver::solve(){
-    cout<<"Using timestep "<<this->dt*Constant::fs_in_au<<" fs"<<endl;
+    cout<<"Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<endl;
     if (!hasRates) {
         std::cerr <<
 "No rates have been loaded into the solver. \
@@ -125,7 +125,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         double J = pf(t); // photon flux in uhhhhh [TODO: UNITS]
         for ( auto& r : Store[a].Photo) {
             W(r.to, r.from) += r.val*J;
-            sdot.F.addDeltaLike(r.energy, r.val*J);
+            sdot.F.addDeltaLike(omega - r.energy, r.val*J);
         }
 
         // FLUORESCENCE
@@ -230,7 +230,7 @@ void ElectronSolver::saveBound(const std::string& dir){
         for (size_t i=0; i<y.size(); i++){
             // Make sure all "natom-dimensioned" objects are the size expected
             assert(Store.size() == y[i].atomP.size());
-            f<<t[i] << ' ' << y[i].atomP[a]<<endl;
+            f<<t[i]*Constant::fs_per_au << ' ' << y[i].atomP[a]<<endl;
         }
         f.close();
     }

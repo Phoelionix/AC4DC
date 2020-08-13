@@ -146,7 +146,7 @@ void Distribution::set_maxwellian(double N, double T){
 std::string Distribution::get_energies_eV(){
     std::stringstream ss;
     for (int i=0; i<basis.gridlen(); i++){
-        ss << basis.grid(i)*Constant::eV_in_au<<" ";
+        ss << basis.grid(i)*Constant::eV_per_Ha<<" ";
     }
     return ss.str();
 }
