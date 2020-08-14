@@ -1060,7 +1060,7 @@ vector<double> ComputeRateParam::generate_G()
 {
 	// Intensity profile normalized to 1.
 	// Time is assumbed to be in FEM
-	double Sigma = input.Width()/(2*sqrt(2*log(2.)));//Constant::fs_per_au
+	double Sigma = input.Width()/(2*sqrt(2*log(2.)));
 
 	return generate_I(T, 1, Sigma);
 }

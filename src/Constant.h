@@ -21,9 +21,8 @@ functions for calculations of Wigner 3j, 6j symbols, and Clebsh-Gordan coefficie
 and some data containers used througout the code. */
 #include <vector>
 #include <string>
+#include "transitionrate.hpp"
 using namespace std;
-
-typedef std::vector<double> bound_t; // Probabilities of state
 
 namespace Constant
 {
@@ -33,12 +32,13 @@ namespace Constant
 	const double Fm = 1.8897261246 / 100000;
 	const double fs_per_au = 0.024188843265857;//femtosecond in au
 	const double eV_per_Ha = 27.211385;//electron volts in atomic units
-	const double Intensity_in_au = 6.434;// x10^15 W/cm^2 //3.50944758;//x10^2 W/nm^2
+	// const double Intensity_in_au = 6.434;// x10^15 W/cm^2 //3.50944758;//x10^2 W/nm^2
 	const double Jcm2_per_Haa02 = 0.155689291;//J/cm^2
 	const double au2_in_barn = 5.2917721067*5.2917721067*1000000;//atomic units to Barns.
 	const double au2_in_Mbarn = 5.2917721067*5.2917721067;//atomic units to Mega Barns.
 	const double RiemannZeta3 = 1.202056903159594;
 	const double Angs_per_au = 0.52917721067; // Bohr radius = 1 atomic unit in Angstrom.
+	const double cm_per_au = Angs_per_au*1e8; // Bohr radius = 1 atomic unit in Angstrom.
 	const double kb_eV = 8.617333262145e-5; // Boltzmann constant, electronvolt per Kelvin
 	const double kb_Ha = 8.617333262145e-5/eV_per_Ha; // Boltzmann constant, Ha per Kelvin
 

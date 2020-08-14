@@ -17,7 +17,7 @@ H 2
 12           // Number of threads in OpenMP.
 100          // minimum free-electron energy in eV
 10000        // maximum free-electron energy in eV
-30          // number of free-electron grid points
+20          // number of free-electron grid points
 
 #OUTPUT
 4000         // Number of time steps in the output files.

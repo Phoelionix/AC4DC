@@ -109,9 +109,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 
 	// Convert to number of photon flux.
 	omega /= Constant::eV_per_Ha;
-	fluence /= Constant::eV_per_Ha;
-	fluence *= 10000;
-	fluence /= Constant::Jcm2_per_Haa02;
+	fluence *= 10000/Constant::Jcm2_per_Haa02/omega;
 
 	// Convert to atomic units.
 	width /= Constant::fs_per_au;

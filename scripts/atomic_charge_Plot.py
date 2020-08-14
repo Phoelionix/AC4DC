@@ -7,7 +7,6 @@ import time
 import subprocess
 
 plt.rcParams["font.size"] = 14
-fig = plt.figure(figsize=(9, 6))
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
@@ -70,8 +69,8 @@ class Plotter:
         # One for the timestamp, one for zero
 
     def setup_axes(self):
-        fig.clf()
-        ax1 = fig.add_subplot(111)
+        self.fig = plt.figure(figsize=(9, 6))
+        ax1 = self.fig.add_subplot(111)
         ax2 = ax1.twinx()
         ax2.plot(self.intensity[1], self.intensity[0], lw = 2, c = 'black', ls = '--', alpha = 0.7)
         ax2.set_ylabel('Pulse fluence')

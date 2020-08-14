@@ -18,6 +18,7 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
+
 class Plotter:
     # Initialistation: Plotter(water)
     # expects there to be a control file named input/water.mol
@@ -93,7 +94,7 @@ class Plotter:
                 return False
         return True
 
-    def parse_free_energy_spec(self):
+    def get_free_energy_spec(self):
         erow = []
         with open(self.freeFile) as f:
             r = csv.reader(f, delimiter=' ')
@@ -120,7 +121,7 @@ class Plotter:
         raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
         self.intensityData = raw[:,1]
         self.timeData = raw[:, 0]
-        self.energyKnot = np.array(self.parse_free_energy_spec(), dtype=np.float64)
+        self.energyKnot = np.array(self.get_free_energy_spec(), dtype=np.float64)
         raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
         self.freeData = raw[:,1:]
         for a in self.atomdict:

@@ -30,6 +30,8 @@ public:
     state_type& operator=(const double x);
     // state_type& operator=(const state_type& s2);
 
+    double norm() const;
+
     // Defines number and style of atomP
     // Resizes the container to fit all of the states present in the atom ensemble
     static void set_P_shape(const vector<RateData::Atom>& atomsys);

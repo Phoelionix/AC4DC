@@ -69,6 +69,17 @@ void state_type::set_P_shape(const vector<RateData::Atom>& atomsys) {
     }
 }
 
+// Returns the L1 norm
+double state_type::norm() const {
+    double n = 0;
+    for (auto& P : atomP){
+        for (auto& p : P) {
+            n += fabs(p);
+        }
+    }
+    return n + F.norm();
+}
+
 
 // Intended usage: cout<<s.atomP[a]<<endl;
 ostream& operator<<(ostream& os, const bound_t& bound){

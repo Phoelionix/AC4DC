@@ -74,8 +74,8 @@ public:
         return *this;
     }
 
-    static void Gamma_eii(Eigen::SparseMatrix<double>& Gamma, const CustomDataType::EIIdata& eii, size_t K, size_t a);
-    static void Gamma_tbr(Eigen::SparseMatrix<double>& Gamma, const CustomDataType::EIIdata& eii, size_t J, size_t K, size_t a);
+    static Eigen::SparseMatrix<double> Gamma_eii( const CustomDataType::EIIdata& eii, size_t K, size_t a);
+    static Eigen::SparseMatrix<double> Gamma_tbr( const CustomDataType::EIIdata& eii, size_t J, size_t K, size_t a);
     void add_Qeii (size_t a, const Distribution& F, const bound_t& P);
     void add_Qtbr (size_t a, const Distribution& F, const bound_t& P);
     void add_Qee(const Distribution& F);
@@ -85,6 +85,8 @@ public:
 
     // Sets the object to have a MB distribution
     void set_maxwellian(double N, double T);
+
+    double norm() const;
 
     static std::string get_energies_eV();
     // defines the f interpolation

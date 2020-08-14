@@ -11,8 +11,7 @@ This file should arguably be called RateEquationSOlver, however, for historical 
 #include "MolInp.h"
 #include "Input.h"
 #include <iostream>
-
-
+#include <stdexcept>
 
 // using namespace boost::numeric::odeint;
 
@@ -38,7 +37,7 @@ private:
 };
 
 
-class ElectronSolver : private MolInp, private Adams_BM<state_type>
+class ElectronSolver : private MolInp, private ode::Adams_BM<state_type>
 {
 public:
     ElectronSolver(const char* filename, std::ofstream& log);

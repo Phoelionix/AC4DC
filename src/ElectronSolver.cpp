@@ -4,14 +4,15 @@
 #include <fstream>
 #include <sys/stat.h>
 #include <algorithm>
-#include <eigen3/Eigen/StdVector>
+#include <bspline.hpp>
+#include "transitionrate.hpp"
 #include <eigen3/Eigen/SparseCore>
-#include <eigen3/Eigen/Dense>
 
 
 void PhotonFlux::set_parameters(double fluence, double fwhm){
     // The photon flux model
-    // Gaussian model A e^-t^2/B
+    // Gaussian model A e^{-t^2/B}
+    cout<<"[ Flux ] fluence="<<fluence<<", fwhm="<<fwhm<<endl;
     B = fwhm*fwhm/(4*0.6931471806); // f^2/4ln(2)
     A = fluence/pow(Constant::Pi*B,0.5);
 }
@@ -25,18 +26,19 @@ void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname){
     ofstream f;
     cout << "[ Flux ] Saving to file "<<fname<<"..."<<endl;
     f.open(fname);
-    f << "# Intensity"<<endl;
-    f << "# Time (fs) | Intensity (J/cm2)" <<endl;
+    f << "# Time (fs) | Flux (pht/cm2/s)" <<endl;
     for (auto& t : Tvec){
         f << t*Constant::fs_per_au << " ";
-        f << (*this)(t)*Constant::Jcm2_per_Haa02<<std::endl;
+        double intensity = (*this)(t)*1e15;
+        intensity /= Constant::fs_per_au*Constant::cm_per_au*Constant::cm_per_au;
+        f << intensity <<std::endl;
     }
     f.close();
 }
 
 
 ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
-    MolInp(filename, log), pf(width, fluence)
+    MolInp(filename, log), pf(fluence, width), Adams_BM(3) // 3rd order Adams method!
 {
     timespan_au = this->width*10;
 }
@@ -97,13 +99,13 @@ void ElectronSolver::precompute_gamma_coeffs(){
         for (size_t n=0; n<N; n++){
             for (auto& eii: Store[a].EIIparams){
                 Eigen::SparseMatrix<double> Gamma;
-                Distribution::Gamma_eii(RATE_EII[a][n], eii, n, a);
+                RATE_EII[a][n]= Distribution::Gamma_eii(eii, n, a);
                 for (size_t m=n+1; m<N; m++){
                     size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                     // k = N-1... N(N+1)/2
-                    Distribution::Gamma_tbr(RATE_TBR[a][k], eii, n, m, a);
+                    RATE_TBR[a][k] = Distribution::Gamma_tbr(eii, n, m, a);
                 }
-                Distribution::Gamma_tbr(RATE_TBR[a][n], eii, n, n, a);
+                RATE_TBR[a][n] = Distribution::Gamma_tbr(eii, n, n, a);
             }
         }
     }
@@ -119,13 +121,13 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
     for (size_t a = 0; a < s.atomP.size(); a++) {
 
         // create an appropriately-sized W[i][j]
-        Eigen::MatrixXd W(s.atomP[a].size(), s.atomP[a].size());
+        GammaType::TransitionRate W(s.atomP[a].size());
 
         // PHOTOIONISATION
         double J = pf(t); // photon flux in uhhhhh [TODO: UNITS]
         for ( auto& r : Store[a].Photo) {
             W(r.to, r.from) += r.val*J;
-            sdot.F.addDeltaLike(omega - r.energy, r.val*J);
+            // sdot.F.addDeltaLike(omega - r.energy, r.val*J);
         }
 
         // FLUORESCENCE
@@ -137,47 +139,52 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         // AUGER
         for ( auto& r : Store[a].Auger) {
             W(r.to, r.from) += r.val;
-            sdot.F.addDeltaLike(r.energy, r.val);
+            // sdot.F.addDeltaLike(r.energy, r.val);
         }
 
-        // EII / TBR
-        double N = Distribution::size;
-        for (size_t n=0; n<N; n++){
-            W += RATE_EII[a][n]*s.F[n];
-            // exploit the symmetry: goofy indexing to only store the upper triangular part.
-            for (size_t m=n+1; m<N; m++){
-                size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
-                // k = N-1... N(N+1)/2
-                W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
-            }
-            // the diagonal
-            W += RATE_TBR[a][n]*s.F[n]*s.F[n];
-        }
+        // // EII / TBR
+        // double N = Distribution::size;
+        // for (size_t n=0; n<N; n++){
+        //     W += RATE_EII[a][n]*s.F[n];
+        //     // exploit the symmetry: goofy indexing to only store the upper triangular part.
+        //     for (size_t m=n+1; m<N; m++){
+        //         size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
+        //         // k = N-1... N(N+1)/2
+        //         W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
+        //     }
+        //     // the diagonal
+        //     W += RATE_TBR[a][n]*s.F[n]*s.F[n];
+        // }
 
 
 
         const bound_t& P = s.atomP[a];
         bound_t& Pdot = sdot.atomP[a];
 
-        // Compute the changes in P
-        for (size_t i = 0; i < P.size(); i++) {
-            Pdot[i] = 0;
-            for (size_t j = 0; j < i; j++) {
-                Pdot[i] += W(i, j) * P[j] - W(j, i) * P[i];
-            }
-            // Avoid j=i
-            for (size_t j = i+1; j < P.size(); j++) {
-                Pdot[i] += W(i, j) * P[j] - W(j, i) * P[i];
-            }
+        Pdot = W.calc_delta(P);
 
-        }
 
         // Changes in F
-        sdot.F.add_Qeii(a, s.F, P);
-        sdot.F.add_Qtbr(a, s.F, P);
+        // sdot.F.add_Qeii(a, s.F, P);
+        // sdot.F.add_Qtbr(a, s.F, P);
 
     }
     sdot.F.add_Qee(s.F); // Electron-electon repulsions
+
+    #ifndef NDEBUG
+    if (isnan(s.norm())){
+        cerr<< "nan encountered in state!"<<endl;
+        cerr<< "t = "<<t<<"au = "<<t*Constant::fs_per_au<<"fs"<<endl;
+        cerr<< s <<endl;
+        throw runtime_error("bad state");
+    }
+    if (isnan(sdot.norm())){
+        cerr<< "nan encountered in state derivative!"<<endl;
+        cerr<< "t = "<<t<<"au = "<<t*Constant::fs_per_au<<"fs"<<endl;
+        cerr<< sdot <<endl;
+        throw runtime_error("bad state_dot");
+    }
+    #endif
 
 }
 
@@ -204,7 +211,7 @@ void ElectronSolver::saveFree(const std::string& fname){
 
     assert(y.size() == t.size());
     for (int i=0; i<y.size(); i++){
-        f<<t[i]<<y[i].F<<endl;
+        f<<t[i]*Constant::fs_per_au<<y[i].F<<endl;
     }
     f.close();
 }

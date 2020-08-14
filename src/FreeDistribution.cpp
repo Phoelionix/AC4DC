@@ -47,9 +47,9 @@ void Distribution::set_elec_points(size_t n, double min_e, double max_e){
 // Computes all EII rates for specified transition for basis func k
 // Returns the relevant Gamma rate matrix for atom a
 // dP/dt = f*(WP - WT P)
-void Distribution::Gamma_eii(Eigen::SparseMatrix<double>& Gamma, const CustomDataType::EIIdata& eii, size_t K, size_t a) {
+Eigen::SparseMatrix<double> Distribution::Gamma_eii(const CustomDataType::EIIdata& eii, size_t K, size_t a) {
     // 4pi*sqrt(2) \int_0^\inf e^1/2 phi_k(e) sigma(e) de
-
+    Eigen::SparseMatrix<double> Gamma;
     for (size_t xi = 0; xi < eii.fin.size(); xi++) {
         double a = basis.supp_min(K);
         double b = basis.supp_max(K);
@@ -62,9 +62,11 @@ void Distribution::Gamma_eii(Eigen::SparseMatrix<double>& Gamma, const CustomDat
         tmp *= 4*Constant::Pi*1.4142; // Electron mass = 1 in atomic units
         Gamma.coeffRef(eii.fin[xi], eii.init) += tmp;
     }
+    return Gamma;
 }
 
-void Distribution::Gamma_tbr(Eigen::SparseMatrix<double>& Gamma, const CustomDataType::EIIdata& eii, size_t J, size_t K, size_t a) {
+Eigen::SparseMatrix<double> Distribution::Gamma_tbr(const CustomDataType::EIIdata& eii, size_t J, size_t K, size_t a) {
+    Eigen::SparseMatrix<double> Gamma;
     for (size_t xi = 0; xi<eii.fin.size(); xi++) {
         double tmp=0;
         double B=eii.ionB[xi];
@@ -92,6 +94,7 @@ void Distribution::Gamma_tbr(Eigen::SparseMatrix<double>& Gamma, const CustomDat
 
         Gamma.coeffRef(eii.init, eii.fin[xi]) += tmp;
     }
+    return Gamma;
 }
 
 // Adds Q_eii to the parent Distribution
@@ -174,6 +177,14 @@ void Distribution::addDeltaLike(double e, double height){
     for (size_t i=0; i<size; i++){
         f[i] += v[i];
     }
+}
+
+double Distribution::norm() const{
+    double x=0;
+    for (auto&fi : f){
+        x+= fabs(fi);
+    }
+    return x;
 }
 
 
