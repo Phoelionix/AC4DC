@@ -27,10 +27,11 @@ namespace ode{
     template<typename T>
     class Adams_BM : public IVPSolver<T>{
     public:
-        Adams_BM(int order=5);
+        Adams_BM(int order=4, size_t progress_interval = 0);
         double iterate(double t_initial, size_t npoints); // returns final time
 
     private:
+        size_t progress_interval;
         int order;
         const double* b_AB;
         const double* b_AM;
@@ -62,12 +63,13 @@ namespace ode{
     ///////////////////////////////////
 
     template<typename T>
-    Adams_BM<T>::Adams_BM(int _order):
+    Adams_BM<T>::Adams_BM(int _order, size_t _progress_interval):
         IVPSolver<T>()
         {
         if (_order < 2 || _order > AdamsArrays::MAX_ADAMS_ORDER){
             std::cerr<<"ERROR: Adams order may not be greater than "<<AdamsArrays::MAX_ADAMS_ORDER;
         }
+        this->progress_interval=_progress_interval;
         this->order = _order;
         this->b_AB = AdamsArrays::AB_COEFF[order];
         this->b_AM = AdamsArrays::AM_COEFF[order];
@@ -159,6 +161,9 @@ namespace ode{
     // Maybe get fancier if it's a real problem
     template<typename T>
     double Adams_BM<T>::iterate(double t_initial, size_t npoints){
+        if (progress_interval == 0 ){
+            progress_interval = npoints;
+        }
         double h = this->dt;
 
         if (h < 1E-16){
@@ -183,6 +188,9 @@ namespace ode{
         }
         // Run those steps
         for (size_t n = order; n < npoints-1; n++) {
+            if (n%progress_interval == 0){
+                std::cout<<"[ sim ] n="<<n<<std::endl;
+            }
             step(n);
         }
         return this->t[npoints-1];
