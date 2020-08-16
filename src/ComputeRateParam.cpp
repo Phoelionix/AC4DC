@@ -45,9 +45,9 @@ string find_bracket_contents(string &src){
 }
 
 
-bool RateIO::ReadRates(const string & input, vector<RateData::Rate> & PutHere)
-{
+bool RateIO::ReadRates(const string & input, vector<RateData::Rate> & PutHere){
 	if (!exists_test(input)) return false;
+	PutHere.clear();
 
 	RateData::Rate Tmp;
 	ifstream infile;
@@ -58,6 +58,7 @@ bool RateIO::ReadRates(const string & input, vector<RateData::Rate> & PutHere)
 		string line;
 		getline(infile, line);
 		if (line[0] == '#') continue; // skip comments
+		if (line[0] == '\0') continue; // skip null bytes
 
 		stringstream stream(line);
 		stream >> Tmp.val >> Tmp.from >> Tmp.to >> Tmp.energy;
@@ -70,15 +71,15 @@ bool RateIO::ReadRates(const string & input, vector<RateData::Rate> & PutHere)
 
 }
 
-bool RateIO::ReadEIIParams(const string & input, vector<EIIdata> & PutHere)
-{
+bool RateIO::ReadEIIParams(const string & input, vector<RateData::EIIdata> & PutHere){
+	PutHere.clear();
 	ifstream infile;
 	if (!exists_test(input)) return false;
 	infile.open(input);
 
 	string line;
 
-	EIIdata tmp;
+	RateData::EIIdata tmp;
 	string prefix="'configuration ";
 	string tmpstr;
 	bool has_opening_bracket = false;
@@ -138,11 +139,17 @@ bool RateIO::ReadEIIParams(const string & input, vector<EIIdata> & PutHere)
 
 }
 
-void RateIO::WriteEIIParams(const string& fname, RateData::Atom& Store)
-{
+void RateIO::WriteRates(const string& fname, const vector<RateData::Rate>& rates){
+	FILE * fl = safe_fopen(fname.c_str(), "w");
+	fprintf(fl, "# val from to energy(Ha)\n");
+	for (auto& R : rates) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
+	fclose(fl);
+}
+
+void RateIO::WriteEIIParams(const string& fname, const vector<RateData::EIIdata>& rates){
 	FILE * fl = safe_fopen(fname.c_str(), "w");
 	fprintf(fl, "# EII PARAMETERS\n[\n");
-	for (auto&R : Store.EIIparams){
+	for (auto&R : rates){
 		fprintf(fl, "'configuration %d': {\n", R.init);
 		// This will iterate in order of the inits anyway, so no need to explicitly store them
 		// Use a JSON style to deal with the multidimensional data
@@ -302,21 +309,15 @@ int ComputeRateParam::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, of
 
 		if (!existPht) {
 			string dummy = RateLocation + "Photo.txt";
-			FILE * fl = safe_fopen(dummy.c_str(), "w");
-			for (auto& R : Store.Photo) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
-			fclose(fl);
+			RateIO::WriteRates(dummy, Store.Photo);
 		}
 		if (!existFlr) {
 			string dummy = RateLocation + "Fluor.txt";
-			FILE * fl = safe_fopen(dummy.c_str(), "w");
-			for (auto& R : Store.Fluor) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
-			fclose(fl);
+			RateIO::WriteRates(dummy, Store.Fluor);
 		}
 		if (!existPht) {
 			string dummy = RateLocation + "Auger.txt";
-			FILE * fl = safe_fopen(dummy.c_str(), "w");
-			for (auto& R : Store.Auger) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
-			fclose(fl);
+			RateIO::WriteRates(dummy, Store.Auger);
 		}
 	}
 
@@ -345,7 +346,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 
 	Store.num_conf = dimension;
 
-	// Check if there are pre-calculated rates
+
 	string RateLocation = "./output/" + input.Name() + "/Xsections/";
 	if (!exists_test("./output/" + input.Name())) {
 		string dirstring = "output/" + input.Name();
@@ -358,7 +359,13 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 
 	bool existAug, existEII, existPht, existFlr;
 
-	if (!recalculate){
+	if (recalculate){
+		existAug=false;
+		existEII=false;
+		existPht=false;
+		existFlr=false;
+	} else {
+		// Check if there are pre-calculated rates
 		existPht = RateIO::ReadRates(RateLocation + "Photo.txt", Store.Photo);
 		existFlr = RateIO::ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
 		existAug = RateIO::ReadRates(RateLocation + "Auger.txt", Store.Auger);
@@ -371,7 +378,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		if (existEII) cout<<"EII Parameters found. Reading..."<<endl;
 	}
 
-	if ( recalculate || !existAug || !existEII || !existPht || !existFlr )// EII parameters are not currently stored.
+	if (!existAug || !existEII || !existPht || !existFlr )
 	{
 		cout <<"======================================================="<<endl;
 		cout << "Total number of configurations: " << dimension << endl;
@@ -382,7 +389,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		vector<RateData::Rate> LocalFluor(0);
 		vector<RateData::Rate> LocalAuger(0);
 		// Electron impact ionization orbital enerrgy storage.
-		EIIdata tmpEIIparams;
+		RateData::EIIdata tmpEIIparams;
 		int MaxBindInd = 0;
 		// Slippery assumption - electron impact cannot ionize more than the XFEL photon.
 		while(Final_occ[MaxBindInd] == orbitals[MaxBindInd].occupancy()) MaxBindInd++;
@@ -394,7 +401,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		tmpEIIparams.fin.resize(orbitals.size() - MaxBindInd, 0);
 		tmpEIIparams.occ.clear();
 		tmpEIIparams.occ.resize(orbitals.size() - MaxBindInd, 0);
-		vector<EIIdata> LocalEIIparams(0);
+		vector<RateData::EIIdata> LocalEIIparams(0);
 
 		density.clear();
 
@@ -496,7 +503,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		sort(Store.Photo.begin(), Store.Photo.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
 		sort(Store.Auger.begin(), Store.Auger.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
 		sort(Store.Fluor.begin(), Store.Fluor.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
-		sort(Store.EIIparams.begin(), Store.EIIparams.end(), [](EIIdata A, EIIdata B) {return (A.init < B.init);});
+		sort(Store.EIIparams.begin(), Store.EIIparams.end(), [](RateData::EIIdata A, RateData::EIIdata B) {return (A.init < B.init);});
 		GenerateRateKeys(Store.Auger);
 
 		// Write rates to file
@@ -504,25 +511,19 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 
 		if (!existPht) {
 			string dummy = RateLocation + "Photo.txt";
-			FILE * fl = safe_fopen(dummy.c_str(), "w");
-			for (auto& R : Store.Photo) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
-			fclose(fl);
+			RateIO::WriteRates(dummy, Store.Photo);
 		}
 		if (!existFlr) {
 			string dummy = RateLocation + "Fluor.txt";
-			FILE * fl = safe_fopen(dummy.c_str(), "w");
-			for (auto& R : Store.Fluor) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
-			fclose(fl);
+			RateIO::WriteRates(dummy, Store.Fluor);
 		}
 		if (!existAug) {
 			string dummy = RateLocation + "Auger.txt";
-			FILE * fl = safe_fopen(dummy.c_str(), "w");
-			for (auto& R : Store.Auger) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
-			fclose(fl);
+			RateIO::WriteRates(dummy, Store.Auger);
 		}
 		if (!existEII) {
 			string dummy = RateLocation + "EII.json";
-			RateIO::WriteEIIParams(dummy, Store);
+			RateIO::WriteEIIParams(dummy, Store.EIIparams);
 
 		}
 	}
@@ -891,7 +892,7 @@ string ComputeRateParam::InterpretIndex(int i)
 					tmpstr << 'x';
 					break;
 				}
-				tmpstr << '^' << orbitals[j].occupancy() - Index[i][j];
+				tmpstr << "^{" << orbitals[j].occupancy() - Index[i][j] <<'}';
 			}
 			tmpstr << '$';
 			Result = tmpstr.str();

@@ -89,6 +89,9 @@ namespace CustomDataType
 		vector<double> Dipoles; // Reduced transition dipole matrix elements form 'reference' to 'excited'.
 		int index = 0;
 	};
+}
+
+namespace RateData {
 
 	struct EIIdata
 	{
@@ -106,9 +109,6 @@ namespace CustomDataType
 			kin.resize(n);
 		}
 	};
-}
-
-namespace RateData {
 
 	struct Rate
 	{
@@ -128,7 +128,7 @@ namespace RateData {
 		vector<RateData::Rate> Photo = vector<RateData::Rate>(0);
 		vector<RateData::Rate> Fluor = vector<RateData::Rate>(0);
 		vector<RateData::Rate> Auger = vector<RateData::Rate>(0);
-		vector<CustomDataType::EIIdata> EIIparams = vector<CustomDataType::EIIdata>(0);
+		vector<RateData::EIIdata> EIIparams = vector<RateData::EIIdata>(0);
 	};
 }
 

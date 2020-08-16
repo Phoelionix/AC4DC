@@ -41,8 +41,9 @@ This file is part of AC4DC.
 
 namespace RateIO {
 	bool ReadRates(const string & input, vector<RateData::Rate> & PutHere);
-	bool ReadEIIParams(const string & input, vector<CustomDataType::EIIdata> & PutHere);
-	void WriteEIIParams(const string& fname, RateData::Atom& Store);
+	bool ReadEIIParams(const string & input, vector<RateData::EIIdata> & PutHere);
+	void WriteRates(const string& fname, const vector<RateData::Rate>& rateVector);
+	void WriteEIIParams(const string& fname, const vector<RateData::EIIdata>& eiiVector);
 };
 
 using namespace std;
@@ -51,7 +52,7 @@ using namespace std;
 
 // 'Mothership' class for calculating rate coefficients
 // Does photoionisation, fluorescence, Auger decay and others
-// 
+//
 
 
 class ComputeRateParam
@@ -61,7 +62,6 @@ public:
 	//Assuming there are no unoccupied states in initial configuration!!!
 	ComputeRateParam(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, bool recalc=true) :
 	 	lattice(Lattice), orbitals(Orbitals), u(U), input(Inp), recalculate(recalc){
-			cerr<<"[DEBUG] Recalculate set to "<<recalc<<endl;
 		};
 	~ComputeRateParam();
 
@@ -128,7 +128,7 @@ protected:
     double T_avg_RMS(vector<pair<double, int>> conf_RMS);
 	double T_avg_Charge();
 
-	static bool sortEIIbyInd(CustomDataType::EIIdata A, CustomDataType::EIIdata B) { return (A.init < B.init); }
+	static bool sortEIIbyInd(RateData::EIIdata A, RateData::EIIdata B) { return (A.init < B.init); }
 	static bool sortRatesFrom(RateData::Rate A, RateData::Rate B) { return (A.from < B.from); }
 	static bool sortRatesTo(RateData::Rate A, RateData::Rate B) { return (A.to < B.to); }
 	// Keys allow to quickly find the required element. See the GenerateFromKeys().
