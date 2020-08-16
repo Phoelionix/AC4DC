@@ -69,25 +69,26 @@ public:
             if (argv[a][0] != '-')
                 continue;
 
-            int i=0;
-            while (argv[a][i++]!='\0'){
+            int i=1;
+            while (argv[a][i]!='\0'){
                 switch (argv[a][i]) {
-                    case 'r':
+                    case 's':
                         // recalculate
-                        recalc = true;
+                        recalc = false;
                         break;
                     case 'h':
                         // Usage help.
                         cout<<"This is physics code, were you really expecting documentation?"<<endl;
-                        cout<<"-r force recalculate"<<endl;
+                        cout<<"-s Look for stored rates"<<endl;
                         break;
                     default:
                         cout<<"Flag '"<<argv[a][i]<<"' is not a recognised flag."<<endl;
                 }
+                i++;
             }
         }
     }
-    bool recalc = false;
+    bool recalc = true;
     bool valid_input = true;
 };
 

@@ -20,7 +20,7 @@ public:
 
 	double Omega() {return omega;}
 	double Width() {return width;}
-	double Fluence() {return fluence;} 
+	double Fluence() {return fluence;}
 	int ini_T_size() {return num_time_steps;}
 	double dropl_R() {return radius;}
 
@@ -37,12 +37,12 @@ public:
 
 protected:
 
-	double omega = 5000;// XFEL photon energy, au.
-	double width = 5; // XFEL pulse width in au. Gaussian profile hardcoded.
-	double fluence = 0; // XFEL pulse fluence, 10^4 J/cm^2.
-	int num_time_steps = 1000; // Guess number of time steps for time dynamics.
+	double omega = -1;// XFEL photon energy, au.
+	double width = -1; // XFEL pulse width in au. Gaussian profile hardcoded.
+	double fluence = -1; // XFEL pulse fluence, 10^4 J/cm^2.
+	int num_time_steps = -1; // Guess number of time steps for time dynamics.
 	int out_T_size = 0; // Unlike atomic input, causes to output all points.
-	double radius = 1000.;
+	double radius = -1;
 	int omp_threads = 1;
 
 	bool write_charges = false;
@@ -50,13 +50,12 @@ protected:
 	bool write_md_data = true;
 
 	// unit volume.
-	double unit_V = 1.;
+	double unit_V = -1.;
 
-	// ONLY USED BY solver.cpp NONTHERMAL SIMULATION
-	// NOT READ BY AC4DC SIMULATION
-	double min_elec_e = 100;
-	double max_elec_e = 5000;
-	size_t num_elec_points = 200; // Number of cells in the free-electron distribution expansion
+	// AC4DC2 only
+	double min_elec_e = -1;
+	double max_elec_e = -1;
+	size_t num_elec_points = -1; // Number of cells in the free-electron distribution expansion
 
 };
 

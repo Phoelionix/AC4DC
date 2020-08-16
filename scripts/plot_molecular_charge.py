@@ -8,16 +8,34 @@ import sys
 import csv
 import time
 import subprocess
+import re
 
 plt.style.use('seaborn')
 
 plt.rcParams["font.size"] = 14
 fig = plt.figure(figsize=(9, 6))
 
+engine = re.compile(r'\d[spdf]\^\{(\d+)\}')
+
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
+def parse_elecs_from_latex(latexlike):
+    # Parses a chemistry-style configuration to return total number of electrons
+    # e.g. $1s^{1}2s^{1}$
+    # ignores anything non-numerical or spdf
+    num = 0
+    for match in engine.finditer(latexlike):
+        num += int(match.group(1))
+    return num
 
+
+ATOMS = 'H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'.split()
+ATOMNO = {}
+i = 1
+for symbol in ATOMS:
+    ATOMNO[symbol] = i
+    i += 1
 
 class Plotter:
     # Initialistation: Plotter(water)
@@ -26,7 +44,7 @@ class Plotter:
         self.p = path.abspath(path.join(__file__ ,"../../"))
         # Inputs
         molfile = self.p+"/input/"+mol+".mol"
-        self.mol = {'name': mol, 'file': molfile, 'mtime': path.getmtime(molfile)}
+        self.mol = {'name': mol, 'infile': molfile, 'mtime': path.getmtime(molfile)}
         # Stores the atomic input files read by ac4dc
         self.atomdict = {}
 
@@ -36,20 +54,21 @@ class Plotter:
         self.intFile = self.outDir + "/intensity.csv"
 
         self.boundData={}
+        self.chargeData={}
         self.freeData=None
         self.intensityData=None
         self.energyKnot=None
         self.timeData=None
 
         self.get_atoms()
-        self.update()
+        self.update_outputs()
         self.autorun=False
 
-    # Reads the control file specified by self.mol['file']
+    # Reads the control file specified by self.mol['infile']
     # and populates the atomdict data structure accordingly
     def get_atoms(self):
         self.atomlist = {}
-        with open(self.mol['file'], 'r') as f:
+        with open(self.mol['infile'], 'r') as f:
             reading = False
             for line in f:
                 if line.startswith("#ATOMS"):
@@ -63,16 +82,16 @@ class Plotter:
                     if len(a) != 0:
                         file = self.p + '/input/' + a + '.inp'
                         self.atomdict[a]={
-                            'file': file,
+                            'infile': file,
                             'mtime': path.getmtime(file),
-                            'out': self.outDir+"/dist_%s.csv"%a}
+                            'outfile': self.outDir+"/dist_%s.csv"%a}
 
     def update_inputs(self):
         self.get_atoms()
-        self.mol['mtime'] = path.getmtime(self.mol['file'])
+        self.mol['mtime'] = path.getmtime(self.mol['infile'])
 
     def rerun_ac4dc(self):
-        cmd = self.p+'/bin/rates '+self.mol['file']
+        cmd = self.p+'/bin/rates '+self.mol['infile']
         print("Running: ", cmd)
         subprocess.run(cmd, shell=True, check=True)
 
@@ -82,15 +101,15 @@ class Plotter:
         # Outputs are made at roughly the same time: Take the oldest.
         out_time = path.getmtime(self.freeFile)
         for atomic in self.atomdict.values():
-            out_time = min(out_time, path.getmtime(atomic['out']))
+            out_time = min(out_time, path.getmtime(atomic['outfile']))
 
         if self.mol['mtime'] > out_time:
-            print("Master file %s is newer than most recent run" % self.mol['file'])
+            print("Master file %s is newer than most recent run" % self.mol['infile'])
             return False
 
         for atomic in self.atomdict.values():
             if atomic['mtime'] > out_time:
-                print("Dependent input file %s is newer than most recent run" % atomic['file'])
+                print("Dependent input file %s is newer than most recent run" % atomic['infile'])
                 return False
         return True
 
@@ -117,7 +136,46 @@ class Plotter:
                     break
         return erow
 
-    def update(self):
+    def get_bound_config_spec(self, a):
+        # gets the configuration strings corresponding to atom a
+        specs = []
+        with open(self.atomdict[a]['outfile']) as f:
+            r = csv.reader(f, delimiter=' ')
+            for row in r:
+                if row[0] != '#':
+                    raise Exception('parser could not find atomic state specification, expected #  |')
+                reading=False
+                for entry in row:
+                    # skip whitespace
+                    if entry == '' or entry == '#':
+                        continue
+                    # it's gotta be a pipe or nothin'
+                    if reading:
+                        specs.append(entry)
+                    elif entry == '|':
+                        reading=True
+                    else:
+                        break
+                if reading:
+                    break
+        return specs
+
+    def aggregate_charges(self):
+        # populates self.chargeData based on contents of self.boundData
+        for a in self.atomdict:
+            states = self.atomdict[a]['states']
+            if len(states) != self.boundData[a].shape[1]:
+                msg = 'states parsed from file header disagrees with width of data width'
+                msg += ' (got %d, expected %d)' % (len(states), self.boundData[a].shape[1])
+                raise OutOfRangeError( )
+
+            self.chargeData[a] = np.zeros((self.boundData[a].shape[0], ATOMNO[a]+1))
+            for i in range(len(states)):
+                charge = ATOMNO[a] - parse_elecs_from_latex(states[i])
+                self.chargeData[a][:, charge] += self.boundData[a][:, i]
+
+
+    def update_outputs(self):
         raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
         self.intensityData = raw[:,1]
         self.timeData = raw[:, 0]
@@ -125,31 +183,47 @@ class Plotter:
         raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
         self.freeData = raw[:,1:]
         for a in self.atomdict:
-            raw = np.genfromtxt(self.atomdict[a]['out'], comments='#', dtype=np.float64)
+            raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
             self.boundData[a] = raw[:, 1:]
+            self.atomdict[a]['states'] = self.get_bound_config_spec(a)
 
     # makes a blank plot showing the intensity curve
     def setup_axes(self):
         fig.clf()
-        ax1 = fig.add_subplot(111)
-        ax2 = ax1.twinx()
+        self.ax = fig.add_subplot(111)
+        ax2 = self.ax.twinx()
         ax2.plot(self.timeData, self.intensityData, lw = 2, c = 'black', ls = '--', alpha = 0.7)
         ax2.set_ylabel('Pulse fluence')
-        ax1.set_xlabel("Time, fs")
-        return (ax1, ax2)
+        self.ax.set_xlabel("Time, fs")
+        return ax2
 
 
     def plot_atom_raw(self, a):
-        ax, pulseax = self.setup_axes()
+        self.setup_axes()
         for i in range(self.boundData[a].shape[1]):
-            ax.plot(self.timeData, self.boundData[a][:,i], label = 'Config '+str(i))
-        ax.set_title("Charge state dynamics")
-        ax.set_ylabel("Average charge")
+            self.ax.plot(self.timeData, self.boundData[a][:,i], label = self.atomdict[a]['states'][i])
+        self.ax.set_title("Configurational dynamics")
+        self.ax.set_ylabel("Density")
+        plt.figlegend(loc = (0.11, 0.43))
+        plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
+        plt.show()
+
+    def plot_charges(self, a):
+        self.setup_axes()
+        self.aggregate_charges()
+        for i in range(self.chargeData[a].shape[1]):
+            self.ax.plot(self.timeData, self.chargeData[a][:,i], label = "%d+" % i)
+        self.ax.set_title("Charge state dynamics")
+        self.ax.set_ylabel("Proportion (arb. units)")
 
         plt.figlegend(loc = (0.11, 0.43))
         plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
-
         plt.show()
+
+
+    def plot_all_charges(self):
+        for a in self.atomdict:
+            self.plot_charges(a)
 
     def plot_free(self):
         fig.clf()

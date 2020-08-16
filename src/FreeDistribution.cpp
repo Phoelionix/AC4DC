@@ -2,8 +2,10 @@
 #include "Dipole.h"
 #include "Constant.h"
 #include <math.h>
-// #include <stringstream>
+#include <assert.h>
+
 // #define NDEBUG
+// to remove asserts
 
 // Initialise static things
 size_t Distribution::size=0;
@@ -47,7 +49,7 @@ void Distribution::set_elec_points(size_t n, double min_e, double max_e){
 // Computes all EII rates for specified transition for basis func k
 // Returns the relevant Gamma rate matrix for atom a
 // dP/dt = f*(WP - WT P)
-Eigen::SparseMatrix<double> Distribution::Gamma_eii(const CustomDataType::EIIdata& eii, size_t K, size_t a) {
+Eigen::SparseMatrix<double> Distribution::Gamma_eii(const RateData::EIIdata& eii, size_t K, size_t a) {
     // 4pi*sqrt(2) \int_0^\inf e^1/2 phi_k(e) sigma(e) de
     Eigen::SparseMatrix<double> Gamma;
     for (size_t xi = 0; xi < eii.fin.size(); xi++) {
@@ -65,7 +67,7 @@ Eigen::SparseMatrix<double> Distribution::Gamma_eii(const CustomDataType::EIIdat
     return Gamma;
 }
 
-Eigen::SparseMatrix<double> Distribution::Gamma_tbr(const CustomDataType::EIIdata& eii, size_t J, size_t K, size_t a) {
+Eigen::SparseMatrix<double> Distribution::Gamma_tbr(const RateData::EIIdata& eii, size_t J, size_t K, size_t a) {
     Eigen::SparseMatrix<double> Gamma;
     for (size_t xi = 0; xi<eii.fin.size(); xi++) {
         double tmp=0;
@@ -169,6 +171,7 @@ std::string Distribution::get_energies_eV(){
 // }
 
 void Distribution::addDeltaLike(double e, double height){
+    assert(e>basis.supp_min(0));
     Eigen::VectorXd v(size);
     for (int i=0; i<size; i++){
         v[i] = basis(i, e);

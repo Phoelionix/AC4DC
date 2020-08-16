@@ -38,7 +38,7 @@ void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname){
 
 
 ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
-    MolInp(filename, log), pf(fluence, width), Adams_BM(3) // 3rd order Adams method!
+    MolInp(filename, log), pf(fluence, width), Adams_BM(3, num_time_steps/20) // (order Adams method, notification frequency)
 {
     timespan_au = this->width*10;
 }
@@ -53,9 +53,27 @@ state_type ElectronSolver::get_ground_state() {
     return initial_condition;
 }
 
+void ElectronSolver::get_energy_bounds(double& max, double& min){
+    max = 0;
+    min = 1e9;
+    for(auto& atom : Store){
+        for(auto& r : atom.Photo){
+            if (r.energy > max) max=r.energy;
+            if (r.energy < min) min=r.energy;
+        }
+        for(auto& r : atom.Auger){
+            if (r.energy > max) max=r.energy;
+            if (r.energy < min) min=r.energy;
+        }
+    }
+}
+
+
 void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
     this->calc_rates(_log, recalc);
     hasRates = true;
+    // override max/min elec e
+
     // Set up the container class to have the correct size
     Distribution::set_elec_points(num_elec_points, min_elec_e, max_elec_e);
     state_type::set_P_shape(this->Store);
@@ -92,23 +110,23 @@ Use ElectronSolver::compute_cross_sections(log)\n" << std::endl;
 }
 
 void ElectronSolver::precompute_gamma_coeffs(){
-    std::cout<<"[rate precalc] Beginning coefficient computation..."<<std::endl;
+    std::cout<<"[ Rate precalc ] Beginning coefficient computation..."<<std::endl;
     size_t N = Distribution::size;
-    for (size_t a = 0; a < Store.size(); a++) {
-        std::cout<<"[rate precalc] Atom "<<a+1<<"/"<<Store.size()<<std::endl;
-        for (size_t n=0; n<N; n++){
-            for (auto& eii: Store[a].EIIparams){
-                Eigen::SparseMatrix<double> Gamma;
-                RATE_EII[a][n]= Distribution::Gamma_eii(eii, n, a);
-                for (size_t m=n+1; m<N; m++){
-                    size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
-                    // k = N-1... N(N+1)/2
-                    RATE_TBR[a][k] = Distribution::Gamma_tbr(eii, n, m, a);
-                }
-                RATE_TBR[a][n] = Distribution::Gamma_tbr(eii, n, n, a);
-            }
-        }
-    }
+    // for (size_t a = 0; a < Store.size(); a++) {
+    //     std::cout<<"[ Rate precalc ] Atom "<<a+1<<"/"<<Store.size()<<std::endl;
+    //     for (size_t n=0; n<N; n++){
+    //         for (auto& eii: Store[a].EIIparams){
+    //             Eigen::SparseMatrix<double> Gamma;
+    //             RATE_EII[a][n]= Distribution::Gamma_eii(eii, n, a);
+    //             for (size_t m=n+1; m<N; m++){
+    //                 size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
+    //                 // k = N-1... N(N+1)/2
+    //                 RATE_TBR[a][k] = Distribution::Gamma_tbr(eii, n, m, a);
+    //             }
+    //             RATE_TBR[a][n] = Distribution::Gamma_tbr(eii, n, n, a);
+    //         }
+    //     }
+    // }
     std::cout<<"[rate precalc] Done."<<std::endl;
 }
 
@@ -127,7 +145,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         double J = pf(t); // photon flux in uhhhhh [TODO: UNITS]
         for ( auto& r : Store[a].Photo) {
             W(r.to, r.from) += r.val*J;
-            // sdot.F.addDeltaLike(omega - r.energy, r.val*J);
+            sdot.F.addDeltaLike(r.energy, r.val*J);
         }
 
         // FLUORESCENCE
@@ -139,7 +157,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         // AUGER
         for ( auto& r : Store[a].Auger) {
             W(r.to, r.from) += r.val;
-            // sdot.F.addDeltaLike(r.energy, r.val);
+            sdot.F.addDeltaLike(r.energy, r.val);
         }
 
         // // EII / TBR
@@ -227,7 +245,7 @@ void ElectronSolver::saveBound(const std::string& dir){
         f.open(fname);
         f << "# Ionic electron dynamics"<<endl;
         f << "# Time (fs) | State occupancy (Probability times number of atoms)" <<endl;
-        f << "#           | States: ";
+        f << "#           | ";
         // Index, Max_occ inherited from MolInp
         for (auto& cfgname : Store[a].index_names){
             f << cfgname << " ";

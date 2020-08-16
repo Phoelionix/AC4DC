@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <stdexcept>
 #include <map>
 #include "HartreeFock.h"
 #include "ComputeRateParam.h"
@@ -114,10 +115,21 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	// Convert to atomic units.
 	width /= Constant::fs_per_au;
 	radius /= Constant::Angs_per_au;
-	unit_V = 1./Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
+	unit_V /= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
 
 	min_elec_e /= Constant::eV_per_Ha;
 	max_elec_e /= Constant::eV_per_Ha;
+
+	if (omega < 0) throw std::runtime_error("Missing omega");
+	if (fluence < 0) throw std::runtime_error("Missing fluence");
+	if (width < 0) throw std::runtime_error("Missing pulse width");
+	if (radius < 0) throw std::runtime_error("Missing droplet radius");
+	if (unit_V < 0) throw std::runtime_error("Missing molecular volume");
+	if (min_elec_e < 0 || max_elec_e <0) throw std::runtime_error("Missing electron energy bounds");
+	if (num_elec_points <0) throw std::runtime_error("Missing number of electron points");
+	if (num_time_steps <0)throw std::runtime_error("Missing number of timesteps");
+	// if (out_T_size <0) throw std::runtime_error("Missing number of T points to output");
+
 
 	for (int i = 0; i < num_atoms; i++) {
 		string at_name;
@@ -149,7 +161,7 @@ void MolInp::calc_rates(ofstream &_log, bool recalc){
 		HartreeFock HF(Latts[a], Orbits[a], Pots[a], Atomic[a], _log);
 
 		// This Computes the parameters for the rate equations to use, loading them into Init.
-		ComputeRateParam Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], false);
+		ComputeRateParam Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], recalc);
 		vector<int> final_occ(Orbits[a].size(), 0);
 		vector<int> max_occ(Orbits[a].size(), 0);
 		for (int i = 0; i < max_occ.size(); i++) {

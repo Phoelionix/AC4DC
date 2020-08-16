@@ -69,8 +69,8 @@ public:
 	double Omega() { return omega; }
 	double Width() { return width; }
 	double Fluence() { return fluence; }
-	void Set_Width(double ext_width) {width = ext_width;}
-	void Set_Fluence(double ext_fluence) {fluence = ext_fluence;}
+	void Set_Width(double ext_width) { width = ext_width; }
+	void Set_Fluence(double ext_fluence) { fluence = ext_fluence; }
 
 	void Set_Pulse(double ext_omega, double ext_fluence, double ext_width, bool write_ch = false, bool write_int = false, int ext_T_size = 0) {
 		omega = ext_omega;

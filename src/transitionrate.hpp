@@ -1,6 +1,7 @@
 #ifndef AS_BASICMATRIX_CXX_H
 #define AS_BASICMATRIX_CXX_H
 #include <vector>
+#include <assert.h>
 
 typedef std::vector<double> bound_t; // Probabilities of state
 

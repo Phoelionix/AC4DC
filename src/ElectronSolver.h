@@ -54,6 +54,7 @@ private:
     vector<vector<Eigen::SparseMatrix<double> > > RATE_EII;
     vector<vector<Eigen::SparseMatrix<double> > > RATE_TBR;
 
+    void get_energy_bounds(double& max, double& min);
     void precompute_gamma_coeffs(); // populates above two tensors
     void set_flux(double Jcm2_per_Haa02);
     void set_initial_conditions();
