@@ -5,7 +5,6 @@
 #include <sys/stat.h>
 #include <algorithm>
 #include "transitionrate.hpp"
-#include "DistIntegral.hpp"
 #include <eigen3/Eigen/SparseCore>
 #include <eigen3/Eigen/Dense>
 #include <chrono>
