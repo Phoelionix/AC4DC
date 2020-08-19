@@ -9,6 +9,7 @@
 #include <eigen3/Eigen/Dense>
 #include <chrono>
 #include <ctime>
+#include <math.h>
 
 
 void PhotonFlux::set_parameters(double fluence, double fwhm){
@@ -133,7 +134,7 @@ void ElectronSolver::precompute_gamma_coeffs(){
             }
         }
     }
-    std::cout<<"[rate precalc] Done."<<std::endl;
+    std::cout<<"[ Rate precalc ] Done."<<std::endl;
 }
 
 // The Big One: Incorporates all of the right hand side to the global
@@ -149,25 +150,25 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
     for (size_t a = 0; a < s.atomP.size(); a++) {
         // create an appropriately-sized W[i][j]
         // GammaType::TransitionRate W(s.atomP[a].size());
-        Eigen::MatrixXd W = Eigen::MatrixXd::Zero(s.atomP[a].size(), s.atomP[a].size());
+        Eigen::SparseMatrix<double> W(s.atomP[a].size(), s.atomP[a].size());
         // Eigen::SparseMatrixXd W(s.atomP[a].size(), s.atomP[a].size());
 
         // PHOTOIONISATION
         double J = pf(t); // photon flux in uhhhhh [TODO: UNITS]
         for ( auto& r : Store[a].Photo) {
-            W(r.to, r.from) += r.val*J;
+            W.coeffRef(r.to, r.from) += r.val*J;
             Distribution::addDeltaLike(v, r.energy, r.val*J);
         }
 
         // FLUORESCENCE
         for ( auto& r : Store[a].Fluor) {
-            W(r.to, r.from) += r.val;
+            W.coeffRef(r.to, r.from) += r.val;
             // Energy from optical photon assumed lost
         }
 
         // AUGER
         for ( auto& r : Store[a].Auger) {
-            W(r.to, r.from) += r.val;
+            W.coeffRef(r.to, r.from) += r.val;
             Distribution::addDeltaLike(v, r.energy, r.val);
         }
 
@@ -175,7 +176,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         size_t N = Distribution::size;
         for (size_t n=0; n<N; n++){
             W += RATE_EII[a][n]*s.F[n];
-            // exploit the symmetry: goofy indexing to only store the upper triangular part.
+            // exploit the symmetry: strange indexing to only store the upper triangular part.
             for (size_t m=n+1; m<N; m++){
                 size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                 // k = N-1... N(N+1)/2
@@ -186,40 +187,58 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         }
 
 
-
         const bound_t& P = s.atomP[a];
         bound_t& Pdot = sdot.atomP[a];
 
-        // Pdot = W.calc_delta(P);
-        // Compute the changes in P
+        // `Compute the changes in P
         for (size_t i = 0; i < s.atomP[a].size(); i++) {
             for (size_t j = 0; j < i; j++) {
-                Pdot[i] += W(i,j) * P[j] - W(j,i) * P[i];
+                Pdot[i] += W.coeffRef(i,j) * P[j] - W.coeffRef(j,i) * P[i];
             }
             // Avoid j=i
             for (size_t j = i+1; j < s.atomP[a].size(); j++) {
-                Pdot[i] += W(i,j) * P[j] - W(j,i) * P[i];
+                Pdot[i] += W.coeffRef(i,j) * P[j] - W.coeffRef(j,i) * P[i];
             }
         }
 
-
+        #ifdef DEBUG
+        if (isnan(sdot.norm())) cerr << "t="<<t<<" NaN encountered after applying W(i,j)" <<endl;
+        #endif
         // compute the dfdt vector
-        s.F.apply_Q_eii(v, a, P);
-        // sdot.F.apply_Q_tbr(v, a, s.F, P);
+        // s.F.apply_Q_eii(v, a, P);
+        //
+        // #ifdef DEBUG
+        // for (size_t i=0; i<v.size(); i++){
+        //     if (isnan(v[i])) cerr << "t="<<t<<"NaN encountered in v after applying Qeii" <<endl;
+        // }
+        // #endif
+
+        // s.F.apply_Q_tbr(v, a, P);
+
+        // #ifdef DEBUG
+        // for (size_t i=0; i<v.size(); i++){
+        //     if (isnan(v[i]) cerr << "NaN encountered in v after applying Qtbr" <<endl;
+        // }
+        // #endif
 
     }
 
     s.F.apply_Qee(v); // Electron-electon repulsions
+    // #ifdef DEBUG
+    // for (size_t i=0; i<v.size(); i++){
+    //     if (isnan(v[i])) cerr << "t="<<t<<"NaN encountered in v after applying Qee" <<endl;
+    // }
+    // #endif
     sdot.F.applyDelta(v);
 
-    if (isnan(s.norm())){
-        cerr<< "nan encountered in state!"<<endl;
+    if (isnan(s.norm())) {
+        cerr<< "NaN encountered in state!"<<endl;
         cerr<< "t = "<<t<<"au = "<<t*Constant::fs_per_au<<"fs"<<endl;
         cerr<< s <<endl;
         throw runtime_error("bad state");
     }
     else if (isnan(sdot.norm())){
-        cerr<< "nan encountered in state derivative!"<<endl;
+        cerr<< "NaN encountered in state derivative!"<<endl;
         cerr<< "t = "<<t<<"au = "<<t*Constant::fs_per_au<<"fs"<<endl;
         cerr<< sdot <<endl;
         throw runtime_error("bad state_dot");
@@ -282,31 +301,3 @@ void ElectronSolver::saveBound(const std::string& dir){
     }
 
 }
-
-/*
-Weight::Weight(size_t _size){
-    size = _size;
-    W = (double *) malloc(sizeof(double)*size*size); // allocate the memory
-    std::fill(W, W+size*size, 0);
-}
-
-Weight::~Weight(){
-    free(W);
-}
-
-double Weight::from(size_t idx){
-    double x=0;
-    for (size_t i = 0; i < size; i++) {
-        x += operator()(i, idx);
-    }
-    return x;
-}
-
-double Weight::to(size_t idx){
-    double x=0;
-    for (size_t i = 0; i < size; i++) {
-        x += operator()(idx, i);
-    }
-    return x;
-}
-*/

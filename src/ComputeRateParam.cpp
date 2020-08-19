@@ -468,7 +468,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				Tmp.from = i;
 
 				if (!existPht) {
-					vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega()/Constant::eV_per_Ha, runlog);
+					vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega(), runlog);
 					for (int k = 0; k < PhotoIon.size(); k++)
 					{
 						if (PhotoIon[k].val <= 0) continue;

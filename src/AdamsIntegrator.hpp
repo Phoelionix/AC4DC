@@ -162,7 +162,6 @@ void Adams_BM<T>::step(int n){
 template<typename T>
 double Adams_BM<T>::iterate(double t_initial, size_t npoints){
     double h = this->dt;
-
     if (h < 1E-16){
         std::cerr<<"WARN: step size "<<h<<"is smaller than machine precision"<<std::endl;
     } else if (h < 0) {
