@@ -63,6 +63,8 @@ private:
     void saveFree(const std::string& file);
     void saveBound(const std::string& folder);
     state_type get_ground_state();
+
+    bool good_state = true;
 };
 
 /*

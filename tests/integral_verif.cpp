@@ -33,7 +33,7 @@ public:
 protected:
     void sys(const Distribution& q, Distribution& qdot, const double t){
         qdot=0;
-        qdot.add_Qee(q);
+        qdot.calc_Qee(q);
     }
 };
 

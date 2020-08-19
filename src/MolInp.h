@@ -2,6 +2,7 @@
 #define AC4DC_CXX_MOLINP_H
 
 #include "Input.h"
+#include "Constant.h"
 
 class MolInp
 {

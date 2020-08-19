@@ -4,9 +4,12 @@
 #include <fstream>
 #include <sys/stat.h>
 #include <algorithm>
-#include <bspline.hpp>
 #include "transitionrate.hpp"
+#include "DistIntegral.hpp"
 #include <eigen3/Eigen/SparseCore>
+#include <eigen3/Eigen/Dense>
+#include <chrono>
+#include <ctime>
 
 
 void PhotonFlux::set_parameters(double fluence, double fwhm){
@@ -38,9 +41,9 @@ void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname){
 
 
 ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
-    MolInp(filename, log), pf(fluence, width), Adams_BM(3, num_time_steps/20) // (order Adams method, notification frequency)
+    MolInp(filename, log), pf(fluence, width), Adams_BM(3) // (order Adams method)
 {
-    timespan_au = this->width*10;
+    timespan_au = this->width*3;
 }
 
 state_type ElectronSolver::get_ground_state() {
@@ -94,39 +97,43 @@ void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
         }
     }
     precompute_gamma_coeffs();
+    Distribution::precompute_Q_coeffs(Store);
 }
 
 void ElectronSolver::solve(){
-    cout<<"Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<endl;
-    if (!hasRates) {
-        std::cerr <<
-"No rates have been loaded into the solver. \
-Use ElectronSolver::compute_cross_sections(log)\n" << std::endl;
-        return;
-    }
-    bool converged = false;
-    // TODO: repeat this until convergence.
+    cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<endl;
+    assert (hasRates || "No rates found! Use ElectronSolver::compute_cross_sections(log)\n");
+    auto start = std::chrono::system_clock::now();
+
     this->iterate(-timespan_au/2, this->num_time_steps); // Inherited from ABM
+
+    auto end = chrono::system_clock::now();
+    chrono::duration<double> elapsed_seconds = end-start;
+    time_t end_time = std::chrono::system_clock::to_time_t(end);
+
+    cout << "[ Solver ] finished computation at " << ctime(&end_time) << endl;
+    long secs = elapsed_seconds.count();
+    cout<<"[ Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << endl;
+
 }
 
 void ElectronSolver::precompute_gamma_coeffs(){
     std::cout<<"[ Rate precalc ] Beginning coefficient computation..."<<std::endl;
     size_t N = Distribution::size;
-    // for (size_t a = 0; a < Store.size(); a++) {
-    //     std::cout<<"[ Rate precalc ] Atom "<<a+1<<"/"<<Store.size()<<std::endl;
-    //     for (size_t n=0; n<N; n++){
-    //         for (auto& eii: Store[a].EIIparams){
-    //             Eigen::SparseMatrix<double> Gamma;
-    //             RATE_EII[a][n]= Distribution::Gamma_eii(eii, n, a);
-    //             for (size_t m=n+1; m<N; m++){
-    //                 size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
-    //                 // k = N-1... N(N+1)/2
-    //                 RATE_TBR[a][k] = Distribution::Gamma_tbr(eii, n, m, a);
-    //             }
-    //             RATE_TBR[a][n] = Distribution::Gamma_tbr(eii, n, n, a);
-    //         }
-    //     }
-    // }
+    for (size_t a = 0; a < Store.size(); a++) {
+        std::cout<<"[ Rate precalc ] Atom "<<a+1<<"/"<<Store.size()<<std::endl;
+        for (size_t n=0; n<N; n++){
+            for (auto& eii: Store[a].EIIparams){
+                Distribution::Gamma_eii(RATE_EII[a][n], eii, n);
+                for (size_t m=n+1; m<N; m++){
+                    size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
+                    // k = N... N(N+1)/2
+                    Distribution::Gamma_tbr(RATE_TBR[a][k], eii, n, m);
+                }
+                Distribution::Gamma_tbr(RATE_TBR[a][n], eii, n, n);
+            }
+        }
+    }
     std::cout<<"[rate precalc] Done."<<std::endl;
 }
 
@@ -136,16 +143,21 @@ void ElectronSolver::precompute_gamma_coeffs(){
 // system
 void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
     sdot=0;
+    #ifndef NDEBUG
+    if (!good_state) return;
+    #endif
+    Eigen::VectorXd v = Eigen::VectorXd::Zero(Distribution::size);
     for (size_t a = 0; a < s.atomP.size(); a++) {
-
         // create an appropriately-sized W[i][j]
-        GammaType::TransitionRate W(s.atomP[a].size());
+        // GammaType::TransitionRate W(s.atomP[a].size());
+        Eigen::MatrixXd W = Eigen::MatrixXd::Zero(s.atomP[a].size(), s.atomP[a].size());
+        // Eigen::SparseMatrixXd W(s.atomP[a].size(), s.atomP[a].size());
 
         // PHOTOIONISATION
         double J = pf(t); // photon flux in uhhhhh [TODO: UNITS]
         for ( auto& r : Store[a].Photo) {
             W(r.to, r.from) += r.val*J;
-            sdot.F.addDeltaLike(r.energy, r.val*J);
+            Distribution::addDeltaLike(v, r.energy, r.val*J);
         }
 
         // FLUORESCENCE
@@ -157,52 +169,62 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         // AUGER
         for ( auto& r : Store[a].Auger) {
             W(r.to, r.from) += r.val;
-            sdot.F.addDeltaLike(r.energy, r.val);
+            Distribution::addDeltaLike(v, r.energy, r.val);
         }
 
-        // // EII / TBR
-        // double N = Distribution::size;
-        // for (size_t n=0; n<N; n++){
-        //     W += RATE_EII[a][n]*s.F[n];
-        //     // exploit the symmetry: goofy indexing to only store the upper triangular part.
-        //     for (size_t m=n+1; m<N; m++){
-        //         size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
-        //         // k = N-1... N(N+1)/2
-        //         W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
-        //     }
-        //     // the diagonal
-        //     W += RATE_TBR[a][n]*s.F[n]*s.F[n];
-        // }
+        // EII / TBR
+        size_t N = Distribution::size;
+        for (size_t n=0; n<N; n++){
+            W += RATE_EII[a][n]*s.F[n];
+            // exploit the symmetry: goofy indexing to only store the upper triangular part.
+            for (size_t m=n+1; m<N; m++){
+                size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
+                // k = N-1... N(N+1)/2
+                W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
+            }
+            // the diagonal
+            W += RATE_TBR[a][n]*s.F[n]*s.F[n];
+        }
 
 
 
         const bound_t& P = s.atomP[a];
         bound_t& Pdot = sdot.atomP[a];
 
-        Pdot = W.calc_delta(P);
+        // Pdot = W.calc_delta(P);
+        // Compute the changes in P
+        for (size_t i = 0; i < s.atomP[a].size(); i++) {
+            for (size_t j = 0; j < i; j++) {
+                Pdot[i] += W(i,j) * P[j] - W(j,i) * P[i];
+            }
+            // Avoid j=i
+            for (size_t j = i+1; j < s.atomP[a].size(); j++) {
+                Pdot[i] += W(i,j) * P[j] - W(j,i) * P[i];
+            }
+        }
 
 
-        // Changes in F
-        // sdot.F.add_Qeii(a, s.F, P);
-        // sdot.F.add_Qtbr(a, s.F, P);
+        // compute the dfdt vector
+        s.F.apply_Q_eii(v, a, P);
+        // sdot.F.apply_Q_tbr(v, a, s.F, P);
 
     }
-    sdot.F.add_Qee(s.F); // Electron-electon repulsions
 
-    #ifndef NDEBUG
+    s.F.apply_Qee(v); // Electron-electon repulsions
+    sdot.F.applyDelta(v);
+
     if (isnan(s.norm())){
         cerr<< "nan encountered in state!"<<endl;
         cerr<< "t = "<<t<<"au = "<<t*Constant::fs_per_au<<"fs"<<endl;
         cerr<< s <<endl;
         throw runtime_error("bad state");
     }
-    if (isnan(sdot.norm())){
+    else if (isnan(sdot.norm())){
         cerr<< "nan encountered in state derivative!"<<endl;
         cerr<< "t = "<<t<<"au = "<<t*Constant::fs_per_au<<"fs"<<endl;
         cerr<< sdot <<endl;
         throw runtime_error("bad state_dot");
     }
-    #endif
 
 }
 

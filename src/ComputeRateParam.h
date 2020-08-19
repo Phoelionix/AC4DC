@@ -20,7 +20,7 @@ This file is part of AC4DC.
 #include "Potential.h"
 #include <vector>
 #include "Constant.h"
-#include "IntegrateRateEquation.h"
+// #include "IntegrateRateEquation.h"
 #include "Input.h"
 #include "MolInp.h"
 #include "HartreeFock.h"
@@ -35,7 +35,7 @@ This file is part of AC4DC.
 #include <omp.h>
 #include <algorithm>
 #include "EigenSolver.h"
-#include "Plasma.h"
+// #include "Plasma.h"
 #include <utility>
 
 
@@ -68,10 +68,10 @@ public:
 	// Halfwidth = 5/Constant::Time -> 5 fs half width.
 	int SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & log);
 	RateData::Atom SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & log);
-	// Atomic.
-	int SetupAndSolve(ofstream & log);
-	// Molecular.
-	int SetupAndSolve(MolInp & Input, ofstream & log);
+	// // Atomic.
+	// int SetupAndSolve(ofstream & log);
+	// // Molecular.
+	// int SetupAndSolve(MolInp & Input, ofstream & log);
 
 	//string CompareRates(string RateFile1, string RateFile2, ofstream & log);// Find the difference in rate equation using two different rates.
 

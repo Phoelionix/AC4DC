@@ -70,7 +70,7 @@ bool RateIO::ReadRates(const string & input, vector<RateData::Rate> & PutHere){
 	return true; // Returns true if exists
 
 }
-
+// Possibly the worst parser ever written.
 bool RateIO::ReadEIIParams(const string & input, vector<RateData::EIIdata> & PutHere){
 	PutHere.clear();
 	ifstream infile;
@@ -80,58 +80,74 @@ bool RateIO::ReadEIIParams(const string & input, vector<RateData::EIIdata> & Put
 	string line;
 
 	RateData::EIIdata tmp;
-	string prefix="'configuration ";
 	string tmpstr;
-	bool has_opening_bracket = false;
+	bool in_top_bracket = false;
+	bool inside_brace = false;
 
 	int i=0; // configuration counter
 	while (!infile.eof())
 	{
 
 		getline(infile, line);
+		#ifdef DEBUG_VERBOSE
+		cout<<"[ DEBUG ] [ ReadEII ] "<<line<<endl;
+		#endif
 		if (line[0] == '#') continue; // skip comments
 		if (line[0] == '['){
-			has_opening_bracket = true;
+			in_top_bracket = true;
 			continue;
 		}
-		if (!has_opening_bracket) continue;
-
-		if(line.compare(0, prefix.size(), prefix) == 0){
-			// New entry in the array
-			tmpstr = line.substr(prefix.size());
-			int j = atoi(tmpstr.substr(0,tmpstr.find('\'')).c_str());
-			tmp.init = j;
-			tmp.resize(0);
-			if(i != j) cerr<<"[ReadEII] Unexpected index: got "<<j<<" expected "<<i<<endl;
-			i++;
+		if (line[0] == ']'){
+			in_top_bracket = false;
 			continue;
 		}
+		if (!in_top_bracket) continue;
 
-		if(line.compare(0, prefix.size(), "  'fin': [")==0)
-		{
-			read_vector<int>(find_bracket_contents(line), tmp.fin);
-			continue;
+		if (inside_brace){
+			if (line[0] == '}'){
+				inside_brace = false;
+				PutHere.push_back(tmp);
+			}
+			string pref = "  'fin': [";
+			if(line.compare(0, pref.size(), pref)==0)
+			{
+				read_vector<int>(find_bracket_contents(line), tmp.fin);
+				continue;
+			}
+			pref = "  'occ': [";
+			if(line.compare(0, pref.size(), pref)==0)
+			{
+				read_vector<int>(find_bracket_contents(line), tmp.occ);
+				continue;
+			}
+			pref = "  'ionB': [";
+			if(line.compare(0, pref.size(), pref)==0)
+			{
+				read_vector<float>(find_bracket_contents(line), tmp.ionB);
+				continue;
+			}
+			pref="  'kin': [";
+			if(line.compare(0, pref.size(), pref)==0)
+			{
+				read_vector<float>(find_bracket_contents(line), tmp.kin);
+				continue;
+			}
+		} else {
+			string prefix="'configuration ";
+			if(line.compare(0, prefix.size(), prefix) == 0){
+				// New entry in the array
+				inside_brace = true;
+				tmpstr = line.substr(prefix.size());
+				int j = stoi(tmpstr.substr(0,tmpstr.find('\'')));
+				tmp.init = j;
+				tmp.resize(0);
+				if(i != j) cerr<<"[ ReadEII ] Unexpected index: got "<<j<<" expected "<<i<<endl;
+				i++;
+				continue;
+			}
 		}
 
-		if(line.compare(0, prefix.size(), "  'occ': [")==0)
-		{
-			read_vector<int>(find_bracket_contents(line), tmp.occ);
-			continue;
-		}
 
-		if(line.compare(0, prefix.size(), "  'ionB': [")==0)
-		{
-			read_vector<float>(find_bracket_contents(line), tmp.ionB);
-			continue;
-		}
-
-		if(line.compare(0, prefix.size(), "  'kin': [")==0)
-		{
-			read_vector<float>(find_bracket_contents(line), tmp.kin);
-			continue;
-		}
-
-		PutHere.push_back(tmp);
 	}
 
 	infile.close();
@@ -458,7 +474,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 						if (PhotoIon[k].val <= 0) continue;
 						Tmp.val = PhotoIon[k].val;
 						Tmp.to = i + hole_posit[PhotoIon[k].hole];
-						Tmp.energy = input.Omega()/Constant::eV_per_Ha + Orbitals[PhotoIon[k].hole].Energy;
+						Tmp.energy = input.Omega() + Orbitals[PhotoIon[k].hole].Energy;
 						LocalPhoto.push_back(Tmp);
 					}
 				}
@@ -532,7 +548,6 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 
 	ofstream config_out(IndexTrslt);
 	config_out<<"# idx | configuration"<<endl;
-	// TODO: TEST THIS WITH A BREAKPOINT
 	for (size_t i = 0; i < Index.size(); i++) {
 		Store.index_names.push_back(InterpretIndex(i));
 		config_out << i << " | " << Store.index_names.back();
@@ -542,6 +557,16 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		// }
 	}
 	config_out.close();
+
+	#ifdef DEBUG
+	for (size_t n=0; n<Store.EIIparams.size(); n++){
+		RateData::EIIdata r = Store.EIIparams[n];
+		std::cout<<"[ DEBUG ] EII, init="<<r.init<<std::endl;
+		for (size_t i = 0; i < r.fin.size(); i++) {
+			std::cout<<r.fin[i]<<" "<<r.ionB[i]<<" "<<r.kin[i]<<" "<<r.occ[i]<<std::endl;
+		}
+	}
+	#endif
 
  	return Store;
 }
@@ -588,279 +613,279 @@ int ComputeRateParam::Symbolic(const string & input, const string & output)
 	}
 
 }
-
-int ComputeRateParam::SetupAndSolve(ofstream & runlog)
-{
-	// initial conditions for rate equation
-	// first index represents the configuration
-	// second index represents the time. The routine will expand it itself unless
-	// you provide first adams_n points yourself.
-	double fluence = input.Fluence();
-	double Sigma = input.Width()/ (2*sqrt(2*log(2.)));
-	int T_size = input.TimePts();
-	vector<double> InitCond(dimension, 0);
-	InitCond[0] = 1;
-	P.clear();
-
-	vector<double> Intensity;
-	double scaling_T = 1;
-
-	int converged = 1;
-	Plasma Mxwll(T.size());
-	while (converged != 0)
-	{
-		dT.clear();
-		dT = generate_dT(T_size);
-		T.clear();
-		T = generate_T(dT);
-		scaling_T = 4 * input.Width() / T.back();
-		for (int i = 0; i < T.size(); i++) {
-			T[i]  *= scaling_T;
-			dT[i] *= scaling_T;
-		}
-		Intensity = generate_I(T, fluence, Sigma);
-		// SmoothOrigin(T, Intensity);
-		IntegrateRateEquation Calc(dT, T, Store, InitCond, Intensity);
-		converged = Calc.Solve(0, 1, input.Out_T_size());
-		if (converged == 0) {
-			cout << "[Rates] Final number of time steps: " << T_size << endl;
-			P = Calc.GetP();
-			T.clear();
-			T = Calc.GetT();
-			dT.clear();
-			dT = vector<double>(T.size(), 0);
-		    for (int m = 1; m < T.size(); m++) dT[m-1] = T[m] - T[m-1];
-		    dT[T.size()-1] = dT[T.size()-2];
-		} else {
-			cout << "[Rates] Diverged at step: " << converged << " of " << T_size << endl;
-			cout << "Halving timestep..." << endl;
-			T_size *= 2;
-		}
-	}
-
-
-	Intensity.clear();
-	Intensity = generate_I(T, fluence, Sigma);
-	SmoothOrigin(T, Intensity);
-
-	int tmp = 0;
-	for (int i = 0; i < Index.back().size(); i++) tmp += Index.back()[i] - Index.begin()->at(i);
-	charge.clear();
-	charge.resize(tmp + 1);
-	for (auto& ch: charge) ch = vector<double>(T.size(), 0);
-	for (int i = 0; i < P.size(); i++)
-	{
-		tmp = Charge(i);
-		for (int m = 0; m < P[i].size(); m++) {
-			charge[tmp][m] += P[i][m];
-		}
-	}
-
-	double t_tmp = 0;
-		for (int m = 0; m < T.size(); m++) {
-		T[m] = (T[m]-0.5*T.back())*Constant::fs_per_au;
-		dT[m] *= Constant::fs_per_au;
-	}
-
-	if (input.Write_Charges()) {
-		cout << "Writing charges..."<<endl;
-		string ChargeName = "./output/Charge_" + input.Name() + ".txt";
-		ofstream charge_out(ChargeName);
-		double chrg_tmp = 0;
-		for (int m = 0; m < T.size(); m++) {
-			for (int i = 0; i < charge.size(); i++) {
-				chrg_tmp = charge[i][m];
-				if (chrg_tmp <= 0.00000001) charge_out << 0 << " ";
-				else charge_out << chrg_tmp << " ";
-			}
-			charge_out << T[m];
-			if (m != T.size() - 1) charge_out << endl;
-		}
-
-		charge_out.close();
-	}
-
-	if (input.Write_Intensity()) {
-		cout << "Writing intensity..."<<endl;
-		string IntensityName = "./output/Intensity_" + input.Name() + ".txt";
-		ofstream intensity_out(IntensityName);
-
-		double I_max = *max_element(begin(Intensity), end(Intensity));
-		for (int m = 0; m < T.size(); m++) {
-			intensity_out << Intensity[m] / I_max << " " << T[m];
-			if (m != T.size() - 1) intensity_out << endl;
-		}
-
-		intensity_out.close();
-	}
-
-
-
-	return 0;
-}
-
-
-int ComputeRateParam::SetupAndSolve(MolInp & Input, ofstream & runlog)
-{
-	// initial conditions for rate equation
-	// first index represents the configuration
-	// second index represents the time. The routine will expand it itself unless
-	// you provide first adams_n points yourself.
-	double fluence = Input.Fluence();
-	double Sigma = Input.Width()/ (2*sqrt(2*log(2.)));
-	int T_size = Input.ini_T_size();
-
-	P.clear();
-
-	vector<double> Intensity;
-	double scaling_T = 1;
-
-	int converged = 1;
-	Plasma Mxwll(T.size());
-	while (converged != 0)
-	{
-		dT.clear();
-		dT = generate_dT(T_size);
-		T.clear();
-		T = generate_T(dT);
-		scaling_T = 4*input.Width() / T.back();
-		for (int i = 0; i < T.size(); i++) {
-      //T[i] = T[i]-0.5*T.back();
-			T[i] *= scaling_T;
-			dT[i] *= scaling_T;
-		}
-		Intensity = generate_I(T, fluence, Sigma);
-
-		//SmoothOrigin(T, Intensity);
- 		Mxwll.resize(T.size());
-		IntegrateRateEquation Calc(dT, T, Input.Store, Mxwll, Intensity);
-
-    	T_size = T.size();
-
-		converged = Calc.Solve(Mxwll, Input.Store, Input.Out_T_size());
-
-		if (converged == 0)
-		{
-			cout << "Final number of time steps: " << T_size << endl;
-			P = Calc.GetP();
-			T.clear();
-			T = Calc.GetT();
-			dT.clear();
-			dT = generate_dT(T.size());
-		}
-		else
-		{
-			cout << "Diverged at step: " << converged << " of " << T_size << endl;
-			T_size *= 2;
-		}
-	}
-
-	Intensity.clear();
-	Intensity = generate_I(T, fluence, Sigma);
-
-	double t_tmp = 0;
-	double I_max = *max_element(begin(Intensity), end(Intensity));
-
-	for (int m = 0; m < T.size(); m++) {
-		T[m] = (T[m]-0.5*T.back())*Constant::fs_per_au;
-		dT[m] *= Constant::fs_per_au;
-	}
-
-	int shift = 0;
-	vector<int> P_to_charge(0);
-
-  // Aggregate and output charges, plasma parameters, and other parameters into an output.
-  // Charges.
-  vector<vector<double>> AllAtomCharge(Input.Atomic.size(), vector<double>(T.size(), 0));
-
-	for (int a = 0; a < Input.Atomic.size(); a++) {
-
-		// Occupancies associated with the atom "a".
-		vector<vector<double*>> map_p(Input.Store[a].num_conf);
-		for (int i = 0; i < Input.Store[a].num_conf; i++) {
-			map_p[a].push_back(P[i + shift].data());
-		}
-
-		// Work out charges of all configurations.
-		double chrg_tmp = 0;
-		int tmp = Input.Index[a][0].size();
-		P_to_charge.clear();
-		P_to_charge.resize(Input.Store[a].num_conf, 0);
-		for (int i = 0; i < Input.Index[a].size(); i++) {
-			for (int j = 0; j < tmp; j++) P_to_charge[i] += Input.Index[a][i][j];
-			chrg_tmp = 0;
-		}
-
-		charge.clear();
-		charge.resize(*max_element(begin(P_to_charge), end(P_to_charge)) + 1);
-		for (auto& ch: charge) ch = vector<double>(T.size(), 0);
-		for (int i = 0; i < map_p[a].size(); i++)
-		{
-			tmp = P_to_charge[i];
-			for (int m = 0; m < P[i].size(); m++) charge[tmp][m] += *(map_p[a][i] + m);
-		}
-
-    for (int m = 0; m < T.size(); m++) {
-			for (int i = 1; i < charge.size(); i++) {
-        AllAtomCharge[a][m] += i*charge[i][m];
-      }
-    }
-
-		shift += Input.Store[a].num_conf;
-
-		if (Input.Write_Charges()) {
-			string ChargeName = "./output/Charge_" + Input.Store[a].name + ".txt";
-			ofstream charge_out(ChargeName);
-			double chrg_tmp = 0;
-			for (int m = 0; m < T.size(); m++) {
-				for (int i = 0; i < charge.size(); i++) {
-					chrg_tmp = charge[i][m];
-					if (chrg_tmp <= 0.00000001) charge_out << 0 << " ";
-					else charge_out << chrg_tmp << " ";
-				}
-				charge_out << T[m];
-				if (m != T.size() - 1) charge_out << endl;
-			}
-
-			charge_out.close();
-		}
-
-	}
-
-	if (Input.Write_MD_data()) {
-		string MD_Data = "./output/MD_Data.txt";
-		ofstream OutFile(MD_Data);
-		OutFile << T.size() << endl;
-		OutFile << "Time ";
-		for (int a = 0; a < Input.Atomic.size(); a++) OutFile << Input.Atomic[a].Nuclear_Z() << " ";
-		OutFile << "N(elec) E(elec)";
-		for (int m = 0; m < T.size(); m++) {
-			OutFile << endl << T[m] << " ";
-			for (int a = 0; a < AllAtomCharge.size(); a++) {
-				OutFile << AllAtomCharge[a][m] << " ";
-			}
-			if (m != 0) OutFile << Mxwll.state[m].N << " " << Mxwll.state[m].E;
-			else OutFile << 0 << " " << 0;
-		}
-
-		OutFile.close();
-	}
-
-	if (Input.Write_Intensity()) {
-		string IntensityName = "./output/Intensity_" + Input.name + ".txt";
-		ofstream intensity_out(IntensityName);
-
-		double I_max = *max_element(begin(Intensity), end(Intensity));
-		for (int m = 0; m < T.size(); m++) {
-			intensity_out << Intensity[m] / I_max << " " << T[m];
-			if (m != T.size() - 1) intensity_out << endl;
-		}
-
-		intensity_out.close();
-	}
-
-	return 0;
-}
+//
+// int ComputeRateParam::SetupAndSolve(ofstream & runlog)
+// {
+// 	// initial conditions for rate equation
+// 	// first index represents the configuration
+// 	// second index represents the time. The routine will expand it itself unless
+// 	// you provide first adams_n points yourself.
+// 	double fluence = input.Fluence();
+// 	double Sigma = input.Width()/ (2*sqrt(2*log(2.)));
+// 	int T_size = input.TimePts();
+// 	vector<double> InitCond(dimension, 0);
+// 	InitCond[0] = 1;
+// 	P.clear();
+//
+// 	vector<double> Intensity;
+// 	double scaling_T = 1;
+//
+// 	int converged = 1;
+// 	Plasma Mxwll(T.size());
+// 	while (converged != 0)
+// 	{
+// 		dT.clear();
+// 		dT = generate_dT(T_size);
+// 		T.clear();
+// 		T = generate_T(dT);
+// 		scaling_T = 4 * input.Width() / T.back();
+// 		for (int i = 0; i < T.size(); i++) {
+// 			T[i]  *= scaling_T;
+// 			dT[i] *= scaling_T;
+// 		}
+// 		Intensity = generate_I(T, fluence, Sigma);
+// 		// SmoothOrigin(T, Intensity);
+// 		IntegrateRateEquation Calc(dT, T, Store, InitCond, Intensity);
+// 		converged = Calc.Solve(0, 1, input.Out_T_size());
+// 		if (converged == 0) {
+// 			cout << "[Rates] Final number of time steps: " << T_size << endl;
+// 			P = Calc.GetP();
+// 			T.clear();
+// 			T = Calc.GetT();
+// 			dT.clear();
+// 			dT = vector<double>(T.size(), 0);
+// 		    for (int m = 1; m < T.size(); m++) dT[m-1] = T[m] - T[m-1];
+// 		    dT[T.size()-1] = dT[T.size()-2];
+// 		} else {
+// 			cout << "[Rates] Diverged at step: " << converged << " of " << T_size << endl;
+// 			cout << "Halving timestep..." << endl;
+// 			T_size *= 2;
+// 		}
+// 	}
+//
+//
+// 	Intensity.clear();
+// 	Intensity = generate_I(T, fluence, Sigma);
+// 	SmoothOrigin(T, Intensity);
+//
+// 	int tmp = 0;
+// 	for (int i = 0; i < Index.back().size(); i++) tmp += Index.back()[i] - Index.begin()->at(i);
+// 	charge.clear();
+// 	charge.resize(tmp + 1);
+// 	for (auto& ch: charge) ch = vector<double>(T.size(), 0);
+// 	for (int i = 0; i < P.size(); i++)
+// 	{
+// 		tmp = Charge(i);
+// 		for (int m = 0; m < P[i].size(); m++) {
+// 			charge[tmp][m] += P[i][m];
+// 		}
+// 	}
+//
+// 	double t_tmp = 0;
+// 		for (int m = 0; m < T.size(); m++) {
+// 		T[m] = (T[m]-0.5*T.back())*Constant::fs_per_au;
+// 		dT[m] *= Constant::fs_per_au;
+// 	}
+//
+// 	if (input.Write_Charges()) {
+// 		cout << "Writing charges..."<<endl;
+// 		string ChargeName = "./output/Charge_" + input.Name() + ".txt";
+// 		ofstream charge_out(ChargeName);
+// 		double chrg_tmp = 0;
+// 		for (int m = 0; m < T.size(); m++) {
+// 			for (int i = 0; i < charge.size(); i++) {
+// 				chrg_tmp = charge[i][m];
+// 				if (chrg_tmp <= 0.00000001) charge_out << 0 << " ";
+// 				else charge_out << chrg_tmp << " ";
+// 			}
+// 			charge_out << T[m];
+// 			if (m != T.size() - 1) charge_out << endl;
+// 		}
+//
+// 		charge_out.close();
+// 	}
+//
+// 	if (input.Write_Intensity()) {
+// 		cout << "Writing intensity..."<<endl;
+// 		string IntensityName = "./output/Intensity_" + input.Name() + ".txt";
+// 		ofstream intensity_out(IntensityName);
+//
+// 		double I_max = *max_element(begin(Intensity), end(Intensity));
+// 		for (int m = 0; m < T.size(); m++) {
+// 			intensity_out << Intensity[m] / I_max << " " << T[m];
+// 			if (m != T.size() - 1) intensity_out << endl;
+// 		}
+//
+// 		intensity_out.close();
+// 	}
+//
+//
+//
+// 	return 0;
+// }
+//
+//
+// int ComputeRateParam::SetupAndSolve(MolInp & Input, ofstream & runlog)
+// {
+// 	// initial conditions for rate equation
+// 	// first index represents the configuration
+// 	// second index represents the time. The routine will expand it itself unless
+// 	// you provide first adams_n points yourself.
+// 	double fluence = Input.Fluence();
+// 	double Sigma = Input.Width()/ (2*sqrt(2*log(2.)));
+// 	int T_size = Input.ini_T_size();
+//
+// 	P.clear();
+//
+// 	vector<double> Intensity;
+// 	double scaling_T = 1;
+//
+// 	int converged = 1;
+// 	Plasma Mxwll(T.size());
+// 	while (converged != 0)
+// 	{
+// 		dT.clear();
+// 		dT = generate_dT(T_size);
+// 		T.clear();
+// 		T = generate_T(dT);
+// 		scaling_T = 4*input.Width() / T.back();
+// 		for (int i = 0; i < T.size(); i++) {
+//       //T[i] = T[i]-0.5*T.back();
+// 			T[i] *= scaling_T;
+// 			dT[i] *= scaling_T;
+// 		}
+// 		Intensity = generate_I(T, fluence, Sigma);
+//
+// 		//SmoothOrigin(T, Intensity);
+//  		Mxwll.resize(T.size());
+// 		IntegrateRateEquation Calc(dT, T, Input.Store, Mxwll, Intensity);
+//
+//     	T_size = T.size();
+//
+// 		converged = Calc.Solve(Mxwll, Input.Store, Input.Out_T_size());
+//
+// 		if (converged == 0)
+// 		{
+// 			cout << "Final number of time steps: " << T_size << endl;
+// 			P = Calc.GetP();
+// 			T.clear();
+// 			T = Calc.GetT();
+// 			dT.clear();
+// 			dT = generate_dT(T.size());
+// 		}
+// 		else
+// 		{
+// 			cout << "Diverged at step: " << converged << " of " << T_size << endl;
+// 			T_size *= 2;
+// 		}
+// 	}
+//
+// 	Intensity.clear();
+// 	Intensity = generate_I(T, fluence, Sigma);
+//
+// 	double t_tmp = 0;
+// 	double I_max = *max_element(begin(Intensity), end(Intensity));
+//
+// 	for (int m = 0; m < T.size(); m++) {
+// 		T[m] = (T[m]-0.5*T.back())*Constant::fs_per_au;
+// 		dT[m] *= Constant::fs_per_au;
+// 	}
+//
+// 	int shift = 0;
+// 	vector<int> P_to_charge(0);
+//
+//   // Aggregate and output charges, plasma parameters, and other parameters into an output.
+//   // Charges.
+//   vector<vector<double>> AllAtomCharge(Input.Atomic.size(), vector<double>(T.size(), 0));
+//
+// 	for (int a = 0; a < Input.Atomic.size(); a++) {
+//
+// 		// Occupancies associated with the atom "a".
+// 		vector<vector<double*>> map_p(Input.Store[a].num_conf);
+// 		for (int i = 0; i < Input.Store[a].num_conf; i++) {
+// 			map_p[a].push_back(P[i + shift].data());
+// 		}
+//
+// 		// Work out charges of all configurations.
+// 		double chrg_tmp = 0;
+// 		int tmp = Input.Index[a][0].size();
+// 		P_to_charge.clear();
+// 		P_to_charge.resize(Input.Store[a].num_conf, 0);
+// 		for (int i = 0; i < Input.Index[a].size(); i++) {
+// 			for (int j = 0; j < tmp; j++) P_to_charge[i] += Input.Index[a][i][j];
+// 			chrg_tmp = 0;
+// 		}
+//
+// 		charge.clear();
+// 		charge.resize(*max_element(begin(P_to_charge), end(P_to_charge)) + 1);
+// 		for (auto& ch: charge) ch = vector<double>(T.size(), 0);
+// 		for (int i = 0; i < map_p[a].size(); i++)
+// 		{
+// 			tmp = P_to_charge[i];
+// 			for (int m = 0; m < P[i].size(); m++) charge[tmp][m] += *(map_p[a][i] + m);
+// 		}
+//
+//     for (int m = 0; m < T.size(); m++) {
+// 			for (int i = 1; i < charge.size(); i++) {
+//         AllAtomCharge[a][m] += i*charge[i][m];
+//       }
+//     }
+//
+// 		shift += Input.Store[a].num_conf;
+//
+// 		if (Input.Write_Charges()) {
+// 			string ChargeName = "./output/Charge_" + Input.Store[a].name + ".txt";
+// 			ofstream charge_out(ChargeName);
+// 			double chrg_tmp = 0;
+// 			for (int m = 0; m < T.size(); m++) {
+// 				for (int i = 0; i < charge.size(); i++) {
+// 					chrg_tmp = charge[i][m];
+// 					if (chrg_tmp <= 0.00000001) charge_out << 0 << " ";
+// 					else charge_out << chrg_tmp << " ";
+// 				}
+// 				charge_out << T[m];
+// 				if (m != T.size() - 1) charge_out << endl;
+// 			}
+//
+// 			charge_out.close();
+// 		}
+//
+// 	}
+//
+// 	if (Input.Write_MD_data()) {
+// 		string MD_Data = "./output/MD_Data.txt";
+// 		ofstream OutFile(MD_Data);
+// 		OutFile << T.size() << endl;
+// 		OutFile << "Time ";
+// 		for (int a = 0; a < Input.Atomic.size(); a++) OutFile << Input.Atomic[a].Nuclear_Z() << " ";
+// 		OutFile << "N(elec) E(elec)";
+// 		for (int m = 0; m < T.size(); m++) {
+// 			OutFile << endl << T[m] << " ";
+// 			for (int a = 0; a < AllAtomCharge.size(); a++) {
+// 				OutFile << AllAtomCharge[a][m] << " ";
+// 			}
+// 			if (m != 0) OutFile << Mxwll.state[m].N << " " << Mxwll.state[m].E;
+// 			else OutFile << 0 << " " << 0;
+// 		}
+//
+// 		OutFile.close();
+// 	}
+//
+// 	if (Input.Write_Intensity()) {
+// 		string IntensityName = "./output/Intensity_" + Input.name + ".txt";
+// 		ofstream intensity_out(IntensityName);
+//
+// 		double I_max = *max_element(begin(Intensity), end(Intensity));
+// 		for (int m = 0; m < T.size(); m++) {
+// 			intensity_out << Intensity[m] / I_max << " " << T[m];
+// 			if (m != T.size() - 1) intensity_out << endl;
+// 		}
+//
+// 		intensity_out.close();
+// 	}
+//
+// 	return 0;
+// }
 
 
 string ComputeRateParam::InterpretIndex(int i)

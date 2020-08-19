@@ -22,7 +22,6 @@ This file is part of AC4DC.
 #include "Grid.h"
 #include <vector>
 #include <string>
-#include "IntegrateRateEquation.h"
 #include <cmath>
 
 using namespace std;

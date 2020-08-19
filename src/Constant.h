@@ -110,6 +110,7 @@ namespace RateData {
 		}
 	};
 
+
 	struct Rate
 	{
 		double val = 0;

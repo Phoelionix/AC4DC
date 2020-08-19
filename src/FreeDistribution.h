@@ -9,36 +9,19 @@
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/SparseCholesky>
 #include "Constant.h"
-
-#define BSPLINE_ORDER 4 // Cubics should be fine, increase if needed
-#define GAUSS_ORDER 10
-
-class BasisSet{
-public:
-    BasisSet(){};
-    void set_parameters(size_t n, double min, double max);
-    Eigen::VectorXd Sinv(Eigen::VectorXd deltaf);
-    double operator()(size_t i, double x);
-    inline double supp_max(unsigned k);
-    inline double supp_min(unsigned k);
-    size_t gridlen(){
-        return knot.size();
-    }
-    double grid(size_t i){
-        return knot[i];
-    }
-    size_t num_funcs;
-private:
-    // Eigen::LDLT<Eigen::MatrixXd > cholmachine;
-    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double> > cholmachine;
-    std::vector<double> knot;
-    double overlap(size_t j, size_t k);
-};
+#include "SplineBasis.h"
+#include "Constant.h"
+#include "Dipole.h"
+#include "FreeDistribution.h"
+#include "SplineBasis.h"
 
 // Represents a statistical distribution of electrons. Internal units are atomic units.
 class Distribution
 {
 public:
+    typedef std::vector<std::vector< Eigen::ArrayXXd > > Q_eii_t;
+    typedef std::vector<std::vector<std::vector<Eigen::ArrayXXd > > > Q_tbr_t;
+
     Distribution() {
         f.resize(size);
     }
@@ -74,32 +57,46 @@ public:
         return *this;
     }
 
-    static Eigen::SparseMatrix<double> Gamma_eii( const RateData::EIIdata& eii, size_t K, size_t a);
-    static Eigen::SparseMatrix<double> Gamma_tbr( const RateData::EIIdata& eii, size_t J, size_t K, size_t a);
-    void add_Qeii (size_t a, const Distribution& F, const bound_t& P);
-    void add_Qtbr (size_t a, const Distribution& F, const bound_t& P);
-    void add_Qee(const Distribution& F);
+    double norm() const;
 
-    // N is the Number density (inverse au^3) of particles to be added at energy e.
-    void addDeltaLike(double e, double N);
+    // modifiers
 
+    // applies the df/dt vector v to the overall distribution
+    void applyDelta(const Eigen::VectorXd& dfdt);
     // Sets the object to have a MB distribution
     void set_maxwellian(double N, double T);
 
-    double norm() const;
+    // Q functions
+    // Computes the dfdt vector v based on internal f
+    // e.g. dfdt v; F.calc_Qee(v);
+    void apply_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
+    void apply_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
+    void apply_Qee  (Eigen::VectorXd& v) const;
+
+    // Precalculators
+    static void Gamma_eii( Eigen::SparseMatrix<double>& Gamma, const RateData::EIIdata& eii, size_t J);
+    static void Gamma_tbr( Eigen::SparseMatrix<double>& Gamma, const RateData::EIIdata& eii, size_t J, size_t K);
+
+    // changes v, doues NOT
+    // N is the Number density (inverse au^3) of particles to be added at energy e.
+    static void addDeltaLike(Eigen::VectorXd& v, double e, double N);
 
     static std::string get_energies_eV();
-    // defines the f interpolation
+
+    // The setup function
     static void set_elec_points(size_t n, double min_e, double max_e);
+    static void precompute_Q_coeffs(vector<RateData::Atom>& Store);
     static size_t size;
 private:
     // Eigen::VectorXd f;
     std::vector<double> f;
     static BasisSet basis;
-    // static vector<double> grid; // Energy grid, Hartree
-    // static double e_from_i(size_t i);
-    // static size_t i_from_e(double e);
-    // static double min_e, max_e; // Hartree
+    static Q_eii_t Q_EII;
+    static Q_tbr_t Q_TBR;
+
+    static double calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_t K);
+    static double calc_Q_tbr( const RateData::EIIdata& eii, size_t J, size_t K, size_t L){return 0;};
+
 };
 
 #endif /* end of include guard: RATESYSTEM_CXX_H */

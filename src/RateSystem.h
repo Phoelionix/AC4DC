@@ -41,6 +41,9 @@ public:
     static size_t P_size(size_t a){
         return P_sizes[a];
     }
+    static size_t num_atoms(){
+        return P_sizes.size();
+    }
 
 private:
     static vector<size_t> P_sizes;

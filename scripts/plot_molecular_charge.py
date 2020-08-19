@@ -47,6 +47,7 @@ class Plotter:
         self.mol = {'name': mol, 'infile': molfile, 'mtime': path.getmtime(molfile)}
         # Stores the atomic input files read by ac4dc
         self.atomdict = {}
+        self.statedict = {}
 
         # Outputs
         self.outDir = self.p + "/output/__Molecular/"+mol
@@ -67,7 +68,7 @@ class Plotter:
     # Reads the control file specified by self.mol['infile']
     # and populates the atomdict data structure accordingly
     def get_atoms(self):
-        self.atomlist = {}
+        self.atomdict = {}
         with open(self.mol['infile'], 'r') as f:
             reading = False
             for line in f:
@@ -163,7 +164,7 @@ class Plotter:
     def aggregate_charges(self):
         # populates self.chargeData based on contents of self.boundData
         for a in self.atomdict:
-            states = self.atomdict[a]['states']
+            states = self.statedict[a]
             if len(states) != self.boundData[a].shape[1]:
                 msg = 'states parsed from file header disagrees with width of data width'
                 msg += ' (got %d, expected %d)' % (len(states), self.boundData[a].shape[1])
@@ -185,36 +186,41 @@ class Plotter:
         for a in self.atomdict:
             raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
             self.boundData[a] = raw[:, 1:]
-            self.atomdict[a]['states'] = self.get_bound_config_spec(a)
+            self.statedict[a] = self.get_bound_config_spec(a)
+
+    def go(self):
+        if not self.check_current():
+            self.rerun_ac4dc()
+            self.update_outputs()
 
     # makes a blank plot showing the intensity curve
     def setup_axes(self):
         fig.clf()
-        self.ax = fig.add_subplot(111)
-        ax2 = self.ax.twinx()
+        ax = fig.add_subplot(111)
+        ax2 = ax.twinx()
         ax2.plot(self.timeData, self.intensityData, lw = 2, c = 'black', ls = '--', alpha = 0.7)
         ax2.set_ylabel('Pulse fluence')
-        self.ax.set_xlabel("Time, fs")
-        return ax2
+        ax.set_xlabel("Time, fs")
+        return (ax, ax2)
 
 
     def plot_atom_raw(self, a):
-        self.setup_axes()
+        ax, ax2 = self.setup_axes()
         for i in range(self.boundData[a].shape[1]):
-            self.ax.plot(self.timeData, self.boundData[a][:,i], label = self.atomdict[a]['states'][i])
-        self.ax.set_title("Configurational dynamics")
-        self.ax.set_ylabel("Density")
+            ax.plot(self.timeData, self.boundData[a][:,i], label = self.statedict[a][i])
+        ax.set_title("Configurational dynamics")
+        ax.set_ylabel("Density")
         plt.figlegend(loc = (0.11, 0.43))
         plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
         plt.show()
 
     def plot_charges(self, a):
-        self.setup_axes()
+        ax, ax2 = self.setup_axes()
         self.aggregate_charges()
         for i in range(self.chargeData[a].shape[1]):
-            self.ax.plot(self.timeData, self.chargeData[a][:,i], label = "%d+" % i)
-        self.ax.set_title("Charge state dynamics")
-        self.ax.set_ylabel("Proportion (arb. units)")
+            ax.plot(self.timeData, self.chargeData[a][:,i], label = "%d+" % i)
+        ax.set_title("Charge state dynamics")
+        ax.set_ylabel("Proportion (arb. units)")
 
         plt.figlegend(loc = (0.11, 0.43))
         plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
@@ -225,7 +231,7 @@ class Plotter:
         for a in self.atomdict:
             self.plot_charges(a)
 
-    def plot_free(self):
+    def plot_free(self, cut=True):
         fig.clf()
         # Need to turn freeData (matrix of BSpline coeffs)
         # freeeData [t, c]
@@ -236,9 +242,27 @@ class Plotter:
         Y = np.linspace(min, max, num_E)
         Z = np.zeros((num_E, self.timeData.shape[0]), dtype=np.float64)
         for t in range(self.freeData.shape[0]):
-            inter = BSpline(self.energyKnot, self.freeData[t,:], 4)
+            inter = BSpline(self.energyKnot, self.freeData[t,:], 3)
             Z[:,t] = inter(Y)
+        # trim Z to remove spurious negative values
+        if cut:
+            Z = np.ma.masked_where(Z <= 0, Z)
+
         plt.contourf(self.timeData, Y, Z, cmap='RdGy')
+        plt.title("Free electron energy distribution")
+        plt.ylabel("Energy (eV)")
+        plt.xlabel("Time, fs")
+        plt.show()
+        plt.colorbar()
+
+    def plot_free_raw(self):
+        fig.clf()
+        # Need to turn freeData (matrix of BSpline coeffs)
+        # freeeData [t, c]
+        # into matrix of values.
+        num_E = self.freeData.shape[1]
+        Y = np.linspace(0, 1, num_E)
+        plt.contourf(self.timeData, Y, self.freeData.T, cmap='RdGy')
         plt.title("Free electron energy distribution")
         plt.ylabel("Energy (eV)")
         plt.xlabel("Time, fs")
