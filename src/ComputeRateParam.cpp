@@ -448,7 +448,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				tmpEIIparams.ionB = vector<float>(size, 0);
 				tmpEIIparams.fin = vector<int>(size, 0);
 				tmpEIIparams.occ = vector<int>(size, 0);
-				cout<<"__";
+				cout<<"__"<<i;
 				size = 0;
 				//tmpEIIparams.inds.resize(tmpEIIparams.vec2.size(), 0);
 				for (int j = MaxBindInd; j < Orbitals.size(); j++) {
@@ -469,7 +469,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				Tmp.from = i;
 
 				if (!existPht) {
-					cout<<"Pht";
+					cout<<"Pht"<<i;
 					vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega(), runlog);
 					for (int k = 0; k < PhotoIon.size(); k++)
 					{
@@ -484,7 +484,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				if (i != 0)
 				{
 					if (!existFlr) {
-						cout<<"Flr";
+						cout<<"Flr"<<i;
 						vector<fluor> Fluor = Transit.Fluor();
 						for (int k = 0; k < Fluor.size(); k++)
 						{
@@ -497,7 +497,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 					}
 
 					if (!existAug) {
-						cout<<"Aug";
+						cout<<"Aug"<<i;
 						vector<auger> Auger = Transit.Auger(Max_occ, runlog);
 						for (int k = 0; k < Auger.size(); k++)
 						{
@@ -513,7 +513,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 
 			#pragma omp critical
 			{
-				cout<<"Stor";
+				cout<<"Stor"<<i;
 				Store.Photo.insert(Store.Photo.end(), LocalPhoto.begin(), LocalPhoto.end());
 				Store.Fluor.insert(Store.Fluor.end(), LocalFluor.begin(), LocalFluor.end());
 				Store.Auger.insert(Store.Auger.end(), LocalAuger.begin(), LocalAuger.end());
