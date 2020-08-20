@@ -3,6 +3,7 @@
 #include <cmath>
 
 using namespace std;
+using namespace ode;
 
 template<int N>
 struct lvector {
@@ -40,6 +41,13 @@ struct lvector {
         }
         return *this;
     }
+    double norm(){
+        double n=0;
+        for (size_t i=0; i<N; i++){
+            n += abs(X[i]);
+        }
+        return n;
+    }
     // lvector<N>& operator=(lvector<N>&& other){
     //     // If we're not trying to move the object into itself...
     //     if (this != &other) {
@@ -64,7 +72,7 @@ public:
         init.X[0] = 1.;
         init.X[1] = 0.;
         this->setup(init, _dt);
-        this->iterate(0, num_points); // returns final time
+        this->iterate(0, num_points*_dt, false); // returns final time
         // this->y and this->t are now populated
         comp_analytic();
     }

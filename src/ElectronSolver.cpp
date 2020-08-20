@@ -178,19 +178,19 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
             // Distribution::addDeltaLike(v, r.energy, r.val*s.atomP[a][r.from]);
         }
 
-        // EII / TBR
-        size_t N = Distribution::size;
-        for (size_t n=0; n<N; n++){
-            W += RATE_EII[a][n]*s.F[n];
-            // exploit the symmetry: strange indexing to only store the upper triangular part.
-            for (size_t m=n+1; m<N; m++){
-                size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
-                // k = N-1... N(N+1)/2
-                W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
-            }
-            // the diagonal
-            W += RATE_TBR[a][n]*s.F[n]*s.F[n];
-        }
+        // // EII / TBR
+        // size_t N = Distribution::size;
+        // for (size_t n=0; n<N; n++){
+        //     W += RATE_EII[a][n]*s.F[n];
+        //     // exploit the symmetry: strange indexing to only store the upper triangular part.
+        //     for (size_t m=n+1; m<N; m++){
+        //         size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
+        //         // k = N-1... N(N+1)/2
+        //         W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
+        //     }
+        //     // the diagonal
+        //     W += RATE_TBR[a][n]*s.F[n]*s.F[n];
+        // }
 
 
         const bound_t& P = s.atomP[a];
@@ -199,17 +199,17 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         // `Compute the changes in P
         for (size_t i = 0; i < s.atomP[a].size(); i++) {
             for (size_t j = 0; j < i; j++) {
-                Pdot[i] += W.coeffRef(i,j) * P[j] - W.coeffRef(j,i) * P[i];
+                Pdot[i] += W(i,j) * P[j] - W(j,i) * P[i];
             }
             // Avoid j=i
             for (size_t j = i+1; j < s.atomP[a].size(); j++) {
-                Pdot[i] += W.coeffRef(i,j) * P[j] - W.coeffRef(j,i) * P[i];
+                Pdot[i] += W(i,j) * P[j] - W(j,i) * P[i];
             }
         }
 
         // compute the dfdt vector
 
-        s.F.apply_Q_eii(v, a, P);
+        // s.F.apply_Q_eii(v, a, P);
 
         // s.F.apply_Q_tbr(v, a, P);
 
@@ -221,13 +221,13 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
 
     }
 
-    s.F.apply_Qee(v); // Electron-electon repulsions
+    // s.F.apply_Qee(v); // Electron-electon repulsions
     // #ifdef DEBUG
     // for (size_t i=0; i<v.size(); i++){
     //     if (isnan(v[i])) cerr << "t="<<t<<"NaN encountered in v after applying Qee" <<endl;
     // }
     // #endif
-    sdot.F.applyDelta(v);
+    // sdot.F.applyDelta(v);
 
     if (isnan(s.norm())) {
         cerr<< "NaN encountered in state!"<<endl;

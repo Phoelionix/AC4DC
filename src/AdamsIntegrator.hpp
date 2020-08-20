@@ -19,7 +19,7 @@ template<typename T>
 class IVPSolver{
 public:
     IVPSolver();
-    void setup(const T& initial_state, double _dt, double _tolerance = 1e-3);
+    void setup(const T& initial_state, double _dt, double _tolerance = 1e-2);
     double dt;
     double step_tolerance;
 
@@ -216,9 +216,6 @@ void Adams_BM<T>::iterate(double t_initial, double t_final, bool variable_step){
                 std::cerr<<"Resizing to "<<npoints<<std::endl;
                 this->t.resize(npoints);
                 this->y.resize(npoints);
-            } else if ( n%100 == 0 && frac_diff < 1e-14 ) {
-                this->dt *= 2;
-                npoints -= (npoints -n)/2 -1;
             }
         }
         n++;
