@@ -39,21 +39,18 @@ void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname){
     f.close();
 }
 
-
-ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
-    MolInp(filename, log), pf(fluence, width), Adams_BM(4) // (order Adams method)
-{
-    timespan_au = this->width*3;
-}
-
 state_type ElectronSolver::get_ground_state() {
     state_type initial_condition;
-    initial_condition *= 0; // May not be necessary, but probably not a bad idea.
     assert(initial_condition.atomP.size() == Store.size());
     for (size_t a=0; a<Store.size(); a++) {
         initial_condition.atomP[a][0] = Store[a].nAtoms;
+        for(size_t i=1; i<initial_condition.atomP.size(); i++){
+            initial_condition.atomP[a][i] = 0.;
+        }
     }
-    initial_condition.F.set_maxwellian(1, 300/Constant::kb_Ha);
+    initial_condition.F=0;
+    std::cout<<"[ Rate Solver ] initial condition:"<<std::endl;
+    std::cout<<"[ Rate Solver ] "<<initial_condition<<std::endl;
     return initial_condition;
 }
 
@@ -138,6 +135,14 @@ void ElectronSolver::precompute_gamma_coeffs(){
     std::cout<<"[ Rate precalc ] Done."<<std::endl;
 }
 
+ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
+    MolInp(filename, log), pf(fluence, width), Adams_BM(4) // (order Adams method)
+{
+    timespan_au = this->width*3;
+
+}
+
+
 // The Big One: Incorporates all of the right hand side to the global
 // d/dt P[i] = \sum_i=1^N W_ij - W_ji P[j]
 // d/dt f = Q_B[f](t)
@@ -149,16 +154,16 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
     #endif
     Eigen::VectorXd v = Eigen::VectorXd::Zero(Distribution::size);
     for (size_t a = 0; a < s.atomP.size(); a++) {
-        // create an appropriately-sized W[i][j]
-        // GammaType::TransitionRate W(s.atomP[a].size());
-        Eigen::SparseMatrix<double> W(s.atomP[a].size(), s.atomP[a].size());
+        Eigen::MatrixXd W(s.atomP[a].size(), s.atomP[a].size());
         // Eigen::SparseMatrixXd W(s.atomP[a].size(), s.atomP[a].size());
+        std::vector<double> total_from;
+        total_from.resize(s.atomP[a].size());
 
         // PHOTOIONISATION
         double J = pf(t); // photon flux in uhhhhh [TODO: UNITS]
         for ( auto& r : Store[a].Photo) {
             W.coeffRef(r.to, r.from) += r.val*J;
-            Distribution::addDeltaLike(v, r.energy, r.val*J);
+            // Distribution::addDeltaLike(v, r.energy, r.val*J*s.atomP[a][r.from]);
         }
 
         // FLUORESCENCE
@@ -170,7 +175,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         // AUGER
         for ( auto& r : Store[a].Auger) {
             W.coeffRef(r.to, r.from) += r.val;
-            // Distribution::addDeltaLike(v, r.energy, r.val);
+            // Distribution::addDeltaLike(v, r.energy, r.val*s.atomP[a][r.from]);
         }
 
         // EII / TBR

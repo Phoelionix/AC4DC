@@ -62,21 +62,23 @@ void Distribution::apply_Qee(Eigen::VectorXd& v) const {
 //============================
 // utility
 
-// Expects T to have units of Hartree,
+// Expects T to have units of Kelvin
 void Distribution::set_maxwellian(double N, double T){
+    T *= Constant::kb_Ha;
     Eigen::VectorXd v(size);
     for (size_t i=0; i<size; i++){
-        f[i] = 0;
+        v[i] = 0;
         double a = basis.supp_min(i);
         double b = basis.supp_max(i);
         for (int j=0; j<10; j++){
             double e = (b-a)/2 *gaussX_10[j] + (a+b)/2;
-            v[i] += (b-a)/2 *gaussW_10[j]*exp(-e/T)*basis(i, e)/pow(e*Constant::Pi*T, 0.5);
+            double x = N*gaussW_10[j]*exp(-e/T)*basis(i, e)*4*Constant::Pi*pow(2*e, 0.5)*pow(2*Constant::Pi*T,-1.5);
+            v[i] += (b-a)/2 * x;
         }
     }
-    v = this->basis.Sinv(v);
+    Eigen::VectorXd u = this->basis.Sinv(v);
     for (size_t i=0; i<size; i++){
-        f[i] = v[i]*N;
+        this->f[i] = u[i];
     }
 }
 

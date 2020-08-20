@@ -7,6 +7,9 @@
 #include <iomanip>
 #include <assert.h>
 #include <stdexcept>
+
+#define ODE_MAX_MEOMRY_USE 4000000000
+
 //
 // template<typename T>
 // using sysfunc_t = void (*)(const T&, T&, const double);
@@ -186,14 +189,14 @@ void Adams_BM<T>::iterate(double t_initial, double t_final, bool variable_step){
     }
 
     // Run those steps, with some rudimentary error control
-    std::cout << "[ sim ]            ";
+    std::cout << "[ sim ]                       ";
     // for (size_t n = order; n < npoints-1; n++) {
 
     size_t n=order; // y[n] has been calculated
     while(this->t[n] < t_final){
         std::cout << "\r[ sim ] t="
-                  << std::left<<std::setfill(' ')<<std::setw(10)
-                  << this->t[n] << std::flush;
+                  << std::left<<std::setfill(' ')<<std::setw(6)
+                  << this->t[n] << " ="<<this->dt<< std::flush;
         this->t[n+1] = this->t[n] + this->dt;
         step(n);
         if (variable_step) {
@@ -204,14 +207,18 @@ void Adams_BM<T>::iterate(double t_initial, double t_final, bool variable_step){
             double frac_diff = delta.norm() /this->y[n].norm();
             std::cerr<<frac_diff<<std::endl;
 
-            if (frac_diff >= this->step_tolerance){
+            if ( frac_diff >= this->step_tolerance ){
                 this->dt /= 2;
-                npoints += npoints -n + 2;
+                npoints += npoints - n + 2;
+                if (npoints > ODE_MAX_MEOMRY_USE/sizeof(T)){
+                    throw std::runtime_error("Exceeded maximum memory allocation");
+                }
                 std::cerr<<"Resizing to "<<npoints<<std::endl;
                 this->t.resize(npoints);
                 this->y.resize(npoints);
-            } else if (frac_diff < 1e-18){
-                this->dt *= 1.01;
+            } else if ( n%100 == 0 && frac_diff < 1e-14 ) {
+                this->dt *= 2;
+                npoints -= (npoints -n)/2 -1;
             }
         }
         n++;

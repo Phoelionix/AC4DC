@@ -36,6 +36,7 @@ public:
         for (size_t i=0; i<size; i++) {
             f[i] += d.f[i];
         }
+        // total += d.total;
         return *this;
     }
 
@@ -43,15 +44,18 @@ public:
         for (int i=0; i<f.size(); i++){
             f[i] *= x;
         }
+        // total *= d.total;
         return *this;
     }
 
     Distribution& operator=(const Distribution& d){
         f = d.f;
+        // total = d.total;
         return *this;
     }
 
     Distribution& operator=(double y){
+        // total = y;
         for (int i=0; i<f.size(); i++){
             f[i] = y;
         }
@@ -89,7 +93,7 @@ public:
     static void precompute_Q_coeffs(vector<RateData::Atom>& Store);
     static size_t size;
 private:
-    // Eigen::VectorXd f;
+    // double total;
     std::vector<double> f;
     static BasisSet basis;
     static Q_eii_t Q_EII;

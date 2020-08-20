@@ -513,7 +513,6 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 
 			#pragma omp critical
 			{
-				cout<<"Stor"<<i;
 				Store.Photo.insert(Store.Photo.end(), LocalPhoto.begin(), LocalPhoto.end());
 				Store.Fluor.insert(Store.Fluor.end(), LocalFluor.begin(), LocalFluor.end());
 				Store.Auger.insert(Store.Auger.end(), LocalAuger.begin(), LocalAuger.end());
