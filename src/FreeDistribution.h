@@ -19,8 +19,9 @@
 class Distribution
 {
 public:
-    typedef std::vector<std::vector< Eigen::ArrayXXd > > Q_eii_t;
-    typedef std::vector<std::vector<std::vector<Eigen::ArrayXXd > > > Q_tbr_t;
+    typedef std::vector<std::vector<double>> matrix_t;
+    typedef std::vector<std::vector< matrix_t > > Q_eii_t;
+    typedef std::vector<std::vector<std::vector<matrix_t > > > Q_tbr_t;
 
     Distribution() {
         f.resize(size);

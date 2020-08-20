@@ -41,7 +41,7 @@ void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname){
 
 
 ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
-    MolInp(filename, log), pf(fluence, width), Adams_BM(3) // (order Adams method)
+    MolInp(filename, log), pf(fluence, width), Adams_BM(4) // (order Adams method)
 {
     timespan_au = this->width*3;
 }
@@ -81,7 +81,7 @@ void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
     Distribution::set_elec_points(num_elec_points, min_elec_e, max_elec_e);
     state_type::set_P_shape(this->Store);
     // Set up the rate equations (setup called from parent Adams_BM)
-    this->setup(get_ground_state(), this->timespan_au/num_time_steps);
+    this->setup(get_ground_state(), this->timespan_au/num_time_steps, 5e-3);
     // create the tensor of coefficients
     RATE_EII.resize(Store.size());
     RATE_TBR.resize(Store.size());
@@ -105,7 +105,7 @@ void ElectronSolver::solve(){
     assert (hasRates || "No rates found! Use ElectronSolver::compute_cross_sections(log)\n");
     auto start = std::chrono::system_clock::now();
 
-    this->iterate(-timespan_au/2, this->num_time_steps); // Inherited from ABM
+    this->iterate(-timespan_au/2, timespan_au/2, true); // Inherited from ABM
 
     auto end = chrono::system_clock::now();
     chrono::duration<double> elapsed_seconds = end-start;
@@ -169,7 +169,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         // AUGER
         for ( auto& r : Store[a].Auger) {
             W.coeffRef(r.to, r.from) += r.val;
-            Distribution::addDeltaLike(v, r.energy, r.val);
+            // Distribution::addDeltaLike(v, r.energy, r.val);
         }
 
         // EII / TBR
@@ -201,17 +201,9 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
             }
         }
 
-        #ifdef DEBUG
-        if (isnan(sdot.norm())) cerr << "t="<<t<<" NaN encountered after applying W(i,j)" <<endl;
-        #endif
         // compute the dfdt vector
-        // s.F.apply_Q_eii(v, a, P);
-        //
-        // #ifdef DEBUG
-        // for (size_t i=0; i<v.size(); i++){
-        //     if (isnan(v[i])) cerr << "t="<<t<<"NaN encountered in v after applying Qeii" <<endl;
-        // }
-        // #endif
+
+        s.F.apply_Q_eii(v, a, P);
 
         // s.F.apply_Q_tbr(v, a, P);
 
@@ -235,13 +227,13 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         cerr<< "NaN encountered in state!"<<endl;
         cerr<< "t = "<<t<<"au = "<<t*Constant::fs_per_au<<"fs"<<endl;
         cerr<< s <<endl;
-        throw runtime_error("bad state");
+        good_state = false;
     }
     else if (isnan(sdot.norm())){
         cerr<< "NaN encountered in state derivative!"<<endl;
         cerr<< "t = "<<t<<"au = "<<t*Constant::fs_per_au<<"fs"<<endl;
         cerr<< sdot <<endl;
-        throw runtime_error("bad state_dot");
+        good_state = false;
     }
 
 }

@@ -27,7 +27,7 @@ void Distribution::apply_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) 
         // Loop over configurations that P refers to
         for (int J=0; J<size; J++){
             for (int K=0; K<size; K++){
-                v[J] += P[xi]*f[K]*Q_EII[a][xi](J, K);
+                v[J] += P[xi]*f[K]*Q_EII[a][xi][J][K];
             }
         }
     }
@@ -40,7 +40,7 @@ void Distribution::apply_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) 
         for (int J=0; J<size; J++){
             for (int L=0; L<size; L++){
                 for (int K=0; K<size; K++){
-                    v[J] += P[xi]*f[L]*f[K]*Q_TBR[a][xi][L](J, K);
+                    v[J] += P[xi]*f[L]*f[K]*Q_TBR[a][xi][L][J][K];
                 }
             }
         }
@@ -53,7 +53,7 @@ void Distribution::apply_Qee(Eigen::VectorXd& v) const {
     // for (int J=0; J<size; J++){
     //     for (int L=0; L<size; L++){
     //         for (int K=0; K<size; K++){
-    //             v[J] += Q_EE[a][xi][L](J, K)*f[K]*f[K];
+    //             v[J] += Q_EE[a][xi][J][L][K]*f[K]*f[K];
     //         }
     //     }
     // }
@@ -135,15 +135,17 @@ void Distribution::precompute_Q_coeffs(vector<RateData::Atom>& Store){
     for (size_t a=0; a<state_type::num_atoms(); a++){
         Q_EII[a].resize(state_type::P_size(a));
         for (auto& Qa : Q_EII[a]){
-            Qa = Eigen::ArrayXXd::Zero(size, size);
+            Qa.resize(size);
+            for (auto& QaJ : Qa){
+                    QaJ.resize(size);
+            }
         }
         // NOTE: length of EII vector is generally shorter than length of P
         // (usually by 1 or 2, so dense matrices are fine)
         for (auto& eii : Store[a].EIIparams){
-            Eigen::ArrayXXd& M = Q_EII[a][eii.init];
             for (size_t J=0; J<size; J++){
                 for (size_t K=0; K<size; K++){
-                    M(J,K) = calc_Q_eii(eii, J, K);
+                    Q_EII[a][eii.init][J][K] = calc_Q_eii(eii, J, K);
                 }
             }
         }

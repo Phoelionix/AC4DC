@@ -5,6 +5,8 @@
 #include "Adams_arrays.h"
 #include <iostream>
 #include <iomanip>
+#include <assert.h>
+#include <stdexcept>
 //
 // template<typename T>
 // using sysfunc_t = void (*)(const T&, T&, const double);
@@ -14,14 +16,15 @@ template<typename T>
 class IVPSolver{
 public:
     IVPSolver();
-    void setup(const T& initial_state, const double dt);
+    void setup(const T& initial_state, double _dt, double _tolerance = 1e-3);
     double dt;
+    double step_tolerance;
 
     // void export_to(string fname);
 protected:
     std::vector<T> y;
     std::vector<double> t;
-    virtual void sys(const T& q, T& qdot, const double t) =0;
+    virtual void sys(const T& q, T& qdot, double t) =0;
     T zero_y;
 
 };
@@ -30,7 +33,7 @@ template<typename T>
 class Adams_BM : public IVPSolver<T>{
 public:
     Adams_BM(int order=4);
-    double iterate(double t_initial, size_t npoints); // returns final time
+    void iterate(double t_initial, double t_final, bool variable_step=true);
 
 private:
     int order;
@@ -49,7 +52,8 @@ IVPSolver<T>::IVPSolver(){
 }
 
 template<typename T>
-void IVPSolver<T>::setup(const T& initial_state, double _dt ){
+void IVPSolver<T>::setup(const T& initial_state, double _dt, double _step_tolerance ){
+    step_tolerance = _step_tolerance;
     this->y[0] = initial_state;
     // Makes a zero std::vector in a mildly spooky way
     this->zero_y = initial_state; // do this to make the underlying structure large enough
@@ -157,43 +161,59 @@ void Adams_BM<T>::step(int n){
     this->y[n+1] = tmp;
 }
 
-// Fixed-step method
-// Maybe get fancier if it's a real problem
 template<typename T>
-double Adams_BM<T>::iterate(double t_initial, size_t npoints){
-    double h = this->dt;
-    if (h < 1E-16){
-        std::cerr<<"WARN: step size "<<h<<"is smaller than machine precision"<<std::endl;
-    } else if (h < 0) {
-        std::cerr<<"ERROR: step size is negative!"<<std::endl;
-        return 0;
+void Adams_BM<T>::iterate(double t_initial, double t_final, bool variable_step){
+
+    if (this->dt < 1E-16){
+        std::cerr<<"WARN: step size "<<this->dt<<"is smaller than machine precision"<<std::endl;
+    } else if (this->dt < 0) {
+        throw std::runtime_error("Step size is negative!");
     }
 
+    size_t npoints = (t_final - t_initial)/this->dt + 1;
+    npoints = (npoints >= order) ? npoints : order;
     // Set up the containters
     this->t.resize(npoints);
     this->y.resize(npoints);
 
     // Set up the t grid
-    for (size_t j = 0; j < npoints; j++) {
-        this->t[j] = t_initial + h*j;
-    }
+    this->t[0] = t_initial;
 
     // initialise enough points for multistepping to get going
     for (size_t n = 0; n < order; n++) {
+        this->t[n+1] = this->t[n] + this->dt;
         step_rk4(n);
     }
-    // Run those steps
-    std::cout << "[ sim ]            ";
-    for (size_t n = order; n < npoints-1; n++) {
 
+    // Run those steps, with some rudimentary error control
+    std::cout << "[ sim ]            ";
+    // for (size_t n = order; n < npoints-1; n++) {
+
+    size_t n=order; // y[n] has been calculated
+    while(this->t[n] < t_final){
         std::cout << "\r[ sim ] n="
                   << std::left<<std::setfill(' ')<<std::setw(10)
-                  << n+1 <<std::flush;
-
+                  << n+1 << std::flush;
+        this->t[n+1] = this->t[n] + this->dt;
         step(n);
+        if (variable_step) {
+            T delta = this->y[n];
+            delta *= -1.;
+            delta += this->y[n+1];
+
+            std::cerr<<delta.norm() /this->y[n].norm()<<std::endl;
+
+            if (delta.norm()/this->y[n].norm() >= this->step_tolerance){
+                this->dt /= 2;
+                npoints *= 2;
+                npoints = npoints - n + 2;
+                this->t.resize(npoints);
+                this->y.resize(npoints);
+            }
+        }
+        n++;
     }
     std::cout<<std::endl;
-    return this->t[npoints-1];
 }
 
 
