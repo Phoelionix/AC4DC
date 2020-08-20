@@ -191,9 +191,9 @@ void Adams_BM<T>::iterate(double t_initial, double t_final, bool variable_step){
 
     size_t n=order; // y[n] has been calculated
     while(this->t[n] < t_final){
-        std::cout << "\r[ sim ] n="
+        std::cout << "\r[ sim ] t="
                   << std::left<<std::setfill(' ')<<std::setw(10)
-                  << n+1 << std::flush;
+                  << this->t[n] << std::flush;
         this->t[n+1] = this->t[n] + this->dt;
         step(n);
         if (variable_step) {
@@ -201,18 +201,23 @@ void Adams_BM<T>::iterate(double t_initial, double t_final, bool variable_step){
             delta *= -1.;
             delta += this->y[n+1];
 
-            std::cerr<<delta.norm() /this->y[n].norm()<<std::endl;
+            double frac_diff = delta.norm() /this->y[n].norm();
+            std::cerr<<frac_diff<<std::endl;
 
-            if (delta.norm()/this->y[n].norm() >= this->step_tolerance){
+            if (frac_diff >= this->step_tolerance){
                 this->dt /= 2;
-                npoints *= 2;
-                npoints = npoints - n + 2;
+                npoints += npoints -n + 2;
+                std::cerr<<"Resizing to "<<npoints<<std::endl;
                 this->t.resize(npoints);
                 this->y.resize(npoints);
+            } else if (frac_diff < 1e-18){
+                this->dt *= 1.01;
             }
         }
         n++;
     }
+    this->t.resize(n);
+    this->y.resize(n);
     std::cout<<std::endl;
 }
 

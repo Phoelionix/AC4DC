@@ -62,8 +62,8 @@ void Distribution::apply_Qee(Eigen::VectorXd& v) const {
 //============================
 // utility
 
+// Expects T to have units of Hartree,
 void Distribution::set_maxwellian(double N, double T){
-    T *= Constant::kb_eV; // convert T to units of eV
     Eigen::VectorXd v(size);
     for (size_t i=0; i<size; i++){
         f[i] = 0;

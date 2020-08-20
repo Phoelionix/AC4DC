@@ -53,6 +53,7 @@ state_type ElectronSolver::get_ground_state() {
     for (size_t a=0; a<Store.size(); a++) {
         initial_condition.atomP[a][0] = Store[a].nAtoms;
     }
+    initial_condition.F.set_maxwellian(1, 300/Constant::kb_Ha);
     return initial_condition;
 }
 
