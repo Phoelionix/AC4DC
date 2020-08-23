@@ -77,7 +77,8 @@ double state_type::norm() const {
             n += fabs(p);
         }
     }
-    return n + F.norm();
+    n += F.norm();
+    return n;
 }
 
 

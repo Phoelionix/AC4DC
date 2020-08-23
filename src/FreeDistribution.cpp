@@ -118,6 +118,7 @@ void Distribution::addDeltaLike(Eigen::VectorXd& v, double e, double height){
 }
 
 double Distribution::norm() const{
+    assert(f.size() == Distribution::size);
     double x=0;
     for (auto&fi : f){
         x+= fabs(fi);
