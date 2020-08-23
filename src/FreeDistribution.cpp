@@ -155,49 +155,67 @@ void Distribution::precompute_Q_coeffs(vector<RateData::Atom>& Store){
     }
 }
 
-void Distribution::Gamma_eii(Eigen::SparseMatrix<double>& Gamma, const RateData::EIIdata& eii, size_t K) {
+void Distribution::Gamma_eii(GammaType::eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eiiVec, size_t K) {
     // 4pi*sqrt(2) \int_0^\inf e^1/2 phi_k(e) sigma(e) de
-    for (size_t eta = 0; eta < eii.fin.size(); eta++) {
-        double a = basis.supp_min(K);
-        double b = basis.supp_max(K);
-        double tmp=0;
-        for (int i=0; i<10; i++){
-            double e = gaussX_10[i]*(b-a)/2 + (a+b)/2;
-            tmp += gaussW_10[i]* basis(K, e)*pow(e,0.5)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+    Gamma.resize(0);
+    for (size_t init=0; init<eiiVec.size(); init++){
+        assert(eiiVec[init].init == init);
+        const RateData::EIIdata& eii = eiiVec[init];
+        // index on this vector refers to final states
+        std::vector<GammaType::NamedValue> gamma_vec(0);
+        for (size_t eta = 0; eta < eii.fin.size(); eta++) {
+            double a = basis.supp_min(K);
+            double b = basis.supp_max(K);
+            double tmp=0;
+            for (int i=0; i<10; i++){
+                double e = gaussX_10[i]*(b-a)/2 + (a+b)/2;
+                tmp += gaussW_10[i]* basis(K, e)*pow(e,0.5)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+            }
+            tmp *= (b-a)/2;
+            tmp *= 4*Constant::Pi*1.4142; // Electron mass = 1 in atomic units
+            GammaType::NamedValue rate(eii.fin[eta], tmp);
+            gamma_vec.push_back(rate);
         }
-        tmp *= (b-a)/2;
-        tmp *= 4*Constant::Pi*1.4142; // Electron mass = 1 in atomic units
-        Gamma.coeffRef(eii.fin[eta], eii.init) += tmp;
+        Gamma.push_back(gamma_vec);
     }
 }
 
-void Distribution::Gamma_tbr(Eigen::SparseMatrix<double>& Gamma, const RateData::EIIdata& eii, size_t J, size_t K) {
-    for (size_t eta = 0; eta<eii.fin.size(); eta++) {
-        double tmp=0;
-        double B=eii.ionB[eta];
+void Distribution::Gamma_tbr(GammaType::eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eiiVec, size_t J, size_t K) {
+    Gamma.resize(0);
+    for (size_t init=0; init<eiiVec.size(); init++){
+        assert(eiiVec[init].init == init);
+        const RateData::EIIdata& eii = eiiVec[init];
+        // index on this vector refers to final states
+        std::vector<GammaType::NamedValue> gamma_vec(0);
+        for (size_t eta = 0; eta<eii.fin.size(); eta++) {
+            double tmp=0;
+            double B=eii.ionB[eta];
 
-        double aK = basis.supp_min(K);
-        double bK = basis.supp_max(K);
-        double aJ = basis.supp_min(J);
-        double bJ = basis.supp_max(J);
+            double aK = basis.supp_min(K);
+            double bK = basis.supp_max(K);
+            double aJ = basis.supp_min(J);
+            double bJ = basis.supp_max(J);
 
-        for (int i=0; i<10; i++){
-            double e = gaussX_10[i]*(bK-aK)/2 + (aK+bK)/2;
-            double tmp2=0;
+            for (int i=0; i<10; i++){
+                double e = gaussX_10[i]*(bK-aK)/2 + (aK+bK)/2;
+                double tmp2=0;
 
-            for (int j=0; j<10; j++){
-                double s = gaussX_10[j]*(bJ-aJ)/2 + (aJ+bJ)/2;
-                double ep = s + e + B;
-                tmp2 += gaussW_10[j]*basis(J, s)*ep*pow(s,-0.5)*
-                    Dipole::DsigmaBEB(ep, e, B, eii.kin[eta], eii.occ[eta]);
+                for (int j=0; j<10; j++){
+                    double s = gaussX_10[j]*(bJ-aJ)/2 + (aJ+bJ)/2;
+                    double ep = s + e + B;
+                    tmp2 += gaussW_10[j]*basis(J, s)*ep*pow(s,-0.5)*
+                        Dipole::DsigmaBEB(ep, e, B, eii.kin[eta], eii.occ[eta]);
+                }
+                tmp2 *= (bJ-aJ)/2;
+                tmp += gaussW_10[i]*basis(K, e)*tmp2/e;
             }
-            tmp2 *= (bJ-aJ)/2;
-            tmp += gaussW_10[i]*basis(K, e)*tmp2/e;
-        }
-        tmp *= pow(2*Constant::Pi, 4) / 1.4142;
-        tmp *= (bK-aK)/2;
+            tmp *= pow(2*Constant::Pi, 4) / 1.4142;
+            tmp *= (bK-aK)/2;
 
-        Gamma.coeffRef(eii.init, eii.fin[eta]) += tmp;
+            GammaType::NamedValue rate(eii.fin[eta], tmp);
+            gamma_vec.push_back(rate);
+        }
+        Gamma.push_back(gamma_vec);
     }
 }
 

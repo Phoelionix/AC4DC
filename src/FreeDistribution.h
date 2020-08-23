@@ -14,6 +14,9 @@
 #include "Dipole.h"
 #include "FreeDistribution.h"
 #include "SplineBasis.h"
+#include "transitionrate.hpp"
+
+
 
 // Represents a statistical distribution of electrons. Internal units are atomic units.
 class Distribution
@@ -79,8 +82,8 @@ public:
     void apply_Qee  (Eigen::VectorXd& v) const;
 
     // Precalculators
-    static void Gamma_eii( Eigen::SparseMatrix<double>& Gamma, const RateData::EIIdata& eii, size_t J);
-    static void Gamma_tbr( Eigen::SparseMatrix<double>& Gamma, const RateData::EIIdata& eii, size_t J, size_t K);
+    static void Gamma_eii( GammaType::eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J);
+    static void Gamma_tbr( GammaType::eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J, size_t K);
 
     // changes v, doues NOT
     // N is the Number density (inverse au^3) of particles to be added at energy e.

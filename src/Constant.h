@@ -21,7 +21,6 @@ functions for calculations of Wigner 3j, 6j symbols, and Clebsh-Gordan coefficie
 and some data containers used througout the code. */
 #include <vector>
 #include <string>
-#include "transitionrate.hpp"
 using namespace std;
 
 namespace Constant

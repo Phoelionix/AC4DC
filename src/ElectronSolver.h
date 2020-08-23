@@ -51,18 +51,25 @@ private:
     PhotonFlux pf;
 
     // arrays computed at class initialisation
-    vector<vector<Eigen::SparseMatrix<double> > > RATE_EII;
-    vector<vector<Eigen::SparseMatrix<double> > > RATE_TBR;
+    vector<vector<GammaType::eiiGraph> > RATE_EII;
+    vector<vector<GammaType::eiiGraph> > RATE_TBR;
 
     void get_energy_bounds(double& max, double& min);
     void precompute_gamma_coeffs(); // populates above two tensors
     void set_flux(double Jcm2_per_Haa02);
     void set_initial_conditions();
+    // Components of sys that can be preallocated
+    Eigen::VectorXd vec_dqdt;
+    // vector<double> total_from; // accumulates total loss-per-unit-P from state [xi]
+    // vector<double> total_gain; // accumulates total gain for state [xi]
+
+
     void sys(const state_type& s, state_type& sdot, const double t);
     bool hasRates = false; // flags whether Store has been populated yet.
     void saveFree(const std::string& file);
     void saveBound(const std::string& folder);
     state_type get_ground_state();
+
 
     bool good_state = true;
 };
