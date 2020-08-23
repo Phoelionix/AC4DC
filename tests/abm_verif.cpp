@@ -72,7 +72,7 @@ public:
         init.X[0] = 1.;
         init.X[1] = 0.;
         this->setup(init, _dt);
-        this->iterate(0, num_points*_dt, false); // returns final time
+        this->iterate(0, num_points*_dt); // returns final time
         // this->y and this->t are now populated
         comp_analytic();
     }

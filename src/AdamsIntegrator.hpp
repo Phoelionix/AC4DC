@@ -36,7 +36,7 @@ template<typename T>
 class Adams_BM : public IVPSolver<T>{
 public:
     Adams_BM(int order=4);
-    void iterate(double t_initial, double t_final, bool variable_step=true);
+    void iterate(double t_initial, double t_final);
 
 private:
     int order;
@@ -165,7 +165,7 @@ void Adams_BM<T>::step(int n){
 }
 
 template<typename T>
-void Adams_BM<T>::iterate(double t_initial, double t_final, bool variable_step){
+void Adams_BM<T>::iterate(double t_initial, double t_final){
 
     if (this->dt < 1E-16){
         std::cerr<<"WARN: step size "<<this->dt<<"is smaller than machine precision"<<std::endl;
@@ -190,38 +190,13 @@ void Adams_BM<T>::iterate(double t_initial, double t_final, bool variable_step){
 
     // Run those steps, with some rudimentary error control
     std::cout << "[ sim ]                       ";
-    // for (size_t n = order; n < npoints-1; n++) {
-
-    size_t n=order; // y[n] has been calculated
-    while(this->t[n] < t_final){
+    for (size_t n = order; n < npoints-1; n++) {
         std::cout << "\r[ sim ] t="
                   << std::left<<std::setfill(' ')<<std::setw(6)
                   << this->t[n] << " ="<<this->dt<< std::flush;
         this->t[n+1] = this->t[n] + this->dt;
         step(n);
-        if (variable_step) {
-            T delta = this->y[n];
-            delta *= -1.;
-            delta += this->y[n+1];
-
-            double frac_diff = delta.norm() /this->y[n].norm();
-            std::cerr<<frac_diff<<std::endl;
-
-            if ( frac_diff >= this->step_tolerance ){
-                this->dt /= 2;
-                npoints += npoints - n + 2;
-                if (npoints > ODE_MAX_MEOMRY_USE/sizeof(T)){
-                    throw std::runtime_error("Exceeded maximum memory allocation");
-                }
-                std::cerr<<"Resizing to "<<npoints<<std::endl;
-                this->t.resize(npoints);
-                this->y.resize(npoints);
-            }
-        }
-        n++;
     }
-    this->t.resize(n);
-    this->y.resize(n);
     std::cout<<std::endl;
 }
 

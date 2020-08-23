@@ -103,7 +103,7 @@ void ElectronSolver::solve(){
     assert (hasRates || "No rates found! Use ElectronSolver::compute_cross_sections(log)\n");
     auto start = std::chrono::system_clock::now();
 
-    this->iterate(-timespan_au/2, timespan_au/2, true); // Inherited from ABM
+    this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
 
     auto end = chrono::system_clock::now();
     chrono::duration<double> elapsed_seconds = end-start;
