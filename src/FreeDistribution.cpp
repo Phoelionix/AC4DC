@@ -336,7 +336,7 @@ Distribution::tbr_sparse Distribution::calc_Q_tbr( const RateData::InverseEIIdat
                         double s = gaussX_10[k]*(bK-aK)/2 + (bK + aK)/2;
                         tmp2 += gaussW_10[k]*(s+e+B)*pow(s,-0.5)*basis(K,s)*Dipole::DsigmaBEB(s+e+B, e, B, tbr.kin[xi], tbr.occ[xi]);
                     }
-                    tmp += gaussW_10[j]*tmp2*pow(e,-0.5)*basis(J,e)*basis(L,e);
+                    tmp -= gaussW_10[j]*tmp2*pow(e,-0.5)*basis(J,e)*basis(L,e);
                 }
             }
 
