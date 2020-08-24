@@ -74,25 +74,5 @@ private:
     bool good_state = true;
 };
 
-/*
-// W_ij for the rate equaitons
-class Weight
-{
-public:
-    Weight(size_t size);
-    ~Weight();
-    double* W;
-    double from(size_t idx); // returns summed transition rate away from supplied index
-    double to(size_t idx); // returns summed transition rate towards supplied index
-    double& operator()(size_t to, size_t from){
-        assert(from >= 0 && from<size);
-        assert(to >= 0 && to<size);
-        return W[to*size + from];
-    }
-protected:
-    size_t size;
-};
-*/
-
 
 #endif /* end of include guard: SYS_SOLVER_CXX_H */

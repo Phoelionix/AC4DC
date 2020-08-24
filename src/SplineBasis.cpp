@@ -49,10 +49,11 @@ void BasisSet::set_parameters(size_t n, double min, double max) {
         knot[i] = min;
     }
     // all derivatives vanish at "infinity": no special treatment
-    double A = (max - min)/n/n;
+    double A_sqrt = (max - min)/(n-1)/(n-1);
+    double A_lin = (max - min)/(n-1);
     for(int i=BSPLINE_ORDER; i<n+BSPLINE_ORDER; i++){
-        // square root spacing
-        knot[i] = min + A*i*i;
+        // knot[i] = min + A_sqrt*i*i; // square root spacing
+        knot[i] = min + A_lin*i; // linear spacing
     }
     // Compute overlap matrix
     Eigen::SparseMatrix<double> S(num_funcs, num_funcs);

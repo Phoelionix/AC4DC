@@ -37,18 +37,6 @@ state_type& state_type::operator*=(const double x){
     return *this;
 }
 
-// state_type state_type::operator+(const state_type& s2){
-//     state_type retval = *this;
-//     retval += s2;
-//     return retval;
-// }
-//
-// state_type state_type::operator*(double x){
-//     state_type retval = *this;
-//     retval *= x;
-//     return retval;
-// }
-
 // convenience members
 state_type& state_type::operator=(const double x){
     for (auto& P : atomP){

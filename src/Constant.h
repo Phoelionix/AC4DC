@@ -109,6 +109,24 @@ namespace RateData {
 		}
 	};
 
+	struct InverseEIIdata
+	{
+		int fin;
+		vector<int> init;
+
+		vector<int> occ; // occupancy of state
+		vector<float> ionB; // ion binding energy
+		vector<float> kin; // u for atom in this state (see Kim and Rudd BEB for details)
+		void resize(size_t n)
+		{
+			init.resize(n);
+			occ.resize(n);
+			ionB.resize(n);
+			kin.resize(n);
+		}
+	};
+
+	vector<InverseEIIdata> inverse(const vector<EIIdata>& eiiVec);
 
 	struct Rate
 	{

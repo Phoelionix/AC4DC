@@ -13,6 +13,8 @@ size_t Distribution::size=0;
 BasisSet Distribution::basis;
 Distribution::Q_eii_t Distribution::Q_EII;
 Distribution::Q_tbr_t Distribution::Q_TBR;
+bool Distribution::has_Qeii=false;
+bool Distribution::has_Qtbr=false;
 
 // Psuedo-constructor thing
 void Distribution::set_elec_points(size_t n, double min_e, double max_e){
@@ -23,6 +25,7 @@ void Distribution::set_elec_points(size_t n, double min_e, double max_e){
 
 // Adds Q_eii to the parent Distribution
 void Distribution::apply_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const {
+    assert(has_Qeii);
     for (int xi=0; xi<P.size(); xi++){
         // Loop over configurations that P refers to
         for (int J=0; J<size; J++){
@@ -35,13 +38,12 @@ void Distribution::apply_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) 
 
 // Adds Q_tbr to the parent Distribution
 void Distribution::apply_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) const {
-    for (int xi=0; xi<P.size(); xi++){
+    assert(has_Qtbr);
+    for (int eta=0; eta<P.size(); eta++){
         // Loop over configurations that P refers to
         for (int J=0; J<size; J++){
-            for (int L=0; L<size; L++){
-                for (int K=0; K<size; K++){
-                    v[J] += P[xi]*f[L]*f[K]*Q_TBR[a][xi][L][J][K];
-                }
+            for (auto& q : Q_TBR[a][eta][J]){
+                 v[J] += q.val * P[eta] * f[q.K] * f[q.L];
             }
         }
     }
@@ -131,28 +133,55 @@ double Distribution::norm() const{
 // Precalculators
 
 
-// Resizes containers
+// Resizes containers and fills them with the appropriate values
 void Distribution::precompute_Q_coeffs(vector<RateData::Atom>& Store){
     Q_EII.resize(state_type::num_atoms());
     Q_TBR.resize(state_type::num_atoms());
     for (size_t a=0; a<state_type::num_atoms(); a++){
         Q_EII[a].resize(state_type::P_size(a));
-        for (auto& Qa : Q_EII[a]){
-            Qa.resize(size);
-            for (auto& QaJ : Qa){
+        Q_TBR[a].resize(state_type::P_size(a));
+        for (size_t eta=0; eta<state_type::P_size(a); eta++){
+            Q_EII[a][eta].resize(size);
+            Q_TBR[a][eta].resize(size);
+            for (auto& QaJ : Q_EII[a][eta]){
                     QaJ.resize(size);
             }
         }
         // NOTE: length of EII vector is generally shorter than length of P
         // (usually by 1 or 2, so dense matrices are fine)
-        for (auto& eii : Store[a].EIIparams){
-            for (size_t J=0; J<size; J++){
-                for (size_t K=0; K<size; K++){
+
+        for (size_t J=0; J<size; J++){
+            for (size_t K=0; K<size; K++){
+                for (auto& eii : Store[a].EIIparams){
                     Q_EII[a][eii.init][J][K] = calc_Q_eii(eii, J, K);
                 }
             }
+            for (auto& tbr : RateData::inverse(Store[a].EIIparams)){
+                Q_TBR[a][tbr.fin][J] = calc_Q_tbr(tbr, J);
+            }
         }
     }
+    #ifdef DEBUG
+    for (size_t a=0; a<state_type::num_atoms(); a++){
+        std::cerr<<"[ DEBUG ] Atom "<<a<<std::endl;
+        for (size_t i=0; i<state_type::P_size(a); i++){
+            std::cerr<<"[ DEBUG ] Config "<<i<<std::endl;
+            for (size_t J=0; J<size; J++){
+                std::cerr<<"[ DEBUG ] eii>  ";
+                for (size_t K=0; K<size; K++){
+                    std::cerr<<Q_EII[a][i][J][K]<<" ";
+                }
+                std::cerr<<std::endl;
+                std::cerr<<"[ DEBUG ] tbr>  ";
+                for (auto& tup : Q_TBR[a][i][J]){
+                    std::cerr<<"("<<tup.K<<","<<tup.L<<","<<tup.val<<") ";
+                }
+                std::cerr<<std::endl;
+            }
+        }
+    }
+    #endif
+    has_Qeii = true;
 }
 
 void Distribution::Gamma_eii(GammaType::eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eiiVec, size_t K) {
@@ -255,7 +284,78 @@ double Distribution::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_t 
     }
 
     retval *= 1.4142135624;
+    return retval;
+}
 
+// JKL indices, but the Q_TBR coeffs are sparse btw J and L
+// (overlap by at most BasisSet::BSPLINE_ORDER either way)
+// Returns a vector of pairs (Q-idx, nonzzero-idx)
+Distribution::tbr_sparse Distribution::calc_Q_tbr( const RateData::InverseEIIdata& tbr, size_t J) {
+    // J is the 'free' index, K and L label the given indices of the free distribution
+    //
+    double aJ = basis.supp_min(J);
+    double bJ = basis.supp_max(J);
+
+    size_t num_nonzero=0;
+
+    Distribution::tbr_sparse retval; // a vector of SparseEntry
+    SparseEntry tup;
+    for (size_t K=0; K<size; K++){
+        for (size_t L=0; L<size; L++){
+            double aK = basis.supp_min(K);
+            double bK = basis.supp_max(K);
+            double aL = basis.supp_min(L);
+            double bL = basis.supp_max(L);
+
+            double tmp=0;
+            // Sum over all transitions in tbr
+            for (size_t xi=0; xi<tbr.init.size(); xi++){
+                // Heaviside step function
+                double B =tbr.ionB[xi];
+                double aJ_eff = (aJ < B) ? B : aJ;
+                // First half of integral
+                for (int j=0; j<10; j++){
+                    double e = gaussX_10[j]*(bJ-aJ_eff)/2 + (aJ_eff+bJ)/2;
+                    double tmp2=0;
+
+                    double a = max(aK, e - B - bL); // integral lower bound
+                    double b = min(bK, e - B - aL); // integral upper bound
+                    if (a >= b) continue;
+                    for (int k=0; k<10; k++){
+                        double ep = gaussX_10[k]*(b-a)/2 + (b + a)/2;
+                        tmp2 += gaussW_10[k]*basis(K,ep)*basis(L,e-ep-B)*Dipole::DsigmaBEB(e, ep, B, tbr.kin[xi], tbr.occ[xi])*pow(e-ep-B,-0.5)/ep;
+                    }
+                    tmp += gaussW_10[j]*tmp2*pow(e,1.5)*0.5*basis(J,e);
+                }
+                // Second half of integral
+                // f(e) integral0->inf ds
+                for (int j=0; j<10; j++){
+                    double e = gaussX_10[j]*(bJ-aJ)/2 + (aJ+bJ)/2;
+                    double tmp2=0;
+                    for (int k=0; k<10; k++){
+                        double s = gaussX_10[k]*(bK-aK)/2 + (bK + aK)/2;
+                        tmp2 += gaussW_10[k]*(s+e+B)*pow(s,-0.5)*basis(K,s)*Dipole::DsigmaBEB(s+e+B, e, B, tbr.kin[xi], tbr.occ[xi]);
+                    }
+                    tmp += gaussW_10[j]*tmp2*pow(e,-0.5)*basis(J,e)*basis(L,e);
+                }
+            }
+
+            tmp *= 2*Constant::Pi*Constant::Pi;
+
+
+            if (fabs(tmp) > DBL_CUTOFF_TBR){
+                tup.K = K;
+                tup.L = L;
+                tup.val=tmp;
+                retval.push_back(tup);
+                num_nonzero++;
+            }
+        }
+    }
+    has_Qtbr = true;
+    #ifdef DEBUG
+    std::cerr<<"[ DEBUG ] Squashed "<<size*size<<" to "<<num_nonzero<<std::endl;
+    #endif
     return retval;
 }
 

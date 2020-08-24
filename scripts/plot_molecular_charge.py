@@ -203,6 +203,15 @@ class Plotter:
         ax.set_xlabel("Time, fs")
         return (ax, ax2)
 
+    def plot_atom_total(self, a):
+        ax, ax2 = self.setup_axes()
+        tot = np.sum(self.boundData[a], axis=1)
+        ax.plot(self.timeData, tot)
+        ax.set_title("Configurational dynamics")
+        ax.set_ylabel("Density")
+        plt.figlegend(loc = (0.11, 0.43))
+        plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
+        plt.show()
 
     def plot_atom_raw(self, a):
         ax, ax2 = self.setup_axes()
@@ -231,7 +240,7 @@ class Plotter:
         for a in self.atomdict:
             self.plot_charges(a)
 
-    def plot_free(self, cut=True):
+    def plot_free(self, cut=False):
         fig.clf()
         # Need to turn freeData (matrix of BSpline coeffs)
         # freeeData [t, c]
@@ -246,7 +255,7 @@ class Plotter:
             Z[:,t] = inter(Y)
         # trim Z to remove spurious negative values
         if cut:
-            Z = np.ma.masked_where(Z <= 0, Z)
+            Z = np.ma.masked_where(Z < 0, Z)
 
         plt.contourf(self.timeData, Y, Z, cmap='RdGy')
         plt.title("Free electron energy distribution")

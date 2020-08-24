@@ -155,7 +155,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         for ( auto& r : Store[a].Photo) {
             // W.coeffRef(r.to, r.from) += r.val*J;
             Pdot[r.to] += r.val*J*P[r.from];
-            Pdot[r.from] -= r.val*J*P[r.to];
+            Pdot[r.from] -= r.val*J*P[r.from];
             Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
 
@@ -163,7 +163,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         for ( auto& r : Store[a].Fluor) {
             // W.coeffRef(r.to, r.from) += r.val;
             Pdot[r.to] += r.val*P[r.from];
-            Pdot[r.from] -= r.val*P[r.to];
+            Pdot[r.from] -= r.val*P[r.from];
             // Energy from optical photon assumed lost
         }
 
@@ -171,7 +171,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         for ( auto& r : Store[a].Auger) {
             // W.coeffRef(r.to, r.from) += r.val;
             Pdot[r.to] += r.val*P[r.from];
-            Pdot[r.from] -= r.val*P[r.to];
+            Pdot[r.from] -= r.val*P[r.from];
             Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
         }
 
@@ -181,18 +181,19 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
             for (size_t init=0;  init<RATE_EII[a][n].size(); init++){
                 for (auto& finPair : RATE_EII[a][n][init]){
                     Pdot[finPair.idx] += finPair.val*s.F[n]*P[init];
-                    Pdot[init] -= finPair.val*s.F[n]*P[finPair.idx];
+                    Pdot[init] -= finPair.val*s.F[n]*P[init];
                 }
             }
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
+            // Note that RATE_TBR has the same geometry as EIIdata, so indices must be swapped.
             for (size_t m=n+1; m<N; m++){
                 size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                 // k = N... N(N+1)/2-1
                 // W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
                 for (size_t init=0;  init<RATE_TBR[a][k].size(); init++){
                     for (auto& finPair : RATE_TBR[a][k][init]){
-                        Pdot[finPair.idx] += finPair.val*s.F[n]*s.F[m]*P[init]*2;
-                        Pdot[init] -= finPair.val*s.F[n]*s.F[m]*P[finPair.idx]*2;
+                        Pdot[init] += finPair.val*s.F[n]*s.F[m]*P[finPair.idx]*2;
+                        Pdot[finPair.idx] -= finPair.val*s.F[n]*s.F[m]*P[finPair.idx]*2;
                     }
                 }
             }
@@ -200,23 +201,17 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
             // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
             for (size_t init=0;  init<RATE_TBR[a][n].size(); init++){
                 for (auto& finPair : RATE_TBR[a][n][init]){
-                    Pdot[finPair.idx] += finPair.val*s.F[n]*s.F[n]*P[init];
-                    Pdot[init] -= finPair.val*s.F[n]*s.F[n]*P[finPair.idx];
+                    Pdot[init] += finPair.val*s.F[n]*s.F[n]*P[finPair.idx];
+                    Pdot[finPair.idx] -= finPair.val*s.F[n]*s.F[n]*P[finPair.idx];
                 }
             }
         }
 
         // compute the dfdt vector
 
-        // s.F.apply_Q_eii(vec_dqdt, a, P);
+        s.F.apply_Q_eii(vec_dqdt, a, P);
 
-        // s.F.apply_Q_tbr(vec_dqdt, a, P);
-
-        // #ifdef DEBUG
-        // for (size_t i=0; i<v.size(); i++){
-        //     if (isnan(v[i]) cerr << "NaN encountered in v after applying Qtbr" <<endl;
-        // }
-        // #endif
+        s.F.apply_Q_tbr(vec_dqdt, a, P);
 
     }
 
@@ -226,7 +221,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
     //     if (isnan(v[i])) cerr << "t="<<t<<"NaN encountered in v after applying Qee" <<endl;
     // }
     // #endif
-    // sdot.F.applyDelta(vec_dqdt);
+    sdot.F.applyDelta(vec_dqdt);
 
     if (isnan(s.norm())) {
         cerr<< "NaN encountered in state!"<<endl;

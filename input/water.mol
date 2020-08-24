@@ -11,14 +11,14 @@ O 1
 #PULSE
 7140         // Photon energy in eV.
 20           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-5           // Pulse fluence in 10^4 * J/cm^2.
+50           // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
-4000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+12000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 4            // Number of threads in OpenMP.
 0.001        // [only for nonthermal] minimum free-electron energy in eV
 9000        // [only for nonthermal] maximum free-electron energy in eV
-50          // [only for nonthermal] number of free-electron grid points
+20          // [only for nonthermal] number of free-electron grid points
 
 
 #OUTPUT

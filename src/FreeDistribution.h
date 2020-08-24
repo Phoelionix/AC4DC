@@ -16,15 +16,34 @@
 #include "SplineBasis.h"
 #include "transitionrate.hpp"
 
+#define DBL_CUTOFF_TBR 1e-12
 
+struct SparseEntry
+{
+    int K;
+    int L;
+    double val;
+};
 
 // Represents a statistical distribution of electrons. Internal units are atomic units.
 class Distribution
 {
 public:
-    typedef std::vector<std::vector<double>> matrix_t;
-    typedef std::vector<std::vector< matrix_t > > Q_eii_t;
-    typedef std::vector<std::vector<std::vector<matrix_t > > > Q_tbr_t;
+    typedef std::vector<SparseEntry> tbr_sparse;
+
+    typedef std::vector<std::vector< std::vector< std::vector<double> > > > Q_eii_t;
+    // Interpretation: J^th matrix element of dQ/dt given by
+    // Q_eii[a][xi][J][K] * P^a[xi] * F[K]
+    //       ^  ^   ^  ^
+    //       |  |   Basis indices (J index for LHS, K index for RHS)
+    //       |  state within atom a
+    //       Atom
+    typedef std::vector<std::vector<std::vector<tbr_sparse> > > Q_tbr_t;
+    // Interpretation: J^th matrix element of dQ/dt given by
+    // vector<SparseEntry> &nv = Q_tbr[a][xi][J]
+    // for (auto& Q : nv){
+    //      tmp += nv.val * P^a[xi] * F[nv.K] * F[nv.L]
+    // }
 
     Distribution() {
         f.resize(size);
@@ -99,11 +118,14 @@ private:
     // double total;
     std::vector<double> f;
     static BasisSet basis;
+
+    static bool has_Qeii;  // Flags wheter Q_EII has been calculated
+    static bool has_Qtbr;  // Flags wheter Q_TBR has been calculated
     static Q_eii_t Q_EII;
     static Q_tbr_t Q_TBR;
 
     static double calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_t K);
-    static double calc_Q_tbr( const RateData::EIIdata& eii, size_t J, size_t K, size_t L){return 0;};
+    static tbr_sparse calc_Q_tbr( const RateData::InverseEIIdata& tbr, size_t J);
 
 };
 

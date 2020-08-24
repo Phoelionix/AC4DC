@@ -13,11 +13,11 @@ H 2
 500           // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
-4000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+8000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12           // Number of threads in OpenMP.
 1          // minimum free-electron energy in eV
 10000        // maximum free-electron energy in eV
-10          // number of free-electron grid points
+20          // number of free-electron grid points
 
 #OUTPUT
 4000         // Number of time steps in the output files.
