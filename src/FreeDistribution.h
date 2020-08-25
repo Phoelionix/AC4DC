@@ -16,13 +16,20 @@
 #include "SplineBasis.h"
 #include "transitionrate.hpp"
 
-#define DBL_CUTOFF_TBR 1e-12
+#define DBL_CUTOFF_TBR 1e-20
 
 struct SparseEntry
 {
     int K;
     int L;
     double val;
+    static SparseEntry Zero(){
+        SparseEntry tmp;
+        tmp.K=0;
+        tmp.L=0;
+        tmp.val=0;
+        return tmp;
+    }
 };
 
 // Represents a statistical distribution of electrons. Internal units are atomic units.
@@ -96,8 +103,8 @@ public:
     // Q functions
     // Computes the dfdt vector v based on internal f
     // e.g. dfdt v; F.calc_Qee(v);
-    void apply_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
-    void apply_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
+    void get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
+    void get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
     void apply_Qee  (Eigen::VectorXd& v) const;
 
     // Precalculators

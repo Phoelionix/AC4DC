@@ -145,6 +145,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		at_name = "input/" + at_name + ".inp";
 
 		Atomic.push_back(Input((char*)at_name.c_str(), Orbits[i], Latts[i], log));
+		// Overrides pulses found in .inp files
 		Atomic.back().Set_Pulse(omega, fluence, width);
 		Atomic.back().Set_Num_Threads(omp_threads);
 

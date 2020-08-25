@@ -109,10 +109,10 @@ void ElectronSolver::solve(){
 }
 
 void ElectronSolver::precompute_gamma_coeffs(){
-    std::cout<<"[ Rate precalc ] Beginning coefficient computation..."<<std::endl;
+    std::cout<<"[ Gamma precalc ] Beginning coefficient computation..."<<std::endl;
     size_t N = Distribution::size;
     for (size_t a = 0; a < Store.size(); a++) {
-        std::cout<<"[ Rate precalc ] Atom "<<a+1<<"/"<<Store.size()<<std::endl;
+        std::cout<<"[ Gamma precalc ] Atom "<<a+1<<"/"<<Store.size()<<std::endl;
         for (size_t n=0; n<N; n++){
 
             Distribution::Gamma_eii(RATE_EII[a][n], Store[a].EIIparams, n);
@@ -125,11 +125,11 @@ void ElectronSolver::precompute_gamma_coeffs(){
 
         }
     }
-    std::cout<<"[ Rate precalc ] Done."<<std::endl;
+    std::cout<<"[ Gamma precalc ] Done."<<std::endl;
 }
 
 ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
-    MolInp(filename, log), pf(fluence, width), Adams_BM(4) // (order Adams method)
+    MolInp(filename, log), pf(fluence, width), Adams_BM(3) // (order Adams method)
 {
     timespan_au = this->width*3;
 }
@@ -208,11 +208,8 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         }
 
         // compute the dfdt vector
-
-        s.F.apply_Q_eii(vec_dqdt, a, P);
-
-        s.F.apply_Q_tbr(vec_dqdt, a, P);
-
+        s.F.get_Q_eii(vec_dqdt, a, P);
+        // s.F.get_Q_tbr(vec_dqdt, a, P);
     }
 
     // s.F.apply_Qee(vec_dqdt); // Electron-electon repulsions

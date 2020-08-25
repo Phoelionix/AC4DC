@@ -235,6 +235,24 @@ class Plotter:
         plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
         plt.show()
 
+    def tot_charge(self):
+        ax, ax2 = self.setup_axes()
+        self.aggregate_charges()
+        Q = np.zeros(self.timeData.shape[0])
+        for a in self.atomdict:
+            loc_charge =np.sum(self.chargeData[a], axis=1)
+            ax.plot(self.timeData, loc_charge, label = a)
+            Q += loc_charge
+
+        tot_free_Q =-1*np.sum(self.freeData, axis=1)*(self.energyKnot[6]-self.energyKnot[5])
+        ax.plot(self.timeData, tot_free_Q, label = 'Free')
+        Q += tot_free_Q
+        ax.set_title("Charge state dynamics")
+        ax.plot(self.timeData, Q, label='total')
+        plt.figlegend(loc = (0.11, 0.43))
+        plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
+        plt.show()
+
 
     def plot_all_charges(self):
         for a in self.atomdict:
@@ -247,7 +265,7 @@ class Plotter:
         # into matrix of values.
         num_E = 1000
         min = self.energyKnot[0]
-        max = self.energyKnot[-1]
+        max = self.energyKnot[-4]
         Y = np.linspace(min, max, num_E)
         Z = np.zeros((num_E, self.timeData.shape[0]), dtype=np.float64)
         for t in range(self.freeData.shape[0]):

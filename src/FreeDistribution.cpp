@@ -24,20 +24,21 @@ void Distribution::set_elec_points(size_t n, double min_e, double max_e){
 }
 
 // Adds Q_eii to the parent Distribution
-void Distribution::apply_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const {
+void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const {
     assert(has_Qeii);
+    assert(P.size() == Q_EII[a].size());
     for (int xi=0; xi<P.size(); xi++){
         // Loop over configurations that P refers to
         for (int J=0; J<size; J++){
             for (int K=0; K<size; K++){
-                v[J] += P[xi]*f[K]*Q_EII[a][xi][J][K];
+                v[J] += P[xi]*f[K]*Q_EII[a][xi][J][K]*1e-6;
             }
         }
     }
 }
 
 // Adds Q_tbr to the parent Distribution
-void Distribution::apply_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) const {
+void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) const {
     assert(has_Qtbr);
     for (int eta=0; eta<P.size(); eta++){
         // Loop over configurations that P refers to
@@ -135,22 +136,30 @@ double Distribution::norm() const{
 
 // Resizes containers and fills them with the appropriate values
 void Distribution::precompute_Q_coeffs(vector<RateData::Atom>& Store){
+    std::cout<<"[ Q precalc ] Beginning coefficient computation..."<<std::endl;
     Q_EII.resize(state_type::num_atoms());
     Q_TBR.resize(state_type::num_atoms());
     for (size_t a=0; a<state_type::num_atoms(); a++){
+        std::cout<<"[ Q precalc ] Atom "<<a+1<<"/"<<Store.size()<<std::endl;
         Q_EII[a].resize(state_type::P_size(a));
         Q_TBR[a].resize(state_type::P_size(a));
         for (size_t eta=0; eta<state_type::P_size(a); eta++){
             Q_EII[a][eta].resize(size);
             Q_TBR[a][eta].resize(size);
             for (auto& QaJ : Q_EII[a][eta]){
-                    QaJ.resize(size);
+                    QaJ.resize(size, 0);
+            }
+            for (auto& QaJ : Q_TBR[a][eta]){
+                    QaJ.resize(0); // thse are the sparse lists
             }
         }
         // NOTE: length of EII vector is generally shorter than length of P
         // (usually by 1 or 2, so dense matrices are fine)
 
+        #pragma omp parallel
+        #pragma omp for
         for (size_t J=0; J<size; J++){
+            std::cout<<"[ Q precalc ] thread "<<omp_get_thread_num()<<std::endl;
             for (size_t K=0; K<size; K++){
                 for (auto& eii : Store[a].EIIparams){
                     Q_EII[a][eii.init][J][K] = calc_Q_eii(eii, J, K);
@@ -181,6 +190,7 @@ void Distribution::precompute_Q_coeffs(vector<RateData::Atom>& Store){
         }
     }
     #endif
+    std::cout<<"[ Q precalc ] Done."<<std::endl;
     has_Qeii = true;
 }
 
@@ -271,13 +281,13 @@ double Distribution::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_t 
             }
             retval += gaussW_10[j]*basis(J, e)*tmp;
         }
-        // RHS part
+        // RHS part, 'missing' factor of 2 is incorporated into definition ofsigma
         retval *= (bJ-aJ)/2;
         retval *= (bK-aK)/2;
         double tmp=0;
         for (int k=0; k<10; k++){
             double e = gaussX_10[k]*(bK-aK)/2 + (aK+bK)/2;
-            tmp += pow(e, 0.5)*basis(K, e)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+            tmp += pow(e, 0.5)*basis(J, e)*basis(K, e)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
         }
         tmp *= (bK-aK)/2;
         retval -= tmp;
@@ -353,9 +363,6 @@ Distribution::tbr_sparse Distribution::calc_Q_tbr( const RateData::InverseEIIdat
         }
     }
     has_Qtbr = true;
-    #ifdef DEBUG
-    std::cerr<<"[ DEBUG ] Squashed "<<size*size<<" to "<<num_nonzero<<std::endl;
-    #endif
     return retval;
 }
 
