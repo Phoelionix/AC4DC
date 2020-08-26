@@ -561,16 +561,6 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 	}
 	config_out.close();
 
-	#ifdef DEBUG
-	for (size_t n=0; n<Store.EIIparams.size(); n++){
-		RateData::EIIdata r = Store.EIIparams[n];
-		std::cout<<"[ DEBUG ] EII, init="<<r.init<<std::endl;
-		for (size_t i = 0; i < r.fin.size(); i++) {
-			std::cout<<r.fin[i]<<" "<<r.ionB[i]<<" "<<r.kin[i]<<" "<<r.occ[i]<<std::endl;
-		}
-	}
-	#endif
-
  	return Store;
 }
 
