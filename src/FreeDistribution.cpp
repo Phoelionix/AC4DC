@@ -159,7 +159,7 @@ void Distribution::precompute_Q_coeffs(vector<RateData::Atom>& Store){
         #pragma omp parallel
         #pragma omp for
         for (size_t J=0; J<size; J++){
-            std::cout<<"[ Q precalc ] thread "<<omp_get_thread_num()<<std::endl;
+            std::cout<<"[ Q precalc ] "<<J<<"/"<<size<<" thread "<<omp_get_thread_num()<<std::endl;
             for (size_t K=0; K<size; K++){
                 for (auto& eii : Store[a].EIIparams){
                     Q_EII[a][eii.init][J][K] = calc_Q_eii(eii, J, K);

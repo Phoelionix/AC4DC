@@ -235,14 +235,16 @@ class Plotter:
         plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
         plt.show()
 
-    def tot_charge(self):
+    def plot_tot_charge(self):
         ax, ax2 = self.setup_axes()
         self.aggregate_charges()
         Q = np.zeros(self.timeData.shape[0])
         for a in self.atomdict:
-            loc_charge =np.sum(self.chargeData[a], axis=1)
-            ax.plot(self.timeData, loc_charge, label = a)
-            Q += loc_charge
+            atomic_charge = np.zeros(self.timeData.shape[0])
+            for i in range(self.chargeData[a].shape[1]):
+                atomic_charge += self.chargeData[a][:,i]*i
+            ax.plot(self.timeData, atomic_charge, label = a)
+            Q += atomic_charge
 
         tot_free_Q =-1*np.sum(self.freeData, axis=1)*(self.energyKnot[6]-self.energyKnot[5])
         ax.plot(self.timeData, tot_free_Q, label = 'Free')
@@ -300,4 +302,6 @@ class Plotter:
 
 
 pl = Plotter(sys.argv[1])
-#pl.plot_free()
+pl.plot_free()
+pl.plot_all_charges()
+pl.plot_tot_charge()
