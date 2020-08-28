@@ -15,7 +15,6 @@
 class state_type
 {
 public:
-
     std::vector<bound_t> atomP; // Probabilities of state for all atoms.
     Distribution F; // Energy distribution function
 

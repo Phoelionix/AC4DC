@@ -90,6 +90,8 @@ namespace CustomDataType
 	};
 }
 
+typedef std::vector<double> bound_t;
+
 namespace RateData {
 
 	struct EIIdata
@@ -111,8 +113,8 @@ namespace RateData {
 
 	struct InverseEIIdata
 	{
-		int fin;
-		vector<int> init;
+		int fin; // final index
+		vector<int> init; // initial index
 
 		vector<int> occ; // occupancy of state
 		vector<float> ionB; // ion binding energy
@@ -126,6 +128,8 @@ namespace RateData {
 		}
 	};
 
+	// Reorganises a EIIData tree by final index rather than initial
+    // Used for Q_TBR
 	vector<InverseEIIdata> inverse(const vector<EIIdata>& eiiVec);
 
 	struct Rate

@@ -4,9 +4,12 @@
 
 
 namespace BSpline{
-    // Template voodoo stolen from stackexchange
+    // Template voodoo
+    // Direct implemetation of expressions given on
+    // https://web.mit.edu/hyperbook/Patrikalakis-Maekawa-Cho/node16.html
+    // Computes the kth order B-spline via de Boor recursion.
     template <unsigned k>
-    double BSpline(double x, double *t)
+    double BSpline(double x, const double *t)
     {
         if (*t <= x && x < *(t+k))
         {
@@ -22,7 +25,7 @@ namespace BSpline{
     }
 
     template <>
-    double BSpline<1>(double x, double *t)
+    double BSpline<1>(double x, const double *t)
     {
         if (*t <= x && x < *(t+1))
             return 1.;
@@ -30,6 +33,27 @@ namespace BSpline{
             return 0.;
     }
 
+    template <unsigned k>
+    double DBSpline(double x, const double* t)
+    {
+        if (*t <= x && x < *(t+k))
+        {
+            double a=0;
+            double h = *(t+k-1)-*t;
+            a += (fabs(h) > 1e-16) ? BSpline<k-1>(x, t) * (k - 1) / h : 0;
+            h = (*(t+k) - *(t+1));
+            a -= (fabs(h) > 1e-16) ? BSpline<k-1>(x, (t+1)) * (k - 1) / h : 0;
+            return a;
+        }
+        else
+            return 0;
+    }
+
+    template <>
+    double DBSpline<1>(double x, const double *t)
+    {
+        return 0.;
+    }
 };
 
 // Sets up the B-spline knot to have the appropriate shape (respecting boundary conditions)
@@ -87,14 +111,14 @@ Eigen::VectorXd BasisSet::Sinv(const Eigen::VectorXd& deltaf){
     return linsolver.solve(deltaf);
 }
 
-double BasisSet::operator()(size_t i, double x){
+double BasisSet::operator()(size_t i, double x) const{
     assert(i < num_funcs);
     // Returns the i^th B-spline of order BSPLINE_ORDER
     return BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
 }
 
 
-double BasisSet::overlap(size_t j,size_t i){
+double BasisSet::overlap(size_t j,size_t i) const{
     if (j<i){
         int s = i;
         i=j;

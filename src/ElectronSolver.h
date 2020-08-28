@@ -51,8 +51,8 @@ private:
     PhotonFlux pf;
 
     // arrays computed at class initialisation
-    vector<vector<GammaType::eiiGraph> > RATE_EII;
-    vector<vector<GammaType::eiiGraph> > RATE_TBR;
+    vector<vector<eiiGraph> > RATE_EII;
+    vector<vector<eiiGraph> > RATE_TBR;
 
     void get_energy_bounds(double& max, double& min);
     void precompute_gamma_coeffs(); // populates above two tensors

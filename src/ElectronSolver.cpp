@@ -4,7 +4,7 @@
 #include <fstream>
 #include <sys/stat.h>
 #include <algorithm>
-#include "transitionrate.hpp"
+#include "SplineIntegral.h"
 #include <eigen3/Eigen/SparseCore>
 #include <eigen3/Eigen/Dense>
 #include <chrono>
