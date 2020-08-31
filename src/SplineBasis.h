@@ -25,8 +25,8 @@ public:
         return knot[i];
     }
     size_t num_funcs;
-    const static int BSPLINE_ORDER =4; // Cubics should be fine, increase if needed
-private:
+    const static int BSPLINE_ORDER =2; // Cubics should be fine, increase if needed
+protected:
     // Eigen::PartialPivLU<Eigen::MatrixXd > linsolver;
     Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int> >  linsolver;
     std::vector<double> knot;

@@ -1,7 +1,7 @@
 // Molecular hydrogen
 
 #ATOMS
-H 2
+He 2
 
 #VOLUME
 12      // Volume per molecule in Angstrom^3.
@@ -10,14 +10,14 @@ H 2
 #PULSE
 8000         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-10           // Pulse fluence in 10^4 * J/cm^2.
+1000           // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
 4000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12           // Number of threads in OpenMP.
 100          // minimum free-electron energy in eV
 20000        // maximum free-electron energy in eV
-10          // number of free-electron grid points
+15          // number of free-electron grid points
 
 #OUTPUT
 400         // Number of time steps in the output files.

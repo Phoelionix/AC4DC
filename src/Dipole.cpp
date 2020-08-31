@@ -1,6 +1,7 @@
 #include "Dipole.h"
 #include <cmath>
 #include "Constant.h"
+#include <cassert>
 
 double Dipole::sigmaBEB(double T, double B, double u, int occ)
 {
@@ -40,6 +41,7 @@ double Dipole::sigmaBEBw1(double T, double B, double u, int occ)
 // sigma(T) = \int_0^{(T-B)/2} dsigma(W | T)/dW dW
 double Dipole::DsigmaBEB(double T, double W, double B, double u, int occ)
 {
+	assert(W <= T - B); // energy conservation
 	// T - impactor electron energy.
 	// W - ejected electron energy.
 	// B - binding energy.

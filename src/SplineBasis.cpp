@@ -117,16 +117,12 @@ double BasisSet::operator()(size_t i, double x) const{
     return BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
 }
 
-
 double BasisSet::overlap(size_t j,size_t i) const{
-    if (j<i){
-        int s = i;
-        i=j;
-        j=s;
-    }// j >= i
-    if (j-i>=BSPLINE_ORDER) return 0;
-    double b = supp_max(j);
-    double a = supp_min(i);
+    int diff = j;
+    diff -= i;
+    double b = min(supp_max(i), supp_max(j));
+    double a = max(supp_min(i), supp_min(j));
+    if (a >= b) return 0;
     double tmp=0;
     for (int m=0; m<10; m++){
         double e = gaussX_10[m]*(b-a)/2 + (b+a)/2;

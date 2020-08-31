@@ -17,7 +17,7 @@ Ne 1000
 12           // Number of threads in OpenMP.
 10          // [only for nonthermal] minimum free-electron energy in eV
 8000        // [only for nonthermal] maximum free-electron energy in eV
-100          // [only for nonthermal] number of free-electron grid points
+25          // [only for nonthermal] number of free-electron grid points
 
 #OUTPUT
 4000         // Number of time steps in the output files.

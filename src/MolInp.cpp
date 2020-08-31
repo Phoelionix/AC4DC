@@ -107,6 +107,18 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 4) stream >> num_elec_points;
 
 	}
+	cout<<"================================"<<endl;
+	cout<<"Unit cell size: "<<unit_V<<"A^3"<<endl;
+	cout<<"Droplet radius: "<<radius<<"A"<<endl<<endl;
+
+	cout<<"Photon energy: "<<omega<<" eV"<<endl;
+	cout<<"Pulse fluence: "<<fluence*10000<<"J/cm^2"<<endl;
+	cout<<"Pulse FWHM: "<<width<<"fs"<<endl<<endl;
+
+	cout<<"Electron grid: "<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
+	cout<<"               "<<num_elec_points<<" points"<<endl;
+
+	cout<<"================================"<<endl;
 
 	// Convert to number of photon flux.
 	omega /= Constant::eV_per_Ha;
@@ -119,16 +131,6 @@ MolInp::MolInp(const char* filename, ofstream & log)
 
 	min_elec_e /= Constant::eV_per_Ha;
 	max_elec_e /= Constant::eV_per_Ha;
-
-	if (omega < 0) throw std::runtime_error("Missing omega");
-	if (fluence < 0) throw std::runtime_error("Missing fluence");
-	if (width < 0) throw std::runtime_error("Missing pulse width");
-	if (radius < 0) throw std::runtime_error("Missing droplet radius");
-	if (unit_V < 0) throw std::runtime_error("Missing molecular volume");
-	if (min_elec_e < 0 || max_elec_e <0) throw std::runtime_error("Missing electron energy bounds");
-	if (num_elec_points <0) throw std::runtime_error("Missing number of electron points");
-	if (num_time_steps <0)throw std::runtime_error("Missing number of timesteps");
-	// if (out_T_size <0) throw std::runtime_error("Missing number of T points to output");
 
 
 	for (int i = 0; i < num_atoms; i++) {

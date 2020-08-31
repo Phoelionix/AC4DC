@@ -36,6 +36,7 @@ i = 1
 for symbol in ATOMS:
     ATOMNO[symbol] = i
     i += 1
+ATOMNO['forbidden_O'] = 8
 
 class Plotter:
     # Initialistation: Plotter(water)
@@ -92,7 +93,7 @@ class Plotter:
         self.mol['mtime'] = path.getmtime(self.mol['infile'])
 
     def rerun_ac4dc(self):
-        cmd = self.p+'/bin/rates '+self.mol['infile']
+        cmd = self.p+'/bin/ac4dc2 '+self.mol['infile']
         print("Running: ", cmd)
         subprocess.run(cmd, shell=True, check=True)
 
@@ -248,6 +249,7 @@ class Plotter:
 
         tot_free_Q =-1*np.sum(self.freeData, axis=1)*(self.energyKnot[6]-self.energyKnot[5])
         ax.plot(self.timeData, tot_free_Q, label = 'Free')
+        print(tot_free_Q/Q)
         Q += tot_free_Q
         ax.set_title("Charge state dynamics")
         ax.plot(self.timeData, Q, label='total')
@@ -271,7 +273,7 @@ class Plotter:
         Y = np.linspace(min, max, num_E)
         Z = np.zeros((num_E, self.timeData.shape[0]), dtype=np.float64)
         for t in range(self.freeData.shape[0]):
-            inter = BSpline(self.energyKnot, self.freeData[t,:], 3)
+            inter = BSpline(self.energyKnot, self.freeData[t,:], 1)
             Z[:,t] = inter(Y)
         # trim Z to remove spurious negative values
         if cut:
@@ -302,6 +304,4 @@ class Plotter:
 
 
 pl = Plotter(sys.argv[1])
-pl.plot_free()
 pl.plot_all_charges()
-pl.plot_tot_charge()

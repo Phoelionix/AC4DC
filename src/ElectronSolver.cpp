@@ -39,6 +39,12 @@ void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname){
     f.close();
 }
 
+ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
+    MolInp(filename, log), pf(fluence, width), Adams_BM(2) // (order Adams method)
+{
+    timespan_au = this->width*3;
+}
+
 state_type ElectronSolver::get_ground_state() {
     state_type initial_condition;
     assert(initial_condition.atomP.size() == Store.size());
@@ -128,12 +134,6 @@ void ElectronSolver::precompute_gamma_coeffs(){
     std::cout<<"[ Gamma precalc ] Done."<<std::endl;
 }
 
-ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
-    MolInp(filename, log), pf(fluence, width), Adams_BM(3) // (order Adams method)
-{
-    timespan_au = this->width*3;
-}
-
 
 // The Big One: Incorporates all of the right hand side to the global
 // d/dt P[i] = \sum_i=1^N W_ij - W_ji P[j]
@@ -156,7 +156,8 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
             // W.coeffRef(r.to, r.from) += r.val*J;
             Pdot[r.to] += r.val*J*P[r.from];
             Pdot[r.from] -= r.val*J*P[r.from];
-            Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
+            sdot.F.addDeltaSpike(r.energy, r.val*J*P[r.from]);
+            // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
 
         // FLUORESCENCE
@@ -172,7 +173,8 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
             // W.coeffRef(r.to, r.from) += r.val;
             Pdot[r.to] += r.val*P[r.from];
             Pdot[r.from] -= r.val*P[r.from];
-            Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
+            sdot.F.addDeltaSpike(r.energy, r.val*P[r.from]);
+            // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
         }
 
         // EII / TBR bound-state dynamics
@@ -184,6 +186,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
                     Pdot[init] -= finPair.val*s.F[n]*P[init];
                 }
             }
+            /*
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
             // Note that RATE_TBR has the same geometry as EIIdata, so indices must be swapped.
             for (size_t m=n+1; m<N; m++){
@@ -204,12 +207,12 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
                     Pdot[init] += finPair.val*s.F[n]*s.F[n]*P[finPair.idx];
                     Pdot[finPair.idx] -= finPair.val*s.F[n]*s.F[n]*P[finPair.idx];
                 }
-            }
+            }*/
         }
 
         // compute the dfdt vector
         s.F.get_Q_eii(vec_dqdt, a, P);
-        s.F.get_Q_tbr(vec_dqdt, a, P);
+        // s.F.get_Q_tbr(vec_dqdt, a, P);
     }
 
     // s.F.apply_Qee(vec_dqdt); // Electron-electon repulsions

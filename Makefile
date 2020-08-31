@@ -37,13 +37,14 @@ test: $(TESTS)
 	@mkdir -p bin/tests tmp testOutput
 	@echo " Compiling tests/abm_verif.cpp "
 	$(CPP) -g -std=c++11 tests/abm_verif.cpp $(TINC) -o bin/tests/abm_verif
-	$(CPP) -g -std=c++11 tests/integral_verif.cpp src/RateSystem.cpp src/FreeDistribution.cpp src/Dipole.cpp $(TINC) -o bin/tests/integral_verif
+	$(CPP) -g tests/binsearch.cpp -o bin/tests/binsearch
+	# $(CPP) -g -std=c++11 tests/integral_verif.cpp src/RateSystem.cpp src/FreeDistribution.cpp src/Dipole.cpp $(TINC) -o bin/tests/integral_verif
 
 debug: all
 release: all
 
 scrub:
-	$(RM) build/FreeDistribution.o build/ElectronSolver.o build/SplineBasis.o
+	$(RM) build/FreeDistribution.o build/ElectronSolver.o build/SplineBasis.o build/SplineIntegral.o
 
 clean:
 	@echo " Cleaning...";

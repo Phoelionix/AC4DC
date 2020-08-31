@@ -89,14 +89,9 @@ std::string Distribution::get_energies_eV(){
     return ss.str();
 }
 
-
-// size_t Distribution::i_from_e(double e){
-//     // performs a binary search for the basis func with the biggest peak
-//     long i = 0;
-//     if (i < 0) return 0;
-//     if (i >= size) return size-i;
-//     return i;
-// }
+void Distribution::addDeltaSpike(double e, double N){
+    f[basis.i_from_e(e)] += N/basis.area(basis.i_from_e(e));
+}
 
 void Distribution::applyDelta(const Eigen::VectorXd& v){
     Eigen::VectorXd u(size);
@@ -108,7 +103,6 @@ void Distribution::applyDelta(const Eigen::VectorXd& v){
 
 void Distribution::addDeltaLike(Eigen::VectorXd& v, double e, double height){
     assert(e>basis.supp_min(0));
-
     for (int i=0; i<size; i++){
         v[i] += basis(i, e) * height;
     }
@@ -137,7 +131,7 @@ void Distribution::precompute_Q_coeffs(vector<RateData::Atom>& Store){
 
 ostream& operator<<(ostream& os, const Distribution& dist){
     for (size_t i= 0; i < Distribution::size; i++) {
-        os<<" "<<dist[i];
+        os<<" "<<dist[i]/Constant::eV_per_Ha;
     }
     return os;
 }

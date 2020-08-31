@@ -195,7 +195,7 @@ void Adams_BM<T>::iterate(double t_initial, double t_final){
         step_rk4(n);
     }
 
-    // Run those steps, with some rudimentary error control
+    // Run those steps
     std::cout << "[ sim ]                       ";
     for (size_t n = order; n < npoints-1; n++) {
         std::cout << "\r[ sim ] t="

@@ -74,6 +74,7 @@ public:
     void apply_Qee  (Eigen::VectorXd& v) const;
     // N is the Number density (inverse au^3) of particles to be added at energy e.
     static void addDeltaLike(Eigen::VectorXd& v, double e, double N);
+    void addDeltaSpike(double e, double N);
 
     // Precalculators
     static void Gamma_eii( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J);
