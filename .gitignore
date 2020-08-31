@@ -4,4 +4,7 @@ bin/*
 .DS_Store
 .o
 output
-Makefile
+.err
+.tags
+tmp
+testOutput

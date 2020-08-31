@@ -1,19 +1,27 @@
 #include "ElectronSolver.h"
 #include "HartreeFock.h"
-#include "RateEquationSolver.h"
+#include "ComputeRateParam.h"
 #include <fstream>
 #include <sys/stat.h>
 #include <algorithm>
+#include "SplineIntegral.h"
+#include <eigen3/Eigen/SparseCore>
+#include <eigen3/Eigen/Dense>
+#include <chrono>
+#include <ctime>
+#include <math.h>
+
 
 void PhotonFlux::set_parameters(double fluence, double fwhm){
     // The photon flux model
-    // Gaussian model A e^-t^2/B
+    // Gaussian model A e^{-t^2/B}
+    cout<<"[ Flux ] fluence="<<fluence<<", fwhm="<<fwhm<<endl;
     B = fwhm*fwhm/(4*0.6931471806); // f^2/4ln(2)
     A = fluence/pow(Constant::Pi*B,0.5);
 }
 
 inline double PhotonFlux::operator()(double t){
-    // Returns flux at time t
+    // Returns flux at time t (same units as fluence)
     return A*exp(-t*t/B);
 }
 
@@ -21,170 +29,225 @@ void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname){
     ofstream f;
     cout << "[ Flux ] Saving to file "<<fname<<"..."<<endl;
     f.open(fname);
-    f << "# Free electron dynamics"<<endl;
-    f << "# Time (fs) | Intensity [ UNITS ] " <<endl;
+    f << "# Time (fs) | Flux (pht/cm2/s)" <<endl;
     for (auto& t : Tvec){
-        f << t << " "<< this->operator()(t)<<std::endl;
+        f << t*Constant::fs_per_au << " ";
+        double intensity = (*this)(t)*1e15;
+        intensity /= Constant::fs_per_au*Constant::cm_per_au*Constant::cm_per_au;
+        f << intensity <<std::endl;
     }
     f.close();
 }
 
-Weight::Weight(size_t _size){
-    size = _size;
-    W = (double *) malloc(sizeof(double)*size*size); // allocate the memory
-    std::fill(W, W+size*size, 0);
-}
-
-Weight::~Weight(){
-    free(W);
-}
-
-double Weight::from(size_t idx){
-    double x=0;
-    for (size_t i = 0; i < size; i++) {
-        x += operator()(i, idx);
-    }
-    return x;
-}
-
-double Weight::to(size_t idx){
-    double x=0;
-    for (size_t i = 0; i < size; i++) {
-        x += operator()(idx, i);
-    }
-    return x;
-}
-
 ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
-    MolInp(filename, log), pf(width, 100000*fluence)
+    MolInp(filename, log), pf(fluence, width), Adams_BM(2) // (order Adams method)
 {
-    timespan = this->width*10;
+    timespan_au = this->width*3;
 }
 
 state_type ElectronSolver::get_ground_state() {
     state_type initial_condition;
-    initial_condition = 0; // May not be necessary, but probably not a bad idea.
     assert(initial_condition.atomP.size() == Store.size());
     for (size_t a=0; a<Store.size(); a++) {
         initial_condition.atomP[a][0] = Store[a].nAtoms;
+        for(size_t i=1; i<initial_condition.atomP.size(); i++){
+            initial_condition.atomP[a][i] = 0.;
+        }
     }
+    initial_condition.F=0;
+    std::cout<<"[ Rate Solver ] initial condition:"<<std::endl;
+    std::cout<<"[ Rate Solver ] "<<initial_condition<<std::endl;
     return initial_condition;
 }
+
+void ElectronSolver::get_energy_bounds(double& max, double& min){
+    max = 0;
+    min = 1e9;
+    for(auto& atom : Store){
+        for(auto& r : atom.Photo){
+            if (r.energy > max) max=r.energy;
+            if (r.energy < min) min=r.energy;
+        }
+        for(auto& r : atom.Auger){
+            if (r.energy > max) max=r.energy;
+            if (r.energy < min) min=r.energy;
+        }
+    }
+}
+
 
 void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
     this->calc_rates(_log, recalc);
     hasRates = true;
+    // override max/min elec e
 
     // Set up the container class to have the correct size
     Distribution::set_elec_points(num_elec_points, min_elec_e, max_elec_e);
     state_type::set_P_shape(this->Store);
     // Set up the rate equations (setup called from parent Adams_BM)
-    this->setup(get_ground_state(), this->timespan/num_time_steps);
-    cout<<"Using timestep "<<this->dt<<" fs"<<endl;
-};
+    this->setup(get_ground_state(), this->timespan_au/num_time_steps, 5e-3);
+    // create the tensor of coefficients
+    RATE_EII.resize(Store.size());
+    RATE_TBR.resize(Store.size());
+    for (size_t a=0; a<Store.size(); a++){
+        RATE_EII[a].resize(num_elec_points);
+        RATE_TBR[a].resize(num_elec_points*(num_elec_points+1)/2);
+    }
+    precompute_gamma_coeffs();
+    Distribution::precompute_Q_coeffs(Store);
+}
 
 void ElectronSolver::solve(){
-    if (!hasRates) {
-        std::cerr <<
-"No rates have been loaded into the solver. \
-Use ElectronSolver::compute_cross_sections(log)\n" << endl;
-        return;
+    cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<endl;
+    assert (hasRates || "No rates found! Use ElectronSolver::compute_cross_sections(log)\n");
+    auto start = std::chrono::system_clock::now();
+
+    this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
+
+    auto end = chrono::system_clock::now();
+    chrono::duration<double> elapsed_seconds = end-start;
+    time_t end_time = std::chrono::system_clock::to_time_t(end);
+
+    cout << "[ Solver ] finished computation at " << ctime(&end_time) << endl;
+    long secs = elapsed_seconds.count();
+    cout<<"[ Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << endl;
+
+}
+
+void ElectronSolver::precompute_gamma_coeffs(){
+    std::cout<<"[ Gamma precalc ] Beginning coefficient computation..."<<std::endl;
+    size_t N = Distribution::size;
+    for (size_t a = 0; a < Store.size(); a++) {
+        std::cout<<"[ Gamma precalc ] Atom "<<a+1<<"/"<<Store.size()<<std::endl;
+        for (size_t n=0; n<N; n++){
+
+            Distribution::Gamma_eii(RATE_EII[a][n], Store[a].EIIparams, n);
+            for (size_t m=n+1; m<N; m++){
+                size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
+                // k = N... N(N+1)/2
+                Distribution::Gamma_tbr(RATE_TBR[a][k], Store[a].EIIparams, n, m);
+            }
+            Distribution::Gamma_tbr(RATE_TBR[a][n], Store[a].EIIparams, n, n);
+
+        }
     }
-    bool converged = false;
-    // TODO: repeat this until convergence.
-    this->iterate(-timespan/2, this->num_time_steps); // Inherited from ABM
+    std::cout<<"[ Gamma precalc ] Done."<<std::endl;
 }
 
 
 // The Big One: Incorporates all of the right hand side to the global
 // d/dt P[i] = \sum_i=1^N W_ij - W_ji P[j]
 // d/dt f = Q_B[f](t)
+// system
 void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
-    for (size_t a = 0; a < s.atomP.size(); a++) {
+    sdot=0;
+    vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
+    #ifndef NDEBUG
+    if (!good_state) return;
+    #endif
 
-        // create an appropriately-sized W[i][j]
-        Weight W(s.atomP[a].size());
+    for (size_t a = 0; a < s.atomP.size(); a++) {
+        const bound_t& P = s.atomP[a];
+        bound_t& Pdot = sdot.atomP[a];
 
         // PHOTOIONISATION
         double J = pf(t); // photon flux in uhhhhh [TODO: UNITS]
         for ( auto& r : Store[a].Photo) {
-            W(r.to, r.from) += r.val*J;
-            sdot.F.addDeltaLike(r.energy, r.val*J);
+            // W.coeffRef(r.to, r.from) += r.val*J;
+            Pdot[r.to] += r.val*J*P[r.from];
+            Pdot[r.from] -= r.val*J*P[r.from];
+            sdot.F.addDeltaSpike(r.energy, r.val*J*P[r.from]);
+            // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
 
         // FLUORESCENCE
         for ( auto& r : Store[a].Fluor) {
-            W(r.to, r.from) += r.val;
+            // W.coeffRef(r.to, r.from) += r.val;
+            Pdot[r.to] += r.val*P[r.from];
+            Pdot[r.from] -= r.val*P[r.from];
             // Energy from optical photon assumed lost
         }
 
         // AUGER
         for ( auto& r : Store[a].Auger) {
-            W(r.to, r.from) += r.val;
-            sdot.F.addDeltaLike(r.energy, r.val);
+            // W.coeffRef(r.to, r.from) += r.val;
+            Pdot[r.to] += r.val*P[r.from];
+            Pdot[r.from] -= r.val*P[r.from];
+            sdot.F.addDeltaSpike(r.energy, r.val*P[r.from]);
+            // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
         }
 
-        // EII / TBR
-        for ( auto& ep : Store[a].EIIparams) {
-            for (size_t i = 0; i < ep.fin.size(); i++) {
-                // Number of Electrons
-                // INTEGRAL 0 infty n_a/2 (2e/m) de/m  f(e) sigmaBEB(e)
-                // n_a num atoms
-                double n, dN;
-                n = Store[a].nAtoms;
-                dN  = n*(s.F.eii_int(ep, i) + n*s.F.tbr_int(ep, i));
-                W(ep.fin[i], i) += dN;
-
+        // EII / TBR bound-state dynamics
+        size_t N = Distribution::size;
+        for (size_t n=0; n<N; n++){
+            for (size_t init=0;  init<RATE_EII[a][n].size(); init++){
+                for (auto& finPair : RATE_EII[a][n][init]){
+                    Pdot[finPair.idx] += finPair.val*s.F[n]*P[init];
+                    Pdot[init] -= finPair.val*s.F[n]*P[init];
+                }
             }
+            /*
+            // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
+            // Note that RATE_TBR has the same geometry as EIIdata, so indices must be swapped.
+            for (size_t m=n+1; m<N; m++){
+                size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
+                // k = N... N(N+1)/2-1
+                // W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
+                for (size_t init=0;  init<RATE_TBR[a][k].size(); init++){
+                    for (auto& finPair : RATE_TBR[a][k][init]){
+                        Pdot[init] += finPair.val*s.F[n]*s.F[m]*P[finPair.idx]*2;
+                        Pdot[finPair.idx] -= finPair.val*s.F[n]*s.F[m]*P[finPair.idx]*2;
+                    }
+                }
+            }
+            // the diagonal
+            // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
+            for (size_t init=0;  init<RATE_TBR[a][n].size(); init++){
+                for (auto& finPair : RATE_TBR[a][n][init]){
+                    Pdot[init] += finPair.val*s.F[n]*s.F[n]*P[finPair.idx];
+                    Pdot[finPair.idx] -= finPair.val*s.F[n]*s.F[n]*P[finPair.idx];
+                }
+            }*/
         }
 
-
-        const state_type::bound_t& P = s.atomP[a];
-        state_type::bound_t& Pdot = sdot.atomP[a];
-
-        // Compute the changes in P
-        for (size_t i = 0; i < P.size(); i++) {
-            Pdot[i] = 0;
-            for (size_t j = 0; j < i; j++) {
-                Pdot[i] += W(i, j) * P[j] - W(j, i) * P[i];
-            }
-            // Avoid j=i
-            for (size_t j = i+1; j < P.size(); j++) {
-                Pdot[i] += W(i, j) * P[j] - W(j, i) * P[i];
-            }
-        }
-
-
+        // compute the dfdt vector
+        s.F.get_Q_eii(vec_dqdt, a, P);
+        // s.F.get_Q_tbr(vec_dqdt, a, P);
     }
+
+    // s.F.apply_Qee(vec_dqdt); // Electron-electon repulsions
+    // #ifdef DEBUG
+    // for (size_t i=0; i<v.size(); i++){
+    //     if (isnan(v[i])) cerr << "t="<<t<<"NaN encountered in v after applying Qee" <<endl;
+    // }
+    // #endif
+    sdot.F.applyDelta(vec_dqdt);
+
+    if (isnan(s.norm())) {
+        cerr<< "NaN encountered in state!"<<endl;
+        cerr<< "t = "<<t<<"au = "<<t*Constant::fs_per_au<<"fs"<<endl;
+        cerr<< s <<endl;
+        good_state = false;
+    }
+    else if (isnan(sdot.norm())){
+        cerr<< "NaN encountered in state derivative!"<<endl;
+        cerr<< "t = "<<t<<"au = "<<t*Constant::fs_per_au<<"fs"<<endl;
+        cerr<< sdot <<endl;
+        good_state = false;
+    }
+
 }
 
 // IO functions
-void ElectronSolver::save(const std::string& _dir, bool saveSeparate){
+void ElectronSolver::save(const std::string& _dir){
     string dir = _dir; // make a copy of the const value
     dir = (dir.back() == '/') ? dir : dir + "/";
 
-    if (saveSeparate){
-        saveFree(dir+"freeDist.csv");
-        saveBound(dir);
-    } else {
-        saveCombined(dir+"dist.csv");
-    }
+    saveFree(dir+"freeDist.csv");
+    saveBound(dir);
+
     pf.save(this->t,dir+"intensity.csv");
 
-}
-
-// Writes free and atomic dynamics to single file fname
-void ElectronSolver::saveCombined(const std::string& fname){
-    ofstream f;
-    cout << "[ All ] Saving to file "<<fname<<"..."<<endl;
-    f.open(fname);
-    f << "# Electron dynamics"<<endl;
-    f << "# Time (fs) [ bound1 | bound2 | bound3 ] free" <<endl;
-    assert(y.size() == t.size());
-    for (int i=0; i<y.size(); i++){
-        f<<t[i]<<" "<<y[i]<<endl;
-    }
-    f.close();
 }
 
 void ElectronSolver::saveFree(const std::string& fname){
@@ -193,19 +256,12 @@ void ElectronSolver::saveFree(const std::string& fname){
     cout << "[ Free ] Saving to file "<<fname<<"..."<<endl;
     f.open(fname);
     f << "# Free electron dynamics"<<endl;
-    f << "# Time (fs) | Density [ UNITS ] @ energy:" <<endl;
-    f << "#           | ";
-    for (int i=0; i<num_elec_points; i++) {
-        f<<Distribution::grid[i]<<" ";
-    }
-    f<<endl;
+    f << "# Time (fs) | Density @ energy (eV):" <<endl;
+    f << "#           | "<<Distribution::get_energies_eV()<<endl;
+
     assert(y.size() == t.size());
     for (int i=0; i<y.size(); i++){
-        f<<t[i];
-        for (size_t j = 0; j < Distribution::size; j++) {
-            f<<" "<<y[i].F[j];
-        }
-        f<<endl;
+        f<<t[i]*Constant::fs_per_au<<y[i].F<<endl;
     }
     f.close();
 }
@@ -221,7 +277,7 @@ void ElectronSolver::saveBound(const std::string& dir){
         f.open(fname);
         f << "# Ionic electron dynamics"<<endl;
         f << "# Time (fs) | State occupancy (Probability times number of atoms)" <<endl;
-        f << "#           | States: ";
+        f << "#           | ";
         // Index, Max_occ inherited from MolInp
         for (auto& cfgname : Store[a].index_names){
             f << cfgname << " ";
@@ -231,11 +287,7 @@ void ElectronSolver::saveBound(const std::string& dir){
         for (size_t i=0; i<y.size(); i++){
             // Make sure all "natom-dimensioned" objects are the size expected
             assert(Store.size() == y[i].atomP.size());
-            f<<t[i];
-            for (auto& state_prob : y[i].atomP[a]) {
-                f<<" "<<state_prob;
-            }
-            f<<endl;
+            f<<t[i]*Constant::fs_per_au << ' ' << y[i].atomP[a]<<endl;
         }
         f.close();
     }

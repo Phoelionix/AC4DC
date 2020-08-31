@@ -3,9 +3,10 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <stdexcept>
 #include <map>
 #include "HartreeFock.h"
-#include "RateEquationSolver.h"
+#include "ComputeRateParam.h"
 
 
 MolInp::MolInp(const char* filename, ofstream & log)
@@ -25,6 +26,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
         std::cout<<"Success!"<<endl;
     else {
         std::cerr<<"Failed."<<endl;
+		exit(EXIT_FAILURE); // chuck a hissy fit and quit.
         return;
     }
 	string comment = "//";
@@ -100,28 +102,36 @@ MolInp::MolInp(const char* filename, ofstream & log)
 
 		if (n == 0) stream >> num_time_steps;
 		if (n == 1) stream >> omp_threads;
-		// Optional parameters to flag use of non-thermal plasma
-		if (n == 2) {
-			string tmp;
-			stream >> tmp;
-			if (tmp == "nonthermal "){
-				use_thermal_plasma = false;
-				std::cout << "Nonthermal plasma selected..." << std::endl;
-			}
-		}
-		if (n == 3) stream >> min_elec_e;
-		if (n == 4) stream >> max_elec_e;
-		if (n == 5) stream >> num_elec_points;
+		if (n == 2) stream >> min_elec_e;
+		if (n == 3) stream >> max_elec_e;
+		if (n == 4) stream >> num_elec_points;
 
 	}
+	cout<<"================================"<<endl;
+	cout<<"Unit cell size: "<<unit_V<<"A^3"<<endl;
+	cout<<"Droplet radius: "<<radius<<"A"<<endl<<endl;
 
-  // Convert to number of photon flux.
-  fluence /= omega/Constant::eV_in_au;
-	radius /= Constant::au_in_Angs;
-	unit_V /= Constant::au_in_Angs*Constant::au_in_Angs*Constant::au_in_Angs;
+	cout<<"Photon energy: "<<omega<<" eV"<<endl;
+	cout<<"Pulse fluence: "<<fluence*10000<<"J/cm^2"<<endl;
+	cout<<"Pulse FWHM: "<<width<<"fs"<<endl<<endl;
 
-	min_elec_e /= Constant::eV_in_au;
-	max_elec_e /= Constant::eV_in_au;
+	cout<<"Electron grid: "<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
+	cout<<"               "<<num_elec_points<<" points"<<endl;
+
+	cout<<"================================"<<endl;
+
+	// Convert to number of photon flux.
+	omega /= Constant::eV_per_Ha;
+	fluence *= 10000/Constant::Jcm2_per_Haa02/omega;
+
+	// Convert to atomic units.
+	width /= Constant::fs_per_au;
+	radius /= Constant::Angs_per_au;
+	unit_V /= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
+
+	min_elec_e /= Constant::eV_per_Ha;
+	max_elec_e /= Constant::eV_per_Ha;
+
 
 	for (int i = 0; i < num_atoms; i++) {
 		string at_name;
@@ -137,6 +147,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		at_name = "input/" + at_name + ".inp";
 
 		Atomic.push_back(Input((char*)at_name.c_str(), Orbits[i], Latts[i], log));
+		// Overrides pulses found in .inp files
 		Atomic.back().Set_Pulse(omega, fluence, width);
 		Atomic.back().Set_Num_Threads(omp_threads);
 
@@ -153,7 +164,7 @@ void MolInp::calc_rates(ofstream &_log, bool recalc){
 		HartreeFock HF(Latts[a], Orbits[a], Pots[a], Atomic[a], _log);
 
 		// This Computes the parameters for the rate equations to use, loading them into Init.
-		RateEquationSolver Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], false);
+		ComputeRateParam Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], recalc);
 		vector<int> final_occ(Orbits[a].size(), 0);
 		vector<int> max_occ(Orbits[a].size(), 0);
 		for (int i = 0; i < max_occ.size(); i++) {

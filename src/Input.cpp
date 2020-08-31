@@ -33,7 +33,13 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 
 	cout << "Opening atomic file "<< filename << "...";
 	ifstream infile(filename);
-	cout << "... Success!" << endl;
+	if (infile.good())
+        std::cout<<"Success!"<<endl;
+    else {
+        std::cerr<<"Failed."<<endl;
+		exit(EXIT_FAILURE); // chuck a hissy fit and quit.
+        return;
+    }
 
 	map<string, vector<string>> FileContent;
 	string comment = "//";
@@ -129,7 +135,8 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 
 	Grid lattice(num_grid_pts, r_min/Z, r_box, 4);
 	Lattice = lattice;
-	fluence /= omega/Constant::eV_in_au;
+	omega /= Constant::eV_per_Ha;
+	fluence *= 10000/omega/Constant::Jcm2_per_Haa02;
 }
 
 Input::Input(const Input & Other)

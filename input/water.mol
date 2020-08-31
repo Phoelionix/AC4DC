@@ -1,0 +1,28 @@
+// Water droplet with 35 nm radius.
+
+#ATOMS
+H 2
+O 1
+
+#VOLUME
+29.9         // Volume per molecule in Angstrom^3.
+350          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+
+#PULSE
+7140         // Photon energy in eV.
+20           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+50           // Pulse fluence in 10^4 * J/cm^2.
+
+#NUMERICAL
+12000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+4            // Number of threads in OpenMP.
+0.001        // [only for nonthermal] minimum free-electron energy in eV
+9000        // [only for nonthermal] maximum free-electron energy in eV
+20          // [only for nonthermal] number of free-electron grid points
+
+
+#OUTPUT
+5000         // Number of time steps in the output files.
+Y            // Write atomic charges in a separate file (Y/N)?
+Y            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?

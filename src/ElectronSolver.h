@@ -11,8 +11,7 @@ This file should arguably be called RateEquationSOlver, however, for historical 
 #include "MolInp.h"
 #include "Input.h"
 #include <iostream>
-
-
+#include <stdexcept>
 
 // using namespace boost::numeric::odeint;
 
@@ -30,54 +29,50 @@ public:
         set_parameters(fluence, fwhm);
     };
     void set_parameters(double, double);
-    inline double operator()(double t); // Yields Photon flux in J/cm^2
+    inline double operator()(double t); // Yields Photon flux in same units as A
     void save(const vector<double>& T, const std::string& file);
 private:
     double A;
     double B;
 };
 
-// W_ij for the rate equaitons
-class Weight
-{
-public:
-    Weight(size_t size);
-    ~Weight();
-    double* W;
-    double from(size_t idx); // returns summed transition rate away from supplied index
-    double to(size_t idx); // returns summed transition rate towards supplied index
-    double& operator()(size_t to, size_t from){
-        assert(from >= 0 && from<size);
-        assert(to >= 0 && to<size);
-        return W[to*size + from];
-    }
-protected:
-    size_t size;
-};
 
-
-class ElectronSolver : private MolInp, private Adams_BM<state_type>
+class ElectronSolver : private MolInp, private ode::Adams_BM<state_type>
 {
 public:
     ElectronSolver(const char* filename, std::ofstream& log);
     void solve();
-    void save(const std::string& folder, bool save_in_seperate_files=true);
+    void save(const std::string& folder);
     // Expose the underlying MolInp command
     void compute_cross_sections(std::ofstream& _log, bool recalc=true);
 private:
-    double timespan;
+    double timespan_au; // Atomic units
     // Model parameters
     PhotonFlux pf;
-    void set_flux(double fluence_in_Jcm2);
+
+    // arrays computed at class initialisation
+    vector<vector<eiiGraph> > RATE_EII;
+    vector<vector<eiiGraph> > RATE_TBR;
+
+    void get_energy_bounds(double& max, double& min);
+    void precompute_gamma_coeffs(); // populates above two tensors
+    void set_flux(double Jcm2_per_Haa02);
     void set_initial_conditions();
+    // Components of sys that can be preallocated
+    Eigen::VectorXd vec_dqdt;
+    // vector<double> total_from; // accumulates total loss-per-unit-P from state [xi]
+    // vector<double> total_gain; // accumulates total gain for state [xi]
+
+
     void sys(const state_type& s, state_type& sdot, const double t);
     bool hasRates = false; // flags whether Store has been populated yet.
-    void saveCombined(const std::string& file);
     void saveFree(const std::string& file);
     void saveBound(const std::string& folder);
     state_type get_ground_state();
-};
 
+
+    bool good_state = true;
+};
 
 
 #endif /* end of include guard: SYS_SOLVER_CXX_H */

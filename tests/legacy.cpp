@@ -1,7 +1,7 @@
 // Contains random commented-out snippets of code for future reference, should they be needed.
 
 /*
-int RateEquationSolver::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
+int ComputeRateParam::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
 {
 	// Solves system of rate equations exactly.
 	// Final_occ defines the lowest possible occupancies for the initiall orbital.

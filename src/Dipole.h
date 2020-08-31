@@ -8,9 +8,9 @@ namespace Dipole
 	// p_s - secondary electron momentum
 	// B - ionization potential
 	// occ - orbitals occupancy
-	double DsigmaBEB(double T, double W, double B, double t, int occ);
+	double DsigmaBEB(double T, double W, double B, double u, int occ);
 	double sigmaBEB(double T, double B, double u, int occ);
-	// Int_0^(p*p/2 - B) dW W d(sigmaBED)/dW - first moment of a secondary electron energy.
+	// Int_0^(T - B) dW W d(sigmaBED)/dW - total energy absorbance
 	double sigmaBEBw1(double T, double B, double u, int occ);
 };
 
