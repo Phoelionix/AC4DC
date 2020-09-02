@@ -14,9 +14,9 @@ SRCEXT := cpp
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT) )
 
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
-CXXFLAGS := -std=c++11 -fopenmp -g
+CXXFLAGS := -std=c++11 -fopenmp
 
-debug: CXXFLAGS += -DDEBUG
+debug: CXXFLAGS += -DDEBUG -g
 release: CXXFLAGS += -O3 -DNDEBUG
 
 # For tests:
@@ -38,7 +38,8 @@ test: $(TESTS)
 	@echo " Compiling tests/abm_verif.cpp "
 	$(CPP) -g -std=c++11 tests/abm_verif.cpp $(TINC) -o bin/tests/abm_verif
 	$(CPP) -g tests/binsearch.cpp -o bin/tests/binsearch
-	# $(CPP) -g -std=c++11 tests/integral_verif.cpp src/RateSystem.cpp src/FreeDistribution.cpp src/Dipole.cpp $(TINC) -o bin/tests/integral_verif
+	$(CPP) -g tests/spline_check.cpp src/SplineBasis.cpp $(TINC) -o bin/tests/splinecheck
+	#  $(CPP) -g -std=c++11 tests/integral_verif.cpp src/RateSystem.cpp src/FreeDistribution.cpp src/Dipole.cpp $(TINC) -o bin/tests/integral_verif
 
 debug: all
 release: all

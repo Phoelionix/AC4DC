@@ -1,60 +1,8 @@
 #include "SplineBasis.h"
 #include <assert.h>
 #include "Constant.h"
+#include "BSpline.h"
 
-
-namespace BSpline{
-    // Template voodoo
-    // Direct implemetation of expressions given on
-    // https://web.mit.edu/hyperbook/Patrikalakis-Maekawa-Cho/node16.html
-    // Computes the kth order B-spline via de Boor recursion.
-    template <unsigned k>
-    double BSpline(double x, const double *t)
-    {
-        if (*t <= x && x < *(t+k))
-        {
-            double a=0;
-            double h = *(t+k-1)-*t;
-            a += (fabs(h) > 1e-16) ? BSpline<k-1>(x, t) * (x - *t) / h : 0;
-            h = (*(t+k) - *(t+1));
-            a += (fabs(h) > 1e-16) ? BSpline<k-1>(x, (t+1)) * (*(t+k) - x) / h : 0;
-            return a;
-        }
-        else
-            return 0;
-    }
-
-    template <>
-    double BSpline<1>(double x, const double *t)
-    {
-        if (*t <= x && x < *(t+1))
-            return 1.;
-        else
-            return 0.;
-    }
-
-    template <unsigned k>
-    double DBSpline(double x, const double* t)
-    {
-        if (*t <= x && x < *(t+k))
-        {
-            double a=0;
-            double h = *(t+k-1)-*t;
-            a += (fabs(h) > 1e-16) ? BSpline<k-1>(x, t) * (k - 1) / h : 0;
-            h = (*(t+k) - *(t+1));
-            a -= (fabs(h) > 1e-16) ? BSpline<k-1>(x, (t+1)) * (k - 1) / h : 0;
-            return a;
-        }
-        else
-            return 0;
-    }
-
-    template <>
-    double DBSpline<1>(double x, const double *t)
-    {
-        return 0.;
-    }
-};
 
 // Sets up the B-spline knot to have the appropriate shape (respecting boundary conditions)
 void BasisSet::set_parameters(size_t n, double min, double max) {
@@ -76,8 +24,8 @@ void BasisSet::set_parameters(size_t n, double min, double max) {
     double A_sqrt = (max - min)/(n-1)/(n-1);
     double A_lin = (max - min)/(n-1);
     for(int i=BSPLINE_ORDER; i<n+BSPLINE_ORDER; i++){
-        // knot[i] = min + A_sqrt*i*i; // square root spacing
-        knot[i] = min + A_lin*i; // linear spacing
+        knot[i] = min + A_sqrt*i*i; // square root spacing
+        // knot[i] = min + A_lin*i; // linear spacing
     }
     // Compute overlap matrix
     Eigen::SparseMatrix<double> S(num_funcs, num_funcs);
@@ -95,6 +43,8 @@ void BasisSet::set_parameters(size_t n, double min, double max) {
         S.insert(i,i) = overlap(i,i);
         // S(i,i) = overlap(i,i);
     }
+    std::cerr<<"Overlap matrix:"<<std::endl;
+    std::cerr<<S<<std::endl;
     // Compute the decomposition
     // linsolver.compute(S);
     linsolver.analyzePattern(S);

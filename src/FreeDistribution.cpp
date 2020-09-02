@@ -21,6 +21,8 @@ void Distribution::set_elec_points(size_t n, double min_e, double max_e){
 void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const {
     assert(basis.has_Qeii());
     assert(P.size() == basis.Q_EII[a].size());
+    assert(v.size() == size);
+    double dq =0;
     for (int xi=0; xi<P.size(); xi++){
         // Loop over configurations that P refers to
         for (int J=0; J<size; J++){

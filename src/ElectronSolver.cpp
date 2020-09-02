@@ -141,10 +141,10 @@ void ElectronSolver::precompute_gamma_coeffs(){
 // system
 void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
     sdot=0;
-    vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
-    #ifndef NDEBUG
+     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
+
     if (!good_state) return;
-    #endif
+
 
     for (size_t a = 0; a < s.atomP.size(); a++) {
         const bound_t& P = s.atomP[a];
@@ -156,8 +156,8 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
             // W.coeffRef(r.to, r.from) += r.val*J;
             Pdot[r.to] += r.val*J*P[r.from];
             Pdot[r.from] -= r.val*J*P[r.from];
-            sdot.F.addDeltaSpike(r.energy, r.val*J*P[r.from]);
-            // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
+            // sdot.F.addDeltaSpike(r.energy, r.val*J*P[r.from]);
+            Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
 
         // FLUORESCENCE
@@ -173,9 +173,11 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
             // W.coeffRef(r.to, r.from) += r.val;
             Pdot[r.to] += r.val*P[r.from];
             Pdot[r.from] -= r.val*P[r.from];
-            sdot.F.addDeltaSpike(r.energy, r.val*P[r.from]);
-            // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
+            // sdot.F.addDeltaSpike(r.energy, r.val*P[r.from]);
+            Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
         }
+
+        double dq =0; // verification: Keeps track of the sum of charges
 
         // EII / TBR bound-state dynamics
         size_t N = Distribution::size;
@@ -184,6 +186,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
                 for (auto& finPair : RATE_EII[a][n][init]){
                     Pdot[finPair.idx] += finPair.val*s.F[n]*P[init];
                     Pdot[init] -= finPair.val*s.F[n]*P[init];
+                    dq += finPair.val*s.F[n]*P[init];
                 }
             }
             /*
@@ -210,17 +213,17 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
             }*/
         }
 
+        std::cerr<<"[ DEBUG ] dq+-> "<< dq<<" ";
+
         // compute the dfdt vector
         s.F.get_Q_eii(vec_dqdt, a, P);
         // s.F.get_Q_tbr(vec_dqdt, a, P);
     }
 
     // s.F.apply_Qee(vec_dqdt); // Electron-electon repulsions
-    // #ifdef DEBUG
-    // for (size_t i=0; i<v.size(); i++){
-    //     if (isnan(v[i])) cerr << "t="<<t<<"NaN encountered in v after applying Qee" <<endl;
-    // }
-    // #endif
+
+
+
     sdot.F.applyDelta(vec_dqdt);
 
     if (isnan(s.norm())) {

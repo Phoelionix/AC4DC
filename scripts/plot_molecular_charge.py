@@ -273,7 +273,7 @@ class Plotter:
         Y = np.linspace(min, max, num_E)
         Z = np.zeros((num_E, self.timeData.shape[0]), dtype=np.float64)
         for t in range(self.freeData.shape[0]):
-            inter = BSpline(self.energyKnot, self.freeData[t,:], 1)
+            inter = BSpline(self.energyKnot, self.freeData[t,:], 0)
             Z[:,t] = inter(Y)
         # trim Z to remove spurious negative values
         if cut:
@@ -304,4 +304,4 @@ class Plotter:
 
 
 pl = Plotter(sys.argv[1])
-pl.plot_all_charges()
+pl.plot_tot_charge()

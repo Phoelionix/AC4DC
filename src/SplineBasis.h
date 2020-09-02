@@ -9,7 +9,7 @@
 class BasisSet{
 public:
     BasisSet(){};
-    void set_parameters(size_t n, double min, double max);
+    void set_parameters(size_t nfuncs, double min, double max);
     Eigen::VectorXd Sinv(const Eigen::VectorXd& deltaf);
     double operator()(size_t i, double x) const;
     inline double supp_max(unsigned i) const{
@@ -25,7 +25,7 @@ public:
         return knot[i];
     }
     size_t num_funcs;
-    const static int BSPLINE_ORDER =2; // Cubics should be fine, increase if needed
+    const static int BSPLINE_ORDER =3; // 1 = rectangles, 2=linear, 3=quadratic
 protected:
     // Eigen::PartialPivLU<Eigen::MatrixXd > linsolver;
     Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int> >  linsolver;

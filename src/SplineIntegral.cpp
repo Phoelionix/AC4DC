@@ -110,6 +110,8 @@ void SplineIntegral::Gamma_eii(eiiGraph& Gamma, const std::vector<RateData::EIId
         // index on this vector refers to final states
         std::vector<SparsePair> gamma_vec(0);
         for (size_t eta = 0; eta < eii.fin.size(); eta++) {
+            double e = this->knot[K];
+
             double a = this->supp_min(K);
             double b = this->supp_max(K);
             double tmp=0;
@@ -118,7 +120,13 @@ void SplineIntegral::Gamma_eii(eiiGraph& Gamma, const std::vector<RateData::EIId
                 tmp += gaussW_10[i]* (*this)(K, e)*pow(e,0.5)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
             }
             tmp *= (b-a)/2;
-            tmp *= 4*Constant::Pi*1.4142; // Electron mass = 1 in atomic units
+            tmp *= 1.4142; // Electron mass = 1 in atomic units
+
+            // double tmp = this->knot[K+1]-this->knot[K];
+            // assert(this->supp_min(K) == this->knot[K]);
+            // assert(this->supp_max(K) == this->knot[K+1]);
+            // tmp *= pow(e,0.5) * Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+            // tmp *= 1.4142135624;
             SparsePair rate(eii.fin[eta], tmp);
             gamma_vec.push_back(rate);
         }
@@ -200,11 +208,26 @@ double SplineIntegral::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_
             double e = gaussX_10[k]*(max_JK-min_JK)/2 + (min_JK+max_JK)/2;
             tmp += pow(e, 0.5)*(*this)(J, e)*(*this)(K, e)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
         }
-        tmp *= (max_JK-min_JK)/2;
+        tmp *= (max_JK-min_JK)*(max_JK-min_JK)/4;
         retval -= tmp;
     }
 
     retval *= 1.4142135624;
+
+/*
+    double retval=0;
+    double de = knot[J+1] - knot[J];
+    double dep = knot[K+1] - knot[K];
+    double e = pow(knot[J+1]*knot[J+1] + knot[J]*knot[J],0.5);
+    double ep = pow(knot[K+1]*knot[K+1] + knot[K]*knot[K],0.5);
+    // Sum over all transitions to eta values
+    for (size_t eta = 0; eta<eii.fin.size(); eta++) {
+        //                              Dsigma(e | ep)
+        if (e <= ep - eii.ionB[eta]) retval += pow(ep, 0.5)*Dipole::DsigmaBEB(ep, e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+        if (J == K) retval -= 0.5*pow(e,0.5)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+    }
+    retval *= pow(2,0.5)*dep*de;
+*/
     return retval;
 }
 
