@@ -37,7 +37,7 @@ private:
 };
 
 
-class ElectronSolver : private MolInp, private ode::Adams_BM<state_type>
+class ElectronSolver : private ode::Adams_BM<state_type>
 {
 public:
     ElectronSolver(const char* filename, std::ofstream& log);
@@ -46,6 +46,7 @@ public:
     // Expose the underlying MolInp command
     void compute_cross_sections(std::ofstream& _log, bool recalc=true);
 private:
+    MolInp input_params;
     double timespan_au; // Atomic units
     // Model parameters
     PhotonFlux pf;

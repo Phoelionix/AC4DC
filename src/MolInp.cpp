@@ -74,15 +74,16 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		char tmp;
 
 		if (n == 0) stream >> out_T_size;
-		if (n == 1) {
+		if (n == 1) stream >> out_F_size;
+		if (n == 2) {
 			stream >> tmp;
 			if (tmp == 'Y') write_charges = true;
 		}
-		if (n == 2) {
+		if (n == 3) {
 			stream >> tmp;
 			if (tmp == 'Y') write_intensity = true;
 		}
-		if (n == 3) {
+		if (n == 4) {
 			stream >> tmp;
 			if (tmp != 'Y') write_md_data = false;
 		}

@@ -164,7 +164,6 @@ void RateIO::WriteRates(const string& fname, const vector<RateData::Rate>& rates
 
 void RateIO::WriteEIIParams(const string& fname, const vector<RateData::EIIdata>& rates){
 	FILE * fl = safe_fopen(fname.c_str(), "w");
-	fprintf(fl, "# EII PARAMETERS\n[\n");
 	for (auto&R : rates){
 		fprintf(fl, "'configuration %d': {\n", R.init);
 		// This will iterate in order of the inits anyway, so no need to explicitly store them

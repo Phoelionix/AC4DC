@@ -3,9 +3,15 @@
 #include "Constant.h"
 #include "BSpline.h"
 
-
 // Sets up the B-spline knot to have the appropriate shape (respecting boundary conditions)
-void BasisSet::set_parameters(size_t n, double min, double max) {
+void BasisSet::set_parameters(size_t n, double min, double max, int zero_degree) {
+    // zero_degree: The number of derivatives to set to zero: 0 = open conditions, 1=impose f(0)=0, 2=impose f(0)=f'(0) =0
+    // n: the number of Bsplins to use in the basis
+    // min: minimum energy
+    // max: maximum energy
+    this->_min = min;
+    this->_max = max;
+
     num_funcs = n;
     // Idea: Want n usable B-splines
     // If grid has n+k+1 points, n of these are usable splines
@@ -16,14 +22,17 @@ void BasisSet::set_parameters(size_t n, double min, double max) {
     // Neumann boundary:
     // t0=t1=...=tk-3, tn+3=...=tn+k
     knot.resize(n+BSPLINE_ORDER);
-    // open boundary at minimm energy
-    for (int i=0; i<BSPLINE_ORDER; i++){
+    // boundary at minimm energy enforces
+
+    for (int i=0; i<BSPLINE_ORDER-zero_degree; i++){
         knot[i] = min;
     }
+
+
     // all derivatives vanish at "infinity": no special treatment
     double A_sqrt = (max - min)/(n-1)/(n-1);
     double A_lin = (max - min)/(n-1);
-    for(int i=BSPLINE_ORDER; i<n+BSPLINE_ORDER; i++){
+    for(int i=BSPLINE_ORDER-zero_degree; i<n+BSPLINE_ORDER; i++){
         knot[i] = min + A_sqrt*i*i; // square root spacing
         // knot[i] = min + A_lin*i; // linear spacing
     }

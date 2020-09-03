@@ -36,10 +36,11 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
 test: $(TESTS)
 	@mkdir -p bin/tests tmp testOutput
 	@echo " Compiling tests/abm_verif.cpp "
-	$(CPP) -g -std=c++11 tests/abm_verif.cpp $(TINC) -o bin/tests/abm_verif
-	$(CPP) -g tests/binsearch.cpp -o bin/tests/binsearch
-	$(CPP) -g tests/spline_check.cpp src/SplineBasis.cpp $(TINC) -o bin/tests/splinecheck
-	#  $(CPP) -g -std=c++11 tests/integral_verif.cpp src/RateSystem.cpp src/FreeDistribution.cpp src/Dipole.cpp $(TINC) -o bin/tests/integral_verif
+	# $(CPP) -g -std=c++11 tests/abm_verif.cpp $(TINC) -o bin/tests/abm_verif
+	# $(CPP) -g tests/binsearch.cpp -o bin/tests/binsearch
+	# $(CPP) -g tests/spline_check.cpp src/SplineBasis.cpp $(TINC) -o bin/tests/splinecheck
+	# $(CPP) -g -std=c++11 tests/q_ee.cpp src/RateSystem.cpp src/FreeDistribution.cpp src/SplineIntegral.cpp src/SplineBasis.cpp src/Dipole.cpp $(TINC) -o bin/tests/q_ee
+	$(CPP) -g $(CXXFLAGS) tests/q_eii.cpp src/Constant.cpp src/FreeDistribution.cpp src/SplineIntegral.cpp src/SplineBasis.cpp src/Dipole.cpp $(TINC) -o bin/tests/q_eii
 
 debug: all
 release: all

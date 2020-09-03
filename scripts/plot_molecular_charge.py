@@ -262,38 +262,12 @@ class Plotter:
         for a in self.atomdict:
             self.plot_charges(a)
 
-    def plot_free(self, cut=False):
+    def plot_free(self):
         fig.clf()
         # Need to turn freeData (matrix of BSpline coeffs)
         # freeeData [t, c]
         # into matrix of values.
-        num_E = 1000
-        min = self.energyKnot[0]
-        max = self.energyKnot[-4]
-        Y = np.linspace(min, max, num_E)
-        Z = np.zeros((num_E, self.timeData.shape[0]), dtype=np.float64)
-        for t in range(self.freeData.shape[0]):
-            inter = BSpline(self.energyKnot, self.freeData[t,:], 0)
-            Z[:,t] = inter(Y)
-        # trim Z to remove spurious negative values
-        if cut:
-            Z = np.ma.masked_where(Z < 0, Z)
-
-        plt.contourf(self.timeData, Y, Z, cmap='RdGy')
-        plt.title("Free electron energy distribution")
-        plt.ylabel("Energy (eV)")
-        plt.xlabel("Time, fs")
-        plt.show()
-        plt.colorbar()
-
-    def plot_free_raw(self):
-        fig.clf()
-        # Need to turn freeData (matrix of BSpline coeffs)
-        # freeeData [t, c]
-        # into matrix of values.
-        num_E = self.freeData.shape[1]
-        Y = np.linspace(0, 1, num_E)
-        plt.contourf(self.timeData, Y, self.freeData.T, cmap='RdGy')
+        plt.contourf(self.timeData, self.energyKnot, self.freeData.T, cmap='RdGy')
         plt.title("Free electron energy distribution")
         plt.ylabel("Energy (eV)")
         plt.xlabel("Time, fs")

@@ -80,17 +80,23 @@ public:
     static void Gamma_eii( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J);
     static void Gamma_tbr( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J, size_t K);
 
-    static std::string get_energies_eV();
+    static std::string output_energies_eV(size_t num_pts);
+    std::string output_densities(size_t num_pts);
+
+    double operator()(double e);
 
     // The setup function
     static void set_elec_points(size_t n, double min_e, double max_e);
     static void precompute_Q_coeffs(vector<RateData::Atom>& Store);
     static size_t size;
+    static SplineIntegral basis;
 private:
     // double total;
     std::vector<double> f;
-    static SplineIntegral basis;
+    // static SplineIntegral basis;
 
 };
+
+ostream& operator<<(ostream& os, const Distribution& dist);
 
 #endif /* end of include guard: RATESYSTEM_CXX_H */

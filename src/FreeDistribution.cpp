@@ -72,9 +72,10 @@ void Distribution::set_maxwellian(double N, double T){
         double b = basis.supp_max(i);
         for (int j=0; j<10; j++){
             double e = (b-a)/2 *gaussX_10[j] + (a+b)/2;
-            double x = N*gaussW_10[j]*exp(-e/T)*basis(i, e)*4*Constant::Pi*pow(2*e, 0.5)*pow(2*Constant::Pi*T,-1.5);
-            v[i] += (b-a)/2 * x;
+            v[i] +=  gaussW_10[j]*exp(-e/T)*basis(i, e)*pow(e,0.5);;
         }
+        v[i] *= (b-a)/2;
+        v[i] *= N*pow(T, -1.5)*2/pow(Constant::Pi,0.5);
     }
     Eigen::VectorXd u = this->basis.Sinv(v);
     for (size_t i=0; i<size; i++){
@@ -83,12 +84,37 @@ void Distribution::set_maxwellian(double N, double T){
 }
 
 // Returns energies in eV
-std::string Distribution::get_energies_eV(){
+std::string Distribution::output_energies_eV(size_t num_pts){
     std::stringstream ss;
-    for (int i=0; i<basis.gridlen(); i++){
-        ss << basis.grid(i)*Constant::eV_per_Ha<<" ";
+    double e = basis.min_elec_e();
+    double de = (basis.max_elec_e() - e)/(num_pts-1);
+    for (int i=0; i<num_pts; i++){
+        e += de;
+        ss << e*Constant::eV_per_Ha<<" ";
+    }
+    // for (int i=0; i<basis.gridlen(); i++){
+    //     ss << basis.grid(i)*Constant::eV_per_Ha<<" ";
+    // }
+    return ss.str();
+}
+
+std::string Distribution::output_densities(size_t num_pts){
+    std::stringstream ss;
+    double e = basis.min_elec_e();
+    double de = (basis.max_elec_e() - e)/(num_pts-1);
+    for (int i=0; i<num_pts; i++){
+        e += de;
+        ss << (*this)(e)/Constant::eV_per_Ha<<" ";
     }
     return ss.str();
+}
+
+double Distribution::operator()(double e){
+    double tmp;
+    for (size_t j = 0; j < size; j++) {
+        tmp += basis(j, e)*f[j];
+    }
+    return tmp;
 }
 
 void Distribution::addDeltaSpike(double e, double N){
@@ -129,6 +155,7 @@ void Distribution::Gamma_tbr( eiiGraph& Gamma, const std::vector<RateData::EIIda
 void Distribution::precompute_Q_coeffs(vector<RateData::Atom>& Store){
     basis.precompute_Q_coeffs(Store);
 }
+
 
 
 ostream& operator<<(ostream& os, const Distribution& dist){

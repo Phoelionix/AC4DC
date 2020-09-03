@@ -40,16 +40,16 @@ void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname){
 }
 
 ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
-    MolInp(filename, log), pf(fluence, width), Adams_BM(2) // (order Adams method)
+    input_params(filename, log), pf(input_params.Fluence(), input_params.Width()), Adams_BM(2) // (order Adams method)
 {
-    timespan_au = this->width*3;
+    timespan_au = input_params.Width()*3;
 }
 
 state_type ElectronSolver::get_ground_state() {
     state_type initial_condition;
-    assert(initial_condition.atomP.size() == Store.size());
-    for (size_t a=0; a<Store.size(); a++) {
-        initial_condition.atomP[a][0] = Store[a].nAtoms;
+    assert(initial_condition.atomP.size() == input_params.Store.size());
+    for (size_t a=0; a<input_params.Store.size(); a++) {
+        initial_condition.atomP[a][0] = input_params.Store[a].nAtoms;
         for(size_t i=1; i<initial_condition.atomP.size(); i++){
             initial_condition.atomP[a][i] = 0.;
         }
@@ -63,7 +63,7 @@ state_type ElectronSolver::get_ground_state() {
 void ElectronSolver::get_energy_bounds(double& max, double& min){
     max = 0;
     min = 1e9;
-    for(auto& atom : Store){
+    for(auto& atom : input_params.Store){
         for(auto& r : atom.Photo){
             if (r.energy > max) max=r.energy;
             if (r.energy < min) min=r.energy;
@@ -77,24 +77,25 @@ void ElectronSolver::get_energy_bounds(double& max, double& min){
 
 
 void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
-    this->calc_rates(_log, recalc);
+    input_params.calc_rates(_log, recalc);
     hasRates = true;
     // override max/min elec e
 
     // Set up the container class to have the correct size
-    Distribution::set_elec_points(num_elec_points, min_elec_e, max_elec_e);
-    state_type::set_P_shape(this->Store);
+    Distribution::set_elec_points(input_params.Num_Elec_Points(), input_params.Min_Elec_E(), input_params.Max_Elec_E());
+    state_type::set_P_shape(input_params.Store);
     // Set up the rate equations (setup called from parent Adams_BM)
-    this->setup(get_ground_state(), this->timespan_au/num_time_steps, 5e-3);
+    this->setup(get_ground_state(), this->timespan_au/input_params.Out_T_size(), 5e-3);
     // create the tensor of coefficients
-    RATE_EII.resize(Store.size());
-    RATE_TBR.resize(Store.size());
-    for (size_t a=0; a<Store.size(); a++){
-        RATE_EII[a].resize(num_elec_points);
-        RATE_TBR[a].resize(num_elec_points*(num_elec_points+1)/2);
+    RATE_EII.resize(input_params.Store.size());
+    RATE_TBR.resize(input_params.Store.size());
+    for (size_t a=0; a<input_params.Store.size(); a++){
+        size_t N = input_params.Num_Elec_Points();
+        RATE_EII[a].resize(N);
+        RATE_TBR[a].resize(N*(N+1)/2);
     }
     precompute_gamma_coeffs();
-    Distribution::precompute_Q_coeffs(Store);
+    Distribution::precompute_Q_coeffs(input_params.Store);
 }
 
 void ElectronSolver::solve(){
@@ -117,17 +118,17 @@ void ElectronSolver::solve(){
 void ElectronSolver::precompute_gamma_coeffs(){
     std::cout<<"[ Gamma precalc ] Beginning coefficient computation..."<<std::endl;
     size_t N = Distribution::size;
-    for (size_t a = 0; a < Store.size(); a++) {
-        std::cout<<"[ Gamma precalc ] Atom "<<a+1<<"/"<<Store.size()<<std::endl;
+    for (size_t a = 0; a < input_params.Store.size(); a++) {
+        std::cout<<"[ Gamma precalc ] Atom "<<a+1<<"/"<<input_params.Store.size()<<std::endl;
         for (size_t n=0; n<N; n++){
 
-            Distribution::Gamma_eii(RATE_EII[a][n], Store[a].EIIparams, n);
+            Distribution::Gamma_eii(RATE_EII[a][n], input_params.Store[a].EIIparams, n);
             for (size_t m=n+1; m<N; m++){
                 size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                 // k = N... N(N+1)/2
-                Distribution::Gamma_tbr(RATE_TBR[a][k], Store[a].EIIparams, n, m);
+                Distribution::Gamma_tbr(RATE_TBR[a][k], input_params.Store[a].EIIparams, n, m);
             }
-            Distribution::Gamma_tbr(RATE_TBR[a][n], Store[a].EIIparams, n, n);
+            Distribution::Gamma_tbr(RATE_TBR[a][n], input_params.Store[a].EIIparams, n, n);
 
         }
     }
@@ -151,8 +152,8 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         bound_t& Pdot = sdot.atomP[a];
 
         // PHOTOIONISATION
-        double J = pf(t); // photon flux in uhhhhh [TODO: UNITS]
-        for ( auto& r : Store[a].Photo) {
+        double J = pf(t); // photon flux in atomic units
+        for ( auto& r : input_params.Store[a].Photo) {
             // W.coeffRef(r.to, r.from) += r.val*J;
             Pdot[r.to] += r.val*J*P[r.from];
             Pdot[r.from] -= r.val*J*P[r.from];
@@ -161,7 +162,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         }
 
         // FLUORESCENCE
-        for ( auto& r : Store[a].Fluor) {
+        for ( auto& r : input_params.Store[a].Fluor) {
             // W.coeffRef(r.to, r.from) += r.val;
             Pdot[r.to] += r.val*P[r.from];
             Pdot[r.from] -= r.val*P[r.from];
@@ -169,7 +170,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         }
 
         // AUGER
-        for ( auto& r : Store[a].Auger) {
+        for ( auto& r : input_params.Store[a].Auger) {
             // W.coeffRef(r.to, r.from) += r.val;
             Pdot[r.to] += r.val*P[r.from];
             Pdot[r.from] -= r.val*P[r.from];
@@ -260,11 +261,11 @@ void ElectronSolver::saveFree(const std::string& fname){
     f.open(fname);
     f << "# Free electron dynamics"<<endl;
     f << "# Time (fs) | Density @ energy (eV):" <<endl;
-    f << "#           | "<<Distribution::get_energies_eV()<<endl;
+    f << "#           | "<<Distribution::output_energies_eV(this->input_params.Out_F_size())<<endl;
 
     assert(y.size() == t.size());
     for (int i=0; i<y.size(); i++){
-        f<<t[i]*Constant::fs_per_au<<y[i].F<<endl;
+        f<<t[i]*Constant::fs_per_au<<y[i].F.output_densities(this->input_params.Out_F_size())<<endl;
     }
     f.close();
 }
@@ -273,23 +274,23 @@ void ElectronSolver::saveBound(const std::string& dir){
     // saves a table of bound-electron dynamics , split by atom, to folder dir.
     assert(y.size() == t.size());
     // Iterate over atom types
-    for (size_t a=0; a<Store.size(); a++) {
+    for (size_t a=0; a<input_params.Store.size(); a++) {
         ofstream f;
-        string fname = dir+"dist_"+Store[a].name+".csv";
+        string fname = dir+"dist_"+input_params.Store[a].name+".csv";
         cout << "[ Atom ] Saving to file "<<fname<<"..."<<endl;
         f.open(fname);
         f << "# Ionic electron dynamics"<<endl;
         f << "# Time (fs) | State occupancy (Probability times number of atoms)" <<endl;
         f << "#           | ";
         // Index, Max_occ inherited from MolInp
-        for (auto& cfgname : Store[a].index_names){
+        for (auto& cfgname : input_params.Store[a].index_names){
             f << cfgname << " ";
         }
         f<<endl;
         // Iterate over time.
         for (size_t i=0; i<y.size(); i++){
             // Make sure all "natom-dimensioned" objects are the size expected
-            assert(Store.size() == y[i].atomP.size());
+            assert(input_params.Store.size() == y[i].atomP.size());
             f<<t[i]*Constant::fs_per_au << ' ' << y[i].atomP[a]<<endl;
         }
         f.close();
