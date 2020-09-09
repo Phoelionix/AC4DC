@@ -38,14 +38,6 @@ This file is part of AC4DC.
 // #include "Plasma.h"
 #include <utility>
 
-
-namespace RateIO {
-	bool ReadRates(const string & input, vector<RateData::Rate> & PutHere);
-	bool ReadEIIParams(const string & input, vector<RateData::EIIdata> & PutHere);
-	void WriteRates(const string& fname, const vector<RateData::Rate>& rateVector);
-	void WriteEIIParams(const string& fname, const vector<RateData::EIIdata>& eiiVector);
-};
-
 using namespace std;
 
 

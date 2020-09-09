@@ -1,6 +1,7 @@
-#include "FreeDistribution.h"
-#include "Constant.h"
 #include <iostream>
+#include "src/FreeDistribution.h"
+#include "src/Constant.h"
+
 
 using namespace std;
 
