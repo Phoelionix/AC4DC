@@ -22,6 +22,10 @@ public:
         f.resize(size);
     }
 
+    inline double& operator[](size_t n){
+        return this->f[n];
+    }
+
     inline double operator[](size_t n) const{
         return this->f[n];
     }
@@ -63,8 +67,7 @@ public:
 
     // applies the df/dt vector v to the overall distribution
     void applyDelta(const Eigen::VectorXd& dfdt);
-    // Sets the object to have a MB distribution
-    void set_maxwellian(double N, double T);
+    
 
     // Q functions
     // Computes the dfdt vector v based on internal f
@@ -74,20 +77,34 @@ public:
     void apply_Qee  (Eigen::VectorXd& v) const;
     // N is the Number density (inverse au^3) of particles to be added at energy e.
     static void addDeltaLike(Eigen::VectorXd& v, double e, double N);
-    void addDeltaSpike(double e, double N);
+    // Adds a Dirac delta to the distribution
+    void addDeltaSpike(double N, double e);
+    // Sets the object to have a MB distribution
+    void set_maxwellian(double N, double T);
 
     // Precalculators
-    static void Gamma_eii( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J);
-    static void Gamma_tbr( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J, size_t K);
+    static void Gamma_eii( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J){
+        return basis.Gamma_eii(Gamma, eii, J);
+    }
+    static void Gamma_tbr( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J, size_t K){
+        return basis.Gamma_tbr(Gamma, eii, J, K);
+    }
+    static void precompute_Q_coeffs(vector<RateData::Atom>& Store){
+        basis.precompute_Q_coeffs(Store);
+    }
+
+    double integral(double (f)(double));
 
     static std::string output_energies_eV(size_t num_pts);
-    std::string output_densities(size_t num_pts);
+    std::string output_densities(size_t num_pts) const;
 
-    double operator()(double e);
+    double operator()(double e) const;
 
     // The setup function
-    static void set_elec_points(size_t n, double min_e, double max_e);
-    static void precompute_Q_coeffs(vector<RateData::Atom>& Store);
+    static void set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style=GridSpacing::linear);
+
+
+
     static size_t size;
     static SplineIntegral basis;
 private:

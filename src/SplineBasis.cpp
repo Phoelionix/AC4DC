@@ -3,8 +3,9 @@
 #include "Constant.h"
 #include "BSpline.h"
 
+
 // Sets up the B-spline knot to have the appropriate shape (respecting boundary conditions)
-void BasisSet::set_parameters(size_t n, double min, double max, int zero_degree) {
+void BasisSet::set_parameters(size_t n, double min, double max, int zero_degree, GridSpacing gt) {
     // zero_degree: The number of derivatives to set to zero: 0 = open conditions, 1=impose f(0)=0, 2=impose f(0)=f'(0) =0
     // n: the number of Bsplins to use in the basis
     // min: minimum energy
@@ -24,17 +25,35 @@ void BasisSet::set_parameters(size_t n, double min, double max, int zero_degree)
     knot.resize(n+BSPLINE_ORDER);
     // boundary at minimm energy enforces
 
+    assert(zero_degree < BSPLINE_ORDER && "Failed to set boundary consition");
+
     for (int i=0; i<BSPLINE_ORDER-zero_degree; i++){
         knot[i] = min;
     }
 
-
     // all derivatives vanish at "infinity": no special treatment
     double A_sqrt = (max - min)/(n-1)/(n-1);
     double A_lin = (max - min)/(n-1);
+    if (gt == GridSpacing::exponential && min <= 0){
+        throw runtime_error("Cannot construct an exponential grid with zero minimum energy.");
+    }
+    double A_exp = min;
+    double lambda_exp = (log(max) - log(min))/(n-1);
     for(int i=BSPLINE_ORDER-zero_degree; i<n+BSPLINE_ORDER; i++){
-        knot[i] = min + A_sqrt*i*i; // square root spacing
-        // knot[i] = min + A_lin*i; // linear spacing
+        switch (gt)
+        {
+        case GridSpacing::linear:
+            knot[i] = min + A_lin*i; // linear spacing
+            break;
+        case GridSpacing::quadratic:
+            knot[i] = min + A_sqrt*i*i; // square root spacing
+            break;
+        case GridSpacing::exponential:
+            knot[i] = A_exp*exp(lambda_exp*i);
+            break;
+        default:
+            break;
+        }
     }
     // Compute overlap matrix
     Eigen::SparseMatrix<double> S(num_funcs, num_funcs);
@@ -52,13 +71,9 @@ void BasisSet::set_parameters(size_t n, double min, double max, int zero_degree)
         S.insert(i,i) = overlap(i,i);
         // S(i,i) = overlap(i,i);
     }
-    std::cerr<<"Overlap matrix:"<<std::endl;
-    std::cerr<<S<<std::endl;
-    // Compute the decomposition
-    // linsolver.compute(S);
+    // Precompute the LU decomposition
     linsolver.analyzePattern(S);
     linsolver.isSymmetric(true);
-    // Compute the numerical factorization
     linsolver.factorize(S);
     if(linsolver.info()!=Eigen::Success) {
         std::cerr<<"Factorisation of overlap matrix failed!"<<endl;
@@ -71,7 +86,13 @@ Eigen::VectorXd BasisSet::Sinv(const Eigen::VectorXd& deltaf){
 }
 
 double BasisSet::operator()(size_t i, double x) const{
-    assert(i < num_funcs);
+    assert(i < num_funcs && i >= 0);
+    // Returns the i^th B-spline of order BSPLINE_ORDER
+    return BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
+}
+
+double BasisSet::at(size_t i, double x) const{
+    if(i >= num_funcs || i<0) return 0;
     // Returns the i^th B-spline of order BSPLINE_ORDER
     return BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
 }

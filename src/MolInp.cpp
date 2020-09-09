@@ -95,7 +95,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 0) stream >> omega;
 		if (n == 1) stream >> width;
 		if (n == 2) stream >> fluence;
-		if (n == 3) stream >> num_time_steps;
+		// if (n == 3) stream >> num_time_steps;
 	}
 
 	for (int n = 0; n < FileContent["#NUMERICAL"].size(); n++) {
@@ -106,6 +106,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 2) stream >> min_elec_e;
 		if (n == 3) stream >> max_elec_e;
 		if (n == 4) stream >> num_elec_points;
+		if (n == 5) stream >> elec_grid_type;
 
 	}
 	cout<<"================================"<<endl;
@@ -118,7 +119,13 @@ MolInp::MolInp(const char* filename, ofstream & log)
 
 	cout<<"Electron grid: "<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
 	cout<<"               "<<num_elec_points<<" points"<<endl;
+	cout<<"Grid type: "<<elec_grid_type<<endl<<endl;
 
+	cout<<"ODE Iteration: "<<num_time_steps<<" timesteps"<<endl<<endl;
+
+	cout<<"Output parameters: "<<endl;
+	cout<<"Timesteps: "<<out_T_size<<endl;
+	cout<<"Energy points: "<<out_F_size<<endl;
 	cout<<"================================"<<endl;
 
 	// Convert to number of photon flux.
@@ -133,7 +140,13 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	min_elec_e /= Constant::eV_per_Ha;
 	max_elec_e /= Constant::eV_per_Ha;
 
-
+	// Reads the very top of the file, expecting input of the form
+	// H 2
+	// O 1
+	// Then scans for atomic files of the form 
+	// input/H.inp
+	// input/O.inp
+	// Store is then populated with the atomic data read in below.
 	for (int i = 0; i < num_atoms; i++) {
 		string at_name;
 		double at_num;
@@ -157,6 +170,30 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		Pots[i] = U;
 	}
 
+	if (!validate_inputs()){
+		cerr<<endl<<endl<<endl<<"Exiting..."<<endl;
+		throw runtime_error(".mol input file is invalid");
+	}
+}
+
+bool MolInp::validate_inputs(){
+	bool is_valid=true;
+	if (omega <= 0 ) { cerr<<"ERROR: pulse omega must be positive"; is_valid=false; }
+	if (width <= 0 ) { cerr<<"ERROR: pulse width must be positive"; is_valid=false; }
+	if (fluence <= 0 ) { cerr<<"ERROR: pulse fluence must be positive"; is_valid=false; }
+	if (num_time_steps <= 0 ) { cerr<<"ERROR: got negative number of timesteps"; is_valid=false; }
+	if (out_T_size <= 0) { cerr<<"ERROR: system set to output zero timesteps"; is_valid=false; }
+	if (out_F_size <= 0) { cerr<<"ERROR: system set to output zero energy grid points"; is_valid=false; }
+	if (radius <= 0) { cerr<<"ERROR: radius must be positive"; is_valid=false; }
+	if (omp_threads <= 0) { omp_threads = 4; cerr<<"Defaulting number of OMP threads to 4"; }
+
+	// unit volume.
+	if (unit_V <= 0) { cerr<<"ERROR: unit xell volume must be positive"; is_valid=false; }
+
+	// Electron grid style
+	if(min_elec_e < 0 || max_elec_e < 0 || max_elec_e <= min_elec_e) { cerr<<"ERROR: Electron grid specification invalid"; is_valid=false; }
+	if (num_time_steps <= 0 ) { cerr<<"ERROR: got negative number of energy steps"; is_valid=false; }
+	return is_valid;
 }
 
 void MolInp::calc_rates(ofstream &_log, bool recalc){

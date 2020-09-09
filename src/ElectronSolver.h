@@ -26,9 +26,9 @@ class PhotonFlux
 public:
     PhotonFlux(){};
     PhotonFlux(double fluence, double fwhm){
-        set_parameters(fluence, fwhm);
+        set_pulse(fluence, fwhm);
     };
-    void set_parameters(double, double);
+    void set_pulse(double, double);
     inline double operator()(double t); // Yields Photon flux in same units as A
     void save(const vector<double>& T, const std::string& file);
 private:

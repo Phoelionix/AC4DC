@@ -21,6 +21,7 @@ functions for calculations of Wigner 3j, 6j symbols, and Clebsh-Gordan coefficie
 and some data containers used througout the code. */
 #include <vector>
 #include <string>
+#include <cassert>
 using namespace std;
 
 namespace Constant
@@ -46,11 +47,11 @@ namespace Constant
 
 namespace CustomDataType
 {
-	struct photo//photoionization rate
+	struct photo //photoionisation rate
 	{
 		double val;//value of the rate in a.u.
 		int hole;//orbital with hole
-		double energy;
+		double energy; // Ha
 	};
 
 	struct fluor//fluorescence rate
@@ -109,10 +110,31 @@ namespace RateData {
 			ionB.resize(n);
 			kin.resize(n);
 		}
+
+		void push_back(int f, int o, float B, float U){
+			fin.push_back(f);
+			occ.push_back(o);
+			ionB.push_back(B);
+			kin.push_back(U);
+		}
+
+		size_t size(){
+			#ifdef DEBUG
+			assert(fin.size() == occ.size());
+			assert(fin.size() == ionB.size());
+			assert(fin.size() == kin.size());
+			#endif
+			return fin.size();
+		}
 	};
 
 	struct InverseEIIdata
 	{
+		InverseEIIdata(){};
+		InverseEIIdata(EIIdata e){
+
+		}
+		
 		int fin; // final index
 		vector<int> init; // initial index
 

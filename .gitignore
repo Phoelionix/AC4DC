@@ -8,3 +8,4 @@ output
 .tags
 tmp
 testOutput
+Makefile

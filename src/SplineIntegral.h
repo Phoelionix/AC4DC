@@ -20,6 +20,12 @@ struct SparsePair
     }
 };
 
+// Interpretation:
+// eiiGraph[xi] -> vector of transitions away from configuration xi, e.g.
+// eiiGraph[1] = [ (3, 0.33), (4,0.22)] 
+// i.e. there are two transitions away from config 1, towards configs 3 and 4
+// each corresponding to gamma values of 0.33 and 0.22
+// (these must still be multiplied by the free distribution)
 typedef std::vector<std::vector<SparsePair> > eiiGraph;
 
 struct SparseTriple
@@ -58,6 +64,9 @@ public:
     // Precalculators. These delete the vectors Gamma and populate them with the calculated coefficients.)
     void Gamma_eii( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J) const;
     void Gamma_tbr( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J, size_t K) const;
+    // overloads that take non-vectorised inputs
+    void Gamma_eii( std::vector<SparsePair>& Gamma_xi, const RateData::EIIdata& eii, size_t J) const;
+    void Gamma_tbr( std::vector<SparsePair>& Gamma_xi, const RateData::EIIdata& eii, size_t J, size_t K) const;
 
     int i_from_e(double e);
     double area(size_t idx);
@@ -67,7 +76,7 @@ public:
     bool has_Qee(){ return _has_Qee; }
     Q_eii_t Q_EII;
     Q_tbr_t Q_TBR;
-private:
+protected:
     // Computes the overlap of the J^th df/ft term with the K^th basis function in f
     double calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_t K) const;
     sparse_matrix calc_Q_tbr( const RateData::InverseEIIdata& tbr, size_t J) const;

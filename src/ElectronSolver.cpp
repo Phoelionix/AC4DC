@@ -12,7 +12,7 @@
 #include <math.h>
 
 
-void PhotonFlux::set_parameters(double fluence, double fwhm){
+void PhotonFlux::set_pulse(double fluence, double fwhm){
     // The photon flux model
     // Gaussian model A e^{-t^2/B}
     cout<<"[ Flux ] fluence="<<fluence<<", fwhm="<<fwhm<<endl;
@@ -82,7 +82,7 @@ void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
     // override max/min elec e
 
     // Set up the container class to have the correct size
-    Distribution::set_elec_points(input_params.Num_Elec_Points(), input_params.Min_Elec_E(), input_params.Max_Elec_E());
+    Distribution::set_elec_points(input_params.Num_Elec_Points(), input_params.Min_Elec_E(), input_params.Max_Elec_E(), input_params.elec_grid_type);
     state_type::set_P_shape(input_params.Store);
     // Set up the rate equations (setup called from parent Adams_BM)
     this->setup(get_ground_state(), this->timespan_au/input_params.Out_T_size(), 5e-3);
@@ -115,20 +115,24 @@ void ElectronSolver::solve(){
 
 }
 
+
+// Populates RATE_EII and RATE_TBR based on calls to Distribution::Gamma_eii/ Distribution::Gamma_tbr
+// 
 void ElectronSolver::precompute_gamma_coeffs(){
     std::cout<<"[ Gamma precalc ] Beginning coefficient computation..."<<std::endl;
     size_t N = Distribution::size;
     for (size_t a = 0; a < input_params.Store.size(); a++) {
         std::cout<<"[ Gamma precalc ] Atom "<<a+1<<"/"<<input_params.Store.size()<<std::endl;
+        auto& eiiVec = input_params.Store[a].EIIparams;
         for (size_t n=0; n<N; n++){
 
-            Distribution::Gamma_eii(RATE_EII[a][n], input_params.Store[a].EIIparams, n);
+            Distribution::Gamma_eii(RATE_EII[a][n], eiiVec, n);
             for (size_t m=n+1; m<N; m++){
                 size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                 // k = N... N(N+1)/2
-                Distribution::Gamma_tbr(RATE_TBR[a][k], input_params.Store[a].EIIparams, n, m);
+                Distribution::Gamma_tbr(RATE_TBR[a][k], eiiVec, n, m);
             }
-            Distribution::Gamma_tbr(RATE_TBR[a][n], input_params.Store[a].EIIparams, n, n);
+            Distribution::Gamma_tbr(RATE_TBR[a][n], eiiVec, n, n);
 
         }
     }
@@ -136,13 +140,13 @@ void ElectronSolver::precompute_gamma_coeffs(){
 }
 
 
-// The Big One: Incorporates all of the right hand side to the global
+// The Big One: The global ODE functon
+// Incorporates all of the right hand side to the global
 // d/dt P[i] = \sum_i=1^N W_ij - W_ji P[j]
 // d/dt f = Q_B[f](t)
-// system
 void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
     sdot=0;
-     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
+    Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
 
     if (!good_state) return;
 
@@ -183,14 +187,16 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
         // EII / TBR bound-state dynamics
         size_t N = Distribution::size;
         for (size_t n=0; n<N; n++){
+            double tmp=0; // aggregator
             for (size_t init=0;  init<RATE_EII[a][n].size(); init++){
                 for (auto& finPair : RATE_EII[a][n][init]){
-                    Pdot[finPair.idx] += finPair.val*s.F[n]*P[init];
-                    Pdot[init] -= finPair.val*s.F[n]*P[init];
-                    dq += finPair.val*s.F[n]*P[init];
+                    tmp = finPair.val*s.F[n]*P[init];
+                    Pdot[finPair.idx] += tmp;
+                    Pdot[init] -= tmp;
+                    dq += tmp;
                 }
             }
-            /*
+            
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
             // Note that RATE_TBR has the same geometry as EIIdata, so indices must be swapped.
             for (size_t m=n+1; m<N; m++){
@@ -199,8 +205,10 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
                 // W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
                 for (size_t init=0;  init<RATE_TBR[a][k].size(); init++){
                     for (auto& finPair : RATE_TBR[a][k][init]){
-                        Pdot[init] += finPair.val*s.F[n]*s.F[m]*P[finPair.idx]*2;
-                        Pdot[finPair.idx] -= finPair.val*s.F[n]*s.F[m]*P[finPair.idx]*2;
+                        tmp = finPair.val*s.F[n]*s.F[m]*P[finPair.idx]*2;
+                        Pdot[init] += tmp;
+                        Pdot[finPair.idx] -= tmp;
+                        dq -= tmp;
                     }
                 }
             }
@@ -208,17 +216,19 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
             // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
             for (size_t init=0;  init<RATE_TBR[a][n].size(); init++){
                 for (auto& finPair : RATE_TBR[a][n][init]){
-                    Pdot[init] += finPair.val*s.F[n]*s.F[n]*P[finPair.idx];
-                    Pdot[finPair.idx] -= finPair.val*s.F[n]*s.F[n]*P[finPair.idx];
+                    tmp = finPair.val*s.F[n]*s.F[n]*P[finPair.idx];
+                    Pdot[init] += tmp;
+                    Pdot[finPair.idx] -= tmp;
+                    dq -= tmp;
                 }
-            }*/
+            }
         }
 
         std::cerr<<"[ DEBUG ] dq+-> "<< dq<<" ";
 
         // compute the dfdt vector
         s.F.get_Q_eii(vec_dqdt, a, P);
-        // s.F.get_Q_tbr(vec_dqdt, a, P);
+        s.F.get_Q_tbr(vec_dqdt, a, P);
     }
 
     // s.F.apply_Qee(vec_dqdt); // Electron-electon repulsions
@@ -250,7 +260,14 @@ void ElectronSolver::save(const std::string& _dir){
     saveFree(dir+"freeDist.csv");
     saveBound(dir);
 
-    pf.save(this->t,dir+"intensity.csv");
+    std::vector<double> fake_t;
+    int num_t_points = input_params.Out_T_size();
+    if ( num_t_points >  t.size() ) num_t_points = t.size();
+    int t_idx_step = t.size() / num_t_points;
+    for (int i=0; i<num_t_points; i++){
+        fake_t.push_back(t[i*t_idx_step]);
+    }
+    pf.save(fake_t,dir+"intensity.csv");
 
 }
 
@@ -264,8 +281,11 @@ void ElectronSolver::saveFree(const std::string& fname){
     f << "#           | "<<Distribution::output_energies_eV(this->input_params.Out_F_size())<<endl;
 
     assert(y.size() == t.size());
-    for (int i=0; i<y.size(); i++){
-        f<<t[i]*Constant::fs_per_au<<y[i].F.output_densities(this->input_params.Out_F_size())<<endl;
+    int num_t_points = input_params.Out_T_size();
+    if ( num_t_points >  t.size() ) num_t_points = t.size();
+    int t_idx_step = t.size() / num_t_points;
+    for (int i=0; i<num_t_points; i++){
+        f<<t[i*t_idx_step]*Constant::fs_per_au<<" "<<y[i*t_idx_step].F.output_densities(this->input_params.Out_F_size())<<endl;
     }
     f.close();
 }
@@ -288,10 +308,14 @@ void ElectronSolver::saveBound(const std::string& dir){
         }
         f<<endl;
         // Iterate over time.
-        for (size_t i=0; i<y.size(); i++){
+        int num_t_points = input_params.Out_T_size();
+        if ( num_t_points >  t.size() ) num_t_points = t.size();
+        int t_idx_step = t.size() / num_t_points;
+        for (size_t i=0; i<num_t_points; i++){
             // Make sure all "natom-dimensioned" objects are the size expected
             assert(input_params.Store.size() == y[i].atomP.size());
-            f<<t[i]*Constant::fs_per_au << ' ' << y[i].atomP[a]<<endl;
+            
+            f<<t[i*t_idx_step]*Constant::fs_per_au << ' ' << y[i*t_idx_step].atomP[a]<<endl;
         }
         f.close();
     }

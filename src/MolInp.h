@@ -3,6 +3,7 @@
 
 #include "Input.h"
 #include "Constant.h"
+#include "SplineBasis.h"
 
 class MolInp
 {
@@ -11,8 +12,9 @@ public:
 	MolInp(const char* filename, ofstream & log);
 	~MolInp() {}
 
-	vector<Input> Atomic;
-	vector<RateData::Atom> Store;
+	
+	vector<Input> Atomic; // Vector of atomic input objects
+	vector<RateData::Atom> Store; // Stores all atomic parameters: EII, photoionisation, fluorescence, 
 
 	vector<Potential> Pots;
 	vector<vector<RadialWF>> Orbits;
@@ -37,8 +39,6 @@ public:
 	double Min_Elec_E(){return min_elec_e;}
 	size_t Num_Elec_Points(){return num_elec_points;}
 
-	
-
 
 	string name = "";
 
@@ -47,7 +47,12 @@ public:
 	// The result is available as Store.
     void calc_rates(ofstream &_log, bool recalc=true);
 
+	// Possible values: "linear", "quadratic", "exponential"
+	GridSpacing elec_grid_type;
+
 protected:
+
+	bool validate_inputs();
 
 	double omega = -1;// XFEL photon energy, au.
 	double width = -1; // XFEL pulse width in au. Gaussian profile hardcoded.

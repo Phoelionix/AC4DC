@@ -5,15 +5,22 @@
 
 double Dipole::sigmaBEB(double T, double B, double u, int occ)
 {
+	if (T < B) return 0;
 	// Electron impact ionization cross-section
 	// in Binary Encounter Bethe approximation : Kim, Rudd, PRA 50(5), 3954 (1994)
-	double t = T/B;
+	const double t = T/B;
 	if (t < 1) return 0;
-	double lnt = log(t);
-	double S = Constant::Pi*occ/B/B;
+	const double lnt = log(t);
+	const double S = Constant::Pi*occ/B/B;
+	constexpr double Q = 1;
 
-	//double Result = S/(t + u + 1)*(0.5*(1 - 1./t/t)*lnt + (1 - 1/t - lnt/(1+t)));
-	double Result = S/(t + u + 1)*(0.5*(1 - 1./t/t)*lnt + (1 - 1/t - lnt/(1+t)));
+	// double Result = S/(t + u + 1)*(0.5*(1 - 1./t/t)*lnt + (1 - 1/t - lnt/(1+t)));        // old
+	double Result = (Q-2)*(1./t -1. + lnt /(1.+t)) + 0.5*Q*(1 - 1./t/t)*lnt; 			// new
+	Result *= S/(t + u + 1); // new
+	// double Result =S*(-(((-2 + Q)*(-1 + t))/t) + ((-2 + Q)*log(t))/(1 + t) + (Q*(-1 + t*t)*Log(t))/(2.*t*t))/(1 + t + u); // Mathematica garbage
+
+	// #warning Using fake sigma! Edit Dipole.cpp to fix
+	// Result = u * (T-B)*(T-B)*(T-B)/24;
 	return Result;
 }
 
@@ -41,7 +48,6 @@ double Dipole::sigmaBEBw1(double T, double B, double u, int occ)
 // sigma(T) = \int_0^{(T-B)/2} dsigma(W | T)/dW dW
 double Dipole::DsigmaBEB(double T, double W, double B, double u, int occ)
 {
-	assert(W <= T - B); // energy conservation
 	// T - impactor electron energy.
 	// W - ejected electron energy.
 	// B - binding energy.
@@ -49,17 +55,27 @@ double Dipole::DsigmaBEB(double T, double W, double B, double u, int occ)
 	// occ - occupancy of target orbital (overall multiplicative constant)
 	// i - orbital index from which W is ejected.
 	// Q[i] are set to 1. See commented functions if need to be calculated.
-	// see eq. (52)
-	double t = T/B;
-	double w = W/B;
-	if (t < 1 + w) return 0;
+	// see eq. (52) of Kim & Rudd 1994 
 
-	double F = 1.;//F2 first, Q = 1
-	double x = 1./(w + 1);
-	double y = 1./(t - w);
-	double Result = -1*(x + y)/(t+1) + (x*x + y*y) + log(t)*(x*x*x + y*y*y);
+	if ( T < B ) return 0; // Enforce the fact that impactor energy is greater than binding energy
+	if ( W <0 || W > T-B ) return 0; // Enforce energy conservation
 
-	Result *= Constant::Pi*occ/B/B/(t + u + 1);
+	const double t = T/B;
+	const double w = W/B;
+
+	const double S = Constant::Pi*occ/(B*B); // 4 pi a0^2 N R^2/B^2, atomic units (R = Rydeberg energy = 0.5 Ha)
+	constexpr double Q = 1; // Approximation that avoids need to calculate M_i from paper. This can be restored if needed.
+
+	const double x = 1./(w + 1);
+	const double y = 1./(t - w);
+	double Result = -(2-Q)*(x + y)/(t+1) + (2-Q)*(x*x + y*y) + Q*log(t)*(x*x*x + y*y*y);
+	Result *= S/(t + u + 1);
+	Result /= B; // THIS LINE IS KEY
+	// Converts between dsigma/dw and dsigma/dW
+	// the latter is needed
+
+	// #warning Fake Dsigma in use!
+	// Result = u*(W*(W - T+B) + (T-B)*(T-B)/4);
 	return Result;
 }
 
