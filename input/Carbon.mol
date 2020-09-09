@@ -18,6 +18,7 @@ C 1000
 0          // [only for nonthermal] minimum free-electron energy in eV
 10000        // [only for nonthermal] maximum free-electron energy in eV
 1000          // [only for nonthermal] number of free-electron grid points
+linear        // electron grid type
 
 #OUTPUT
 400         // Number of time steps in the output files.
