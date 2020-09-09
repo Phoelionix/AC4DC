@@ -93,6 +93,7 @@ namespace CustomDataType
 
 typedef std::vector<double> bound_t;
 
+
 namespace RateData {
 
 	struct EIIdata
@@ -174,7 +175,13 @@ namespace RateData {
 		vector<RateData::Rate> Auger = vector<RateData::Rate>(0);
 		vector<RateData::EIIdata> EIIparams = vector<RateData::EIIdata>(0);
 	};
-}
+
+	bool ReadRates(const string & input, vector<RateData::Rate> & PutHere);
+	bool ReadEIIParams(const string & input, vector<RateData::EIIdata> & PutHere);
+	void WriteRates(const string& fname, const vector<RateData::Rate>& rateVector);
+	void WriteEIIParams(const string& fname, const vector<RateData::EIIdata>& eiiVector);
+};
+
 
 static const double Moulton_5[5] = { 251. / 720., 646. / 720., -264. / 720., 106. / 720., -19. / 720. }; //Adams-Moulton method
 static const double Bashforth_5[5] = { 1901. / 720., -1378. / 360., 109. / 30., -637. / 360., 251. / 720. }; //Adams-Bashforth method

@@ -125,7 +125,6 @@ void ElectronSolver::precompute_gamma_coeffs(){
         std::cout<<"[ Gamma precalc ] Atom "<<a+1<<"/"<<input_params.Store.size()<<std::endl;
         auto& eiiVec = input_params.Store[a].EIIparams;
         for (size_t n=0; n<N; n++){
-
             Distribution::Gamma_eii(RATE_EII[a][n], eiiVec, n);
             for (size_t m=n+1; m<N; m++){
                 size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
@@ -133,7 +132,6 @@ void ElectronSolver::precompute_gamma_coeffs(){
                 Distribution::Gamma_tbr(RATE_TBR[a][k], eiiVec, n, m);
             }
             Distribution::Gamma_tbr(RATE_TBR[a][n], eiiVec, n, n);
-
         }
     }
     std::cout<<"[ Gamma precalc ] Done."<<std::endl;
@@ -196,7 +194,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
                     dq += tmp;
                 }
             }
-            /*
+            
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
             // Note that RATE_TBR has the same geometry as EIIdata, so indices must be swapped.
             for (size_t m=n+1; m<N; m++){
@@ -221,7 +219,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
                     Pdot[finPair.idx] -= tmp;
                     dq -= tmp;
                 }
-            }*/
+            }
         }
 
         std::cerr<<"[ DEBUG ] dq+-> "<< dq<<" ";
