@@ -17,10 +17,11 @@ H 2
 12           // Number of threads in OpenMP.
 0.1          // minimum free-electron energy in eV
 10000        // maximum free-electron energy in eV
-50          // number of free-electron grid points
+100          // number of free-electron grid points
 
 #OUTPUT
 4000         // Number of time steps in the output files.
+500          // Numner of free electron grid points to use for outputting
 N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?

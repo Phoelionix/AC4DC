@@ -11,9 +11,9 @@ size_t Distribution::size=0;
 SplineIntegral Distribution::basis;
 
 // Psuedo-constructor thing
-void Distribution::set_elec_points(size_t n, double min_e, double max_e){
+void Distribution::set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style){
     // Defines a grid of n points
-    basis.set_parameters(n, min_e, max_e);
+    basis.set_parameters(n, min_e, max_e, 1, grid_style);
     Distribution::size=n;
 }
 
@@ -62,9 +62,8 @@ void Distribution::apply_Qee(Eigen::VectorXd& v) const {
 //============================
 // utility
 
-// Expects T to have units of Kelvin
-void Distribution::set_maxwellian(double N, double T){
-    T *= Constant::kb_Ha;
+// Expects T to have units of Ha
+void Distribution::set_maxwellian(double T, double N){
     Eigen::VectorXd v(size);
     for (size_t i=0; i<size; i++){
         v[i] = 0;
@@ -84,13 +83,13 @@ void Distribution::set_maxwellian(double N, double T){
 }
 
 // Returns energies in eV
-std::string Distribution::output_energies_eV(size_t num_pts){
+std::string Distribution::output_energies_eV(size_t num_pts) {
     std::stringstream ss;
     double e = basis.min_elec_e();
     double de = (basis.max_elec_e() - e)/(num_pts-1);
     for (int i=0; i<num_pts; i++){
-        e += de;
         ss << e*Constant::eV_per_Ha<<" ";
+        e += de;
     }
     // for (int i=0; i<basis.gridlen(); i++){
     //     ss << basis.grid(i)*Constant::eV_per_Ha<<" ";
@@ -98,18 +97,18 @@ std::string Distribution::output_energies_eV(size_t num_pts){
     return ss.str();
 }
 
-std::string Distribution::output_densities(size_t num_pts){
+std::string Distribution::output_densities(size_t num_pts) const {
     std::stringstream ss;
     double e = basis.min_elec_e();
     double de = (basis.max_elec_e() - e)/(num_pts-1);
     for (int i=0; i<num_pts; i++){
-        e += de;
         ss << (*this)(e)/Constant::eV_per_Ha<<" ";
+        e += de;
     }
     return ss.str();
 }
 
-double Distribution::operator()(double e){
+double Distribution::operator()(double e) const{
     double tmp;
     for (size_t j = 0; j < size; j++) {
         tmp += basis(j, e)*f[j];
@@ -146,16 +145,22 @@ double Distribution::norm() const{
     return x;
 }
 
-void Distribution::Gamma_eii( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J){
-    return basis.Gamma_eii(Gamma, eii, J);
+double Distribution::integral(double (g)(double)){
+    double retval = 0;
+    for (size_t J = 0; J < Distribution::size; J++)
+    {
+        double a = basis.supp_min(J);
+        double b = basis.supp_max(J);
+        double tmp = 0;
+        for (int i=0; i<10; i++)
+        {
+            double e = gaussX_10[i]*(b-a)/2 + (b+a)/2;
+            tmp += gaussW_10[i]*basis(J, e)*g(e);
+        }
+        retval +=  tmp * f[J] * (b-a)/2;
+    }
+    return retval;
 }
-void Distribution::Gamma_tbr( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J, size_t K){
-    return basis.Gamma_tbr(Gamma, eii, J, K);
-}
-void Distribution::precompute_Q_coeffs(vector<RateData::Atom>& Store){
-    basis.precompute_Q_coeffs(Store);
-}
-
 
 
 ostream& operator<<(ostream& os, const Distribution& dist){

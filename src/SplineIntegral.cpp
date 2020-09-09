@@ -1,5 +1,10 @@
 #include "SplineIntegral.h"
 
+#ifdef DEBUG
+#define OUTPUT_EII_TO_CERR
+#endif
+
+
 //                  value to find, sorted array, length of array, index that *arr refers to
 int r_binsearch(double val, double* arr, int len, int idx) {
     if (len==1) return idx;
@@ -15,7 +20,7 @@ int r_binsearch(double val, double* arr, int len, int idx) {
 
 
 int SplineIntegral::i_from_e(double e){
-    return r_binsearch(e, this->knot.data(), this->knot.size(), 0);
+    return r_binsearch(e, knot.data(), knot.size(), 0);
 }
 
 double SplineIntegral::area(size_t J){
@@ -65,28 +70,37 @@ void SplineIntegral::precompute_Q_coeffs(vector<RateData::Atom>& Atoms){
                 }
                 for (size_t K=0; K<num_funcs; K++){
                     for (auto& eii : Atoms[a].EIIparams){
-                        // XXX: FUDGE FACTOR GOES HERE
                         Q_EII[a][eii.init][J][K] = calc_Q_eii(eii, J, K);
                     }
                 }
+                
                 for (auto& tbr : RateData::inverse(Atoms[a].EIIparams)){
                     Q_TBR[a][tbr.fin][J] = calc_Q_tbr(tbr, J);
                 }
             }
         }
     }
-    #ifdef DEBUG
+    #ifdef OUTPUT_EII_TO_CERR
     for (size_t a=0; a<Atoms.size(); a++){
-        std::cerr<<"[ DEBUG ] Atom "<<a<<std::endl;
+        std::cerr<<"[ DEBUG ] eii> Atom "<<a<<std::endl;
         for (size_t i=0; i<Atoms[a].num_conf; i++){
             std::cerr<<"[ DEBUG ] eii> Config "<<i<<std::endl;
-            std::cerr<<"[ DEBUG ] tbr> Config "<<i<<std::endl;
             for (size_t J=0; J<num_funcs; J++){
                 std::cerr<<"[ DEBUG ] eii>  ";
                 for (size_t K=0; K<num_funcs; K++){
                     std::cerr<<Q_EII[a][i][J][K]<<" ";
                 }
                 std::cerr<<std::endl;
+            }
+        }
+    }
+    #endif
+    #ifdef OUTPUT_TBR_TO_CERR
+    for (size_t a=0; a<Atoms.size(); a++){
+        std::cerr<<"[ DEBUG ] tbr> Atom "<<a<<std::endl;
+        for (size_t i=0; i<Atoms[a].num_conf; i++){
+            std::cerr<<"[ DEBUG ] tbr> Config "<<i<<std::endl;
+            for (size_t J=0; J<num_funcs; J++){
                 std::cerr<<"[ DEBUG ] tbr>  ";
                 for (auto& tup : Q_TBR[a][i][J]){
                     std::cerr<<"("<<tup.K<<","<<tup.L<<","<<tup.val<<") ";
@@ -101,47 +115,36 @@ void SplineIntegral::precompute_Q_coeffs(vector<RateData::Atom>& Atoms){
     std::cout<<"[ Q precalc ] Done."<<std::endl;
 }
 
-void SplineIntegral::Gamma_eii(eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eiiVec, size_t K) const {
-    // 4pi*sqrt(2) \int_0^\inf e^1/2 phi_k(e) sigma(e) de
-    Gamma.resize(0);
-    for (size_t init=0; init<eiiVec.size(); init++){
-        assert(eiiVec[init].init == init);
-        const RateData::EIIdata& eii = eiiVec[init];
-        // index on this vector refers to final states
-        std::vector<SparsePair> gamma_vec(0);
-        for (size_t eta = 0; eta < eii.fin.size(); eta++) {
-            double e = this->knot[K];
-
-            double a = this->supp_min(K);
-            double b = this->supp_max(K);
-            double tmp=0;
+void SplineIntegral::Gamma_eii( std::vector<SparsePair>& Gamma_xi, const RateData::EIIdata& eii, size_t K) const{
+    Gamma_xi.resize(0);
+    for (size_t eta = 0; eta < eii.fin.size(); eta++) {
+        // double a = max((float) this->supp_min(K), eii.ionB[eta]);
+        double a = this->supp_min(K);
+        double b = this->supp_max(K);
+        double tmp=0;
+        if (b > a) {
             for (int i=0; i<10; i++){
                 double e = gaussX_10[i]*(b-a)/2 + (a+b)/2;
                 tmp += gaussW_10[i]* (*this)(K, e)*pow(e,0.5)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
             }
             tmp *= (b-a)/2;
             tmp *= 1.4142; // Electron mass = 1 in atomic units
-
-            // double tmp = this->knot[K+1]-this->knot[K];
-            // assert(this->supp_min(K) == this->knot[K]);
-            // assert(this->supp_max(K) == this->knot[K+1]);
-            // tmp *= pow(e,0.5) * Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
-            // tmp *= 1.4142135624;
-            SparsePair rate(eii.fin[eta], tmp);
-            gamma_vec.push_back(rate);
         }
-        Gamma.push_back(gamma_vec);
+        // double e = knot[K];
+        // double tmp = knot[K+1]-knot[K];
+        // assert(this->supp_min(K) == knot[K]);
+        // assert(this->supp_max(K) == knot[K+1]);
+        // tmp *= pow(e,0.5) * Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+        // tmp *= 1.4142135624;
+
+        SparsePair rate;
+        rate.idx=eii.fin[eta];
+        rate.val= tmp;
+        Gamma_xi.push_back(rate);
     }
 }
-
-void SplineIntegral::Gamma_tbr(eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eiiVec, size_t J, size_t K) const {
-    Gamma.resize(0);
-    for (size_t init=0; init<eiiVec.size(); init++){
-        assert(eiiVec[init].init == init);
-        const RateData::EIIdata& eii = eiiVec[init];
-        // index on this vector refers to final states
-        std::vector<SparsePair> gamma_vec(0);
-        for (size_t eta = 0; eta<eii.fin.size(); eta++) {
+void SplineIntegral::Gamma_tbr( std::vector<SparsePair>& Gamma_xi, const RateData::EIIdata& eii, size_t J, size_t K) const {
+    for (size_t eta = 0; eta<eii.fin.size(); eta++) {
             double tmp=0;
             double B=eii.ionB[eta];
 
@@ -167,9 +170,28 @@ void SplineIntegral::Gamma_tbr(eiiGraph& Gamma, const std::vector<RateData::EIId
             tmp *= (bK-aK)/2;
 
             SparsePair rate(eii.fin[eta], tmp);
-            gamma_vec.push_back(rate);
+            Gamma_xi.push_back(rate);
         }
-        Gamma.push_back(gamma_vec);
+}
+
+void SplineIntegral::Gamma_eii(eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eiiVec, size_t K) const {
+    // 4pi*sqrt(2) \int_0^\inf e^1/2 phi_k(e) sigma(e) de
+    Gamma.resize(0);
+    for (size_t init=0; init<eiiVec.size(); init++){
+        assert(eiiVec[init].init == init);
+        std::vector<SparsePair> Gamma_xi(0);
+        this->Gamma_eii(Gamma_xi, eiiVec[init], K);
+        Gamma.push_back(Gamma_xi);
+    }
+}
+
+void SplineIntegral::Gamma_tbr(eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eiiVec, size_t J, size_t K) const {
+    Gamma.resize(0);
+    for (size_t init=0; init<eiiVec.size(); init++){
+        assert(eiiVec[init].init == init);
+        std::vector<SparsePair> Gamma_xi(0);
+        this->Gamma_tbr(Gamma_xi, eiiVec[init], J, K);
+        Gamma.push_back(Gamma_xi);
     }
 }
 
@@ -184,35 +206,43 @@ double SplineIntegral::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_
 
     double retval=0;
     // Sum over all transitions to eta values
-    for (size_t eta = 0; eta<eii.fin.size(); eta++) {
-        for (int j=0; j<10; j++){
+    for (size_t eta = 0; eta<eii.fin.size(); eta++)
+    {
+        double tmp = 0;
+        for (int j=0; j<10; j++)
+        {
             double e = gaussX_10[j]*(max_J-min_J)/2 + (max_J+min_J)/2;
-            double tmp=0;
-            double min_ep = max(e+eii.ionB[eta], this->supp_min(K));
+            double tmp2=0;
+            // double min_ep = max(e+eii.ionB[eta], this->supp_min(K));
+            double min_ep = this->supp_min(K);
             double max_ep = this->supp_max(K);
             if (max_ep <= min_ep) continue;
             for (int k=0; k<10; k++){
-                double ep = gaussX_10[k]*(max_ep-min_ep)*0.5 + (min_ep+max_ep)*0.5;
-                tmp += gaussW_10[k]*(*this)(K, ep)*pow(ep,0.5)*
+                double ep = gaussX_10[k]*(max_ep-min_ep)*0.5;
+                ep += (min_ep+max_ep)*0.5;
+                tmp2 += gaussW_10[k]*(*this)(K, ep)*pow(ep,0.5)*
                     Dipole::DsigmaBEB(ep, e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
             }
-            retval += gaussW_10[j]*(*this)(J, e)*tmp*(max_ep-min_ep);
+            tmp2 *= (max_ep - min_ep)/2;
+            tmp += gaussW_10[j]*(*this)(J, e)*tmp2;
         }
+        tmp *= (max_J-min_J)/2;
+        retval += tmp;
         // RHS part, 'missing' factor of 2 is incorporated into definition of sigma
-        retval *= (max_J-min_J)/2;
-        double tmp=0;
+        tmp=0;
         double min_JK = max(this->supp_min(J), this->supp_min(K));
         double max_JK = min(this->supp_max(J), this->supp_max(K));
         if (max_JK <= min_JK) continue;
-        for (int k=0; k<10; k++){
+        for (int k=0; k<10; k++)
+        {
             double e = gaussX_10[k]*(max_JK-min_JK)/2 + (min_JK+max_JK)/2;
-            tmp += pow(e, 0.5)*(*this)(J, e)*(*this)(K, e)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+            tmp += gaussW_10[k]*pow(e, 0.5)*(*this)(J, e)*(*this)(K, e)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
         }
-        tmp *= (max_JK-min_JK)*(max_JK-min_JK)/4;
+        tmp *= (max_JK-min_JK)/2;
         retval -= tmp;
     }
 
-    retval *= 1.4142135624;
+    retval *= 1.4142135624; 
 
 /*
     double retval=0;
