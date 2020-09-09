@@ -196,7 +196,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
                     dq += tmp;
                 }
             }
-            
+            /*
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
             // Note that RATE_TBR has the same geometry as EIIdata, so indices must be swapped.
             for (size_t m=n+1; m<N; m++){
@@ -221,14 +221,14 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
                     Pdot[finPair.idx] -= tmp;
                     dq -= tmp;
                 }
-            }
+            }*/
         }
 
         std::cerr<<"[ DEBUG ] dq+-> "<< dq<<" ";
 
         // compute the dfdt vector
         s.F.get_Q_eii(vec_dqdt, a, P);
-        s.F.get_Q_tbr(vec_dqdt, a, P);
+        // s.F.get_Q_tbr(vec_dqdt, a, P);
     }
 
     // s.F.apply_Qee(vec_dqdt); // Electron-electon repulsions
