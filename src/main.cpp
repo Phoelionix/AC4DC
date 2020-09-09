@@ -74,12 +74,14 @@ public:
                 switch (argv[a][i]) {
                     case 's':
                         // recalculate
+                        cout<<"\033[1;35mWarning:\033[0m Searching output folder for precalculated rates."<<endl;
+                        cout<<"If these were calculated for a different X-ray energy, the results will be wrong!"<<endl;
                         recalc = false;
                         break;
                     case 'h':
                         // Usage help.
                         cout<<"This is physics code, were you really expecting documentation?"<<endl;
-                        cout<<"-s Look for stored rates"<<endl;
+                        cout<<"  -s Look for stored precalculated rate coefficients"<<endl;
                         break;
                     default:
                         cout<<"Flag '"<<argv[a][i]<<"' is not a recognised flag."<<endl;
@@ -107,11 +109,13 @@ int main(int argc, const char *argv[]) {
     cout<<"Running simulation for target "<<name<<endl;
     cout << "logfile name: " << logname <<endl;
     ofstream log(logname);
-    cout << "Initialising... " <<endl;
+    cout << "\033[1;32mInitialising... \033[0m" <<endl;
     ElectronSolver S(argv[1], log); // Contains all of the collision parameters.
-
+    cout << "\033[1;32mComputing cross sections... \033[0m" <<endl;
     S.compute_cross_sections(log, runsettings.recalc);
+    cout << "\033[1;32mSolving rate equations... \033[0m" <<endl;
     S.solve();
+    cout << "\033[1;32mDone! \033[0m" <<endl;
     S.save(outdir);
 
 

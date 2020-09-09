@@ -27,6 +27,33 @@ namespace{
         }
         return os;
     }
+
+    std::istream& operator>>(std::istream& is, GridSpacing& gs){
+        std::string tmp;
+        is >> tmp;
+        if (tmp.length() == 0){
+            std::cerr<<"No grid type provided, defaulting to linear..."<<std::endl;
+            gs = GridSpacing::linear;
+            return is;
+        }
+        switch ((char) tmp[0])
+        {
+        case 'l':
+            gs = GridSpacing::linear;
+            break;
+        case 'q':
+            gs = GridSpacing::quadratic;
+            break;
+        case 'e':
+            gs = GridSpacing::exponential;
+            break;
+        default:
+            std::cerr<<"Unrecognised grid type \""<<tmp<<"\""<<std::endl;
+            gs = GridSpacing::linear;
+            break;
+        }
+        return is;
+    }
 }
 
 class BasisSet{
