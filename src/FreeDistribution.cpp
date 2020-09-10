@@ -13,7 +13,7 @@ SplineIntegral Distribution::basis;
 // Psuedo-constructor thing
 void Distribution::set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style){
     // Defines a grid of n points
-    basis.set_parameters(n, min_e, max_e, 1, grid_style);
+    basis.set_parameters(n, min_e, max_e, 0, grid_style);
     Distribution::size=n;
 }
 

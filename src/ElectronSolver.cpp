@@ -126,12 +126,13 @@ void ElectronSolver::precompute_gamma_coeffs(){
         auto& eiiVec = input_params.Store[a].EIIparams;
         for (size_t n=0; n<N; n++){
             Distribution::Gamma_eii(RATE_EII[a][n], eiiVec, n);
-            for (size_t m=n+1; m<N; m++){
+            for (size_t m=0; m<N; m++){
                 size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
-                // k = N... N(N+1)/2
+                // // k = N... N(N+1)/2
                 Distribution::Gamma_tbr(RATE_TBR[a][k], eiiVec, n, m);
+                // Distribution::Gamma_tbr(RATE_TBR[a][n][m], eiiVec, n, m);
             }
-            Distribution::Gamma_tbr(RATE_TBR[a][n], eiiVec, n, n);
+            // Distribution::Gamma_tbr(RATE_TBR[a][n], eiiVec, n, n);
         }
     }
     std::cout<<"[ Gamma precalc ] Done."<<std::endl;
@@ -159,8 +160,8 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
             // W.coeffRef(r.to, r.from) += r.val*J;
             Pdot[r.to] += r.val*J*P[r.from];
             Pdot[r.from] -= r.val*J*P[r.from];
-            // sdot.F.addDeltaSpike(r.energy, r.val*J*P[r.from]);
-            Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
+            sdot.F.addDeltaSpike(r.energy, r.val*J*P[r.from]);
+            // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
 
         // FLUORESCENCE
@@ -176,8 +177,8 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
             // W.coeffRef(r.to, r.from) += r.val;
             Pdot[r.to] += r.val*P[r.from];
             Pdot[r.from] -= r.val*P[r.from];
-            // sdot.F.addDeltaSpike(r.energy, r.val*P[r.from]);
-            Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
+            sdot.F.addDeltaSpike(r.energy, r.val*P[r.from]);
+            // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
         }
 
         double dq =0; // verification: Keeps track of the sum of charges
@@ -195,6 +196,8 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
                 }
             }
             
+            /*
+
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
             // Note that RATE_TBR has the same geometry as EIIdata, so indices must be swapped.
             for (size_t m=n+1; m<N; m++){
@@ -220,9 +223,10 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
                     dq -= tmp;
                 }
             }
+            */
         }
 
-        std::cerr<<"[ DEBUG ] dq+-> "<< dq<<" ";
+        // std::cerr<<"[ DEBUG ]"
 
         // compute the dfdt vector
         s.F.get_Q_eii(vec_dqdt, a, P);

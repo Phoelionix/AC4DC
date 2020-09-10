@@ -27,30 +27,6 @@ class BasisTester : public SplineIntegral{
         this->set_parameters(F_size, min_e, max_e, 0, grid_type);
     }
 
-    void check_basis()
-    {
-        double min_e = this->knot[0];
-        double max_e = this->knot[num_funcs];
-        double e = min_e;
-        double de = (max_e - min_e)/this->num_funcs/100;
-        
-        cerr<<"Testing basis unity partition: "<<endl;
-        double avg =0;
-        for (size_t i = 0; i < this->num_funcs*100; i++)
-        {
-            size_t J0 = this->i_from_e(e);
-            double tmp =0;
-            for (int J = J0 - BSPLINE_ORDER; J<= J0 + BSPLINE_ORDER; J++){
-                tmp += this->at(J, e);
-            }
-            avg += tmp;
-            if (fabs(tmp - 1) > 1e-8) cerr<<"[ WARN ] sum of basis funcs @ e="<<e<<" differs from 1:  "<<tmp<<endl;
-            e += de;
-        }
-        avg /= num_funcs * 100;
-        cerr<<"Average basis height: "<<avg<<endl<<endl;
-    }
-
     void check_eii()
     {
         
@@ -130,16 +106,6 @@ int main(int argc, char const *argv[]) {
     }
     
     BasisTester bt(N, min_e, max_e, gt);
-    bt.check_basis();
-    // Distribution F;
-    // F.set_maxwellian(T, density);
-    // cerr<<"Integral of F: should be "<<density<<", is "<<F.integral(one)<<endl;
-    // F.addDeltaSpike(T, density);
-
-    // cout<<"#Distribution shape: "<<endl;
-    // cout<<Distribution::output_energies_eV(Distribution::size*10)<<endl;
-    // cout<<F.output_densities(Distribution::size*10)<<endl;
-    
     bt.check_eii();
     
     return 0;

@@ -25,7 +25,7 @@ void BasisSet::set_parameters(size_t n, double min, double max, int zero_degree,
     knot.resize(n+BSPLINE_ORDER);
     // boundary at minimm energy enforces
 
-    assert(zero_degree < BSPLINE_ORDER && "Failed to set boundary consition");
+    assert(zero_degree < BSPLINE_ORDER -1 && "Failed to set boundary consition");
 
     for (int i=0; i<BSPLINE_ORDER-zero_degree; i++){
         knot[i] = min;
@@ -52,6 +52,7 @@ void BasisSet::set_parameters(size_t n, double min, double max, int zero_degree,
             knot[i] = A_exp*exp(lambda_exp*i);
             break;
         default:
+            throw std::runtime_error("Grid spacing has not been defined.");
             break;
         }
     }
@@ -98,8 +99,7 @@ double BasisSet::at(size_t i, double x) const{
 }
 
 double BasisSet::overlap(size_t j,size_t i) const{
-    int diff = j;
-    diff -= i;
+    int diff = (int)j -  (int)i;
     double b = min(supp_max(i), supp_max(j));
     double a = max(supp_min(i), supp_min(j));
     if (a >= b) return 0;

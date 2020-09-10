@@ -24,7 +24,7 @@ int SplineIntegral::i_from_e(double e){
 }
 
 double SplineIntegral::area(size_t J){
-    assert(J>=0 && J < num_funcs);
+    assert(J < num_funcs);
     double min = this->supp_min(J);
     double max = this->supp_max(J);
     double tmp=0;
@@ -73,10 +73,10 @@ void SplineIntegral::precompute_Q_coeffs(vector<RateData::Atom>& Atoms){
                         Q_EII[a][eii.init][J][K] = calc_Q_eii(eii, J, K);
                     }
                 }
-                
+                /*
                 for (auto& tbr : RateData::inverse(Atoms[a].EIIparams)){
                     Q_TBR[a][tbr.fin][J] = calc_Q_tbr(tbr, J);
-                }
+                }*/
             }
         }
     }
@@ -213,8 +213,8 @@ double SplineIntegral::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_
         {
             double e = gaussX_10[j]*(max_J-min_J)/2 + (max_J+min_J)/2;
             double tmp2=0;
-            // double min_ep = max(e+eii.ionB[eta], this->supp_min(K));
-            double min_ep = this->supp_min(K);
+            double min_ep = max(e+eii.ionB[eta], this->supp_min(K));
+            // double min_ep = this->supp_min(K);
             double max_ep = this->supp_max(K);
             if (max_ep <= min_ep) continue;
             for (int k=0; k<10; k++){
@@ -286,10 +286,10 @@ SplineIntegral::sparse_matrix SplineIntegral::calc_Q_tbr( const RateData::Invers
             for (size_t xi=0; xi<tbr.init.size(); xi++){
                 // Heaviside step function
                 double B =tbr.ionB[xi];
-                double aJ_eff = (aJ < B) ? B : aJ;
+                // double aJ_eff = (aJ < B) ? B : aJ;
                 // First half of integral
                 for (int j=0; j<10; j++){
-                    double e = gaussX_10[j]*(bJ-aJ_eff)/2 + (aJ_eff+bJ)/2;
+                    double e = gaussX_10[j]*(bJ-aJ)/2 + (aJ+bJ)/2;
                     double tmp2=0;
 
                     double a = max(aK, e - B - bL); // integral lower bound
@@ -299,10 +299,11 @@ SplineIntegral::sparse_matrix SplineIntegral::calc_Q_tbr( const RateData::Invers
                         double ep = gaussX_10[k]*(b-a)/2 + (b + a)/2;
                         tmp2 += gaussW_10[k]*(*this)(K,ep)*(*this)(L,e-ep-B)*Dipole::DsigmaBEB(e, ep, B, tbr.kin[xi], tbr.occ[xi])*pow(e-ep-B,-0.5)/ep;
                     }
-                    tmp += gaussW_10[j]*tmp2*pow(e,1.5)*0.5*(*this)(J,e);
+                    tmp += gaussW_10[j]*tmp2*pow(e,1.5)*0.5*(*this)(J,e)*(b-a)*(bJ-aJ)/4;
                 }
                 // Second half of integral
                 // f(e) integral0->inf ds
+                if (fabs(J-L) > BSPLINE_ORDER) continue;
                 for (int j=0; j<10; j++){
                     double e = gaussX_10[j]*(bJ-aJ)/2 + (aJ+bJ)/2;
                     double tmp2=0;
@@ -310,7 +311,7 @@ SplineIntegral::sparse_matrix SplineIntegral::calc_Q_tbr( const RateData::Invers
                         double s = gaussX_10[k]*(bK-aK)/2 + (bK + aK)/2;
                         tmp2 += gaussW_10[k]*(s+e+B)*pow(s,-0.5)*(*this)(K,s)*Dipole::DsigmaBEB(s+e+B, e, B, tbr.kin[xi], tbr.occ[xi]);
                     }
-                    tmp -= gaussW_10[j]*tmp2*pow(e,-0.5)*(*this)(J,e)*(*this)(L,e);
+                    tmp -= gaussW_10[j]*tmp2*pow(e,-0.5)*(*this)(J,e)*(*this)(L,e)*(bK-aK)*(bJ-aJ)/4;
                 }
             }
 
