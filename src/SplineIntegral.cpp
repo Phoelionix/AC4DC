@@ -1,9 +1,5 @@
 #include "SplineIntegral.h"
-
-#ifdef DEBUG
-#define OUTPUT_EII_TO_CERR
-#endif
-
+#include "config.h"
 
 //                  value to find, sorted array, length of array, index that *arr refers to
 int r_binsearch(double val, double* arr, int len, int idx) {
@@ -214,12 +210,10 @@ double SplineIntegral::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_
             double e = gaussX_10[j]*(max_J-min_J)/2 + (max_J+min_J)/2;
             double tmp2=0;
             double min_ep = max(e+eii.ionB[eta], this->supp_min(K));
-            // double min_ep = this->supp_min(K);
             double max_ep = this->supp_max(K);
             if (max_ep <= min_ep) continue;
             for (int k=0; k<10; k++){
-                double ep = gaussX_10[k]*(max_ep-min_ep)*0.5;
-                ep += (min_ep+max_ep)*0.5;
+                double ep = gaussX_10[k]*(max_ep-min_ep)*0.5 + (min_ep+max_ep)*0.5;
                 tmp2 += gaussW_10[k]*(*this)(K, ep)*pow(ep,0.5)*
                     Dipole::DsigmaBEB(ep, e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
             }
@@ -231,6 +225,7 @@ double SplineIntegral::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_
         // RHS part, 'missing' factor of 2 is incorporated into definition of sigma
         tmp=0;
         double min_JK = max(this->supp_min(J), this->supp_min(K));
+        min_JK = max(min_JK, (double) eii.ionB[eta]);
         double max_JK = min(this->supp_max(J), this->supp_max(K));
         if (max_JK <= min_JK) continue;
         for (int k=0; k<10; k++)

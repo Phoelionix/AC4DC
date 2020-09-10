@@ -10,6 +10,7 @@
 #include <chrono>
 #include <ctime>
 #include <math.h>
+#include "config.h"
 
 
 void PhotonFlux::set_pulse(double fluence, double fwhm){
@@ -177,6 +178,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
             // W.coeffRef(r.to, r.from) += r.val;
             Pdot[r.to] += r.val*P[r.from];
             Pdot[r.from] -= r.val*P[r.from];
+            // XXX: swapped  DeltaLike for DeltaSpike
             sdot.F.addDeltaSpike(r.energy, r.val*P[r.from]);
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
         }
@@ -226,7 +228,6 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
             */
         }
 
-        // std::cerr<<"[ DEBUG ]"
 
         // compute the dfdt vector
         s.F.get_Q_eii(vec_dqdt, a, P);
@@ -235,9 +236,22 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
 
     // s.F.apply_Qee(vec_dqdt); // Electron-electon repulsions
 
-
+    #ifdef OUTPUT_DQDT_TO_CERR
+    for (int i=0; i<Distribution::size; i++){
+        std::cerr<<t*Constant::fs_per_au<<" "<<vec_dqdt[i]<<" ";
+    }
+    std::cerr<<std::endl;
+    #endif
 
     sdot.F.applyDelta(vec_dqdt);
+
+    #ifdef OUTPUT_DFDT_TO_CERR
+    std::cerr<<t*Constant::fs_per_au;
+    for (int i=0; i<Distribution::size; i++){
+        std::cerr<<" "<<sdot.F[i]<<" ";
+    }
+    std::cerr<<std::endl;
+    #endif
 
     if (isnan(s.norm())) {
         cerr<< "NaN encountered in state!"<<endl;
@@ -260,6 +274,9 @@ void ElectronSolver::save(const std::string& _dir){
     dir = (dir.back() == '/') ? dir : dir + "/";
 
     saveFree(dir+"freeDist.csv");
+    #ifdef DEBUG
+    saveFreeRaw(dir+"freeDistRaw.csv");
+    #endif
     saveBound(dir);
 
     std::vector<double> fake_t;
@@ -288,6 +305,23 @@ void ElectronSolver::saveFree(const std::string& fname){
     int t_idx_step = t.size() / num_t_points;
     for (int i=0; i<num_t_points; i++){
         f<<t[i*t_idx_step]*Constant::fs_per_au<<" "<<y[i*t_idx_step].F.output_densities(this->input_params.Out_F_size())<<endl;
+    }
+    f.close();
+}
+
+void ElectronSolver::saveFreeRaw(const std::string& fname){
+    ofstream f;
+    cout << "[ Free ] Saving to file "<<fname<<"..."<<endl;
+    f.open(fname);
+    f << "# Free electron dynamics"<<endl;
+    f << "# Time (fs) | Expansion Coeffs" <<endl;
+
+    assert(y.size() == t.size());
+    int num_t_points = input_params.Out_T_size();
+    if ( num_t_points >  t.size() ) num_t_points = t.size();
+    int t_idx_step = t.size() / num_t_points;
+    for (int i=0; i<num_t_points; i++){
+        f<<t[i*t_idx_step]*Constant::fs_per_au<<" "<<y[i*t_idx_step].F<<endl;
     }
     f.close();
 }

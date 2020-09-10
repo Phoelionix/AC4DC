@@ -262,12 +262,20 @@ class Plotter:
         for a in self.atomdict:
             self.plot_charges(a)
 
-    def plot_free(self):
+    def plot_free(self, log=False, cutoff = -16):
         fig.clf()
         # Need to turn freeData (matrix of BSpline coeffs)
         # freeeData [t, c]
         # into matrix of values.
-        plt.contourf(self.timeData, self.energyKnot, self.freeData.T, cmap='RdGy')
+        Z = self.freeData.T
+        T = self.timeData
+        
+        if log:
+            Z = np.log(Z)[:, 50:]
+            T = self.timeData[50:]
+            Z = np.ma.masked_where(Z < cutoff, Z)
+
+        plt.contourf(T, self.energyKnot, Z, cmap='viridis')
         plt.title("Free electron energy distribution")
         plt.ylabel("Energy (eV)")
         plt.xlabel("Time, fs")

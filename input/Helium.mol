@@ -1,7 +1,7 @@
-// Molecular hydrogen
+// Atomic helium
 
 #ATOMS
-He 2
+He 1
 
 #VOLUME
 12      // Volume per molecule in Angstrom^3.
@@ -16,9 +16,9 @@ He 2
 8000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12           // Number of threads in OpenMP.
 0          // minimum free-electron energy in eV
-2000        // maximum free-electron energy in eV
-800          // number of free-electron grid points
-quadratic    // electron grid type
+1500        // maximum free-electron energy in eV
+500          // number of free-electron grid points
+linear    // electron grid type
 
 #OUTPUT
 400         // Number of time steps in the output files.

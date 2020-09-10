@@ -59,7 +59,7 @@ namespace{
 class BasisSet{
 public:
     BasisSet(){};
-    void set_parameters(size_t nfuncs, double min, double max, int zero_degree=0, GridSpacing gt=GridSpacing::quadratic);
+    void set_parameters(size_t nfuncs, double min, double max, int zero_degree, GridSpacing gt);
     Eigen::VectorXd Sinv(const Eigen::VectorXd& deltaf);
     double operator()(size_t i, double x) const;
     double at(size_t i, double x) const;

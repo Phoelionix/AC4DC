@@ -68,6 +68,7 @@ private:
     void sys(const state_type& s, state_type& sdot, const double t);
     bool hasRates = false; // flags whether Store has been populated yet.
     void saveFree(const std::string& file);
+    void saveFreeRaw(const std::string& fname);
     void saveBound(const std::string& folder);
     state_type get_ground_state();
 

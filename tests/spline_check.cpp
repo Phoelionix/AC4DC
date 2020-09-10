@@ -17,7 +17,7 @@ int main(int argc, char const *argv[]) {
     is >> gs;
 
     BasisSet basis;
-    basis.set_parameters(num_funcs, min, max, zero_deg, gs);
+    basis.set_parameters(num_funcs, min, max, zero_degree, gs);
     double de = max/(num_funcs*20);
     double e=0;
     for (size_t i=0; i<num_funcs*20; i++){

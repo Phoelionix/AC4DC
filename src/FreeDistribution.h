@@ -101,7 +101,7 @@ public:
     double operator()(double e) const;
 
     // The setup function
-    static void set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style=GridSpacing::linear);
+    static void set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style);
 
 
 

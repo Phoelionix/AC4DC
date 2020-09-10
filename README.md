@@ -57,13 +57,13 @@ EII parameters are stored in "sort-of-json" format - please note that the progra
 
 1. verify Gamma_EII
 2. verify Q_EII
+3. 
 3. verify Gamma_TBR
 4. verify Q_TBR
 5. Implement 'output version control' for atomic parameters in storage: avoid unnecessary recalculation, guarantee recalculation if new input parameters are incompatible
   - Add methods to `Input.cpp` to enable reading/writing salient parameters to file, e.g. `output/C/run_2021-04-11/input.txt`
   - Add linear search implementation to input logic
-6. 
-
+6. Cmake build system
 3. Optimise with static arrays - promote state_type to a N_FREE-dimensioned template for faster reads. (remains to be seen if this is a bottleneck)
 
 ### Bibliography:
