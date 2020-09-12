@@ -169,7 +169,7 @@ class Plotter:
             if len(states) != self.boundData[a].shape[1]:
                 msg = 'states parsed from file header disagrees with width of data width'
                 msg += ' (got %d, expected %d)' % (len(states), self.boundData[a].shape[1])
-                raise OutOfRangeError( )
+                raise RuntimeError(msg)
 
             self.chargeData[a] = np.zeros((self.boundData[a].shape[0], ATOMNO[a]+1))
             for i in range(len(states)):

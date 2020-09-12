@@ -1,6 +1,7 @@
 #include <iostream>
 #include "src/FreeDistribution.h"
 #include "src/Constant.h"
+#include <fstream>
 
 
 using namespace std;
@@ -27,7 +28,7 @@ class BasisTester : public SplineIntegral{
         this->set_parameters(F_size, min_e, max_e, 0, grid_type);
     }
 
-    void check_eii()
+    void check_eii(string filestem)
     {
         
         RateData::EIIdata eii_process = get_fake_eii();
@@ -36,8 +37,9 @@ class BasisTester : public SplineIntegral{
         tot_gamma.resize(num_fin_states, 0);
         std::vector<SparsePair> eg;
         double dQ = 0;
+        ofstream out(filestem + "_qeii.csv");
 
-        cout <<"K energy sum_eta gamma_K   sum_J Q_K "<<endl;
+        out <<"#K energy sum_eta gamma_K   sum_J Q_K "<<endl;
         for (size_t K = 0; K < Distribution::size; K++)
         {
             Gamma_eii(eg, eii_process, K);
@@ -54,27 +56,25 @@ class BasisTester : public SplineIntegral{
                 dQ_tmp += calc_Q_eii(eii_process, J, K);
             }
 
-            cout << K <<" "<<(supp_max(K)+supp_min(K))*0.5<<" "<<tot <<" "<< dQ_tmp <<endl;
+            out << K <<" "<<(supp_max(K)+supp_min(K))*0.5<<" "<<tot <<" "<< dQ_tmp <<endl;
             dQ += dQ_tmp;
 
         }
-        cerr<<endl<<"init -> fin   gamma_total   "<<endl;
+        out.close();
+        cout<<endl<<"init -> fin   gamma_total   "<<endl;
         double tot=0;
         for (size_t j = 0; j < num_fin_states; j++)
         {
-            cerr<<"[ "<<eii_process.init<<"->"<<eii_process.fin[j]<<" ] "<<tot_gamma[j]<<endl;
+            cout<<"[ "<<eii_process.init<<"->"<<eii_process.fin[j]<<" ] "<<tot_gamma[j]<<endl;
             tot += tot_gamma[j];
         }
-        cerr<<tot<<endl;
-        
-        
-        
+        cout<<tot<<endl;
 
-        cerr<<" total dQ/dP_init:"<<endl;
-        cerr<< dQ <<endl;
-        cerr<<" ratio: "<<endl;
+        cout<<" total dQ/dP_init:"<<endl;
+        cout<< dQ <<endl;
+        cout<<" ratio: "<<endl;
 
-        cerr<<"Fraction: " << tot/ dQ <<endl;
+        cout<<"Fraction: " << tot/ dQ <<endl;
 
         
     }
@@ -82,31 +82,18 @@ class BasisTester : public SplineIntegral{
 
 
 int main(int argc, char const *argv[]) {
-    if (argc < 5) cerr << "usage: "<<argv[0]<<" [min_e (Ha)] [max_e (Ha)] [num_basis] [grid type = [l]inear, [q]uadratic, [e]xponential ]";
+    if (argc < 6) cerr << "usage: "<<argv[0]<<" [filestem] [min_e (Ha)] [max_e (Ha)] [num_basis] [grid type = [l]inear, [q]uadratic, [e]xponential ]";
     double density = 1;
-    double min_e = atof(argv[1]);
-    double max_e = atof(argv[2]);
-    int N = atoi(argv[3]);
+    string filestem(argv[1]);
+    double min_e = atof(argv[2]);
+    double max_e = atof(argv[3]);
+    int N = atoi(argv[4]);
     GridSpacing gt;
-    switch (argv[4][0])
-    {
-    case 'l':
-        gt = GridSpacing::linear;
-        break;
-    case 'q':
-        gt = GridSpacing::quadratic;
-        break;
-    case 'e':
-        gt = GridSpacing::exponential;
-        break;
-    default:
-        cerr<<"Unrecognised grid type: '"<<argv[4]<<"'"<<endl;
-        return 1;
-        break;
-    }
+    istringstream inp(argv[5]);
+    inp >> gt;
     
     BasisTester bt(N, min_e, max_e, gt);
-    bt.check_eii();
+    bt.check_eii(filestem);
     
     return 0;
 }

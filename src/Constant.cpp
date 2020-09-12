@@ -216,12 +216,12 @@ namespace RateData{
 	{
 		vector<InverseEIIdata> tbrVec(eiiVec.size()+1);
 		for (size_t i = 0; i < tbrVec.size(); i++) {
-			tbrVec[i].fin = i;
+			tbrVec[i].init = i;
 		}
 		for (auto& eii : eiiVec){
 			for (size_t j=0; j<eii.fin.size(); j++){
 				InverseEIIdata& inv = tbrVec.at(eii.fin[j]);
-				inv.init.push_back(eii.init);
+				inv.fin.push_back(eii.init);
 				inv.occ.push_back(eii.occ[j]);
 				inv.ionB.push_back(eii.ionB[j]);
 				inv.kin.push_back(eii.kin[j]);

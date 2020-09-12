@@ -129,27 +129,9 @@ namespace RateData {
 		}
 	};
 
-	struct InverseEIIdata
-	{
-		InverseEIIdata(){};
-		InverseEIIdata(EIIdata e){
-
-		}
-		
-		int fin; // final index
-		vector<int> init; // initial index
-
-		vector<int> occ; // occupancy of state
-		vector<float> ionB; // ion binding energy
-		vector<float> kin; // u for atom in this state (see Kim and Rudd BEB for details)
-		void resize(size_t n)
-		{
-			init.resize(n);
-			occ.resize(n);
-			ionB.resize(n);
-			kin.resize(n);
-		}
-	};
+	// Though this structure is identical (but for the names) to EIIdata, it is made deliberately incompatible
+	// to prevent confusion.
+	typedef EIIdata InverseEIIdata;
 
 	// Reorganises a EIIData tree by final index rather than initial
     // Used for Q_TBR

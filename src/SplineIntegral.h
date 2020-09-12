@@ -63,10 +63,10 @@ public:
     void precompute_Q_coeffs(vector<RateData::Atom>& Atoms);
     // Precalculators. These delete the vectors Gamma and populate them with the calculated coefficients.)
     void Gamma_eii( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J) const;
-    void Gamma_tbr( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J, size_t K) const;
+    void Gamma_tbr( eiiGraph& Gamma, const std::vector<RateData::InverseEIIdata>& eii, size_t J, size_t K) const;
     // overloads that take non-vectorised inputs
     void Gamma_eii( std::vector<SparsePair>& Gamma_xi, const RateData::EIIdata& eii, size_t J) const;
-    void Gamma_tbr( std::vector<SparsePair>& Gamma_xi, const RateData::EIIdata& eii, size_t J, size_t K) const;
+    void Gamma_tbr( std::vector<SparsePair>& Gamma_xi, const RateData::InverseEIIdata& eii, size_t J, size_t K) const;
 
     int i_from_e(double e);
     double area(size_t idx);

@@ -125,15 +125,16 @@ void ElectronSolver::precompute_gamma_coeffs(){
     for (size_t a = 0; a < input_params.Store.size(); a++) {
         std::cout<<"[ Gamma precalc ] Atom "<<a+1<<"/"<<input_params.Store.size()<<std::endl;
         auto& eiiVec = input_params.Store[a].EIIparams;
+        vector<RateData::InverseEIIdata> tbrVec = RateData::inverse(eiiVec);
         for (size_t n=0; n<N; n++){
             Distribution::Gamma_eii(RATE_EII[a][n], eiiVec, n);
             for (size_t m=0; m<N; m++){
                 size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                 // // k = N... N(N+1)/2
-                Distribution::Gamma_tbr(RATE_TBR[a][k], eiiVec, n, m);
+                Distribution::Gamma_tbr(RATE_TBR[a][k], tbrVec, n, m);
                 // Distribution::Gamma_tbr(RATE_TBR[a][n][m], eiiVec, n, m);
             }
-            // Distribution::Gamma_tbr(RATE_TBR[a][n], eiiVec, n, n);
+            Distribution::Gamma_tbr(RATE_TBR[a][n], tbrVec, n, n);
         }
     }
     std::cout<<"[ Gamma precalc ] Done."<<std::endl;
@@ -197,11 +198,9 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
                     dq += tmp;
                 }
             }
-            
-            /*
 
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
-            // Note that RATE_TBR has the same geometry as EIIdata, so indices must be swapped.
+            // Note that RATE_TBR has the same geometry as InverseEIIdata.
             for (size_t m=n+1; m<N; m++){
                 size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                 // k = N... N(N+1)/2-1
@@ -209,8 +208,8 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
                 for (size_t init=0;  init<RATE_TBR[a][k].size(); init++){
                     for (auto& finPair : RATE_TBR[a][k][init]){
                         tmp = finPair.val*s.F[n]*s.F[m]*P[finPair.idx]*2;
-                        Pdot[init] += tmp;
-                        Pdot[finPair.idx] -= tmp;
+                        Pdot[finPair.idx] += tmp;
+                        Pdot[init] -= tmp;
                         dq -= tmp;
                     }
                 }
@@ -220,18 +219,18 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t){
             for (size_t init=0;  init<RATE_TBR[a][n].size(); init++){
                 for (auto& finPair : RATE_TBR[a][n][init]){
                     tmp = finPair.val*s.F[n]*s.F[n]*P[finPair.idx];
-                    Pdot[init] += tmp;
-                    Pdot[finPair.idx] -= tmp;
+                    Pdot[finPair.idx] += tmp;
+                    Pdot[init] -= tmp;
                     dq -= tmp;
                 }
             }
-            */
+            
         }
 
 
         // compute the dfdt vector
         s.F.get_Q_eii(vec_dqdt, a, P);
-        // s.F.get_Q_tbr(vec_dqdt, a, P);
+        s.F.get_Q_tbr(vec_dqdt, a, P);
     }
 
     // s.F.apply_Qee(vec_dqdt); // Electron-electon repulsions

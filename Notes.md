@@ -22,8 +22,13 @@ Populatrs a Distribution with a maxwellian of temperature T, then adds two delta
 ## `tests/spline_check`
 Accepts same arguments as `BasisSet::set_parameters`, namely, `num_funcs, min, max, zero_degree, grid spacing`. Outputs all B-splines to stdout in a manner plottable by gnuplot
 
+## `tests/sigma_test`
+Verifies a few key properties of the sigma integrals.
+1. Correctness: `∫dsigma(W|T) dW = 2 sigma(T)` (Integral may require large N to converge)
+2. Symmetry: `dsigma(W|T) = dsigma(T-B-W | T)`
+
 # What we Know
 ## Properties of QEII
 - Satisfies `QEII[xi][J][K] =0` if `J-K > 3`, i.e. it looks like it ought to.
-- Passes `check_qeii,` suggesting something else is going wrong (inflating the
-  higher energies).
+- Passes `check_qeii,` 
+- Update - Now looks sensible. Cause of earlier problems: Unknown.
