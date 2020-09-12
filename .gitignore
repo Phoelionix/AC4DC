@@ -9,3 +9,4 @@ output
 tmp
 testOutput
 Makefile
+*.swp

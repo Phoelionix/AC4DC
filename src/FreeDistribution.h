@@ -86,8 +86,8 @@ public:
     static void Gamma_eii( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J){
         return basis.Gamma_eii(Gamma, eii, J);
     }
-    static void Gamma_tbr( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J, size_t K){
-        return basis.Gamma_tbr(Gamma, eii, J, K);
+    static void Gamma_tbr( eiiGraph& Gamma, const std::vector<RateData::InverseEIIdata>& tbr, size_t J, size_t K){
+        return basis.Gamma_tbr(Gamma, tbr, J, K);
     }
     static void precompute_Q_coeffs(vector<RateData::Atom>& Store){
         basis.precompute_Q_coeffs(Store);
@@ -101,7 +101,7 @@ public:
     double operator()(double e) const;
 
     // The setup function
-    static void set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style=GridSpacing::linear);
+    static void set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style);
 
 
 

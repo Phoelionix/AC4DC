@@ -1,13 +1,23 @@
 #include "SplineBasis.h"
 #include <iostream>
+#include <sstream>
 
 using namespace std;
 
 int main(int argc, char const *argv[]) {
+    if (argc < 6){
+        cout<<"Usage: "<<argv[0]<<" [num_funcs] [min_e (Ha)] [max_e (Ha)] [zero_regularity] (linear|quadratic|exponential "<<endl;
+    }
     int num_funcs = atoi(argv[1]);
-    double max = atof(argv[2]);
+    double min = atof(argv[2]);
+    double max = atof(argv[3]);
+    int zero_degree = atoi(argv[4]);
+    istringstream is(argv[5]);
+    GridSpacing gs;
+    is >> gs;
+
     BasisSet basis;
-    basis.set_parameters(num_funcs, 0, max);
+    basis.set_parameters(num_funcs, min, max, zero_degree, gs);
     double de = max/(num_funcs*20);
     double e=0;
     for (size_t i=0; i<num_funcs*20; i++){
