@@ -59,7 +59,7 @@ void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     // }
 }
 
-//============================
+// ============================
 // utility
 
 // Expects T to have units of Ha
@@ -82,6 +82,18 @@ void Distribution::set_maxwellian(double T, double N) {
     }
 }
 
+// ==========================
+// IO
+
+// Returns knot energies in eV
+std::string Distribution::output_knots_eV() {
+    std::stringstream ss;
+    for (int i=0; i<basis.gridlen(); i++) {
+        ss << basis.grid(i)*Constant::eV_per_Ha<<" ";
+    }
+    return ss.str();
+}
+
 // Returns energies in eV
 std::string Distribution::output_energies_eV(size_t num_pts) {
     std::stringstream ss;
@@ -91,9 +103,6 @@ std::string Distribution::output_energies_eV(size_t num_pts) {
         ss << e*Constant::eV_per_Ha<<" ";
         e += de;
     }
-    // for (int i=0; i<basis.gridlen(); i++) {
-    //     ss << basis.grid(i)*Constant::eV_per_Ha<<" ";
-    // }
     return ss.str();
 }
 
@@ -109,7 +118,7 @@ std::string Distribution::output_densities(size_t num_pts) const {
 }
 
 double Distribution::operator()(double e) const{
-    double tmp;
+    double tmp=0;
     for (size_t j = 0; j < size; j++) {
         tmp += basis(j, e)*f[j];
     }

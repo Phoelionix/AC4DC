@@ -190,6 +190,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         size_t N = Distribution::size;
         for (size_t n=0; n<N; n++) {
             double tmp=0; // aggregator
+            
             for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
                 for (auto& finPair : RATE_EII[a][n][init]) {
                     tmp = finPair.val*s.F[n]*P[init];
@@ -245,7 +246,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
     sdot.F.applyDelta(vec_dqdt);
 
     // This is loss.
-    sdot.F.addLoss(s.F, input_params.dropl_R());
+    // sdot.F.addLoss(s.F, input_params.dropl_R());
 
     #ifdef OUTPUT_DFDT_TO_CERR
     std::cerr<<t*Constant::fs_per_au;
@@ -276,9 +277,7 @@ void ElectronSolver::save(const std::string& _dir) {
     dir = (dir.back() == '/') ? dir : dir + "/";
 
     saveFree(dir+"freeDist.csv");
-    #ifdef DEBUG
     saveFreeRaw(dir+"freeDistRaw.csv");
-    #endif
     saveBound(dir);
 
     std::vector<double> fake_t;
@@ -316,7 +315,8 @@ void ElectronSolver::saveFreeRaw(const std::string& fname) {
     cout << "[ Free ] Saving to file "<<fname<<"..."<<endl;
     f.open(fname);
     f << "# Free electron dynamics"<<endl;
-    f << "# Time (fs) | Expansion Coeffs" <<endl;
+    f << "# Energy Knot: "<< Distribution::output_knots_eV() << endl;
+    f << "# Time (fs) | Expansion Coeffs"  << endl;
 
     assert(y.size() == t.size());
     int num_t_points = input_params.Out_T_size();

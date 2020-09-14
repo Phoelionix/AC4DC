@@ -101,11 +101,13 @@ public:
 
     static std::string output_energies_eV(size_t num_pts);
     std::string output_densities(size_t num_pts) const;
+    
 
     double operator()(double e) const;
 
     // The setup function
     static void set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style);
+    static std::string output_knots_eV();
 
 
 
