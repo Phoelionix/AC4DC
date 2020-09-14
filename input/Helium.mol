@@ -8,17 +8,17 @@ He 1
 175          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
 
 #PULSE
-800         // Photon energy in eV.
+8000         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 10           // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
-8000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+80000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12           // Number of threads in OpenMP.
 0          // minimum free-electron energy in eV
-1500        // maximum free-electron energy in eV
-500          // number of free-electron grid points
-linear    // electron grid type
+9000        // maximum free-electron energy in eV
+1000          // number of free-electron grid points
+quadratic    // electron grid type
 
 #OUTPUT
 400         // Number of time steps in the output files.

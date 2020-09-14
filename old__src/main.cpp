@@ -46,7 +46,7 @@ USAGE: ac4dc input.inp
 */
 
 
-void export_psi(string file_name, RadialWF& Psi, Grid& latt){
+void export_psi(string file_name, RadialWF& Psi, Grid& latt) {
 	cout<<"Attempting to save orbital "<<file_name<<endl;
 	const int N = latt.size();
 	assert(Psi.G.size() == N && Psi.F.size() == N);
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
 			Dynamics.SetupAndSolve(log);
 		}
 
-		if (export_orbs){
+		if (export_orbs) {
 			string orbfile = "./output/";
 			orbfile+=filename+"/Orbital";
 			mkdir(orbfile.c_str(), ACCESSPERMS);

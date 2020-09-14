@@ -28,38 +28,38 @@ struct elec_state_t {
 	double Np;
 	double Ep;
 
-	elec_state_t operator+(const elec_state_t &a){
+	elec_state_t operator+(const elec_state_t &a) {
 		return {a.N+N, a.E+E, a.Np+Np, a.Ep+Ep};
 	}
 
 	// Scalar multiplication
-	elec_state_t operator*( double c){
+	elec_state_t operator*( double c) {
 		return {c*N, c*E, c*Np, c*Ep};
 	}
 
 	// entrywise multiplication
-	elec_state_t operator*(const elec_state_t a){
+	elec_state_t operator*(const elec_state_t a) {
 		return {a.N*N, a.E*E, a.Np*Np, a.Ep*Ep};
 	}
 
-	elec_state_t operator=(double c){
+	elec_state_t operator=(double c) {
 		return {c,c,c,c};
 	}
 
-	elec_state_t operator=(int x){
+	elec_state_t operator=(int x) {
 		double c = x;
 		return {c,c,c,c};
 	}
-	void operator+=(const elec_state_t &a){
+	void operator+=(const elec_state_t &a) {
 		*this = *this + a;
 	}
-	void operator*=(const double c){
+	void operator*=(const double c) {
 		*this = *this * c;
 	}
-	void operator*=(const elec_state_t &a){
+	void operator*=(const elec_state_t &a) {
 		*this = *this * a;
 	}
-	bool operator==(const elec_state_t &a){
+	bool operator==(const elec_state_t &a) {
 		return N==a.N && E==a.E && Np==a.Np && Ep == a.Ep;
 	}
 

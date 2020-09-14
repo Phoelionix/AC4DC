@@ -112,14 +112,14 @@ namespace RateData {
 			kin.resize(n);
 		}
 
-		void push_back(int f, int o, float B, float U){
+		void push_back(int f, int o, float B, float U) {
 			fin.push_back(f);
 			occ.push_back(o);
 			ionB.push_back(B);
 			kin.push_back(U);
 		}
 
-		size_t size(){
+		size_t size() {
 			#ifdef DEBUG
 			assert(fin.size() == occ.size());
 			assert(fin.size() == ionB.size());

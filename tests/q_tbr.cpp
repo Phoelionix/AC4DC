@@ -6,7 +6,7 @@
 
 using namespace std;
 
-RateData::EIIdata get_fake_eii(){
+RateData::EIIdata get_fake_eii() {
     RateData::EIIdata tmp;
     tmp.init = 0;
     tmp.push_back(5, 2, 80, 8.9);
@@ -21,7 +21,7 @@ const auto& one = [](double e) -> double {return 1.;};
 
 class BasisTester : public SplineIntegral{
     public:
-    BasisTester(size_t F_size, double min_e, double max_e, GridSpacing grid_type){
+    BasisTester(size_t F_size, double min_e, double max_e, GridSpacing grid_type) {
         
         Distribution::set_elec_points(F_size, min_e, max_e, grid_type);
         // HACK: There are two distinct BasisSet-inheriting things, the Distribution static BasisIntegral
@@ -50,9 +50,9 @@ class BasisTester : public SplineIntegral{
         std::vector<std::vector<std::vector<double>>> Q_mat;
         
         Q_mat.resize(Distribution::size);
-        for (auto&& v : Q_mat){
+        for (auto&& v : Q_mat) {
             v.resize(Distribution::size);
-            for (auto& vi : v){
+            for (auto& vi : v) {
                 vi.resize(Distribution::size, 0);
             }
         }
@@ -63,7 +63,7 @@ class BasisTester : public SplineIntegral{
         for (size_t J = 0; J < Distribution::size; J++)
         {
             sm = calc_Q_tbr(tbr_process, J);
-            for (auto&& entry : sm){
+            for (auto&& entry : sm) {
                 Q_mat[entry.K][entry.L][J] = entry.val;
             }
         } 
@@ -71,7 +71,7 @@ class BasisTester : public SplineIntegral{
         // Print some helpful labels
         gout<<"#L= ";
         qout<<"#L= ";
-        for (size_t L=0; L<Distribution::size; L++){
+        for (size_t L=0; L<Distribution::size; L++) {
             gout <<(supp_max(L)+supp_min(L))*0.5<<" ";
             qout <<(supp_max(L)+supp_min(L))*0.5<<" ";
         }
@@ -95,7 +95,7 @@ class BasisTester : public SplineIntegral{
         {
             gout <<(supp_max(K)+supp_min(K))*0.5;
             qout <<(supp_max(K)+supp_min(K))*0.5;
-            for (size_t L=0; L<Distribution::size; L++){
+            for (size_t L=0; L<Distribution::size; L++) {
                 Gamma_tbr(eg, tbr_process, K, L);
                 double tot = 0;
                 for (size_t j = 0; j < num_fin_states; j++)

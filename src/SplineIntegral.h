@@ -10,10 +10,10 @@ struct SparsePair
 {
     int idx;
     double val;
-    SparsePair(){idx=0; val=0;};
+    SparsePair() {idx=0; val=0;};
     SparsePair( int i, double v ) : idx(i), val(v) {};
-    ~SparsePair(){};
-    SparsePair& operator=(SparsePair tup){
+    ~SparsePair() {};
+    SparsePair& operator=(SparsePair tup) {
         idx = tup.idx;
         val = tup.val;
         return *this;
@@ -33,7 +33,7 @@ struct SparseTriple
     int K;
     int L;
     double val;
-    static SparseTriple Zero(){
+    static SparseTriple Zero() {
         SparseTriple tmp;
         tmp.K=0;
         tmp.L=0;
@@ -56,10 +56,10 @@ public:
     typedef std::vector<std::vector<std::vector<sparse_matrix> > > Q_tbr_t;
     // Interpretation: J^th matrix element of dQ/dt given by
     // vector<SparseTriple> &nv = Q_tbr[a][xi][J]
-    // for (auto& Q : nv){
+    // for (auto& Q : nv) {
     //      tmp += nv.val * P^a[xi] * F[nv.K] * F[nv.L]
     // }
-    SplineIntegral(){};
+    SplineIntegral() {};
     void precompute_Q_coeffs(vector<RateData::Atom>& Atoms);
     // Precalculators. These delete the vectors Gamma and populate them with the calculated coefficients.)
     void Gamma_eii( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J) const;
@@ -71,9 +71,9 @@ public:
     int i_from_e(double e);
     double area(size_t idx);
 
-    bool has_Qeii(){ return _has_Qeii; }
-    bool has_Qtbr(){ return _has_Qtbr; }
-    bool has_Qee(){ return _has_Qee; }
+    bool has_Qeii() { return _has_Qeii; }
+    bool has_Qtbr() { return _has_Qtbr; }
+    bool has_Qee() { return _has_Qee; }
     Q_eii_t Q_EII;
     Q_tbr_t Q_TBR;
 protected:
