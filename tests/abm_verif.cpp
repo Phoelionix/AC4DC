@@ -8,47 +8,47 @@ using namespace ode;
 template<int N>
 struct lvector {
     double* X;
-    lvector(){
+    lvector() {
         X = new double[N];
     }
-    lvector(const lvector<N>& u){
+    lvector(const lvector<N>& u) {
         X = new double[N];
         this->operator=(u);
     }
-    ~lvector(){
+    ~lvector() {
         delete[] X;
     }
     // Critical vector-space devices
-    lvector<N>& operator+=(const lvector<N> &s){
-        for (size_t i=0; i<N; i++){
+    lvector<N>& operator+=(const lvector<N> &s) {
+        for (size_t i=0; i<N; i++) {
             X[i] += s.X[i];
         }
         return *this;
     }
-    lvector<N>& operator*=(const double x){
-        for (size_t i=0; i<N; i++){
+    lvector<N>& operator*=(const double x) {
+        for (size_t i=0; i<N; i++) {
             X[i] *= x;
         }
         return *this;
     }
-    lvector<N>& operator=(const lvector<N> &s){
+    lvector<N>& operator=(const lvector<N> &s) {
         // self-assignment guard
         if (this == &s)
             return *this;
 
-        for (size_t i=0; i<N; i++){
+        for (size_t i=0; i<N; i++) {
             X[i] = s.X[i];
         }
         return *this;
     }
-    double norm(){
+    double norm() {
         double n=0;
-        for (size_t i=0; i<N; i++){
+        for (size_t i=0; i<N; i++) {
             n += abs(X[i]);
         }
         return n;
     }
-    // lvector<N>& operator=(lvector<N>&& other){
+    // lvector<N>& operator=(lvector<N>&& other) {
     //     // If we're not trying to move the object into itself...
     //     if (this != &other) {
     //       delete[] this->X;  // Delete the string's original data.
@@ -65,7 +65,7 @@ typedef lvector<2> vec_t;
 class Harmonic : Adams_BM<vec_t>{
     // Classic harmonic oscillator.
 public:
-    Harmonic(double _omega, size_t num_points, double _dt, int _order) : Adams_BM<vec_t>(_order){
+    Harmonic(double _omega, size_t num_points, double _dt, int _order) : Adams_BM<vec_t>(_order) {
         this->omega = _omega;
         this->omega2 = _omega*_omega;
         vec_t init;
@@ -76,21 +76,21 @@ public:
         // this->y and this->t are now populated
         comp_analytic();
     }
-    void comp_analytic(){
+    void comp_analytic() {
         analytic.resize(this->t.size());
-        for (size_t i=0; i<t.size(); i++){
+        for (size_t i=0; i<t.size(); i++) {
             analytic[i].X[0] = cos(omega*t[i]);
             analytic[i].X[1] = -omega*sin(omega*t[i]);
         }
     }
-    void print(){
+    void print() {
         cout<<"t\ty_c\ty_a\tdiff\n"<<endl;
         for (size_t i = 0; i < y.size(); i++) {
             double delta = y[i].X[0] - analytic[i].X[0];
             cout<<t[i]<<'\t'<<y[i].X[0]<<'\t'<<analytic[i].X[0]<<'\t'<<delta<<endl;
         }
     }
-    double avgdev(){
+    double avgdev() {
         double tmp=0;
         for (size_t i = 0; i < y.size(); i++) {
             tmp += (y[i].X[0] - analytic[i].X[0])*(y[i].X[0] - analytic[i].X[0]);
@@ -104,7 +104,7 @@ protected:
     vector<vec_t> analytic;
     double omega=1;
     double omega2=1;
-    void sys(const vec_t& q, vec_t& qdot, const double t){
+    void sys(const vec_t& q, vec_t& qdot, const double t) {
         // q[0] = x
         // q[1] = v
         qdot.X[1] = -q.X[0]*omega2;
@@ -113,7 +113,7 @@ protected:
 };
 
 int main(int argc, char const *argv[]) {
-    if (argc <3){
+    if (argc <3) {
         cerr<<"Usage: abm_verif [omega] [step] [order]"<<endl;
         return 1;
     }

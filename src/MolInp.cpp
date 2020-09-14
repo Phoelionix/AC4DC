@@ -170,13 +170,13 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		Pots[i] = U;
 	}
 
-	if (!validate_inputs()){
+	if (!validate_inputs()) {
 		cerr<<endl<<endl<<endl<<"Exiting..."<<endl;
 		throw runtime_error(".mol input file is invalid");
 	}
 }
 
-bool MolInp::validate_inputs(){
+bool MolInp::validate_inputs() {
 	bool is_valid=true;
 	if (omega <= 0 ) { cerr<<"ERROR: pulse omega must be positive"; is_valid=false; }
 	if (width <= 0 ) { cerr<<"ERROR: pulse width must be positive"; is_valid=false; }
@@ -196,7 +196,7 @@ bool MolInp::validate_inputs(){
 	return is_valid;
 }
 
-void MolInp::calc_rates(ofstream &_log, bool recalc){
+void MolInp::calc_rates(ofstream &_log, bool recalc) {
 	// Loop through atomic species.
 	for (int a = 0; a < Atomic.size(); a++) {
 		HartreeFock HF(Latts[a], Orbits[a], Pots[a], Atomic[a], _log);

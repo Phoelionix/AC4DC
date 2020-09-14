@@ -10,7 +10,7 @@ const auto& one = [](double e) -> double {return 1.;};
 
 class BasisTester : public SplineIntegral{
     public:
-    BasisTester(size_t F_size, double min_e, double max_e, GridSpacing grid_type){
+    BasisTester(size_t F_size, double min_e, double max_e, GridSpacing grid_type) {
         
         Distribution::set_elec_points(F_size, min_e, max_e, grid_type);
         // HACK: There are two distinct BasisSet-inheriting things, the Distribution static BasisIntegral
@@ -39,10 +39,10 @@ class BasisTester : public SplineIntegral{
         {
             int J0 = this->i_from_e(e);
             double tmp =0;
-            for (int J = J0 - BSPLINE_ORDER; J<= J0 + BSPLINE_ORDER; J++){
+            for (int J = J0 - BSPLINE_ORDER; J<= J0 + BSPLINE_ORDER; J++) {
                 tmp += this->at(J, e);
             }
-            // for (int J=0; J<num_funcs; J++){
+            // for (int J=0; J<num_funcs; J++) {
             //     tmp += (*this)(J, e);
             // }
             avg += tmp;

@@ -9,7 +9,7 @@ using namespace std;
 // eV, fs
 class EEcoll : ode::Adams_BM<Distribution>{
 public:
-    EEcoll(double T, size_t num_points, double _dt, int _order) : Adams_BM<Distribution>(_order){
+    EEcoll(double T, size_t num_points, double _dt, int _order) : Adams_BM<Distribution>(_order) {
         //                            num, min, max
         Distribution::set_elec_points(100, 0, 50*T*Constant::kb_Ha);
         Distribution init;
@@ -23,7 +23,7 @@ public:
         // this->y and this->t are now populated
     }
 
-    void print(){
+    void print() {
         cout<<"#t | E (eV)"<<endl;
         cout<<"# |  "<<Distribution::output_energies_eV(Distribution::size)<<endl;
         for (size_t i = 0; i < y.size(); i++) {
@@ -31,7 +31,7 @@ public:
         }
     }
 protected:
-    void sys(const Distribution& q, Distribution& qdot, const double t){
+    void sys(const Distribution& q, Distribution& qdot, const double t) {
         qdot=0;
         Eigen::VectorXd v = Eigen::VectorXd::Zero(Distribution::size);;
         // q.get_Q_ee(v);
@@ -41,7 +41,7 @@ protected:
 
 int main(int argc, char const *argv[]) {
 
-    if (argc <3){
+    if (argc <3) {
         cerr<<"Usage: integral_verif [T] [step] [order]"<<endl;
         return 1;
     }

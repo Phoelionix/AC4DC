@@ -24,8 +24,8 @@ This file should arguably be called RateEquationSOlver, however, for historical 
 class PhotonFlux
 {
 public:
-    PhotonFlux(){};
-    PhotonFlux(double fluence, double fwhm){
+    PhotonFlux() {};
+    PhotonFlux(double fluence, double fwhm) {
         set_pulse(fluence, fwhm);
     };
     void set_pulse(double, double);

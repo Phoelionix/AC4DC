@@ -27,19 +27,19 @@ void BasisSet::set_parameters(size_t n, double min, double max, int zero_degree,
 
     assert(zero_degree < BSPLINE_ORDER -1 && "Failed to set boundary consition");
 
-    for (int i=0; i<BSPLINE_ORDER-zero_degree; i++){
+    for (int i=0; i<BSPLINE_ORDER-zero_degree; i++) {
         knot[i] = min;
     }
 
     // all derivatives vanish at "infinity": no special treatment
     double A_sqrt = (max - min)/(n-1)/(n-1);
     double A_lin = (max - min)/(n-1);
-    if (gt == GridSpacing::exponential && min <= 0){
+    if (gt == GridSpacing::exponential && min <= 0) {
         throw runtime_error("Cannot construct an exponential grid with zero minimum energy.");
     }
     double A_exp = min;
     double lambda_exp = (log(max) - log(min))/(n-1);
-    for(int i=BSPLINE_ORDER-zero_degree; i<n+BSPLINE_ORDER; i++){
+    for(int i=BSPLINE_ORDER-zero_degree; i<n+BSPLINE_ORDER; i++) {
         switch (gt)
         {
         case GridSpacing::linear:
@@ -59,10 +59,10 @@ void BasisSet::set_parameters(size_t n, double min, double max, int zero_degree,
     // Compute overlap matrix
     Eigen::SparseMatrix<double> S(num_funcs, num_funcs);
     // Eigen::MatrixXd S(num_funcs, num_funcs);
-    for (int i=0; i<num_funcs; i++){
-        for (int j=i+1; j<num_funcs; j++){
+    for (int i=0; i<num_funcs; i++) {
+        for (int j=i+1; j<num_funcs; j++) {
             double tmp=overlap(i, j);
-            if (tmp != 0){
+            if (tmp != 0) {
                 S.insert(i,j) = tmp;
                 S.insert(j,i) = tmp;
                 // S(i,j) = tmp;
@@ -81,7 +81,7 @@ void BasisSet::set_parameters(size_t n, double min, double max, int zero_degree,
     }
 }
 
-Eigen::VectorXd BasisSet::Sinv(const Eigen::VectorXd& deltaf){
+Eigen::VectorXd BasisSet::Sinv(const Eigen::VectorXd& deltaf) {
     // Solves the linear system S fdot = deltaf
     return linsolver.solve(deltaf);
 }
@@ -104,7 +104,7 @@ double BasisSet::overlap(size_t j,size_t i) const{
     double a = max(supp_min(i), supp_min(j));
     if (a >= b) return 0;
     double tmp=0;
-    for (int m=0; m<10; m++){
+    for (int m=0; m<10; m++) {
         double e = gaussX_10[m]*(b-a)/2 + (b+a)/2;
         tmp += gaussW_10[m]*(*this)(j, e)*(*this)(i, e);
     }

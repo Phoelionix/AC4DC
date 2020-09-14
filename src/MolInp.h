@@ -35,9 +35,9 @@ public:
 	int Out_T_size() {return out_T_size; }
 	int Out_F_size() {return out_F_size; }
 
-	double Max_Elec_E(){return max_elec_e;}
-	double Min_Elec_E(){return min_elec_e;}
-	size_t Num_Elec_Points(){return num_elec_points;}
+	double Max_Elec_E() {return max_elec_e;}
+	double Min_Elec_E() {return min_elec_e;}
+	size_t Num_Elec_Points() {return num_elec_points;}
 
 
 	string name = "";

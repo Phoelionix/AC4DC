@@ -35,7 +35,7 @@ public:
 	Input(const Input & Other);
 
 	Input& operator=(Input other) {
-		if (&other == this){
+		if (&other == this) {
 			return *this;
 		}
 

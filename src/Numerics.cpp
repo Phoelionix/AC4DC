@@ -351,7 +351,7 @@ void Adams::StartAdams(RadialWF* Psi, int start_pt, bool forward)
 	int Lagrange_N = 9;//Always calculating first 10 points. If Adams_N < 10 it will overwrite an extra points
 
 	int incr;
-	if (forward){ incr = 1; }
+	if (forward) { incr = 1; }
 	else { incr = -1; }
 
 	LeftMatr.resize(2 * Lagrange_N);

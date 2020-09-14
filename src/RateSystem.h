@@ -33,13 +33,13 @@ public:
     // Defines number and style of atomP
     // Resizes the container to fit all of the states present in the atom ensemble
     static void set_P_shape(const vector<RateData::Atom>& atomsys);
-    static void set_P_shape(const vector<size_t>& shape){
+    static void set_P_shape(const vector<size_t>& shape) {
         P_sizes = shape;
     }
-    static size_t P_size(size_t a){
+    static size_t P_size(size_t a) {
         return P_sizes[a];
     }
-    static size_t num_atoms(){
+    static size_t num_atoms() {
         return P_sizes.size();
     }
 
@@ -60,7 +60,7 @@ ostream& operator<<(ostream& os, const Distribution& dist);
 
 /*         TODO: Fix these (do not currently habdle multiple P arrays implemented above.)
 // Algebra definition for error-controlled steppers
-state_type operator/( const state_type &s1 , const state_type &s2 ){
+state_type operator/( const state_type &s1 , const state_type &s2 ) {
     std::vector<double> tmpP = s1.P;
     std::vector<double> tmpf = s1.f;
 
@@ -73,7 +73,7 @@ state_type operator/( const state_type &s1 , const state_type &s2 ){
     return state_type( tmpP, tmpf );
 }
 
-state_type abs( const state_type &s){
+state_type abs( const state_type &s) {
     state_type tmp(s.P.size(), s.f.size());
 
     for (size_t i = 0; i < tmp.P.size(); i++) {

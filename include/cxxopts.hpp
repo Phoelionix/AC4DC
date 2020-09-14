@@ -1757,7 +1757,7 @@ ParseResult::parse(int& argc, char**& argv)
 
     auto& store = m_results[detail];
 
-    if(!store.count() && value.has_default()){
+    if(!store.count() && value.has_default()) {
       parse_default(detail);
     }
   }

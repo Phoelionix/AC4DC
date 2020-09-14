@@ -210,7 +210,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 
 	bool existAug, existEII, existPht, existFlr;
 
-	if (recalculate){
+	if (recalculate) {
 		existAug=false;
 		existEII=false;
 		existPht=false;

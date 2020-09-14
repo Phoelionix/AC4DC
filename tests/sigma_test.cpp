@@ -6,7 +6,7 @@ using namespace std;
 
 int main(int argc, char const *argv[])
 {
-    if(argc < 4){
+    if(argc < 4) {
         cerr<<"Usage: "<<argv[0]<<" T B N "<<endl;
         return 1;
     }
@@ -41,7 +41,7 @@ int main(int argc, char const *argv[])
     de = T/num_points/2;
     double W1 = 0;
     double W2 = T - B;
-    for(size_t i=0; i<num_points; i++){
+    for(size_t i=0; i<num_points; i++) {
         W1 += de;
         W2 -= de;
         cerr<<W1 <<" "<< Dipole::DsigmaBEB(T, W1, B, U, occ)<<" "<<Dipole::DsigmaBEB(T, W2, B, U, occ)<<endl;

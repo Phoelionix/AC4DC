@@ -22,7 +22,7 @@ public:
         f.resize(size);
     }
 
-    inline double& operator[](size_t n){
+    inline double& operator[](size_t n) {
         return this->f[n];
     }
 
@@ -31,7 +31,7 @@ public:
     }
 
     // vector-space algebra
-    Distribution& operator+=(const Distribution& d){
+    Distribution& operator+=(const Distribution& d) {
         for (size_t i=0; i<size; i++) {
             f[i] += d.f[i];
         }
@@ -39,23 +39,23 @@ public:
         return *this;
     }
 
-    Distribution& operator*=(double x){
-        for (int i=0; i<f.size(); i++){
+    Distribution& operator*=(double x) {
+        for (int i=0; i<f.size(); i++) {
             f[i] *= x;
         }
         // total *= d.total;
         return *this;
     }
 
-    Distribution& operator=(const Distribution& d){
+    Distribution& operator=(const Distribution& d) {
         f = d.f;
         // total = d.total;
         return *this;
     }
 
-    Distribution& operator=(double y){
+    Distribution& operator=(double y) {
         // total = y;
-        for (int i=0; i<f.size(); i++){
+        for (int i=0; i<f.size(); i++) {
             f[i] = y;
         }
         return *this;
@@ -87,13 +87,13 @@ public:
     void set_maxwellian(double N, double T);
 
     // Precalculators
-    static void Gamma_eii( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J){
+    static void Gamma_eii( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J) {
         return basis.Gamma_eii(Gamma, eii, J);
     }
-    static void Gamma_tbr( eiiGraph& Gamma, const std::vector<RateData::InverseEIIdata>& tbr, size_t J, size_t K){
+    static void Gamma_tbr( eiiGraph& Gamma, const std::vector<RateData::InverseEIIdata>& tbr, size_t J, size_t K) {
         return basis.Gamma_tbr(Gamma, tbr, J, K);
     }
-    static void precompute_Q_coeffs(vector<RateData::Atom>& Store){
+    static void precompute_Q_coeffs(vector<RateData::Atom>& Store) {
         basis.precompute_Q_coeffs(Store);
     }
 

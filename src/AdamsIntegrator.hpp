@@ -48,20 +48,20 @@ private:
 };
 
 template<typename T>
-IVPSolver<T>::IVPSolver(){
+IVPSolver<T>::IVPSolver() {
     // TODO: GLobal refactor of y and t to have more obvious names
     y.resize(1);
     t.resize(1);
 }
 
 template<typename T>
-void IVPSolver<T>::setup(const T& initial_state, double _dt, double _step_tolerance ){
+void IVPSolver<T>::setup(const T& initial_state, double _dt, double _step_tolerance ) {
     step_tolerance = _step_tolerance;
     this->y[0] = initial_state;
     // Makes a zero std::vector in a mildly spooky way
     this->zero_y = initial_state; // do this to make the underlying structure large enough
     this->zero_y *= 0.; // set it to Z E R O
-    if (_dt < 1E-16){
+    if (_dt < 1E-16) {
         std::cerr<<"WARN: step size "<<dt<<"is smaller than machine precision"<<std::endl;
     }
     this->dt = _dt;
@@ -74,7 +74,7 @@ template<typename T>
 Adams_BM<T>::Adams_BM(int _order):
     IVPSolver<T>()
     {
-    if (_order < 2 || _order > AdamsArrays::MAX_ADAMS_ORDER){
+    if (_order < 2 || _order > AdamsArrays::MAX_ADAMS_ORDER) {
         std::cerr<<"ERROR: Adams order may not be greater than "<<AdamsArrays::MAX_ADAMS_ORDER;
     }
     this->order = _order;
@@ -86,7 +86,7 @@ Adams_BM<T>::Adams_BM(int _order):
 // Computes y_n+1 based only on y_n
 // For initialisng the multistep method
 template<typename T>
-void Adams_BM<T>::step_rk4(int n){
+void Adams_BM<T>::step_rk4(int n) {
     // T k1, k2, k3, k4, tmp;
     // this->sys(this->y[n], k1, this->t[n]);
     // //tmp = this->y[n]+k1*0.5
@@ -132,7 +132,7 @@ void Adams_BM<T>::step_rk4(int n){
 }
 
 template<typename T>
-void Adams_BM<T>::step(int n){
+void Adams_BM<T>::step(int n) {
     // Predicts the value y_n+1
     // Adams-Bashforth predictor routine:
 
@@ -172,9 +172,9 @@ void Adams_BM<T>::step(int n){
 }
 
 template<typename T>
-void Adams_BM<T>::iterate(double t_initial, double t_final){
+void Adams_BM<T>::iterate(double t_initial, double t_final) {
 
-    if (this->dt < 1E-16){
+    if (this->dt < 1E-16) {
         std::cerr<<"WARN: step size "<<this->dt<<"is smaller than machine precision"<<std::endl;
     } else if (this->dt < 0) {
         throw std::runtime_error("Step size is negative!");

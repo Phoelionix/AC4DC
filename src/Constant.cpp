@@ -218,8 +218,8 @@ namespace RateData{
 		for (size_t i = 0; i < tbrVec.size(); i++) {
 			tbrVec[i].init = i;
 		}
-		for (auto& eii : eiiVec){
-			for (size_t j=0; j<eii.fin.size(); j++){
+		for (auto& eii : eiiVec) {
+			for (size_t j=0; j<eii.fin.size(); j++) {
 				InverseEIIdata& inv = tbrVec.at(eii.fin[j]);
 				inv.fin.push_back(eii.init);
 				inv.occ.push_back(eii.occ[j]);
@@ -233,14 +233,14 @@ namespace RateData{
 	FILE* safe_fopen(const char *filename, const char *mode)
 	{
 		FILE* fp = fopen(filename, mode);
-		if (fp == NULL){
+		if (fp == NULL) {
 			std::cerr << "Could not open file '" << filename << "'" << std::endl;
 		}
 		return fp;
 	}
 
 	template<typename T>
-	void read_vector(const string& s, vector<T>&v){
+	void read_vector(const string& s, vector<T>&v) {
 		auto iss = istringstream(s);
 
 		string str;
@@ -252,7 +252,7 @@ namespace RateData{
 		}
 	}
 
-	string find_bracket_contents(string &src){
+	string find_bracket_contents(string &src) {
 		size_t first_idx = src.find('[');
 		size_t last_idx = src.rfind(']');
 		return src.substr(first_idx+1, last_idx-first_idx-1);
@@ -260,13 +260,13 @@ namespace RateData{
 
 	// Reads a ratefile input and stores the data in PutHere
 	// Returns true on successful opening
-	bool ReadRates(const string & input, vector<Rate>& PutHere){
+	bool ReadRates(const string & input, vector<Rate>& PutHere) {
 		PutHere.clear();
 
 		Rate Tmp;
 		std::ifstream infile;
 		infile.open(input);
-		if (!infile.is_open()){
+		if (!infile.is_open()) {
 			return false;
 		}
 
@@ -291,11 +291,11 @@ namespace RateData{
 	// reads a "JSON-style" file and stores the data in an EIIdata structure.
 	// Returns true on success
 	// Possibly the worst parser ever written.
-	bool ReadEIIParams(const string & input, vector<EIIdata> & PutHere){
+	bool ReadEIIParams(const string & input, vector<EIIdata> & PutHere) {
 		PutHere.clear();
 		std::ifstream infile;
 		infile.open(input);
-		if (!infile.is_open()){
+		if (!infile.is_open()) {
 			return false;
 		}
 
@@ -315,18 +315,18 @@ namespace RateData{
 			cout<<"[ DEBUG ] [ ReadEII ] "<<line<<endl;
 			#endif
 			if (line[0] == '#') continue; // skip comments
-			if (line[0] == '{'){
+			if (line[0] == '{') {
 				in_top_brace = true;
 				continue;
 			}
-			if (line[0] == '}'){
+			if (line[0] == '}') {
 				in_top_brace = false;
 				continue;
 			}
 			if (!in_top_brace) continue;
 
-			if (in_eii_record){
-				if (line[0] == '}'){
+			if (in_eii_record) {
+				if (line[0] == '}') {
 					in_eii_record = false;
 					PutHere.push_back(tmp);
 				}
@@ -356,7 +356,7 @@ namespace RateData{
 				}
 			} else {
 				string prefix="\"configuration ";
-				if(line.compare(0, prefix.size(), prefix) == 0){
+				if(line.compare(0, prefix.size(), prefix) == 0) {
 					// New entry in the array
 					in_eii_record = true;
 					tmpstr = line.substr(prefix.size());
@@ -377,19 +377,19 @@ namespace RateData{
 
 	};
 
-	void WriteRates(const string& fname, const vector<Rate>& rates){
+	void WriteRates(const string& fname, const vector<Rate>& rates) {
 		FILE * fl = safe_fopen(fname.c_str(), "w");
 		fprintf(fl, "# val from to energy(Ha)\n");
 		for (auto& R : rates) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
 		fclose(fl);
 	}
 
-	void WriteEIIParams(const string& fname, const vector<EIIdata>& rates){
+	void WriteEIIParams(const string& fname, const vector<EIIdata>& rates) {
 		FILE * fl = safe_fopen(fname.c_str(), "w");
 		fprintf(fl, "{\n");
 		bool first_entry = true;
-		for (auto&R : rates){
-			if (!first_entry){
+		for (auto&R : rates) {
+			if (!first_entry) {
 				fprintf(fl, ",\n");
 			}
 			first_entry = false;
@@ -398,28 +398,28 @@ namespace RateData{
 			// Use a JSON style to deal with the multidimensional data
 			fprintf(fl, "  \"fin\": [");
 			bool first_iter = true;
-			for (auto& f : R.fin){
+			for (auto& f : R.fin) {
 				fprintf(fl, first_iter ? "%d" : ", %d", f);
 				first_iter = false;
 			}
 			fprintf(fl, "],\n");
 			fprintf(fl, "  \"occ\": [");
 			first_iter=true;
-			for (auto& f : R.occ){
+			for (auto& f : R.occ) {
 				fprintf(fl, first_iter ? "%d" : ", %d", f);
 				first_iter = false;
 			}
 			fprintf(fl, "],\n");
 			fprintf(fl, "  \"ionB\": [");
 			first_iter=true;
-			for (auto& f : R.ionB){
+			for (auto& f : R.ionB) {
 				fprintf(fl, first_iter ? "%f" : ", %f", f);
 				first_iter = false;
 			}
 			fprintf(fl, "],\n");
 			fprintf(fl, "  \"kin\": [");
 			first_iter=true;
-			for (auto& f : R.kin){
+			for (auto& f : R.kin) {
 				fprintf(fl, first_iter ? "%f" : ", %f", f);
 				first_iter = false;
 			}

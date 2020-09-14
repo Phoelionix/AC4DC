@@ -9,7 +9,7 @@
 enum class GridSpacing {linear, quadratic, exponential};
 
 namespace{
-    std::ostream& operator<<(std::ostream& os, GridSpacing gs){
+    std::ostream& operator<<(std::ostream& os, GridSpacing gs) {
         switch (gs)
         {
         case GridSpacing::linear:
@@ -28,10 +28,10 @@ namespace{
         return os;
     }
 
-    std::istream& operator>>(std::istream& is, GridSpacing& gs){
+    std::istream& operator>>(std::istream& is, GridSpacing& gs) {
         std::string tmp;
         is >> tmp;
-        if (tmp.length() == 0){
+        if (tmp.length() == 0) {
             std::cerr<<"No grid type provided, defaulting to linear..."<<std::endl;
             gs = GridSpacing::linear;
             return is;
@@ -58,7 +58,7 @@ namespace{
 
 class BasisSet{
 public:
-    BasisSet(){};
+    BasisSet() {};
     void set_parameters(size_t nfuncs, double min, double max, int zero_degree, GridSpacing gt);
     Eigen::VectorXd Sinv(const Eigen::VectorXd& deltaf);
     double operator()(size_t i, double x) const;
@@ -75,8 +75,8 @@ public:
     double grid(size_t i) const{
         return knot[i];
     }
-    double min_elec_e(){return _min;};
-    double max_elec_e(){return _max;};
+    double min_elec_e() {return _min;};
+    double max_elec_e() {return _max;};
     size_t num_funcs;
     const static int BSPLINE_ORDER = 3; // 1 = rectangles, 2=linear, 3=quadratic
 protected:
