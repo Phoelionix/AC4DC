@@ -9,7 +9,7 @@ using namespace std;
 RateData::EIIdata get_fake_eii(){
     RateData::EIIdata tmp;
     tmp.init = 0;
-    tmp.push_back(5, 2, 40, 8.9);
+    tmp.push_back(5, 2, 80, 8.9);
     // tmp.push_back(1, 1, 1.3, 0.9);
     // tmp.push_back(3, 2, 20, 1.9);
     // tmp.push_back(7, 1, 5, 0.9);
@@ -46,22 +46,29 @@ class BasisTester : public SplineIntegral{
         ofstream gout(gamma_loc);
         ofstream qout(Q_loc);
 
-        std::vector<std::vector<double>> Q_mat;
+        // Make Q_mat the correct size to store all the summed Q^J_{KL} coefficients 
+        std::vector<std::vector<std::vector<double>>> Q_mat;
+        
         Q_mat.resize(Distribution::size);
         for (auto&& v : Q_mat){
-            v.resize(Distribution::size, 0);
+            v.resize(Distribution::size);
+            for (auto& vi : v){
+                vi.resize(Distribution::size, 0);
+            }
         }
+
+
         
-        // Aggregate charges, summed over J.
         SplineIntegral::sparse_matrix sm;
         for (size_t J = 0; J < Distribution::size; J++)
         {
             sm = calc_Q_tbr(tbr_process, J);
             for (auto&& entry : sm){
-                Q_mat[entry.K][entry.L] += entry.val;
+                Q_mat[entry.K][entry.L][J] = entry.val;
             }
-        }
+        } 
 
+        // Print some helpful labels
         gout<<"#L= ";
         qout<<"#L= ";
         for (size_t L=0; L<Distribution::size; L++){
@@ -70,6 +77,19 @@ class BasisTester : public SplineIntegral{
         }
         gout<<endl;
         qout<<endl;
+
+        for (size_t J = 0; J < Distribution::size; J++)
+        {
+            cout<<"J = "<<J<<endl;
+            for (size_t K = 0; K < Distribution::size; K++)
+            {
+                for (size_t L = 0; L < Distribution::size; L++)
+                {
+                    cout<<Q_mat[K][L][J]<<" ";
+                }
+                cout<<endl;
+            }
+        }
 
         for (size_t K = 0; K < Distribution::size; K++)
         {
@@ -84,7 +104,13 @@ class BasisTester : public SplineIntegral{
                     tot += eg[j].val;
                 }
 
-                double dQ_tmp = Q_mat[K][L];
+                // Aggregate charges in each (K,L) combination, summed over J.
+                double dQ_tmp=0;
+                for (size_t J = 0; J < Distribution::size; J++)
+                {
+                    dQ_tmp += Q_mat[K][L][J];
+                }
+                 
                 gout<<" "<<tot;
                 qout<<" "<<dQ_tmp;
                 dQ += dQ_tmp;
@@ -94,6 +120,8 @@ class BasisTester : public SplineIntegral{
         }
         gout.close();
         qout.close();
+
+
 
         cerr<<endl<<"init -> fin   gamma_total   "<<endl;
         double tot=0;

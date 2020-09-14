@@ -56,8 +56,8 @@ state_type ElectronSolver::get_ground_state() {
         }
     }
     initial_condition.F=0;
-    std::cout<<"[ Rate Solver ] initial condition:"<<std::endl;
-    std::cout<<"[ Rate Solver ] "<<initial_condition<<std::endl;
+    // std::cout<<"[ Rate Solver ] initial condition:"<<std::endl;
+    // std::cout<<"[ Rate Solver ] "<<initial_condition<<std::endl;
     return initial_condition;
 }
 
