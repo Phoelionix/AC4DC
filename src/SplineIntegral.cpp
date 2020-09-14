@@ -139,9 +139,11 @@ void SplineIntegral::Gamma_eii( std::vector<SparsePair>& Gamma_xi, const RateDat
         Gamma_xi.push_back(rate);
     }
 }
+
 void SplineIntegral::Gamma_tbr( std::vector<SparsePair>& Gamma_xi, const RateData::InverseEIIdata& tbr, size_t K, size_t L) const {
     // Naming convention is unavoidably confusing.
     // init and fin correspond to initial and final states for the three-body process, i.e. 
+    Gamma_xi.resize(0);
     for (size_t eta = 0; eta<tbr.fin.size(); eta++) {
         double tmp=0;
         double B=tbr.ionB[eta];
@@ -150,7 +152,7 @@ void SplineIntegral::Gamma_tbr( std::vector<SparsePair>& Gamma_xi, const RateDat
         double bK = this->supp_max(K);
         double aL = this->supp_min(L);
         double bL = this->supp_max(L);
-/*
+
         for (int i=0; i<10; i++){
             double e = gaussX_10[i]*(bK-aK)/2 + (aK+bK)/2;
             double tmp2=0;
@@ -167,9 +169,8 @@ void SplineIntegral::Gamma_tbr( std::vector<SparsePair>& Gamma_xi, const RateDat
         tmp *= (bK-aK)/2;
 
         tmp *= Constant::Pi*Constant::Pi;
-*/
-        #warning Gamma_tbr integral is always 100*K+L
-        tmp = 100*K + L;
+
+
         SparsePair rate(tbr.fin[eta], tmp);
         Gamma_xi.push_back(rate);
     }
@@ -276,52 +277,61 @@ SplineIntegral::sparse_matrix SplineIntegral::calc_Q_tbr( const RateData::Invers
     SparseTriple tup;
     for (size_t K=0; K<num_funcs; K++){
         for (size_t L=0; L<num_funcs; L++){
+            // First part of the integral. Represents the source term corresponding to
+            // the production of an energetic electron of energy ep + s - B
             double K_min = this->supp_min(K);
             double K_max = this->supp_max(K);
             double L_min = this->supp_min(L);
             double L_max = this->supp_max(L);
 
-            double min_JK = max(J_min, K_min);
-            double max_JK = min(J_max, K_max);
 
             double tmp=0;
+
             // Sum over all transitions in tbr
             for (size_t xi=0; xi<tbr.fin.size(); xi++){
-                // Heaviside step function
                 double B =tbr.ionB[xi];
                 // double aJ_eff = (aJ < B) ? B : aJ;
-                // First half of integral
-
-                // TODO: Convert to s coordinates
+                // First half of integral:
+                // 0.5 * \int dep \int ds B_J(e) B_K(ep) B_L(s) dsigma(ep | s + ep + B) (s+ep+B)/sqrt(s ep)
+                // where e = s+B+ep
+                // Integration ranges:
+                // K_min < ep < K_max
+                // L_min < s  < L_max
+                // J_min < e  < J_max  ===> ep - B - J_max < s < ep - B - J_min
+                // where the ep integral is done first
                 for (int j=0; j<10; j++){
-                    double e = gaussX_10[j]*(J_max- J_min)/2 + (J_max + J_min)/2;
+                    double ep = gaussX_10[j]*(K_max- K_min)/2 + (K_max + K_min)/2;
                     double tmp2=0;
 
-                    double a = max(K_min, e - B - L_max); // integral lower bound
-                    double b = min(K_max, e - B ); // integral upper bound
-                    b = min(b, e - B - L_min);
+                    double a = L_min; // integral lower bound
+                    double b = L_max; // integral upper bound
                     if (a >= b) continue;
                     for (int k=0; k<10; k++){
-                        double ep = gaussX_10[k]*(b-a)/2 + (b + a)/2;
-                        tmp2 += gaussW_10[k]* e * pow((e - ep - B)*ep,-0.5) *Dipole::DsigmaBEB(e, ep, B, tbr.kin[xi], tbr.occ[xi])*(*this)(J, e)*(*this)(L, e - ep - B);
+                        double s = gaussX_10[k]*(b-a)/2 + (b + a)/2;
+                        double e = s + ep + B;
+                        tmp2 += gaussW_10[k] * ( e ) * pow(s*ep,-0.5) *Dipole::DsigmaBEB(e, ep, B, tbr.kin[xi], tbr.occ[xi])*(*this)(J, e)*(*this)(L, s);
                     }
-                    tmp += 0.5*gaussW_10[j]*tmp2*(*this)(J,e)*(b-a)*(J_max - J_min)/4;
+                    tmp += 0.5*gaussW_10[j]*tmp2*(*this)(K,ep)*(b-a)*(K_max - K_min)/4;
                 }
             }
-            if (max_JK > min_JK) {
+
+
+            // Second part of the integral
+            // Represents the sink terms corresponding to the absorption of low energy electrons at this point
+            double min_JK = max(J_min, K_min);
+            double max_JK = min(J_max, K_max);
+            if (max_JK > min_JK ) {
                 for (size_t xi=0; xi<tbr.fin.size(); xi++){
                     double B =tbr.ionB[xi];
-                    
-                        // Second half of integral
-                        // f(e) integral0->inf ds
+                        
                     for (int j=0; j<10; j++){
                         double e = gaussX_10[j]*(max_JK-min_JK)/2 + (max_JK+min_JK)/2;
                         double tmp2=0;
                         for (int k=0; k<10; k++){
                             double s = gaussX_10[k]*(L_max-L_min)/2 + (L_max+L_min)/2;
-                            tmp2 += gaussW_10[k]*(s+e+B)*pow(s,-0.5)*(*this)(L,s)*Dipole::DsigmaBEB(s+e+B, e, B, tbr.kin[xi], tbr.occ[xi]);
+                            tmp2 += gaussW_10[k]*(s+e+B)*pow(e * s,-0.5)*(*this)(L,s)*Dipole::DsigmaBEB(s+e+B, e, B, tbr.kin[xi], tbr.occ[xi]);
                         }
-                        tmp -= gaussW_10[j]*tmp2*pow(e,-0.5)*(*this)(J,e)*(*this)(K,e)*(L_max-L_min)*(max_JK-min_JK)/4;
+                        tmp -= gaussW_10[j]*tmp2*(*this)(J,e)*(*this)(K,e)*(L_max-L_min)*(max_JK-min_JK)/4;
                     }
                 }
             }

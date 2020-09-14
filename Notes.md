@@ -32,3 +32,22 @@ Verifies a few key properties of the sigma integrals.
 - Satisfies `QEII[xi][J][K] =0` if `J-K > 3`, i.e. it looks like it ought to.
 - Passes `check_qeii,` 
 - Update - Now looks sensible. Cause of earlier problems: Unknown.
+
+## Properties of QTBR
+- Satisfies `\sum_J QTBR[xi][J][K][L] = \sum_eta \Gamma[xi->eta][K][L]` if J^2
+   + K^2 > const, but not elsewhere.
+- Symmetric in K and L (at least when summed over J)
+- Low energy behavious is suspicions in Q: All K, L configurations should be
+  able to three-body recombine.
+- Hard edge present in Qtbr (as well as its complicated implementation) makes
+  it more likely to be wrong.
+- Hard edge depends on B and maximum energy. Corresponds to the line `ep + s = Emax - B/2.
+- If ep + s < Emax - B/2, corresponds exactly to Gamma (as expected)
+- Conclusion: Problem is TBR into regions with E > E_max. 
+  - Solution A: "she'll be right", leave the code as-is and rely on the
+    vanishing of the distribution at large E to take care of it. Ensure that
+max energy is at least twice as large as photoelectron peak. Causes
+underestimation of high-e electron creation.
+	- Solution B: Fictional boundary. Enforces agreement between summed gamma and
+	  Q rates by restricting the domain of the defining integrals to processes
+    that are below the energy ceiling. Better matter conservation.
