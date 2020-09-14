@@ -74,11 +74,15 @@ public:
     // e.g. dfdt v; F.calc_Qee(v);
     void get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
     void get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
-    void apply_Qee  (Eigen::VectorXd& v) const;
+    void get_Q_ee  (Eigen::VectorXd& v) const;
+    
     // N is the Number density (inverse au^3) of particles to be added at energy e.
     static void addDeltaLike(Eigen::VectorXd& v, double e, double N);
     // Adds a Dirac delta to the distribution
     void addDeltaSpike(double N, double e);
+    // Applies the loss term to the distribution 
+    void addLoss(const Distribution& d, double R);
+
     // Sets the object to have a MB distribution
     void set_maxwellian(double N, double T);
 

@@ -49,7 +49,7 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) co
 
 // Taken verbatim from Rockwood as quoted by Morgan and Penetrante in ELENDIF
 // Stores in f the value of Qee[f] (atomic units)
-void Distribution::apply_Qee(Eigen::VectorXd& v) const {
+void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     // for (int J=0; J<size; J++){
     //     for (int L=0; L<size; L++){
     //         for (int K=0; K<size; K++){
@@ -125,6 +125,16 @@ void Distribution::applyDelta(const Eigen::VectorXd& v){
     u= (this->basis.Sinv(v));
     for (size_t i=0; i<size; i++){
         f[i] += u[i];
+    }
+}
+
+
+// - 3/sqrt(2) * 3 sqrt(e) * f(e) / R_
+// Very rough approcimation used here
+void Distribution::addLoss(const Distribution d, double R){
+    // f += "|   i|   ||   |_"
+    for (size_t i=0; i<size; i++){
+        f[i] -= d[i] * 3 * sqrt(basis.supp_min(i) + basis.supp_max(i)) /2 / R;
     }
 }
 
