@@ -128,7 +128,7 @@ void ElectronSolver::precompute_gamma_coeffs() {
         auto& eiiVec = input_params.Store[a].EIIparams;
         vector<RateData::InverseEIIdata> tbrVec = RateData::inverse(eiiVec);
         size_t counter=0;
-        #pragma omp parallel default(none) shared(a, N, counter, tbrVec, eiiVec, RATE_EII, RATE_TBR, std::cout)
+        #pragma omp parallel default(none) shared(a, N, counter, tbrVec, eiiVec, RATE_EII, RATE_TBR, std::cout) private(n, m)
 		{
 			#pragma omp for schedule(dynamic) nowait
             for (size_t n=0; n<N; n++) {
