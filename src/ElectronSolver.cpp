@@ -10,6 +10,7 @@
 #include <chrono>
 #include <ctime>
 #include <math.h>
+#include <omp.h>
 #include "config.h"
 
 
@@ -126,15 +127,26 @@ void ElectronSolver::precompute_gamma_coeffs() {
         std::cout<<"[ Gamma precalc ] Atom "<<a+1<<"/"<<input_params.Store.size()<<std::endl;
         auto& eiiVec = input_params.Store[a].EIIparams;
         vector<RateData::InverseEIIdata> tbrVec = RateData::inverse(eiiVec);
-        for (size_t n=0; n<N; n++) {
-            Distribution::Gamma_eii(RATE_EII[a][n], eiiVec, n);
-            for (size_t m=0; m<N; m++) {
-                size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
-                // // k = N... N(N+1)/2
-                Distribution::Gamma_tbr(RATE_TBR[a][k], tbrVec, n, m);
-                // Distribution::Gamma_tbr(RATE_TBR[a][n][m], eiiVec, n, m);
+        size_t counter=0;
+        #pragma omp parallel default(none) shared(a, N, counter, tbrVec, eiiVec, RATE_EII, RATE_TBR, std::cout)
+		{
+			#pragma omp for schedule(dynamic) nowait
+            for (size_t n=0; n<N; n++) {
+                #pragma omp critical
+                {
+                    std::cout<<"[ Gamma precalc ] "<<counter<<"/"<<N<<" thread "<<omp_get_thread_num()<<std::endl;
+                    counter++;
+                }
+                Distribution::Gamma_eii(RATE_EII[a][n], eiiVec, n);
+                
+                for (size_t m=0; m<N; m++) {
+                    size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
+                    // // k = N... N(N+1)/2
+                    Distribution::Gamma_tbr(RATE_TBR[a][k], tbrVec, n, m);
+                }
+                Distribution::Gamma_tbr(RATE_TBR[a][n], tbrVec, n, n);
+                
             }
-            Distribution::Gamma_tbr(RATE_TBR[a][n], tbrVec, n, n);
         }
     }
     std::cout<<"[ Gamma precalc ] Done."<<std::endl;
@@ -199,7 +211,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
                     dq += tmp;
                 }
             }
-
+            
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
             // Note that RATE_TBR has the same geometry as InverseEIIdata.
             for (size_t m=n+1; m<N; m++) {
@@ -225,6 +237,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
                     dq -= tmp;
                 }
             }
+            
             
         }
 

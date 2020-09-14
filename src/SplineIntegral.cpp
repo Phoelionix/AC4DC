@@ -170,9 +170,10 @@ void SplineIntegral::Gamma_tbr( std::vector<SparsePair>& Gamma_xi, const RateDat
 
         tmp *= Constant::Pi*Constant::Pi;
 
-
-        SparsePair rate(tbr.fin[eta], tmp);
-        Gamma_xi.push_back(rate);
+        if (tmp > DBL_CUTOFF_TBR){
+            SparsePair rate(tbr.fin[eta], tmp);
+            Gamma_xi.push_back(rate);
+        }
     }
 }
 
@@ -187,12 +188,12 @@ void SplineIntegral::Gamma_eii(eiiGraph& Gamma, const std::vector<RateData::EIId
     }
 }
 
-void SplineIntegral::Gamma_tbr(eiiGraph& Gamma, const std::vector<RateData::InverseEIIdata>& eiiVec, size_t J, size_t K) const {
+void SplineIntegral::Gamma_tbr(eiiGraph& Gamma, const std::vector<RateData::InverseEIIdata>& eiiVec, size_t K, size_t L) const {
     Gamma.resize(0);
     for (size_t init=0; init<eiiVec.size(); init++) {
         assert(eiiVec[init].init == init);
         std::vector<SparsePair> Gamma_xi(0);
-        this->Gamma_tbr(Gamma_xi, eiiVec[init], J, K);
+        this->Gamma_tbr(Gamma_xi, eiiVec[init], K, L);
         Gamma.push_back(Gamma_xi);
     }
 }
@@ -323,7 +324,6 @@ SplineIntegral::sparse_matrix SplineIntegral::calc_Q_tbr( const RateData::Invers
             if (max_JK > min_JK ) {
                 for (size_t xi=0; xi<tbr.fin.size(); xi++) {
                     double B =tbr.ionB[xi];
-                        
                     for (int j=0; j<10; j++) {
                         double e = gaussX_10[j]*(max_JK-min_JK)/2 + (max_JK+min_JK)/2;
                         double tmp2=0;
