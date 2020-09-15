@@ -105,7 +105,16 @@ void ElectronSolver::solve() {
     assert (hasRates || "No rates found! Use ElectronSolver::compute_cross_sections(log)\n");
     auto start = std::chrono::system_clock::now();
 
-    this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
+    try
+    {
+        this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << std::endl;
+    }
+    
+    
 
     auto end = chrono::system_clock::now();
     chrono::duration<double> elapsed_seconds = end-start;
@@ -270,15 +279,13 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
     #endif
 
     if (isnan(s.norm())) {
-        cerr<< "NaN encountered in state!"<<endl;
-        cerr<< "t = "<<t<<"au = "<<t*Constant::fs_per_au<<"fs"<<endl;
-        cerr<< s <<endl;
+        cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
+        throw runtime_error("NaN encountered in state");
         good_state = false;
     }
     else if (isnan(sdot.norm())) {
-        cerr<< "NaN encountered in state derivative!"<<endl;
-        cerr<< "t = "<<t<<"au = "<<t*Constant::fs_per_au<<"fs"<<endl;
-        cerr<< sdot <<endl;
+        cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
+        throw runtime_error("NaN encountered in state derivative");
         good_state = false;
     }
 
