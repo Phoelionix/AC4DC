@@ -1,14 +1,12 @@
 #include "ElectronSolver.h"
 #include "HartreeFock.h"
 #include "ComputeRateParam.h"
-#include <fstream>
-#include <sys/stat.h>
-#include <algorithm>
 #include "SplineIntegral.h"
+#include <fstream>
+#include <algorithm>
 #include <eigen3/Eigen/SparseCore>
 #include <eigen3/Eigen/Dense>
 #include <chrono>
-#include <ctime>
 #include <math.h>
 #include <omp.h>
 #include "config.h"
@@ -106,17 +104,13 @@ void ElectronSolver::solve() {
     auto start = std::chrono::system_clock::now();
 
     do {
-        try
-        {
-            good_state = true;
-            this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
-        }
-        catch(const std::exception& e)
-        {
-            std::cerr << e.what() << std::endl;
-            // Reset and try again with more points
-            input_params.out_T_size *= 2;
-            if (input_params.out_T_size > MAX_T_PTS){
+        
+        good_state = true;
+        this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
+        if (!good_state){
+            std::cerr<<"Doubling timesteps..."<<endl;
+            input_params.num_time_steps *= 2;
+            if (input_params.num_time_steps > MAX_T_PTS){
                 std::cerr<<"Exceeded maximum T size. Skipping remaining iteration.."<<endl;
                 break;
             }
@@ -288,15 +282,10 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
     std::cerr<<std::endl;
     #endif
 
-    if (isnan(s.norm())) {
+    if (isnan(s.norm()) || isnan(sdot.norm())) {
+        cerr<<"NaN encountered in ODE iteration."<<endl;
         cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
-        throw runtime_error("NaN encountered in state");
-        good_state = false;
-    }
-    else if (isnan(sdot.norm())) {
-        cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
-        throw runtime_error("NaN encountered in state derivative");
-        good_state = false;
+        good_state = false; 
     }
 
 }

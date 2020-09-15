@@ -6,7 +6,7 @@
 // #include <eigen3/Eigen/LU>
 #include <iostream>
 
-enum class GridSpacing {linear, quadratic, exponential};
+enum class GridSpacing {linear, quadratic, exponential, hybrid};
 
 namespace{
     std::ostream& operator<<(std::ostream& os, GridSpacing gs) {
@@ -20,6 +20,9 @@ namespace{
             break;
         case GridSpacing::exponential:
             os << "exponential";
+            break;
+        case GridSpacing::hybrid:
+            os << "hybrid exponeential-linear grid";
             break;
         default:
             os << "Unknown grid type";
@@ -46,6 +49,9 @@ namespace{
             break;
         case 'e':
             gs = GridSpacing::exponential;
+            break;
+        case 'h':
+            gs = GridSpacing::hybrid;
             break;
         default:
             std::cerr<<"Unrecognised grid type \""<<tmp<<"\""<<std::endl;
@@ -84,6 +90,7 @@ protected:
     Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int> >  linsolver;
     std::vector<double> knot;
     double overlap(size_t j, size_t k) const;
+    void set_knot(int zero_degree, GridSpacing gt);
     
 
     double _min;
