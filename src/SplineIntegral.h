@@ -20,6 +20,15 @@ struct SparsePair
     }
 };
 
+// defines for numerical integration
+const int GAUSS_ORDER_EII = 4;
+const int GAUSS_ORDER_TBR = 4;
+const double gaussX_EII[] = {-0.3399810435848563, 0.3399810435848563, -0.8611363115940526, 0.8611363115940526};
+const double gaussW_EII[] = {0.6521451548625461, 0.6521451548625461, 0.3478548451374538, 0.3478548451374538};
+const double gaussX_TBR[] = {-0.3399810435848563, 0.3399810435848563, -0.8611363115940526, 0.8611363115940526};
+const double gaussW_TBR[] = {0.6521451548625461, 0.6521451548625461, 0.3478548451374538, 0.3478548451374538};
+
+
 // Interpretation:
 // eiiGraph[xi] -> vector of transitions away from configuration xi, e.g.
 // eiiGraph[1] = [ (3, 0.33), (4,0.22)] 
