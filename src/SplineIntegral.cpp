@@ -69,10 +69,10 @@ void SplineIntegral::precompute_Q_coeffs(vector<RateData::Atom>& Atoms) {
                         Q_EII[a][eii.init][J][K] = calc_Q_eii(eii, J, K);
                     }
                 }
-                /*
+                
                 for (auto& tbr : RateData::inverse(Atoms[a].EIIparams)) {
-                    Q_TBR[a][tbr.fin][J] = calc_Q_tbr(tbr, J);
-                }*/
+                    Q_TBR[a][tbr.init][J] = calc_Q_tbr(tbr, J);
+                }
             }
         }
     }

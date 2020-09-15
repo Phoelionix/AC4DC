@@ -128,7 +128,7 @@ void ElectronSolver::precompute_gamma_coeffs() {
         auto& eiiVec = input_params.Store[a].EIIparams;
         vector<RateData::InverseEIIdata> tbrVec = RateData::inverse(eiiVec);
         size_t counter=0;
-        #pragma omp parallel default(none) shared(a, N, counter, tbrVec, eiiVec, RATE_EII, RATE_TBR, std::cout) private(n, m)
+        #pragma omp parallel default(none) shared(a, N, counter, tbrVec, eiiVec, RATE_EII, RATE_TBR, std::cout)
 		{
 			#pragma omp for schedule(dynamic) nowait
             for (size_t n=0; n<N; n++) {
@@ -138,9 +138,9 @@ void ElectronSolver::precompute_gamma_coeffs() {
                     counter++;
                 }
                 Distribution::Gamma_eii(RATE_EII[a][n], eiiVec, n);
-                
-                for (size_t m=0; m<N; m++) {
-                    size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
+                // Weird indexing exploits symmetry of Gamma_TBR
+                for (size_t m=n+1; m<N; m++) {
+                    size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                     // // k = N... N(N+1)/2
                     Distribution::Gamma_tbr(RATE_TBR[a][k], tbrVec, n, m);
                 }
