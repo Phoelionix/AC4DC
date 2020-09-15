@@ -298,15 +298,15 @@ SplineIntegral::sparse_matrix SplineIntegral::calc_Q_tbr( const RateData::Invers
                 // Integration ranges:
                 // K_min < ep < K_max
                 // L_min < s  < L_max
-                // J_min < e  < J_max  ===> ep - B - J_max < s < ep - B - J_min
+                // J_min < e  < J_max  ===> J_min - ep - B < s < J_max - ep - B
                 // where the ep integral is done first
                 for (int j=0; j<10; j++) {
                     double ep = gaussX_10[j]*(K_max- K_min)/2 + (K_max + K_min)/2;
-                    double tmp2=0;
-
-                    double a = L_min; // integral lower bound
-                    double b = L_max; // integral upper bound
+                
+                    double a = max(L_min, J_min - ep - B); // integral lower bound
+                    double b = min(L_max, J_max - ep - B); // integral upper bound
                     if (a >= b) continue;
+                    double tmp2=0;
                     for (int k=0; k<10; k++) {
                         double s = gaussX_10[k]*(b-a)/2 + (b + a)/2;
                         double e = s + ep + B;
