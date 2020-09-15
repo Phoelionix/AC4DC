@@ -105,14 +105,24 @@ void ElectronSolver::solve() {
     assert (hasRates || "No rates found! Use ElectronSolver::compute_cross_sections(log)\n");
     auto start = std::chrono::system_clock::now();
 
-    try
-    {
-        this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << std::endl;
-    }
+    do {
+        try
+        {
+            good_state = true;
+            this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
+        }
+        catch(const std::exception& e)
+        {
+            std::cerr << e.what() << std::endl;
+            // Reset and try again with more points
+            input_params.out_T_size *= 2;
+            if (input_params.out_T_size > MAX_T_PTS){
+                std::cerr<<"Exceeded maximum T size. Skipping remaining iteration.."<<endl;
+                break;
+            }
+            this->setup(get_ground_state(), this->timespan_au/input_params.Out_T_size(), 5e-3);
+        }
+    } while (good_state == false);
     
     
 

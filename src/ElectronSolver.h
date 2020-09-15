@@ -36,6 +36,7 @@ private:
     double B;
 };
 
+#define MAX_T_PTS 1e6
 
 class ElectronSolver : private ode::Adams_BM<state_type>
 {
