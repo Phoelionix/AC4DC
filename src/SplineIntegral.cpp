@@ -119,9 +119,9 @@ void SplineIntegral::Gamma_eii( std::vector<SparsePair>& Gamma_xi, const RateDat
         double b = this->supp_max(K);
         double tmp=0;
         if (b > a) {
-            for (int i=0; i<10; i++) {
-                double e = gaussX_10[i]*(b-a)/2 + (a+b)/2;
-                tmp += gaussW_10[i]* (*this)(K, e)*pow(e,0.5)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+            for (int i=0; i<GAUSS_ORDER_EII; i++) {
+                double e = gaussX_EII[i]*(b-a)/2 + (a+b)/2;
+                tmp += gaussW_EII[i]* (*this)(K, e)*pow(e,0.5)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
             }
             tmp *= (b-a)/2;
             tmp *= 1.4142; // Electron mass = 1 in atomic units
@@ -153,18 +153,18 @@ void SplineIntegral::Gamma_tbr( std::vector<SparsePair>& Gamma_xi, const RateDat
         double aL = this->supp_min(L);
         double bL = this->supp_max(L);
 
-        for (int i=0; i<10; i++) {
-            double e = gaussX_10[i]*(bK-aK)/2 + (aK+bK)/2;
+        for (int i=0; i<GAUSS_ORDER_TBR; i++) {
+            double e = gaussX_TBR[i]*(bK-aK)/2 + (aK+bK)/2;
             double tmp2=0;
 
-            for (int j=0; j<10; j++) {
-                double s = gaussX_10[j]*(bL-aL)/2 + (aL+bL)/2;
+            for (int j=0; j<GAUSS_ORDER_TBR; j++) {
+                double s = gaussX_TBR[j]*(bL-aL)/2 + (aL+bL)/2;
                 double ep = s + e + B;
-                tmp2 += gaussW_10[j]*(*this)(L, s)*ep*pow(s,-0.5)*
+                tmp2 += gaussW_TBR[j]*(*this)(L, s)*ep*pow(s,-0.5)*
                     Dipole::DsigmaBEB(ep, e, B, tbr.kin[eta], tbr.occ[eta]);
             }
             tmp2 *= (bL-aL)/2;
-            tmp += gaussW_10[i]*(*this)(K, e)*tmp2*pow(e,-0.5);
+            tmp += gaussW_TBR[i]*(*this)(K, e)*tmp2*pow(e,-0.5);
         }
         tmp *= (bK-aK)/2;
 
@@ -212,20 +212,20 @@ double SplineIntegral::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_
     for (size_t eta = 0; eta<eii.fin.size(); eta++)
     {
         double tmp = 0;
-        for (int j=0; j<10; j++)
+        for (int j=0; j<GAUSS_ORDER_EII; j++)
         {
-            double e = gaussX_10[j]*(max_J-min_J)/2 + (max_J+min_J)/2;
+            double e = gaussX_EII[j]*(max_J-min_J)/2 + (max_J+min_J)/2;
             double tmp2=0;
             double min_ep = max(e+eii.ionB[eta], this->supp_min(K));
             double max_ep = this->supp_max(K);
             if (max_ep <= min_ep) continue;
-            for (int k=0; k<10; k++) {
-                double ep = gaussX_10[k]*(max_ep-min_ep)*0.5 + (min_ep+max_ep)*0.5;
-                tmp2 += gaussW_10[k]*(*this)(K, ep)*pow(ep,0.5)*
+            for (int k=0; k<GAUSS_ORDER_EII; k++) {
+                double ep = gaussX_EII[k]*(max_ep-min_ep)*0.5 + (min_ep+max_ep)*0.5;
+                tmp2 += gaussW_EII[k]*(*this)(K, ep)*pow(ep,0.5)*
                     Dipole::DsigmaBEB(ep, e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
             }
             tmp2 *= (max_ep - min_ep)/2;
-            tmp += gaussW_10[j]*(*this)(J, e)*tmp2;
+            tmp += gaussW_EII[j]*(*this)(J, e)*tmp2;
         }
         tmp *= (max_J-min_J)/2;
         retval += tmp;
@@ -235,10 +235,10 @@ double SplineIntegral::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_
         min_JK = max(min_JK, (double) eii.ionB[eta]);
         double max_JK = min(this->supp_max(J), this->supp_max(K));
         if (max_JK <= min_JK) continue;
-        for (int k=0; k<10; k++)
+        for (int k=0; k<GAUSS_ORDER_EII; k++)
         {
-            double e = gaussX_10[k]*(max_JK-min_JK)/2 + (min_JK+max_JK)/2;
-            tmp += gaussW_10[k]*pow(e, 0.5)*(*this)(J, e)*(*this)(K, e)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+            double e = gaussX_EII[k]*(max_JK-min_JK)/2 + (min_JK+max_JK)/2;
+            tmp += gaussW_EII[k]*pow(e, 0.5)*(*this)(J, e)*(*this)(K, e)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
         }
         tmp *= (max_JK-min_JK)/2;
         retval -= tmp;
@@ -246,20 +246,6 @@ double SplineIntegral::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_
 
     retval *= 1.4142135624; 
 
-/*
-    double retval=0;
-    double de = knot[J+1] - knot[J];
-    double dep = knot[K+1] - knot[K];
-    double e = pow(knot[J+1]*knot[J+1] + knot[J]*knot[J],0.5);
-    double ep = pow(knot[K+1]*knot[K+1] + knot[K]*knot[K],0.5);
-    // Sum over all transitions to eta values
-    for (size_t eta = 0; eta<eii.fin.size(); eta++) {
-        //                              Dsigma(e | ep)
-        if (e <= ep - eii.ionB[eta]) retval += pow(ep, 0.5)*Dipole::DsigmaBEB(ep, e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
-        if (J == K) retval -= 0.5*pow(e,0.5)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
-    }
-    retval *= pow(2,0.5)*dep*de;
-*/
     return retval;
 }
 
@@ -300,19 +286,19 @@ SplineIntegral::sparse_matrix SplineIntegral::calc_Q_tbr( const RateData::Invers
                 // L_min < s  < L_max
                 // J_min < e  < J_max  ===> J_min - ep - B < s < J_max - ep - B
                 // where the ep integral is done first
-                for (int j=0; j<10; j++) {
-                    double ep = gaussX_10[j]*(K_max- K_min)/2 + (K_max + K_min)/2;
+                for (int j=0; j<GAUSS_ORDER_TBR; j++) {
+                    double ep = gaussX_TBR[j]*(K_max- K_min)/2 + (K_max + K_min)/2;
                 
                     double a = max(L_min, J_min - ep - B); // integral lower bound
                     double b = min(L_max, J_max - ep - B); // integral upper bound
                     if (a >= b) continue;
                     double tmp2=0;
-                    for (int k=0; k<10; k++) {
-                        double s = gaussX_10[k]*(b-a)/2 + (b + a)/2;
+                    for (int k=0; k<GAUSS_ORDER_TBR; k++) {
+                        double s = gaussX_TBR[k]*(b-a)/2 + (b + a)/2;
                         double e = s + ep + B;
-                        tmp2 += gaussW_10[k] * ( e ) * pow(s*ep,-0.5) *Dipole::DsigmaBEB(e, ep, B, tbr.kin[xi], tbr.occ[xi])*(*this)(J, e)*(*this)(L, s);
+                        tmp2 += gaussW_TBR[k] * ( e ) * pow(s*ep,-0.5) *Dipole::DsigmaBEB(e, ep, B, tbr.kin[xi], tbr.occ[xi])*(*this)(J, e)*(*this)(L, s);
                     }
-                    tmp += 0.5*gaussW_10[j]*tmp2*(*this)(K,ep)*(b-a)*(K_max - K_min)/4;
+                    tmp += 0.5*gaussW_TBR[j]*tmp2*(*this)(K,ep)*(b-a)*(K_max - K_min)/4;
                 }
             }
 
@@ -324,14 +310,14 @@ SplineIntegral::sparse_matrix SplineIntegral::calc_Q_tbr( const RateData::Invers
             if (max_JK > min_JK ) {
                 for (size_t xi=0; xi<tbr.fin.size(); xi++) {
                     double B =tbr.ionB[xi];
-                    for (int j=0; j<10; j++) {
-                        double e = gaussX_10[j]*(max_JK-min_JK)/2 + (max_JK+min_JK)/2;
+                    for (int j=0; j<GAUSS_ORDER_TBR; j++) {
+                        double e = gaussX_TBR[j]*(max_JK-min_JK)/2 + (max_JK+min_JK)/2;
                         double tmp2=0;
-                        for (int k=0; k<10; k++) {
-                            double s = gaussX_10[k]*(L_max-L_min)/2 + (L_max+L_min)/2;
-                            tmp2 += gaussW_10[k]*(s+e+B)*pow(e * s,-0.5)*(*this)(L,s)*Dipole::DsigmaBEB(s+e+B, e, B, tbr.kin[xi], tbr.occ[xi]);
+                        for (int k=0; k<GAUSS_ORDER_TBR; k++) {
+                            double s = gaussX_TBR[k]*(L_max-L_min)/2 + (L_max+L_min)/2;
+                            tmp2 += gaussW_TBR[k]*(s+e+B)*pow(e * s,-0.5)*(*this)(L,s)*Dipole::DsigmaBEB(s+e+B, e, B, tbr.kin[xi], tbr.occ[xi]);
                         }
-                        tmp -= gaussW_10[j]*tmp2*(*this)(J,e)*(*this)(K,e)*(L_max-L_min)*(max_JK-min_JK)/4;
+                        tmp -= gaussW_TBR[j]*tmp2*(*this)(J,e)*(*this)(K,e)*(L_max-L_min)*(max_JK-min_JK)/4;
                     }
                 }
             }
