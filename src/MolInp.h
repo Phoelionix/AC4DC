@@ -50,6 +50,8 @@ public:
 	// Possible values: "linear", "quadratic", "exponential"
 	GridSpacing elec_grid_type;
 
+	int out_T_size = 0; // Unlike atomic input, causes to output all points.
+
 protected:
 
 	bool validate_inputs();
@@ -58,7 +60,7 @@ protected:
 	double width = -1; // XFEL pulse width in au. Gaussian profile hardcoded.
 	double fluence = -1; // XFEL pulse fluence, au.
 	int num_time_steps = -1; // Guess number of time steps for time dynamics.
-	int out_T_size = 0; // Unlike atomic input, causes to output all points.
+	
 	int out_F_size = 100; // Number of F grid points to use when outputting.
 	double radius = -1; // Droplet radius
 	int omp_threads = 1;
