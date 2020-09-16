@@ -133,6 +133,8 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	omega /= Constant::eV_per_Ha;
 	fluence *= 10000/Constant::Jcm2_per_Haa02/omega;
 
+	elec_grid_type.transition_E /= Constant::eV_per_Ha;
+
 	// Convert to atomic units.
 	width /= Constant::fs_per_au;
 	radius /= Constant::Angs_per_au;
