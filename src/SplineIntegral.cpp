@@ -61,7 +61,7 @@ void SplineIntegral::precompute_Q_coeffs(vector<RateData::Atom>& Atoms) {
             for (size_t J=0; J<num_funcs; J++) {
                 #pragma omp critical
                 {
-                    std::cout<<"[ Q precalc ] "<<counter<<"/"<<num_funcs<<" thread "<<omp_get_thread_num()<<std::endl;
+                    std::cout<<"\r[ Q precalc ] "<<counter<<"/"<<num_funcs<<" thread "<<omp_get_thread_num()<<std::flush;
                     counter++;
                 }
                 for (size_t K=0; K<num_funcs; K++) {
@@ -108,7 +108,7 @@ void SplineIntegral::precompute_Q_coeffs(vector<RateData::Atom>& Atoms) {
     #endif
     _has_Qeii = true;
     _has_Qtbr = true;
-    std::cout<<"[ Q precalc ] Done."<<std::endl;
+    std::cout<<"\n[ Q precalc ] Done."<<std::endl;
 }
 
 void SplineIntegral::Gamma_eii( std::vector<SparsePair>& Gamma_xi, const RateData::EIIdata& eii, size_t K) const{

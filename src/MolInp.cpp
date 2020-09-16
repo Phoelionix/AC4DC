@@ -110,24 +110,28 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 7) stream >> elec_grid_type.num_exp;
 
 	}
-	cout<<"================================"<<endl;
-	cout<<"Unit cell size: "<<unit_V<<"A^3"<<endl;
-	cout<<"Droplet radius: "<<radius<<"A"<<endl<<endl;
+	const string bc = "\033[97;1m"; // begin colour escape code
+	const string clr = "\033[0m"; // clear escape code
+	const string banner = "\033[34m[ ================================ ]\033[0m";
+	cout<<banner<<endl;
+	cout<<bc<<"Unit cell size: "<<clr<<unit_V<<"A^3"<<endl;
+	cout<<bc<<"Droplet radius: "<<clr<<radius<<"A"<<endl<<endl;
 
-	cout<<"Photon energy: "<<omega<<" eV"<<endl;
-	cout<<"Pulse fluence: "<<fluence*10000<<"J/cm^2"<<endl;
-	cout<<"Pulse FWHM: "<<width<<"fs"<<endl<<endl;
+	cout<<bc<<"Photon energy: "<<clr<<omega<<" eV"<<endl;
+	cout<<bc<<"Pulse fluence: "<<clr<<fluence*10000<<"J/cm^2"<<endl;
+	cout<<bc<<"Pulse FWHM: "<<clr<<width<<"fs"<<endl<<endl;
 
-	cout<<"Electron grid: "<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
+	cout<<bc<<"Electron grid: "<<clr<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
 	cout<<"               "<<num_elec_points<<" points"<<endl;
-	cout<<"Grid type: "<<elec_grid_type<<endl<<endl;
+	cout<<bc<<"Grid type: "<<clr<<elec_grid_type<<endl;
+	cout<<endl;
 
-	cout<<"ODE Iteration: "<<num_time_steps<<" timesteps"<<endl<<endl;
+	cout<<bc<<"ODE Iteration: "<<clr<<num_time_steps<<" timesteps"<<endl<<endl;
 
-	cout<<"Output parameters: "<<endl;
-	cout<<"Timesteps: "<<out_T_size<<endl;
-	cout<<"Energy points: "<<out_F_size<<endl;
-	cout<<"================================"<<endl;
+	cout<<bc<<"Output parameters: "<<clr<<endl;
+	cout<<bc<<"Timesteps: "<<clr<<out_T_size<<endl;
+	cout<<bc<<"Energy points: "<<clr<<out_F_size<<endl;
+	cout<<banner<<endl;
 
 	// Convert to number of photon flux.
 	omega /= Constant::eV_per_Ha;
@@ -181,6 +185,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 
 bool MolInp::validate_inputs() {
 	bool is_valid=true;
+	cerr<<"\033[31;1m";
 	if (omega <= 0 ) { cerr<<"ERROR: pulse omega must be positive"; is_valid=false; }
 	if (width <= 0 ) { cerr<<"ERROR: pulse width must be positive"; is_valid=false; }
 	if (fluence <= 0 ) { cerr<<"ERROR: pulse fluence must be positive"; is_valid=false; }
@@ -202,6 +207,7 @@ bool MolInp::validate_inputs() {
 	// Electron grid style
 	if(min_elec_e < 0 || max_elec_e < 0 || max_elec_e <= min_elec_e) { cerr<<"ERROR: Electron grid specification invalid"; is_valid=false; }
 	if (num_time_steps <= 0 ) { cerr<<"ERROR: got negative number of energy steps"; is_valid=false; }
+	cerr<<"\033[0m";
 	return is_valid;
 }
 

@@ -147,7 +147,7 @@ void ElectronSolver::precompute_gamma_coeffs() {
             for (size_t n=0; n<N; n++) {
                 #pragma omp critical
                 {
-                    std::cout<<"[ Gamma precalc ] "<<counter<<"/"<<N<<" thread "<<omp_get_thread_num()<<std::endl;
+                    std::cout<<"\r[ Gamma precalc ] "<<counter<<"/"<<N<<" thread "<<omp_get_thread_num()<<std::flush;
                     counter++;
                 }
                 Distribution::Gamma_eii(RATE_EII[a][n], eiiVec, n);
@@ -162,7 +162,7 @@ void ElectronSolver::precompute_gamma_coeffs() {
             }
         }
     }
-    std::cout<<"[ Gamma precalc ] Done."<<std::endl;
+    std::cout<<"\n[ Gamma precalc ] Done."<<std::endl;
 }
 
 
