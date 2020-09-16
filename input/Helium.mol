@@ -16,8 +16,8 @@ He 1
 80000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12           // Number of threads in OpenMP.
 0.01          // minimum free-electron energy in eV
-9000        // maximum free-electron energy in eV
-1000          // number of free-electron grid points
+16000        // maximum free-electron energy in eV
+200          // number of free-electron grid points
 hybrid    // electron grid type
 
 #OUTPUT

@@ -46,13 +46,18 @@ void BasisSet::set_knot(int zero_degree, GridSpacing gt){
     double A_exp = _min;
     double lambda_exp = (log(_max) - log(_min))/(n-1);
     // hybrid exponentio-linear grid
-    int M = n/10;
-    double max_step = A_lin * 10;
-    std::function<double(double)> f = [=](double l) {return exp(l*M) - exp(l*(M-1)) - max_step/_min; };
-    double lambda_hyb = find_root(f, 0, lambda_exp*100);
-    double B_hyb = (A_exp*exp(lambda_hyb*M) - _max)/(M-n);
+    // Transition point
+    double transition_E = _max/10;
+    int M = n/5;
+    // a kludge to be sure, but a welvome one
+    double B_hyb = (_max - transition_E) / (n - M);
     double C_hyb = _max - B_hyb * n;
-
+    // std::function<double(double)> f = [=](double l) {return B_hyb*exp(l*C_hyb/B_hyb - 1) - A_exp*l;};
+    // double lambda_hyb = find_root(f, 0, B_hyb/C_hyb*log(A_exp/C_hyb) + 1);
+    
+    double lambda_hyb = (log(transition_E) - log(_min))/M;
+    
+    
     for(int i=BSPLINE_ORDER-zero_degree; i<n+BSPLINE_ORDER; i++) {
         switch (gt)
         {
@@ -66,13 +71,22 @@ void BasisSet::set_knot(int zero_degree, GridSpacing gt){
             knot[i] = A_exp*exp(lambda_exp*i);
             break;
         case GridSpacing::hybrid:
-            knot[i] = (i >=M ) ? B_hyb*i + C_hyb : A_exp * exp(lambda_hyb*i);
+            knot[i] = (i >=M ) ? B_hyb*i - C_hyb : A_exp * exp(lambda_hyb*i);
             break;
         default:
             throw std::runtime_error("Grid spacing has not been defined.");
             break;
         }
+        
     }
+
+    #ifdef DEBUG
+    std::cerr<<"Knot: [";
+    for(int i=0; i<n+BSPLINE_ORDER; i++) {
+        std::cerr<<knot[i]<<" ";
+    }
+    std::cerr<<"]\n";
+    #endif
 }
 
 // Sets up the B-spline knot to have the appropriate shape (respecting boundary conditions)
@@ -118,7 +132,7 @@ void BasisSet::set_parameters(size_t n, double min, double max, int zero_degree,
     linsolver.isSymmetric(true);
     linsolver.factorize(S);
     if(linsolver.info()!=Eigen::Success) {
-        std::cerr<<"Factorisation of overlap matrix failed!"<<endl;
+        throw runtime_error("Factorisation of overlap matrix failed!");
     }
 }
 
