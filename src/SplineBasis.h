@@ -6,11 +6,20 @@
 // #include <eigen3/Eigen/LU>
 #include <iostream>
 
-enum class GridSpacing {linear, quadratic, exponential, hybrid};
+struct GridSpacing {
+    const static char linear = 0;
+    const static char quadratic = 1;
+    const static char exponential = 2;
+    const static char hybrid = 3;
+    const static char unknown = 101;
+    char mode = 5;
+    int num_exp = 0; // Used for hybrid spec only
+    double transition_E = 0; // Used for hybrid spec only
+};
 
 namespace{
     std::ostream& operator<<(std::ostream& os, GridSpacing gs) {
-        switch (gs)
+        switch (gs.mode)
         {
         case GridSpacing::linear:
             os << "linear";
@@ -36,26 +45,26 @@ namespace{
         is >> tmp;
         if (tmp.length() == 0) {
             std::cerr<<"No grid type provided, defaulting to linear..."<<std::endl;
-            gs = GridSpacing::linear;
+            gs.mode = GridSpacing::linear;
             return is;
         }
         switch ((char) tmp[0])
         {
         case 'l':
-            gs = GridSpacing::linear;
+            gs.mode = GridSpacing::linear;
             break;
         case 'q':
-            gs = GridSpacing::quadratic;
+            gs.mode = GridSpacing::quadratic;
             break;
         case 'e':
-            gs = GridSpacing::exponential;
+            gs.mode = GridSpacing::exponential;
             break;
         case 'h':
-            gs = GridSpacing::hybrid;
+            gs.mode = GridSpacing::hybrid;
             break;
         default:
             std::cerr<<"Unrecognised grid type \""<<tmp<<"\""<<std::endl;
-            gs = GridSpacing::linear;
+            gs.mode = GridSpacing::linear;
             break;
         }
         return is;

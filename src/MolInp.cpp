@@ -95,7 +95,6 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 0) stream >> omega;
 		if (n == 1) stream >> width;
 		if (n == 2) stream >> fluence;
-		// if (n == 3) stream >> num_time_steps;
 	}
 
 	for (int n = 0; n < FileContent["#NUMERICAL"].size(); n++) {
@@ -107,6 +106,8 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 3) stream >> max_elec_e;
 		if (n == 4) stream >> num_elec_points;
 		if (n == 5) stream >> elec_grid_type;
+		if (n == 6) stream >> elec_grid_type.transition_E;
+		if (n == 7) stream >> elec_grid_type.num_exp;
 
 	}
 	cout<<"================================"<<endl;
@@ -187,7 +188,13 @@ bool MolInp::validate_inputs() {
 	if (radius <= 0) { cerr<<"ERROR: radius must be positive"; is_valid=false; }
 	if (omp_threads <= 0) { omp_threads = 4; cerr<<"Defaulting number of OMP threads to 4"; }
 
-	// unit volume.
+	if (elec_grid_type.mode == GridSpacing::unknown){cerr<<"ERROR: Grid spacing (must start with (l)inear, (q)uadratic, (e)xponential, (h)ybrid) not recognised"; is_valid=false;}
+	if (elec_grid_type.mode == GridSpacing::hybrid){
+		if (elec_grid_type.num_exp <= 0) { cerr<<"Defaulting number of exponential points to "<<num_elec_points/2; }
+		if (elec_grid_type.transition_E <= 0) { cerr<<"Defaulting crossover energy to "<<max_elec_e/5; }
+	}
+
+	// unit cell volume.
 	if (unit_V <= 0) { cerr<<"ERROR: unit xell volume must be positive"; is_valid=false; }
 
 	// Electron grid style
