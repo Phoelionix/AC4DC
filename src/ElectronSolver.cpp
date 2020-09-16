@@ -272,7 +272,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
     sdot.F.applyDelta(vec_dqdt);
 
     // This is loss.
-    // sdot.F.addLoss(s.F, input_params.dropl_R());
+    sdot.F.addLoss(s.F, input_params.dropl_R());
 
     #ifdef OUTPUT_DFDT_TO_CERR
     std::cerr<<t*Constant::fs_per_au;

@@ -45,6 +45,7 @@ private:
 
     void step(int n); // Predictor-corrector multistep method
     void step_rk4(int n); // Runge-Kutta 4th order calculator
+    void step_euler(int n); // Basic explicit Euler stepper
 };
 
 template<typename T>
@@ -82,53 +83,55 @@ Adams_BM<T>::Adams_BM(int _order):
     this->b_AM = AdamsArrays::AM_COEFF[order];
 }
 
-
-// Computes y_n+1 based only on y_n
-// For initialisng the multistep method
-template<typename T>
-void Adams_BM<T>::step_rk4(int n) {
-    // T k1, k2, k3, k4, tmp;
-    // this->sys(this->y[n], k1, this->t[n]);
-    // //tmp = this->y[n]+k1*0.5
-    // k1 *= this->dt;
-    // tmp = k1;
-    // tmp *= 0.5;
-    // tmp += this->y[n];
-    // this->sys(tmp, k2, this->t[n]+this->dt*0.5);
-    // // tmp = this->y[n]+k2*0.5
-    // k2 *= this->dt;
-    // tmp = k2;
-    // tmp *=0.5;
-    // tmp += this->y[n];
-    // this->sys(tmp, k3, this->t[n]+this->dt*0.5);
-    // // tmp = this->y[n] + k3;
-    // k3 *= this->dt;
-    // tmp = k3;
-    // tmp += this->y[n];
-    // this->sys(tmp, k4, this->t[n]+this->dt    );
-    //
-    // k4 *= this->dt;
-    // //y[n+1] = y[n] + (k1*(1./6) + k2*(1./3) + k3*(1./3) + k4*(1./6)) * this->dt;;
-    //
-    //
-    // k1 *= 1./6;
-    // k2 *= 1./3;
-    // k3 *= 1./3;
-    // k4 *= 1./6;
-    // this->y[n+1] = k1;
-    // this->y[n+1] += k2;
-    // this->y[n+1] += k3;
-    // this->y[n+1] += k4;
-    //
-    // this->y[n+1] *= this->dt;
-    // this->y[n+1] += this->y[n];
-
-
+template <typename T>
+void Adams_BM<T>::step_euler(int n){
     T dndt;
     this->sys(this->y[n], dndt, this->t[n]);
     dndt *=this->dt;
     this->y[n+1] = this->y[n];
     this->y[n+1] += dndt;
+}
+
+
+// Computes y_n+1 based only on y_n
+// For initialisng the multistep method
+template<typename T>
+void Adams_BM<T>::step_rk4(int n) {
+    T k1, k2, k3, k4, tmp;
+    this->sys(this->y[n], k1, this->t[n]);
+    //tmp = this->y[n]+k1*0.5
+    k1 *= this->dt;
+    tmp = k1;
+    tmp *= 0.5;
+    tmp += this->y[n];
+    this->sys(tmp, k2, this->t[n]+this->dt*0.5);
+    // tmp = this->y[n]+k2*0.5
+    k2 *= this->dt;
+    tmp = k2;
+    tmp *=0.5;
+    tmp += this->y[n];
+    this->sys(tmp, k3, this->t[n]+this->dt*0.5);
+    // tmp = this->y[n] + k3;
+    k3 *= this->dt;
+    tmp = k3;
+    tmp += this->y[n];
+    this->sys(tmp, k4, this->t[n]+this->dt    );
+    
+    k4 *= this->dt;
+    //y[n+1] = y[n] + (k1*(1./6) + k2*(1./3) + k3*(1./3) + k4*(1./6)) * this->dt;;
+    
+    
+    k1 *= 1./6;
+    k2 *= 1./3;
+    k3 *= 1./3;
+    k4 *= 1./6;
+    this->y[n+1] = k1;
+    this->y[n+1] += k2;
+    this->y[n+1] += k3;
+    this->y[n+1] += k4;
+    
+    this->y[n+1] *= this->dt;
+    this->y[n+1] += this->y[n];
 }
 
 template<typename T>
@@ -200,7 +203,7 @@ void Adams_BM<T>::iterate(double t_initial, double t_final) {
     for (size_t n = order; n < npoints-1; n++) {
         std::cout << "\r[ sim ] t="
                   << std::left<<std::setfill(' ')<<std::setw(6)
-                  << this->t[n] << " ="<<this->dt<< std::flush;
+                  << this->t[n] << std::flush;
         this->t[n+1] = this->t[n] + this->dt;
         step(n);
     }
