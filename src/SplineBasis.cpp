@@ -40,16 +40,16 @@ void BasisSet::set_knot(int zero_degree, GridSpacing gt){
     double A_lin = (_max - _min)/(n-1);
     double A_sqrt = (_max - _min)/(n-1)/(n-1);
     // exponential grid
-    if ( (gt == GridSpacing::exponential || gt == GridSpacing::hybrid) && _min <= 0) {
+    if ( (gt.mode == GridSpacing::exponential || gt.mode == GridSpacing::hybrid) && _min <= 0) {
         throw runtime_error("Cannot construct an exponential grid with zero minimum energy.");
     }
     double A_exp = _min;
     double lambda_exp = (log(_max) - log(_min))/(n-1);
     // hybrid exponentio-linear grid
     // Transition point
-    double transition_E = _max/10;
-    int M = n/5;
-    // a kludge to be sure, but a welvome one
+    double transition_E = gt.transition_E;
+    int M = gt.num_exp;
+    // a kludge to be sure, but a welcome one
     double B_hyb = (_max - transition_E) / (n - M);
     double C_hyb = _max - B_hyb * n;
     // std::function<double(double)> f = [=](double l) {return B_hyb*exp(l*C_hyb/B_hyb - 1) - A_exp*l;};
@@ -59,7 +59,7 @@ void BasisSet::set_knot(int zero_degree, GridSpacing gt){
     
     
     for(int i=BSPLINE_ORDER-zero_degree; i<n+BSPLINE_ORDER; i++) {
-        switch (gt)
+        switch (gt.mode)
         {
         case GridSpacing::linear:
             knot[i] = _min + A_lin*i; // linear spacing

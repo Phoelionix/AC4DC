@@ -50,7 +50,7 @@ public:
 	// Possible values: "linear", "quadratic", "exponential"
 	GridSpacing elec_grid_type;
 
-	int num_time_steps = -1; // Guess number of time steps for time dynamics
+	int num_time_steps = -1; // Number of time steps for time dynamics
 
 protected:
 

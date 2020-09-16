@@ -339,10 +339,10 @@ void ElectronSolver::saveFreeRaw(const std::string& fname) {
 
     assert(y.size() == t.size());
     int num_t_points = input_params.Out_T_size();
-    if ( num_t_points >  t.size() ) num_t_points = t.size();
-    int t_idx_step = t.size() / num_t_points;
-    for (int i=0; i<num_t_points; i++) {
-        f<<t[i*t_idx_step]*Constant::fs_per_au<<" "<<y[i*t_idx_step].F<<endl;
+    // if ( num_t_points >  t.size() ) num_t_points = t.size();
+    
+    for (int i=0; i<t.size(); i++) {
+        f<<t[i]*Constant::fs_per_au<<" "<<y[i].F<<endl;
     }
     f.close();
 }
