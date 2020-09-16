@@ -85,7 +85,7 @@ void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
     Distribution::set_elec_points(input_params.Num_Elec_Points(), input_params.Min_Elec_E(), input_params.Max_Elec_E(), input_params.elec_grid_type);
     state_type::set_P_shape(input_params.Store);
     // Set up the rate equations (setup called from parent Adams_BM)
-    this->setup(get_ground_state(), this->timespan_au/input_params.Out_T_size(), 5e-3);
+    this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
     // create the tensor of coefficients
     RATE_EII.resize(input_params.Store.size());
     RATE_TBR.resize(input_params.Store.size());
@@ -114,7 +114,7 @@ void ElectronSolver::solve() {
                 std::cerr<<"Exceeded maximum T size. Skipping remaining iteration.."<<endl;
                 break;
             }
-            this->setup(get_ground_state(), this->timespan_au/input_params.Out_T_size(), 5e-3);
+            this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
         }
     } while (good_state == false);
     
