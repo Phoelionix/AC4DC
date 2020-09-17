@@ -99,24 +99,22 @@ void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
 }
 
 void ElectronSolver::solve() {
-    cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<endl;
     assert (hasRates || "No rates found! Use ElectronSolver::compute_cross_sections(log)\n");
     auto start = std::chrono::system_clock::now();
 
-    do {
-        
-        good_state = true;
-        this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
-        if (!good_state){
-            std::cerr<<"Doubling timesteps..."<<endl;
-            input_params.num_time_steps *= 2;
-            if (input_params.num_time_steps > MAX_T_PTS){
-                std::cerr<<"Exceeded maximum T size. Skipping remaining iteration.."<<endl;
-                break;
-            }
-            this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
-        }
-    } while (good_state == false);
+    good_state = true;
+    cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<endl;
+    this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
+        // if (!good_state){
+        //     input_params.num_time_steps *= 2;
+        //     if (input_params.num_time_steps > MAX_T_PTS){
+        //         std::cerr<<"Exceeded maximum T size. Skipping remaining iteration.."<<endl;
+        //         break;
+        //     }
+        //     std::cerr<<"Halving dt..."<<endl;
+        //     this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
+        // }
+    
     
     
 
@@ -140,7 +138,7 @@ void ElectronSolver::precompute_gamma_coeffs() {
         std::cout<<"[ Gamma precalc ] Atom "<<a+1<<"/"<<input_params.Store.size()<<std::endl;
         auto& eiiVec = input_params.Store[a].EIIparams;
         vector<RateData::InverseEIIdata> tbrVec = RateData::inverse(eiiVec);
-        size_t counter=0;
+        size_t counter=1;
         #pragma omp parallel default(none) shared(a, N, counter, tbrVec, eiiVec, RATE_EII, RATE_TBR, std::cout)
 		{
 			#pragma omp for schedule(dynamic) nowait
@@ -224,7 +222,8 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
                     dq += tmp;
                 }
             }
-            
+
+            #ifndef NO_TBR
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
             // Note that RATE_TBR has the same geometry as InverseEIIdata.
             for (size_t m=n+1; m<N; m++) {
@@ -250,6 +249,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
                     dq -= tmp;
                 }
             }
+            #endif
             
             
         }
@@ -257,7 +257,9 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
 
         // compute the dfdt vector
         s.F.get_Q_eii(vec_dqdt, a, P);
+        #ifndef NO_TBR
         s.F.get_Q_tbr(vec_dqdt, a, P);
+        #endif
     }
 
     // s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions

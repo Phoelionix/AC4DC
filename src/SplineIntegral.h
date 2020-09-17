@@ -95,8 +95,8 @@ protected:
     bool _has_Qee = false;  // Flags wheter Q_EE has been calculated
 
     // Q_ee_t Q_EE;
-    static constexpr double DBL_CUTOFF_TBR = 1e-20;
-    static constexpr double DBL_CUTOFF_QEE = 1e-20;
+    static constexpr double DBL_CUTOFF_TBR = 1e-16;
+    static constexpr double DBL_CUTOFF_QEE = 1e-16;
 };
 
 #endif /* end of include guard: AC4DC_SPLINEINTEGRAL_CXX_H */

@@ -43,11 +43,13 @@ Verifies a few key properties of the sigma integrals.
   it more likely to be wrong.
 - Hard edge depends on B and maximum energy. Corresponds to the line `ep + s = Emax - B/2.
 - If ep + s < Emax - B/2, corresponds exactly to Gamma (as expected)
-- Conclusion: Problem is TBR into regions with E > E_max. 
+- Conclusion: Problem is TBR into regions with E > E_max. Sliced distribution
+  represents the loss of electrons due to pairs being upconverted above the
+energy ceiling.
   - Solution A: "she'll be right", leave the code as-is and rely on the
     vanishing of the distribution at large E to take care of it. Ensure that
-max energy is at least twice as large as photoelectron peak. Causes
-underestimation of high-e electron creation.
+max energy is at least twice as large as photoelectron peak.
 	- Solution B: Fictional boundary. Enforces agreement between summed gamma and
 	  Q rates by restricting the domain of the defining integrals to processes
     that are below the energy ceiling. Better matter conservation.
+
