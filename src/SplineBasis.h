@@ -5,76 +5,13 @@
 #include <eigen3/Eigen/SparseLU>
 // #include <eigen3/Eigen/LU>
 #include <iostream>
+#include "GridSpacing.hpp"
 
-struct GridSpacing {
-    const static char linear = 0;
-    const static char quadratic = 1;
-    const static char exponential = 2;
-    const static char hybrid = 3;
-    const static char unknown = 101;
-    char mode = 5;
-    int num_exp = 0; // Used for hybrid spec only
-    double transition_E = 0; // Used for hybrid spec only
-};
-
-namespace{
-    std::ostream& operator<<(std::ostream& os, GridSpacing gs) {
-        switch (gs.mode)
-        {
-        case GridSpacing::linear:
-            os << "linear";
-            break;
-        case GridSpacing::quadratic:
-            os << "quadratic";
-            break;
-        case GridSpacing::exponential:
-            os << "exponential";
-            break;
-        case GridSpacing::hybrid:
-            os << "hybrid exponeential-linear grid";
-            break;
-        default:
-            os << "Unknown grid type";
-            break;
-        }
-        return os;
-    }
-
-    std::istream& operator>>(std::istream& is, GridSpacing& gs) {
-        std::string tmp;
-        is >> tmp;
-        if (tmp.length() == 0) {
-            std::cerr<<"No grid type provided, defaulting to linear..."<<std::endl;
-            gs.mode = GridSpacing::linear;
-            return is;
-        }
-        switch ((char) tmp[0])
-        {
-        case 'l':
-            gs.mode = GridSpacing::linear;
-            break;
-        case 'q':
-            gs.mode = GridSpacing::quadratic;
-            break;
-        case 'e':
-            gs.mode = GridSpacing::exponential;
-            break;
-        case 'h':
-            gs.mode = GridSpacing::hybrid;
-            break;
-        default:
-            std::cerr<<"Unrecognised grid type \""<<tmp<<"\""<<std::endl;
-            gs.mode = GridSpacing::linear;
-            break;
-        }
-        return is;
-    }
-}
 
 class BasisSet{
 public:
     BasisSet() {};
-    void set_parameters(size_t nfuncs, double min, double max, int zero_degree, GridSpacing gt);
+    void set_parameters(size_t nfuncs, double min, double max, GridSpacing gt, int zero_degree);
     Eigen::VectorXd Sinv(const Eigen::VectorXd& deltaf);
     double operator()(size_t i, double x) const;
     double at(size_t i, double x) const;
@@ -93,7 +30,10 @@ public:
     double min_elec_e() {return _min;};
     double max_elec_e() {return _max;};
     size_t num_funcs;
-    const static int BSPLINE_ORDER = 3; // 1 = rectangles, 2=linear, 3=quadratic
+    const static int BSPLINE_ORDER = 1; // 1 = rectangles, 2=linear, 3=quadratic
+    std::vector<double> avg_e;
+    std::vector<double> avg_e_sqrt;
+    std::vector<double> widths;
 protected:
     // Eigen::PartialPivLU<Eigen::MatrixXd > linsolver;
     Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int> >  linsolver;

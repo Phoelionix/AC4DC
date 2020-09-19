@@ -62,7 +62,7 @@ public:
     }
 
     double norm() const;
-
+    double integral() const;
     // modifiers
 
     // applies the df/dt vector v to the overall distribution
@@ -74,7 +74,7 @@ public:
     // e.g. dfdt v; F.calc_Qee(v);
     void get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
     void get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
-    void get_Q_ee  (Eigen::VectorXd& v) const;
+    // void get_Q_ee  (Eigen::VectorXd& v) const;
     
     // N is the Number density (inverse au^3) of particles to be added at energy e.
     static void addDeltaLike(Eigen::VectorXd& v, double e, double N);
@@ -82,6 +82,8 @@ public:
     void addDeltaSpike(double N, double e);
     // Applies the loss term to the distribution 
     void addLoss(const Distribution& d, double R);
+    // Adds a (rough) electron-electron term to the distribution
+    void add_Q_ee(const Distribution& d, double kT);
 
     // Sets the object to have a MB distribution
     void set_maxwellian(double N, double T);
@@ -94,10 +96,11 @@ public:
         return basis.Gamma_tbr(Gamma, tbr, J, K);
     }
     static void precompute_Q_coeffs(vector<RateData::Atom>& Store) {
-        basis.precompute_Q_coeffs(Store);
+        basis.precompute_Q_coeffs(Store);   
     }
 
     double integral(double (f)(double));
+    double density() const;
 
     static std::string output_energies_eV(size_t num_pts);
     std::string output_densities(size_t num_pts) const;
@@ -112,11 +115,10 @@ public:
 
 
     static size_t size;
-    static SplineIntegral basis;
 private:
     // double total;
     std::vector<double> f;
-    // static SplineIntegral basis;
+    static SplineIntegral basis;
 
 };
 

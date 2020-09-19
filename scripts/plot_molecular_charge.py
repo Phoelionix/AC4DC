@@ -228,7 +228,11 @@ class Plotter:
         ax, ax2 = self.setup_axes()
         self.aggregate_charges()
         for i in range(self.chargeData[a].shape[1]):
-            ax.plot(self.timeData, self.chargeData[a][:,i], label = "%d+" % i)
+            max_at_zero = np.max(self.chargeData[a][0,:])
+            mask = self.chargeData[a][:,i] > max_at_zero*2
+            mask |= self.chargeData[a][:,i] < -max_at_zero*2
+            Y = np.ma.masked_where(mask, self.chargeData[a][:,i])
+            ax.plot(self.timeData, Y, label = "%d+" % i)
         ax.set_title("Charge state dynamics")
         ax.set_ylabel("Proportion (arb. units)")
 

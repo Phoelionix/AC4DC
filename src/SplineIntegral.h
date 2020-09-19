@@ -89,7 +89,7 @@ protected:
     // Computes the overlap of the J^th df/ft term with the K^th basis function in f
     double calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_t K) const;
     sparse_matrix calc_Q_tbr( const RateData::InverseEIIdata& tbr, size_t J) const;
-    sparse_matrix calc_Q_ee(size_t J) const;
+    // sparse_matrix calc_Q_ee(size_t J) const;
     bool _has_Qeii = false;  // Flags wheter Q_EII has been calculated
     bool _has_Qtbr = false;  // Flags wheter Q_TBR has been calculated
     bool _has_Qee = false;  // Flags wheter Q_EE has been calculated

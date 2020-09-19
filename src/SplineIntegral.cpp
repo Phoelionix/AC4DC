@@ -296,7 +296,7 @@ SplineIntegral::sparse_matrix SplineIntegral::calc_Q_tbr( const RateData::Invers
                     for (int k=0; k<GAUSS_ORDER_TBR; k++) {
                         double s = gaussX_TBR[k]*(b-a)/2 + (b + a)/2;
                         double e = s + ep + B;
-                        tmp2 += gaussW_TBR[k] * ( e ) * pow(s*ep,-0.5) *Dipole::DsigmaBEB(e, ep, B, tbr.kin[xi], tbr.occ[xi])*(*this)(J, e)*(*this)(L, s);
+                        tmp2 += gaussW_TBR[k] * ( e ) * pow(s*ep,-0.5) * Dipole::DsigmaBEB(e, ep, B, tbr.kin[xi], tbr.occ[xi])*(*this)(J, e)*(*this)(L, s);
                     }
                     tmp += 0.5*gaussW_TBR[j]*tmp2*(*this)(K,ep)*(b-a)*(K_max - K_min)/4;
                 }
@@ -336,7 +336,7 @@ SplineIntegral::sparse_matrix SplineIntegral::calc_Q_tbr( const RateData::Invers
     }
     return retval;
 }
-
+/*
 SplineIntegral::sparse_matrix SplineIntegral::calc_Q_ee(size_t J) const{
     double min_J = this->supp_min(J);
     double max_J = this->supp_max(J);
@@ -357,6 +357,6 @@ SplineIntegral::sparse_matrix SplineIntegral::calc_Q_ee(size_t J) const{
             num_nonzero++;
         }
     }
-
-
+    return retval;
 }
+*/

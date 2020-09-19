@@ -197,8 +197,13 @@ bool MolInp::validate_inputs() {
 
 	if (elec_grid_type.mode == GridSpacing::unknown){cerr<<"ERROR: Grid spacing (must start with (l)inear, (q)uadratic, (e)xponential, (h)ybrid) not recognised"; is_valid=false;}
 	if (elec_grid_type.mode == GridSpacing::hybrid){
-		if (elec_grid_type.num_exp <= 0) { cerr<<"Defaulting number of exponential points to "<<num_elec_points/2; }
-		if (elec_grid_type.transition_E <= 0) { cerr<<"Defaulting crossover energy to "<<max_elec_e/5; }
+		if (elec_grid_type.num_exp <= 0 || elec_grid_type.num_exp >= num_elec_points) { 
+			cerr<<"Defaulting number of exponential points to "<<num_elec_points/2;
+			elec_grid_type.num_exp = num_elec_points/2;
+		}
+		if (elec_grid_type.transition_E <= 0 || elec_grid_type.transition_E > max_elec_e) {
+			 cerr<<"Defaulting crossover energy to "<<max_elec_e/5; 
+		}
 	}
 
 	// unit cell volume.

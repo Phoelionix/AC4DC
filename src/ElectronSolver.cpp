@@ -40,7 +40,7 @@ void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname) {
 }
 
 ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
-    input_params(filename, log), pf(input_params.Fluence(), input_params.Width()), Adams_BM(2) // (order Adams method)
+    input_params(filename, log), pf(input_params.Fluence(), input_params.Width()), Adams_BM(5) // (order Adams method)
 {
     timespan_au = input_params.Width()*3;
 }
@@ -150,6 +150,7 @@ void ElectronSolver::precompute_gamma_coeffs() {
                 }
                 Distribution::Gamma_eii(RATE_EII[a][n], eiiVec, n);
                 // Weird indexing exploits symmetry of Gamma_TBR
+                // such that only half of hte coefficients are stored
                 for (size_t m=n+1; m<N; m++) {
                     size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                     // // k = N... N(N+1)/2
@@ -213,7 +214,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         size_t N = Distribution::size;
         for (size_t n=0; n<N; n++) {
             double tmp=0; // aggregator
-            
+            #ifndef NO_EII_GAMMA
             for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
                 for (auto& finPair : RATE_EII[a][n][init]) {
                     tmp = finPair.val*s.F[n]*P[init];
@@ -222,17 +223,18 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
                     dq += tmp;
                 }
             }
+            #endif
 
-            #ifndef NO_TBR
+            #ifndef NO_TBR_GAMMA
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
             // Note that RATE_TBR has the same geometry as InverseEIIdata.
             for (size_t m=n+1; m<N; m++) {
-                size_t k = (N*(N+1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
+                size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                 // k = N... N(N+1)/2-1
                 // W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
                 for (size_t init=0;  init<RATE_TBR[a][k].size(); init++) {
                     for (auto& finPair : RATE_TBR[a][k][init]) {
-                        tmp = finPair.val*s.F[n]*s.F[m]*P[finPair.idx]*2;
+                        tmp = finPair.val*s.F[n]*s.F[m]*P[init]*2;
                         Pdot[finPair.idx] += tmp;
                         Pdot[init] -= tmp;
                         dq -= tmp;
@@ -243,7 +245,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
             // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
             for (size_t init=0;  init<RATE_TBR[a][n].size(); init++) {
                 for (auto& finPair : RATE_TBR[a][n][init]) {
-                    tmp = finPair.val*s.F[n]*s.F[n]*P[finPair.idx];
+                    tmp = finPair.val*s.F[n]*s.F[n]*P[init];
                     Pdot[finPair.idx] += tmp;
                     Pdot[init] -= tmp;
                     dq -= tmp;
@@ -256,8 +258,10 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
 
 
         // compute the dfdt vector
+        #ifndef NO_EII_Q
         s.F.get_Q_eii(vec_dqdt, a, P);
-        #ifndef NO_TBR
+        #endif
+        #ifndef NO_TBR_Q
         s.F.get_Q_tbr(vec_dqdt, a, P);
         #endif
     }

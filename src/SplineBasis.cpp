@@ -27,7 +27,7 @@ double find_root(std::function<double(double)> func, double a, double b, double 
 
 // Constructs the grid over which the electron distribution is solved. 
 void BasisSet::set_knot(int zero_degree, GridSpacing gt){
-    assert(zero_degree < BSPLINE_ORDER -1 && "Failed to set boundary consition");
+    assert( BSPLINE_ORDER - zero_degree >=0 && "Failed to set boundary condition");
 
     for (int i=0; i<BSPLINE_ORDER-zero_degree; i++) {
         knot[i] = _min;
@@ -47,15 +47,15 @@ void BasisSet::set_knot(int zero_degree, GridSpacing gt){
     double lambda_exp = (log(_max) - log(_min))/(n-1);
     // hybrid exponentio-linear grid
     // Transition point
-    double transition_E = gt.transition_E;
+    // double transition_E = gt.transition_E;
     int M = gt.num_exp;
-    // a kludge to be sure, but a welcome one
-    double B_hyb = (_max - transition_E) / (n - M);
-    double C_hyb = _max - B_hyb * n;
-    // std::function<double(double)> f = [=](double l) {return B_hyb*exp(l*C_hyb/B_hyb - 1) - A_exp*l;};
-    // double lambda_hyb = find_root(f, 0, B_hyb/C_hyb*log(A_exp/C_hyb) + 1);
     
-    double lambda_hyb = (log(transition_E) - log(_min))/M;
+    
+    std::function<double(double)> f = [=](double B) {return _min*exp(B*M/(_max - B*(n-M))) + B*(n-M) - _max;};
+    double B_hyb = find_root(f, 0, _max/(n-M + 1));
+    // double B_hyb = (_max - transition_E) / (n - M);
+    double C_hyb = _max - B_hyb * n;
+    double lambda_hyb = (log(B_hyb*M+C_hyb) - log(_min))/M;
     
     
     for(int i=BSPLINE_ORDER-zero_degree; i<n+BSPLINE_ORDER; i++) {
@@ -71,7 +71,7 @@ void BasisSet::set_knot(int zero_degree, GridSpacing gt){
             knot[i] = A_exp*exp(lambda_exp*i);
             break;
         case GridSpacing::hybrid:
-            knot[i] = (i >=M ) ? B_hyb*i - C_hyb : A_exp * exp(lambda_hyb*i);
+            knot[i] = (i >=M ) ? B_hyb*i + C_hyb : A_exp * exp(lambda_hyb*i);
             break;
         default:
             throw std::runtime_error("Grid spacing has not been defined.");
@@ -90,7 +90,7 @@ void BasisSet::set_knot(int zero_degree, GridSpacing gt){
 }
 
 // Sets up the B-spline knot to have the appropriate shape (respecting boundary conditions)
-void BasisSet::set_parameters(size_t n, double min, double max, int zero_degree, GridSpacing gt) {
+void BasisSet::set_parameters(size_t n, double min, double max, GridSpacing gt, int zero_degree) {
     // zero_degree: The number of derivatives to set to zero: 0 = open conditions, 1=impose f(0)=0, 2=impose f(0)=f'(0) =0
     // n: the number of Bsplins to use in the basis
     // min: minimum energy
@@ -110,6 +110,25 @@ void BasisSet::set_parameters(size_t n, double min, double max, int zero_degree,
     knot.resize(n+BSPLINE_ORDER);
     // boundary at minimm energy enforces
     set_knot(zero_degree, gt);
+
+    avg_e.resize(n);
+    avg_e_sqrt.resize(n);
+    widths.resize(n);
+    for (size_t i = 0; i < n; i++) {
+        // Chooses the 'center' of the B-spline
+        if (BSPLINE_ORDER%2==0){
+            avg_e[i] = this->knot[i + BSPLINE_ORDER/2];
+        } else  {
+            avg_e[i] = (this->knot[i + BSPLINE_ORDER/2] + this->knot[i + BSPLINE_ORDER/2 + 1]) /2;
+        }
+        avg_e_sqrt[i] = pow(avg_e[i],0.5);
+        double diff = (this->supp_max(i) - this->supp_min(i))/2;
+        widths[i] = 0;
+        for (int j=0; j<10; j++){
+            widths[i] += gaussW_10[j]*(*this)(i, gaussX_10[j]*diff+ avg_e[i]);
+        }
+        widths[i] *= diff;
+    }
     
     // Compute overlap matrix
     Eigen::SparseMatrix<double> S(num_funcs, num_funcs);

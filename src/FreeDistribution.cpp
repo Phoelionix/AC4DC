@@ -13,7 +13,7 @@ SplineIntegral Distribution::basis;
 // Psuedo-constructor thing
 void Distribution::set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style) {
     // Defines a grid of n points
-    basis.set_parameters(n, min_e, max_e, 0, grid_style);
+    basis.set_parameters(n, min_e, max_e, grid_style, 0);
     Distribution::size=n;
 }
 
@@ -47,9 +47,9 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) co
     }
 }
 
-// Taken verbatim from Rockwood as quoted by Morgan and Penetrante in ELENDIF
+
 // Stores in f the value of Qee[f] (atomic units)
-void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
+// void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     // for (int J=0; J<size; J++) {
     //     for (int L=0; L<size; L++) {
     //         for (int K=0; K<size; K++) {
@@ -57,6 +57,15 @@ void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     //         }
     //     }
     // }
+// }
+
+// Taken verbatim from Rockwood as quoted by Morgan and Penetrante in ELENDIF
+void Distribution::add_Q_ee(const Distribution& d, double kT) {
+    double density=0;
+    double lnLambda = log(kT/(4*Constant::Pi*density));
+    double alpha = 2*Constant::Pi*sqrt(2)/3*lnLambda;
+
+
 }
 
 // ============================
@@ -143,7 +152,7 @@ void Distribution::applyDelta(const Eigen::VectorXd& v) {
 void Distribution::addLoss(const Distribution& d, double R) {
     // f += "|   i|   ||   |_"
     for (size_t i=0; i<size; i++) {
-        f[i] -= d[i] * 3 * sqrt(basis.supp_min(i) + basis.supp_max(i)) /2 / R;
+        f[i] -= d[i] * 3 * sqrt(basis.avg_e[i]/2) / R;
     }
 }
 
@@ -162,6 +171,15 @@ double Distribution::norm() const{
         x+= fabs(fi);
     }
     return x;
+}
+
+double Distribution::density() const{
+    double tmp=0;
+    for (size_t i = 0; i < size; i++)
+    {
+        tmp += basis.widths[i]*f[i];
+    }
+    return tmp;
 }
 
 double Distribution::integral(double (g)(double)) {
