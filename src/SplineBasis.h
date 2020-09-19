@@ -30,7 +30,7 @@ public:
     double min_elec_e() {return _min;};
     double max_elec_e() {return _max;};
     size_t num_funcs;
-    const static int BSPLINE_ORDER = 1; // 1 = rectangles, 2=linear, 3=quadratic
+    const static int BSPLINE_ORDER = 3; // 1 = rectangles, 2=linear, 3=quadratic
     std::vector<double> avg_e;
     std::vector<double> avg_e_sqrt;
     std::vector<double> widths;

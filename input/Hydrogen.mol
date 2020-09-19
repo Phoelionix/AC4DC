@@ -18,6 +18,8 @@ H 2
 0.1          // minimum free-electron energy in eV
 10000        // maximum free-electron energy in eV
 100          // number of free-electron grid points
+hybrid       // electron grid type
+100          // number of low-energy exponential grid points
 
 #OUTPUT
 4000         // Number of time steps in the output files.

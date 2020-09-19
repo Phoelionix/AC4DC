@@ -268,17 +268,10 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
 
     // s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
 
-    #ifdef OUTPUT_DQDT_TO_CERR
-    for (int i=0; i<Distribution::size; i++) {
-        std::cerr<<t*Constant::fs_per_au<<" "<<vec_dqdt[i]<<" ";
-    }
-    std::cerr<<std::endl;
-    #endif
-
     sdot.F.applyDelta(vec_dqdt);
 
     // This is loss.
-    sdot.F.addLoss(s.F, input_params.dropl_R());
+    sdot.F.addLoss(s.F, input_params.loss_geometry);
 
     #ifdef OUTPUT_DFDT_TO_CERR
     std::cerr<<t*Constant::fs_per_au;

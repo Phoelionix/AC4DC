@@ -9,6 +9,7 @@
 #include "ComputeRateParam.h"
 
 
+
 MolInp::MolInp(const char* filename, ofstream & log)
 {
 	// Input file for molecular ionization calculation.
@@ -66,7 +67,8 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		stringstream stream(FileContent["#VOLUME"][n]);
 
 		if (n == 0) stream >> unit_V;
-		if (n == 1) stream >> radius;
+		if (n == 1) stream >> loss_geometry.L0;
+		if (n == 2) stream >> loss_geometry;
 	}
 
 	for (int n = 0; n < FileContent["#OUTPUT"].size(); n++) {
@@ -106,8 +108,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 3) stream >> max_elec_e;
 		if (n == 4) stream >> num_elec_points;
 		if (n == 5) stream >> elec_grid_type;
-		if (n == 6) stream >> elec_grid_type.transition_E;
-		if (n == 7) stream >> elec_grid_type.num_exp;
+		if (n == 6) stream >> elec_grid_type.num_exp;
 
 	}
 	const string bc = "\033[97;1m"; // begin colour escape code
@@ -115,7 +116,8 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	const string banner = "\033[34m[ ================================ ]\033[0m";
 	cout<<banner<<endl;
 	cout<<bc<<"Unit cell size: "<<clr<<unit_V<<"A^3"<<endl;
-	cout<<bc<<"Droplet radius: "<<clr<<radius<<"A"<<endl<<endl;
+	cout<<bc<<"Droplet L0: "<<clr<<loss_geometry.L0<<"A"<<endl;
+	cout<<bc<<"Droplet Shape: "<<clr<<loss_geometry<<endl<<endl;
 
 	cout<<bc<<"Photon energy: "<<clr<<omega<<" eV"<<endl;
 	cout<<bc<<"Pulse fluence: "<<clr<<fluence*10000<<"J/cm^2"<<endl;
@@ -124,6 +126,10 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	cout<<bc<<"Electron grid: "<<clr<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
 	cout<<"               "<<num_elec_points<<" points"<<endl;
 	cout<<bc<<"Grid type: "<<clr<<elec_grid_type<<endl;
+	if (elec_grid_type.mode == GridSpacing::hybrid){
+		cout<<bc<<"Exponential"<<clr<<" 0-"<<elec_grid_type.num_exp<<", Linear ";
+		cout<<elec_grid_type.num_exp<<"-"<<num_elec_points<<endl;
+	}
 	cout<<endl;
 
 	cout<<bc<<"ODE Iteration: "<<clr<<num_time_steps<<" timesteps"<<endl<<endl;
@@ -137,11 +143,9 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	omega /= Constant::eV_per_Ha;
 	fluence *= 10000/Constant::Jcm2_per_Haa02/omega;
 
-	elec_grid_type.transition_E /= Constant::eV_per_Ha;
-
 	// Convert to atomic units.
 	width /= Constant::fs_per_au;
-	radius /= Constant::Angs_per_au;
+	loss_geometry.L0 /= Constant::Angs_per_au;
 	unit_V /= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
 
 	min_elec_e /= Constant::eV_per_Ha;
@@ -163,7 +167,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 
 		Store[i].nAtoms = at_num/unit_V;
 		Store[i].name = at_name;
-		Store[i].R = radius;
+		// Store[i].R = radius;
 
 		at_name = "input/" + at_name + ".inp";
 
@@ -192,17 +196,14 @@ bool MolInp::validate_inputs() {
 	if (num_time_steps <= 0 ) { cerr<<"ERROR: got negative number of timesteps"; is_valid=false; }
 	if (out_T_size <= 0) { cerr<<"ERROR: system set to output zero timesteps"; is_valid=false; }
 	if (out_F_size <= 0) { cerr<<"ERROR: system set to output zero energy grid points"; is_valid=false; }
-	if (radius <= 0) { cerr<<"ERROR: radius must be positive"; is_valid=false; }
+	if (loss_geometry.L0 <= 0) { cerr<<"ERROR: radius must be positive"; is_valid=false; }
 	if (omp_threads <= 0) { omp_threads = 4; cerr<<"Defaulting number of OMP threads to 4"; }
 
-	if (elec_grid_type.mode == GridSpacing::unknown){cerr<<"ERROR: Grid spacing (must start with (l)inear, (q)uadratic, (e)xponential, (h)ybrid) not recognised"; is_valid=false;}
+	if (elec_grid_type.mode == GridSpacing::unknown){cerr<<"ERROR: Grid spacing not recognised - must start with (l)inear, (q)uadratic, (e)xponential, or (h)ybrid"; is_valid=false;}
 	if (elec_grid_type.mode == GridSpacing::hybrid){
 		if (elec_grid_type.num_exp <= 0 || elec_grid_type.num_exp >= num_elec_points) { 
 			cerr<<"Defaulting number of exponential points to "<<num_elec_points/2;
 			elec_grid_type.num_exp = num_elec_points/2;
-		}
-		if (elec_grid_type.transition_E <= 0 || elec_grid_type.transition_E > max_elec_e) {
-			 cerr<<"Defaulting crossover energy to "<<max_elec_e/5; 
 		}
 	}
 
@@ -236,7 +237,7 @@ void MolInp::calc_rates(ofstream &_log, bool recalc) {
 		Store[a] = Dynamics.SolvePlasmaBEB(max_occ, final_occ, _log);
 		Store[a].name = name;
 		Store[a].nAtoms = nAtoms;
-		Store[a].R = dropl_R();
+		// Store[a].R = dropl_R();
 		Index[a] = Dynamics.Get_Indexes();
 	}
 }

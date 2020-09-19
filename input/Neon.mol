@@ -6,6 +6,7 @@ Ne 1000
 #VOLUME
 12314.7      // Volume per molecule in Angstrom^3.
 175          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+spherical    // geometry of sample (may be spherical, cylindrical or planar)
 
 #PULSE
 8000         // Photon energy in eV.
@@ -15,10 +16,11 @@ Ne 1000
 #NUMERICAL
 4000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12           // Number of threads in OpenMP.
-10          // [only for nonthermal] minimum free-electron energy in eV
-8000        // [only for nonthermal] maximum free-electron energy in eV
-25          // [only for nonthermal] number of free-electron grid points
-linear      // electron grid
+1           // [only for nonthermal] minimum free-electron energy in eV
+8000         // [only for nonthermal] maximum free-electron energy in eV
+250           // [only for nonthermal] number of free-electron grid points
+linear       // electron grid (may be linear, quadratic, exponential or hybrid)
+100          // number of low-energy exponential grid points (hybrid only)
 
 #OUTPUT
 4000         // Number of time steps in the output files.

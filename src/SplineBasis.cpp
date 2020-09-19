@@ -46,14 +46,14 @@ void BasisSet::set_knot(int zero_degree, GridSpacing gt){
     double A_exp = _min;
     double lambda_exp = (log(_max) - log(_min))/(n-1);
     // hybrid exponentio-linear grid
-    // Transition point
-    // double transition_E = gt.transition_E;
+
+    
     int M = gt.num_exp;
     
     
     std::function<double(double)> f = [=](double B) {return _min*exp(B*M/(_max - B*(n-M))) + B*(n-M) - _max;};
     double B_hyb = find_root(f, 0, _max/(n-M + 1));
-    // double B_hyb = (_max - transition_E) / (n - M);
+    
     double C_hyb = _max - B_hyb * n;
     double lambda_hyb = (log(B_hyb*M+C_hyb) - log(_min))/M;
     

@@ -12,6 +12,8 @@
 #include "Constant.h"
 #include "SplineIntegral.h"
 #include "Dipole.h"
+#include "GridSpacing.hpp"
+#include "LossGeometry.hpp"
 
 
 // Represents a statistical distribution of electrons. Internal units are atomic units.
@@ -81,7 +83,7 @@ public:
     // Adds a Dirac delta to the distribution
     void addDeltaSpike(double N, double e);
     // Applies the loss term to the distribution 
-    void addLoss(const Distribution& d, double R);
+    void addLoss(const Distribution& d, LossGeometry l);
     // Adds a (rough) electron-electron term to the distribution
     void add_Q_ee(const Distribution& d, double kT);
 

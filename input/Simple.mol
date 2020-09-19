@@ -19,7 +19,6 @@ He 1
 2000        // maximum free-electron energy in eV
 20          // number of free-electron grid points
 hybrid    // electron grid type
-150         // top of "low-energy" exponential grid range (hybrid grid only)
 10          // Number of "low-energy" exponential grid points (hybrid grid only)
 
 #OUTPUT

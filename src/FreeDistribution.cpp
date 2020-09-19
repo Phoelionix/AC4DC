@@ -149,10 +149,10 @@ void Distribution::applyDelta(const Eigen::VectorXd& v) {
 
 // - 3/sqrt(2) * 3 sqrt(e) * f(e) / R_
 // Very rough approcimation used here
-void Distribution::addLoss(const Distribution& d, double R) {
+void Distribution::addLoss(const Distribution& d, LossGeometry l) {
     // f += "|   i|   ||   |_"
     for (size_t i=0; i<size; i++) {
-        f[i] -= d[i] * 3 * sqrt(basis.avg_e[i]/2) / R;
+        f[i] -= d[i] * sqrt(basis.avg_e[i]/2) * l.factor();
     }
 }
 

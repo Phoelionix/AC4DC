@@ -4,6 +4,8 @@
 #include "Input.h"
 #include "Constant.h"
 #include "SplineBasis.h"
+#include "GridSpacing.hpp"
+#include "LossGeometry.hpp"
 
 class MolInp
 {
@@ -47,8 +49,8 @@ public:
 	// The result is available as Store.
     void calc_rates(ofstream &_log, bool recalc=true);
 
-	// Possible values: "linear", "quadratic", "exponential"
 	GridSpacing elec_grid_type;
+	LossGeometry loss_geometry;
 
 	int num_time_steps = -1; // Number of time steps for time dynamics
 

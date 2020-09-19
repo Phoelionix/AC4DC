@@ -11,7 +11,6 @@ struct GridSpacing {
     const static char unknown = 101;
     char mode = 5;
     int num_exp = 0; // Used for hybrid spec only
-    double transition_E = 0; // Used for hybrid spec only
 };
 
 namespace{
@@ -28,7 +27,7 @@ namespace{
             os << "exponential";
             break;
         case GridSpacing::hybrid:
-            os << "hybrid exponeential-linear grid";
+            os << "hybrid exponential-linear grid";
             break;
         default:
             os << "Unknown grid type";

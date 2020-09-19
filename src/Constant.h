@@ -150,7 +150,7 @@ namespace RateData {
 		vector<string> index_names = vector<string>(0);
 		std::string name = "";
 		double nAtoms = 1.;// atomic number density
-		double R = 189.; // 100nm focal spot radius.
+		// double R = 189.; // 100nm focal spot radius.
 		int num_conf = 1;
 		vector<RateData::Rate> Photo = vector<RateData::Rate>(0);
 		vector<RateData::Rate> Fluor = vector<RateData::Rate>(0);

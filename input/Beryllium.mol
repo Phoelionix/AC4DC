@@ -19,7 +19,6 @@ Be 1
 16000        // [only for nonthermal] maximum free-electron energy in eV
 200          // [only for nonthermal] number of free-electron grid points
 hybrid        // electron grid type
-100         // top of "low-energy" exponential grid range (eV) (hybrid grid only)
 70          // Number of "low-energy" exponential grid points (hybrid grid only)
 
 
