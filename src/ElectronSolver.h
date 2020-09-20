@@ -24,11 +24,11 @@ This file should arguably be called RateEquationSOlver, however, for historical 
 class PhotonFlux
 {
 public:
-    PhotonFlux(){};
-    PhotonFlux(double fluence, double fwhm){
-        set_parameters(fluence, fwhm);
+    PhotonFlux() {};
+    PhotonFlux(double fluence, double fwhm) {
+        set_pulse(fluence, fwhm);
     };
-    void set_parameters(double, double);
+    void set_pulse(double, double);
     inline double operator()(double t); // Yields Photon flux in same units as A
     void save(const vector<double>& T, const std::string& file);
 private:
@@ -36,8 +36,9 @@ private:
     double B;
 };
 
+#define MAX_T_PTS 1e6
 
-class ElectronSolver : private MolInp, private ode::Adams_BM<state_type>
+class ElectronSolver : private ode::Adams_BM<state_type>
 {
 public:
     ElectronSolver(const char* filename, std::ofstream& log);
@@ -46,6 +47,7 @@ public:
     // Expose the underlying MolInp command
     void compute_cross_sections(std::ofstream& _log, bool recalc=true);
 private:
+    MolInp input_params;
     double timespan_au; // Atomic units
     // Model parameters
     PhotonFlux pf;
@@ -67,6 +69,7 @@ private:
     void sys(const state_type& s, state_type& sdot, const double t);
     bool hasRates = false; // flags whether Store has been populated yet.
     void saveFree(const std::string& file);
+    void saveFreeRaw(const std::string& fname);
     void saveBound(const std::string& folder);
     state_type get_ground_state();
 

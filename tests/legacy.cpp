@@ -22,9 +22,9 @@ int ComputeRateParam::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, of
 		mkdir(dirstring.c_str(), ACCESSPERMS);
 	}
 
-	bool existPht = !RateIO::ReadRates(RateLocation + "Photo.txt", Store.Photo);
-	bool existFlr = !RateIO::ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
-	bool existAug = !RateIO::ReadRates(RateLocation + "Auger.txt", Store.Auger);
+	bool existPht = !RateData::ReadRates(RateLocation + "Photo.txt", Store.Photo);
+	bool existFlr = !RateData::ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
+	bool existAug = !RateData::ReadRates(RateLocation + "Auger.txt", Store.Auger);
 
 	if (existPht) printf("Photoionization rates found. Reading...\n");
 	if (existFlr) printf("Fluorescence rates found. Reading...\n");

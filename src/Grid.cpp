@@ -125,7 +125,7 @@ Grid::Grid(int num_grid_pts, double r_min, double r_max, std::string mode)
 				}
 			} else mode = "exponential";
 		}
-		if (mode == "exponential"){
+		if (mode == "exponential") {
 				s = pow(r_max / r_min, 1. / (num_grid_pts - 1));
 				h = log(s);
 				for (int i = 1; i < r.size(); i++)

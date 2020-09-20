@@ -21,6 +21,7 @@ functions for calculations of Wigner 3j, 6j symbols, and Clebsh-Gordan coefficie
 and some data containers used througout the code. */
 #include <vector>
 #include <string>
+#include <cassert>
 using namespace std;
 
 namespace Constant
@@ -46,11 +47,11 @@ namespace Constant
 
 namespace CustomDataType
 {
-	struct photo//photoionization rate
+	struct photo //photoionisation rate
 	{
 		double val;//value of the rate in a.u.
 		int hole;//orbital with hole
-		double energy;
+		double energy; // Ha
 	};
 
 	struct fluor//fluorescence rate
@@ -92,6 +93,7 @@ namespace CustomDataType
 
 typedef std::vector<double> bound_t;
 
+
 namespace RateData {
 
 	struct EIIdata
@@ -109,24 +111,27 @@ namespace RateData {
 			ionB.resize(n);
 			kin.resize(n);
 		}
-	};
 
-	struct InverseEIIdata
-	{
-		int fin; // final index
-		vector<int> init; // initial index
+		void push_back(int f, int o, float B, float U) {
+			fin.push_back(f);
+			occ.push_back(o);
+			ionB.push_back(B);
+			kin.push_back(U);
+		}
 
-		vector<int> occ; // occupancy of state
-		vector<float> ionB; // ion binding energy
-		vector<float> kin; // u for atom in this state (see Kim and Rudd BEB for details)
-		void resize(size_t n)
-		{
-			init.resize(n);
-			occ.resize(n);
-			ionB.resize(n);
-			kin.resize(n);
+		size_t size() {
+			#ifdef DEBUG
+			assert(fin.size() == occ.size());
+			assert(fin.size() == ionB.size());
+			assert(fin.size() == kin.size());
+			#endif
+			return fin.size();
 		}
 	};
+
+	// Though this structure is identical (but for the names) to EIIdata, it is made deliberately incompatible
+	// to prevent confusion.
+	typedef EIIdata InverseEIIdata;
 
 	// Reorganises a EIIData tree by final index rather than initial
     // Used for Q_TBR
@@ -145,14 +150,20 @@ namespace RateData {
 		vector<string> index_names = vector<string>(0);
 		std::string name = "";
 		double nAtoms = 1.;// atomic number density
-		double R = 189.; // 100nm focal spot radius.
+		// double R = 189.; // 100nm focal spot radius.
 		int num_conf = 1;
 		vector<RateData::Rate> Photo = vector<RateData::Rate>(0);
 		vector<RateData::Rate> Fluor = vector<RateData::Rate>(0);
 		vector<RateData::Rate> Auger = vector<RateData::Rate>(0);
 		vector<RateData::EIIdata> EIIparams = vector<RateData::EIIdata>(0);
 	};
-}
+
+	bool ReadRates(const string & input, vector<RateData::Rate> & PutHere);
+	bool ReadEIIParams(const string & input, vector<RateData::EIIdata> & PutHere);
+	void WriteRates(const string& fname, const vector<RateData::Rate>& rateVector);
+	void WriteEIIParams(const string& fname, const vector<RateData::EIIdata>& eiiVector);
+};
+
 
 static const double Moulton_5[5] = { 251. / 720., 646. / 720., -264. / 720., 106. / 720., -19. / 720. }; //Adams-Moulton method
 static const double Bashforth_5[5] = { 1901. / 720., -1378. / 360., 109. / 30., -637. / 360., 251. / 720. }; //Adams-Bashforth method

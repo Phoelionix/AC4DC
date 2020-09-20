@@ -17,185 +17,20 @@ This file is part of AC4DC.
 #include "ComputeRateParam.h"
 
 inline bool exists_test(const std::string&);
-inline FILE* safe_fopen(const char *filename, const char *mode);
 vector<double> generate_dT(int);
 vector<double> generate_T(vector<double>&);
 vector<double> generate_I(vector<double>&, double, double);
 void SmoothOrigin(vector<double>&, vector<double>&);
 
-using namespace CustomDataType;
 
-template<typename T>
-void read_vector(const string& s, vector<T>&v){
-	auto iss = istringstream(s);
-
-	string str;
-	T tmp;
-	while (iss >> str) {
-		auto ss = stringstream(str);
-		ss >> tmp;
-	    v.push_back(tmp);
-	}
-}
-
-string find_bracket_contents(string &src){
-	size_t first_idx = src.find('[');
-	size_t last_idx = src.rfind(']');
-	return src.substr(first_idx+1, last_idx-first_idx-1);
-}
-
-
-bool RateIO::ReadRates(const string & input, vector<RateData::Rate> & PutHere){
-	if (!exists_test(input)) return false;
-	PutHere.clear();
-
-	RateData::Rate Tmp;
-	ifstream infile;
-	infile.open(input);
-
-	while (!infile.eof())
-	{
-		string line;
-		getline(infile, line);
-		if (line[0] == '#') continue; // skip comments
-		if (line[0] == '\0') continue; // skip null bytes
-
-		stringstream stream(line);
-		stream >> Tmp.val >> Tmp.from >> Tmp.to >> Tmp.energy;
-
-		PutHere.push_back(Tmp);
-	}
-
-	infile.close();
-	return true; // Returns true if exists
-
-}
-// Possibly the worst parser ever written.
-bool RateIO::ReadEIIParams(const string & input, vector<RateData::EIIdata> & PutHere){
-	PutHere.clear();
-	ifstream infile;
-	if (!exists_test(input)) return false;
-	infile.open(input);
-
-	string line;
-
-	RateData::EIIdata tmp;
-	string tmpstr;
-	bool in_top_bracket = false;
-	bool inside_brace = false;
-
-	int i=0; // configuration counter
-	while (!infile.eof())
-	{
-
-		getline(infile, line);
-		#ifdef DEBUG_VERBOSE
-		cout<<"[ DEBUG ] [ ReadEII ] "<<line<<endl;
-		#endif
-		if (line[0] == '#') continue; // skip comments
-		if (line[0] == '['){
-			in_top_bracket = true;
-			continue;
-		}
-		if (line[0] == ']'){
-			in_top_bracket = false;
-			continue;
-		}
-		if (!in_top_bracket) continue;
-
-		if (inside_brace){
-			if (line[0] == '}'){
-				inside_brace = false;
-				PutHere.push_back(tmp);
-			}
-			string pref = "  'fin': [";
-			if(line.compare(0, pref.size(), pref)==0)
-			{
-				read_vector<int>(find_bracket_contents(line), tmp.fin);
-				continue;
-			}
-			pref = "  'occ': [";
-			if(line.compare(0, pref.size(), pref)==0)
-			{
-				read_vector<int>(find_bracket_contents(line), tmp.occ);
-				continue;
-			}
-			pref = "  'ionB': [";
-			if(line.compare(0, pref.size(), pref)==0)
-			{
-				read_vector<float>(find_bracket_contents(line), tmp.ionB);
-				continue;
-			}
-			pref="  'kin': [";
-			if(line.compare(0, pref.size(), pref)==0)
-			{
-				read_vector<float>(find_bracket_contents(line), tmp.kin);
-				continue;
-			}
-		} else {
-			string prefix="'configuration ";
-			if(line.compare(0, prefix.size(), prefix) == 0){
-				// New entry in the array
-				inside_brace = true;
-				tmpstr = line.substr(prefix.size());
-				int j = stoi(tmpstr.substr(0,tmpstr.find('\'')));
-				tmp.init = j;
-				tmp.resize(0);
-				if(i != j) cerr<<"[ ReadEII ] Unexpected index: got "<<j<<" expected "<<i<<endl;
-				i++;
-				continue;
-			}
-		}
-
-
-	}
-
-	infile.close();
-	return true; // Returns true if exists
-
-}
-
-void RateIO::WriteRates(const string& fname, const vector<RateData::Rate>& rates){
-	FILE * fl = safe_fopen(fname.c_str(), "w");
-	fprintf(fl, "# val from to energy(Ha)\n");
-	for (auto& R : rates) fprintf(fl, "%1.8e %6ld %6ld %1.8e\n", R.val, R.from, R.to, R.energy);
-	fclose(fl);
-}
-
-void RateIO::WriteEIIParams(const string& fname, const vector<RateData::EIIdata>& rates){
-	FILE * fl = safe_fopen(fname.c_str(), "w");
-	fprintf(fl, "# EII PARAMETERS\n[\n");
-	for (auto&R : rates){
-		fprintf(fl, "'configuration %d': {\n", R.init);
-		// This will iterate in order of the inits anyway, so no need to explicitly store them
-		// Use a JSON style to deal with the multidimensional data
-		fprintf(fl, "  'fin': [");
-		for (auto& f : R.fin) fprintf(fl, "%ld, ", f);
-		fprintf(fl, "],\n");
-		fprintf(fl, "  'occ': [");
-		for (auto& f : R.occ) fprintf(fl, "%ld, ", f);
-		fprintf(fl, "],\n");
-		fprintf(fl, "  'ionB': [");
-		for (auto& f : R.ionB) fprintf(fl, "%lf, ", f);
-		fprintf(fl, "],\n");
-		fprintf(fl, "  'kin': [");
-		for (auto& f : R.kin) fprintf(fl, "%lf, ", f);
-		fprintf(fl, "]\n");
-		fprintf(fl, "},\n");
-	}
-	fprintf(fl, "]\n");
-	fclose(fl);
-}
-
-
-FILE* safe_fopen(const char *filename, const char *mode)
+inline bool exists_test(const std::string& name)
 {
-	FILE* fp = fopen(filename, mode);
-	if (fp == NULL){
-		cerr << "Could not open file '" << filename << "'" << endl;
-	}
-	return fp;
+	struct stat buffer;
+	return (stat(name.c_str(), &buffer) == 0);
 }
+
+
+using namespace CustomDataType;
 
 // Called when atomic input is relevant.
 int ComputeRateParam::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
@@ -226,9 +61,9 @@ int ComputeRateParam::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, of
 	}
 
 	cout << "Check if there are pre-calculated rates..." << endl;
-	bool existPht = RateIO::ReadRates(RateLocation + "Photo.txt", Store.Photo);
-	bool existFlr = RateIO::ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
-	bool existAug = RateIO::ReadRates(RateLocation + "Auger.txt", Store.Auger);
+	bool existPht = RateData::ReadRates(RateLocation + "Photo.txt", Store.Photo);
+	bool existFlr = RateData::ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
+	bool existAug = RateData::ReadRates(RateLocation + "Auger.txt", Store.Auger);
 
 	if (existPht) printf("Photoionization rates found. Reading...\n");
 	if (existFlr) printf("Fluorescence rates found. Reading...\n");
@@ -325,15 +160,15 @@ int ComputeRateParam::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, of
 
 		if (!existPht) {
 			string dummy = RateLocation + "Photo.txt";
-			RateIO::WriteRates(dummy, Store.Photo);
+			RateData::WriteRates(dummy, Store.Photo);
 		}
 		if (!existFlr) {
 			string dummy = RateLocation + "Fluor.txt";
-			RateIO::WriteRates(dummy, Store.Fluor);
+			RateData::WriteRates(dummy, Store.Fluor);
 		}
 		if (!existPht) {
 			string dummy = RateLocation + "Auger.txt";
-			RateIO::WriteRates(dummy, Store.Auger);
+			RateData::WriteRates(dummy, Store.Auger);
 		}
 	}
 
@@ -375,17 +210,17 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 
 	bool existAug, existEII, existPht, existFlr;
 
-	if (recalculate){
+	if (recalculate) {
 		existAug=false;
 		existEII=false;
 		existPht=false;
 		existFlr=false;
 	} else {
 		// Check if there are pre-calculated rates
-		existPht = RateIO::ReadRates(RateLocation + "Photo.txt", Store.Photo);
-		existFlr = RateIO::ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
-		existAug = RateIO::ReadRates(RateLocation + "Auger.txt", Store.Auger);
-		existEII = RateIO::ReadEIIParams(RateLocation + "EII.json", Store.EIIparams);
+		existPht = RateData::ReadRates(RateLocation + "Photo.txt", Store.Photo);
+		existFlr = RateData::ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
+		existAug = RateData::ReadRates(RateLocation + "Auger.txt", Store.Auger);
+		existEII = RateData::ReadEIIParams(RateLocation + "EII.json", Store.EIIparams);
 		cout <<"======================================================="<<endl;
 		cout <<"Seeking rates for atom "<< input.Name() <<endl;
 		if (existPht) cout<<"Photoionization rates found. Reading..." <<endl;
@@ -531,19 +366,19 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 
 		if (!existPht) {
 			string dummy = RateLocation + "Photo.txt";
-			RateIO::WriteRates(dummy, Store.Photo);
+			RateData::WriteRates(dummy, Store.Photo);
 		}
 		if (!existFlr) {
 			string dummy = RateLocation + "Fluor.txt";
-			RateIO::WriteRates(dummy, Store.Fluor);
+			RateData::WriteRates(dummy, Store.Fluor);
 		}
 		if (!existAug) {
 			string dummy = RateLocation + "Auger.txt";
-			RateIO::WriteRates(dummy, Store.Auger);
+			RateData::WriteRates(dummy, Store.Auger);
 		}
 		if (!existEII) {
 			string dummy = RateLocation + "EII.json";
-			RateIO::WriteEIIParams(dummy, Store.EIIparams);
+			RateData::WriteEIIParams(dummy, Store.EIIparams);
 		}
 	}
 
@@ -976,12 +811,6 @@ bool ComputeRateParam::SetupIndex(vector<int> Max_occ, vector<int> Final_occ, of
 
 ComputeRateParam::~ComputeRateParam()
 {
-}
-
-inline bool exists_test(const std::string& name)
-{
-	struct stat buffer;
-	return (stat(name.c_str(), &buffer) == 0);
 }
 
 vector<double> ComputeRateParam::generate_dT(int num_elem)//default time interval

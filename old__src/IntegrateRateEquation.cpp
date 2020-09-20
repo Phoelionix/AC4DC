@@ -419,7 +419,7 @@ IntegrateRateEquation::IntegrateRateEquation(vector<double> &dT, vector<double> 
 	//! double tmp_dNdt = 0, tmp_dEdt = 0, tmp_dNpdt = 0, tmp_dEpdt = 0;
 
 	for (int m = 0; m < adams_n; m++) {
-		if (m > 0){
+		if (m > 0) {
             Elecs.state[m] = Elecs.state[m-1];
 			//! Elecs.N[m] = Elecs.N[m-1];
 			//! Elecs.E[m] = Elecs.E[m-1];

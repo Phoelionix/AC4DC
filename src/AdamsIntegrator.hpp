@@ -45,23 +45,24 @@ private:
 
     void step(int n); // Predictor-corrector multistep method
     void step_rk4(int n); // Runge-Kutta 4th order calculator
+    void step_euler(int n); // Basic explicit Euler stepper
 };
 
 template<typename T>
-IVPSolver<T>::IVPSolver(){
+IVPSolver<T>::IVPSolver() {
     // TODO: GLobal refactor of y and t to have more obvious names
     y.resize(1);
     t.resize(1);
 }
 
 template<typename T>
-void IVPSolver<T>::setup(const T& initial_state, double _dt, double _step_tolerance ){
+void IVPSolver<T>::setup(const T& initial_state, double _dt, double _step_tolerance ) {
     step_tolerance = _step_tolerance;
     this->y[0] = initial_state;
     // Makes a zero std::vector in a mildly spooky way
     this->zero_y = initial_state; // do this to make the underlying structure large enough
     this->zero_y *= 0.; // set it to Z E R O
-    if (_dt < 1E-16){
+    if (_dt < 1E-16) {
         std::cerr<<"WARN: step size "<<dt<<"is smaller than machine precision"<<std::endl;
     }
     this->dt = _dt;
@@ -74,7 +75,7 @@ template<typename T>
 Adams_BM<T>::Adams_BM(int _order):
     IVPSolver<T>()
     {
-    if (_order < 2 || _order > AdamsArrays::MAX_ADAMS_ORDER){
+    if (_order < 2 || _order > AdamsArrays::MAX_ADAMS_ORDER) {
         std::cerr<<"ERROR: Adams order may not be greater than "<<AdamsArrays::MAX_ADAMS_ORDER;
     }
     this->order = _order;
@@ -82,48 +83,8 @@ Adams_BM<T>::Adams_BM(int _order):
     this->b_AM = AdamsArrays::AM_COEFF[order];
 }
 
-
-// Computes y_n+1 based only on y_n
-// For initialisng the multistep method
-template<typename T>
-void Adams_BM<T>::step_rk4(int n){
-    // T k1, k2, k3, k4, tmp;
-    // this->sys(this->y[n], k1, this->t[n]);
-    // //tmp = this->y[n]+k1*0.5
-    // k1 *= this->dt;
-    // tmp = k1;
-    // tmp *= 0.5;
-    // tmp += this->y[n];
-    // this->sys(tmp, k2, this->t[n]+this->dt*0.5);
-    // // tmp = this->y[n]+k2*0.5
-    // k2 *= this->dt;
-    // tmp = k2;
-    // tmp *=0.5;
-    // tmp += this->y[n];
-    // this->sys(tmp, k3, this->t[n]+this->dt*0.5);
-    // // tmp = this->y[n] + k3;
-    // k3 *= this->dt;
-    // tmp = k3;
-    // tmp += this->y[n];
-    // this->sys(tmp, k4, this->t[n]+this->dt    );
-    //
-    // k4 *= this->dt;
-    // //y[n+1] = y[n] + (k1*(1./6) + k2*(1./3) + k3*(1./3) + k4*(1./6)) * this->dt;;
-    //
-    //
-    // k1 *= 1./6;
-    // k2 *= 1./3;
-    // k3 *= 1./3;
-    // k4 *= 1./6;
-    // this->y[n+1] = k1;
-    // this->y[n+1] += k2;
-    // this->y[n+1] += k3;
-    // this->y[n+1] += k4;
-    //
-    // this->y[n+1] *= this->dt;
-    // this->y[n+1] += this->y[n];
-
-
+template <typename T>
+void Adams_BM<T>::step_euler(int n){
     T dndt;
     this->sys(this->y[n], dndt, this->t[n]);
     dndt *=this->dt;
@@ -131,8 +92,50 @@ void Adams_BM<T>::step_rk4(int n){
     this->y[n+1] += dndt;
 }
 
+
+// Computes y_n+1 based only on y_n
+// For initialisng the multistep method
 template<typename T>
-void Adams_BM<T>::step(int n){
+void Adams_BM<T>::step_rk4(int n) {
+    T k1, k2, k3, k4, tmp;
+    this->sys(this->y[n], k1, this->t[n]);
+    //tmp = this->y[n]+k1*0.5
+    k1 *= this->dt;
+    tmp = k1;
+    tmp *= 0.5;
+    tmp += this->y[n];
+    this->sys(tmp, k2, this->t[n]+this->dt*0.5);
+    // tmp = this->y[n]+k2*0.5
+    k2 *= this->dt;
+    tmp = k2;
+    tmp *=0.5;
+    tmp += this->y[n];
+    this->sys(tmp, k3, this->t[n]+this->dt*0.5);
+    // tmp = this->y[n] + k3;
+    k3 *= this->dt;
+    tmp = k3;
+    tmp += this->y[n];
+    this->sys(tmp, k4, this->t[n]+this->dt    );
+    
+    k4 *= this->dt;
+    //y[n+1] = y[n] + (k1*(1./6) + k2*(1./3) + k3*(1./3) + k4*(1./6)) * this->dt;;
+    
+    
+    k1 *= 1./6;
+    k2 *= 1./3;
+    k3 *= 1./3;
+    k4 *= 1./6;
+    this->y[n+1] = k1;
+    this->y[n+1] += k2;
+    this->y[n+1] += k3;
+    this->y[n+1] += k4;
+    
+    this->y[n+1] *= this->dt;
+    this->y[n+1] += this->y[n];
+}
+
+template<typename T>
+void Adams_BM<T>::step(int n) {
     // Predicts the value y_n+1
     // Adams-Bashforth predictor routine:
 
@@ -172,9 +175,9 @@ void Adams_BM<T>::step(int n){
 }
 
 template<typename T>
-void Adams_BM<T>::iterate(double t_initial, double t_final){
+void Adams_BM<T>::iterate(double t_initial, double t_final) {
 
-    if (this->dt < 1E-16){
+    if (this->dt < 1E-16) {
         std::cerr<<"WARN: step size "<<this->dt<<"is smaller than machine precision"<<std::endl;
     } else if (this->dt < 0) {
         throw std::runtime_error("Step size is negative!");
@@ -200,7 +203,7 @@ void Adams_BM<T>::iterate(double t_initial, double t_final){
     for (size_t n = order; n < npoints-1; n++) {
         std::cout << "\r[ sim ] t="
                   << std::left<<std::setfill(' ')<<std::setw(6)
-                  << this->t[n] << " ="<<this->dt<< std::flush;
+                  << this->t[n] << std::flush;
         this->t[n+1] = this->t[n] + this->dt;
         step(n);
     }

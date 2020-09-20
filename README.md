@@ -35,12 +35,14 @@ This project is built with `make`, but does not have a `configure` script. Some 
 4. There are enough free electrons for a Boltzmann hydrodynamic treatment to be appropriate.
 5. Electron plasma is isotropic and homogeneous in position space; isotropic in momentum space.
 
-### Executable descriptions
+### Running AC4DC
 
-`ac4dc`, the original version of the program, handles the electrons in the 'instant-thermalisation' approximation. Call with `ac4dc input_file(.txt|.inp)`, using `.inp` for atom data files and `.txt` for molecular specifications.
+Run with
+`./ac4dc2 input/Neon.mol`
 
-`rates`, the newer version, relaxes assumptions 4-6 and uses the approach of Leonov et al. to simulate the electron plasma dynamics.
-
+Flags: (after the inout file name)
+- `-h`: Displays a brief help message
+- `-s`: Authorises the program to (s)earch the `output` directory for previously computed atomic data. Note that there is currently no check performed to guarantee that these rates were calculated for the correct parameters, so this flag is not recommended outside of debugging. Otherwise, new parameters are calculated from scratch.
 
 ### Output format
 
@@ -53,7 +55,16 @@ EII parameters are stored in "sort-of-json" format - please note that the progra
 
 ### TODO
 
-1. Refactor ElectronSolver to have MolInp as a member, not a 
+1. verify Gamma_EII
+2. verify Q_EII
+3. 
+3. verify Gamma_TBR
+4. verify Q_TBR
+5. Implement 'output version control' for atomic parameters in storage: avoid unnecessary recalculation, guarantee recalculation if new input parameters are incompatible
+  - Add methods to `Input.cpp` to enable reading/writing salient parameters to file, e.g. `output/C/run_2021-04-11/input.txt`
+  - Add linear search implementation to input logic
+6. Cmake build system
+7. Restructure parameter input and rate output files to use JSON format
 3. Optimise with static arrays - promote state_type to a N_FREE-dimensioned template for faster reads. (remains to be seen if this is a bottleneck)
 
 ### Bibliography:

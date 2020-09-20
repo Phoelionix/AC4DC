@@ -169,7 +169,7 @@ class Plotter:
             if len(states) != self.boundData[a].shape[1]:
                 msg = 'states parsed from file header disagrees with width of data width'
                 msg += ' (got %d, expected %d)' % (len(states), self.boundData[a].shape[1])
-                raise OutOfRangeError( )
+                raise RuntimeError(msg)
 
             self.chargeData[a] = np.zeros((self.boundData[a].shape[0], ATOMNO[a]+1))
             for i in range(len(states)):
@@ -228,7 +228,11 @@ class Plotter:
         ax, ax2 = self.setup_axes()
         self.aggregate_charges()
         for i in range(self.chargeData[a].shape[1]):
-            ax.plot(self.timeData, self.chargeData[a][:,i], label = "%d+" % i)
+            max_at_zero = np.max(self.chargeData[a][0,:])
+            mask = self.chargeData[a][:,i] > max_at_zero*2
+            mask |= self.chargeData[a][:,i] < -max_at_zero*2
+            Y = np.ma.masked_where(mask, self.chargeData[a][:,i])
+            ax.plot(self.timeData, Y, label = "%d+" % i)
         ax.set_title("Charge state dynamics")
         ax.set_ylabel("Proportion (arb. units)")
 
@@ -262,38 +266,30 @@ class Plotter:
         for a in self.atomdict:
             self.plot_charges(a)
 
-    def plot_free(self, cut=False):
+    def plot_free(self, N=100, log=False, min = None, max=None, tmax = None):
         fig.clf()
         # Need to turn freeData (matrix of BSpline coeffs)
         # freeeData [t, c]
         # into matrix of values.
-        num_E = 1000
-        min = self.energyKnot[0]
-        max = self.energyKnot[-4]
-        Y = np.linspace(min, max, num_E)
-        Z = np.zeros((num_E, self.timeData.shape[0]), dtype=np.float64)
-        for t in range(self.freeData.shape[0]):
-            inter = BSpline(self.energyKnot, self.freeData[t,:], 1)
-            Z[:,t] = inter(Y)
-        # trim Z to remove spurious negative values
-        if cut:
-            Z = np.ma.masked_where(Z < 0, Z)
+        if tmax is None:
+            Z = self.freeData.T
+            T = self.timeData
+        else:
+            Z = self.freeData.T [:, :tmax]
+            T = self.timeData [:tmax]
+        
+        if log:
+            Z = np.log(Z)
+        
+        
+        
+        if min is not None:
+            Z = np.ma.masked_where(Z < min, Z)
 
-        plt.contourf(self.timeData, Y, Z, cmap='RdGy')
-        plt.title("Free electron energy distribution")
-        plt.ylabel("Energy (eV)")
-        plt.xlabel("Time, fs")
-        plt.show()
-        plt.colorbar()
+        if max is not None:
+            Z = np.ma.masked_where(Z > max, Z)
 
-    def plot_free_raw(self):
-        fig.clf()
-        # Need to turn freeData (matrix of BSpline coeffs)
-        # freeeData [t, c]
-        # into matrix of values.
-        num_E = self.freeData.shape[1]
-        Y = np.linspace(0, 1, num_E)
-        plt.contourf(self.timeData, Y, self.freeData.T, cmap='RdGy')
+        plt.contourf(T, self.energyKnot, Z, N, cmap='viridis')
         plt.title("Free electron energy distribution")
         plt.ylabel("Energy (eV)")
         plt.xlabel("Time, fs")
@@ -304,4 +300,4 @@ class Plotter:
 
 
 pl = Plotter(sys.argv[1])
-pl.plot_all_charges()
+pl.plot_tot_charge()

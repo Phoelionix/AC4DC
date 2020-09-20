@@ -1,7 +1,7 @@
 #include "../src/Plasma.h"
 #include <cstdio>
 
-void print_est(elec_state_t &es){
+void print_est(elec_state_t &es) {
     std::printf("{N=%lf, E=%lf, Np=%lf, Ep=%lf}\n",es.N, es.E, es.Np, es.Ep);
 }
 
