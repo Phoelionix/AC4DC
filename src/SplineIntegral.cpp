@@ -1,0 +1,362 @@
+#include "SplineIntegral.h"
+#include "config.h"
+
+//                  value to find, sorted array, length of array, index that *arr refers to
+int r_binsearch(double val, double* arr, int len, int idx) {
+    if (len==1) return idx;
+    int mid = len/2;
+    // arr has indices i i+1 ... i+len-1
+    if (*(arr + mid) > val) {
+        return r_binsearch(val, arr, len/2, idx);
+    } else {
+        return r_binsearch(val, arr+len/2, len - (len/2), idx+len/2);
+    }
+}
+
+
+
+int SplineIntegral::i_from_e(double e) {
+    return r_binsearch(e, knot.data(), knot.size(), 0);
+}
+
+double SplineIntegral::area(size_t J) {
+    assert(J < num_funcs);
+    double min = this->supp_min(J);
+    double max = this->supp_max(J);
+    double tmp=0;
+    for (int i=0; i<10; i++) {
+        double e = gaussX_10[i]*(max - min)/2 + (max+min)/2;
+        tmp += gaussW_10[i]*(*this)(J, e);
+    }
+    // Numerical integral of a polynomial machine go brrrr
+    return tmp*(max-min)/2;
+}
+
+// Resizes containers and fills them with the appropriate values
+void SplineIntegral::precompute_Q_coeffs(vector<RateData::Atom>& Atoms) {
+    std::cout<<"[ Q precalc ] Beginning coefficient computation..."<<std::endl;
+    Q_EII.resize(Atoms.size());
+    Q_TBR.resize(Atoms.size());
+    for (size_t a=0; a<Atoms.size(); a++) {
+        std::cout<<"[ Q precalc ] Atom "<<a+1<<"/"<<Atoms.size()<<std::endl;
+        Q_EII[a].resize(Atoms[a].num_conf);
+        Q_TBR[a].resize(Atoms[a].num_conf);
+        for (size_t eta=0; eta<Atoms[a].num_conf; eta++) {
+            Q_EII[a][eta].resize(num_funcs);
+            Q_TBR[a][eta].resize(num_funcs);
+            for (auto& QaJ : Q_EII[a][eta]) {
+                    QaJ.resize(num_funcs, 0);
+            }
+            for (auto& QaJ : Q_TBR[a][eta]) {
+                    QaJ.resize(0); // thse are the sparse lists
+            }
+        }
+        // NOTE: length of EII vector is generally shorter than length of P
+        // (usually by 1 or 2, so dense matrices are fine)
+
+        size_t counter=1;
+        #pragma omp parallel default(none) shared(a, counter, Atoms, std::cout)
+		{
+			#pragma omp for schedule(dynamic) nowait
+            for (size_t J=0; J<num_funcs; J++) {
+                #pragma omp critical
+                {
+                    std::cout<<"\r[ Q precalc ] "<<counter<<"/"<<num_funcs<<" thread "<<omp_get_thread_num()<<std::flush;
+                    counter++;
+                }
+                for (size_t K=0; K<num_funcs; K++) {
+                    for (auto& eii : Atoms[a].EIIparams) {
+                        Q_EII[a][eii.init][J][K] = calc_Q_eii(eii, J, K);
+                    }
+                }
+                
+                for (auto& tbr : RateData::inverse(Atoms[a].EIIparams)) {
+                    Q_TBR[a][tbr.init][J] = calc_Q_tbr(tbr, J);
+                }
+            }
+        }
+    }
+    #ifdef OUTPUT_EII_TO_CERR
+    for (size_t a=0; a<Atoms.size(); a++) {
+        std::cerr<<"[ DEBUG ] eii> Atom "<<a<<std::endl;
+        for (size_t i=0; i<Atoms[a].num_conf; i++) {
+            std::cerr<<"[ DEBUG ] eii> Config "<<i<<std::endl;
+            for (size_t J=0; J<num_funcs; J++) {
+                std::cerr<<"[ DEBUG ] eii>  ";
+                for (size_t K=0; K<num_funcs; K++) {
+                    std::cerr<<Q_EII[a][i][J][K]<<" ";
+                }
+                std::cerr<<std::endl;
+            }
+        }
+    }
+    #endif
+    #ifdef OUTPUT_TBR_TO_CERR
+    for (size_t a=0; a<Atoms.size(); a++) {
+        std::cerr<<"[ DEBUG ] tbr> Atom "<<a<<std::endl;
+        for (size_t i=0; i<Atoms[a].num_conf; i++) {
+            std::cerr<<"[ DEBUG ] tbr> Config "<<i<<std::endl;
+            for (size_t J=0; J<num_funcs; J++) {
+                std::cerr<<"[ DEBUG ] tbr>  ";
+                for (auto& tup : Q_TBR[a][i][J]) {
+                    std::cerr<<"("<<tup.K<<","<<tup.L<<","<<tup.val<<") ";
+                }
+                std::cerr<<std::endl;
+            }
+        }
+    }
+    #endif
+    _has_Qeii = true;
+    _has_Qtbr = true;
+    std::cout<<"\n[ Q precalc ] Done."<<std::endl;
+}
+
+void SplineIntegral::Gamma_eii( std::vector<SparsePair>& Gamma_xi, const RateData::EIIdata& eii, size_t K) const{
+    Gamma_xi.resize(0);
+    for (size_t eta = 0; eta < eii.fin.size(); eta++) {
+        // double a = max((float) this->supp_min(K), eii.ionB[eta]);
+        double a = this->supp_min(K);
+        double b = this->supp_max(K);
+        double tmp=0;
+        if (b > a) {
+            for (int i=0; i<GAUSS_ORDER_EII; i++) {
+                double e = gaussX_EII[i]*(b-a)/2 + (a+b)/2;
+                tmp += gaussW_EII[i]* (*this)(K, e)*pow(e,0.5)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+            }
+            tmp *= (b-a)/2;
+            tmp *= 1.4142; // Electron mass = 1 in atomic units
+        }
+        // double e = knot[K];
+        // double tmp = knot[K+1]-knot[K];
+        // assert(this->supp_min(K) == knot[K]);
+        // assert(this->supp_max(K) == knot[K+1]);
+        // tmp *= pow(e,0.5) * Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+        // tmp *= 1.4142135624;
+
+        SparsePair rate;
+        rate.idx=eii.fin[eta];
+        rate.val= tmp;
+        Gamma_xi.push_back(rate);
+    }
+}
+
+void SplineIntegral::Gamma_tbr( std::vector<SparsePair>& Gamma_xi, const RateData::InverseEIIdata& tbr, size_t K, size_t L) const {
+    // Naming convention is unavoidably confusing.
+    // init and fin correspond to initial and final states for the three-body process, i.e. 
+    Gamma_xi.resize(0);
+    for (size_t eta = 0; eta<tbr.fin.size(); eta++) {
+        double tmp=0;
+        double B=tbr.ionB[eta];
+
+        double aK = this->supp_min(K);
+        double bK = this->supp_max(K);
+        double aL = this->supp_min(L);
+        double bL = this->supp_max(L);
+
+        for (int i=0; i<GAUSS_ORDER_TBR; i++) {
+            double e = gaussX_TBR[i]*(bK-aK)/2 + (aK+bK)/2;
+            double tmp2=0;
+
+            for (int j=0; j<GAUSS_ORDER_TBR; j++) {
+                double s = gaussX_TBR[j]*(bL-aL)/2 + (aL+bL)/2;
+                double ep = s + e + B;
+                tmp2 += gaussW_TBR[j]*(*this)(L, s)*ep*pow(s,-0.5)*
+                    Dipole::DsigmaBEB(ep, e, B, tbr.kin[eta], tbr.occ[eta]);
+            }
+            tmp2 *= (bL-aL)/2;
+            tmp += gaussW_TBR[i]*(*this)(K, e)*tmp2*pow(e,-0.5);
+        }
+        tmp *= (bK-aK)/2;
+
+        tmp *= Constant::Pi*Constant::Pi;
+
+        if (tmp > DBL_CUTOFF_TBR){
+            SparsePair rate(tbr.fin[eta], tmp);
+            Gamma_xi.push_back(rate);
+        }
+    }
+}
+
+void SplineIntegral::Gamma_eii(eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eiiVec, size_t K) const {
+    // 4pi*sqrt(2) \int_0^\inf e^1/2 phi_k(e) sigma(e) de
+    Gamma.resize(0);
+    for (size_t init=0; init<eiiVec.size(); init++) {
+        assert(eiiVec[init].init == init);
+        std::vector<SparsePair> Gamma_xi(0);
+        this->Gamma_eii(Gamma_xi, eiiVec[init], K);
+        Gamma.push_back(Gamma_xi);
+    }
+}
+
+void SplineIntegral::Gamma_tbr(eiiGraph& Gamma, const std::vector<RateData::InverseEIIdata>& eiiVec, size_t K, size_t L) const {
+    Gamma.resize(0);
+    for (size_t init=0; init<eiiVec.size(); init++) {
+        assert(eiiVec[init].init == init);
+        std::vector<SparsePair> Gamma_xi(0);
+        this->Gamma_tbr(Gamma_xi, eiiVec[init], K, L);
+        Gamma.push_back(Gamma_xi);
+    }
+}
+
+double SplineIntegral::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_t K) const {
+    // computes sum of all Q_eii integrals away from eii.init, integrated against basis functions f_J, f_K
+    // J is the 'free' index
+    // sqrt(2) sum_eta \int dep sqrt(ep) f(ep) dsigma/de (e | ep) - sqrt(e) sigma * f_J(e)
+    // 'missing' factor of 2 in front of RHS is not a mistake! (arises from definition of dsigma)
+
+    double min_J = this->supp_min(J);
+    double max_J = this->supp_max(J);
+
+    double retval=0;
+    // Sum over all transitions to eta values
+    for (size_t eta = 0; eta<eii.fin.size(); eta++)
+    {
+        double tmp = 0;
+        for (int j=0; j<GAUSS_ORDER_EII; j++)
+        {
+            double e = gaussX_EII[j]*(max_J-min_J)/2 + (max_J+min_J)/2;
+            double tmp2=0;
+            double min_ep = max(e+eii.ionB[eta], this->supp_min(K));
+            double max_ep = this->supp_max(K);
+            if (max_ep <= min_ep) continue;
+            for (int k=0; k<GAUSS_ORDER_EII; k++) {
+                double ep = gaussX_EII[k]*(max_ep-min_ep)*0.5 + (min_ep+max_ep)*0.5;
+                tmp2 += gaussW_EII[k]*(*this)(K, ep)*pow(ep,0.5)*
+                    Dipole::DsigmaBEB(ep, e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+            }
+            tmp2 *= (max_ep - min_ep)/2;
+            tmp += gaussW_EII[j]*(*this)(J, e)*tmp2;
+        }
+        tmp *= (max_J-min_J)/2;
+        retval += tmp;
+        // RHS part, 'missing' factor of 2 is incorporated into definition of sigma
+        tmp=0;
+        double min_JK = max(this->supp_min(J), this->supp_min(K));
+        min_JK = max(min_JK, (double) eii.ionB[eta]);
+        double max_JK = min(this->supp_max(J), this->supp_max(K));
+        if (max_JK <= min_JK) continue;
+        for (int k=0; k<GAUSS_ORDER_EII; k++)
+        {
+            double e = gaussX_EII[k]*(max_JK-min_JK)/2 + (min_JK+max_JK)/2;
+            tmp += gaussW_EII[k]*pow(e, 0.5)*(*this)(J, e)*(*this)(K, e)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+        }
+        tmp *= (max_JK-min_JK)/2;
+        retval -= tmp;
+    }
+
+    retval *= 1.4142135624; 
+
+    return retval;
+}
+
+// JKL indices, but the Q_TBR coeffs are sparse btw J and L
+// (overlap by at most BasisSet::BSPLINE_ORDER either way)
+// Returns a vector of pairs (Q-idx, nonzzero-idx)
+SplineIntegral::sparse_matrix SplineIntegral::calc_Q_tbr( const RateData::InverseEIIdata& tbr, size_t J) const {
+    // J is the 'free' index, K and L label the given indices of the free distribution
+    //
+    double J_min = this->supp_min(J);
+    double J_max = this->supp_max(J);
+
+    size_t num_nonzero=0;
+
+    SplineIntegral::sparse_matrix retval; // a vector of SparseTriple
+    SparseTriple tup;
+    for (size_t K=0; K<num_funcs; K++) {
+        for (size_t L=0; L<num_funcs; L++) {
+            // First part of the integral. Represents the source term corresponding to
+            // the production of an energetic electron of energy ep + s - B
+            double K_min = this->supp_min(K);
+            double K_max = this->supp_max(K);
+            double L_min = this->supp_min(L);
+            double L_max = this->supp_max(L);
+
+
+            double tmp=0;
+
+            // Sum over all transitions in tbr
+            for (size_t xi=0; xi<tbr.fin.size(); xi++) {
+                double B =tbr.ionB[xi];
+                // double aJ_eff = (aJ < B) ? B : aJ;
+                // First half of integral:
+                // 0.5 * \int dep \int ds B_J(e) B_K(ep) B_L(s) dsigma(ep | s + ep + B) (s+ep+B)/sqrt(s ep)
+                // where e = s+B+ep
+                // Integration ranges:
+                // K_min < ep < K_max
+                // L_min < s  < L_max
+                // J_min < e  < J_max  ===> J_min - ep - B < s < J_max - ep - B
+                // where the ep integral is done first
+                for (int j=0; j<GAUSS_ORDER_TBR; j++) {
+                    double ep = gaussX_TBR[j]*(K_max- K_min)/2 + (K_max + K_min)/2;
+                
+                    double a = max(L_min, J_min - ep - B); // integral lower bound
+                    double b = min(L_max, J_max - ep - B); // integral upper bound
+                    if (a >= b) continue;
+                    double tmp2=0;
+                    for (int k=0; k<GAUSS_ORDER_TBR; k++) {
+                        double s = gaussX_TBR[k]*(b-a)/2 + (b + a)/2;
+                        double e = s + ep + B;
+                        tmp2 += gaussW_TBR[k] * ( e ) * pow(s*ep,-0.5) * Dipole::DsigmaBEB(e, ep, B, tbr.kin[xi], tbr.occ[xi])*(*this)(J, e)*(*this)(L, s);
+                    }
+                    tmp += 0.5*gaussW_TBR[j]*tmp2*(*this)(K,ep)*(b-a)*(K_max - K_min)/4;
+                }
+            }
+
+
+            // Second part of the integral
+            // Represents the sink terms corresponding to the absorption of low energy electrons at this point
+            double min_JK = max(J_min, K_min);
+            double max_JK = min(J_max, K_max);
+            if (max_JK > min_JK ) {
+                for (size_t xi=0; xi<tbr.fin.size(); xi++) {
+                    double B =tbr.ionB[xi];
+                    for (int j=0; j<GAUSS_ORDER_TBR; j++) {
+                        double e = gaussX_TBR[j]*(max_JK-min_JK)/2 + (max_JK+min_JK)/2;
+                        double tmp2=0;
+                        for (int k=0; k<GAUSS_ORDER_TBR; k++) {
+                            double s = gaussX_TBR[k]*(L_max-L_min)/2 + (L_max+L_min)/2;
+                            tmp2 += gaussW_TBR[k]*(s+e+B)*pow(e * s,-0.5)*(*this)(L,s)*Dipole::DsigmaBEB(s+e+B, e, B, tbr.kin[xi], tbr.occ[xi]);
+                        }
+                        tmp -= gaussW_TBR[j]*tmp2*(*this)(J,e)*(*this)(K,e)*(L_max-L_min)*(max_JK-min_JK)/4;
+                    }
+                }
+            }
+
+            tmp *= 2*Constant::Pi*Constant::Pi;
+
+
+            if (fabs(tmp) > DBL_CUTOFF_TBR) {
+                tup.K = K;
+                tup.L = L;
+                tup.val=tmp;
+                retval.push_back(tup);
+                num_nonzero++;
+            }
+        }
+    }
+    return retval;
+}
+/*
+SplineIntegral::sparse_matrix SplineIntegral::calc_Q_ee(size_t J) const{
+    double min_J = this->supp_min(J);
+    double max_J = this->supp_max(J);
+
+    size_t num_nonzero=0;
+    double tmp=0;
+    SplineIntegral::sparse_matrix retval; // a vector of SparseTriple
+    SparseTriple tup;
+    for (size_t K=max((size_t) 0, J-BSPLINE_ORDER); K<min(num_funcs, J+BSPLINE_ORDER); K++) {
+        double min = std::max(this->supp_min(K), min_J);
+        double max = std::min(this->supp_max(K), max_J);
+        // make sure K and J overlap
+        if (fabs(tmp) > DBL_CUTOFF_QEE) {
+            tup.K = K;
+            tup.L = 0;
+            tup.val=tmp;
+            retval.push_back(tup);
+            num_nonzero++;
+        }
+    }
+    return retval;
+}
+*/

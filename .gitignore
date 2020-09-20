@@ -1,4 +1,12 @@
-output/**
-bin/
+build/*
+bin/*
 .vscode/
-HF*
+.DS_Store
+.o
+output
+.err
+.tags
+tmp
+testOutput
+Makefile
+*.swp

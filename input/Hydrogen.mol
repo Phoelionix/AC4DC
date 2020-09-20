@@ -1,0 +1,29 @@
+// Molecular hydrogen
+
+#ATOMS
+H 2
+
+#VOLUME
+12      // Volume per molecule in Angstrom^3.
+175          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+
+#PULSE
+8000         // Photon energy in eV.
+15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+500           // Pulse fluence in 10^4 * J/cm^2.
+
+#NUMERICAL
+8000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+12           // Number of threads in OpenMP.
+0.1          // minimum free-electron energy in eV
+10000        // maximum free-electron energy in eV
+100          // number of free-electron grid points
+hybrid       // electron grid type
+100          // number of low-energy exponential grid points
+
+#OUTPUT
+4000         // Number of time steps in the output files.
+500          // Numner of free electron grid points to use for outputting
+N            // Write atomic charges in a separate file (Y/N)?
+Y            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
