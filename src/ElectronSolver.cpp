@@ -39,11 +39,6 @@ void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname) {
     f.close();
 }
 
-ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
-    input_params(filename, log), pf(input_params.Fluence(), input_params.Width()), Adams_BM(5) // (order Adams method)
-{
-    timespan_au = input_params.Width()*3;
-}
 
 state_type ElectronSolver::get_ground_state() {
     state_type initial_condition;
@@ -275,7 +270,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
 
     #ifdef OUTPUT_DFDT_TO_CERR
     std::cerr<<t*Constant::fs_per_au;
-    for (int i=0; i<Distribution::size; i++) {
+    for (size_t i=0; i<Distribution::size; i++) {
         std::cerr<<" "<<sdot.F[i]<<" ";
     }
     std::cerr<<std::endl;
@@ -299,10 +294,10 @@ void ElectronSolver::save(const std::string& _dir) {
     saveBound(dir);
 
     std::vector<double> fake_t;
-    int num_t_points = input_params.Out_T_size();
+    size_t num_t_points = input_params.Out_T_size();
     if ( num_t_points >  t.size() ) num_t_points = t.size();
-    int t_idx_step = t.size() / num_t_points;
-    for (int i=0; i<num_t_points; i++) {
+    size_t t_idx_step = t.size() / num_t_points;
+    for (size_t i=0; i<num_t_points; i++) {
         fake_t.push_back(t[i*t_idx_step]);
     }
     pf.save(fake_t,dir+"intensity.csv");
@@ -319,10 +314,10 @@ void ElectronSolver::saveFree(const std::string& fname) {
     f << "#           | "<<Distribution::output_energies_eV(this->input_params.Out_F_size())<<endl;
 
     assert(y.size() == t.size());
-    int num_t_points = input_params.Out_T_size();
+    size_t num_t_points = input_params.Out_T_size();
     if ( num_t_points >  t.size() ) num_t_points = t.size();
-    int t_idx_step = t.size() / num_t_points;
-    for (int i=0; i<num_t_points; i++) {
+    size_t t_idx_step = t.size() / num_t_points;
+    for (size_t i=0; i<num_t_points; i++) {
         f<<t[i*t_idx_step]*Constant::fs_per_au<<" "<<y[i*t_idx_step].F.output_densities(this->input_params.Out_F_size())<<endl;
     }
     f.close();
@@ -337,10 +332,8 @@ void ElectronSolver::saveFreeRaw(const std::string& fname) {
     f << "# Time (fs) | Expansion Coeffs"  << endl;
 
     assert(y.size() == t.size());
-    int num_t_points = input_params.Out_T_size();
-    // if ( num_t_points >  t.size() ) num_t_points = t.size();
     
-    for (int i=0; i<t.size(); i++) {
+    for (size_t i=0; i<t.size(); i++) {
         f<<t[i]*Constant::fs_per_au<<" "<<y[i].F<<endl;
     }
     f.close();
@@ -364,9 +357,9 @@ void ElectronSolver::saveBound(const std::string& dir) {
         }
         f<<endl;
         // Iterate over time.
-        int num_t_points = input_params.Out_T_size();
+        size_t num_t_points = input_params.Out_T_size();
         if ( num_t_points >  t.size() ) num_t_points = t.size();
-        int t_idx_step = t.size() / num_t_points;
+        size_t t_idx_step = t.size() / num_t_points;
         for (size_t i=0; i<num_t_points; i++) {
             // Make sure all "natom-dimensioned" objects are the size expected
             assert(input_params.Store.size() == y[i].atomP.size());

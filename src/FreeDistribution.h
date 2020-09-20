@@ -42,7 +42,7 @@ public:
     }
 
     Distribution& operator*=(double x) {
-        for (int i=0; i<f.size(); i++) {
+        for (size_t i=0; i<size; i++) {
             f[i] *= x;
         }
         // total *= d.total;
@@ -57,7 +57,7 @@ public:
 
     Distribution& operator=(double y) {
         // total = y;
-        for (int i=0; i<f.size(); i++) {
+        for (size_t i=0; i<size; i++) {
             f[i] = y;
         }
         return *this;
@@ -76,7 +76,7 @@ public:
     // e.g. dfdt v; F.calc_Qee(v);
     void get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
     void get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
-    // void get_Q_ee  (Eigen::VectorXd& v) const;
+    void get_Q_ee  (Eigen::VectorXd& v) const;
     
     // N is the Number density (inverse au^3) of particles to be added at energy e.
     static void addDeltaLike(Eigen::VectorXd& v, double e, double N);
@@ -84,9 +84,7 @@ public:
     void addDeltaSpike(double N, double e);
     // Applies the loss term to the distribution 
     void addLoss(const Distribution& d, LossGeometry l);
-    // Adds a (rough) electron-electron term to the distribution
-    void add_Q_ee(const Distribution& d, double kT);
-
+    
     // Sets the object to have a MB distribution
     void set_maxwellian(double N, double T);
 

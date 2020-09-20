@@ -9,7 +9,7 @@ struct LossGeometry {
     const static char sphere = 0;
     const static char cylinder = 1;
     const static char plane = 2;
-    char mode;
+    int mode;
     double L0;
     double factor(){
         return _C[mode]/L0;
@@ -19,7 +19,7 @@ struct LossGeometry {
 };
 
 namespace{
-    std::ostream& operator<<(std::ostream& os, LossGeometry g) {
+    [[maybe_unused]] std::ostream& operator<<(std::ostream& os, LossGeometry g) {
         switch (g.mode)
         {
         case LossGeometry::sphere:
@@ -38,7 +38,7 @@ namespace{
         return os;
     }
 
-    std::istream& operator>>(std::istream& is, LossGeometry& lg) {
+    [[maybe_unused]] std::istream& operator>>(std::istream& is, LossGeometry& lg) {
         std::string tmp;
         is >> tmp;
         if (tmp.length() == 0) {

@@ -10,11 +10,11 @@ struct GridSpacing {
     const static char hybrid = 3;
     const static char unknown = 101;
     char mode = 5;
-    int num_exp = 0; // Used for hybrid spec only
+    size_t num_exp = 0; // Used for hybrid spec only
 };
 
 namespace{
-    std::ostream& operator<<(std::ostream& os, GridSpacing gs) {
+    [[maybe_unused]] std::ostream& operator<<(std::ostream& os, GridSpacing gs) {
         switch (gs.mode)
         {
         case GridSpacing::linear:
@@ -36,7 +36,7 @@ namespace{
         return os;
     }
 
-    std::istream& operator>>(std::istream& is, GridSpacing& gs) {
+    [[maybe_unused]] std::istream& operator>>(std::istream& is, GridSpacing& gs) {
         std::string tmp;
         is >> tmp;
         if (tmp.length() == 0) {

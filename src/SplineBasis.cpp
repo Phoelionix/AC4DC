@@ -26,15 +26,15 @@ double find_root(std::function<double(double)> func, double a, double b, double 
 }
 
 // Constructs the grid over which the electron distribution is solved. 
-void BasisSet::set_knot(int zero_degree, GridSpacing gt){
+void BasisSet::set_knot(unsigned zero_degree, GridSpacing gt){
     assert( BSPLINE_ORDER - zero_degree >=0 && "Failed to set boundary condition");
 
-    for (int i=0; i<BSPLINE_ORDER-zero_degree; i++) {
+    for (size_t i=0; i<BSPLINE_ORDER-zero_degree; i++) {
         knot[i] = _min;
     }
 
     // all derivatives vanish at "infinity": no special treatment
-    int n = num_funcs;
+    size_t n = num_funcs;
     
 
     double A_lin = (_max - _min)/(n-1);
@@ -48,7 +48,7 @@ void BasisSet::set_knot(int zero_degree, GridSpacing gt){
     // hybrid exponentio-linear grid
 
     
-    int M = gt.num_exp;
+    size_t M = gt.num_exp;
     
     
     std::function<double(double)> f = [=](double B) {return _min*exp(B*M/(_max - B*(n-M))) + B*(n-M) - _max;};
@@ -58,7 +58,7 @@ void BasisSet::set_knot(int zero_degree, GridSpacing gt){
     double lambda_hyb = (log(B_hyb*M+C_hyb) - log(_min))/M;
     
     
-    for(int i=BSPLINE_ORDER-zero_degree; i<n+BSPLINE_ORDER; i++) {
+    for(size_t i=BSPLINE_ORDER-zero_degree; i<n+BSPLINE_ORDER; i++) {
         switch (gt.mode)
         {
         case GridSpacing::linear:
@@ -82,7 +82,7 @@ void BasisSet::set_knot(int zero_degree, GridSpacing gt){
 
     #ifdef DEBUG
     std::cerr<<"Knot: [";
-    for(int i=0; i<n+BSPLINE_ORDER; i++) {
+    for(size_t i=0; i<n+BSPLINE_ORDER; i++) {
         std::cerr<<knot[i]<<" ";
     }
     std::cerr<<"]\n";
@@ -124,7 +124,7 @@ void BasisSet::set_parameters(size_t n, double min, double max, GridSpacing gt, 
         avg_e_sqrt[i] = pow(avg_e[i],0.5);
         double diff = (this->supp_max(i) - this->supp_min(i))/2;
         widths[i] = 0;
-        for (int j=0; j<10; j++){
+        for (size_t j=0; j<10; j++){
             widths[i] += gaussW_10[j]*(*this)(i, gaussX_10[j]*diff+ avg_e[i]);
         }
         widths[i] *= diff;
@@ -133,8 +133,8 @@ void BasisSet::set_parameters(size_t n, double min, double max, GridSpacing gt, 
     // Compute overlap matrix
     Eigen::SparseMatrix<double> S(num_funcs, num_funcs);
     // Eigen::MatrixXd S(num_funcs, num_funcs);
-    for (int i=0; i<num_funcs; i++) {
-        for (int j=i+1; j<num_funcs; j++) {
+    for (size_t i=0; i<num_funcs; i++) {
+        for (size_t j=i+1; j<num_funcs; j++) {
             double tmp=overlap(i, j);
             if (tmp != 0) {
                 S.insert(i,j) = tmp;
@@ -172,8 +172,13 @@ double BasisSet::at(size_t i, double x) const{
     return BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
 }
 
+double BasisSet::D(size_t i, double x) const{
+    assert(i < num_funcs && i >= 0);
+    static_assert(BSPLINE_ORDER > 1);
+    return BSpline::BSpline<BSPLINE_ORDER-1>(x, &knot[i]);
+}
+
 double BasisSet::overlap(size_t j,size_t i) const{
-    int diff = (int)j -  (int)i;
     double b = min(supp_max(i), supp_max(j));
     double a = max(supp_min(i), supp_min(j));
     if (a >= b) return 0;

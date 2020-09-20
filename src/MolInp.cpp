@@ -49,7 +49,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		}
 	}
 
-	int num_atoms = FileContent["#ATOMS"].size();
+	size_t num_atoms = FileContent["#ATOMS"].size();
 
 	Orbits.clear();
 	Orbits.resize(num_atoms);
@@ -63,7 +63,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	Index.clear();
 	Index.resize(num_atoms);
 
-	for (int n = 0; n < FileContent["#VOLUME"].size(); n++) {
+	for (size_t n = 0; n < FileContent["#VOLUME"].size(); n++) {
 		stringstream stream(FileContent["#VOLUME"][n]);
 
 		if (n == 0) stream >> unit_V;
@@ -71,7 +71,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 2) stream >> loss_geometry;
 	}
 
-	for (int n = 0; n < FileContent["#OUTPUT"].size(); n++) {
+	for (size_t n = 0; n < FileContent["#OUTPUT"].size(); n++) {
 		stringstream stream(FileContent["#OUTPUT"][n]);
 		char tmp;
 
@@ -91,7 +91,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		}
 	}
 
-	for (int n = 0; n < FileContent["#PULSE"].size(); n++) {
+	for (size_t n = 0; n < FileContent["#PULSE"].size(); n++) {
 		stringstream stream(FileContent["#PULSE"][n]);
 
 		if (n == 0) stream >> omega;
@@ -99,7 +99,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 2) stream >> fluence;
 	}
 
-	for (int n = 0; n < FileContent["#NUMERICAL"].size(); n++) {
+	for (size_t n = 0; n < FileContent["#NUMERICAL"].size(); n++) {
 		stringstream stream(FileContent["#NUMERICAL"][n]);
 
 		if (n == 0) stream >> num_time_steps;
@@ -158,7 +158,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	// input/H.inp
 	// input/O.inp
 	// Store is then populated with the atomic data read in below.
-	for (int i = 0; i < num_atoms; i++) {
+	for (size_t i = 0; i < num_atoms; i++) {
 		string at_name;
 		double at_num;
 
@@ -219,14 +219,14 @@ bool MolInp::validate_inputs() {
 
 void MolInp::calc_rates(ofstream &_log, bool recalc) {
 	// Loop through atomic species.
-	for (int a = 0; a < Atomic.size(); a++) {
+	for (size_t a = 0; a < Atomic.size(); a++) {
 		HartreeFock HF(Latts[a], Orbits[a], Pots[a], Atomic[a], _log);
 
 		// This Computes the parameters for the rate equations to use, loading them into Init.
 		ComputeRateParam Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], recalc);
 		vector<int> final_occ(Orbits[a].size(), 0);
 		vector<int> max_occ(Orbits[a].size(), 0);
-		for (int i = 0; i < max_occ.size(); i++) {
+		for (size_t i = 0; i < max_occ.size(); i++) {
 			if (fabs(Orbits[a][i].Energy) > Omega()) final_occ[i] = Orbits[a][i].occupancy();
 			max_occ[i] = Orbits[a][i].occupancy();
 		}

@@ -35,11 +35,11 @@ protected:
 template<typename T>
 class Adams_BM : public IVPSolver<T>{
 public:
-    Adams_BM(int order=4);
+    Adams_BM(unsigned int order=4);
     void iterate(double t_initial, double t_final);
 
 private:
-    int order;
+    unsigned int order;
     const double* b_AB;
     const double* b_AM;
 
@@ -72,7 +72,7 @@ void IVPSolver<T>::setup(const T& initial_state, double _dt, double _step_tolera
 ///////////////////////////////////
 
 template<typename T>
-Adams_BM<T>::Adams_BM(int _order):
+Adams_BM<T>::Adams_BM(unsigned int _order):
     IVPSolver<T>()
     {
     if (_order < 2 || _order > AdamsArrays::MAX_ADAMS_ORDER) {

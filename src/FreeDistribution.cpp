@@ -23,23 +23,23 @@ void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) co
     assert(P.size() == basis.Q_EII[a].size());
     assert(v.size() == size);
     double dq =0;
-    for (int xi=0; xi<P.size(); xi++) {
+    for (size_t xi=0; xi<P.size(); xi++) {
         // Loop over configurations that P refers to
-        for (int J=0; J<size; J++) {
-            for (int K=0; K<size; K++) {
+        for (size_t J=0; J<size; J++) {
+            for (size_t K=0; K<size; K++) {
                 v[J] += P[xi]*f[K]*basis.Q_EII[a][xi][J][K];
             }
         }
     }
 }
 
-// Adds Q_tbr to the parent Distribution
+// Puts the Q_TBR changes in the supplied vector v
 void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) const {
     assert(basis.has_Qtbr());
     assert(P.size() == basis.Q_TBR[a].size());
-    for (int eta=0; eta<P.size(); eta++) {
+    for (size_t eta=0; eta<P.size(); eta++) {
         // Loop over configurations that P refers to
-        for (int J=0; J<size; J++) {
+        for (size_t J=0; J<size; J++) {
             for (auto& q : basis.Q_TBR[a][eta][J]) {
                  v[J] += q.val * P[eta] * f[q.K] * f[q.L];
             }
@@ -48,25 +48,27 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) co
 }
 
 
-// Stores in f the value of Qee[f] (atomic units)
-// void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
-    // for (int J=0; J<size; J++) {
-    //     for (int L=0; L<size; L++) {
-    //         for (int K=0; K<size; K++) {
-    //             v[J] += Q_EE[a][xi][J][L][K]*f[K]*f[K];
-    //         }
-    //     }
-    // }
-// }
-
-// Taken verbatim from Rockwood as quoted by Morgan and Penetrante in ELENDIF
-void Distribution::add_Q_ee(const Distribution& d, double kT) {
-    double density=0;
-    double lnLambda = log(kT/(4*Constant::Pi*density));
-    double alpha = 2*Constant::Pi*sqrt(2)/3*lnLambda;
-
-
+// Puts the Q_EE changes into v
+void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
+    /*
+    for (size_t J=0; J<size; J++) {
+        for (size_t K=0; K<size; K++) {
+            for (auto& q : basis.Q_EE[J][K]) {
+                 v[J] += q.val * f[L] * f[q.idx];
+            }
+        }
+    }
+    */
 }
+
+// // Taken verbatim from Rockwood as quoted by Morgan and Penetrante in ELENDIF
+// void Distribution::add_Q_ee(const Distribution& d, double kT) {
+//     double density=0;
+//     double lnLambda = log(kT/(4*Constant::Pi*density));
+//     double alpha = 2*Constant::Pi*sqrt(2)/3*lnLambda;
+
+
+// }
 
 // ============================
 // utility
@@ -78,7 +80,7 @@ void Distribution::set_maxwellian(double T, double N) {
         v[i] = 0;
         double a = basis.supp_min(i);
         double b = basis.supp_max(i);
-        for (int j=0; j<10; j++) {
+        for (size_t j=0; j<10; j++) {
             double e = (b-a)/2 *gaussX_10[j] + (a+b)/2;
             v[i] +=  gaussW_10[j]*exp(-e/T)*basis(i, e)*pow(e,0.5);;
         }
@@ -97,7 +99,7 @@ void Distribution::set_maxwellian(double T, double N) {
 // Returns knot energies in eV
 std::string Distribution::output_knots_eV() {
     std::stringstream ss;
-    for (int i=0; i<basis.gridlen(); i++) {
+    for (size_t i=0;i<basis.gridlen(); i++) {
         ss << basis.grid(i)*Constant::eV_per_Ha<<" ";
     }
     return ss.str();
@@ -108,7 +110,7 @@ std::string Distribution::output_energies_eV(size_t num_pts) {
     std::stringstream ss;
     double e = basis.min_elec_e();
     double de = (basis.max_elec_e() - e)/(num_pts-1);
-    for (int i=0; i<num_pts; i++) {
+    for (size_t i=0;i<num_pts; i++) {
         ss << e*Constant::eV_per_Ha<<" ";
         e += de;
     }
@@ -119,7 +121,7 @@ std::string Distribution::output_densities(size_t num_pts) const {
     std::stringstream ss;
     double e = basis.min_elec_e();
     double de = (basis.max_elec_e() - e)/(num_pts-1);
-    for (int i=0; i<num_pts; i++) {
+    for (size_t i=0;i<num_pts; i++) {
         ss << (*this)(e)/Constant::eV_per_Ha<<" ";
         e += de;
     }
@@ -158,7 +160,7 @@ void Distribution::addLoss(const Distribution& d, LossGeometry l) {
 
 void Distribution::addDeltaLike(Eigen::VectorXd& v, double e, double height) {
     assert(e>basis.supp_min(0));
-    for (int i=0; i<size; i++) {
+    for (size_t i=0;i<size; i++) {
         v[i] += basis(i, e) * height;
     }
 
@@ -189,7 +191,7 @@ double Distribution::integral(double (g)(double)) {
         double a = basis.supp_min(J);
         double b = basis.supp_max(J);
         double tmp = 0;
-        for (int i=0; i<10; i++)
+        for (size_t i=0;i<10; i++)
         {
             double e = gaussX_10[i]*(b-a)/2 + (b+a)/2;
             tmp += gaussW_10[i]*basis(J, e)*g(e);
