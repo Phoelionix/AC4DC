@@ -2,7 +2,6 @@
 
 #ATOMS
 O 3
-forbidden_O 1
 
 #VOLUME
 12314.7      // Volume per molecule in Angstrom^3.

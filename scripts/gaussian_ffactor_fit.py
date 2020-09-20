@@ -42,7 +42,7 @@ def ReadAndFit(filename, legend):
             # make the fit look prettier
             plt.clf()
             plt.title('Configuration 1')
-            plt.plot(kgrid, fdists[i], label="data")
+            plt.plot(kgrid, fdists, label="data") # XXX THIS MAY BE WRONG
             plt.plot(smoothK, model(params, smoothK), label="fit, %d Gaussians" % num_gaussians)
             plt.legend()
             plt.show()
