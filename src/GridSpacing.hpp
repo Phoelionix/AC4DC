@@ -4,6 +4,12 @@
 #define GRIDSPACING_CXX_H
 
 struct GridSpacing {
+    GridSpacing(){
+        mode= linear;
+    }
+    GridSpacing(char c){
+        mode= c;
+    }
     const static char linear = 0;
     const static char quadratic = 1;
     const static char exponential = 2;

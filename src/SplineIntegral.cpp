@@ -35,6 +35,7 @@ double SplineIntegral::area(size_t J) {
 // Resizes containers and fills them with the appropriate values
 void SplineIntegral::precompute_Q_coeffs(vector<RateData::Atom>& Atoms) {
     std::cout<<"[ Q precalc ] Beginning coefficient computation..."<<std::endl;
+    // Size Q_EII and Q_TBR appropriately
     Q_EII.resize(Atoms.size());
     Q_TBR.resize(Atoms.size());
     for (size_t a=0; a<Atoms.size(); a++) {
@@ -76,38 +77,18 @@ void SplineIntegral::precompute_Q_coeffs(vector<RateData::Atom>& Atoms) {
             }
         }
     }
-    #ifdef OUTPUT_EII_TO_CERR
-    for (size_t a=0; a<Atoms.size(); a++) {
-        std::cerr<<"[ DEBUG ] eii> Atom "<<a<<std::endl;
-        for (size_t i=0; i<Atoms[a].num_conf; i++) {
-            std::cerr<<"[ DEBUG ] eii> Config "<<i<<std::endl;
-            for (size_t J=0; J<num_funcs; J++) {
-                std::cerr<<"[ DEBUG ] eii>  ";
-                for (size_t K=0; K<num_funcs; K++) {
-                    std::cerr<<Q_EII[a][i][J][K]<<" ";
-                }
-                std::cerr<<std::endl;
-            }
-        }
-    }
-    #endif
-    #ifdef OUTPUT_TBR_TO_CERR
-    for (size_t a=0; a<Atoms.size(); a++) {
-        std::cerr<<"[ DEBUG ] tbr> Atom "<<a<<std::endl;
-        for (size_t i=0; i<Atoms[a].num_conf; i++) {
-            std::cerr<<"[ DEBUG ] tbr> Config "<<i<<std::endl;
-            for (size_t J=0; J<num_funcs; J++) {
-                std::cerr<<"[ DEBUG ] tbr>  ";
-                for (auto& tup : Q_TBR[a][i][J]) {
-                    std::cerr<<"("<<tup.K<<","<<tup.L<<","<<tup.val<<") ";
-                }
-                std::cerr<<std::endl;
-            }
-        }
-    }
-    #endif
     _has_Qeii = true;
     _has_Qtbr = true;
+    // Beginning of Q_EE computations
+    Q_EE.resize(num_funcs);
+    for(size_t J=0; J<num_funcs; J++) {
+        Q_EE[J].resize(num_funcs);
+        for (size_t K = 0; K < num_funcs; K++) {
+            Q_EE[J][K] = calc_Q_ee(J, K);
+        }
+    }
+    _has_Qee = true;
+
     std::cout<<"\n[ Q precalc ] Done."<<std::endl;
 }
 
@@ -336,27 +317,78 @@ SplineIntegral::sparse_matrix SplineIntegral::calc_Q_tbr( const RateData::Invers
     }
     return retval;
 }
-/*
-SplineIntegral::sparse_matrix SplineIntegral::calc_Q_ee(size_t J) const{
-    double min_J = this->supp_min(J);
-    double max_J = this->supp_max(J);
 
-    size_t num_nonzero=0;
-    double tmp=0;
-    SplineIntegral::sparse_matrix retval; // a vector of SparseTriple
-    SparseTriple tup;
-    for (size_t K=max((size_t) 0, J-BSPLINE_ORDER); K<min(num_funcs, J+BSPLINE_ORDER); K++) {
-        double min = std::max(this->supp_min(K), min_J);
-        double max = std::min(this->supp_max(K), max_J);
-        // make sure K and J overlap
-        if (fabs(tmp) > DBL_CUTOFF_QEE) {
-            tup.K = K;
-            tup.L = 0;
-            tup.val=tmp;
-            retval.push_back(tup);
-            num_nonzero++;
+// Uses a modified form of the result quoted by Rockwood 1973, 
+// "Elastic and Inelastic Cross Sections for Electron-Hg Scattering From Hg Transport Data"
+// Originally attributable to Rosenbluth
+// N.B. this is NOT an efficient implementation, but it only runs once -  \_( '_')_/
+SplineIntegral::pair_list SplineIntegral::calc_Q_ee(size_t J, size_t K) const {
+    double K_min = this->supp_min(K);
+    double K_max = this->supp_max(K);
+    double J_min = this->supp_min(J);
+    double J_max = this->supp_max(J);
+    pair_list p(0);
+    for (size_t L = 0; L < num_funcs; L++) {
+        double total=0;
+        // F component
+        double min_JL = max(J_min, this->supp_min(L));
+        double max_JL = min(J_max, this->supp_max(L));
+
+        if (max_JL <= min_JL) continue;
+        
+
+        for (size_t i = 0; i < GAUSS_ORDER_EE; i++) {
+            double e = gaussX_EE[i] * (max_JL - min_JL)/2 + (max_JL + min_JL)/2;
+            // Begin F integral
+
+            // 2e^-1/2  int_0^e dx x phiK(x) 
+            double max_K_0E = min(K_max, e);
+            double min_K_0E = K_min;
+            double tmp2 = 0;
+            for (size_t j = 0; j < GAUSS_ORDER_EE; j++) {
+                double x = gaussX_EE[j] * (max_K_0E - min_K_0E)/2 + (max_K_0E + min_K_0E)/2;
+                tmp2 += gaussW_EE[j]*x*(*this)(K, x);
+            }
+            tmp2 *= 2*pow(e,-0.5)*(max_K_0E - min_K_0E)/2;
+
+            // 2e int_e^inf x^-1/2 phiK(x)
+            double max_I2 = K_max;
+            double min_I2 = max(K_min, e);
+            double tmp3 = 0;
+            for (size_t j = 0; j < GAUSS_ORDER_EE; j++) {
+                double x = gaussX_EE[j] * (max_I2 - min_I2)/2 + (max_I2 + min_I2)/2;
+                tmp3 += gaussW_EE[j]*pow(x,-0.5)*(*this)(K, x);
+            }
+            tmp3 *= 2*e*(max_I2 - min_I2)/2;
+            
+            
+            // F integral done.
+            // Begin G integral
+            double Gint = 0;
+            for (size_t j = 0; j < GAUSS_ORDER_EE; j++) {
+                double x = gaussX_EE[j] * (max_K_0E - min_K_0E)/2 + (max_K_0E + min_K_0E)/2;
+                Gint += gaussW_EE[j]*(*this)(K, x);
+            }
+            Gint *= 3*pow(e,-0.5)*(max_K_0E - min_K_0E)/2;
+            // G integral done.
+
+            total += gaussW_EE[i]*this->D(J, e)*(
+                (tmp2 + tmp3)*( (*this)(L, e)/2/e - this->D(L, e) ) 
+                - Gint * (*this)(L, e)
+            );
+        }
+        total *= 0.5*(max_JL-min_JL);
+        // Multiply by alpha
+        double CoulombLogarithm=5; // In reality, depends on the density and cold electron temperature.
+        // Unclear how best to estimate this.
+        total *= 2/3*Constant::Pi*sqrt(2) * CoulombLogarithm;
+        
+        if (fabs(total) > DBL_CUTOFF_QEE){
+            SparsePair s;
+            s.idx = L;
+            s.val = total;
+            p.push_back(s);
         }
     }
-    return retval;
+    return p;
 }
-*/

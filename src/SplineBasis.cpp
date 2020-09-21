@@ -52,7 +52,11 @@ void BasisSet::set_knot(unsigned zero_degree, GridSpacing gt){
     
     
     std::function<double(double)> f = [=](double B) {return _min*exp(B*M/(_max - B*(n-M))) + B*(n-M) - _max;};
-    double B_hyb = find_root(f, 0, _max/(n-M + 1));
+    
+    double B_hyb = 0;
+    if (gt.mode == GridSpacing::hybrid){
+        B_hyb = find_root(f, 0, _max/(n-M + 1));
+    }
     
     double C_hyb = _max - B_hyb * n;
     double lambda_hyb = (log(B_hyb*M+C_hyb) - log(_min))/M;
@@ -175,7 +179,10 @@ double BasisSet::at(size_t i, double x) const{
 double BasisSet::D(size_t i, double x) const{
     assert(i < num_funcs && i >= 0);
     static_assert(BSPLINE_ORDER > 1);
-    return BSpline::BSpline<BSPLINE_ORDER-1>(x, &knot[i]);
+    double tmp=0;
+    if (i > 0) tmp += BSpline::BSpline<BSPLINE_ORDER-1>(x, &knot[i-1]) / (this->knot[i-1 + BSPLINE_ORDER] - this->knot[i]);
+    if (i < num_funcs - 1) tmp -= BSpline::BSpline<BSPLINE_ORDER-1>(x, &knot[i]) / (this->knot[i + BSPLINE_ORDER] - this->knot[i+1]);
+    return (BSPLINE_ORDER-1)*tmp;
 }
 
 double BasisSet::overlap(size_t j,size_t i) const{

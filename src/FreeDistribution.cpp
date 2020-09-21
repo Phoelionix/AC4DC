@@ -50,15 +50,13 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) co
 
 // Puts the Q_EE changes into v
 void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
-    /*
     for (size_t J=0; J<size; J++) {
         for (size_t K=0; K<size; K++) {
             for (auto& q : basis.Q_EE[J][K]) {
-                 v[J] += q.val * f[L] * f[q.idx];
+                 v[J] += q.val * f[K] * f[q.idx];
             }
         }
     }
-    */
 }
 
 // // Taken verbatim from Rockwood as quoted by Morgan and Penetrante in ELENDIF

@@ -23,11 +23,13 @@ struct SparsePair
 // defines for numerical integration
 static const int GAUSS_ORDER_EII = 4;
 static const int GAUSS_ORDER_TBR = 4;
+static const int GAUSS_ORDER_EE = 4;
 static const double gaussX_EII[] = {-0.3399810435848563, 0.3399810435848563, -0.8611363115940526, 0.8611363115940526};
 static const double gaussW_EII[] = {0.6521451548625461, 0.6521451548625461, 0.3478548451374538, 0.3478548451374538};
 static const double gaussX_TBR[] = {-0.3399810435848563, 0.3399810435848563, -0.8611363115940526, 0.8611363115940526};
 static const double gaussW_TBR[] = {0.6521451548625461, 0.6521451548625461, 0.3478548451374538, 0.3478548451374538};
-
+static const double gaussX_EE[] = {-0.3399810435848563, 0.3399810435848563, -0.8611363115940526, 0.8611363115940526};
+static const double gaussW_EE[] = {0.6521451548625461, 0.6521451548625461, 0.3478548451374538, 0.3478548451374538};
 
 // Interpretation:
 // eiiGraph[xi] -> vector of transitions away from configuration xi, e.g.
@@ -54,6 +56,7 @@ struct SparseTriple
 class SplineIntegral : public BasisSet {
 public:
     typedef std::vector<SparseTriple> sparse_matrix;
+    typedef std::vector<SparsePair> pair_list;
 
     typedef std::vector<std::vector< std::vector< std::vector<double> > > > Q_eii_t;
     // Interpretation: J^th matrix element of dQ/dt given by
@@ -68,6 +71,12 @@ public:
     // for (auto& Q : nv) {
     //      tmp += nv.val * P^a[xi] * F[nv.K] * F[nv.L]
     // }
+    typedef std::vector<std::vector<pair_list> > Q_ee_t;
+    // Interpretation: J'th element of df/dt is given by
+    // for (auto& q : Q_EE[J][K]) {
+    //     tmp += q.val*F[K]*F[q.idx]
+    // }
+    // 1000 times fewer components than QTBR, not a problem
     SplineIntegral() {};
     void precompute_Q_coeffs(vector<RateData::Atom>& Atoms);
     // Precalculators. These delete the vectors Gamma and populate them with the calculated coefficients.)
@@ -85,16 +94,17 @@ public:
     bool has_Qee() { return _has_Qee; }
     Q_eii_t Q_EII;
     Q_tbr_t Q_TBR;
+    Q_ee_t Q_EE;
 protected:
     // Computes the overlap of the J^th df/ft term with the K^th basis function in f
     double calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_t K) const;
     sparse_matrix calc_Q_tbr( const RateData::InverseEIIdata& tbr, size_t J) const;
+    pair_list calc_Q_ee(size_t J, size_t K) const;
     // sparse_matrix calc_Q_ee(size_t J) const;
     bool _has_Qeii = false;  // Flags wheter Q_EII has been calculated
     bool _has_Qtbr = false;  // Flags wheter Q_TBR has been calculated
     bool _has_Qee = false;  // Flags wheter Q_EE has been calculated
 
-    // Q_ee_t Q_EE;
     static constexpr double DBL_CUTOFF_TBR = 1e-16;
     static constexpr double DBL_CUTOFF_QEE = 1e-16;
 };

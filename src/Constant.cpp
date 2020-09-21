@@ -252,9 +252,9 @@ namespace RateData{
 		}
 	}
 
-	string find_bracket_contents(string &src) {
-		size_t first_idx = src.find('[');
-		size_t last_idx = src.rfind(']');
+	string find_bracket_contents(string &src, char left, char right) {
+		size_t first_idx = src.find(left);
+		size_t last_idx = src.rfind(right);
 		return src.substr(first_idx+1, last_idx-first_idx-1);
 	}
 
@@ -315,59 +315,59 @@ namespace RateData{
 			cout<<"[ DEBUG ] [ ReadEII ] "<<line<<endl;
 			#endif
 			if (line[0] == '#') continue; // skip comments
-			if (line[0] == '{') {
-				in_top_brace = true;
-				continue;
-			}
-			if (line[0] == '}') {
-				in_top_brace = false;
-				continue;
-			}
-			if (!in_top_brace) continue;
-
-			if (in_eii_record) {
-				if (line[0] == '}') {
-					in_eii_record = false;
-					PutHere.push_back(tmp);
-				}
-				string pref = "  \"fin\": [";
-				if(line.compare(0, pref.size(), pref)==0)
-				{
-					read_vector<int>(find_bracket_contents(line), tmp.fin);
-					continue;
-				}
-				pref = "  \"occ\": [";
-				if(line.compare(0, pref.size(), pref)==0)
-				{
-					read_vector<int>(find_bracket_contents(line), tmp.occ);
-					continue;
-				}
-				pref = "  \"ionB\": [";
-				if(line.compare(0, pref.size(), pref)==0)
-				{
-					read_vector<float>(find_bracket_contents(line), tmp.ionB);
-					continue;
-				}
-				pref="  \"kin\": [";
-				if(line.compare(0, pref.size(), pref)==0)
-				{
-					read_vector<float>(find_bracket_contents(line), tmp.kin);
-					continue;
+			if (in_top_brace) {
+				if (in_eii_record) {
+					if (line[0] == '}') {
+						in_eii_record = false;
+						PutHere.push_back(tmp);
+						continue;
+					}
+					string pref = "  \"fin\":";
+					if(line.compare(0, pref.size(), pref)==0)
+					{
+						read_vector<int>(find_bracket_contents(line, '[', ']'), tmp.fin);
+						continue;
+					}
+					pref = "  \"occ\":";
+					if(line.compare(0, pref.size(), pref)==0)
+					{
+						read_vector<int>(find_bracket_contents(line, '[', ']'), tmp.occ);
+						continue;
+					}
+					pref = "  \"ionB\":";
+					if(line.compare(0, pref.size(), pref)==0)
+					{
+						read_vector<float>(find_bracket_contents(line, '[', ']'), tmp.ionB);
+						continue;
+					}
+					pref="  \"kin\":";
+					if(line.compare(0, pref.size(), pref)==0)
+					{
+						read_vector<float>(find_bracket_contents(line, '[', ']'), tmp.kin);
+						continue;
+					}
+				} else {
+					string prefix="\"configuration ";
+					if(line.compare(0, prefix.size(), prefix) == 0) {
+						// New entry in the array
+						in_eii_record = true;
+						tmpstr = line.substr(prefix.size());
+						int j = stoi(tmpstr.substr(0,tmpstr.find('"')));
+						tmp.init = j;
+						tmp.resize(0);
+						if(i != j) cerr<<"[ ReadEII ] Unexpected index: got "<<j<<" expected "<<i<<endl;
+						i++;
+						continue;
+					}
 				}
 			} else {
-				string prefix="\"configuration ";
-				if(line.compare(0, prefix.size(), prefix) == 0) {
-					// New entry in the array
-					in_eii_record = true;
-					tmpstr = line.substr(prefix.size());
-					int j = stoi(tmpstr.substr(0,tmpstr.find('"')));
-					tmp.init = j;
-					tmp.resize(0);
-					if(i != j) cerr<<"[ ReadEII ] Unexpected index: got "<<j<<" expected "<<i<<endl;
-					i++;
-					continue;
-				}
-			}
+				if (line[0] == '{') {
+					in_top_brace = true;
+				}	
+				continue;
+			} 
+
+			
 
 
 		}

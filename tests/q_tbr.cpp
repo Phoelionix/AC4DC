@@ -26,7 +26,7 @@ class BasisTester : public SplineIntegral{
         Distribution::set_elec_points(F_size, min_e, max_e, grid_type);
         // HACK: There are two distinct BasisSet-inheriting things, the Distribution static BasisIntegral
         // and this object. 
-        this->set_parameters(F_size, min_e, max_e, 0, grid_type);
+        this->set_parameters(F_size, min_e, max_e, grid_type, 0);
     }
 
     void check_eii(string fstem)
