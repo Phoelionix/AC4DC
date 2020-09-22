@@ -196,7 +196,7 @@ void SplineIntegral::Gamma_eii(eiiGraph& Gamma, const std::vector<RateData::EIId
     // 4pi*sqrt(2) \int_0^\inf e^1/2 phi_k(e) sigma(e) de
     Gamma.resize(0);
     for (size_t init=0; init<eiiVec.size(); init++) {
-        assert(eiiVec[init].init == init);
+        assert((unsigned) eiiVec[init].init == init);
         std::vector<SparsePair> Gamma_xi(0);
         this->Gamma_eii(Gamma_xi, eiiVec[init], K);
         Gamma.push_back(Gamma_xi);
@@ -206,7 +206,7 @@ void SplineIntegral::Gamma_eii(eiiGraph& Gamma, const std::vector<RateData::EIId
 void SplineIntegral::Gamma_tbr(eiiGraph& Gamma, const std::vector<RateData::InverseEIIdata>& eiiVec, size_t K, size_t L) const {
     Gamma.resize(0);
     for (size_t init=0; init<eiiVec.size(); init++) {
-        assert(eiiVec[init].init == init);
+        assert((unsigned) eiiVec[init].init == init);
         std::vector<SparsePair> Gamma_xi(0);
         this->Gamma_tbr(Gamma_xi, eiiVec[init], K, L);
         Gamma.push_back(Gamma_xi);

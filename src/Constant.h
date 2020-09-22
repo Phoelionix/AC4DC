@@ -162,7 +162,7 @@ namespace RateData {
 	bool ReadEIIParams(const string & input, vector<RateData::EIIdata> & PutHere);
 	void WriteRates(const string& fname, const vector<RateData::Rate>& rateVector);
 	void WriteEIIParams(const string& fname, const vector<RateData::EIIdata>& eiiVector);
-};
+}
 
 
 static const double Moulton_5[5] = { 251. / 720., 646. / 720., -264. / 720., 106. / 720., -19. / 720. }; //Adams-Moulton method

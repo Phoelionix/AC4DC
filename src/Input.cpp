@@ -23,7 +23,7 @@ This file is part of AC4DC.
 
 Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream & log)
 {
-	log << "Input file: " << filename << endl;
+	log << "[ Atomic ] Input file: " << filename << endl;
 
 	name = filename;
 	size_t lastdot = name.find_last_of(".");
@@ -31,13 +31,13 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 	size_t lastslash = name.find_last_of("/");
 	if (lastdot != std::string::npos) name = name.substr(lastslash+1);
 
-	cout << "Opening atomic file "<< filename << "...";
+	cout << "[ Atomic ] Opening atomic file "<< filename << "... ";
 	ifstream infile(filename);
 	if (infile.good())
         std::cout<<"Success!"<<endl;
     else {
-        std::cerr<<"Failed."<<endl;
-		exit(EXIT_FAILURE); // chuck a hissy fit and quit.
+        std::cerr<<"\033[31;1mFailed!\033[0m"<<endl;
+		throw runtime_error("Could not find atomic input file."); // chuck a hissy fit and quit.
         return;
     }
 
@@ -120,14 +120,22 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 		if (n == 1) stream >> model;
 		if (n == 2) stream >> hamiltonian;
 		if (n == 3) stream >> num_orbitals;
+		// TODO: Refactor this to be less of a kludge
 		if (n > 3 && n < num_orbitals + 4) {
 			char tmp;
 			stream >> N >> tmp >> occupancy;
-			if (occupancy == 0) log << "Orbital with N=" << N << ", L=" << angular[tmp] << " has occupancy=0!" << endl;
-				Orbitals.push_back(RadialWF(num_grid_pts));
-				Orbitals.back().set_N(N);
-				Orbitals.back().set_L(angular[tmp]);//setting L overwrites occupancy with 4L+2
-				Orbitals.back().set_occupancy(occupancy);
+			if (occupancy == 0){
+				cerr << "[ Atomic ] \033[31;1mOrbital with N=" << N << ", L=" << angular[tmp] << " has occupancy=0 \033[0m" << endl;
+			}
+			if (N == 0){
+				cerr << "[ Atomic ] \033[31;1m Orbital with N=0 encountered: "<<filename<<"\033[0m" << endl;
+				cerr << "[ Atomic ] Did you specify the right number of orbitals?" << endl;
+				throw runtime_error("Bad atomic input");
+			}
+			Orbitals.push_back(RadialWF(num_grid_pts));
+			Orbitals.back().set_N(N);
+			Orbitals.back().set_L(angular[tmp]);//setting L overwrites occupancy with 4L+2
+			Orbitals.back().set_occupancy(occupancy);
 		}
 		if (n == num_orbitals + 4) stream >> potential;
 		if (n == num_orbitals + 5) stream >> me_gauge;

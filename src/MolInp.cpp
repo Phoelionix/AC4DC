@@ -113,7 +113,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	}
 	const string bc = "\033[97;1m"; // begin colour escape code
 	const string clr = "\033[0m"; // clear escape code
-	const string banner = "\033[34m[ ================================ ]\033[0m";
+	const string banner = "\033[96m=======================================\033[0m";
 	cout<<banner<<endl;
 	cout<<bc<<"Unit cell size: "<<clr<<unit_V<<"A^3"<<endl;
 	cout<<bc<<"Droplet L0: "<<clr<<loss_geometry.L0<<"A"<<endl;
