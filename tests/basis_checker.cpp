@@ -15,7 +15,7 @@ class BasisTester : public SplineIntegral{
         Distribution::set_elec_points(F_size, min_e, max_e, grid_type);
         // HACK: There are two distinct BasisSet-inheriting things, the Distribution static BasisIntegral
         // and this object. 
-        this->set_parameters(F_size, min_e, max_e, 0, grid_type);
+        this->set_parameters(F_size, min_e, max_e, grid_type, 0);
 
         cout<<"# Grid: ";
         for (auto& e : this->knot)
@@ -70,7 +70,7 @@ int main(int argc, char const *argv[]) {
     BasisTester bt(N, min_e, max_e, gt);
     bt.check_basis();
     Distribution F;
-    F.set_maxwellian(T, density);
+    F.set_maxwellian(density, T);
     Eigen::VectorXd v = Eigen::VectorXd::Zero(Distribution::size);
     F.addDeltaLike(v, T*3, density);
     F.addDeltaSpike(T*2, density);

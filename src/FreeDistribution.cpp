@@ -22,7 +22,7 @@ void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) co
     assert(basis.has_Qeii());
     assert(P.size() == basis.Q_EII[a].size());
     assert(v.size() == size);
-    double dq =0;
+    
     for (size_t xi=0; xi<P.size(); xi++) {
         // Loop over configurations that P refers to
         for (size_t J=0; J<size; J++) {
@@ -50,6 +50,7 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) co
 
 // Puts the Q_EE changes into v
 void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
+    assert(basis.has_Qee());
     for (size_t J=0; J<size; J++) {
         for (size_t K=0; K<size; K++) {
             for (auto& q : basis.Q_EE[J][K]) {
@@ -135,7 +136,9 @@ double Distribution::operator()(double e) const{
 }
 
 void Distribution::addDeltaSpike(double e, double N) {
-    f[basis.i_from_e(e)] += N/basis.area(basis.i_from_e(e));
+    int idx = basis.i_from_e(e);
+    assert(idx < size);
+    f[idx] += N/basis.area(idx);
 }
 
 void Distribution::applyDelta(const Eigen::VectorXd& v) {
@@ -149,7 +152,7 @@ void Distribution::applyDelta(const Eigen::VectorXd& v) {
 
 // - 3/sqrt(2) * 3 sqrt(e) * f(e) / R_
 // Very rough approcimation used here
-void Distribution::addLoss(const Distribution& d, LossGeometry l) {
+void Distribution::addLoss(const Distribution& d, const LossGeometry &l) {
     // f += "|   i|   ||   |_"
     for (size_t i=0; i<size; i++) {
         f[i] -= d[i] * sqrt(basis.avg_e[i]/2) * l.factor();

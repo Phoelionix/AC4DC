@@ -83,7 +83,7 @@ public:
     // Adds a Dirac delta to the distribution
     void addDeltaSpike(double N, double e);
     // Applies the loss term to the distribution 
-    void addLoss(const Distribution& d, LossGeometry l);
+    void addLoss(const Distribution& d, const LossGeometry& l);
     
     // Sets the object to have a MB distribution
     void set_maxwellian(double N, double T);
@@ -96,7 +96,9 @@ public:
         return basis.Gamma_tbr(Gamma, tbr, J, K);
     }
     static void precompute_Q_coeffs(vector<RateData::Atom>& Store) {
-        basis.precompute_Q_coeffs(Store);   
+        basis.precompute_QEII_coeffs(Store);   
+        basis.precompute_QTBR_coeffs(Store);
+        basis.precompute_QEE_coeffs();     
     }
 
     double integral(double (f)(double));

@@ -62,7 +62,7 @@ void BasisSet::set_knot(unsigned zero_degree, GridSpacing gt){
     double lambda_hyb = (log(B_hyb*M+C_hyb) - log(_min))/M;
     
     
-    for(size_t i=BSPLINE_ORDER-zero_degree; i<n+BSPLINE_ORDER; i++) {
+    for(size_t i=BSPLINE_ORDER-zero_degree; i<=n; i++) {
         switch (gt.mode)
         {
         case GridSpacing::linear:
@@ -83,6 +83,12 @@ void BasisSet::set_knot(unsigned zero_degree, GridSpacing gt){
         }
         
     }
+
+    for (size_t i = n+1; i < n+BSPLINE_ORDER; i++)
+    {
+        knot[i] = knot[n];
+    }
+    
 
     #ifdef DEBUG
     std::cerr<<"Knot: [";
@@ -170,18 +176,21 @@ double BasisSet::operator()(size_t i, double x) const{
     return BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
 }
 
+// Returns the i^th B-spline of order BSPLINE_ORDER evaluated at x
 double BasisSet::at(size_t i, double x) const{
     if(i >= num_funcs || i<0) return 0;
-    // Returns the i^th B-spline of order BSPLINE_ORDER
     return BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
 }
 
+// Returns the dirst derivative of the i^th B-spline of order BSPLINE_ORDER evaluated at x
 double BasisSet::D(size_t i, double x) const{
     assert(i < num_funcs && i >= 0);
     static_assert(BSPLINE_ORDER > 1);
     double tmp=0;
-    if (i > 0) tmp += BSpline::BSpline<BSPLINE_ORDER-1>(x, &knot[i-1]) / (this->knot[i-1 + BSPLINE_ORDER] - this->knot[i]);
-    if (i < num_funcs - 1) tmp -= BSpline::BSpline<BSPLINE_ORDER-1>(x, &knot[i]) / (this->knot[i + BSPLINE_ORDER] - this->knot[i+1]);
+    if (i > 0 && fabs(this->knot[i + BSPLINE_ORDER] - this->knot[i+1]) > __DBL_EPSILON__ )
+        tmp += BSpline::BSpline<BSPLINE_ORDER-1>(x, &knot[i]) / (this->knot[i + BSPLINE_ORDER] - this->knot[i+1]);
+    if (i < num_funcs - 1 && fabs(this->knot[i + BSPLINE_ORDER+1] - this->knot[i+2]) > __DBL_EPSILON__ )
+        tmp -= BSpline::BSpline<BSPLINE_ORDER-1>(x, &knot[i+1]) / (this->knot[i + 1 + BSPLINE_ORDER] - this->knot[i+2]);
     return (BSPLINE_ORDER-1)*tmp;
 }
 

@@ -1,25 +1,27 @@
 #include <vector>
 #include <iostream>
+#include <cassert>
 #ifndef LOSS_GEOMETRY_CXX_H
 #define LOSS_GEOMETRY_CXX_H
 
 // Overkill, to be sure
 
 struct LossGeometry {
-    const static char sphere = 0;
-    const static char cylinder = 1;
-    const static char plane = 2;
-    int mode;
-    double L0;
-    double factor(){
-        return _C[mode]/L0;
+    const static int sphere = 0;
+    const static int cylinder = 1;
+    const static int plane = 2;
+    int mode = 0;
+    double L0 = 1;
+    double factor() const {
+        assert(mode >=0 && mode <=2);
+        return 1.*constants[mode]/L0;
     }
     private:
-    const double _C[3] = {2, 3, 4};
+    const double constants[3] = {2, 3, 4};
 };
 
 namespace{
-    [[maybe_unused]] std::ostream& operator<<(std::ostream& os, LossGeometry g) {
+    [[maybe_unused]] std::ostream& operator<<(std::ostream& os, const LossGeometry& g) {
         switch (g.mode)
         {
         case LossGeometry::sphere:

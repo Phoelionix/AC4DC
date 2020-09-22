@@ -6,19 +6,6 @@
 
 using namespace std;
 
-RateData::EIIdata get_fake_eii() {
-    RateData::EIIdata tmp;
-    tmp.init = 0;
-    tmp.push_back(5, 2, 80, 8.9);
-    // tmp.push_back(1, 1, 1.3, 0.9);
-    // tmp.push_back(3, 2, 20, 1.9);
-    // tmp.push_back(7, 1, 5, 0.9);
-    return tmp;
-}
-
-
-const auto& one = [](double e) -> double {return 1.;};
-
 class BasisTester : public SplineIntegral{
     public:
     BasisTester(size_t F_size, double min_e, double max_e, GridSpacing grid_type) {
@@ -26,24 +13,16 @@ class BasisTester : public SplineIntegral{
         Distribution::set_elec_points(F_size, min_e, max_e, grid_type);
         // HACK: There are two distinct BasisSet-inheriting things, the Distribution static BasisIntegral
         // and this object. 
-        this->set_parameters(F_size, min_e, max_e, grid_type, 0);
+        this->set_parameters(F_size, min_e, max_e, grid_type, 1);
     }
 
-    void check_eii(string fstem)
+    void check_ee(string fstem)
     {
         
-        RateData::InverseEIIdata tbr_process = get_fake_eii();
         // Index runs along final states
-        std::vector<double> tot_gamma;
-        int num_fin_states = tbr_process.size();
-        tot_gamma.resize(num_fin_states, 0);
-        std::vector<SparsePair> eg;
-        double dQ = 0;
-
-        string gamma_loc = fstem + "_gamma.csv";
+        double dQ = 0;        
         string Q_loc = fstem + "_Q.csv";
 
-        ofstream gout(gamma_loc);
         ofstream qout(Q_loc);
 
         // Make Q_mat the correct size to store all the summed Q^J_{KL} coefficients 
@@ -56,28 +35,26 @@ class BasisTester : public SplineIntegral{
                 vi.resize(Distribution::size, 0);
             }
         }
-
-
         
-        SplineIntegral::sparse_matrix sm;
-        for (size_t J = 0; J < Distribution::size; J++)
-        {
-            sm = calc_Q_tbr(tbr_process, J);
-            for (auto&& entry : sm) {
-                Q_mat[entry.K][entry.L][J] = entry.val;
+        // Read all QEE params into file
+        SplineIntegral::pair_list ls;
+        for (size_t J = 0; J < Distribution::size; J++) {
+            for (size_t K=0; K < Distribution::size; K++) {
+                ls = calc_Q_ee(J, K);
+                for (auto&& entry : ls) {
+                    Q_mat[K][entry.idx][J] = entry.val;
+                }
             }
         } 
 
         // Print some helpful labels
-        gout<<"#L= ";
+        
         qout<<"#L= ";
         for (size_t L=0; L<Distribution::size; L++) {
-            gout <<(supp_max(L)+supp_min(L))*0.5<<" ";
             qout <<(supp_max(L)+supp_min(L))*0.5<<" ";
         }
-        gout<<endl;
         qout<<endl;
-
+        // Print the whole QEE tensor to stdout
         for (size_t J = 0; J < Distribution::size; J++)
         {
             cout<<"J = "<<J<<endl;
@@ -93,60 +70,31 @@ class BasisTester : public SplineIntegral{
 
         for (size_t K = 0; K < Distribution::size; K++)
         {
-            gout <<(supp_max(K)+supp_min(K))*0.5;
             qout <<(supp_max(K)+supp_min(K))*0.5;
             for (size_t L=0; L<Distribution::size; L++) {
-                Gamma_tbr(eg, tbr_process, K, L);
-                double tot = 0;
-                for (size_t j = 0; j < num_fin_states; j++)
-                {
-                    tot_gamma[j] += eg[j].val;
-                    tot += eg[j].val;
-                }
 
                 // Aggregate charges in each (K,L) combination, summed over J.
+                // This should sum to zero.
                 double dQ_tmp=0;
                 for (size_t J = 0; J < Distribution::size; J++)
                 {
                     dQ_tmp += Q_mat[K][L][J];
                 }
-                 
-                gout<<" "<<tot;
                 qout<<" "<<dQ_tmp;
                 dQ += dQ_tmp;
             }
-            gout<<endl;
             qout<<endl;
         }
-        gout.close();
         qout.close();
-
-
-
-        cerr<<endl<<"init -> fin   gamma_total   "<<endl;
-        double tot=0;
-        for (size_t j = 0; j < num_fin_states; j++)
-        {
-            cerr<<"[ "<<tbr_process.init<<"->"<<tbr_process.fin[j]<<" ] "<<tot_gamma[j]<<endl;
-            tot += tot_gamma[j];
-        }
-        cerr<<tot<<endl;
         
-        
-        
-
-        cerr<<" total dQ/dP_init:"<<endl;
+        cerr<<" total dQ:"<<endl;
         cerr<< dQ <<endl;
-        cerr<<" ratio: "<<endl;
-
-        cerr<<"Fraction: " << tot/ dQ <<endl;   
     }
 };
 
 
 int main(int argc, char const *argv[]) {
     if (argc < 6) cerr << "usage: "<<argv[0]<<" [filestem] [min_e (Ha)] [max_e (Ha)] [num_basis] [ grid type = [l]inear, [q]uadratic, [e]xponential ]";
-    double density = 1;
     string fstem(argv[1]);
     double min_e = atof(argv[2]);
     double max_e = atof(argv[3]);
@@ -155,7 +103,7 @@ int main(int argc, char const *argv[]) {
     istringstream is(argv[5]);
     is >> gt;
     BasisTester bt(N, min_e, max_e, gt);
-    bt.check_eii(fstem);
+    bt.check_ee(fstem);
     
     return 0;
 }

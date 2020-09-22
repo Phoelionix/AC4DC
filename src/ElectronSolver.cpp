@@ -170,7 +170,6 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
 
     if (!good_state) return;
 
-
     for (size_t a = 0; a < s.atomP.size(); a++) {
         const bound_t& P = s.atomP[a];
         bound_t& Pdot = sdot.atomP[a];
@@ -251,36 +250,26 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
             
         }
 
-
         // compute the dfdt vector
-        #ifndef NO_EII_Q
+        
         s.F.get_Q_eii(vec_dqdt, a, P);
-        #endif
-        #ifndef NO_TBR_Q
         s.F.get_Q_tbr(vec_dqdt, a, P);
-        #endif
+        
     }
 
-    // s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
+    s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
 
     sdot.F.applyDelta(vec_dqdt);
 
     // This is loss.
     sdot.F.addLoss(s.F, input_params.loss_geometry);
 
-    #ifdef OUTPUT_DFDT_TO_CERR
-    std::cerr<<t*Constant::fs_per_au;
-    for (size_t i=0; i<Distribution::size; i++) {
-        std::cerr<<" "<<sdot.F[i]<<" ";
-    }
-    std::cerr<<std::endl;
-    #endif
-
     if (isnan(s.norm()) || isnan(sdot.norm())) {
         cerr<<"NaN encountered in ODE iteration."<<endl;
         cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
         good_state = false; 
     }
+    
 
 }
 

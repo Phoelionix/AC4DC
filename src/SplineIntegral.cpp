@@ -33,23 +33,18 @@ double SplineIntegral::area(size_t J) {
 }
 
 // Resizes containers and fills them with the appropriate values
-void SplineIntegral::precompute_Q_coeffs(vector<RateData::Atom>& Atoms) {
-    std::cout<<"[ Q precalc ] Beginning coefficient computation..."<<std::endl;
-    // Size Q_EII and Q_TBR appropriately
+void SplineIntegral::precompute_QEII_coeffs(vector<RateData::Atom>& Atoms) {
+    std::cout<<"[ Q precalc ] Beginning Q_eii computation...";
+    // Size Q_EII appropriately
     Q_EII.resize(Atoms.size());
-    Q_TBR.resize(Atoms.size());
+    
     for (size_t a=0; a<Atoms.size(); a++) {
-        std::cout<<"[ Q precalc ] Atom "<<a+1<<"/"<<Atoms.size()<<std::endl;
+        std::cout<<"\n[ Q precalc ] Atom "<<a+1<<"/"<<Atoms.size()<<std::endl;
         Q_EII[a].resize(Atoms[a].num_conf);
-        Q_TBR[a].resize(Atoms[a].num_conf);
         for (size_t eta=0; eta<Atoms[a].num_conf; eta++) {
             Q_EII[a][eta].resize(num_funcs);
-            Q_TBR[a][eta].resize(num_funcs);
             for (auto& QaJ : Q_EII[a][eta]) {
                     QaJ.resize(num_funcs, 0);
-            }
-            for (auto& QaJ : Q_TBR[a][eta]) {
-                    QaJ.resize(0); // thse are the sparse lists
             }
         }
         // NOTE: length of EII vector is generally shorter than length of P
@@ -70,6 +65,41 @@ void SplineIntegral::precompute_Q_coeffs(vector<RateData::Atom>& Atoms) {
                         Q_EII[a][eii.init][J][K] = calc_Q_eii(eii, J, K);
                     }
                 }
+            }
+        }
+    }
+    _has_Qeii = true;
+
+    std::cout<<"\n[ Q precalc ] Done."<<std::endl;
+}
+
+// Resizes containers and fills them with the appropriate values
+void SplineIntegral::precompute_QTBR_coeffs(vector<RateData::Atom>& Atoms) {
+    std::cout<<"[ Q precalc ] Beginning Q_tbr computation..."<<std::endl;
+    // Size Q_TBR appropriately
+    Q_TBR.resize(Atoms.size());
+    for (size_t a=0; a<Atoms.size(); a++) {
+        std::cout<<"[ Q precalc ] Atom "<<a+1<<"/"<<Atoms.size()<<std::endl;
+        Q_TBR[a].resize(Atoms[a].num_conf);
+        for (size_t eta=0; eta<Atoms[a].num_conf; eta++) {
+            Q_TBR[a][eta].resize(num_funcs);
+            for (auto& QaJ : Q_TBR[a][eta]) {
+                    QaJ.resize(0); // thse are the sparse lists
+            }
+        }
+        // NOTE: length of EII vector is generally shorter than length of P
+        // (usually by 1 or 2, so dense matrices are fine)
+
+        size_t counter=1;
+        #pragma omp parallel default(none) shared(a, counter, Atoms, std::cout)
+		{
+			#pragma omp for schedule(dynamic) nowait
+            for (size_t J=0; J<num_funcs; J++) {
+                #pragma omp critical
+                {
+                    std::cout<<"\r[ Q precalc ] "<<counter<<"/"<<num_funcs<<" thread "<<omp_get_thread_num()<<std::flush;
+                    counter++;
+                }
                 
                 for (auto& tbr : RateData::inverse(Atoms[a].EIIparams)) {
                     Q_TBR[a][tbr.init][J] = calc_Q_tbr(tbr, J);
@@ -77,9 +107,14 @@ void SplineIntegral::precompute_Q_coeffs(vector<RateData::Atom>& Atoms) {
             }
         }
     }
-    _has_Qeii = true;
+    
     _has_Qtbr = true;
-    // Beginning of Q_EE computations
+    std::cout<<"\n[ Q precalc ] Done."<<std::endl;
+}
+
+// Resizes containers and fills them with the appropriate values
+void SplineIntegral::precompute_QEE_coeffs() {
+    std::cout<<"[ Q precalc ] Beginning Q_ee computation..."<<std::endl;
     Q_EE.resize(num_funcs);
     for(size_t J=0; J<num_funcs; J++) {
         Q_EE[J].resize(num_funcs);
@@ -88,8 +123,7 @@ void SplineIntegral::precompute_Q_coeffs(vector<RateData::Atom>& Atoms) {
         }
     }
     _has_Qee = true;
-
-    std::cout<<"\n[ Q precalc ] Done."<<std::endl;
+    std::cout<<"[ Q precalc ] Done."<<std::endl;
 }
 
 void SplineIntegral::Gamma_eii( std::vector<SparsePair>& Gamma_xi, const RateData::EIIdata& eii, size_t K) const{
@@ -359,7 +393,7 @@ SplineIntegral::pair_list SplineIntegral::calc_Q_ee(size_t J, size_t K) const {
                 double x = gaussX_EE[j] * (max_I2 - min_I2)/2 + (max_I2 + min_I2)/2;
                 tmp3 += gaussW_EE[j]*pow(x,-0.5)*(*this)(K, x);
             }
-            tmp3 *= 2*e*(max_I2 - min_I2)/2;
+            tmp3 *= 2*e*(max_I2 - min_I2)/2.;
             
             
             // F integral done.
@@ -372,23 +406,20 @@ SplineIntegral::pair_list SplineIntegral::calc_Q_ee(size_t J, size_t K) const {
             Gint *= 3*pow(e,-0.5)*(max_K_0E - min_K_0E)/2;
             // G integral done.
 
-            total += gaussW_EE[i]*this->D(J, e)*(
-                (tmp2 + tmp3)*( (*this)(L, e)/2/e - this->D(L, e) ) 
-                - Gint * (*this)(L, e)
-            );
+            total += gaussW_EE[i]*this->D(J, e)*( (tmp2 + tmp3)*( (*this)(L, e)/2/e - this->D(L, e) ) - Gint * (*this)(L, e) );
         }
         total *= 0.5*(max_JL-min_JL);
         // Multiply by alpha
         double CoulombLogarithm=5; // In reality, depends on the density and cold electron temperature.
         // Unclear how best to estimate this.
-        total *= 2/3*Constant::Pi*sqrt(2) * CoulombLogarithm;
+        total *= 2./3.*Constant::Pi*sqrt(2) * CoulombLogarithm;
         
-        if (fabs(total) > DBL_CUTOFF_QEE){
+        // if (fabs(total) > DBL_CUTOFF_QEE){
             SparsePair s;
             s.idx = L;
             s.val = total;
             p.push_back(s);
-        }
+        // }
     }
     return p;
 }

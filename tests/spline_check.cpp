@@ -6,12 +6,12 @@
 using namespace std;
 
 int main(int argc, char const *argv[]) {
-    if (argc < 7) {
+    if (argc < 5) {
         cout<<"Usage: "<<argv[0]<<" [fstem] [num_funcs] [min_e (Ha)] [max_e (Ha)] (linear|quadratic|exponential) "<<endl;
     }
     std::string dummy(argv[1]);
-    ofstream fout(dummy+"_vals");
-    ofstream dfout(dummy+"_derivative");
+    ofstream fout(dummy+"_vals.csv");
+    ofstream dfout(dummy+"_derivative.csv");
     int num_funcs = atoi(argv[2]);
     double min = atof(argv[3]);
     double max = atof(argv[4]);
