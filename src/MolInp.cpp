@@ -111,32 +111,32 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 6) stream >> elec_grid_type.num_exp;
 
 	}
-	const string bc = "\033[97;1m"; // begin colour escape code
+	const string bc = "\033[33m"; // begin colour escape code
 	const string clr = "\033[0m"; // clear escape code
-	const string banner = "\033[96m=======================================\033[0m";
+	// 80 equals signs
+	const string banner = "================================================================================";
 	cout<<banner<<endl;
 	cout<<bc<<"Unit cell size: "<<clr<<unit_V<<"A^3"<<endl;
-	cout<<bc<<"Droplet L0: "<<clr<<loss_geometry.L0<<"A"<<endl;
-	cout<<bc<<"Droplet Shape: "<<clr<<loss_geometry<<endl<<endl;
+	cout<<bc<<"Droplet L0:     "<<clr<<loss_geometry.L0<<"A"<<endl;
+	cout<<bc<<"Droplet Shape:  "<<clr<<loss_geometry<<endl<<endl;
 
-	cout<<bc<<"Photon energy: "<<clr<<omega<<" eV"<<endl;
-	cout<<bc<<"Pulse fluence: "<<clr<<fluence*10000<<"J/cm^2"<<endl;
-	cout<<bc<<"Pulse FWHM: "<<clr<<width<<"fs"<<endl<<endl;
+	cout<<bc<<"Photon energy:  "<<clr<<omega<<" eV"<<endl;
+	cout<<bc<<"Pulse fluence:  "<<clr<<fluence*10000<<"J/cm^2"<<endl;
+	cout<<bc<<"Pulse FWHM:     "<<clr<<width<<"fs"<<endl<<endl;
 
-	cout<<bc<<"Electron grid: "<<clr<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
-	cout<<"               "<<num_elec_points<<" points"<<endl;
-	cout<<bc<<"Grid type: "<<clr<<elec_grid_type<<endl;
+	cout<<bc<<"Electron grid:  "<<clr<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
+	cout<<    "                "<<num_elec_points<<" points"<<endl;
+	cout<<bc<<"Grid type:      "<<clr<<elec_grid_type<<endl;
 	if (elec_grid_type.mode == GridSpacing::hybrid){
-		cout<<bc<<"Exponential"<<clr<<" 0-"<<elec_grid_type.num_exp<<", Linear ";
-		cout<<elec_grid_type.num_exp<<"-"<<num_elec_points<<endl;
+		cout<<"Exponential"<<" 0-"<<elec_grid_type.num_exp<<", Linear ";
+		cout<<"                "<<elec_grid_type.num_exp<<"-"<<num_elec_points<<endl;
 	}
 	cout<<endl;
 
-	cout<<bc<<"ODE Iteration: "<<clr<<num_time_steps<<" timesteps"<<endl<<endl;
+	cout<<bc<<"ODE Iteration:  "<<clr<<num_time_steps<<" timesteps"<<endl<<endl;
 
-	cout<<bc<<"Output parameters: "<<clr<<endl;
-	cout<<bc<<"Timesteps: "<<clr<<out_T_size<<endl;
-	cout<<bc<<"Energy points: "<<clr<<out_F_size<<endl;
+	cout<<bc<<"Output:         "<<clr<<out_T_size<<" time grid points"<<endl;
+	cout<<    "                "<<out_F_size<<" energy grid points"<<endl;
 	cout<<banner<<endl;
 
 	// Convert to number of photon flux.

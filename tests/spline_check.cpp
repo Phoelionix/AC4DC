@@ -18,9 +18,9 @@ int main(int argc, char const *argv[]) {
     istringstream is(argv[5]);
     GridSpacing gs;
     is >> gs;
-
     BasisSet basis;
-    basis.set_parameters(num_funcs, min, max, gs, 0);
+    gs.zero_degree = 1;
+    basis.set_parameters(num_funcs, min, max, gs);
     double de = max/(num_funcs*20);
     double e=0;
     for (size_t i=0; i<num_funcs*20; i++) {

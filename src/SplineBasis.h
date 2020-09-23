@@ -11,7 +11,7 @@
 class BasisSet{
 public:
     BasisSet() {};
-    void set_parameters(size_t nfuncs, double min, double max, GridSpacing gt, int zero_degree);
+    void set_parameters(size_t nfuncs, double min, double max, GridSpacing gt);
     Eigen::VectorXd Sinv(const Eigen::VectorXd& deltaf);
     // Returns the ith basis function evaluated at point x
     double operator()(size_t i, double x) const;
@@ -42,7 +42,7 @@ protected:
     Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int> >  linsolver;
     std::vector<double> knot;
     double overlap(size_t j, size_t k) const;
-    void set_knot(unsigned zero_degree, GridSpacing gt);
+    void set_knot(GridSpacing gt);
     
 
     double _min;

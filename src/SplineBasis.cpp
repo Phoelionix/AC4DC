@@ -26,10 +26,10 @@ double find_root(std::function<double(double)> func, double a, double b, double 
 }
 
 // Constructs the grid over which the electron distribution is solved. 
-void BasisSet::set_knot(unsigned zero_degree, GridSpacing gt){
-    assert( BSPLINE_ORDER - zero_degree >=0 && "Failed to set boundary condition");
+void BasisSet::set_knot(GridSpacing gt){
+    assert( BSPLINE_ORDER - gt.zero_degree >=0 && "Failed to set boundary condition");
 
-    for (size_t i=0; i<BSPLINE_ORDER-zero_degree; i++) {
+    for (size_t i=0; i<BSPLINE_ORDER-gt.zero_degree; i++) {
         knot[i] = _min;
     }
 
@@ -62,7 +62,7 @@ void BasisSet::set_knot(unsigned zero_degree, GridSpacing gt){
     double lambda_hyb = (log(B_hyb*M+C_hyb) - log(_min))/M;
     
     
-    for(size_t i=BSPLINE_ORDER-zero_degree; i<=n; i++) {
+    for(size_t i=BSPLINE_ORDER-gt.zero_degree; i<=n; i++) {
         switch (gt.mode)
         {
         case GridSpacing::linear:
@@ -100,8 +100,8 @@ void BasisSet::set_knot(unsigned zero_degree, GridSpacing gt){
 }
 
 // Sets up the B-spline knot to have the appropriate shape (respecting boundary conditions)
-void BasisSet::set_parameters(size_t n, double min, double max, GridSpacing gt, int zero_degree) {
-    // zero_degree: The number of derivatives to set to zero: 0 = open conditions, 1=impose f(0)=0, 2=impose f(0)=f'(0) =0
+void BasisSet::set_parameters(size_t n, double min, double max, GridSpacing gt) {
+    // gt.zero_degree: The number of derivatives to set to zero: 0 = open conditions, 1=impose f(0)=0, 2=impose f(0)=f'(0) =0
     // n: the number of Bsplins to use in the basis
     // min: minimum energy
     // max: maximum energy
@@ -119,7 +119,7 @@ void BasisSet::set_parameters(size_t n, double min, double max, GridSpacing gt, 
     // t0=t1=...=tk-3, tn+3=...=tn+k
     knot.resize(n+BSPLINE_ORDER);
     // boundary at minimm energy enforces
-    set_knot(zero_degree, gt);
+    set_knot(gt);
 
     avg_e.resize(n);
     avg_e_sqrt.resize(n);
@@ -186,12 +186,7 @@ double BasisSet::at(size_t i, double x) const{
 double BasisSet::D(size_t i, double x) const{
     assert(i < num_funcs && i >= 0);
     static_assert(BSPLINE_ORDER > 1);
-    double tmp=0;
-    if (i > 0 && fabs(this->knot[i + BSPLINE_ORDER] - this->knot[i+1]) > __DBL_EPSILON__ )
-        tmp += BSpline::BSpline<BSPLINE_ORDER-1>(x, &knot[i]) / (this->knot[i + BSPLINE_ORDER] - this->knot[i+1]);
-    if (i < num_funcs - 1 && fabs(this->knot[i + BSPLINE_ORDER+1] - this->knot[i+2]) > __DBL_EPSILON__ )
-        tmp -= BSpline::BSpline<BSPLINE_ORDER-1>(x, &knot[i+1]) / (this->knot[i + 1 + BSPLINE_ORDER] - this->knot[i+2]);
-    return (BSPLINE_ORDER-1)*tmp;
+    return BSpline::DBSpline<BSPLINE_ORDER>(x, &knot[i]);
 }
 
 double BasisSet::overlap(size_t j,size_t i) const{

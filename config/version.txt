@@ -1,0 +1,3 @@
+Version 2: T.N.T.
+Totally Non-Thermal electron plasma simulation
+Alexander Koszlov and Alaric Sanders 2020

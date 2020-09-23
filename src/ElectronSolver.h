@@ -48,7 +48,6 @@ public:
     }
     void solve();
     void save(const std::string& folder);
-    // Expose the underlying MolInp command
     void compute_cross_sections(std::ofstream& _log, bool recalc=true);
 private:
     MolInp input_params;

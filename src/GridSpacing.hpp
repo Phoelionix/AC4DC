@@ -17,6 +17,7 @@ struct GridSpacing {
     const static char unknown = 101;
     char mode = 5;
     size_t num_exp = 0; // Used for hybrid spec only
+    unsigned zero_degree = 0; // Number of derivatives to set to zero at the origin
 };
 
 namespace{

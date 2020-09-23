@@ -101,11 +101,28 @@ struct CmdParser{
 };
 
 
+void print_banner(const char* fname){
+    ifstream ifs(fname, ifstream::in);
+
+    char c = ifs.get();
+    while (ifs.good()) {
+        std::cout << c;
+        c = ifs.get();
+    }
+    ifs.close();
+}
+
 int main(int argc, const char *argv[]) {
     CmdParser runsettings(argc, argv);
     if (!runsettings.valid_input) {
         return 1;
     }
+
+    cout<<"\033[1m";
+    print_banner("config/banner.txt");
+    cout<<"\033[34m";
+    print_banner("config/version.txt");
+    cout<<"\033[0m"<<endl<<endl;
 
     string name, logname, outdir;
 

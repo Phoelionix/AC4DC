@@ -10,22 +10,30 @@ using namespace std;
 // eV, fs
 class EEcoll : ode::Adams_BM<Distribution>{
 public:
-    EEcoll(double Temp, size_t num_points, double _dt, int _num_ptser) : Adams_BM<Distribution>(_num_ptser) {
+    EEcoll(double max_e, size_t num_e_points) : Adams_BM<Distribution>(3) {
         //                            num, min, max
         GridSpacing g(GridSpacing::linear);
-        Distribution::set_elec_points(100, 0, 6*Temp, g);
-        Distribution init;
-        // 100 electrons
-        cerr<<"Initial conditions: N=100 Maxwellian T="<<Temp*Constant::eV_per_Ha<<" eV, ";
-        cerr<<"curve with N=15 delta at "<<4*Temp*Constant::eV_per_Ha<<"eV"<<endl;
-        init.set_maxwellian(Temp, 100);
-        init.addDeltaSpike(4*Temp, 15);
+        g.zero_degree = 1;
+        Distribution::set_elec_points(num_e_points, 0, max_e, g);
+        
         // HACK: give it an empty Store
         vector<RateData::Atom> dummy(0);
         Distribution::precompute_Q_coeffs(dummy);
+        
+    }
+
+    void set_initial_condition(double E, double density, double spike_density, double _dt) {
+        Distribution init;
+        cerr<<"Initial conditions: n="<<density<<" Maxwellian T="<<E*Constant::eV_per_Ha<<" eV, ";
+        cerr<<"curve with n="<<spike_density<<" delta at "<<4*E*Constant::eV_per_Ha<<"eV"<<endl;
+        init.set_maxwellian(E, density);
+        init.addDeltaSpike(4*E, spike_density);
         this->setup(init, _dt);
-        this->iterate(0, num_points*_dt); // returns final time
-        // this->y and this->t are now populated
+        // this->y and this->t are now sized appropriately
+    }
+
+    void run_sim(double final_time){
+        this->iterate(0, final_time);
     }
 
     void print(string fname) {
@@ -48,18 +56,29 @@ protected:
 
 int main(int argc, char const *argv[]) {
 
-    if (argc < 4) {
-        cerr<<"Usage: "<<argv[0]<<" [fname] [T (Ha)] [fin_time] [num_points]"<<endl;
+    if (argc < 7) {
+        cerr<<"Usage: "<<argv[0]<<" [fname] [T (eV)] [fin_time (fs)] [num_t_points] [num_e_points] [density (A^-3)]"<<endl;
         return 1;
     }
     string fname(argv[1]);
     double temperature = atof(argv[2]);
     double fin_time = atof(argv[3]);
-    int num_pts = atoi(argv[4]);
+    int num_t_pts = atoi(argv[4]);
+    int num_e_pts = atoi(argv[5]);
+    double density = atof(argv[6]);
+
+    cerr<<"Density ="<<density<<" elec per Angstrom3"<<endl;
+    cerr<<"Final Time: "<<fin_time<<" fs in "<<num_t_pts<<" timesteps"<<endl;
+
     fin_time /= Constant::fs_per_au;
-    double step = fin_time/num_pts;
-    cerr<<"[electron-electron] "<<num_pts<<"electron points, h="<<step<<endl;
-    EEcoll I(temperature, num_pts, step, 3);
+    temperature /= Constant::eV_per_Ha;
+    density *= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
+
+    double step = fin_time/num_t_pts;
+    EEcoll I(6*temperature, num_e_pts);
+    cerr<<"final time: "<<fin_time<<" au"<<endl;
+    I.set_initial_condition(temperature, density, density*0.2, step);
+    I.run_sim(fin_time);
     I.print(fname);
     return 0;
 }
