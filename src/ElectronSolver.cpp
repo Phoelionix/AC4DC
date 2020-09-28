@@ -266,7 +266,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         
     }
 
-    s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
+    // s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
 
     sdot.F.applyDelta(vec_dqdt);
 
