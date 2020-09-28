@@ -262,7 +262,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         // compute the dfdt vector
         
         s.F.get_Q_eii(vec_dqdt, a, P);
-        // s.F.get_Q_tbr(vec_dqdt, a, P);
+        s.F.get_Q_tbr(vec_dqdt, a, P);
         
     }
 
