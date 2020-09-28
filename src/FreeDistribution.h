@@ -103,6 +103,10 @@ public:
 
     double integral(double (f)(double));
     double density() const;
+    double density(size_t cutoff) const;
+    // Returns an estimate of the plasma temperature based on all entries below cutoff
+    double k_temperature(size_t cutoff = size) const;
+    double CoulombLogarithm(size_t cutoff) const;
 
     static std::string output_energies_eV(size_t num_pts);
     std::string output_densities(size_t num_pts) const;

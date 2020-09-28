@@ -13,9 +13,6 @@ SplineIntegral Distribution::basis;
 // Psuedo-constructor thing
 void Distribution::set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style) {
     // Defines a grid of n points
-
-    // Hardcode the boundary condition: n(0)=0
-    grid_style.zero_degree = 1;
     basis.set_parameters(n, min_e, max_e, grid_style);
     Distribution::size=n;
 }
@@ -24,7 +21,7 @@ void Distribution::set_elec_points(size_t n, double min_e, double max_e, GridSpa
 void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const {
     assert(basis.has_Qeii());
     assert(P.size() == basis.Q_EII[a].size());
-    assert(v.size() == size);
+    assert((unsigned) v.size() == size);
     
     for (size_t xi=0; xi<P.size(); xi++) {
         // Loop over configurations that P refers to
@@ -54,10 +51,15 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) co
 // Puts the Q_EE changes into v
 void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     assert(basis.has_Qee());
+    // KLUDGE: Fix DebyeLength at 5 Angstrom = 9.4 Bohr
+    // const double DebyeLength = 5. / Constant::Angs_per_au;
+    // double CoulombLog = log(4./3.*Constant::Pi*DebyeLength*DebyeLength*DebyeLength*density());
+    double CoulombLog = CoulombLogarithm(size/3);
+    if (isnan(CoulombLog) || CoulombLog <= 0) return;
     for (size_t J=0; J<size; J++) {
         for (size_t K=0; K<size; K++) {
             for (auto& q : basis.Q_EE[J][K]) {
-                 v[J] += q.val * f[K] * f[q.idx];
+                 v[J] += q.val * f[K] * f[q.idx] * CoulombLog ;
             }
         }
     }
@@ -66,8 +68,8 @@ void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
 // // Taken verbatim from Rockwood as quoted by Morgan and Penetrante in ELENDIF
 // void Distribution::add_Q_ee(const Distribution& d, double kT) {
 //     double density=0;
-//     double lnLambda = log(kT/(4*Constant::Pi*density));
-//     double alpha = 2*Constant::Pi*sqrt(2)/3*lnLambda;
+//     double CoulombLog = log(kT/(4*Constant::Pi*density));
+//     double alpha = 2*Constant::Pi*sqrt(2)/3*CoulombLog;
 
 
 // }
@@ -140,8 +142,8 @@ double Distribution::operator()(double e) const{
 
 void Distribution::addDeltaSpike(double e, double N) {
     int idx = basis.i_from_e(e);
-    assert(idx < size);
-    f[idx] += N/basis.area(idx);
+    assert(idx >= 0 && (unsigned) idx < size);
+    f[idx] += N/basis.areas[idx];
 }
 
 void Distribution::applyDelta(const Eigen::VectorXd& v) {
@@ -154,7 +156,7 @@ void Distribution::applyDelta(const Eigen::VectorXd& v) {
 
 
 // - 3/sqrt(2) * 3 sqrt(e) * f(e) / R_
-// Very rough approcimation used here
+// Very rough approximation used here
 void Distribution::addLoss(const Distribution& d, const LossGeometry &l) {
     // f += "|   i|   ||   |_"
     for (size_t i=0; i<size; i++) {
@@ -179,14 +181,52 @@ double Distribution::norm() const{
     return x;
 }
 
-double Distribution::density() const{
+double Distribution::density() const {
     double tmp=0;
     for (size_t i = 0; i < size; i++)
     {
-        tmp += basis.widths[i]*f[i];
+        tmp += basis.areas[i]*f[i];
     }
     return tmp;
 }
+
+double Distribution::density(size_t cutoff) const {
+    double tmp=0;
+    for (size_t i = 0; i < cutoff; i++)
+    {
+        tmp += basis.areas[i]*f[i];
+    }
+    return tmp;
+}
+
+// Returns an estimate of k*T
+// based on kinetic energy density of the plasma below the index given by 'cutoff'
+double Distribution::k_temperature(size_t cutoff) const {
+    double tmp=0;
+    // Dodgy integral of e * f(e) de
+    double n = this->density(cutoff);
+    for (size_t i = 0; i < cutoff; i++)
+    {
+        tmp += basis.avg_e[i]*f[i]*basis.areas[i];
+    }
+    return tmp*2./3./n;
+}
+
+// Returns an estimate of ln(N_D) based on density and low-energy arguments
+double Distribution::CoulombLogarithm(size_t cutoff) const {
+    double tmp=0;
+    // Dodgy integral of e * f(e) de
+    double n = this->density(cutoff);
+    for (size_t i = 0; i < cutoff; i++)
+    {
+        tmp += basis.avg_e[i]*f[i]*basis.areas[i];
+    }
+    double kT = tmp*2./3./n;
+    double DebyeLength3 = pow(kT/4/Constant::Pi/n,1.5);
+    return log(4./3.*Constant::Pi* DebyeLength3);
+    // return 10;
+}
+
 
 double Distribution::integral(double (g)(double)) {
     double retval = 0;

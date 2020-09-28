@@ -116,20 +116,20 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	// 80 equals signs
 	const string banner = "================================================================================";
 	cout<<banner<<endl;
-	cout<<bc<<"Unit cell size: "<<clr<<unit_V<<"A^3"<<endl;
-	cout<<bc<<"Droplet L0:     "<<clr<<loss_geometry.L0<<"A"<<endl;
+	cout<<bc<<"Unit cell size: "<<clr<<unit_V<<" A^3"<<endl;
+	cout<<bc<<"Droplet L0:     "<<clr<<loss_geometry.L0<<" A"<<endl;
 	cout<<bc<<"Droplet Shape:  "<<clr<<loss_geometry<<endl<<endl;
 
 	cout<<bc<<"Photon energy:  "<<clr<<omega<<" eV"<<endl;
-	cout<<bc<<"Pulse fluence:  "<<clr<<fluence*10000<<"J/cm^2"<<endl;
-	cout<<bc<<"Pulse FWHM:     "<<clr<<width<<"fs"<<endl<<endl;
+	cout<<bc<<"Pulse fluence:  "<<clr<<fluence*10000<<" J/cm^2"<<endl;
+	cout<<bc<<"Pulse FWHM:     "<<clr<<width<<" fs"<<endl<<endl;
 
 	cout<<bc<<"Electron grid:  "<<clr<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
 	cout<<    "                "<<num_elec_points<<" points"<<endl;
 	cout<<bc<<"Grid type:      "<<clr<<elec_grid_type<<endl;
 	if (elec_grid_type.mode == GridSpacing::hybrid){
-		cout<<"Exponential"<<" 0-"<<elec_grid_type.num_exp<<", Linear ";
-		cout<<"                "<<elec_grid_type.num_exp<<"-"<<num_elec_points<<endl;
+		cout<<"                "<<"Exponential"<<" 0-"<<elec_grid_type.num_exp<<", Linear ";
+		cout<<elec_grid_type.num_exp<<"-"<<num_elec_points<<endl;
 	}
 	cout<<endl;
 

@@ -205,7 +205,7 @@ class Plotter:
         return (ax, ax2)
 
     def plot_atom_total(self, a):
-        ax, ax2 = self.setup_axes()
+        ax, _ax2 = self.setup_axes()
         tot = np.sum(self.boundData[a], axis=1)
         ax.plot(self.timeData, tot)
         ax.set_title("Configurational dynamics")
@@ -215,7 +215,7 @@ class Plotter:
         plt.show()
 
     def plot_atom_raw(self, a):
-        ax, ax2 = self.setup_axes()
+        ax, _ax2 = self.setup_axes()
         for i in range(self.boundData[a].shape[1]):
             ax.plot(self.timeData, self.boundData[a][:,i], label = self.statedict[a][i])
         ax.set_title("Configurational dynamics")
@@ -225,7 +225,7 @@ class Plotter:
         plt.show()
 
     def plot_charges(self, a):
-        ax, ax2 = self.setup_axes()
+        ax, _ax2 = self.setup_axes()
         self.aggregate_charges()
         for i in range(self.chargeData[a].shape[1]):
             max_at_zero = np.max(self.chargeData[a][0,:])
@@ -241,7 +241,7 @@ class Plotter:
         plt.show()
 
     def plot_tot_charge(self):
-        ax, ax2 = self.setup_axes()
+        ax, _ax2 = self.setup_axes()
         self.aggregate_charges()
         Q = np.zeros(self.timeData.shape[0])
         for a in self.atomdict:

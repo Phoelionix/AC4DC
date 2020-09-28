@@ -20,7 +20,7 @@ On success, it should satisfy
 Populatrs a Distribution with a maxwellian of temperature T, then adds two deltas: a DeltaLike "implicit" spike at 3T and a DeltaSpike explicit source at 2T.
 
 ## `tests/spline_check`
-Accepts same arguments as `BasisSet::set_parameters`, namely, `num_funcs, min, max, zero_degree, grid spacing`. Outputs all B-splines to stdout in a manner plottable by gnuplot
+Accepts same arguments as `BasisSet::set_parameters`, namely, `num_funcs, min, max, zero_degree_0, grid spacing`. Outputs all B-splines to stdout in a manner plottable by gnuplot
 
 ## `tests/sigma_test`
 Verifies a few key properties of the sigma integrals.

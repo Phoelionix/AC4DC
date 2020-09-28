@@ -19,11 +19,18 @@ int main(int argc, char const *argv[]) {
     GridSpacing gs;
     is >> gs;
     BasisSet basis;
-    gs.zero_degree = 1;
+    gs.zero_degree_0 = 0;
+    gs.zero_degree_inf = 1;
     basis.set_parameters(num_funcs, min, max, gs);
+    cout<<"Areas ";
+    for (size_t i = 0; i < basis.num_funcs; i++)
+    {
+        cout<<basis.areas[i]<<" ";
+    }
+    
     double de = max/(num_funcs*20);
     double e=0;
-    for (size_t i=0; i<num_funcs*20; i++) {
+    for (size_t i=0; i<num_funcs*24; i++) {
         fout<<e<<" ";
         dfout<<e<<" ";
         for (size_t j=0; j<num_funcs; j++) {

@@ -19,19 +19,6 @@ int SplineIntegral::i_from_e(double e) {
     return r_binsearch(e, knot.data(), knot.size(), 0);
 }
 
-double SplineIntegral::area(size_t J) {
-    assert(J < num_funcs);
-    double min = this->supp_min(J);
-    double max = this->supp_max(J);
-    double tmp=0;
-    for (int i=0; i<10; i++) {
-        double e = gaussX_10[i]*(max - min)/2 + (max+min)/2;
-        tmp += gaussW_10[i]*(*this)(J, e);
-    }
-    // Numerical integral of a polynomial machine go brrrr
-    return tmp*(max-min)/2;
-}
-
 // Resizes containers and fills them with the appropriate values
 void SplineIntegral::precompute_QEII_coeffs(vector<RateData::Atom>& Atoms) {
     std::cout<<"[ Q precalc ] Beginning Q_eii computation...";
@@ -352,13 +339,56 @@ SplineIntegral::sparse_matrix SplineIntegral::calc_Q_tbr( const RateData::Invers
     return retval;
 }
 
+
+inline double SplineIntegral::Q_ee_F(double e, size_t K) const {
+    double K_min = this->supp_min(K);
+    double K_max = this->supp_max(K);
+
+    // 2e^-1/2  int_0^e dx x phiK(x) 
+    double max_K_0E = min(K_max, e);
+    double min_K_0E = K_min;
+    double tmp2 = 0;
+    for (size_t j = 0; j < GAUSS_ORDER_EE; j++) {
+        double x = gaussX_EE[j] * (max_K_0E - min_K_0E)/2 + (max_K_0E + min_K_0E)/2;
+        tmp2 += gaussW_EE[j]*x*(*this)(K, x);
+    }
+    tmp2 *= 2*pow(e,-0.5)*(max_K_0E - min_K_0E)/2;
+
+    // 2e int_e^inf x^-1/2 phiK(x)
+    double max_I2 = K_max;
+    double min_I2 = max(K_min, e);
+    double tmp3 = 0;
+    for (size_t j = 0; j < GAUSS_ORDER_EE; j++) {
+        double x = gaussX_EE[j] * (max_I2 - min_I2)/2 + (max_I2 + min_I2)/2;
+        tmp3 += gaussW_EE[j]*pow(x,-0.5)*(*this)(K, x);
+    }
+    tmp3 *= 2*e*(max_I2 - min_I2)/2.;
+
+    return tmp2 + tmp3;
+}    
+
+inline double SplineIntegral::Q_ee_G(double e, size_t K) const {   
+    // F integral done.
+    // Begin G integral
+    double max_K_0E = min(this->supp_max(K), e);
+    double min_K_0E = this->supp_min(K);
+
+    double Gint = 0;
+    for (size_t j = 0; j < GAUSS_ORDER_EE; j++) {
+        double x = gaussX_EE[j] * (max_K_0E - min_K_0E)/2 + (max_K_0E + min_K_0E)/2;
+        Gint += gaussW_EE[j]*(*this)(K, x);
+    }
+    Gint *= 3*pow(e,-0.5)*(max_K_0E - min_K_0E)/2;
+    // G integral done.
+
+    return  Gint;
+}
+
 // Uses a modified form of the result quoted by Rockwood 1973, 
 // "Elastic and Inelastic Cross Sections for Electron-Hg Scattering From Hg Transport Data"
 // Originally attributable to Rosenbluth
 // N.B. this is NOT an efficient implementation, but it only runs once -  \_( '_')_/
 SplineIntegral::pair_list SplineIntegral::calc_Q_ee(size_t J, size_t K) const {
-    double K_min = this->supp_min(K);
-    double K_max = this->supp_max(K);
     double J_min = this->supp_min(J);
     double J_max = this->supp_max(J);
     pair_list p(0);
@@ -373,53 +403,18 @@ SplineIntegral::pair_list SplineIntegral::calc_Q_ee(size_t J, size_t K) const {
 
         for (size_t i = 0; i < GAUSS_ORDER_EE; i++) {
             double e = gaussX_EE[i] * (max_JL - min_JL)/2 + (max_JL + min_JL)/2;
-            // Begin F integral
-
-            // 2e^-1/2  int_0^e dx x phiK(x) 
-            double max_K_0E = min(K_max, e);
-            double min_K_0E = K_min;
-            double tmp2 = 0;
-            for (size_t j = 0; j < GAUSS_ORDER_EE; j++) {
-                double x = gaussX_EE[j] * (max_K_0E - min_K_0E)/2 + (max_K_0E + min_K_0E)/2;
-                tmp2 += gaussW_EE[j]*x*(*this)(K, x);
-            }
-            tmp2 *= 2*pow(e,-0.5)*(max_K_0E - min_K_0E)/2;
-
-            // 2e int_e^inf x^-1/2 phiK(x)
-            double max_I2 = K_max;
-            double min_I2 = max(K_min, e);
-            double tmp3 = 0;
-            for (size_t j = 0; j < GAUSS_ORDER_EE; j++) {
-                double x = gaussX_EE[j] * (max_I2 - min_I2)/2 + (max_I2 + min_I2)/2;
-                tmp3 += gaussW_EE[j]*pow(x,-0.5)*(*this)(K, x);
-            }
-            tmp3 *= 2*e*(max_I2 - min_I2)/2.;
-            
-            
-            // F integral done.
-            // Begin G integral
-            double Gint = 0;
-            for (size_t j = 0; j < GAUSS_ORDER_EE; j++) {
-                double x = gaussX_EE[j] * (max_K_0E - min_K_0E)/2 + (max_K_0E + min_K_0E)/2;
-                Gint += gaussW_EE[j]*(*this)(K, x);
-            }
-            Gint *= 3*pow(e,-0.5)*(max_K_0E - min_K_0E)/2;
-            // G integral done.
-
-            total += gaussW_EE[i]*this->D(J, e)*( (tmp2 + tmp3)*( (*this)(L, e)/2/e - this->D(L, e) ) - Gint * (*this)(L, e) );
+            total += gaussW_EE[i]*this->D(J, e)*(Q_ee_F(e, K) * ( (*this)(L, e)/2/e - this->D(L, e) ) - Q_ee_G(e, K) * (*this)(L,e));
         }
         total *= 0.5*(max_JL-min_JL);
         // Multiply by alpha
-        double CoulombLogarithm=5; // In reality, depends on the density and cold electron temperature.
-        // Unclear how best to estimate this.
-        total *= 2./3.*Constant::Pi*sqrt(2) * CoulombLogarithm;
-        
-        // if (fabs(total) > DBL_CUTOFF_QEE){
+        total *= 2./3.*Constant::Pi*sqrt(2);
+        // N.B. this value still needs to be multiplied by the Coulomb logarithm.
+        if (fabs(total) > DBL_CUTOFF_QEE){
             SparsePair s;
             s.idx = L;
             s.val = total;
             p.push_back(s);
-        // }
+        }
     }
     return p;
 }

@@ -39,13 +39,15 @@ namespace BSpline{
         {
             double a=0;
             double h = *(t+k-1)-*t;
-            if (fabs(h) > 1e-16) a += BSpline<k-1>(x, t) * (k - 1) / h ;
+            if (fabs(h) > 1e-16) a += BSpline<k-1>(x, t) / h ;
             h = (*(t+k) - *(t+1));
-            if (fabs(h) > 1e-16) a -= BSpline<k-1>(x, (t+1)) * (k - 1) / h ;
-            return a * (k -1);
+            if (fabs(h) > 1e-16) a -= BSpline<k-1>(x, (t+1)) / h ;
+            return a * (k - 1);
         }
         else
+        {
             return 0;
+        }
     }
 
     template <>

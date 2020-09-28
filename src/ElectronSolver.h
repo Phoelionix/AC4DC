@@ -42,7 +42,7 @@ class ElectronSolver : private ode::Adams_BM<state_type>
 {
 public:
     ElectronSolver(const char* filename, ofstream& log) :
-    Adams_BM(5), input_params(filename, log), pf(input_params.Fluence(), input_params.Width()) // (order Adams method)
+    Adams_BM(3), input_params(filename, log), pf(input_params.Fluence(), input_params.Width()) // (order Adams method)
     {
         timespan_au = input_params.Width()*3;
     }
@@ -78,6 +78,7 @@ private:
 
 
     bool good_state = true;
+    double timestep_reached = 0;
 };
 
 

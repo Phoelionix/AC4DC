@@ -98,18 +98,27 @@ void ElectronSolver::solve() {
     auto start = std::chrono::system_clock::now();
 
     good_state = true;
-    cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<endl;
     this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
-        // if (!good_state){
-        //     input_params.num_time_steps *= 2;
-        //     if (input_params.num_time_steps > MAX_T_PTS){
-        //         std::cerr<<"Exceeded maximum T size. Skipping remaining iteration.."<<endl;
-        //         break;
-        //     }
-        //     std::cerr<<"Halving dt..."<<endl;
-        //     this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
-        // }
+    cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<std::endl;
     
+    double time = -timespan_au/2;
+    while (!good_state) {
+        std::cerr<<"\033[93;1m[ Rate Solver ] Halving timestep...\033[0m"<<std::endl;
+        good_state = true;
+        input_params.num_time_steps *= 2;
+        if (input_params.num_time_steps > MAX_T_PTS){
+            std::cerr<<"\033[31;1m[ Rate Solver ] Exceeded maximum T size. Skipping remaining iteration."<<std::endl;
+            break;
+        }
+        if (timestep_reached - time < 0){
+            std::cerr<<"\033[31;1m[ Rate Solver ] Shorter timestep failed to improve convergence. Skipping remaining iteration."<<std::endl;
+            break;
+        } else {
+            time = timestep_reached;
+        }
+        this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
+        this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM        
+    }
     
     
 
@@ -253,11 +262,11 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         // compute the dfdt vector
         
         s.F.get_Q_eii(vec_dqdt, a, P);
-        s.F.get_Q_tbr(vec_dqdt, a, P);
+        // s.F.get_Q_tbr(vec_dqdt, a, P);
         
     }
 
-    // s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
+    s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
 
     sdot.F.applyDelta(vec_dqdt);
 
@@ -267,7 +276,8 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
     if (isnan(s.norm()) || isnan(sdot.norm())) {
         cerr<<"NaN encountered in ODE iteration."<<endl;
         cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
-        good_state = false; 
+        good_state = false;
+        timestep_reached = t*Constant::fs_per_au;
     }
     
 

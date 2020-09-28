@@ -91,7 +91,6 @@ public:
     void Gamma_tbr( std::vector<SparsePair>& Gamma_xi, const RateData::InverseEIIdata& eii, size_t J, size_t K) const;
 
     int i_from_e(double e);
-    double area(size_t idx);
 
     bool has_Qeii() { return _has_Qeii; }
     bool has_Qtbr() { return _has_Qtbr; }
@@ -104,6 +103,9 @@ protected:
     double calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_t K) const;
     sparse_matrix calc_Q_tbr( const RateData::InverseEIIdata& tbr, size_t J) const;
     pair_list calc_Q_ee(size_t J, size_t K) const;
+
+    inline double Q_ee_F(double e, size_t K) const;
+    inline double Q_ee_G(double e, size_t K) const;
     // sparse_matrix calc_Q_ee(size_t J) const;
     bool _has_Qeii = false;  // Flags wheter Q_EII has been calculated
     bool _has_Qtbr = false;  // Flags wheter Q_TBR has been calculated

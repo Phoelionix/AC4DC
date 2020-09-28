@@ -13,18 +13,16 @@ class BasisTester : public SplineIntegral{
         Distribution::set_elec_points(F_size, min_e, max_e, grid_type);
         // HACK: There are two distinct BasisSet-inheriting things, the Distribution static BasisIntegral
         // and this object. 
-        grid_type.zero_degree=1;
         this->set_parameters(F_size, min_e, max_e, grid_type);
     }
 
-    void check_ee(string fstem)
+    void check_ee(string fname)
     {
         
         // Index runs along final states
         double dQ = 0;        
-        string Q_loc = fstem + "_Q.csv";
 
-        ofstream qout(Q_loc);
+        ofstream qout(fname);
 
         // Make Q_mat the correct size to store all the summed Q^J_{KL} coefficients 
         std::vector<std::vector<std::vector<double>>> Q_mat;
@@ -50,46 +48,47 @@ class BasisTester : public SplineIntegral{
 
         // Print some helpful labels
         
-        qout<<"#L= ";
+        cout<<"#L= ";
         for (size_t L=0; L<Distribution::size; L++) {
-            qout <<(supp_max(L)+supp_min(L))*0.5<<" ";
+            cout <<(supp_max(L)+supp_min(L))*0.5<<" ";
         }
-        qout<<endl;
-        // Print the whole QEE tensor to stdout
+        cout<<endl;
+        
+        // Print the whole QEE tensor to the supplied file
         for (size_t J = 0; J < Distribution::size; J++)
         {
-            cout<<"J = "<<J<<endl;
+            qout<<"J = "<<J<<endl;
             for (size_t K = 0; K < Distribution::size; K++)
             {
                 for (size_t L = 0; L < Distribution::size; L++)
                 {
-                    cout<<Q_mat[K][L][J]<<" ";
+                    qout<<(Q_mat[K][L][J]+ Q_mat[L][K][J])/2.<<" ";
                 }
-                cout<<endl;
+                qout<<endl;
             }
-        }
-
-        for (size_t K = 0; K < Distribution::size; K++)
-        {
-            qout <<(supp_max(K)+supp_min(K))*0.5;
-            for (size_t L=0; L<Distribution::size; L++) {
-
-                // Aggregate charges in each (K,L) combination, summed over J.
-                // This should sum to zero.
-                double dQ_tmp=0;
-                for (size_t J = 0; J < Distribution::size; J++)
-                {
-                    dQ_tmp += Q_mat[K][L][J];
-                }
-                qout<<" "<<dQ_tmp;
-                dQ += dQ_tmp;
-            }
-            qout<<endl;
         }
         qout.close();
         
-        cerr<<" total dQ:"<<endl;
-        cerr<< dQ <<endl;
+
+        for (size_t K = 0; K < Distribution::size; K++)
+        {
+            for (size_t L=0; L < Distribution::size; L++) {
+
+                // Aggregate charges in each (K,L) combination, summed over J.
+                // This should sum to zero.
+                // = J_KL (0) - J_KL(max)
+                double dQ_tmp=0;
+                Eigen::VectorXd v(Distribution::size);
+                Eigen::VectorXd w(Distribution::size);
+                for (size_t J = 0; J < Distribution::size; J++)
+                {
+                    v[J] = (Q_mat[K][L][J] + Q_mat[L][K][J])/ 2;
+                    w[J] = areas[J];
+                }
+                cout<<" "<<this->Sinv(v).dot(w);
+            }
+            cout<<endl;
+        }
     }
 };
 
@@ -101,6 +100,8 @@ int main(int argc, char const *argv[]) {
     double max_e = atof(argv[3]);
     int N = atoi(argv[4]);
     GridSpacing gt;
+    gt.zero_degree_0=0;
+    gt.zero_degree_inf = 3;
     istringstream is(argv[5]);
     is >> gt;
     BasisTester bt(N, min_e, max_e, gt);

@@ -4,20 +4,21 @@
 #define GRIDSPACING_CXX_H
 
 struct GridSpacing {
-    GridSpacing(){
-        mode= linear;
-    }
-    GridSpacing(char c){
-        mode= c;
-    }
+    // GridSpacing(){
+    //     mode= linear;
+    // }
+    // GridSpacing(char c){
+    //     mode= c;
+    // }
     const static char linear = 0;
     const static char quadratic = 1;
     const static char exponential = 2;
     const static char hybrid = 3;
     const static char unknown = 101;
-    char mode = 5;
+    char mode = unknown;
     size_t num_exp = 0; // Used for hybrid spec only
-    unsigned zero_degree = 0; // Number of derivatives to set to zero at the origin
+    unsigned zero_degree_0 = 0; // Number of derivatives to set to zero at the origin
+    unsigned zero_degree_inf = 0; // Number of derivatives to set to zero at infinity
 };
 
 namespace{
