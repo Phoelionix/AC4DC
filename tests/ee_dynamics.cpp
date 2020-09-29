@@ -24,8 +24,8 @@ public:
         Distribution init;
         cerr<<"Initial conditions: n="<<density<<" Maxwellian T="<<E/4.*Constant::eV_per_Ha<<" eV, ";
         cerr<<"curve with n="<<spike_density<<" delta at "<<E*Constant::eV_per_Ha<<"eV"<<endl;
-        // init.set_maxwellian(E/4., density);
         init = 0;
+        init.set_maxwellian(E/4., density);
         init.addDeltaSpike(E, spike_density);
         this->setup(init, _dt);
         cout<<init.density(Distribution::size)<<endl;
@@ -59,6 +59,7 @@ protected:
         Eigen::VectorXd v = Eigen::VectorXd::Zero(Distribution::size);;
         q.get_Q_ee(v);
         qdot.applyDelta(v);
+        cerr<<q.density()<<" "<<q.CoulombLogarithm(Distribution::size/3)<<endl;
         if (isnan(qdot.norm())) throw runtime_error("NaN encountered in sdot");
     }
 };
@@ -79,7 +80,8 @@ int main(int argc, char const *argv[]) {
     GridSpacing gs;
     istringstream is(argv[8]);
     is >> gs;
-    gs.zero_degree_0=1;
+    gs.num_exp = num_e_pts/2;
+    gs.zero_degree_0=0;
     gs.zero_degree_inf=0;
 
     cerr<<"Density ="<<density<<" elec per Angstrom3"<<endl;

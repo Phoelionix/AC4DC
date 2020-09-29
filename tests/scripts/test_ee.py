@@ -50,10 +50,16 @@ def plot_sums(min=0, max=None):
     ax.set_ylim([0,max])
 
 
-def MB_e(e, kT, n):
-    return n * np.sqrt(e/(np.pi*kT**3)) * np.exp(e/kT)
+def maxwell(e, kT, n):
+    return n * np.sqrt(e/(np.pi*kT**3)) * np.exp(-e/kT)
 
-def fit_step(idx = -1):
+def fit_step(idx = -1, guess = [1000, 1]):
     state = dat[idx,:]
-    popt, _pcov = curve_fit(MB_e, Y, state, p0 = [1, 1])
-    print("kT = %f, n = %f" % popt)
+    popt, _pcov = curve_fit(maxwell, Y, state, p0 = guess)
+    print("kT = %f, n = %f" % tuple(popt))
+    plt.plot(Y, state,label='t = %d' % t[idx])
+    plt.plot(Y, maxwell(Y, popt[0], popt[1]), label='fit')
+
+def plot_step(idx = -1, guess = [1000, 1]):
+    state = dat[idx,:]
+    plt.plot(Y, state,label='t = %d' % t[idx])

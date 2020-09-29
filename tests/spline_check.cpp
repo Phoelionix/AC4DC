@@ -19,13 +19,18 @@ int main(int argc, char const *argv[]) {
     GridSpacing gs;
     is >> gs;
     BasisSet basis;
-    gs.zero_degree_0 = 0;
-    gs.zero_degree_inf = 1;
+    gs.zero_degree_0 = 1;
+    gs.zero_degree_inf = 0;
     basis.set_parameters(num_funcs, min, max, gs);
     cout<<"Areas ";
     for (size_t i = 0; i < basis.num_funcs; i++)
     {
         cout<<basis.areas[i]<<" ";
+    }
+    cout<<"\navg_e ";
+    for (size_t i = 0; i < basis.num_funcs; i++)
+    {
+        cout<<basis.avg_e[i]<<" ";
     }
     
     double de = max/(num_funcs*20);

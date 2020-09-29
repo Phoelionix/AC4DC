@@ -223,7 +223,7 @@ double Distribution::CoulombLogarithm(size_t cutoff) const {
     }
     double kT = tmp*2./3./n;
     double DebyeLength3 = pow(kT/4/Constant::Pi/n,1.5);
-    return log(4./3.*Constant::Pi* DebyeLength3);
+    return log(4./3.*Constant::Pi* n*DebyeLength3);
     // return 10;
 }
 
