@@ -110,7 +110,7 @@ void SplineIntegral::precompute_QEE_coeffs() {
         }
     }
     _has_Qee = true;
-    std::cout<<"[ Q precalc ] Done."<<std::endl;
+    std::cout<<"\n[ Q precalc ] Done."<<std::endl;
 }
 
 void SplineIntegral::Gamma_eii( std::vector<SparsePair>& Gamma_xi, const RateData::EIIdata& eii, size_t K) const{
