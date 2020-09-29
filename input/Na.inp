@@ -5,7 +5,7 @@
 coulomb      // Nuclear potential model. Can be "coulomb" for point-like nucleus, "sphere" for spherical nucleus.
 HF           // Hamiltonian form. Can be HF, LDA.
 // Orbitals and their occupancies
-5	         // Number of orbitals. Can include virtual orbitals which have occupancy = 0.
+4	         // Number of orbitals. Can include virtual orbitals which have occupancy = 0.
 1s 2
 2s 2
 2p 6
