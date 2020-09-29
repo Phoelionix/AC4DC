@@ -139,7 +139,7 @@ void ElectronSolver::precompute_gamma_coeffs() {
     std::cout<<"[ Gamma precalc ] Beginning coefficient computation..."<<std::endl;
     size_t N = Distribution::size;
     for (size_t a = 0; a < input_params.Store.size(); a++) {
-        std::cout<<"[ Gamma precalc ] Atom "<<a+1<<"/"<<input_params.Store.size()<<std::endl;
+        std::cout<<"\n[ Gamma precalc ] Atom "<<a+1<<"/"<<input_params.Store.size()<<std::endl;
         auto& eiiVec = input_params.Store[a].EIIparams;
         vector<RateData::InverseEIIdata> tbrVec = RateData::inverse(eiiVec);
         size_t counter=1;
@@ -154,7 +154,7 @@ void ElectronSolver::precompute_gamma_coeffs() {
                 }
                 Distribution::Gamma_eii(RATE_EII[a][n], eiiVec, n);
                 // Weird indexing exploits symmetry of Gamma_TBR
-                // such that only half of hte coefficients are stored
+                // such that only half of the coefficients are stored
                 for (size_t m=n+1; m<N; m++) {
                     size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                     // // k = N... N(N+1)/2

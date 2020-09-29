@@ -111,6 +111,11 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 6) stream >> elec_grid_type.num_exp;
 
 	}
+
+	// Hardcode the boundary conditions
+	elec_grid_type.zero_degree_inf = 0;
+	elec_grid_type.zero_degree_0 = 1;
+
 	const string bc = "\033[33m"; // begin colour escape code
 	const string clr = "\033[0m"; // clear escape code
 	// 80 equals signs
