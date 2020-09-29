@@ -59,7 +59,6 @@ protected:
         Eigen::VectorXd v = Eigen::VectorXd::Zero(Distribution::size);;
         q.get_Q_ee(v);
         qdot.applyDelta(v);
-        cerr<<q.density()<<" "<<q.CoulombLogarithm(Distribution::size/3)<<endl;
         if (isnan(qdot.norm())) throw runtime_error("NaN encountered in sdot");
     }
 };
@@ -81,7 +80,7 @@ int main(int argc, char const *argv[]) {
     istringstream is(argv[8]);
     is >> gs;
     gs.num_exp = num_e_pts/2;
-    gs.zero_degree_0=0;
+    gs.zero_degree_0=1;
     gs.zero_degree_inf=0;
 
     cerr<<"Density ="<<density<<" elec per Angstrom3"<<endl;
