@@ -86,7 +86,7 @@ public:
     void addLoss(const Distribution& d, const LossGeometry& l);
     
     // Sets the object to have a MB distribution
-    void set_maxwellian(double N, double T);
+    void add_maxwellian(double N, double T);
 
     // Precalculators
     static void Gamma_eii( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J) {

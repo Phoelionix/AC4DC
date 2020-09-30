@@ -25,8 +25,8 @@ public:
         cerr<<"Initial conditions: n="<<density<<" Maxwellian T="<<E/4.*Constant::eV_per_Ha<<" eV, ";
         cerr<<"curve with n="<<spike_density<<" delta at "<<E*Constant::eV_per_Ha<<"eV"<<endl;
         init = 0;
-        init.set_maxwellian(E/4., density);
-        init.addDeltaSpike(E, spike_density);
+        init.add_maxwellian(E/4., density);
+        init.addDeltaSpike(E/4, spike_density);
         this->setup(init, _dt);
         cout<<init.density(Distribution::size)<<endl;
         // this->y and this->t are now sized appropriately

@@ -32,8 +32,9 @@ void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname) {
     f << "# Time (fs) | Flux (pht/cm2/s)" <<endl;
     for (auto& t : Tvec) {
         f << t*Constant::fs_per_au << " ";
-        double intensity = (*this)(t)*1e15;
-        intensity /= Constant::fs_per_au*Constant::cm_per_au*Constant::cm_per_au;
+        double intensity = (*this)(t);
+        intensity /= Constant::fs_per_au;
+        intensity /= Constant::cm_per_au*Constant::cm_per_au;
         f << intensity <<std::endl;
     }
     f.close();
@@ -189,6 +190,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
             // W.coeffRef(r.to, r.from) += r.val*J;
             Pdot[r.to] += r.val*J*P[r.from];
             Pdot[r.from] -= r.val*J*P[r.from];
+            assert(r.val>0);
             sdot.F.addDeltaSpike(r.energy, r.val*J*P[r.from]);
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
@@ -206,8 +208,9 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
             // W.coeffRef(r.to, r.from) += r.val;
             Pdot[r.to] += r.val*P[r.from];
             Pdot[r.from] -= r.val*P[r.from];
-            // XXX: swapped  DeltaLike for DeltaSpike
-            sdot.F.addDeltaSpike(r.energy, r.val*P[r.from]);
+            
+            // sdot.F.addDeltaSpike(r.energy, r.val*P[r.from]);
+            sdot.F.add_maxwellian(r.energy*2./3., r.val*P[r.from]);
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
         }
 

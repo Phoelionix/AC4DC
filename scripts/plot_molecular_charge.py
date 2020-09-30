@@ -51,7 +51,7 @@ class Plotter:
         self.statedict = {}
 
         # Outputs
-        self.outDir = self.p + "/output/__Molecular/"+mol
+        self.outDir = self.p + "/output/__Molecular/" + mol
         self.freeFile = self.outDir+"/freeDist.csv"
         self.intFile = self.outDir + "/intensity.csv"
 
@@ -220,9 +220,27 @@ class Plotter:
             ax.plot(self.timeData, self.boundData[a][:,i], label = self.statedict[a][i])
         ax.set_title("Configurational dynamics")
         ax.set_ylabel("Density")
-        plt.figlegend(loc = (0.11, 0.43))
-        plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
-        plt.show()
+        fig.figlegend(loc = (0.11, 0.43))
+        fig.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
+        fig.show()
+
+    def plot_ffactor(self, a, num_tsteps = 20):
+        fdists = np.genfromtxt('output/'+a+'/Xsections/Form_Factor.txt')
+        # These correspond to the meaning of the FormFactor.txt entries themselves
+        KMIN = 0
+        KMAX = 2
+        dim = len(fdists.shape)
+        kgrid = np.linspace(KMIN,KMAX,fdists.shape[0 if dim == 1 else 1])
+        fig2 = plt.figure()
+        ax = fig2.add_subplot(111)
+        ax.set_xlabel('k, atomic units')
+        
+        timedata = self.boundData[a][:,:-1] # -1 excludes the bare nucleus
+        dynamic_k = np.tensordot(fdists.T, timedata.T,axes=1) 
+        step = dynamic_k.shape[1] // num_tsteps
+        for i in range(0, dynamic_k.shape[1], step):
+            ax.plot(kgrid, dynamic_k[:,i])
+        fig.show()
 
     def plot_charges(self, a):
         ax, _ax2 = self.setup_axes()
@@ -280,8 +298,6 @@ class Plotter:
         
         if log:
             Z = np.log(Z)
-        
-        
         
         if min is not None:
             Z = np.ma.masked_where(Z < min, Z)

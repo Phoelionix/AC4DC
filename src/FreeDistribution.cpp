@@ -54,7 +54,8 @@ void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     // KLUDGE: Fix DebyeLength at 5 Angstrom = 9.4 Bohr
     // const double DebyeLength = 5. / Constant::Angs_per_au;
     // double CoulombLog = log(4./3.*Constant::Pi*DebyeLength*DebyeLength*DebyeLength*density());
-    double CoulombLog = CoulombLogarithm(size/3);
+    double CoulombLog=2.5;
+    // double CoulombLog = CoulombLogarithm(size/3);
     if (isnan(CoulombLog) || CoulombLog <= 0) return;
     for (size_t J=0; J<size; J++) {
         for (size_t K=0; K<size; K++) {
@@ -78,7 +79,7 @@ void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
 // utility
 
 // Expects T to have units of Ha
-void Distribution::set_maxwellian(double T, double N) {
+void Distribution::add_maxwellian(double T, double N) {
     Eigen::VectorXd v(size);
     for (size_t i=0; i<size; i++) {
         v[i] = 0;
@@ -93,7 +94,7 @@ void Distribution::set_maxwellian(double T, double N) {
     }
     Eigen::VectorXd u = this->basis.Sinv(v);
     for (size_t i=0; i<size; i++) {
-        this->f[i] = u[i];
+        this->f[i] += u[i];
     }
 }
 
