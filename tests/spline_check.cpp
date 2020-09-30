@@ -22,7 +22,20 @@ int main(int argc, char const *argv[]) {
     gs.zero_degree_0 = 1;
     gs.zero_degree_inf = 0;
     basis.set_parameters(num_funcs, min, max, gs);
-    cout<<"Areas ";
+    cout<<"Testing partition of unity"<<endl;
+    double step = (max - min) / num_funcs / 10;
+    double x = 0;
+    for (size_t i = 0; i < basis.num_funcs*10; i++)
+    {
+        double tmp=0;
+        for (size_t j = 0; j < basis.num_funcs; j++)
+        {
+            tmp += basis(j, x);
+        }
+        x += step;
+        cout<<" "<<tmp<<endl;
+    }
+    cout<<"\nAreas ";
     for (size_t i = 0; i < basis.num_funcs; i++)
     {
         cout<<basis.areas[i]<<" ";

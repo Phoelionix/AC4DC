@@ -21,17 +21,21 @@ struct SparsePair
 };
 
 // defines for numerical integration
-static const int GAUSS_ORDER_EII = 4;
-static const double gaussX_EII[] = {-0.3399810435848563, 0.3399810435848563, -0.8611363115940526, 0.8611363115940526};
-static const double gaussW_EII[] = {0.6521451548625461, 0.6521451548625461, 0.3478548451374538, 0.3478548451374538};
-static const int GAUSS_ORDER_TBR = 4;
-static const double gaussX_TBR[] = {-0.3399810435848563, 0.3399810435848563, -0.8611363115940526, 0.8611363115940526};
-static const double gaussW_TBR[] = {0.6521451548625461, 0.6521451548625461, 0.3478548451374538, 0.3478548451374538};
+static const int GAUSS_ORDER_EII = 13;
+// static const double gaussX_EII[] = {-0.3399810435848563, 0.3399810435848563, -0.8611363115940526, 0.8611363115940526};
+// static const double gaussW_EII[] = {0.6521451548625461, 0.6521451548625461, 0.3478548451374538, 0.3478548451374538};
+static const int GAUSS_ORDER_TBR = 10;
+// static const double gaussX_TBR[] = {-0.3399810435848563, 0.3399810435848563, -0.8611363115940526, 0.8611363115940526};
+// static const double gaussW_TBR[] = {0.6521451548625461, 0.6521451548625461, 0.3478548451374538, 0.3478548451374538};
 // static const double gaussX_EE[] = {-0.3399810435848563, 0.3399810435848563, -0.8611363115940526, 0.8611363115940526};
 // static const double gaussW_EE[] = {0.6521451548625461, 0.6521451548625461, 0.3478548451374538, 0.3478548451374538};
 static const int GAUSS_ORDER_EE = 10;
 #define gaussX_EE gaussX_10
 #define gaussW_EE gaussW_10
+#define gaussX_EII gaussX_13
+#define gaussW_EII gaussW_13
+#define gaussX_TBR gaussX_10
+#define gaussW_TBR gaussW_10
 
 // Interpretation:
 // eiiGraph[xi] -> vector of transitions away from configuration xi, e.g.

@@ -127,6 +127,10 @@ void SplineIntegral::Gamma_eii( std::vector<SparsePair>& Gamma_xi, const RateDat
             }
             tmp *= (b-a)/2;
             tmp *= 1.4142; // Electron mass = 1 in atomic units
+            SparsePair rate;
+            rate.idx=eii.fin[eta];
+            rate.val= tmp;
+            Gamma_xi.push_back(rate);
         }
         // double e = knot[K];
         // double tmp = knot[K+1]-knot[K];
@@ -135,10 +139,7 @@ void SplineIntegral::Gamma_eii( std::vector<SparsePair>& Gamma_xi, const RateDat
         // tmp *= pow(e,0.5) * Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
         // tmp *= 1.4142135624;
 
-        SparsePair rate;
-        rate.idx=eii.fin[eta];
-        rate.val= tmp;
-        Gamma_xi.push_back(rate);
+        
     }
 }
 

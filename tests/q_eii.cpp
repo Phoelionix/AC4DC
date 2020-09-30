@@ -21,11 +21,13 @@ const auto& one = [](double e) -> double {return 1.;};
 class BasisTester : public SplineIntegral{
     public:
     BasisTester(size_t F_size, double min_e, double max_e, GridSpacing grid_type) {
-        
+        grid_type.zero_degree_0 = 0;
+        grid_type.zero_degree_inf = 0;
         Distribution::set_elec_points(F_size, min_e, max_e, grid_type);
         // HACK: There are two distinct BasisSet-inheriting things, the Distribution static BasisIntegral
         // and this object. 
-        this->set_parameters(F_size, min_e, max_e, 0, grid_type);
+        
+        this->set_parameters(F_size, min_e, max_e, grid_type);
     }
 
     void check_eii(string filestem)

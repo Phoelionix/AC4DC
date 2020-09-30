@@ -34,14 +34,14 @@ def plotit():
 
 def plotsum():    
     fig, (ax) = plt.subplots(nrows=1,ncols=1, sharex=True, sharey=True, figsize = (3,3))
-    im = ax.pcolormesh(energies, energies, (Gdata + 0.5*Qdata), cmap = cm)
+    im = ax.pcolormesh(energies, energies, (Gdata + Qdata), cmap = cm)
     ax.set_title('(G + Q)')
     fig.colorbar(im)
 
 def plotdiff():    
     fig, (ax) = plt.subplots(nrows=1,ncols=1, sharex=True, sharey=True, figsize = (3,3))
-    im = ax.pcolormesh(energies, energies, (Gdata - 0.5*Qdata), cmap = cm)
-    ax.set_title('(G - Q)')
+    im = ax.pcolormesh(energies, energies, (Gdata + 0.5*Qdata), cmap = cm)
+    ax.set_title('(G + 0.5Q)')
     fig.colorbar(im)
 
 plotit()
