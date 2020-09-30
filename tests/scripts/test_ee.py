@@ -63,3 +63,8 @@ def fit_step(idx = -1, guess = [1000, 1]):
 def plot_step(idx = -1, guess = [1000, 1]):
     state = dat[idx,:]
     plt.plot(Y, state,label='t = %d' % t[idx])
+
+def plotsteps():
+    for i in range(0,t.size,t.size//5):
+        plot_step(i)
+    plt.legend()

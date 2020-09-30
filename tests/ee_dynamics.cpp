@@ -10,7 +10,7 @@ using namespace std;
 // eV, fs
 class EEcoll : ode::Adams_BM<Distribution>{
 public:
-    EEcoll(double min_e, double max_e, size_t num_e_points, const GridSpacing& g) : Adams_BM<Distribution>(3) {
+    EEcoll(double min_e, double max_e, size_t num_e_points, const GridSpacing& g) : Adams_BM<Distribution>(5) {
         //                            num, min, max
         Distribution::set_elec_points(num_e_points, min_e, max_e, g);
         
@@ -25,15 +25,22 @@ public:
         cerr<<"Initial conditions: n="<<density<<" Maxwellian T="<<E/4.*Constant::eV_per_Ha<<" eV, ";
         cerr<<"curve with n="<<spike_density<<" delta at "<<E*Constant::eV_per_Ha<<"eV"<<endl;
         init = 0;
-        init.add_maxwellian(E/4., density);
-        init.addDeltaSpike(E/4, spike_density);
+        // init.add_maxwellian(E/4., density);
+        init.addDeltaSpike(E, spike_density);
         this->setup(init, _dt);
         cout<<init.density(Distribution::size)<<endl;
         // this->y and this->t are now sized appropriately
     }
 
     void run_sim(double final_time){
-        this->iterate(0, final_time);
+        try
+        {
+            this->iterate(0, final_time);
+        }
+        catch(const std::exception& e)
+        {
+            std::cerr << e.what() << '\n';
+        }
     }
 
     void printraw(string fname) {

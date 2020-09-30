@@ -103,6 +103,7 @@ void ElectronSolver::solve() {
     cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<std::endl;
     
     double time = -timespan_au/2;
+    int retries = 4;
     while (!good_state) {
         std::cerr<<"\033[93;1m[ Rate Solver ] Halving timestep...\033[0m"<<std::endl;
         good_state = true;
@@ -111,12 +112,13 @@ void ElectronSolver::solve() {
             std::cerr<<"\033[31;1m[ Rate Solver ] Exceeded maximum T size. Skipping remaining iteration."<<std::endl;
             break;
         }
-        if (timestep_reached - time < 0){
+        if (timestep_reached - time < 0 || retries == 0){
             std::cerr<<"\033[31;1m[ Rate Solver ] Shorter timestep failed to improve convergence. Skipping remaining iteration."<<std::endl;
             break;
         } else {
             time = timestep_reached;
         }
+        retries--;
         this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
         this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM        
     }
