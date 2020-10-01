@@ -5,8 +5,8 @@ Si 8         // Single conventional FCC (diamond) unit cell
 
 #VOLUME
 160.19      // Volume per molecule in Angstrom^3.
-1750          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
-cylinder      // Geometry specifier [NOT USED YET]
+175000          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+cylinder      // Geometry specifier 
 
 #PULSE
 8000         // Photon energy in eV.
@@ -16,10 +16,10 @@ cylinder      // Geometry specifier [NOT USED YET]
 #NUMERICAL
 8000        // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12          // Number of threads in OpenMP.
-0.01        // minimum free-electron energy in eV
+0.1        // minimum free-electron energy in eV
 10000       // maximum free-electron energy in eV
-200         // number of free-electron grid points
-hybrid      // electron grid type
+50         // number of free-electron grid points
+quadratic      // electron grid type
 100         // number of low-energy exponential grid points
 
 #OUTPUT
