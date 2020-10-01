@@ -66,6 +66,9 @@ class Plotter:
         self.update_outputs()
         self.autorun=False
 
+        self.fig_steps = plt.figure()
+        self.ax_steps = self.fig_steps.add_subplot(111)
+
     # Reads the control file specified by self.mol['infile']
     # and populates the atomdict data structure accordingly
     def get_atoms(self):
@@ -240,7 +243,7 @@ class Plotter:
         step = dynamic_k.shape[1] // num_tsteps
         for i in range(0, dynamic_k.shape[1], step):
             ax.plot(kgrid, dynamic_k[:,i])
-        fig.show()
+        fig2.show()
 
     def plot_charges(self, a):
         ax, _ax2 = self.setup_axes()
@@ -311,6 +314,15 @@ class Plotter:
         plt.xlabel("Time, fs")
         plt.show()
         plt.colorbar()
+
+    def plot_step(self, n):
+        
+        self.ax_steps.set_xlabel('Energy, eV')
+        self.ax_steps.set_xscale('log')
+        self.ax_steps.set_yscale('log')
+        norm = np.sum(self.freeData[n,:])
+        self.ax_steps.plot(self.energyKnot, self.freeData[n,:]/norm, label='t=%f fs' % self.timeData[n])
+        self.fig_steps.show()
 
 
 
