@@ -318,10 +318,11 @@ class Plotter:
     def plot_step(self, n):
         
         self.ax_steps.set_xlabel('Energy, eV')
+        self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
         self.ax_steps.set_xscale('log')
         self.ax_steps.set_yscale('log')
         norm = np.sum(self.freeData[n,:])
-        self.ax_steps.plot(self.energyKnot, self.freeData[n,:]/norm, label='t=%f fs' % self.timeData[n])
+        self.ax_steps.plot(self.energyKnot, self.energyKnot*self.freeData[n,:]/norm, label='t=%f fs' % self.timeData[n])
         self.fig_steps.show()
 
 

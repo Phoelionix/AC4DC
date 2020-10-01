@@ -143,7 +143,12 @@ void ElectronSolver::precompute_gamma_coeffs() {
     size_t N = Distribution::size;
     for (size_t a = 0; a < input_params.Store.size(); a++) {
         std::cout<<"\n[ Gamma precalc ] Atom "<<a+1<<"/"<<input_params.Store.size()<<std::endl;
-        auto& eiiVec = input_params.Store[a].EIIparams;
+        auto eiiVec = input_params.Store[a].EIIparams;
+        for (int i=0; i<eiiVec.size(); i++){
+            for (auto& B : eiiVec[i].ionB){
+                B *= 10;
+            } 
+        }
         vector<RateData::InverseEIIdata> tbrVec = RateData::inverse(eiiVec);
         size_t counter=1;
         #pragma omp parallel default(none) shared(a, N, counter, tbrVec, eiiVec, RATE_EII, RATE_TBR, std::cout)
@@ -155,6 +160,7 @@ void ElectronSolver::precompute_gamma_coeffs() {
                     std::cout<<"\r[ Gamma precalc ] "<<counter<<"/"<<N<<" thread "<<omp_get_thread_num()<<std::flush;
                     counter++;
                 }
+                
                 Distribution::Gamma_eii(RATE_EII[a][n], eiiVec, n);
                 // Weird indexing exploits symmetry of Gamma_TBR
                 // such that only half of the coefficients are stored
@@ -232,7 +238,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
                 }
             }
             #endif
-
+#define NO_TBR_GAMMA
             #ifndef NO_TBR_GAMMA
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
             // Note that RATE_TBR has the same geometry as InverseEIIdata.
@@ -267,11 +273,11 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         // compute the dfdt vector
         
         s.F.get_Q_eii(vec_dqdt, a, P);
-        s.F.get_Q_tbr(vec_dqdt, a, P);
+        // s.F.get_Q_tbr(vec_dqdt, a, P);
         
     }
 
-    s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
+    // s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
 
     sdot.F.applyDelta(vec_dqdt);
 

@@ -10,7 +10,7 @@ C 4
 #PULSE
 6000         // Photon energy in eV.
 10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-10           // Pulse fluence in 10^4 * J/cm^2.
+100           // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
 1000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.

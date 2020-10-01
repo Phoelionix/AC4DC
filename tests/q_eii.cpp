@@ -9,10 +9,10 @@ using namespace std;
 RateData::EIIdata get_fake_eii() {
     RateData::EIIdata tmp;
     tmp.init = 0;
-    tmp.push_back(3, 2, 20, 1.9);
-    tmp.push_back(5, 2, 44.3, 8.9);
+    // tmp.push_back(3, 2, 20, 1.9);
+    // tmp.push_back(5, 2, 44.3, 8.9);
     tmp.push_back(1, 1, 1.3, 0.9);
-    tmp.push_back(7, 1, 5, 0.9);
+    // tmp.push_back(7, 1, 80, 0.9);
     return tmp;
 }
 
