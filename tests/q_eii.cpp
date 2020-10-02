@@ -11,8 +11,8 @@ RateData::EIIdata get_fake_eii() {
     tmp.init = 0;
     // tmp.push_back(3, 2, 20, 1.9);
     // tmp.push_back(5, 2, 44.3, 8.9);
-    // tmp.push_back(1, 1, 1.77, 1.36);
-    tmp.push_back(7, 1, 1.7, 13);
+    tmp.push_back(1, 1, 1.77, 1.36);
+    // tmp.push_back(1, 1, 11, 1);
     return tmp;
 }
 

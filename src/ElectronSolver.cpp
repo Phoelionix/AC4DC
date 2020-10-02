@@ -228,7 +228,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
                 }
             }
             #endif
-#define NO_TBR_GAMMA
+
             #ifndef NO_TBR_GAMMA
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
             // Note that RATE_TBR has the same geometry as InverseEIIdata.

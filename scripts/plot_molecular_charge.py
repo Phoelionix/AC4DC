@@ -288,7 +288,7 @@ class Plotter:
             self.plot_charges(a)
 
     def plot_free(self, N=100, log=False, min = None, max=None, tmax = None):
-        fig.clf()
+        plt.figure()
         # Need to turn freeData (matrix of BSpline coeffs)
         # freeeData [t, c]
         # into matrix of values.
@@ -315,18 +315,47 @@ class Plotter:
         plt.show()
         plt.colorbar()
 
-    def plot_step(self, n):
+    def plot_free_raw(self, N=100, log=False, min = None, max=None):
+        plt.figure()
+        rawdata = np.genfromtxt(self.outDir+'/freeDistRaw.csv')
+        T = rawdata[:,0]
+        self.rawZ = rawdata[:,1:].T
+        Z = self.rawZ
+
+        if log:
+            Z = np.log(Z)
         
+        if min is not None:
+            Z = np.ma.masked_where(Z < min, Z)
+
+        if max is not None:
+            Z = np.ma.masked_where(Z > max, Z)
+
+        Yax = np.arange(Z.shape[0])
+        plt.contourf(T, Yax, Z, N, cmap='viridis')
+        plt.title("Free electron energy distribution")
+        plt.ylabel("Energy (eV)")
+        plt.xlabel("Time, fs")
+        plt.show()
+        plt.colorbar()
+
+    def plot_step(self, n, smooth=0):        
         self.ax_steps.set_xlabel('Energy, eV')
         self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
         self.ax_steps.set_xscale('log')
         self.ax_steps.set_yscale('log')
-        norm = np.sum(self.freeData[n,:])
-        self.ax_steps.plot(self.energyKnot, self.energyKnot*self.freeData[n,:]/norm, label='t=%f fs' % self.timeData[n])
+        # norm = np.sum(self.freeData[n,:])
+        data = self.freeData[n,:]
+        data = moving_average(data, smooth)
+        X = moving_average(self.energyKnot,smooth)
+        self.ax_steps.plot(X, data*X, label='t=%f fs' % self.timeData[n])
         self.fig_steps.show()
 
 
-
+def moving_average(a, n=3) :
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
 
 pl = Plotter(sys.argv[1])
 pl.plot_tot_charge()

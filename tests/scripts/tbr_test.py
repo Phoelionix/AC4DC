@@ -20,16 +20,19 @@ bigg = max(maxQ,maxG)
 cm = 'magma'
 
 def plotit():    
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(nrows=2,ncols=2, sharex=True, sharey=True, figsize = (7,3))
+    fig, (ax1, ax2) = plt.subplots(nrows=1,ncols=2, sharex=True, sharey=True, figsize = (7,3))
     bottom = 0
     im = ax1.pcolormesh(energies, energies, -Qdata, vmin=bottom, vmax=bigg, cmap=cm)
     ax1.set_title(r'$-\sum_j Q^{TBR}_{j, kl}$', y=1.05)
+    ax1.set_xlabel("Mean energy of $k$th spline (Ha)")
+    ax1.set_ylabel("Mean energy of $l$th spline (Ha)")
     ax2.pcolormesh(energies, energies, Gdata, vmin=bottom, vmax=bigg, cmap=cm)
     ax2.set_title(r'$\sum_{\eta} \Gamma^{TBR}_{kl}$',y=1.05)
-    ax3.pcolormesh(energies, energies, np.abs(Gdata+ Qdata), vmin=bottom, vmax=bigg, cmap=cm)
-    ax3.set_title(r'$\left|\sum_{\eta} \Gamma^{TBR}_{kl} + \sum_j Q^{TBR}_{j, kl}\right|$',y=1.05)
-    ax4.pcolormesh(energies, energies, Gdata+0.5*Qdata, vmin=bottom, vmax=bigg, cmap=cm)
-    ax4.set_title(r'$\sum_{\eta} \Gamma^{TBR}_{kl} + \frac{1}{2}\sum_j Q^{TBR}_{j, kl}$',y=1.05)
+    ax2.set_xlabel("Mean energy of $k$th spline (Ha)")
+    # ax3.pcolormesh(energies, energies, np.abs(Gdata+ Qdata), vmin=bottom, vmax=bigg, cmap=cm)
+    # ax3.set_title(r'$\left|\sum_{\eta} \Gamma^{TBR}_{kl} + \sum_j Q^{TBR}_{j, kl}\right|$',y=1.05)
+    # ax4.pcolormesh(energies, energies, Gdata+0.5*Qdata, vmin=bottom, vmax=bigg, cmap=cm)
+    # ax4.set_title(r'$\sum_{\eta} \Gamma^{TBR}_{kl} + \frac{1}{2}\sum_j Q^{TBR}_{j, kl}$',y=1.05)
     
     fig.subplots_adjust(right=0.8,top=0.85)
     cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
