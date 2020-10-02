@@ -54,7 +54,7 @@ void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     // KLUDGE: Fix DebyeLength at 5 Angstrom = 9.4 Bohr
     // const double DebyeLength = 5. / Constant::Angs_per_au;
     // double CoulombLog = log(4./3.*Constant::Pi*DebyeLength*DebyeLength*DebyeLength*density());
-    double CoulombLog=2.5;
+    double CoulombLog=5;
     // double CoulombLog = CoulombLogarithm(size/3);
     if (isnan(CoulombLog) || CoulombLog <= 0) return;
     for (size_t J=0; J<size; J++) {
@@ -143,8 +143,13 @@ double Distribution::operator()(double e) const{
 
 void Distribution::addDeltaSpike(double e, double N) {
     int idx = basis.i_from_e(e);
-    assert(idx >= 0 && (unsigned) idx < size);
-    f[idx] += N/basis.areas[idx];
+    // assert(idx >= 0 && (unsigned) idx < size);
+    // f[idx] += N/basis.areas[idx];
+    unsigned num_offset = basis.BSPLINE_ORDER;
+    assert(idx + num_offset < size && idx >= num_offset);
+    f[idx] += N/basis.areas[idx]/2;
+    f[idx-1] += N/basis.areas[idx-1]/4;
+    f[idx+1] += N/basis.areas[idx+1]/4;
 }
 
 void Distribution::applyDelta(const Eigen::VectorXd& v) {

@@ -207,7 +207,6 @@ double BasisSet::D(size_t i, double x) const {
     // } else {
     return BSpline::DBSpline<BSPLINE_ORDER>(x, &knot[i]);
     // }
-    
 }
 
 double BasisSet::overlap(size_t j,size_t i) const{

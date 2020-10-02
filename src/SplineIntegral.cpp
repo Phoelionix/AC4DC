@@ -51,9 +51,6 @@ void SplineIntegral::precompute_QEII_coeffs(vector<RateData::Atom>& Atoms) {
                 }
                 for (size_t K=0; K<num_funcs; K++) {
                     for (auto eii : Atoms[a].EIIparams) {
-                        for (auto& B : eii.ionB){
-                            B *= 10;
-                        }
                         Q_EII[a][eii.init][J][K] = calc_Q_eii(eii, J, K);
                     }
                 }

@@ -144,11 +144,6 @@ void ElectronSolver::precompute_gamma_coeffs() {
     for (size_t a = 0; a < input_params.Store.size(); a++) {
         std::cout<<"\n[ Gamma precalc ] Atom "<<a+1<<"/"<<input_params.Store.size()<<std::endl;
         auto eiiVec = input_params.Store[a].EIIparams;
-        for (int i=0; i<eiiVec.size(); i++){
-            for (auto& B : eiiVec[i].ionB){
-                B *= 10;
-            } 
-        }
         vector<RateData::InverseEIIdata> tbrVec = RateData::inverse(eiiVec);
         size_t counter=1;
         #pragma omp parallel default(none) shared(a, N, counter, tbrVec, eiiVec, RATE_EII, RATE_TBR, std::cout)
@@ -195,17 +190,14 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         // PHOTOIONISATION
         double J = pf(t); // photon flux in atomic units
         for ( auto& r : input_params.Store[a].Photo) {
-            // W.coeffRef(r.to, r.from) += r.val*J;
             Pdot[r.to] += r.val*J*P[r.from];
             Pdot[r.from] -= r.val*J*P[r.from];
-            assert(r.val>0);
             sdot.F.addDeltaSpike(r.energy, r.val*J*P[r.from]);
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
 
         // FLUORESCENCE
         for ( auto& r : input_params.Store[a].Fluor) {
-            // W.coeffRef(r.to, r.from) += r.val;
             Pdot[r.to] += r.val*P[r.from];
             Pdot[r.from] -= r.val*P[r.from];
             // Energy from optical photon assumed lost
@@ -213,12 +205,10 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
 
         // AUGER
         for ( auto& r : input_params.Store[a].Auger) {
-            // W.coeffRef(r.to, r.from) += r.val;
             Pdot[r.to] += r.val*P[r.from];
             Pdot[r.from] -= r.val*P[r.from];
-            
-            // sdot.F.addDeltaSpike(r.energy, r.val*P[r.from]);
-            sdot.F.add_maxwellian(r.energy*2./3., r.val*P[r.from]);
+            sdot.F.addDeltaSpike(r.energy, r.val*P[r.from]);
+            // sdot.F.add_maxwellian(r.energy*2./3., r.val*P[r.from]);
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
         }
 
@@ -273,11 +263,11 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         // compute the dfdt vector
         
         s.F.get_Q_eii(vec_dqdt, a, P);
-        // s.F.get_Q_tbr(vec_dqdt, a, P);
+        s.F.get_Q_tbr(vec_dqdt, a, P);
         
     }
 
-    // s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
+    s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
 
     sdot.F.applyDelta(vec_dqdt);
 

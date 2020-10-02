@@ -11,8 +11,8 @@ RateData::EIIdata get_fake_eii() {
     tmp.init = 0;
     // tmp.push_back(3, 2, 20, 1.9);
     // tmp.push_back(5, 2, 44.3, 8.9);
-    tmp.push_back(1, 1, 1.3, 0.9);
-    // tmp.push_back(7, 1, 80, 0.9);
+    // tmp.push_back(1, 1, 1.77, 1.36);
+    tmp.push_back(7, 1, 1.7, 13);
     return tmp;
 }
 
@@ -40,6 +40,7 @@ class BasisTester : public SplineIntegral{
         std::vector<SparsePair> eg;
         double dQ = 0;
         ofstream out(filestem + "_qeii.csv");
+        ofstream mat_out(filestem + "qeii_matrix.csv");
 
         out <<"#K energy sum_eta gamma_K   sum_J Q_K "<<endl;
         for (size_t K = 0; K < Distribution::size; K++)
@@ -53,16 +54,21 @@ class BasisTester : public SplineIntegral{
             }
 
             double dQ_tmp = 0;
+            mat_out<<K;
             for (size_t J = 0; J < Distribution::size; J++)
             {
-                dQ_tmp += calc_Q_eii(eii_process, J, K);
+                double QKJ = calc_Q_eii(eii_process, J, K);
+                mat_out<<" "<<QKJ;
+                dQ_tmp += QKJ;
             }
+            mat_out<<endl;
 
             out << K <<" "<<(supp_max(K)+supp_min(K))*0.5<<" "<<tot <<" "<< dQ_tmp <<endl;
             dQ += dQ_tmp;
 
         }
         out.close();
+        mat_out.close();
         cout<<endl<<"init -> fin   gamma_total   "<<endl;
         double tot=0;
         for (size_t j = 0; j < num_fin_states; j++)
