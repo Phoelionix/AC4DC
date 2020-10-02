@@ -187,8 +187,8 @@ double BasisSet::operator()(size_t i, double x) const{
     // Returns the i^th B-spline of order BSPLINE_ORDER
     
     // return (i==0) ? pow(x,0.5)*BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]) : BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
-    // return pow(x,0.5)*BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
-    return BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
+    return pow(x,0.5)*BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
+    // return BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
     
 }
 
@@ -203,9 +203,9 @@ double BasisSet::D(size_t i, double x) const {
     assert(i < num_funcs && i >= 0);
     static_assert(BSPLINE_ORDER > 1);
     // if (i == 0){
-    //     return pow(x,0.5)*BSpline::DBSpline<BSPLINE_ORDER>(x, &knot[i]) + 0.5*pow(x,-0.5)*BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
+        return pow(x,0.5)*BSpline::DBSpline<BSPLINE_ORDER>(x, &knot[i]) + 0.5*pow(x,-0.5)*BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
     // } else {
-        return BSpline::DBSpline<BSPLINE_ORDER>(x, &knot[i]);
+        // return BSpline::DBSpline<BSPLINE_ORDER>(x, &knot[i]);
     // }
 }
 

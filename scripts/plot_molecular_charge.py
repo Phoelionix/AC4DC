@@ -339,16 +339,16 @@ class Plotter:
         plt.show()
         plt.colorbar()
 
-    def plot_step(self, n, smooth=0):        
+    def plot_step(self, n, smooth=1):        
         self.ax_steps.set_xlabel('Energy, eV')
         self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
         self.ax_steps.set_xscale('log')
         self.ax_steps.set_yscale('log')
         # norm = np.sum(self.freeData[n,:])
         data = self.freeData[n,:]
-        if smooth != 0:
-            data = moving_average(data, smooth)
-            X = moving_average(self.energyKnot,smooth)
+        data = moving_average(data, smooth)
+        X = moving_average(self.energyKnot,smooth)
+        
         self.ax_steps.plot(X, data*X, label='t=%f fs' % self.timeData[n])
         self.fig_steps.show()
 

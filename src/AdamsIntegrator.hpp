@@ -192,12 +192,16 @@ void Adams_BM<T>::iterate(double t_initial, double t_final) {
 
     // Set up the t grid
     this->t[0] = t_initial;
-    size_t middle_n = npoints/2;
-    double C = (t_initial + t_final) / 2;
-    double A = (t_final - t_initial) * 2 / npoints/npoints;
+    // size_t middle_n = npoints/2;
+    // double C = (t_initial + t_final) / 2;
+    // double A = (t_final - t_initial) * 2 / npoints/npoints;
 
-    for (size_t n=0; n<npoints; n++){
-        this->t[n] = (n > middle_n ) ? A*(n - middle_n)*(n - middle_n) + C : -A*(middle_n - n)*(middle_n - n) + C;
+    // for (size_t n=0; n<npoints; n++){
+    //     this->t[n] = (n > middle_n ) ? A*(n - middle_n)*(n - middle_n) + C : -A*(middle_n - n)*(middle_n - n) + C;
+    //     std::cout<<this->t[n]<<" ";
+    // }
+    for (size_t n=1; n<npoints; n++){
+        this->t[n] = this->t[n-1] + this->dt;
     }
 
     // initialise enough points for multistepping to get going
