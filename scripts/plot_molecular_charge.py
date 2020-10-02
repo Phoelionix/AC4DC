@@ -346,8 +346,9 @@ class Plotter:
         self.ax_steps.set_yscale('log')
         # norm = np.sum(self.freeData[n,:])
         data = self.freeData[n,:]
-        data = moving_average(data, smooth)
-        X = moving_average(self.energyKnot,smooth)
+        if smooth != 0:
+            data = moving_average(data, smooth)
+            X = moving_average(self.energyKnot,smooth)
         self.ax_steps.plot(X, data*X, label='t=%f fs' % self.timeData[n])
         self.fig_steps.show()
 
