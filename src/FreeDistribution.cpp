@@ -147,9 +147,9 @@ void Distribution::addDeltaSpike(double e, double N) {
     // f[idx] += N/basis.areas[idx];
     unsigned num_offset = basis.BSPLINE_ORDER;
     assert(idx + num_offset < size && idx >= num_offset);
-    f[idx] += N/basis.areas[idx]/2;
-    f[idx-1] += N/basis.areas[idx-1]/4;
-    f[idx+1] += N/basis.areas[idx+1]/4;
+    f[idx] += N/basis.areas[idx];
+    // f[idx-1] += N/basis.areas[idx-1]/4;
+    // f[idx+1] += N/basis.areas[idx+1]/4;
 }
 
 void Distribution::applyDelta(const Eigen::VectorXd& v) {

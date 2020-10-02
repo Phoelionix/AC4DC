@@ -218,6 +218,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         size_t N = Distribution::size;
         for (size_t n=0; n<N; n++) {
             double tmp=0; // aggregator
+            
             #ifndef NO_EII_GAMMA
             for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
                 for (auto& finPair : RATE_EII[a][n][init]) {
@@ -228,6 +229,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
                 }
             }
             #endif
+            #define NO_TBR_GAMMA
 
             #ifndef NO_TBR_GAMMA
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
@@ -263,16 +265,16 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         // compute the dfdt vector
         
         s.F.get_Q_eii(vec_dqdt, a, P);
-        s.F.get_Q_tbr(vec_dqdt, a, P);
+        // s.F.get_Q_tbr(vec_dqdt, a, P);
         
     }
 
-    s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
+    // s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
 
     sdot.F.applyDelta(vec_dqdt);
 
     // This is loss.
-    sdot.F.addLoss(s.F, input_params.loss_geometry);
+    // sdot.F.addLoss(s.F, input_params.loss_geometry);
 
     if (isnan(s.norm()) || isnan(sdot.norm())) {
         cerr<<"NaN encountered in ODE iteration."<<endl;

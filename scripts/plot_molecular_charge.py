@@ -264,20 +264,22 @@ class Plotter:
     def plot_tot_charge(self):
         ax, _ax2 = self.setup_axes()
         self.aggregate_charges()
-        Q = np.zeros(self.timeData.shape[0])
+        self.Q = np.zeros(self.timeData.shape[0])
         for a in self.atomdict:
             atomic_charge = np.zeros(self.timeData.shape[0])
             for i in range(self.chargeData[a].shape[1]):
                 atomic_charge += self.chargeData[a][:,i]*i
             ax.plot(self.timeData, atomic_charge, label = a)
-            Q += atomic_charge
+            self.Q += atomic_charge
 
-        tot_free_Q =-1*np.sum(self.freeData, axis=1)*(self.energyKnot[6]-self.energyKnot[5])
+        de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])
+        de = de [1:] - de[:-1]
+        tot_free_Q =-1*np.dot(self.freeData, de)
         ax.plot(self.timeData, tot_free_Q, label = 'Free')
-        print(tot_free_Q/Q)
-        Q += tot_free_Q
+        print(tot_free_Q/self.Q)
+        self.Q += tot_free_Q
         ax.set_title("Charge state dynamics")
-        ax.plot(self.timeData, Q, label='total')
+        ax.plot(self.timeData, self.Q, label='total')
         plt.figlegend(loc = (0.11, 0.43))
         plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
         plt.show()
@@ -339,15 +341,18 @@ class Plotter:
         plt.show()
         plt.colorbar()
 
-    def plot_step(self, n, smooth=1):        
+    def plot_step(self, n, smooth=0):        
         self.ax_steps.set_xlabel('Energy, eV')
         self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
         self.ax_steps.set_xscale('log')
         self.ax_steps.set_yscale('log')
         # norm = np.sum(self.freeData[n,:])
         data = self.freeData[n,:]
-        data = moving_average(data, smooth)
-        X = moving_average(self.energyKnot,smooth)
+        if smooth != 0:
+            data = moving_average(data, smooth)
+            X = moving_average(self.energyKnot,smooth)
+        else:
+            X = self.energyKnot
         
         self.ax_steps.plot(X, data*X, label='t=%f fs' % self.timeData[n])
         self.fig_steps.show()
