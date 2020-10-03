@@ -72,8 +72,9 @@ double state_type::norm() const {
 
 // Intended usage: cout<<s.atomP[a]<<endl;
 ostream& operator<<(ostream& os, const bound_t& bound) {
+    const double units = 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au;
     for (size_t i=0; i<bound.size(); i++) {
-        os << bound[i] << " ";
+        os << bound[i]*units << " ";
     }
     return os;
 }

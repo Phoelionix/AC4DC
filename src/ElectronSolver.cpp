@@ -229,7 +229,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
                 }
             }
             #endif
-            #define NO_TBR_GAMMA
+            
 
             #ifndef NO_TBR_GAMMA
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
@@ -265,11 +265,11 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         // compute the dfdt vector
         
         s.F.get_Q_eii(vec_dqdt, a, P);
-        // s.F.get_Q_tbr(vec_dqdt, a, P);
+        s.F.get_Q_tbr(vec_dqdt, a, P);
         
     }
 
-    // s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
+    s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
 
     sdot.F.applyDelta(vec_dqdt);
 
@@ -361,7 +361,7 @@ void ElectronSolver::saveBound(const std::string& dir) {
         // Iterate over time.
         size_t num_t_points = input_params.Out_T_size();
         if ( num_t_points >  t.size() ) num_t_points = t.size();
-        size_t t_idx_step = t.size() / num_t_points;
+        size_t t_idx_step = t.size() / num_t_points;        
         for (size_t i=0; i<num_t_points; i++) {
             // Make sure all "natom-dimensioned" objects are the size expected
             assert(input_params.Store.size() == y[i].atomP.size());

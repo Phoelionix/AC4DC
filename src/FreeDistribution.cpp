@@ -113,22 +113,38 @@ std::string Distribution::output_knots_eV() {
 // Returns energies in eV
 std::string Distribution::output_energies_eV(size_t num_pts) {
     std::stringstream ss;
-    double e = basis.min_elec_e();
-    double de = (basis.max_elec_e() - e)/(num_pts-1);
-    for (size_t i=0;i<num_pts; i++) {
-        ss << e*Constant::eV_per_Ha<<" ";
-        e += de;
+    size_t pts_per_knot = num_pts / basis.gridlen();
+    if (pts_per_knot == 0){
+        pts_per_knot = 1;
+        cerr<<"[ warn ] Outputting a small number of points per knot."<<endl;
     }
+    for (size_t i=0; i<basis.gridlen()-1; i++){
+        double e = basis.grid(i);
+        double de = (basis.grid(i+1) - e)/(pts_per_knot-1);
+        for (size_t j=0; j<pts_per_knot; j++) {
+            ss << e*Constant::eV_per_Ha<<" ";
+            e += de;
+        }
+    }
+    
     return ss.str();
 }
 
 std::string Distribution::output_densities(size_t num_pts) const {
     std::stringstream ss;
-    double e = basis.min_elec_e();
-    double de = (basis.max_elec_e() - e)/(num_pts-1);
-    for (size_t i=0;i<num_pts; i++) {
-        ss << (*this)(e)/Constant::eV_per_Ha<<" ";
+    const double units = 1./Constant::eV_per_Ha/Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au;
+    size_t pts_per_knot = num_pts / basis.gridlen();
+    if (pts_per_knot == 0){
+        pts_per_knot = 1;
+        cerr<<"[ warn ] Outputting a small number of points per knot."<<endl;
+    }
+    for (size_t i=0; i<basis.gridlen()-1; i++){
+        double e = basis.grid(i);
+        double de = (basis.grid(i+1) - e)/(pts_per_knot-1);
+        for (size_t j=0; j<pts_per_knot; j++) {
+            ss << (*this)(e)*units<<" ";
         e += de;
+        }
     }
     return ss.str();
 }
