@@ -230,7 +230,8 @@ double SplineIntegral::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_
                     Dipole::DsigmaBEB(ep, e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
             }
             tmp2 *= (max_ep - min_ep)/2;
-            tmp += gaussW_EII[j]*(*this)(J, e)*tmp2;
+            // tmp += gaussW_EII[j]*(*this)(J, e)*tmp2;
+            tmp += gaussW_EII[j]*raw_bspline(J, e)*tmp2;
         }
         tmp *= (max_J-min_J)/2;
         retval += tmp;
@@ -243,7 +244,8 @@ double SplineIntegral::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_
         for (int k=0; k<GAUSS_ORDER_EII; k++)
         {
             double e = gaussX_EII[k]*(max_JK-min_JK)/2 + (min_JK+max_JK)/2;
-            tmp += gaussW_EII[k]*pow(e, 0.5)*(*this)(J, e)*(*this)(K, e)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+            // tmp += gaussW_EII[k]*pow(e, 0.5)*(*this)(J, e)*(*this)(K, e)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+            tmp += gaussW_EII[k]*pow(e, 0.5)*raw_bspline(J, e)*(*this)(K, e)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
         }
         tmp *= (max_JK-min_JK)/2;
         retval -= tmp;
@@ -301,7 +303,8 @@ SplineIntegral::sparse_matrix SplineIntegral::calc_Q_tbr( const RateData::Invers
                     for (int k=0; k<GAUSS_ORDER_TBR; k++) {
                         double s = gaussX_TBR[k]*(b-a)/2 + (b + a)/2;
                         double e = s + ep + B;
-                        tmp2 += gaussW_TBR[k] * ( e ) * pow(s*ep,-0.5) * Dipole::DsigmaBEB(e, ep, B, tbr.kin[xi], tbr.occ[xi])*(*this)(J, e)*(*this)(L, s);
+                        // tmp2 += gaussW_TBR[k] * ( e ) * pow(s*ep,-0.5) * Dipole::DsigmaBEB(e, ep, B, tbr.kin[xi], tbr.occ[xi])*(*this)(J, e)*(*this)(L, s);
+                        tmp2 += gaussW_TBR[k] * ( e ) * pow(s*ep,-0.5) * Dipole::DsigmaBEB(e, ep, B, tbr.kin[xi], tbr.occ[xi])*raw_bspline(J, e)*(*this)(L, s);
                     }
                     tmp += 0.5*gaussW_TBR[j]*tmp2*(*this)(K,ep)*(b-a)*(K_max - K_min)/4;
                 }
@@ -322,7 +325,8 @@ SplineIntegral::sparse_matrix SplineIntegral::calc_Q_tbr( const RateData::Invers
                             double s = gaussX_TBR[k]*(L_max-L_min)/2 + (L_max+L_min)/2;
                             tmp2 += gaussW_TBR[k]*(s+e+B)*pow(e * s,-0.5)*(*this)(L,s)*Dipole::DsigmaBEB(s+e+B, e, B, tbr.kin[xi], tbr.occ[xi]);
                         }
-                        tmp -= gaussW_TBR[j]*tmp2*(*this)(J,e)*(*this)(K,e)*(L_max-L_min)*(max_JK-min_JK)/4;
+                        // tmp -= gaussW_TBR[j]*tmp2*(*this)(J,e)*(*this)(K,e)*(L_max-L_min)*(max_JK-min_JK)/4;
+                        tmp -= gaussW_TBR[j]*tmp2*raw_bspline(J,e)*(*this)(K,e)*(L_max-L_min)*(max_JK-min_JK)/4;
                     }
                 }
             }
@@ -406,7 +410,8 @@ SplineIntegral::pair_list SplineIntegral::calc_Q_ee(size_t J, size_t K) const {
 
         for (size_t i = 0; i < GAUSS_ORDER_EE; i++) {
             double e = gaussX_EE[i] * (max_JL - min_JL)/2 + (max_JL + min_JL)/2;
-            total += gaussW_EE[i]*this->D(J, e)*(Q_ee_F(e, K) * ( (*this)(L, e)/2/e - this->D(L, e) ) - Q_ee_G(e, K) * (*this)(L,e));
+            // total += gaussW_EE[i]*this->D(J, e)*(Q_ee_F(e, K) * ( (*this)(L, e)/2/e - this->D(L, e) ) - Q_ee_G(e, K) * (*this)(L,e));
+            total += gaussW_EE[i]*raw_Dbspline(J, e)*(Q_ee_F(e, K) * ( (*this)(L, e)/2/e - this->D(L, e) ) - Q_ee_G(e, K) * (*this)(L,e));
         }
         total *= 0.5*(max_JL-min_JL);
         // Multiply by alpha

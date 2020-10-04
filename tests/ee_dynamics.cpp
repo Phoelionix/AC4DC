@@ -25,7 +25,7 @@ public:
         cerr<<"Initial conditions: n="<<density<<" Maxwellian T="<<E/4.*Constant::eV_per_Ha<<" eV, ";
         cerr<<"curve with n="<<spike_density<<" delta at "<<E*Constant::eV_per_Ha<<"eV"<<endl;
         init = 0;
-        // init.add_maxwellian(E/4., density);
+        init.add_maxwellian(E/4., density);
         init.addDeltaSpike(E, spike_density);
         this->setup(init, _dt);
         cout<<init.density(Distribution::size)<<endl;
@@ -72,8 +72,8 @@ protected:
 
 int main(int argc, char const *argv[]) {
 
-    if (argc < 9) {
-        cerr<<"Usage: "<<argv[0]<<" [fname] [T (eV)] [fin_time (fs)] [num_t_points] [num_e_points] [density (A^-3)] [max e (eV)] [gridstyle]"<<endl;
+    if (argc < 10) {
+        cerr<<"Usage: "<<argv[0]<<" [fname] [T (eV)] [fin_time (fs)] [num_t_points] [num_e_points] [thermal density (A^-3)] [spike density (A^-3)] [max e (eV)] [gridstyle]"<<endl;
         return 1;
     }
     string fname(argv[1]);
@@ -82,27 +82,33 @@ int main(int argc, char const *argv[]) {
     int num_t_pts = atoi(argv[4]);
     int num_e_pts = atoi(argv[5]);
     double density = atof(argv[6]);
-    double max_e = atof(argv[7]);
+    double sdensity = atof(argv[7]);
+    double max_e = atof(argv[8]);
     GridSpacing gs;
-    istringstream is(argv[8]);
+    istringstream is(argv[9]);
     is >> gs;
-    gs.num_exp = num_e_pts/2;
-    gs.zero_degree_0=1;
-    gs.zero_degree_inf=0;
+    gs.num_low = num_e_pts/2;
+    gs.zero_degree_0=0;
+    gs.zero_degree_inf=2;
+    
 
-    cerr<<"Density ="<<density<<" elec per Angstrom3"<<endl;
+    cerr<<"MB Density ="<<density<<" elec per Angstrom3 @ kT = "<<temperature/4<<"Ha"<<endl;
+    cerr<<"Spike Density ="<<sdensity<<" elec per Angstrom3 @ E = "<<temperature<<"Ha"<<endl;
     cerr<<"Final Time: "<<fin_time<<" fs in "<<num_t_pts<<" timesteps"<<endl;
 
     fin_time /= Constant::fs_per_au;
     temperature /= Constant::eV_per_Ha;
     max_e /= Constant::eV_per_Ha;
     density *= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
+    sdensity *= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
+
+    gs.transition_e = max_e/5.;
 
     double step = fin_time/num_t_pts;
-    double min_e = 0.1;//lmao
+    double min_e = 0;
     EEcoll I(min_e, max_e, num_e_pts, gs);
     cerr<<"final time: "<<fin_time<<" au"<<endl;
-    I.set_initial_condition(temperature, density, density, step);
+    I.set_initial_condition(temperature, density, sdensity, step);
     I.run_sim(fin_time);
     I.print(fname);
     I.print(fname + ".raw");

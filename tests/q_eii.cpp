@@ -99,7 +99,7 @@ int main(int argc, char const *argv[]) {
     GridSpacing gt;
     istringstream inp(argv[5]);
     inp >> gt;
-    gt.num_exp = N/3;
+    gt.num_low = N/3;
     
     BasisTester bt(N, min_e, max_e, gt);
     bt.check_eii(filestem);

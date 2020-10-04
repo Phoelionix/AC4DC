@@ -161,7 +161,7 @@ void Distribution::addDeltaSpike(double e, double N) {
     int idx = basis.i_from_e(e);
     // assert(idx >= 0 && (unsigned) idx < size);
     // f[idx] += N/basis.areas[idx];
-    unsigned num_offset = basis.BSPLINE_ORDER;
+    unsigned num_offset = 0; //basis.BSPLINE_ORDER;
     assert(idx + num_offset < size && idx >= num_offset);
     f[idx] += N/basis.areas[idx];
     // f[idx-1] += N/basis.areas[idx-1]/4;

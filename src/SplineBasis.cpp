@@ -46,27 +46,35 @@ void BasisSet::set_knot(const GridSpacing& gt){
     double A_lin = (_max - _min)/(num_int-1);
     double A_sqrt = (_max - _min)/(num_int-1)/(num_int-1);
     // exponential grid
-    if ( (gt.mode == GridSpacing::exponential || gt.mode == GridSpacing::hybrid) && _min <= 0) {
+    if ( (gt.mode == GridSpacing::exponential) && _min <= 0) {
         throw runtime_error("Cannot construct an exponential grid with zero minimum energy.");
     }
     double A_exp = _min;
     double lambda_exp = (log(_max) - log(_min))/(num_int-1);
-    // hybrid exponentio-linear grid
+    // hybrid linear-linear grid
 
+    size_t M = gt.num_low;
+
+    assert(num_funcs > M);
+    assert(_max > gt.transition_e);
+
+    double B_hyb = (gt.transition_e - _min)/M;
+    double C_hyb = (_max - gt.transition_e)/(num_funcs - M);
     
-    size_t M = gt.num_exp;
-    
-    
-    std::function<double(double)> f = [=](double B) {return _min*exp(B*M/(_max - B*(num_int-M))) + B*(num_int-M) - _max;};
-    
-    double B_hyb = 0;
-    if (gt.mode == GridSpacing::hybrid){
-        B_hyb = find_root(f, 0, _max/(num_int-M + 1));
+    double p_powlaw = (log(_max-_min) - log(gt.transition_e - _min))/(log(num_funcs/M));
+    double A_powlaw = (_max - _min)/pow(num_funcs, p_powlaw);
+
+    if ( gt.mode == GridSpacing::powerlaw) {
+        std::cerr<<"Using exponent "<<p_powlaw<<std::endl;
     }
-    
-    double C_hyb = _max - B_hyb * num_int;
-    double lambda_hyb = (log(B_hyb*M+C_hyb) - log(_min))/M;
-    
+
+    // std::function<double(double)> f = [=](double B) {return _min*exp(B*M/(_max - B*(num_int-M))) + B*(num_int-M) - _max;};
+    // double B_hyb = 0;
+    // if (gt.mode == GridSpacing::hybrid){
+    //     B_hyb = find_root(f, 0, _max/(num_int-M + 1));
+    // }
+    // double C_hyb = _max - B_hyb * num_int;
+    // double lambda_hyb = (log(B_hyb*M+C_hyb) - log(_min))/M;
 
     knot.resize(num_funcs+BSPLINE_ORDER); // num_funcs == n + 1
 
@@ -75,6 +83,10 @@ void BasisSet::set_knot(const GridSpacing& gt){
     for (size_t i=0; i<start; i++) {
         knot[i] = _min;
     }
+
+    // TODO:
+    // - Move this grid-construction code to GridSpacing.hpp
+    // - Refactor to incorporate boundaries max and min into the GridSpacing object
 
     // At i=0, the value of knot will still be _min
     for(size_t i=start; i<=num_funcs + Z_inf; i++) {
@@ -90,7 +102,11 @@ void BasisSet::set_knot(const GridSpacing& gt){
             knot[i] = A_exp*exp(lambda_exp*(i-start));
             break;
         case GridSpacing::hybrid:
-            knot[i] = (i >=M ) ? B_hyb*(i-start) + C_hyb : A_exp * exp(lambda_hyb*(i-start));
+            // knot[i] = (i >=M ) ? B_hyb*(i-start) + C_hyb : A_exp * exp(lambda_hyb*(i-start));
+            knot[i] = (i-start < M) ? B_hyb*(i-start) + _min : C_hyb*(i-start-M) + gt.transition_e;
+            break;
+        case GridSpacing::powerlaw:
+            knot[i] = A_powlaw * pow(i-start, p_powlaw) + _min;
             break;
         default:
             throw std::runtime_error("Grid spacing has not been defined.");
@@ -182,13 +198,24 @@ Eigen::VectorXd BasisSet::Sinv(const Eigen::VectorXd& deltaf) {
     return linsolver.solve(deltaf);
 }
 
-double BasisSet::operator()(size_t i, double x) const{
+double BasisSet::raw_bspline(size_t i, double x) const {
+    assert(i < num_funcs && i >= 0);
+    return BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
+}
+
+double BasisSet::raw_Dbspline(size_t i, double x) const {
+    assert(i < num_funcs && i >= 0);
+    return BSpline::DBSpline<BSPLINE_ORDER>(x, &knot[i]);
+}
+
+double BasisSet::operator()(size_t i, double x) const {
     assert(i < num_funcs && i >= 0);
     // Returns the i^th B-spline of order BSPLINE_ORDER
     
     // return (i==0) ? pow(x,0.5)*BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]) : BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
-    return pow(x,0.5)*BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
-    // return BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
+    // return pow(x,0.5)*BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
+    
+    return BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
     
 }
 
@@ -203,20 +230,22 @@ double BasisSet::D(size_t i, double x) const {
     assert(i < num_funcs && i >= 0);
     static_assert(BSPLINE_ORDER > 1);
     // if (i == 0){
-        return pow(x,0.5)*BSpline::DBSpline<BSPLINE_ORDER>(x, &knot[i]) + 0.5*pow(x,-0.5)*BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
+        // return pow(x,0.5)*BSpline::DBSpline<BSPLINE_ORDER>(x, &knot[i]) + 0.5*pow(x,-0.5)*BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
     // } else {
-        // return BSpline::DBSpline<BSPLINE_ORDER>(x, &knot[i]);
+        return BSpline::DBSpline<BSPLINE_ORDER>(x, &knot[i]);
     // }
 }
 
 double BasisSet::overlap(size_t j,size_t i) const{
+    // computes the overlap of the jth raw bspline with the ith modified bspline
     double b = min(supp_max(i), supp_max(j));
     double a = max(supp_min(i), supp_min(j));
     if (a >= b) return 0;
     double tmp=0;
     for (int m=0; m<10; m++) {
         double e = gaussX_10[m]*(b-a)/2 + (b+a)/2;
-        tmp += gaussW_10[m]*(*this)(j, e)*(*this)(i, e);
+        tmp += gaussW_10[m]*raw_bspline(j, e)*(*this)(i, e);
+        // tmp += gaussW_10[m]*(*this)(j, e)*(*this)(i, e);
     }
     tmp *= (b-a)/2;
     return tmp;

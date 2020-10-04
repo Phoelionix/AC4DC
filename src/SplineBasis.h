@@ -13,7 +13,11 @@ public:
     BasisSet() {};
     void set_parameters(size_t nfuncs, double min, double max, const GridSpacing& gt);
     Eigen::VectorXd Sinv(const Eigen::VectorXd& deltaf);
-    // Returns the ith basis function evaluated at point x
+
+    double raw_bspline(size_t i, double x) const;
+    double raw_Dbspline(size_t i, double x) const;
+
+    // Returns the ith basis function evaluated at point x, premultiplied by the Frobenius sqrt(x) value.
     double operator()(size_t i, double x) const;
     // Returns the first derivative of the ith basis function at point x
     double D(size_t i, double x) const;

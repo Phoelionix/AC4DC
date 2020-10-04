@@ -108,7 +108,8 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 3) stream >> max_elec_e;
 		if (n == 4) stream >> num_elec_points;
 		if (n == 5) stream >> elec_grid_type;
-		if (n == 6) stream >> elec_grid_type.num_exp;
+		if (n == 6) stream >> elec_grid_type.num_low;
+		if (n == 7) stream >> elec_grid_type.transition_e;
 
 	}
 
@@ -132,10 +133,6 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	cout<<bc<<"Electron grid:  "<<clr<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
 	cout<<    "                "<<num_elec_points<<" points"<<endl;
 	cout<<bc<<"Grid type:      "<<clr<<elec_grid_type<<endl;
-	if (elec_grid_type.mode == GridSpacing::hybrid){
-		cout<<"                "<<"Exponential"<<" 0-"<<elec_grid_type.num_exp<<", Linear ";
-		cout<<elec_grid_type.num_exp<<"-"<<num_elec_points<<endl;
-	}
 	cout<<endl;
 
 	cout<<bc<<"ODE Iteration:  "<<clr<<num_time_steps<<" timesteps"<<endl<<endl;
@@ -155,6 +152,8 @@ MolInp::MolInp(const char* filename, ofstream & log)
 
 	min_elec_e /= Constant::eV_per_Ha;
 	max_elec_e /= Constant::eV_per_Ha;
+
+	elec_grid_type.transition_e /= Constant::eV_per_Ha;
 
 	// Reads the very top of the file, expecting input of the form
 	// H 2
@@ -204,11 +203,18 @@ bool MolInp::validate_inputs() {
 	if (loss_geometry.L0 <= 0) { cerr<<"ERROR: radius must be positive"; is_valid=false; }
 	if (omp_threads <= 0) { omp_threads = 4; cerr<<"Defaulting number of OMP threads to 4"; }
 
-	if (elec_grid_type.mode == GridSpacing::unknown){cerr<<"ERROR: Grid spacing not recognised - must start with (l)inear, (q)uadratic, (e)xponential, or (h)ybrid"; is_valid=false;}
-	if (elec_grid_type.mode == GridSpacing::hybrid){
-		if (elec_grid_type.num_exp <= 0 || elec_grid_type.num_exp >= num_elec_points) { 
-			cerr<<"Defaulting number of exponential points to "<<num_elec_points/2;
-			elec_grid_type.num_exp = num_elec_points/2;
+	if (elec_grid_type.mode == GridSpacing::unknown) {
+		cerr<<"ERROR: Grid spacing not recognised - must start with (l)inear, (q)uadratic,";
+		cerr<<" (e)xponential, (h)ybrid or (p)owerlaw"; is_valid=false;
+	}
+	if (elec_grid_type.mode == GridSpacing::hybrid || elec_grid_type.mode == GridSpacing::powerlaw) {
+		if (elec_grid_type.num_low <= 0 || elec_grid_type.num_low >= num_elec_points) { 
+			cerr<<"Defaulting number of dense points to "<<num_elec_points/2;
+			elec_grid_type.num_low = num_elec_points/2;
+		}
+		if (elec_grid_type.transition_e <= min_elec_e || elec_grid_type.transition_e >= max_elec_e) {
+			cerr<<"Defaulting transition energy to "<<max_elec_e/4;
+			elec_grid_type.transition_e = max_elec_e/4;
 		}
 	}
 
