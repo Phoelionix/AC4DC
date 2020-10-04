@@ -103,7 +103,7 @@ void ElectronSolver::solve() {
     cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<std::endl;
     
     double time = -timespan_au/2;
-    int retries = 4;
+    int retries = 1;
     while (!good_state) {
         std::cerr<<"\033[93;1m[ Rate Solver ] Halving timestep...\033[0m"<<std::endl;
         good_state = true;

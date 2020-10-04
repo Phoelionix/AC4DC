@@ -280,9 +280,10 @@ class Plotter:
         self.Q += tot_free_Q
         ax.set_title("Charge state dynamics")
         ax.plot(self.timeData, self.Q, label='total')
-        plt.figlegend(loc = (0.11, 0.43))
-        plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
+        fig.legend(loc = (0.11, 0.43))
+        fig.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
         plt.show()
+        return ax
 
 
     def plot_all_charges(self):

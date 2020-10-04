@@ -88,6 +88,7 @@ int main(int argc, char const *argv[]) {
     istringstream is(argv[9]);
     is >> gs;
     gs.num_low = num_e_pts/2;
+    gs.transition_e = max_e/3.;
     gs.zero_degree_0=0;
     gs.zero_degree_inf=2;
     
@@ -102,7 +103,7 @@ int main(int argc, char const *argv[]) {
     density *= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
     sdensity *= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
 
-    gs.transition_e = max_e/5.;
+    
 
     double step = fin_time/num_t_pts;
     double min_e = 0;

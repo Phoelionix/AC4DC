@@ -18,8 +18,9 @@ He 1
 1           // minimum free-electron energy in eV
 2000        // maximum free-electron energy in eV
 20          // number of free-electron grid points
-quadratic    // electron grid type
+power    // electron grid type
 10          // Number of "low-energy" exponential grid points (hybrid grid only)
+200         // Transition energy (eV)
 
 #OUTPUT
 400         // Number of time steps in the output files.
