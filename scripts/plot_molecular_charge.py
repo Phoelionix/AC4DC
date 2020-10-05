@@ -10,10 +10,8 @@ import time
 import subprocess
 import re
 
-plt.style.use('seaborn')
-
+plt.style.use('seaborn-muted')
 plt.rcParams["font.size"] = 14
-fig = plt.figure(figsize=(9, 6))
 
 engine = re.compile(r'\d[spdf]\^\{(\d+)\}')
 
@@ -199,12 +197,15 @@ class Plotter:
 
     # makes a blank plot showing the intensity curve
     def setup_axes(self):
-        fig.clf()
-        ax = fig.add_subplot(111)
+        self.fig = plt.figure()
+        ax = self.fig.add_subplot(111)
         ax2 = ax.twinx()
         ax2.plot(self.timeData, self.intensityData, lw = 2, c = 'black', ls = '--', alpha = 0.7)
-        ax2.set_ylabel('Pulse fluence')
+        ax2.set_ylabel('Pulse Intensity (photons cm$^{-2}$ s$^{-1}$)')
         ax.set_xlabel("Time, fs")
+        ax.tick_params(direction='in')
+        ax2.tick_params(direction='in')
+        ax.get_xaxis().get_major_formatter().labelOnlyBase = False
         return (ax, ax2)
 
     def plot_atom_total(self, a):
@@ -213,9 +214,9 @@ class Plotter:
         ax.plot(self.timeData, tot)
         ax.set_title("Configurational dynamics")
         ax.set_ylabel("Density")
-        plt.figlegend(loc = (0.11, 0.43))
+        self.fig.figlegend(loc = (0.11, 0.43))
         plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
-        plt.show()
+        
 
     def plot_atom_raw(self, a):
         ax, _ax2 = self.setup_axes()
@@ -223,9 +224,8 @@ class Plotter:
             ax.plot(self.timeData, self.boundData[a][:,i], label = self.statedict[a][i])
         ax.set_title("Configurational dynamics")
         ax.set_ylabel("Density")
-        fig.figlegend(loc = (0.11, 0.43))
-        fig.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
-        fig.show()
+        self.fig.figlegend(loc = (0.11, 0.43))
+        self.fig.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
 
     def plot_ffactor(self, a, num_tsteps = 20):
         fdists = np.genfromtxt('output/'+a+'/Xsections/Form_Factor.txt')
@@ -257,9 +257,8 @@ class Plotter:
         ax.set_title("Charge state dynamics")
         ax.set_ylabel("Proportion (arb. units)")
 
-        plt.figlegend(loc = (0.11, 0.43))
-        plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
-        plt.show()
+        self.fig.figlegend(loc = (0.11, 0.43))
+        self.fig.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
 
     def plot_tot_charge(self):
         ax, _ax2 = self.setup_axes()
@@ -278,11 +277,9 @@ class Plotter:
         ax.plot(self.timeData, tot_free_Q, label = 'Free')
         print(tot_free_Q/self.Q)
         self.Q += tot_free_Q
-        ax.set_title("Charge state dynamics")
+        ax.set_title("Charge Conservation")
         ax.plot(self.timeData, self.Q, label='total')
-        fig.legend(loc = (0.11, 0.43))
-        fig.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
-        plt.show()
+        ax.legend(loc = 'upper left')
         return ax
 
 
@@ -291,7 +288,7 @@ class Plotter:
             self.plot_charges(a)
 
     def plot_free(self, N=100, log=False, min = None, max=None, tmax = None):
-        plt.figure()
+        self.fig_free = plt.figure()
         # Need to turn freeData (matrix of BSpline coeffs)
         # freeeData [t, c]
         # into matrix of values.
@@ -311,12 +308,11 @@ class Plotter:
         if max is not None:
             Z = np.ma.masked_where(Z > max, Z)
 
-        plt.contourf(T, self.energyKnot, Z, N, cmap='viridis')
-        plt.title("Free electron energy distribution")
-        plt.ylabel("Energy (eV)")
-        plt.xlabel("Time, fs")
-        plt.show()
-        plt.colorbar()
+        ax = self.fig_free.add_subplot(111)
+        cm = ax.contourf(T, self.energyKnot, Z, N, cmap='viridis')
+        ax.set_ylabel("Energy (eV)")
+        ax.set_xlabel("Time, fs")
+        self.fig_free.colorbar(cm)
 
     def plot_free_raw(self, N=100, log=False, min = None, max=None):
         plt.figure()
@@ -335,7 +331,7 @@ class Plotter:
             Z = np.ma.masked_where(Z > max, Z)
 
         Yax = np.arange(Z.shape[0])
-        plt.contourf(T, Yax, Z, N, cmap='viridis')
+        plt.contourf(T, Yax, Z, N, cmap='magma')
         plt.title("Free electron energy distribution")
         plt.ylabel("Energy (eV)")
         plt.xlabel("Time, fs")
@@ -345,8 +341,7 @@ class Plotter:
     def plot_step(self, n, smooth=0):        
         self.ax_steps.set_xlabel('Energy, eV')
         self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
-        self.ax_steps.set_xscale('log')
-        self.ax_steps.set_yscale('log')
+        self.ax_steps.loglog()
         # norm = np.sum(self.freeData[n,:])
         data = self.freeData[n,:]
         if smooth != 0:
@@ -364,5 +359,6 @@ def moving_average(a, n=3) :
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n - 1:] / n
 
-pl = Plotter(sys.argv[1])
-pl.plot_tot_charge()
+if __name__ == "__main__":
+    pl = Plotter(sys.argv[1])
+    pl.plot_tot_charge()

@@ -101,9 +101,7 @@ int main(int argc, char const *argv[]) {
     temperature /= Constant::eV_per_Ha;
     max_e /= Constant::eV_per_Ha;
     density *= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
-    sdensity *= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
-
-    
+    sdensity *= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;    
 
     double step = fin_time/num_t_pts;
     double min_e = 0;
