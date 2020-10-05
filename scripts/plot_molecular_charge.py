@@ -9,6 +9,7 @@ import csv
 import time
 import subprocess
 import re
+from matplotlib.ticker import LogFormatter 
 
 plt.style.use('seaborn-muted')
 plt.rcParams["font.size"] = 14
@@ -198,11 +199,11 @@ class Plotter:
     # makes a blank plot showing the intensity curve
     def setup_axes(self):
         self.fig = plt.figure()
-        ax = self.fig.add_subplot(111)
+        ax = self.fig.add_subplot(111, )
         ax2 = ax.twinx()
         ax2.plot(self.timeData, self.intensityData, lw = 2, c = 'black', ls = '--', alpha = 0.7)
         ax2.set_ylabel('Pulse Intensity (photons cm$^{-2}$ s$^{-1}$)')
-        ax.set_xlabel("Time, fs")
+        ax.set_xlabel("Time (fs)")
         ax.tick_params(direction='in')
         ax2.tick_params(direction='in')
         ax.get_xaxis().get_major_formatter().labelOnlyBase = False
@@ -217,7 +218,6 @@ class Plotter:
         self.fig.figlegend(loc = (0.11, 0.43))
         plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
         
-
     def plot_atom_raw(self, a):
         ax, _ax2 = self.setup_axes()
         for i in range(self.boundData[a].shape[1]):
@@ -227,7 +227,7 @@ class Plotter:
         self.fig.figlegend(loc = (0.11, 0.43))
         self.fig.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
 
-    def plot_ffactor(self, a, num_tsteps = 20):
+    def plot_ffactor(self, a, num_tsteps = 10):
         fdists = np.genfromtxt('output/'+a+'/Xsections/Form_Factor.txt')
         # These correspond to the meaning of the FormFactor.txt entries themselves
         KMIN = 0
@@ -237,12 +237,14 @@ class Plotter:
         fig2 = plt.figure()
         ax = fig2.add_subplot(111)
         ax.set_xlabel('k, atomic units')
+        ax.set_ylabel('Elastic scattering form factor (arbitrary units)')
         
         timedata = self.boundData[a][:,:-1] # -1 excludes the bare nucleus
         dynamic_k = np.tensordot(fdists.T, timedata.T,axes=1) 
         step = dynamic_k.shape[1] // num_tsteps
         for i in range(0, dynamic_k.shape[1], step):
             ax.plot(kgrid, dynamic_k[:,i])
+        fig2.legend()
         fig2.show()
 
     def plot_charges(self, a):
@@ -254,10 +256,10 @@ class Plotter:
             mask |= self.chargeData[a][:,i] < -max_at_zero*2
             Y = np.ma.masked_where(mask, self.chargeData[a][:,i])
             ax.plot(self.timeData, Y, label = "%d+" % i)
-        ax.set_title("Charge state dynamics")
-        ax.set_ylabel("Proportion (arb. units)")
+        # ax.set_title("Charge state dynamics")
+        ax.set_ylabel("Density (Å$^-3$)")
 
-        self.fig.figlegend(loc = (0.11, 0.43))
+        self.fig.legend(loc = "upper left")
         self.fig.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
 
     def plot_tot_charge(self):
@@ -275,9 +277,10 @@ class Plotter:
         de = de [1:] - de[:-1]
         tot_free_Q =-1*np.dot(self.freeData, de)
         ax.plot(self.timeData, tot_free_Q, label = 'Free')
+        ax.set_ylabel("Charge density ($e$Å$^-3$")
         print(tot_free_Q/self.Q)
         self.Q += tot_free_Q
-        ax.set_title("Charge Conservation")
+        # ax.set_title("Charge Conservation")
         ax.plot(self.timeData, self.Q, label='total')
         ax.legend(loc = 'upper left')
         return ax
@@ -299,20 +302,34 @@ class Plotter:
             Z = self.freeData.T [:, :tmax]
             T = self.timeData [:tmax]
         
-        if log:
-            Z = np.log(Z)
-        
         if min is not None:
             Z = np.ma.masked_where(Z < min, Z)
 
         if max is not None:
             Z = np.ma.masked_where(Z > max, Z)
 
+        if log:
+            Z = np.log10(Z)
+
         ax = self.fig_free.add_subplot(111)
+        self.fig_free.subplots_adjust(left=0.15, top=0.96)
         cm = ax.contourf(T, self.energyKnot, Z, N, cmap='viridis')
+
         ax.set_ylabel("Energy (eV)")
-        ax.set_xlabel("Time, fs")
-        self.fig_free.colorbar(cm)
+        ax.set_xlabel("Time (fs)")
+        minval = np.floor(np.min(Z, axis=(0,1)))
+        maxval = np.ceil(np.max(Z,axis=(0,1)))
+
+        if log:
+            vals = np.arange(minval,maxval+1,1)
+            vals = 10**vals
+            formatter = LogFormatter(10, labelOnlyBase=True) 
+            cbar = self.fig_free.colorbar(cm,format=formatter)
+            cbar.set_ticks(vals)
+            cbar.set_ticklabels(vals)
+        else:
+            cbar = self.fig_free.colorbar(cm)
+        cbar.ax.set_ylabel('Free Electron Density, Å$^{-3}$', rotation=270,labelpad=40)
 
     def plot_free_raw(self, N=100, log=False, min = None, max=None):
         plt.figure()
@@ -338,17 +355,22 @@ class Plotter:
         plt.show()
         plt.colorbar()
 
-    def plot_step(self, n, smooth=0):        
+    def plot_step(self, t, smooth=0, normed=True):        
         self.ax_steps.set_xlabel('Energy, eV')
         self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
         self.ax_steps.loglog()
         # norm = np.sum(self.freeData[n,:])
+        n = self.timeData.searchsorted(t)
         data = self.freeData[n,:]
         if smooth != 0:
             data = moving_average(data, smooth)
             X = moving_average(self.energyKnot,smooth)
         else:
             X = self.energyKnot
+
+        if normed:
+            tot = np.sum(data)
+            data /= tot
         
         self.ax_steps.plot(X, data*X, label='t=%f fs' % self.timeData[n])
         self.fig_steps.show()
@@ -361,4 +383,4 @@ def moving_average(a, n=3) :
 
 if __name__ == "__main__":
     pl = Plotter(sys.argv[1])
-    pl.plot_tot_charge()
+    pl.plot_free(log=True,min=1e-7)

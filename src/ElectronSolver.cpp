@@ -270,12 +270,12 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         
     }
 
-    // s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
+    s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
 
     sdot.F.applyDelta(vec_dqdt);
 
     // This is loss.
-    // sdot.F.addLoss(s.F, input_params.loss_geometry);
+    sdot.F.addLoss(s.F, input_params.loss_geometry);
 
     if (isnan(s.norm()) || isnan(sdot.norm())) {
         cerr<<"NaN encountered in ODE iteration."<<endl;

@@ -7,23 +7,27 @@
 // Overkill, to be sure
 
 struct LossGeometry {
-    const static int sphere = 0;
-    const static int cylinder = 1;
-    const static int plane = 2;
-    int mode = 0;
+    const static int sphere = 1;
+    const static int cylinder = 2;
+    const static int plane = 3;
+    const static int none = 0;
+    int mode = 1;
     double L0 = 1;
     double factor() const {
         assert(mode >=0 && mode <=2);
         return 1.*constants[mode]/L0;
     }
     private:
-    const double constants[3] = {2, 3, 4};
+    const double constants[4] = {0, 2, 3, 4};
 };
 
 namespace{
     [[maybe_unused]] std::ostream& operator<<(std::ostream& os, const LossGeometry& g) {
         switch (g.mode)
         {
+        case LossGeometry::none:
+            os << "closed (lossless)";
+            break;
         case LossGeometry::sphere:
             os << "Sphere";
             break;
@@ -50,6 +54,9 @@ namespace{
         }
         switch ((char) tmp[0])
         {
+        case 'n':
+            lg.mode = LossGeometry::none;
+            break;
         case 's':
             lg.mode = LossGeometry::sphere;
             break;
