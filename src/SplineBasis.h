@@ -7,6 +7,7 @@
 #include <iostream>
 #include "GridSpacing.hpp"
 
+static constexpr bool USING_SQRTE_PREFACTOR = true;
 
 class BasisSet{
 public:
@@ -34,13 +35,16 @@ public:
     double grid(size_t i) const{
         return knot[i];
     }
+    std::vector<std::pair<double,double>> knots_between(double bottom, double top) const;
     double min_elec_e() {return _min;};
     double max_elec_e() {return _max;};
     size_t num_funcs;
+    #warning spline order is 4
     const static int BSPLINE_ORDER = 4; // 1 = rectangles, 2=linear, 3=quadratic
     std::vector<double> avg_e;
     std::vector<double> avg_e_sqrt;
     std::vector<double> areas;
+    int i_from_e(double e);    
 protected:
     // Eigen::PartialPivLU<Eigen::MatrixXd > linsolver;
     Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int> >  linsolver;
@@ -48,7 +52,6 @@ protected:
     double overlap(size_t j, size_t k) const;
     void set_knot(const GridSpacing& gt);
     
-
     double _min;
     double _max;
 };

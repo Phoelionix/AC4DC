@@ -27,15 +27,26 @@ static const int GAUSS_ORDER_EII = 13;
 static const int GAUSS_ORDER_TBR = 10;
 // static const double gaussX_TBR[] = {-0.3399810435848563, 0.3399810435848563, -0.8611363115940526, 0.8611363115940526};
 // static const double gaussW_TBR[] = {0.6521451548625461, 0.6521451548625461, 0.3478548451374538, 0.3478548451374538};
-// static const double gaussX_EE[] = {-0.3399810435848563, 0.3399810435848563, -0.8611363115940526, 0.8611363115940526};
-// static const double gaussW_EE[] = {0.6521451548625461, 0.6521451548625461, 0.3478548451374538, 0.3478548451374538};
-static const int GAUSS_ORDER_EE = 10;
-#define gaussX_EE gaussX_10
-#define gaussW_EE gaussW_10
+static const double gaussX_EE[] = {-0.3399810435848563, 0.3399810435848563, -0.8611363115940526, 0.8611363115940526};
+static const double gaussW_EE[] = {0.6521451548625461, 0.6521451548625461, 0.3478548451374538, 0.3478548451374538};
+static const int GAUSS_ORDER_EE = 4;
+// #define gaussX_EE gaussX_10
+// #define gaussW_EE gaussW_10
 #define gaussX_EII gaussX_13
 #define gaussW_EII gaussW_13
 #define gaussX_TBR gaussX_10
 #define gaussW_TBR gaussW_10
+
+// Specialised quadrature rules for integrals of the form \int_-1^1 dx sqrt(x+1) f(x)
+// calculated using this excelent tool https://keisan.casio.com/exec/system/15041456505628
+static const int GAUSS_ORDER_SQRT = 6;
+static const double gaussX_sqrt[] = {-0.8937779292142465272226, -0.5977085045355194007473, -0.1747746522411171589491, 0.2850548710873168381781, 0.6839736445131432976427, 0.9372325703904229510983};
+static const double gaussW_sqrt[] = {0.0679848323648580100291, 0.2364639422771327772543, 0.4158087090592895378275, 0.5047613331425565232555, 0.4387744028120991078995, 0.2218248635081907754697};
+
+// Same as above but for things that resemble 1/sqrt(e)
+static const int GAUSS_ORDER_ISQRT = 6;
+static const double gaussX_isqrt[] = {-0.9686331867851990899941, -0.7293999766895035262393, -0.3101152411451654769277, 0.1855002554630833445573, 0.634856026533749915623, 0.926922557405643528633};
+static const double gaussW_isqrt[] = {0.704694262429010138266, 0.6604166237708736260642, 0.5746442606084036114914, 0.4527698865360327398879, 0.302470090347234013247, 0.1334320010546359686468};
 
 // Interpretation:
 // eiiGraph[xi] -> vector of transitions away from configuration xi, e.g.
@@ -93,8 +104,6 @@ public:
     // overloads that take non-vectorised inputs
     void Gamma_eii( std::vector<SparsePair>& Gamma_xi, const RateData::EIIdata& eii, size_t J) const;
     void Gamma_tbr( std::vector<SparsePair>& Gamma_xi, const RateData::InverseEIIdata& eii, size_t J, size_t K) const;
-
-    int i_from_e(double e);
 
     bool has_Qeii() { return _has_Qeii; }
     bool has_Qtbr() { return _has_Qtbr; }

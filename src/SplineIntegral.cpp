@@ -1,24 +1,6 @@
 #include "SplineIntegral.h"
 #include "config.h"
 
-//                  value to find, sorted array, length of array, index that *arr refers to
-int r_binsearch(double val, double* arr, int len, int idx) {
-    if (len==1) return idx;
-    int mid = len/2;
-    // arr has indices i i+1 ... i+len-1
-    if (*(arr + mid) > val) {
-        return r_binsearch(val, arr, len/2, idx);
-    } else {
-        return r_binsearch(val, arr+len/2, len - (len/2), idx+len/2);
-    }
-}
-
-
-
-int SplineIntegral::i_from_e(double e) {
-    return r_binsearch(e, knot.data(), knot.size(), 0);
-}
-
 // Resizes containers and fills them with the appropriate values
 void SplineIntegral::precompute_QEII_coeffs(vector<RateData::Atom>& Atoms) {
     std::cout<<"[ Q precalc ] Beginning Q_eii computation...";
@@ -355,37 +337,76 @@ inline double SplineIntegral::Q_ee_F(double e, size_t K) const {
     double max_K_0E = min(K_max, e);
     double min_K_0E = K_min;
     double tmp2 = 0;
-    for (size_t j = 0; j < GAUSS_ORDER_EE; j++) {
-        double x = gaussX_EE[j] * (max_K_0E - min_K_0E)/2 + (max_K_0E + min_K_0E)/2;
-        tmp2 += gaussW_EE[j]*x*(*this)(K, x);
+    for (auto&& boundary : this->knots_between(min_K_0E, max_K_0E)){
+        if ( boundary.first < DBL_CUTOFF_QEE) {
+            double integ = 0;
+            for (size_t j = 0; j < GAUSS_ORDER_SQRT; j++) {
+                double x = boundary.second*(gaussX_sqrt[j] + 1)/2.;
+                integ += gaussW_sqrt[j]*x*raw_bspline(K, x);
+                static_assert(USING_SQRTE_PREFACTOR == true);
+            }
+            tmp2 += integ*pow(boundary.second/2.,1.5);
+        } else {
+            double integ = 0;
+            double diff = (boundary.second - boundary.first)/2.;
+            double avg = (boundary.second + boundary.first)/2.;
+            for (size_t j = 0; j < GAUSS_ORDER_EE; j++) {
+                double x = gaussX_EE[j] * diff + avg;
+                integ += gaussW_EE[j]*x*(*this)(K, x);
+            }
+            tmp2 += integ*diff;
+        }
     }
-    tmp2 *= 2*pow(e,-0.5)*(max_K_0E - min_K_0E)/2;
+    tmp2 *= 2*pow(e,-0.5);
 
     // 2e int_e^inf x^-1/2 phiK(x)
     double max_I2 = K_max;
     double min_I2 = max(K_min, e);
     double tmp3 = 0;
-    for (size_t j = 0; j < GAUSS_ORDER_EE; j++) {
-        double x = gaussX_EE[j] * (max_I2 - min_I2)/2 + (max_I2 + min_I2)/2;
-        tmp3 += gaussW_EE[j]*pow(x,-0.5)*(*this)(K, x);
+    for (auto&& boundary : this->knots_between(min_I2, max_I2)){
+        double integ = 0;
+        double diff = (boundary.second - boundary.first)/2.;
+        double avg = (boundary.second + boundary.first)/2.;
+        for (size_t j = 0; j < GAUSS_ORDER_EE; j++) {
+            double x = gaussX_EE[j] * diff + avg;
+            integ += gaussW_EE[j]*pow(x,-0.5)*(*this)(K, x);
+        }
+        tmp3 += integ*diff;
     }
-    tmp3 *= 2*e*(max_I2 - min_I2)/2.;
+    tmp3 *= 2*e;
 
     return tmp2 + tmp3;
 }    
 
 inline double SplineIntegral::Q_ee_G(double e, size_t K) const {   
-    // F integral done.
     // Begin G integral
     double max_K_0E = min(this->supp_max(K), e);
     double min_K_0E = this->supp_min(K);
 
     double Gint = 0;
-    for (size_t j = 0; j < GAUSS_ORDER_EE; j++) {
-        double x = gaussX_EE[j] * (max_K_0E - min_K_0E)/2 + (max_K_0E + min_K_0E)/2;
-        Gint += gaussW_EE[j]*(*this)(K, x);
+    for (auto&& boundary : this->knots_between(min_K_0E, max_K_0E)) {
+        double tmp=0;
+        if ( boundary.first < DBL_CUTOFF_QEE) {
+            // At the origin, special care must be taken with the sqrt singularity
+            for (size_t j = 0; j < GAUSS_ORDER_SQRT; j++) {
+                double x = boundary.second*(gaussX_sqrt[j] + 1)/2.;
+                tmp += gaussW_sqrt[j]*raw_bspline(K, x);
+                static_assert(USING_SQRTE_PREFACTOR == true);
+            }
+            tmp *= pow(boundary.second/2.,1.5);
+            
+        } else {
+            double diff = (boundary.second - boundary.first)/2.;
+            double avg = (boundary.second + boundary.first)/2.;
+            for (size_t j = 0; j < GAUSS_ORDER_EE; j++) {
+                double x = gaussX_EE[j] * diff + avg;
+                tmp += gaussW_EE[j]*(*this)(K, x);
+            }
+            tmp *= diff;
+        }
+        Gint += tmp;
     }
-    Gint *= 3*pow(e,-0.5)*(max_K_0E - min_K_0E)/2;
+    Gint *= 3*pow(e,-0.5);
     // G integral done.
 
     return  Gint;
@@ -406,14 +427,32 @@ SplineIntegral::pair_list SplineIntegral::calc_Q_ee(size_t J, size_t K) const {
         double max_JL = min(J_max, this->supp_max(L));
 
         if (max_JL <= min_JL) continue;
-        
 
-        for (size_t i = 0; i < GAUSS_ORDER_EE; i++) {
-            double e = gaussX_EE[i] * (max_JL - min_JL)/2 + (max_JL + min_JL)/2;
-            // total += gaussW_EE[i]*this->D(J, e)*(Q_ee_F(e, K) * ( (*this)(L, e)/2/e - this->D(L, e) ) - Q_ee_G(e, K) * (*this)(L,e));
-            total += gaussW_EE[i]*raw_Dbspline(J, e)*(Q_ee_F(e, K) * ( (*this)(L, e)/2/e - this->D(L, e) ) - Q_ee_G(e, K) * (*this)(L,e));
+        
+        for (auto&& boundary : this->knots_between(min_JL,max_JL)){
+            double tmp=0;
+            if (false&&boundary.first < DBL_CUTOFF_QEE) {
+                for (size_t i = 0; i < GAUSS_ORDER_ISQRT; i++) {
+                    double e = boundary.second*(gaussX_isqrt[i] + 1)/2.;
+                    tmp += gaussW_isqrt[i]*raw_Dbspline(J, e)*(Q_ee_F(e, K) * ( -this->raw_Dbspline(L,e) ) - Q_ee_G(e, K) * e * this->raw_Dbspline(L,e));
+                }
+                tmp *= pow(boundary.second/2, 0.5);
+                static_assert(USING_SQRTE_PREFACTOR);
+            } else {
+                double diff = (boundary.second - boundary.first)/2.;
+                double avg = (boundary.second + boundary.first)/2.;
+                for (size_t i = 0; i < GAUSS_ORDER_EE; i++) {
+                    double e = gaussX_EE[i] * diff + avg;
+                    // tmp += gaussW_EE[i]*raw_Dbspline(J, e)*(Q_ee_F(e, K) * ( (*this)(L, e)/2/e - this->D(L, e) ) - Q_ee_G(e, K) * (*this)(L,e));
+                    static_assert(USING_SQRTE_PREFACTOR);
+                    tmp += gaussW_EE[i]*raw_Dbspline(J, e)*(Q_ee_F(e, K) * ( -pow(e,-0.5)*this->raw_Dbspline(L,e) ) - Q_ee_G(e, K) * (*this)(L,e));
+                }
+                tmp *= diff;
+            }
+            total += tmp;
+            
         }
-        total *= 0.5*(max_JL-min_JL);
+        
         // Multiply by alpha
         total *= 2./3.*Constant::Pi*sqrt(2);
         // N.B. this value still needs to be multiplied by the Coulomb logarithm.

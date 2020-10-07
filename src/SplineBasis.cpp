@@ -2,6 +2,7 @@
 #include <assert.h>
 #include "Constant.h"
 #include "BSpline.h"
+#include <algorithm>
 
 // classic false position method
 double find_root(std::function<double(double)> func, double a, double b, double tolerance=1e-8){
@@ -25,8 +26,34 @@ double find_root(std::function<double(double)> func, double a, double b, double 
     return x;
 }
 
-// Constructs the grid over which the electron distribution is solved. 
 
+//                  value to find, sorted array, length of array, index that *arr refers to
+// Returns an index idx such that val lies in the interval [arr[idx], arr[idx+1])
+int r_binsearch(double val, const double* arr, int len, int idx) {
+    if (len==1) return idx;
+    int mid = len/2;
+    // arr has indices i i+1 ... i+len-1
+    if (*(arr + mid) > val) {
+        return r_binsearch(val, arr, mid, idx);
+    } else {
+        return r_binsearch(val, arr+mid, len - mid, idx+mid);
+    }
+}
+
+int lower_idx(double val, const std::vector<double>& arr){
+    return r_binsearch(val, arr.data(), arr.size(), 0);
+}
+
+int BasisSet::i_from_e(double e) {
+    // size_t idx = r_binsearch(e, avg_e.data(), avg_e.size(), 0);
+    size_t idx = lower_idx(e, avg_e);
+    if (idx == avg_e.size()) return 0;
+    // returns the closer one
+    return (avg_e[idx+1] - e > e - avg_e[idx]) ? idx : idx +1;
+}
+
+
+// Constructs the grid over which the electron distribution is solved. 
 void BasisSet::set_knot(const GridSpacing& gt){
     int Z_0 = gt.zero_degree_0;
     int Z_inf = gt.zero_degree_inf;
@@ -64,9 +91,13 @@ void BasisSet::set_knot(const GridSpacing& gt){
     double p_powlaw = (log(_max-_min) - log(gt.transition_e - _min))/(log(num_funcs/M));
     double A_powlaw = (_max - _min)/pow(num_funcs, p_powlaw);
 
+
+    std::cout<<"[ Knot ] Using splines of "<<BSPLINE_ORDER<<"th order "<<std::endl;
+    std::cout<<"[ Knot ] (i.e. piecewise polynomial has leading order x^"<<BSPLINE_ORDER-1<<")"<<std::endl;
     if ( gt.mode == GridSpacing::powerlaw) {
-        std::cerr<<"Using exponent "<<p_powlaw<<std::endl;
+        std::cout<<"[ Knot ] Using power-law exponent "<<p_powlaw<<std::endl;
     }
+
 
     // std::function<double(double)> f = [=](double B) {return _min*exp(B*M/(_max - B*(num_int-M))) + B*(num_int-M) - _max;};
     // double B_hyb = 0;
@@ -212,9 +243,8 @@ double BasisSet::operator()(size_t i, double x) const {
     assert(i < num_funcs && i >= 0);
     // Returns the i^th B-spline of order BSPLINE_ORDER
     
-    // return (i==0) ? pow(x,0.5)*BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]) : BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
+    static_assert(USING_SQRTE_PREFACTOR);
     return pow(x,0.5)*BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
-    
     // return BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
     
 }
@@ -229,11 +259,12 @@ double BasisSet::at(size_t i, double x) const {
 double BasisSet::D(size_t i, double x) const {
     assert(i < num_funcs && i >= 0);
     static_assert(BSPLINE_ORDER > 1);
-    // if (i == 0){
-        return pow(x,0.5)*BSpline::DBSpline<BSPLINE_ORDER>(x, &knot[i]) + 0.5*pow(x,-0.5)*BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
-    // } else {
-        // return BSpline::DBSpline<BSPLINE_ORDER>(x, &knot[i]);
-    // }
+    
+    static_assert(USING_SQRTE_PREFACTOR);
+    return pow(x,0.5)*BSpline::DBSpline<BSPLINE_ORDER>(x, &knot[i]) + 0.5*pow(x,-0.5)*BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);
+    
+    // return BSpline::DBSpline<BSPLINE_ORDER>(x, &knot[i]);
+    
 }
 
 double BasisSet::overlap(size_t j,size_t i) const{
@@ -249,4 +280,19 @@ double BasisSet::overlap(size_t j,size_t i) const{
     }
     tmp *= (b-a)/2;
     return tmp;
+}
+
+// returns a vector of intervals (bottom, K1), (K1, K2), (K2, top)
+// such that the splines are polynomial on these intervals
+std::vector<std::pair<double,double>> BasisSet::knots_between(double bottom, double top) const {
+    std::vector<std::pair<double,double> > intervals;
+    // NOTE TO FUTURE DEVELOPERS:
+    // These calls can nad should should be replaced with std::lower_bound calls.
+    size_t bottomidx = lower_idx(bottom, knot);
+    size_t topidx = lower_idx(top, knot) + 1;
+    if (topidx >= knot.size()) topidx = knot.size() -1;
+    for (size_t i = bottomidx; i<= topidx; i++){
+        intervals.push_back(std::pair<double,double>(knot[i],knot[i+1]));
+    }
+    return intervals;
 }

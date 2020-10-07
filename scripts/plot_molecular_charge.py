@@ -1,3 +1,4 @@
+import matplotlib.rcsetup as rcsetup
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import BSpline
@@ -10,9 +11,10 @@ import time
 import subprocess
 import re
 from matplotlib.ticker import LogFormatter 
+import random
 
 plt.style.use('seaborn-muted')
-plt.rcParams["font.size"] = 14
+plt.rcParams["font.size"] = 11
 
 engine = re.compile(r'\d[spdf]\^\{(\d+)\}')
 
@@ -67,6 +69,7 @@ class Plotter:
 
         self.fig_steps = plt.figure()
         self.ax_steps = self.fig_steps.add_subplot(111)
+        
 
     # Reads the control file specified by self.mol['infile']
     # and populates the atomdict data structure accordingly
@@ -198,14 +201,15 @@ class Plotter:
 
     # makes a blank plot showing the intensity curve
     def setup_axes(self):
-        self.fig = plt.figure()
-        ax = self.fig.add_subplot(111, )
+        self.fig = plt.figure(figsize=(3,2.5))
+        ax = self.fig.add_subplot(111)
         ax2 = ax.twinx()
-        ax2.plot(self.timeData, self.intensityData, lw = 2, c = 'black', ls = '--', alpha = 0.7)
-        ax2.set_ylabel('Pulse Intensity (photons cm$^{-2}$ s$^{-1}$)')
+        ax2.plot(self.timeData, self.intensityData, lw = 1, c = 'black', ls = ':', alpha = 0.7)
+        # ax2.set_ylabel('Pulse Intensity (photons cm$^{-2}$ s$^{-1}$)')
         ax.set_xlabel("Time (fs)")
         ax.tick_params(direction='in')
-        ax2.tick_params(direction='in')
+        ax2.axes.get_yaxis().set_visible(False)
+        # ax2.tick_params(None)
         ax.get_xaxis().get_major_formatter().labelOnlyBase = False
         return (ax, ax2)
 
@@ -224,8 +228,7 @@ class Plotter:
             ax.plot(self.timeData, self.boundData[a][:,i], label = self.statedict[a][i])
         ax.set_title("Configurational dynamics")
         ax.set_ylabel("Density")
-        self.fig.figlegend(loc = (0.11, 0.43))
-        self.fig.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
+        self.fig.subplots_adjust(left=0.2, right=0.92, top=0.93, bottom=0.1)
 
     def plot_ffactor(self, a, num_tsteps = 10):
         fdists = np.genfromtxt('output/'+a+'/Xsections/Form_Factor.txt')
@@ -247,9 +250,15 @@ class Plotter:
         fig2.legend()
         fig2.show()
 
-    def plot_charges(self, a):
+    def plot_charges(self, a, rseed=404):
         ax, _ax2 = self.setup_axes()
         self.aggregate_charges()
+        idx = list(np.linspace(0, 1, self.chargeData[a].shape[1]+1))[1:]
+        # random.seed(rseed)
+        random.shuffle(idx)
+        idx.insert(0,0)
+        C = plt.cm.nipy_spectral
+        ax.set_prop_cycle(rcsetup.cycler('color', C(idx)))
         for i in range(self.chargeData[a].shape[1]):
             max_at_zero = np.max(self.chargeData[a][0,:])
             mask = self.chargeData[a][:,i] > max_at_zero*2
@@ -257,10 +266,10 @@ class Plotter:
             Y = np.ma.masked_where(mask, self.chargeData[a][:,i])
             ax.plot(self.timeData, Y, label = "%d+" % i)
         # ax.set_title("Charge state dynamics")
-        ax.set_ylabel("Density (Å$^-3$)")
+        ax.set_ylabel("Density (Å$^{-3}$)")
 
-        self.fig.legend(loc = "upper left")
-        self.fig.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
+        self.fig.legend(loc = "right")
+        self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)
 
     def plot_tot_charge(self):
         ax, _ax2 = self.setup_axes()
@@ -286,9 +295,9 @@ class Plotter:
         return ax
 
 
-    def plot_all_charges(self):
+    def plot_all_charges(self, rseed=404):
         for a in self.atomdict:
-            self.plot_charges(a)
+            self.plot_charges(a,rseed)
 
     def plot_free(self, N=100, log=False, min = None, max=None, tmax = None):
         self.fig_free = plt.figure()
@@ -348,7 +357,7 @@ class Plotter:
             Z = np.ma.masked_where(Z > max, Z)
 
         Yax = np.arange(Z.shape[0])
-        plt.contourf(T, Yax, Z, N, cmap='magma')
+        plt.contourf(T, Yax, Z, N, shading='nearest',cmap='magma')
         plt.title("Free electron energy distribution")
         plt.ylabel("Energy (eV)")
         plt.xlabel("Time, fs")
@@ -383,4 +392,5 @@ def moving_average(a, n=3) :
 
 if __name__ == "__main__":
     pl = Plotter(sys.argv[1])
-    pl.plot_free(log=True,min=1e-7)
+    # pl.plot_free(log=True,min=1e-7)
+    pl.plot_all_charges()

@@ -88,13 +88,12 @@ int main(int argc, char const *argv[]) {
     istringstream is(argv[9]);
     is >> gs;
     gs.num_low = num_e_pts/2;
-    gs.transition_e = max_e/3.;
     gs.zero_degree_0=0;
     gs.zero_degree_inf=2;
     
 
-    cerr<<"MB Density ="<<density<<" elec per Angstrom3 @ kT = "<<temperature/4<<"Ha"<<endl;
-    cerr<<"Spike Density ="<<sdensity<<" elec per Angstrom3 @ E = "<<temperature<<"Ha"<<endl;
+    cerr<<"MB Density ="<<density<<" elec per Angstrom3 @ kT = "<<temperature/4<<"eV"<<endl;
+    cerr<<"Spike Density ="<<sdensity<<" elec per Angstrom3 @ E = "<<temperature<<"eV"<<endl;
     cerr<<"Final Time: "<<fin_time<<" fs in "<<num_t_pts<<" timesteps"<<endl;
 
     fin_time /= Constant::fs_per_au;
@@ -102,6 +101,8 @@ int main(int argc, char const *argv[]) {
     max_e /= Constant::eV_per_Ha;
     density *= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
     sdensity *= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;    
+
+    gs.transition_e = max_e/3.;
 
     double step = fin_time/num_t_pts;
     double min_e = 0;
