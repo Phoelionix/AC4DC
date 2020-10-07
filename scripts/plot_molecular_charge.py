@@ -271,26 +271,28 @@ class Plotter:
         self.fig.legend(loc = "right")
         self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)
 
-    def plot_tot_charge(self):
+    def plot_tot_charge(self, every=1):
         ax, _ax2 = self.setup_axes()
         self.aggregate_charges()
-        self.Q = np.zeros(self.timeData.shape[0])
+        self.fig.subplots_adjust(left=0.22, right=0.955, top=0.955, bottom=0.17)
+
+        T = self.timeData[::every]
+        self.Q = np.zeros(T.shape[0])
         for a in self.atomdict:
-            atomic_charge = np.zeros(self.timeData.shape[0])
+            atomic_charge = np.zeros(T.shape[0])
             for i in range(self.chargeData[a].shape[1]):
-                atomic_charge += self.chargeData[a][:,i]*i
-            ax.plot(self.timeData, atomic_charge, label = a)
+                atomic_charge += self.chargeData[a][::every,i]*i
+            ax.plot(T, atomic_charge, label = a)
             self.Q += atomic_charge
 
         de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])
         de = de [1:] - de[:-1]
         tot_free_Q =-1*np.dot(self.freeData, de)
-        ax.plot(self.timeData, tot_free_Q, label = 'Free')
-        ax.set_ylabel("Charge density ($e$Å$^-3$")
-        print(tot_free_Q/self.Q)
-        self.Q += tot_free_Q
+        ax.plot(T, tot_free_Q[::every], label = 'Free')
+        ax.set_ylabel("Charge density ($e$ Å$^-3$)")
+        self.Q += tot_free_Q[::every]
         # ax.set_title("Charge Conservation")
-        ax.plot(self.timeData, self.Q, label='total')
+        ax.plot(T, self.Q, label='total')
         ax.legend(loc = 'upper left')
         return ax
 
@@ -364,25 +366,28 @@ class Plotter:
         plt.show()
         plt.colorbar()
 
-    def plot_step(self, t, smooth=0, normed=True):        
+    def plot_step(self, t, normed=True, fit=False):        
         self.ax_steps.set_xlabel('Energy, eV')
         self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
         self.ax_steps.loglog()
         # norm = np.sum(self.freeData[n,:])
         n = self.timeData.searchsorted(t)
         data = self.freeData[n,:]
-        if smooth != 0:
-            data = moving_average(data, smooth)
-            X = moving_average(self.energyKnot,smooth)
-        else:
-            X = self.energyKnot
+        X = self.energyKnot
 
         if normed:
             tot = np.sum(data)
             data /= tot
         
-        self.ax_steps.plot(X, data*X, label='t=%f fs' % self.timeData[n])
+        self.ax_steps.plot(X, data*X, label='%1.2f fs' % self.timeData[n])
         self.fig_steps.show()
+
+        if fit:
+            def maxwell(e, kT, n):
+                return n * np.sqrt(e/(np.pi*kT**3)) * np.exp(-e/kT)
+                
+
+
 
 
 def moving_average(a, n=3) :

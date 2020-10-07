@@ -431,10 +431,10 @@ SplineIntegral::pair_list SplineIntegral::calc_Q_ee(size_t J, size_t K) const {
         
         for (auto&& boundary : this->knots_between(min_JL,max_JL)){
             double tmp=0;
-            if (false&&boundary.first < DBL_CUTOFF_QEE) {
-                for (size_t i = 0; i < GAUSS_ORDER_ISQRT; i++) {
-                    double e = boundary.second*(gaussX_isqrt[i] + 1)/2.;
-                    tmp += gaussW_isqrt[i]*raw_Dbspline(J, e)*(Q_ee_F(e, K) * ( -this->raw_Dbspline(L,e) ) - Q_ee_G(e, K) * e * this->raw_Dbspline(L,e));
+            if (boundary.first < DBL_CUTOFF_QEE) {
+                for (size_t i = 0; i < GAUSS_ORDER_SQRT; i++) {
+                    double e = boundary.second*(gaussX_sqrt[i] + 1)/2.;
+                    tmp += gaussW_sqrt[i]*raw_Dbspline(J, e)*(Q_ee_F(e, K) * ( -this->raw_Dbspline(L,e) ) - Q_ee_G(e, K) * this->raw_Dbspline(L,e));
                 }
                 tmp *= pow(boundary.second/2, 0.5);
                 static_assert(USING_SQRTE_PREFACTOR);
@@ -445,7 +445,7 @@ SplineIntegral::pair_list SplineIntegral::calc_Q_ee(size_t J, size_t K) const {
                     double e = gaussX_EE[i] * diff + avg;
                     // tmp += gaussW_EE[i]*raw_Dbspline(J, e)*(Q_ee_F(e, K) * ( (*this)(L, e)/2/e - this->D(L, e) ) - Q_ee_G(e, K) * (*this)(L,e));
                     static_assert(USING_SQRTE_PREFACTOR);
-                    tmp += gaussW_EE[i]*raw_Dbspline(J, e)*(Q_ee_F(e, K) * ( -pow(e,-0.5)*this->raw_Dbspline(L,e) ) - Q_ee_G(e, K) * (*this)(L,e));
+                    tmp += gaussW_EE[i]*raw_Dbspline(J, e)*(Q_ee_F(e, K) * ( -pow(e,0.5)*this->raw_Dbspline(L,e) ) - Q_ee_G(e, K) * (*this)(L,e));
                 }
                 tmp *= diff;
             }

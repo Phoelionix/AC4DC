@@ -1,29 +1,30 @@
-// Native (intrinsic) silicon
+// Silicon crystal comparable to Leonov et al
+// "Time dependence of X-ray polarizability of a crystal induced by an intense femtosecond X-ray pulse"
 
 #ATOMS
 Si 8         // Single conventional FCC (diamond) unit cell
 
 #VOLUME
-160.19      // Volume per molecule in Angstrom^3.
-175000          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
-cylinder      // Geometry specifier 
+160.19         // Volume per molecule in Angstrom^3.
+10000          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+cylinder       // Geometry specifier - options are none, spherical, cylindrical, planar
 
 #PULSE
 8000         // Photon energy in eV.
-13           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-20           // Pulse fluence in 10^4 * J/cm^2.
+40           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+16           // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
-8000        // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+8000        // Initial guess for number of time step points for rate equation.
 12          // Number of threads in OpenMP.
-0        // minimum free-electron energy in eV
-9000       // maximum free-electron energy in eV
-100         // number of free-electron grid points
-quadratic      // electron grid type
+0           // minimum free-electron energy in eV
+9000        // maximum free-electron energy in eV
+200         // number of free-electron grid points
+quadratic   // electron grid type
 100         // number of low-energy exponential grid points
 
 #OUTPUT
-400        // Number of time steps in the output files.
+400          // Number of time steps in the output files.
 500          // Number of energy grid points to output
 N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
