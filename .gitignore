@@ -9,3 +9,4 @@ output
 tmp
 testOutput
 *.swp
+*/__pycache__
