@@ -12,6 +12,7 @@ import subprocess
 import re
 from matplotlib.ticker import LogFormatter 
 import random
+from scipy.optimize import curve_fit
 
 plt.style.use('seaborn-muted')
 plt.rcParams["font.size"] = 11
@@ -66,9 +67,14 @@ class Plotter:
         self.get_atoms()
         self.update_outputs()
         self.autorun=False
+        
+        self.setup_step_axes()
 
-        self.fig_steps = plt.figure()
+
+    def setup_step_axes(self):
+        self.fig_steps = plt.figure(figsize=(4,3))
         self.ax_steps = self.fig_steps.add_subplot(111)
+        self.fig_steps.subplots_adjust(left=0.18,right=0.97, top=0.97, bottom= 0.16)
         
 
     # Reads the control file specified by self.mol['infile']
@@ -366,7 +372,7 @@ class Plotter:
         plt.show()
         plt.colorbar()
 
-    def plot_step(self, t, normed=True, fit=False):        
+    def plot_step(self, t, normed=True, fit=None):        
         self.ax_steps.set_xlabel('Energy, eV')
         self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
         self.ax_steps.loglog()
@@ -382,11 +388,19 @@ class Plotter:
         self.ax_steps.plot(X, data*X, label='%1.2f fs' % self.timeData[n])
         self.fig_steps.show()
 
-        if fit:
-            def maxwell(e, kT, n):
-                return n * np.sqrt(e/(np.pi*kT**3)) * np.exp(-e/kT)
-                
+        if fit is not None:
+            guess = [200, 12]
+            mask = np.where(data > 0)
+            # popt, _pcov = curve_fit(lnmaxwell, X[mask][:fit], np.log(data[mask][:fit]), p0 = guess, sigma = 1/X[mask][:fit])
+            popt, _pcov = curve_fit(maxwell, X[:fit], data[:fit], p0 = guess, sigma = 1/X[mask][:fit])
+            print(popt)
+            self.ax_steps.plot(X, maxwell(X, popt[0], popt[1])*X, '--', lw=1,label='kT = %3.2f' % popt[0])
 
+def maxwell(e, kT, n):
+    return n * np.sqrt(e/(np.pi*kT**3)) * np.exp(-e/kT)
+
+def lnmaxwell(e, kT, n):
+    return np.log(n) + 0.5*np.log(e/np.pi*kT**3) - e /kT
 
 
 
