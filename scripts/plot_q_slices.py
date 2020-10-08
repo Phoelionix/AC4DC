@@ -10,15 +10,18 @@ import matplotlib.pyplot as plt
 from plot_molecular_charge import Plotter
 import sys
 
+plt.rcParams["font.size"] = 9
+
 slices = [-5, -2.5, 0, 2.5]
+colours = ['red', 'green', 'blue', 'purple']
 
 pl = Plotter(sys.argv[1])
-for t in slices:
-    pl.plot_step(t, normed=False)
+for (t, c) in zip(slices, colours):
+    pl.plot_step(t, normed=True, fitE=2000)
 
-pl.ax_steps.set_ylim([1e-5, 5])
+pl.ax_steps.set_ylim([1e-5, 1])
 pl.ax_steps.set_xlim([1,10000])
-
-plt.legend(['%1.1ffs' % i for i in slices])
+pl.fig_steps.subplots_adjust(bottom=0.3)
+pl.fig_steps.legend(loc='lower left', ncol=4)
 plt.savefig('/Users/alaric-mba/Desktop/free_distribution_evolution.png')
 plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+sys.argv[1]+'_6keV_no_ee.pgf')

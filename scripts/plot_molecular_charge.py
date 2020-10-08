@@ -13,11 +13,12 @@ import re
 from matplotlib.ticker import LogFormatter 
 import random
 from scipy.optimize import curve_fit
+from scipy.stats import linregress
 
 plt.style.use('seaborn-muted')
 plt.rcParams["font.size"] = 11
 
-engine = re.compile(r'\d[spdf]\^\{(\d+)\}')
+engine = re.compile(r'(\d[spdf])\^\{(\d+)\}')
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
@@ -27,9 +28,10 @@ def parse_elecs_from_latex(latexlike):
     # e.g. $1s^{1}2s^{1}$
     # ignores anything non-numerical or spdf
     num = 0
+    qdict = {}
     for match in engine.finditer(latexlike):
-        num += int(match.group(1))
-    return num
+        qdict[match.group(1)] = int(match.group(2))
+    return qdict
 
 
 ATOMS = 'H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'.split()
@@ -67,7 +69,7 @@ class Plotter:
         self.get_atoms()
         self.update_outputs()
         self.autorun=False
-        
+
         self.setup_step_axes()
 
 
@@ -184,7 +186,8 @@ class Plotter:
 
             self.chargeData[a] = np.zeros((self.boundData[a].shape[0], ATOMNO[a]+1))
             for i in range(len(states)):
-                charge = ATOMNO[a] - parse_elecs_from_latex(states[i])
+                orboccs = parse_elecs_from_latex(states[i])
+                charge = ATOMNO[a] - sum(orboccs.values())
                 self.chargeData[a][:, charge] += self.boundData[a][:, i]
 
 
@@ -334,10 +337,10 @@ class Plotter:
 
         ax.set_ylabel("Energy (eV)")
         ax.set_xlabel("Time (fs)")
-        minval = np.floor(np.min(Z, axis=(0,1)))
-        maxval = np.ceil(np.max(Z,axis=(0,1)))
-
+        
         if log:
+            minval = np.floor(np.log10(np.min(Z, axis=(0,1))))
+            maxval = np.ceil(np.log10(np.max(Z,axis=(0,1))))
             vals = np.arange(minval,maxval+1,1)
             vals = 10**vals
             formatter = LogFormatter(10, labelOnlyBase=True) 
@@ -372,7 +375,7 @@ class Plotter:
         plt.show()
         plt.colorbar()
 
-    def plot_step(self, t, normed=True, fit=None):        
+    def plot_step(self, t, normed=True, fitE=None, c=None):        
         self.ax_steps.set_xlabel('Energy, eV')
         self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
         self.ax_steps.loglog()
@@ -385,24 +388,34 @@ class Plotter:
             tot = np.sum(data)
             data /= tot
         
-        self.ax_steps.plot(X, data*X, label='%1.2f fs' % self.timeData[n])
+        line = self.ax_steps.plot(X, data*X, label='%1.1f fs' % t)
         self.fig_steps.show()
 
-        if fit is not None:
+        if fitE is not None:
+            fit = self.energyKnot.searchsorted(fitE)
             guess = [200, 12]
-            mask = np.where(data > 0)
+            Xdata = X[:fit]
+            Ydata = data[:fit]
+            mask = np.where(Ydata > 0)
             # popt, _pcov = curve_fit(lnmaxwell, X[mask][:fit], np.log(data[mask][:fit]), p0 = guess, sigma = 1/X[mask][:fit])
-            popt, _pcov = curve_fit(maxwell, X[:fit], data[:fit], p0 = guess, sigma = 1/X[mask][:fit])
+            popt, _pcov = curve_fit(maxwell, X[:fit], data[:fit], p0 = guess)
+            
+            
+            # Xdata = Xdata[mask]
+            # Ydata = Ydata[mask]
+            # r = linregress(Xdata, np.log(Ydata/np.sqrt(Xdata)))
+            # kT = -r.slope
+            # n = np.exp(r.intercept)*(np.pi*kT**3)**0.5
+            # popt = [kT, n]
             print(popt)
-            self.ax_steps.plot(X, maxwell(X, popt[0], popt[1])*X, '--', lw=1,label='kT = %3.2f' % popt[0])
+            self.ax_steps.plot(X, maxwell(X, popt[0], popt[1])*X, '--', lw=1,label='%3.1f eV' % popt[0], color=line[-1].get_color())
+            return (Xdata, Ydata)
 
 def maxwell(e, kT, n):
     return n * np.sqrt(e/(np.pi*kT**3)) * np.exp(-e/kT)
 
 def lnmaxwell(e, kT, n):
     return np.log(n) + 0.5*np.log(e/np.pi*kT**3) - e /kT
-
-
 
 def moving_average(a, n=3) :
     ret = np.cumsum(a, dtype=float)

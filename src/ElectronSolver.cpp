@@ -270,8 +270,8 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         
     }
 
-    #warning electron-electron is turned off.
-    // s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
+    // #warning electron-electron is turned off.
+    s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
 
     sdot.F.applyDelta(vec_dqdt);
 
