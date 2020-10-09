@@ -24,12 +24,12 @@ cm = 'magma'
 def plotit():    
     fig, (ax1, ax2) = plt.subplots(nrows=1,ncols=2, sharex=True, sharey=True, figsize = (2.5,2))
     bottom = 0
-    im = ax1.pcolormesh(energies, energies, -Qdata, shading='nearest', vmin=bottom, vmax=bigg, cmap=cm)
+    im = ax1.pcolormesh(energies, energies, -Qdata, shading='nearest', vmin=bottom, vmax=bigg, cmap=cm,rasterized=True)
     ax1.set_title(r'Free')
     ax1.set_xlabel(r"$\epsilon_k$")
     ax1.yaxis.set_label_coords(-0.07, 0.07)
     ax1.set_ylabel(r"$\epsilon_l$",rotation=90)
-    ax2.pcolormesh(energies, energies, Gdata, shading='nearest',vmin=bottom, vmax=bigg, cmap=cm)
+    ax2.pcolormesh(energies, energies, Gdata, shading='nearest',vmin=bottom, vmax=bigg, cmap=cm,rasterized=True)
     # ax2.set_title(r'$\sum_{\eta} \Gamma^{TBR}_{kl}$',y=1.5)
     ax2.set_title(r'Bound')
     ax2.set_xlabel(r"$\epsilon_k$")
