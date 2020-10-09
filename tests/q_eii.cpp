@@ -9,10 +9,10 @@ using namespace std;
 RateData::EIIdata get_fake_eii() {
     RateData::EIIdata tmp;
     tmp.init = 0;
-    tmp.push_back(3, 2, 20, 1.9);
-    tmp.push_back(5, 2, 44.3, 8.9);
-    tmp.push_back(1, 1, 1.3, 0.9);
-    tmp.push_back(7, 1, 5, 0.9);
+    tmp.push_back(9, 2, 11.3, 1.16);
+    tmp.push_back(3, 2, 0.71, 1.94);
+    tmp.push_back(1, 2, 1.93, 2.69);
+    // tmp.push_back(1, 1, 11, 1);
     return tmp;
 }
 
@@ -21,11 +21,13 @@ const auto& one = [](double e) -> double {return 1.;};
 class BasisTester : public SplineIntegral{
     public:
     BasisTester(size_t F_size, double min_e, double max_e, GridSpacing grid_type) {
-        
+        grid_type.zero_degree_0 = 0;
+        grid_type.zero_degree_inf = 0;
         Distribution::set_elec_points(F_size, min_e, max_e, grid_type);
         // HACK: There are two distinct BasisSet-inheriting things, the Distribution static BasisIntegral
         // and this object. 
-        this->set_parameters(F_size, min_e, max_e, 0, grid_type);
+        
+        this->set_parameters(F_size, min_e, max_e, grid_type);
     }
 
     void check_eii(string filestem)
@@ -38,6 +40,7 @@ class BasisTester : public SplineIntegral{
         std::vector<SparsePair> eg;
         double dQ = 0;
         ofstream out(filestem + "_qeii.csv");
+        ofstream mat_out(filestem + "qeii_matrix.csv");
 
         out <<"#K energy sum_eta gamma_K   sum_J Q_K "<<endl;
         for (size_t K = 0; K < Distribution::size; K++)
@@ -51,16 +54,21 @@ class BasisTester : public SplineIntegral{
             }
 
             double dQ_tmp = 0;
+            mat_out<<K;
             for (size_t J = 0; J < Distribution::size; J++)
             {
-                dQ_tmp += calc_Q_eii(eii_process, J, K);
+                double QKJ = calc_Q_eii(eii_process, J, K);
+                mat_out<<" "<<QKJ;
+                dQ_tmp += QKJ;
             }
+            mat_out<<endl;
 
             out << K <<" "<<(supp_max(K)+supp_min(K))*0.5<<" "<<tot <<" "<< dQ_tmp <<endl;
             dQ += dQ_tmp;
 
         }
         out.close();
+        mat_out.close();
         cout<<endl<<"init -> fin   gamma_total   "<<endl;
         double tot=0;
         for (size_t j = 0; j < num_fin_states; j++)
@@ -91,6 +99,7 @@ int main(int argc, char const *argv[]) {
     GridSpacing gt;
     istringstream inp(argv[5]);
     inp >> gt;
+    gt.num_low = N/3;
     
     BasisTester bt(N, min_e, max_e, gt);
     bt.check_eii(filestem);

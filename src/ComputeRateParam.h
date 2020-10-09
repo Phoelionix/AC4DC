@@ -53,7 +53,7 @@ public:
 	//Orbitals are HF wavefunctions. This configuration is an initial state.
 	//Assuming there are no unoccupied states in initial configuration!!!
 	ComputeRateParam(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, bool recalc=true) :
-	 	lattice(Lattice), orbitals(Orbitals), u(U), input(Inp), recalculate(recalc) {
+	 	lattice(Lattice), input(Inp), orbitals(Orbitals), u(U), recalculate(recalc) {
 		};
 	~ComputeRateParam();
 
@@ -90,12 +90,12 @@ public:
   	Grid & Atom_Mesh() { return lattice; }
 
 protected:
-	bool recalculate; // Flag to determine behaviour
-
 	Grid & lattice;
 	Input & input;
 	vector<RadialWF> & orbitals;
 	Potential& u;
+	bool recalculate; // Flag to determine whether or not to force-recompute everything
+
 	vector<CustomDataType::polarize> MixMe;
 	int dimension;//number of configurations
 	vector<vector<double>> charge;

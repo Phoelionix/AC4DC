@@ -151,7 +151,7 @@ namespace RateData {
 		std::string name = "";
 		double nAtoms = 1.;// atomic number density
 		// double R = 189.; // 100nm focal spot radius.
-		int num_conf = 1;
+		unsigned int num_conf = 1;
 		vector<RateData::Rate> Photo = vector<RateData::Rate>(0);
 		vector<RateData::Rate> Fluor = vector<RateData::Rate>(0);
 		vector<RateData::Rate> Auger = vector<RateData::Rate>(0);
@@ -162,7 +162,7 @@ namespace RateData {
 	bool ReadEIIParams(const string & input, vector<RateData::EIIdata> & PutHere);
 	void WriteRates(const string& fname, const vector<RateData::Rate>& rateVector);
 	void WriteEIIParams(const string& fname, const vector<RateData::EIIdata>& eiiVector);
-};
+}
 
 
 static const double Moulton_5[5] = { 251. / 720., 646. / 720., -264. / 720., 106. / 720., -19. / 720. }; //Adams-Moulton method

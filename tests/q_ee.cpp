@@ -1,55 +1,111 @@
-#include "AdamsIntegrator.hpp"
-#include "RateSystem.h"
 #include <iostream>
-#include <cmath>
+#include <fstream>
+#include "src/FreeDistribution.h"
+#include "src/Constant.h"
+
 
 using namespace std;
 
-// INTERNAL UNITS:
-// eV, fs
-class EEcoll : ode::Adams_BM<Distribution>{
-public:
-    EEcoll(double T, size_t num_points, double _dt, int _order) : Adams_BM<Distribution>(_order) {
-        //                            num, min, max
-        Distribution::set_elec_points(100, 0, 50*T*Constant::kb_Ha);
-        Distribution init;
-        // 100 electrons
-        cerr<<"Initial conditions: N=100 Maxwellian T="<<T*Constant::kb_eV<<" eV, ";
-        cerr<<"curve with N=100 delta at "<<4*T*Constant::kb_eV<<"eV"<<endl;
-        init.set_maxwellian(100, T);
-        init.addDeltaSpike(4*T*Constant::kb_Ha, 100);
-        this->setup(init, _dt);
-        this->iterate(0, num_points); // returns final time
-        // this->y and this->t are now populated
+class BasisTester : public SplineIntegral{
+    public:
+    BasisTester(size_t F_size, double min_e, double max_e, GridSpacing grid_type) {
+        
+        Distribution::set_elec_points(F_size, min_e, max_e, grid_type);
+        // HACK: There are two distinct BasisSet-inheriting things, the Distribution static BasisIntegral
+        // and this object. 
+        this->set_parameters(F_size, min_e, max_e, grid_type);
     }
 
-    void print() {
-        cout<<"#t | E (eV)"<<endl;
-        cout<<"# |  "<<Distribution::output_energies_eV(Distribution::size)<<endl;
-        for (size_t i = 0; i < y.size(); i++) {
-            cout<<t[i]<<' '<<y[i]<<endl;
+    void check_ee(string fname)
+    {
+        
+        // Index runs along final states
+        double dQ = 0;        
+
+        ofstream qout(fname);
+
+        // Make Q_mat the correct size to store all the summed Q^J_{KL} coefficients 
+        std::vector<std::vector<std::vector<double>>> Q_mat;
+        
+        Q_mat.resize(Distribution::size);
+        for (auto&& v : Q_mat) {
+            v.resize(Distribution::size);
+            for (auto& vi : v) {
+                vi.resize(Distribution::size, 0);
+            }
         }
-    }
-protected:
-    void sys(const Distribution& q, Distribution& qdot, const double t) {
-        qdot=0;
-        Eigen::VectorXd v = Eigen::VectorXd::Zero(Distribution::size);;
-        // q.get_Q_ee(v);
-        qdot.applyDelta(v);
+        
+        // Read all QEE params into file
+        SplineIntegral::pair_list ls;
+        for (size_t J = 0; J < Distribution::size; J++) {
+            for (size_t K=0; K < Distribution::size; K++) {
+                ls = calc_Q_ee(J, K);
+                for (auto&& entry : ls) {
+                    Q_mat[K][entry.idx][J] = entry.val;
+                }
+            }
+        } 
+
+        // Print some helpful labels
+        
+        cout<<"#L= ";
+        for (size_t L=0; L<Distribution::size; L++) {
+            cout <<(supp_max(L)+supp_min(L))*0.5<<" ";
+        }
+        cout<<endl;
+        
+        // Print the whole QEE tensor to the supplied file
+        for (size_t J = 0; J < Distribution::size; J++)
+        {
+            qout<<"J = "<<J<<endl;
+            for (size_t K = 0; K < Distribution::size; K++)
+            {
+                for (size_t L = 0; L < Distribution::size; L++)
+                {
+                    qout<<(Q_mat[K][L][J]+ Q_mat[L][K][J])/2.<<" ";
+                }
+                qout<<endl;
+            }
+        }
+        qout.close();
+        
+
+        for (size_t K = 0; K < Distribution::size; K++)
+        {
+            for (size_t L=0; L < Distribution::size; L++) {
+
+                // Aggregate charges in each (K,L) combination, summed over J.
+                // This should sum to zero.
+                // = J_KL (0) - J_KL(max)
+                double dQ_tmp=0;
+                Eigen::VectorXd v(Distribution::size);
+                Eigen::VectorXd w(Distribution::size);
+                for (size_t J = 0; J < Distribution::size; J++)
+                {
+                    v[J] = (Q_mat[K][L][J] + Q_mat[L][K][J])/ 2;
+                    w[J] = areas[J];
+                }
+                cout<<" "<<this->Sinv(v).dot(w);
+            }
+            cout<<endl;
+        }
     }
 };
 
-int main(int argc, char const *argv[]) {
 
-    if (argc <3) {
-        cerr<<"Usage: integral_verif [T] [step] [order]"<<endl;
-        return 1;
-    }
-    double temperature = atof(argv[1]);
-    double step = atof(argv[2]);
-    int ord = atoi(argv[3]);
-    // cerr<<"[electron-electron] "<<ord<<"th order method, h="<<step<<endl;
-    // EEcoll I(temperature, 200, step, ord);
-    // I.print();
+int main(int argc, char const *argv[]) {
+    if (argc < 6) cerr << "usage: "<<argv[0]<<" [filestem] [min_e (Ha)] [max_e (Ha)] [num_basis] [ grid type = [l]inear, [q]uadratic, [e]xponential ]";
+    string fstem(argv[1]);
+    double min_e = atof(argv[2]);
+    double max_e = atof(argv[3]);
+    int N = atoi(argv[4]);
+    GridSpacing gt;
+    gt.zero_degree_0=0;
+    gt.zero_degree_inf = 3;
+    istringstream is(argv[5]);
+    is >> gt;
+    BasisTester bt(N, min_e, max_e, gt);
+    bt.check_ee(fstem);
+    
     return 0;
 }

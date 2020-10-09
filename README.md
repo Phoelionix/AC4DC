@@ -3,6 +3,15 @@ Atomic/plasma code for XFEL damage simulations.
 
 The code simulates the changes in electronic structure of a atoms in bulk of a micro-crystal or amorphous media as it is illuminated by an X-ray free-electron laser (XFEL) pulse. An independent atom approximation is adopted to represent a molecule as a collection of independent atoms, submerged into a bath of electrons that are formed as a result of ionization.
 
+### Versions
+
++ Version 1: Heuristic Values
+  + Computes cross-sections for atomic processes: photoionisation, fluorescence, Auger decay and electron-impact ionisation
+  + Solves dynamical rate equations for atomic state population evolution in time, assuming that electrons in the plasma follow a thermal distribution
++ Version 2: Totally Not Thermal
+  + Allows an arbitrary form of the free-electron distribution. _f(E)_ interpolated over a basis of B-splines.
+  + Concurrently solves for the time evolution of the free electrons and bound states, via the Boltzmann transport equation.
+
 ### Dependencies:
 
 + Eigen 3        (vector algebra library, http://eigen.tuxfamily.org/index.php?title=Main_Page)
@@ -55,11 +64,12 @@ EII parameters are stored in "sort-of-json" format - please note that the progra
 
 ### TODO
 
-1. verify Gamma_EII
-2. verify Q_EII
-3. 
-3. verify Gamma_TBR
-4. verify Q_TBR
+1. ~~Test: Bspline derivative implementation~~
+2. ~~Test: QEE integral: is it sensible-looking?~~
+3. ~~Test: QEE integral: Does it conserve particles?~~
+4. ~~Test: QEE integral: Does it conserve energy?~~
+5. 
+4. Refactor to get rid of compiler warnings wherever possible
 5. Implement 'output version control' for atomic parameters in storage: avoid unnecessary recalculation, guarantee recalculation if new input parameters are incompatible
   - Add methods to `Input.cpp` to enable reading/writing salient parameters to file, e.g. `output/C/run_2021-04-11/input.txt`
   - Add linear search implementation to input logic

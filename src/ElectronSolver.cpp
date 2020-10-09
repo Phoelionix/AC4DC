@@ -29,21 +29,18 @@ void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname) {
     ofstream f;
     cout << "[ Flux ] Saving to file "<<fname<<"..."<<endl;
     f.open(fname);
-    f << "# Time (fs) | Flux (pht/cm2/s)" <<endl;
+    f << "# Time (fs) | Intensity (pht/cm2/s)" <<endl;
     for (auto& t : Tvec) {
         f << t*Constant::fs_per_au << " ";
-        double intensity = (*this)(t)*1e15;
-        intensity /= Constant::fs_per_au*Constant::cm_per_au*Constant::cm_per_au;
+        double intensity = (*this)(t);
+        intensity /= Constant::fs_per_au;
+        intensity *= 1e15;
+        intensity /= Constant::cm_per_au*Constant::cm_per_au;
         f << intensity <<std::endl;
     }
     f.close();
 }
 
-ElectronSolver::ElectronSolver(const char* filename, ofstream& log) :
-    input_params(filename, log), pf(input_params.Fluence(), input_params.Width()), Adams_BM(5) // (order Adams method)
-{
-    timespan_au = input_params.Width()*3;
-}
 
 state_type ElectronSolver::get_ground_state() {
     state_type initial_condition;
@@ -103,18 +100,29 @@ void ElectronSolver::solve() {
     auto start = std::chrono::system_clock::now();
 
     good_state = true;
-    cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<endl;
     this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
-        // if (!good_state){
-        //     input_params.num_time_steps *= 2;
-        //     if (input_params.num_time_steps > MAX_T_PTS){
-        //         std::cerr<<"Exceeded maximum T size. Skipping remaining iteration.."<<endl;
-        //         break;
-        //     }
-        //     std::cerr<<"Halving dt..."<<endl;
-        //     this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
-        // }
+    cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<std::endl;
     
+    double time = -timespan_au/2;
+    int retries = 1;
+    while (!good_state) {
+        std::cerr<<"\033[93;1m[ Rate Solver ] Halving timestep...\033[0m"<<std::endl;
+        good_state = true;
+        input_params.num_time_steps *= 2;
+        if (input_params.num_time_steps > MAX_T_PTS){
+            std::cerr<<"\033[31;1m[ Rate Solver ] Exceeded maximum T size. Skipping remaining iteration."<<std::endl;
+            break;
+        }
+        if (timestep_reached - time < 0 || retries == 0){
+            std::cerr<<"\033[31;1m[ Rate Solver ] Shorter timestep failed to improve convergence. Skipping remaining iteration."<<std::endl;
+            break;
+        } else {
+            time = timestep_reached;
+        }
+        retries--;
+        this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
+        this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM        
+    }
     
     
 
@@ -135,8 +143,8 @@ void ElectronSolver::precompute_gamma_coeffs() {
     std::cout<<"[ Gamma precalc ] Beginning coefficient computation..."<<std::endl;
     size_t N = Distribution::size;
     for (size_t a = 0; a < input_params.Store.size(); a++) {
-        std::cout<<"[ Gamma precalc ] Atom "<<a+1<<"/"<<input_params.Store.size()<<std::endl;
-        auto& eiiVec = input_params.Store[a].EIIparams;
+        std::cout<<"\n[ Gamma precalc ] Atom "<<a+1<<"/"<<input_params.Store.size()<<std::endl;
+        auto eiiVec = input_params.Store[a].EIIparams;
         vector<RateData::InverseEIIdata> tbrVec = RateData::inverse(eiiVec);
         size_t counter=1;
         #pragma omp parallel default(none) shared(a, N, counter, tbrVec, eiiVec, RATE_EII, RATE_TBR, std::cout)
@@ -148,9 +156,10 @@ void ElectronSolver::precompute_gamma_coeffs() {
                     std::cout<<"\r[ Gamma precalc ] "<<counter<<"/"<<N<<" thread "<<omp_get_thread_num()<<std::flush;
                     counter++;
                 }
+                
                 Distribution::Gamma_eii(RATE_EII[a][n], eiiVec, n);
                 // Weird indexing exploits symmetry of Gamma_TBR
-                // such that only half of hte coefficients are stored
+                // such that only half of the coefficients are stored
                 for (size_t m=n+1; m<N; m++) {
                     size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                     // // k = N... N(N+1)/2
@@ -175,7 +184,6 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
 
     if (!good_state) return;
 
-
     for (size_t a = 0; a < s.atomP.size(); a++) {
         const bound_t& P = s.atomP[a];
         bound_t& Pdot = sdot.atomP[a];
@@ -183,7 +191,6 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         // PHOTOIONISATION
         double J = pf(t); // photon flux in atomic units
         for ( auto& r : input_params.Store[a].Photo) {
-            // W.coeffRef(r.to, r.from) += r.val*J;
             Pdot[r.to] += r.val*J*P[r.from];
             Pdot[r.from] -= r.val*J*P[r.from];
             sdot.F.addDeltaSpike(r.energy, r.val*J*P[r.from]);
@@ -192,7 +199,6 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
 
         // FLUORESCENCE
         for ( auto& r : input_params.Store[a].Fluor) {
-            // W.coeffRef(r.to, r.from) += r.val;
             Pdot[r.to] += r.val*P[r.from];
             Pdot[r.from] -= r.val*P[r.from];
             // Energy from optical photon assumed lost
@@ -200,11 +206,10 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
 
         // AUGER
         for ( auto& r : input_params.Store[a].Auger) {
-            // W.coeffRef(r.to, r.from) += r.val;
             Pdot[r.to] += r.val*P[r.from];
             Pdot[r.from] -= r.val*P[r.from];
-            // XXX: swapped  DeltaLike for DeltaSpike
             sdot.F.addDeltaSpike(r.energy, r.val*P[r.from]);
+            // sdot.F.add_maxwellian(r.energy*2./3., r.val*P[r.from]);
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
         }
 
@@ -214,6 +219,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         size_t N = Distribution::size;
         for (size_t n=0; n<N; n++) {
             double tmp=0; // aggregator
+            
             #ifndef NO_EII_GAMMA
             for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
                 for (auto& finPair : RATE_EII[a][n][init]) {
@@ -224,6 +230,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
                 }
             }
             #endif
+            
 
             #ifndef NO_TBR_GAMMA
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
@@ -256,36 +263,28 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
             
         }
 
-
         // compute the dfdt vector
-        #ifndef NO_EII_Q
+        
         s.F.get_Q_eii(vec_dqdt, a, P);
-        #endif
-        #ifndef NO_TBR_Q
         s.F.get_Q_tbr(vec_dqdt, a, P);
-        #endif
+        
     }
 
-    // s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
+    // #warning electron-electron is turned off.
+   // s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
 
     sdot.F.applyDelta(vec_dqdt);
 
     // This is loss.
     sdot.F.addLoss(s.F, input_params.loss_geometry);
 
-    #ifdef OUTPUT_DFDT_TO_CERR
-    std::cerr<<t*Constant::fs_per_au;
-    for (int i=0; i<Distribution::size; i++) {
-        std::cerr<<" "<<sdot.F[i]<<" ";
-    }
-    std::cerr<<std::endl;
-    #endif
-
     if (isnan(s.norm()) || isnan(sdot.norm())) {
         cerr<<"NaN encountered in ODE iteration."<<endl;
         cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
-        good_state = false; 
+        good_state = false;
+        timestep_reached = t*Constant::fs_per_au;
     }
+    
 
 }
 
@@ -299,10 +298,10 @@ void ElectronSolver::save(const std::string& _dir) {
     saveBound(dir);
 
     std::vector<double> fake_t;
-    int num_t_points = input_params.Out_T_size();
+    size_t num_t_points = input_params.Out_T_size();
     if ( num_t_points >  t.size() ) num_t_points = t.size();
-    int t_idx_step = t.size() / num_t_points;
-    for (int i=0; i<num_t_points; i++) {
+    size_t t_idx_step = t.size() / num_t_points;
+    for (size_t i=0; i<num_t_points; i++) {
         fake_t.push_back(t[i*t_idx_step]);
     }
     pf.save(fake_t,dir+"intensity.csv");
@@ -319,10 +318,10 @@ void ElectronSolver::saveFree(const std::string& fname) {
     f << "#           | "<<Distribution::output_energies_eV(this->input_params.Out_F_size())<<endl;
 
     assert(y.size() == t.size());
-    int num_t_points = input_params.Out_T_size();
+    size_t num_t_points = input_params.Out_T_size();
     if ( num_t_points >  t.size() ) num_t_points = t.size();
-    int t_idx_step = t.size() / num_t_points;
-    for (int i=0; i<num_t_points; i++) {
+    size_t t_idx_step = t.size() / num_t_points;
+    for (size_t i=0; i<num_t_points; i++) {
         f<<t[i*t_idx_step]*Constant::fs_per_au<<" "<<y[i*t_idx_step].F.output_densities(this->input_params.Out_F_size())<<endl;
     }
     f.close();
@@ -337,10 +336,8 @@ void ElectronSolver::saveFreeRaw(const std::string& fname) {
     f << "# Time (fs) | Expansion Coeffs"  << endl;
 
     assert(y.size() == t.size());
-    int num_t_points = input_params.Out_T_size();
-    // if ( num_t_points >  t.size() ) num_t_points = t.size();
     
-    for (int i=0; i<t.size(); i++) {
+    for (size_t i=0; i<t.size(); i++) {
         f<<t[i]*Constant::fs_per_au<<" "<<y[i].F<<endl;
     }
     f.close();
@@ -364,9 +361,9 @@ void ElectronSolver::saveBound(const std::string& dir) {
         }
         f<<endl;
         // Iterate over time.
-        int num_t_points = input_params.Out_T_size();
+        size_t num_t_points = input_params.Out_T_size();
         if ( num_t_points >  t.size() ) num_t_points = t.size();
-        int t_idx_step = t.size() / num_t_points;
+        size_t t_idx_step = t.size() / num_t_points;        
         for (size_t i=0; i<num_t_points; i++) {
             // Make sure all "natom-dimensioned" objects are the size expected
             assert(input_params.Store.size() == y[i].atomP.size());

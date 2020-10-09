@@ -42,7 +42,7 @@ public:
     }
 
     Distribution& operator*=(double x) {
-        for (int i=0; i<f.size(); i++) {
+        for (size_t i=0; i<size; i++) {
             f[i] *= x;
         }
         // total *= d.total;
@@ -57,7 +57,7 @@ public:
 
     Distribution& operator=(double y) {
         // total = y;
-        for (int i=0; i<f.size(); i++) {
+        for (size_t i=0; i<size; i++) {
             f[i] = y;
         }
         return *this;
@@ -76,19 +76,17 @@ public:
     // e.g. dfdt v; F.calc_Qee(v);
     void get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
     void get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
-    // void get_Q_ee  (Eigen::VectorXd& v) const;
+    void get_Q_ee  (Eigen::VectorXd& v) const;
     
     // N is the Number density (inverse au^3) of particles to be added at energy e.
     static void addDeltaLike(Eigen::VectorXd& v, double e, double N);
     // Adds a Dirac delta to the distribution
     void addDeltaSpike(double N, double e);
     // Applies the loss term to the distribution 
-    void addLoss(const Distribution& d, LossGeometry l);
-    // Adds a (rough) electron-electron term to the distribution
-    void add_Q_ee(const Distribution& d, double kT);
-
+    void addLoss(const Distribution& d, const LossGeometry& l);
+    
     // Sets the object to have a MB distribution
-    void set_maxwellian(double N, double T);
+    void add_maxwellian(double N, double T);
 
     // Precalculators
     static void Gamma_eii( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J) {
@@ -98,11 +96,17 @@ public:
         return basis.Gamma_tbr(Gamma, tbr, J, K);
     }
     static void precompute_Q_coeffs(vector<RateData::Atom>& Store) {
-        basis.precompute_Q_coeffs(Store);   
+        basis.precompute_QEII_coeffs(Store);   
+        basis.precompute_QTBR_coeffs(Store);
+        basis.precompute_QEE_coeffs();     
     }
 
     double integral(double (f)(double));
     double density() const;
+    double density(size_t cutoff) const;
+    // Returns an estimate of the plasma temperature based on all entries below cutoff
+    double k_temperature(size_t cutoff = size) const;
+    double CoulombLogarithm(size_t cutoff) const;
 
     static std::string output_energies_eV(size_t num_pts);
     std::string output_densities(size_t num_pts) const;

@@ -1,21 +1,26 @@
+import matplotlib.rcsetup as rcsetup
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import BSpline
 from math import log
 import os.path as path
+import matplotlib.colors as colors
 import sys
 # import glob
 import csv
 import time
 import subprocess
 import re
+from matplotlib.ticker import LogFormatter 
+import random
+from scipy.optimize import curve_fit
+from scipy.stats import linregress
 
-plt.style.use('seaborn')
 
-plt.rcParams["font.size"] = 14
-fig = plt.figure(figsize=(9, 6))
+plt.style.use('seaborn-muted')
+plt.rcParams["font.size"] = 9
 
-engine = re.compile(r'\d[spdf]\^\{(\d+)\}')
+engine = re.compile(r'(\d[spdf])\^\{(\d+)\}')
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
@@ -24,10 +29,10 @@ def parse_elecs_from_latex(latexlike):
     # Parses a chemistry-style configuration to return total number of electrons
     # e.g. $1s^{1}2s^{1}$
     # ignores anything non-numerical or spdf
-    num = 0
+    qdict = {}
     for match in engine.finditer(latexlike):
-        num += int(match.group(1))
-    return num
+        qdict[match.group(1)] = int(match.group(2))
+    return qdict
 
 
 ATOMS = 'H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'.split()
@@ -51,7 +56,7 @@ class Plotter:
         self.statedict = {}
 
         # Outputs
-        self.outDir = self.p + "/output/__Molecular/"+mol
+        self.outDir = self.p + "/output/__Molecular/" + mol
         self.freeFile = self.outDir+"/freeDist.csv"
         self.intFile = self.outDir + "/intensity.csv"
 
@@ -65,6 +70,15 @@ class Plotter:
         self.get_atoms()
         self.update_outputs()
         self.autorun=False
+
+        self.setup_step_axes()
+
+
+    def setup_step_axes(self):
+        self.fig_steps = plt.figure(figsize=(4,3))
+        self.ax_steps = self.fig_steps.add_subplot(111)
+        self.fig_steps.subplots_adjust(left=0.18,right=0.97, top=0.97, bottom= 0.16)
+        
 
     # Reads the control file specified by self.mol['infile']
     # and populates the atomdict data structure accordingly
@@ -173,7 +187,8 @@ class Plotter:
 
             self.chargeData[a] = np.zeros((self.boundData[a].shape[0], ATOMNO[a]+1))
             for i in range(len(states)):
-                charge = ATOMNO[a] - parse_elecs_from_latex(states[i])
+                orboccs = parse_elecs_from_latex(states[i])
+                charge = ATOMNO[a] - sum(orboccs.values())
                 self.chargeData[a][:, charge] += self.boundData[a][:, i]
 
 
@@ -196,92 +211,186 @@ class Plotter:
 
     # makes a blank plot showing the intensity curve
     def setup_axes(self):
-        fig.clf()
-        ax = fig.add_subplot(111)
+        self.fig = plt.figure(figsize=(3,2.5))
+        ax = self.fig.add_subplot(111)
         ax2 = ax.twinx()
-        ax2.plot(self.timeData, self.intensityData, lw = 2, c = 'black', ls = '--', alpha = 0.7)
-        ax2.set_ylabel('Pulse fluence')
-        ax.set_xlabel("Time, fs")
+        ax2.plot(self.timeData, self.intensityData, lw = 1, c = 'black', ls = ':', alpha = 0.7)
+        # ax2.set_ylabel('Pulse Intensity (photons cm$^{-2}$ s$^{-1}$)')
+        ax.set_xlabel("Time (fs)")
+        ax.tick_params(direction='in')
+        ax2.axes.get_yaxis().set_visible(False)
+        # ax2.tick_params(None)
+        ax.get_xaxis().get_major_formatter().labelOnlyBase = False
         return (ax, ax2)
 
     def plot_atom_total(self, a):
-        ax, ax2 = self.setup_axes()
+        ax, _ax2 = self.setup_axes()
         tot = np.sum(self.boundData[a], axis=1)
         ax.plot(self.timeData, tot)
         ax.set_title("Configurational dynamics")
         ax.set_ylabel("Density")
-        plt.figlegend(loc = (0.11, 0.43))
+        self.fig.figlegend(loc = (0.11, 0.43))
         plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
-        plt.show()
-
+        
     def plot_atom_raw(self, a):
-        ax, ax2 = self.setup_axes()
+        ax, _ax2 = self.setup_axes()
         for i in range(self.boundData[a].shape[1]):
             ax.plot(self.timeData, self.boundData[a][:,i], label = self.statedict[a][i])
         ax.set_title("Configurational dynamics")
         ax.set_ylabel("Density")
-        plt.figlegend(loc = (0.11, 0.43))
-        plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
-        plt.show()
+        self.fig.subplots_adjust(left=0.2, right=0.92, top=0.93, bottom=0.1)
 
-    def plot_charges(self, a):
-        ax, ax2 = self.setup_axes()
+    def plot_ffactor(self, a, num_tsteps = 10):
+        fdists = np.genfromtxt('output/'+a+'/Xsections/Form_Factor.txt')
+        # These correspond to the meaning of the FormFactor.txt entries themselves
+        KMIN = 0
+        KMAX = 2
+        dim = len(fdists.shape)
+        kgrid = np.linspace(KMIN,KMAX,fdists.shape[0 if dim == 1 else 1])
+        fig2 = plt.figure()
+        ax = fig2.add_subplot(111)
+        ax.set_xlabel('k, atomic units')
+        ax.set_ylabel('Elastic scattering form factor (arbitrary units)')
+        
+        timedata = self.boundData[a][:,:-1] # -1 excludes the bare nucleus
+        dynamic_k = np.tensordot(fdists.T, timedata.T,axes=1) 
+        step = dynamic_k.shape[1] // num_tsteps
+        for i in range(0, dynamic_k.shape[1], step):
+            ax.plot(kgrid, dynamic_k[:,i])
+        fig2.legend()
+        fig2.show()
+
+    def plot_charges(self, a, rseed=404):
+        ax, _ax2 = self.setup_axes()
         self.aggregate_charges()
+        idx = list(np.linspace(0, 1, self.chargeData[a].shape[1]+1))[1:]
+        random.seed(rseed)
+        random.shuffle(idx)
+        idx.insert(0,0)
+        C = plt.cm.nipy_spectral
+        ax.set_prop_cycle(rcsetup.cycler('color', C(idx)))
         for i in range(self.chargeData[a].shape[1]):
             max_at_zero = np.max(self.chargeData[a][0,:])
             mask = self.chargeData[a][:,i] > max_at_zero*2
             mask |= self.chargeData[a][:,i] < -max_at_zero*2
             Y = np.ma.masked_where(mask, self.chargeData[a][:,i])
             ax.plot(self.timeData, Y, label = "%d+" % i)
-        ax.set_title("Charge state dynamics")
-        ax.set_ylabel("Proportion (arb. units)")
+        # ax.set_title("Charge state dynamics")
+        ax.set_ylabel(r"Density (\AA$^{-3}$)")
 
-        plt.figlegend(loc = (0.11, 0.43))
-        plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
-        plt.show()
+        self.fig.legend(loc = "right")
+        self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)
 
-    def plot_tot_charge(self):
-        ax, ax2 = self.setup_axes()
+    def plot_subshell(self, a, subshell='1s',rseed=404):
+        if not hasattr(self, 'ax_subshell'):
+            self.ax_subshell, _ax2 = self.setup_axes()
+
+        states = self.statedict[a]
+        tot = np.zeros_like(self.boundData[a][:,0])
+        for i in range(len(states)):
+            orboccs = parse_elecs_from_latex(states[i])
+            tot += orboccs[subshell]*self.boundData[a][:,i]
+
+        self.ax_subshell.plot(self.timeData, tot, label=subshell)
+        # ax.set_title("Charge state dynamics")
+        self.ax_subshell.set_ylabel(r"Electron density (\AA$^{-3}$)")
+
+        self.fig.subplots_adjust(left=0.2, right=0.95, top=0.95, bottom=0.2)
+
+    def plot_tot_charge(self, every=1):
+        ax, _ax2 = self.setup_axes()
         self.aggregate_charges()
-        Q = np.zeros(self.timeData.shape[0])
+        self.fig.subplots_adjust(left=0.22, right=1, top=1, bottom=0.17)
+
+        T = self.timeData[::every]
+        self.Q = np.zeros(T.shape[0])
         for a in self.atomdict:
-            atomic_charge = np.zeros(self.timeData.shape[0])
+            atomic_charge = np.zeros(T.shape[0])
             for i in range(self.chargeData[a].shape[1]):
-                atomic_charge += self.chargeData[a][:,i]*i
-            ax.plot(self.timeData, atomic_charge, label = a)
-            Q += atomic_charge
+                atomic_charge += self.chargeData[a][::every,i]*i
+            ax.plot(T, atomic_charge, label = a)
+            self.Q += atomic_charge
 
-        tot_free_Q =-1*np.sum(self.freeData, axis=1)*(self.energyKnot[6]-self.energyKnot[5])
-        ax.plot(self.timeData, tot_free_Q, label = 'Free')
-        print(tot_free_Q/Q)
-        Q += tot_free_Q
-        ax.set_title("Charge state dynamics")
-        ax.plot(self.timeData, Q, label='total')
-        plt.figlegend(loc = (0.11, 0.43))
-        plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
-        plt.show()
+        de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])
+        de = de [1:] - de[:-1]
+        tot_free_Q =-1*np.dot(self.freeData, de)
+        ax.plot(T, tot_free_Q[::every], label = 'Free')
+        ax.set_ylabel("Charge density ($e$ Å$^-3$)")
+        self.Q += tot_free_Q[::every]
+        # ax.set_title("Charge Conservation")
+        ax.plot(T, self.Q, label='total')
+        ax.legend(loc = 'upper left')
+        return ax
 
 
-    def plot_all_charges(self):
+    def plot_all_charges(self, rseed=404):
         for a in self.atomdict:
-            self.plot_charges(a)
+            self.plot_charges(a,rseed)
 
-    def plot_free(self, N=100, log=False, min = None, max=None, tmax = None):
-        fig.clf()
+    def plot_free(self, N=100, log=False, min = 0, max=None, every = None):
+        self.fig_free = plt.figure(figsize=(2.5,2))
         # Need to turn freeData (matrix of BSpline coeffs)
         # freeeData [t, c]
         # into matrix of values.
-        if tmax is None:
+        if every is None:
             Z = self.freeData.T
             T = self.timeData
         else:
-            Z = self.freeData.T [:, :tmax]
-            T = self.timeData [:tmax]
+            Z = self.freeData.T [:, ::every]
+            T = self.timeData [::every]
         
+        Z = np.ma.masked_where(Z < min, Z)
+
+        if max is not None:
+            Z = np.ma.masked_where(Z > max, Z)
+        else:
+            max = Z.max()
+
+        # if log:
+        #     Z = np.log10(Z)
+
+        ax = self.fig_free.add_subplot(111)
+        self.fig_free.subplots_adjust(left=0.2, top=0.96, bottom=0.21)
+        ax.set_facecolor('black')
+
+        if log:
+            cm = ax.pcolormesh(T, self.energyKnot*1e-3, Z, shading='auto',norm=colors.LogNorm(vmin=min, vmax=max),cmap='magma',rasterized=True)
+            cbar = self.fig_free.colorbar(cm)
+        else:
+            cm = ax.pcolormesh(T, self.energyKnot, Z, N, cmap='magma',rasterized=True)
+            cbar = self.fig_free.colorbar(cm)
+
+        ax.set_ylabel("Energy (keV)")
+        ax.set_xlabel("Time (fs)")
+        
+        # if log:
+        #     minval = np.floor(np.min(Z, axis=(0,1)))
+        #     maxval = np.ceil(np.max(Z,axis=(0,1)))
+        #     formatter = LogFormatter(10, labelOnlyBase=True) 
+            
+        #     cbar.ax.yaxis.set_ticks(vals)
+        #     cbar.ax.yaxis.set_ticklabels(10**vals)
+        # else:
+        #     cbar = self.fig_free.colorbar(cm)
+        cbar.ax.set_ylabel('Free Electron Density, Å$^{-3}$', rotation=270,labelpad=20)
+
+        # plot the intensity
+        ax2 = ax.twinx()
+        ax2.plot(T, self.intensityData[::every],'w:',linewidth=1)
+
+        ax2.get_yaxis().set_visible(False)
+
+        
+
+    def plot_free_raw(self, N=100, log=False, min = None, max=None):
+        plt.figure()
+        rawdata = np.genfromtxt(self.outDir+'/freeDistRaw.csv')
+        T = rawdata[:,0]
+        self.rawZ = rawdata[:,1:].T
+        Z = self.rawZ
+
         if log:
             Z = np.log(Z)
-        
-        
         
         if min is not None:
             Z = np.ma.masked_where(Z < min, Z)
@@ -289,15 +398,62 @@ class Plotter:
         if max is not None:
             Z = np.ma.masked_where(Z > max, Z)
 
-        plt.contourf(T, self.energyKnot, Z, N, cmap='viridis')
+        Yax = np.arange(Z.shape[0])
+        plt.contourf(T, Yax, Z, N, shading='nearest',cmap='magma')
         plt.title("Free electron energy distribution")
         plt.ylabel("Energy (eV)")
         plt.xlabel("Time, fs")
         plt.show()
         plt.colorbar()
 
+    def plot_step(self, t, normed=True, fitE=None, c=None):        
+        self.ax_steps.set_xlabel('Energy, eV')
+        self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
+        self.ax_steps.loglog()
+        # norm = np.sum(self.freeData[n,:])
+        n = self.timeData.searchsorted(t)
+        data = self.freeData[n,:]
+        X = self.energyKnot
 
+        if normed:
+            tot = np.sum(data)
+            data /= tot
+        
+        return self.ax_steps.plot(X, data*X, label='%1.1f fs' % t)
 
+    def plot_fit(self, t, fitE, normed=True, c=None):
+        n = self.timeData.searchsorted(t)
+        fit = self.energyKnot.searchsorted(fitE)
+        data = self.freeData[n,:]
+        if normed:
+            tot = np.sum(data)
+            data /= tot
 
-pl = Plotter(sys.argv[1])
-pl.plot_tot_charge()
+        guess = [200, 12]
+        Xdata = self.energyKnot[:fit]
+        Ydata = data[:fit]
+        mask = np.where(Ydata > 0)
+        popt, _pcov = curve_fit(maxwell, Xdata, Ydata, p0 = guess)
+    
+        print(popt)
+        return self.ax_steps.plot(self.energyKnot, 
+            maxwell(self.energyKnot, popt[0], popt[1])*self.energyKnot,
+            '--', lw=1,label='%3.1f eV' % popt[0], color=c)
+        
+
+def maxwell(e, kT, n):
+    return n * np.sqrt(e/(np.pi*kT**3)) * np.exp(-e/kT)
+
+def lnmaxwell(e, kT, n):
+    return np.log(n) + 0.5*np.log(e/np.pi*kT**3) - e /kT
+
+def moving_average(a, n=3) :
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
+
+if __name__ == "__main__":
+    pl = Plotter(sys.argv[1])
+    pl.plot_free(log=True,min=1e-7)
+    # pl.plot_all_charges()
+    plt.show()

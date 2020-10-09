@@ -9,10 +9,11 @@ using namespace std;
 RateData::EIIdata get_fake_eii() {
     RateData::EIIdata tmp;
     tmp.init = 0;
-    tmp.push_back(5, 2, 80, 8.9);
-    // tmp.push_back(1, 1, 1.3, 0.9);
+    // tmp.push_back(5, 2, 8, 8.9);
+    tmp.push_back(1, 1, 11, 1);
     // tmp.push_back(3, 2, 20, 1.9);
     // tmp.push_back(7, 1, 5, 0.9);
+    // tmp.push_back(7, 1, 1.7, 1.3);
     return tmp;
 }
 
@@ -22,11 +23,12 @@ const auto& one = [](double e) -> double {return 1.;};
 class BasisTester : public SplineIntegral{
     public:
     BasisTester(size_t F_size, double min_e, double max_e, GridSpacing grid_type) {
-        
+        grid_type.zero_degree_0 = 0;
+        grid_type.zero_degree_inf = 0;
         Distribution::set_elec_points(F_size, min_e, max_e, grid_type);
         // HACK: There are two distinct BasisSet-inheriting things, the Distribution static BasisIntegral
         // and this object. 
-        this->set_parameters(F_size, min_e, max_e, 0, grid_type);
+        this->set_parameters(F_size, min_e, max_e, grid_type);
     }
 
     void check_eii(string fstem)

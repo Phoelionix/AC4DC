@@ -35,11 +35,11 @@ protected:
 template<typename T>
 class Adams_BM : public IVPSolver<T>{
 public:
-    Adams_BM(int order=4);
+    Adams_BM(unsigned int order=4);
     void iterate(double t_initial, double t_final);
 
 private:
-    int order;
+    unsigned int order;
     const double* b_AB;
     const double* b_AM;
 
@@ -72,7 +72,7 @@ void IVPSolver<T>::setup(const T& initial_state, double _dt, double _step_tolera
 ///////////////////////////////////
 
 template<typename T>
-Adams_BM<T>::Adams_BM(int _order):
+Adams_BM<T>::Adams_BM(unsigned int _order):
     IVPSolver<T>()
     {
     if (_order < 2 || _order > AdamsArrays::MAX_ADAMS_ORDER) {
@@ -184,6 +184,7 @@ void Adams_BM<T>::iterate(double t_initial, double t_final) {
     }
 
     size_t npoints = (t_final - t_initial)/this->dt + 1;
+    
     npoints = (npoints >= order) ? npoints : order;
     // Set up the containters
     this->t.resize(npoints);
@@ -191,10 +192,20 @@ void Adams_BM<T>::iterate(double t_initial, double t_final) {
 
     // Set up the t grid
     this->t[0] = t_initial;
+    // size_t middle_n = npoints/2;
+    // double C = (t_initial + t_final) / 2;
+    // double A = (t_final - t_initial) * 2 / npoints/npoints;
+
+    // for (size_t n=0; n<npoints; n++){
+    //     this->t[n] = (n > middle_n ) ? A*(n - middle_n)*(n - middle_n) + C : -A*(middle_n - n)*(middle_n - n) + C;
+    //     std::cout<<this->t[n]<<" ";
+    // }
+    for (size_t n=1; n<npoints; n++){
+        this->t[n] = this->t[n-1] + this->dt;
+    }
 
     // initialise enough points for multistepping to get going
     for (size_t n = 0; n < order; n++) {
-        this->t[n+1] = this->t[n] + this->dt;
         step_rk4(n);
     }
 
@@ -204,7 +215,6 @@ void Adams_BM<T>::iterate(double t_initial, double t_final) {
         std::cout << "\r[ sim ] t="
                   << std::left<<std::setfill(' ')<<std::setw(6)
                   << this->t[n] << std::flush;
-        this->t[n+1] = this->t[n] + this->dt;
         step(n);
     }
     std::cout<<std::endl;

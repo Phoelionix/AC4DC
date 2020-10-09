@@ -8,5 +8,5 @@ output
 .tags
 tmp
 testOutput
-Makefile
 *.swp
+*/__pycache__

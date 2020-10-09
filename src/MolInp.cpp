@@ -49,7 +49,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		}
 	}
 
-	int num_atoms = FileContent["#ATOMS"].size();
+	size_t num_atoms = FileContent["#ATOMS"].size();
 
 	Orbits.clear();
 	Orbits.resize(num_atoms);
@@ -63,7 +63,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	Index.clear();
 	Index.resize(num_atoms);
 
-	for (int n = 0; n < FileContent["#VOLUME"].size(); n++) {
+	for (size_t n = 0; n < FileContent["#VOLUME"].size(); n++) {
 		stringstream stream(FileContent["#VOLUME"][n]);
 
 		if (n == 0) stream >> unit_V;
@@ -71,7 +71,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 2) stream >> loss_geometry;
 	}
 
-	for (int n = 0; n < FileContent["#OUTPUT"].size(); n++) {
+	for (size_t n = 0; n < FileContent["#OUTPUT"].size(); n++) {
 		stringstream stream(FileContent["#OUTPUT"][n]);
 		char tmp;
 
@@ -91,7 +91,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		}
 	}
 
-	for (int n = 0; n < FileContent["#PULSE"].size(); n++) {
+	for (size_t n = 0; n < FileContent["#PULSE"].size(); n++) {
 		stringstream stream(FileContent["#PULSE"][n]);
 
 		if (n == 0) stream >> omega;
@@ -99,7 +99,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 2) stream >> fluence;
 	}
 
-	for (int n = 0; n < FileContent["#NUMERICAL"].size(); n++) {
+	for (size_t n = 0; n < FileContent["#NUMERICAL"].size(); n++) {
 		stringstream stream(FileContent["#NUMERICAL"][n]);
 
 		if (n == 0) stream >> num_time_steps;
@@ -108,35 +108,37 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 3) stream >> max_elec_e;
 		if (n == 4) stream >> num_elec_points;
 		if (n == 5) stream >> elec_grid_type;
-		if (n == 6) stream >> elec_grid_type.num_exp;
+		if (n == 6) stream >> elec_grid_type.num_low;
+		if (n == 7) stream >> elec_grid_type.transition_e;
 
 	}
-	const string bc = "\033[97;1m"; // begin colour escape code
+
+	// Hardcode the boundary conditions
+	elec_grid_type.zero_degree_inf = 0;
+	elec_grid_type.zero_degree_0 = 0;
+
+	const string bc = "\033[33m"; // begin colour escape code
 	const string clr = "\033[0m"; // clear escape code
-	const string banner = "\033[34m[ ================================ ]\033[0m";
+	// 80 equals signs
+	const string banner = "================================================================================";
 	cout<<banner<<endl;
-	cout<<bc<<"Unit cell size: "<<clr<<unit_V<<"A^3"<<endl;
-	cout<<bc<<"Droplet L0: "<<clr<<loss_geometry.L0<<"A"<<endl;
-	cout<<bc<<"Droplet Shape: "<<clr<<loss_geometry<<endl<<endl;
+	cout<<bc<<"Unit cell size: "<<clr<<unit_V<<" A^3"<<endl;
+	cout<<bc<<"Droplet L0:     "<<clr<<loss_geometry.L0<<" A"<<endl;
+	cout<<bc<<"Droplet Shape:  "<<clr<<loss_geometry<<endl<<endl;
 
-	cout<<bc<<"Photon energy: "<<clr<<omega<<" eV"<<endl;
-	cout<<bc<<"Pulse fluence: "<<clr<<fluence*10000<<"J/cm^2"<<endl;
-	cout<<bc<<"Pulse FWHM: "<<clr<<width<<"fs"<<endl<<endl;
+	cout<<bc<<"Photon energy:  "<<clr<<omega<<" eV"<<endl;
+	cout<<bc<<"Pulse fluence:  "<<clr<<fluence*10000<<" J/cm^2"<<endl;
+	cout<<bc<<"Pulse FWHM:     "<<clr<<width<<" fs"<<endl<<endl;
 
-	cout<<bc<<"Electron grid: "<<clr<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
-	cout<<"               "<<num_elec_points<<" points"<<endl;
-	cout<<bc<<"Grid type: "<<clr<<elec_grid_type<<endl;
-	if (elec_grid_type.mode == GridSpacing::hybrid){
-		cout<<bc<<"Exponential"<<clr<<" 0-"<<elec_grid_type.num_exp<<", Linear ";
-		cout<<elec_grid_type.num_exp<<"-"<<num_elec_points<<endl;
-	}
+	cout<<bc<<"Electron grid:  "<<clr<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
+	cout<<    "                "<<num_elec_points<<" points"<<endl;
+	cout<<bc<<"Grid type:      "<<clr<<elec_grid_type<<endl;
 	cout<<endl;
 
-	cout<<bc<<"ODE Iteration: "<<clr<<num_time_steps<<" timesteps"<<endl<<endl;
+	cout<<bc<<"ODE Iteration:  "<<clr<<num_time_steps<<" timesteps"<<endl<<endl;
 
-	cout<<bc<<"Output parameters: "<<clr<<endl;
-	cout<<bc<<"Timesteps: "<<clr<<out_T_size<<endl;
-	cout<<bc<<"Energy points: "<<clr<<out_F_size<<endl;
+	cout<<bc<<"Output:         "<<clr<<out_T_size<<" time grid points"<<endl;
+	cout<<    "                "<<out_F_size<<" energy grid points"<<endl;
 	cout<<banner<<endl;
 
 	// Convert to number of photon flux.
@@ -151,6 +153,8 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	min_elec_e /= Constant::eV_per_Ha;
 	max_elec_e /= Constant::eV_per_Ha;
 
+	elec_grid_type.transition_e /= Constant::eV_per_Ha;
+
 	// Reads the very top of the file, expecting input of the form
 	// H 2
 	// O 1
@@ -158,7 +162,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	// input/H.inp
 	// input/O.inp
 	// Store is then populated with the atomic data read in below.
-	for (int i = 0; i < num_atoms; i++) {
+	for (size_t i = 0; i < num_atoms; i++) {
 		string at_name;
 		double at_num;
 
@@ -199,11 +203,18 @@ bool MolInp::validate_inputs() {
 	if (loss_geometry.L0 <= 0) { cerr<<"ERROR: radius must be positive"; is_valid=false; }
 	if (omp_threads <= 0) { omp_threads = 4; cerr<<"Defaulting number of OMP threads to 4"; }
 
-	if (elec_grid_type.mode == GridSpacing::unknown){cerr<<"ERROR: Grid spacing not recognised - must start with (l)inear, (q)uadratic, (e)xponential, or (h)ybrid"; is_valid=false;}
-	if (elec_grid_type.mode == GridSpacing::hybrid){
-		if (elec_grid_type.num_exp <= 0 || elec_grid_type.num_exp >= num_elec_points) { 
-			cerr<<"Defaulting number of exponential points to "<<num_elec_points/2;
-			elec_grid_type.num_exp = num_elec_points/2;
+	if (elec_grid_type.mode == GridSpacing::unknown) {
+		cerr<<"ERROR: Grid spacing not recognised - must start with (l)inear, (q)uadratic,";
+		cerr<<" (e)xponential, (h)ybrid or (p)owerlaw"; is_valid=false;
+	}
+	if (elec_grid_type.mode == GridSpacing::hybrid || elec_grid_type.mode == GridSpacing::powerlaw) {
+		if (elec_grid_type.num_low <= 0 || elec_grid_type.num_low >= num_elec_points) { 
+			cerr<<"Defaulting number of dense points to "<<num_elec_points/2;
+			elec_grid_type.num_low = num_elec_points/2;
+		}
+		if (elec_grid_type.transition_e <= min_elec_e || elec_grid_type.transition_e >= max_elec_e) {
+			cerr<<"Defaulting transition energy to "<<max_elec_e/4;
+			elec_grid_type.transition_e = max_elec_e/4;
 		}
 	}
 
@@ -219,14 +230,14 @@ bool MolInp::validate_inputs() {
 
 void MolInp::calc_rates(ofstream &_log, bool recalc) {
 	// Loop through atomic species.
-	for (int a = 0; a < Atomic.size(); a++) {
+	for (size_t a = 0; a < Atomic.size(); a++) {
 		HartreeFock HF(Latts[a], Orbits[a], Pots[a], Atomic[a], _log);
 
 		// This Computes the parameters for the rate equations to use, loading them into Init.
 		ComputeRateParam Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], recalc);
 		vector<int> final_occ(Orbits[a].size(), 0);
 		vector<int> max_occ(Orbits[a].size(), 0);
-		for (int i = 0; i < max_occ.size(); i++) {
+		for (size_t i = 0; i < max_occ.size(); i++) {
 			if (fabs(Orbits[a][i].Energy) > Omega()) final_occ[i] = Orbits[a][i].occupancy();
 			max_occ[i] = Orbits[a][i].occupancy();
 		}

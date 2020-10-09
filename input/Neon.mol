@@ -1,26 +1,26 @@
 // Neon
 
 #ATOMS
-Ne 1000
+Ne 1
 
 #VOLUME
-12314.7      // Volume per molecule in Angstrom^3.
-175          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
-spherical    // geometry of sample (may be spherical, cylindrical or planar)
+36.7      // Volume per molecule in Angstrom^3.
+17500          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+cylindrical    // geometry of sample (may be spherical, cylindrical or planar)
 
 #PULSE
-8000         // Photon energy in eV.
-15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-10           // Pulse fluence in 10^4 * J/cm^2.
+8050         // Photon energy in eV.
+28           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+2           // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
-400         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
-12           // Number of threads in OpenMP.
-1           // [only for nonthermal] minimum free-electron energy in eV
-8000         // [only for nonthermal] maximum free-electron energy in eV
-250           // [only for nonthermal] number of free-electron grid points
-linear       // electron grid (may be linear, quadratic, exponential or hybrid)
-100          // number of low-energy exponential grid points (hybrid only)
+20000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+12          // Number of threads in OpenMP.
+0.1           // [only for nonthermal] minimum free-electron energy in eV
+11000         // [only for nonthermal] maximum free-electron energy in eV
+100           // [only for nonthermal] number of free-electron grid points
+qinear       // electron grid (may be linear, quadratic, exponential or hybrid)
+50          // number of low-energy exponential grid points (hybrid only)
 
 #OUTPUT
 4000         // Number of time steps in the output files.
