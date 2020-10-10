@@ -84,6 +84,7 @@ vector<photo> DecayRates::Photo_Ion(double omega, ofstream & log)
 
 	RadialWF Continuum(Lattice.size());
 	Continuum.set_N(-1);
+	Continuum.set_L(0); // bogus line to make valgrind happy
 	Continuum.set_occupancy(1);
 	Continuum.set_infinity(Lattice.size() - 1);
 
