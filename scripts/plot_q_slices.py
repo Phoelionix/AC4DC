@@ -21,18 +21,19 @@ pl = Plotter(sys.argv[1])
 lines = []
 fitlines = []
 
-pl.fig_steps.set_size_inches(3.5,2.5)
-
 
 for (t, c) in zip(slices, colours):
     lines.append(pl.plot_step(t, normed=True)[-1])
     fitlines.append(pl.plot_fit(t, 2000, normed=True, c=lines[-1].get_color())[-1])
 
+pl.fig_steps.set_size_inches(3,2.5)
+
 pl.ax_steps.set_ylim([1e-5, 10])
 pl.ax_steps.set_xlim([1,10000])
 
-pl.fig_steps.subplots_adjust(bottom=0.3,left=0.2,right=0.95,top=0.95)
+pl.fig_steps.subplots_adjust(bottom=0.15,left=0.2,right=0.85,top=0.95)
 pl.ax_steps.xaxis.get_major_formatter().labelOnlyBase = False
+pl.ax_steps.yaxis.get_major_formatter().labelOnlyBase = False
 
 pl.fig_steps.legend(loc='lower center', ncol=4,labelspacing=0)
 # labelLines(fitlines,align=False)

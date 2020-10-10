@@ -297,10 +297,11 @@ class Plotter:
 
         self.fig.subplots_adjust(left=0.2, right=0.95, top=0.95, bottom=0.2)
 
+
     def plot_tot_charge(self, every=1):
         ax, _ax2 = self.setup_axes()
         self.aggregate_charges()
-        self.fig.subplots_adjust(left=0.22, right=1, top=1, bottom=0.17)
+        self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
 
         T = self.timeData[::every]
         self.Q = np.zeros(T.shape[0])
@@ -315,7 +316,7 @@ class Plotter:
         de = de [1:] - de[:-1]
         tot_free_Q =-1*np.dot(self.freeData, de)
         ax.plot(T, tot_free_Q[::every], label = 'Free')
-        ax.set_ylabel("Charge density ($e$ Å$^-3$)")
+        ax.set_ylabel("Charge density ($e$ \AA$^{-3}$)")
         self.Q += tot_free_Q[::every]
         # ax.set_title("Charge Conservation")
         ax.plot(T, self.Q, label='total')
