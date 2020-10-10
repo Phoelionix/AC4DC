@@ -44,7 +44,7 @@ public:
     ElectronSolver(const char* filename, ofstream& log) :
     Adams_BM(3), input_params(filename, log), pf(input_params.Fluence(), input_params.Width()) // (order Adams method)
     {
-        timespan_au = input_params.Width()*3;
+        timespan_au = input_params.Width()*5;
     }
     void solve();
     void save(const std::string& folder);
