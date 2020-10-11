@@ -19,18 +19,16 @@ void SplineIntegral::precompute_QEII_coeffs(vector<RateData::Atom>& Atoms) {
         // NOTE: length of EII vector is generally shorter than length of P
         // (usually by 1 or 2, so dense matrices are fine)
 
-        
-
         size_t counter=1;
-        #pragma omp parallel default(none) shared(a, counter, Atoms, std::cout)
+        // #pragma omp parallel default(none) shared(a, counter, Atoms, std::cout)
 		{
-			#pragma omp for schedule(dynamic) nowait
+			// #pragma omp for schedule(dynamic) nowait
             for (size_t J=0; J<num_funcs; J++) {
-                #pragma omp critical
-                {
-                    std::cout<<"\r[ Q precalc ] "<<counter<<"/"<<num_funcs<<" thread "<<omp_get_thread_num()<<std::flush;
-                    counter++;
-                }
+                // #pragma omp critical
+                // {
+                //     std::cout<<"\r[ Q precalc ] "<<counter<<"/"<<num_funcs<<" thread "<<omp_get_thread_num()<<std::flush;
+                //     counter++;
+                // }
                 for (size_t K=0; K<num_funcs; K++) {
                     for (auto eii : Atoms[a].EIIparams) {
                         Q_EII[a][eii.init][J][K] = calc_Q_eii(eii, J, K);
@@ -62,15 +60,15 @@ void SplineIntegral::precompute_QTBR_coeffs(vector<RateData::Atom>& Atoms) {
         // (usually by 1 or 2, so dense matrices are fine)
 
         size_t counter=1;
-        #pragma omp parallel default(none) shared(a, counter, Atoms, std::cout)
+        // #pragma omp parallel default(none) shared(a, counter, Atoms, std::cout)
 		{
-			#pragma omp for schedule(dynamic) nowait
+			// #pragma omp for schedule(dynamic) nowait
             for (size_t J=0; J<num_funcs; J++) {
-                #pragma omp critical
-                {
-                    std::cout<<"\r[ Q precalc ] "<<counter<<"/"<<num_funcs<<" thread "<<omp_get_thread_num()<<std::flush;
-                    counter++;
-                }
+                // #pragma omp critical
+                // {
+                    // std::cout<<"\r[ Q precalc ] "<<counter<<"/"<<num_funcs<<" thread "<<omp_get_thread_num()<<std::flush;
+                    // counter++;
+                // }
                 
                 for (auto& tbr : RateData::inverse(Atoms[a].EIIparams)) {
                     Q_TBR[a][tbr.init][J] = calc_Q_tbr(tbr, J);

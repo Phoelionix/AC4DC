@@ -43,6 +43,14 @@ for symbol in ATOMS:
     i += 1
 ATOMNO['forbidden_O'] = 8
 
+def get_colors(num, seed):
+    idx = list(np.linspace(0, 1, num+1))[1:]
+    random.seed(seed)
+    random.shuffle(idx)
+    idx.insert(0,0)
+    C = plt.cm.nipy_spectral
+    return C(idx)
+
 class Plotter:
     # Initialistation: Plotter(water)
     # expects there to be a control file named input/water.mol
@@ -263,12 +271,8 @@ class Plotter:
     def plot_charges(self, a, rseed=404):
         ax, _ax2 = self.setup_axes()
         self.aggregate_charges()
-        idx = list(np.linspace(0, 1, self.chargeData[a].shape[1]+1))[1:]
-        random.seed(rseed)
-        random.shuffle(idx)
-        idx.insert(0,0)
-        C = plt.cm.nipy_spectral
-        ax.set_prop_cycle(rcsetup.cycler('color', C(idx)))
+        
+        ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))
         for i in range(self.chargeData[a].shape[1]):
             max_at_zero = np.max(self.chargeData[a][0,:])
             mask = self.chargeData[a][:,i] > max_at_zero*2
@@ -329,7 +333,9 @@ class Plotter:
             self.plot_charges(a,rseed)
 
     def plot_free(self, N=100, log=False, min = 0, max=None, every = None):
-        self.fig_free = plt.figure(figsize=(2.5,2))
+        self.fig_free = plt.figure(figsize=(3.1,2.5))
+        ax = self.fig_free.add_subplot(111)
+        self.fig_free.subplots_adjust(left=0.12, top=0.96, bottom=0.16,right=0.95)
         # Need to turn freeData (matrix of BSpline coeffs)
         # freeeData [t, c]
         # into matrix of values.
@@ -350,15 +356,14 @@ class Plotter:
         # if log:
         #     Z = np.log10(Z)
 
-        ax = self.fig_free.add_subplot(111)
-        self.fig_free.subplots_adjust(left=0.2, top=0.96, bottom=0.21)
+        
         ax.set_facecolor('black')
 
         if log:
-            cm = ax.pcolormesh(T, self.energyKnot*1e-3, Z, shading='auto',norm=colors.LogNorm(vmin=min, vmax=max),cmap='magma',rasterized=True)
+            cm = ax.pcolormesh(T, self.energyKnot*1e-3, Z, shading='gouraud',norm=colors.LogNorm(vmin=min, vmax=max),cmap='magma',rasterized=True)
             cbar = self.fig_free.colorbar(cm)
         else:
-            cm = ax.pcolormesh(T, self.energyKnot, Z, N, cmap='magma',rasterized=True)
+            cm = ax.contourf(T, self.energyKnot, Z, N, cmap='magma',rasterized=True)
             cbar = self.fig_free.colorbar(cm)
 
         ax.set_ylabel("Energy (keV)")
