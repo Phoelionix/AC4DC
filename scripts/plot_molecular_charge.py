@@ -428,24 +428,41 @@ class Plotter:
         return self.ax_steps.plot(X, data*X, label='%1.1f fs' % t)
 
     def plot_fit(self, t, fitE, normed=True, c=None):
-        n = self.timeData.searchsorted(t)
+        t_idx = self.timeData.searchsorted(t)
         fit = self.energyKnot.searchsorted(fitE)
-        data = self.freeData[n,:]
+        data = self.freeData[t_idx,:]
         if normed:
             tot = np.sum(data)
             data /= tot
 
-        guess = [200, 12]
         Xdata = self.energyKnot[:fit]
         Ydata = data[:fit]
         mask = np.where(Ydata > 0)
-        popt, _pcov = curve_fit(maxwell, Xdata, Ydata, p0 = guess)
-    
-        print(popt)
+        T, n = fit_maxwell(Xdata, Ydata)
         return self.ax_steps.plot(self.energyKnot, 
-            maxwell(self.energyKnot, popt[0], popt[1])*self.energyKnot,
-            '--', lw=1,label='%3.1f eV' % popt[0], color=c)
+            maxwell(self.energyKnot, T, n)*self.energyKnot,
+            '--', lw=1,label='%3.1f eV' % T, color=c)
+
+    def get_temp(self, t, fitE):
+        t_idx = self.timeData.searchsorted(t)
+        fit = self.energyKnot.searchsorted(fitE)
+        Xdata = self.energyKnot[:fit]
+        Ydata = self.freeData[t_idx,:fit]
+        T, n = fit_maxwell(Xdata, Ydata)
+        return (T, n)
+
+    def get_density(self, t):
+        t_idx = self.timeData.searchsorted(t)
+        de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])
+        de = de [1:] - de[:-1]
+        return np.dot(self.freeData[t_idx, :], de)
+
         
+
+def fit_maxwell(X, Y):
+    guess = [200, 12]
+    popt, _pcov = curve_fit(maxwell, X, Y, p0 = guess)
+    return popt
 
 def maxwell(e, kT, n):
     return n * np.sqrt(e/(np.pi*kT**3)) * np.exp(-e/kT)

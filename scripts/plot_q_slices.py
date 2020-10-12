@@ -18,13 +18,10 @@ colours = ['red', 'green', 'blue', 'purple']
 
 pl = Plotter(sys.argv[1])
 
-lines = []
-fitlines = []
-
 
 for (t, c) in zip(slices, colours):
-    lines.append(pl.plot_step(t, normed=True)[-1])
-    fitlines.append(pl.plot_fit(t, 2000, normed=True, c=lines[-1].get_color())[-1])
+    lines = pl.plot_step(t, normed=True)
+    T = pl.plot_fit(t, 2000, normed=True, c=lines[-1].get_color())
 
 pl.fig_steps.set_size_inches(3,2.5)
 
