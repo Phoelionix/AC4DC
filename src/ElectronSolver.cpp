@@ -174,6 +174,10 @@ void ElectronSolver::precompute_gamma_coeffs() {
 }
 
 
+#define NO_TBR
+#define NO_EE
+// #define NO_EII
+
 // The Big One: The global ODE functon
 // Incorporates all of the right hand side to the global
 // d/dt P[i] = \sum_i=1^N W_ij - W_ji P[j]
@@ -220,7 +224,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         for (size_t n=0; n<N; n++) {
             double tmp=0; // aggregator
             
-            #ifndef NO_EII_GAMMA
+            #ifndef NO_EII
             for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
                 for (auto& finPair : RATE_EII[a][n][init]) {
                     tmp = finPair.val*s.F[n]*P[init];
@@ -231,8 +235,8 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
             }
             #endif
             
-
-            #ifndef NO_TBR_GAMMA
+            
+            #ifndef NO_TBR
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
             // Note that RATE_TBR has the same geometry as InverseEIIdata.
             for (size_t m=n+1; m<N; m++) {
@@ -264,14 +268,18 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         }
 
         // compute the dfdt vector
-        
+        #ifndef NO_EII
         s.F.get_Q_eii(vec_dqdt, a, P);
+        #endif
+        #ifndef NO_TBR
         s.F.get_Q_tbr(vec_dqdt, a, P);
-        
+        #endif
     }
 
     // #warning electron-electron is turned off.
+    #ifndef NO_EE
     s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
+    #endif
 
     sdot.F.applyDelta(vec_dqdt);
 
