@@ -43,7 +43,8 @@ public:
     std::vector<double> avg_e;
     std::vector<double> avg_e_sqrt;
     std::vector<double> areas;
-    int i_from_e(double e);    
+    int i_from_e(double e);
+    int lower_i_from_e(double e);  
 protected:
     // Eigen::PartialPivLU<Eigen::MatrixXd > linsolver;
     Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int> >  linsolver;

@@ -40,4 +40,4 @@ ax.legend(loc=0)
 # ax.set_yscale('log')
 
 fig.savefig('/Users/alaric-mba/Desktop/eii.png')
-fig.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/Qeii_conservation.pgf')
+# fig.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/Qeii_conservation.pgf')

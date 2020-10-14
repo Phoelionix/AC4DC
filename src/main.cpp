@@ -144,9 +144,6 @@ int main(int argc, const char *argv[]) {
     } else {
         cout << "\033[1;32mDone! \033[0m" <<endl;
     }
-    
-    
-
 
     return 0;
 }

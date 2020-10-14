@@ -114,10 +114,13 @@ void SplineIntegral::Gamma_eii( std::vector<SparsePair>& Gamma_xi, const RateDat
             }
             tmp += tmp2*diff*1.4142; // Electron mass = 1 in atomic units
         }
-        SparsePair rate;
-        rate.idx=eii.fin[eta];
-        rate.val= tmp;
-        Gamma_xi.push_back(rate);
+        if (tmp > DBL_CUTOFF_QEE){
+            SparsePair rate;
+            rate.idx=eii.fin[eta];
+            rate.val= tmp;
+            Gamma_xi.push_back(rate);
+        }
+        
         // double e = knot[K];
         // double tmp = knot[K+1]-knot[K];
         // assert(this->supp_min(K) == knot[K]);
@@ -193,6 +196,11 @@ double SplineIntegral::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_
     // sqrt(2) sum_eta \int dep sqrt(ep) f(ep) dsigma/de (e | ep) - sqrt(e) sigma * f_J(e)
     // 'missing' factor of 2 in front of RHS is not a mistake! (arises from definition of dsigma)
 
+    // AD HOC TIME
+    // if ( J > num_funcs - BSPLINE_ORDER) return 0;
+    // if ( K > num_funcs - BSPLINE_ORDER) return 0;
+
+
     double min_J = this->supp_min(J);
     double max_J = this->supp_max(J);
 
@@ -200,37 +208,40 @@ double SplineIntegral::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_
     // Sum over all transitions to eta values
     for (size_t eta = 0; eta<eii.fin.size(); eta++)
     {
-        double tmp = 0;
         for (auto&& boundary : this->knots_between(min_J, max_J)) {
             double diff = (boundary.second - boundary.first)/2.;
             double avg = (boundary.second + boundary.first)/2.;
+            double tmp=0;
             for (int j=0; j<GAUSS_ORDER_EII; j++)
             {
                 double e = gaussX_EII[j]*diff + avg;
-                double tmp2=0;
                 double min_ep = max(e+eii.ionB[eta], this->supp_min(K));
                 double max_ep = this->supp_max(K);
-                for (auto&& boundary2 : this->knots_between(min_ep, max_ep)) {
-                    double diff2 = (boundary.second - boundary.first)/2.;
-                    double avg2 = (boundary.second + boundary.first)/2.;
-                    for (int k=0; k<GAUSS_ORDER_EII; k++) {
-                        double ep = gaussX_EII[k]*diff2 + avg2;
-                        tmp2 += gaussW_EII[k]*(*this)(K, ep)*pow(ep,0.5)*
-                            Dipole::DsigmaBEB(ep, e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
-                    }
-                    tmp += gaussW_EII[j]*raw_bspline(J, e)*tmp2 * diff2;
+                // for (auto&& boundary2 : this->knots_between(min_ep, max_ep)) {
+                double tmp2=0;
+                // double diff2 = (boundary2.second - boundary2.first)/2.;
+                // double avg2 = (boundary2.second + boundary2.first)/2.;
+                double diff2 = (max_ep - min_ep) *0.5;
+                double avg2 = (max_ep + min_ep) *0.5;
+                for (int k=0; k<GAUSS_ORDER_EII; k++) {
+                    double ep = gaussX_EII[k]*diff2 + avg2;
+                    tmp2 += gaussW_EII[k]*(*this)(K, ep)*pow(ep,0.5)*
+                        Dipole::DsigmaBEB(ep, e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
                 }
+                tmp += gaussW_EII[j]*raw_bspline(J, e)*tmp2 * diff2;
+                // }
             }
             retval += tmp * diff;
         }
         // RHS part, 'missing' factor of 2 is incorporated into definition of sigma
-        tmp=0;
+        
         double min_JK = max(this->supp_min(J), this->supp_min(K));
         min_JK = max(min_JK, (double) eii.ionB[eta]);
         double max_JK = min(this->supp_max(J), this->supp_max(K));
         for (auto&& boundary : this->knots_between(min_JK, max_JK)) {
             double diff = (boundary.second - boundary.first)/2.;
             double avg = (boundary.second + boundary.first)/2.;
+            double tmp=0;
             for (int k=0; k<GAUSS_ORDER_EII; k++)
             {
                 double e = gaussX_EII[k]*diff + avg;

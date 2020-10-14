@@ -54,13 +54,31 @@ void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     // KLUDGE: Fix DebyeLength at 5 Angstrom = 9.4 Bohr
     // const double DebyeLength = 5. / Constant::Angs_per_au;
     // double CoulombLog = log(4./3.*Constant::Pi*DebyeLength*DebyeLength*DebyeLength*density());
-    double CoulombLog=5;
+    double CoulombLog=3;
     // double CoulombLog = CoulombLogarithm(size/3);
     if (isnan(CoulombLog) || CoulombLog <= 0) return;
     for (size_t J=0; J<size; J++) {
         for (size_t K=0; K<size; K++) {
             for (auto& q : basis.Q_EE[J][K]) {
                  v[J] += q.val * f[K] * f[q.idx] * CoulombLog ;
+            }
+        }
+    }
+}
+
+void Distribution::get_Jac_ee (Eigen::MatrixXd& M) const{
+    // Returns Q^p_qjc^q + Q^p_jrc^r
+    assert(basis.has_Qee());
+    M = Eigen::MatrixXd::Zero(size,size);
+    double CoulombLog=3;
+    // double CoulombLog = CoulombLogarithm(size/3);
+    if (isnan(CoulombLog) || CoulombLog <= 0) return;
+    for (size_t P=0; P<size; P++) {
+        for (size_t Q=0; Q<size; Q++) {
+            for (auto& q : basis.Q_EE[P][Q]) {
+                // q.idx is  L
+                M(P,q.idx) += q.val * f[Q] * CoulombLog;
+                M(P, Q) += q.val * f[q.idx] * CoulombLog;
             }
         }
     }
@@ -156,17 +174,32 @@ double Distribution::operator()(double e) const{
     }
     return tmp;
 }
+/*
+void Distribution::addDeltaSpike(double e, double N) {
+    int idx = basis.lower_i_from_e(e);
+    assert(idx >= 0 && (unsigned) idx+1 < size);
+    double A1 = basis.areas[idx];
+    double A2 = basis.areas[idx+1];
+    double E1 = basis.avg_e[idx];
+    double E2 = basis.avg_e[idx+1];
+    // Solves the matrix equation
+    // A1 * a + A2 * b = N
+    // A1 E1 a + A2 E2 b = (A1 + A2) e
+    
+    double det = (E2 - E1)*A1*A2;
+    // Inverse matrix is 
+    // 1/det * [ A2 E2   -A2 ]
+    //         [-A1 E1    A1 ]
+    
+    f[idx] +=     ( A2 * E2 * N   -  A2 * (A1 + A2)* e) / det;
+    f[idx + 1] += (- A1 * E1 * N  +  A1 * (A1 + A2)* e) / det;
+}*/
 
 void Distribution::addDeltaSpike(double e, double N) {
     int idx = basis.i_from_e(e);
-    // assert(idx >= 0 && (unsigned) idx < size);
-    // f[idx] += N/basis.areas[idx];
-    unsigned num_offset = 0; //basis.BSPLINE_ORDER;
-    assert(idx + num_offset < size && idx >= num_offset);
     f[idx] += N/basis.areas[idx];
-    // f[idx-1] += N/basis.areas[idx-1]/4;
-    // f[idx+1] += N/basis.areas[idx+1]/4;
 }
+
 
 void Distribution::applyDelta(const Eigen::VectorXd& v) {
     Eigen::VectorXd u(size);

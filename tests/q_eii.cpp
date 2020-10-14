@@ -21,8 +21,6 @@ const auto& one = [](double e) -> double {return 1.;};
 class BasisTester : public SplineIntegral{
     public:
     BasisTester(size_t F_size, double min_e, double max_e, GridSpacing grid_type) {
-        grid_type.zero_degree_0 = 0;
-        grid_type.zero_degree_inf = 0;
         Distribution::set_elec_points(F_size, min_e, max_e, grid_type);
         // HACK: There are two distinct BasisSet-inheriting things, the Distribution static BasisIntegral
         // and this object. 
@@ -47,7 +45,7 @@ class BasisTester : public SplineIntegral{
         {
             Gamma_eii(eg, eii_process, K);
             double tot = 0;
-            for (size_t j = 0; j < num_fin_states; j++)
+            for (size_t j = 0; j < eg.size(); j++)
             {
                 tot_gamma[j] += eg[j].val;
                 tot += eg[j].val;
@@ -100,6 +98,9 @@ int main(int argc, char const *argv[]) {
     istringstream inp(argv[5]);
     inp >> gt;
     gt.num_low = N/3;
+    gt.transition_e = max_e/5;
+    gt.zero_degree_0 = 0;
+    gt.zero_degree_inf = 4;
     
     BasisTester bt(N, min_e, max_e, gt);
     bt.check_eii(filestem);
