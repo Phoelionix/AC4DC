@@ -151,6 +151,7 @@ int Potential::HF_upd_dir(RadialWF* Current, std::vector<RadialWF> &Orbitals)
 		if (Orbitals[i].occupancy() == 0) continue;
 		else Q = Orbitals[i].occupancy();
 
+		// Line is giving 'uninitialised value' when run under valgrind when called by upd_HF_dir.
 		if (Current->L() == Orbitals[i].L() && Current->N() == Orbitals[i].N())	{
 			if (Current->occupancy() > 1) {
 				Q = Orbitals[i].occupancy() - 1;

@@ -1,4 +1,4 @@
-#include "src/AdamsIntegrator.hpp"
+#include "src/HybridIntegrator.hpp"
 #include "src/RateSystem.h"
 #include <iostream>
 #include <fstream>
@@ -8,9 +8,9 @@ using namespace std;
 
 // INTERNAL UNITS:
 // eV, fs
-class EEcoll : ode::Adams_BM<Distribution>{
+class EEcoll : ode::Hybrid<Distribution>{
 public:
-    EEcoll(double min_e, double max_e, size_t num_e_points, const GridSpacing& g) : Adams_BM<Distribution>(5) {
+    EEcoll(double min_e, double max_e, size_t num_e_points, const GridSpacing& g) : ode::Hybrid<Distribution>(2) {
         //                            num, min, max
         Distribution::set_elec_points(num_e_points, min_e, max_e, g);
         
@@ -63,7 +63,10 @@ public:
 protected:
     void sys(const Distribution& q, Distribution& qdot, const double t) {
         qdot=0;
-        Eigen::VectorXd v = Eigen::VectorXd::Zero(Distribution::size);;
+    }
+    void sys2(const Distribution& q, Distribution& qdot, const double t) {
+        qdot=0;
+        Eigen::VectorXd v = Eigen::VectorXd::Zero(Distribution::size);
         q.get_Q_ee(v);
         qdot.applyDelta(v);
         if (isnan(qdot.norm())) throw runtime_error("NaN encountered in sdot");

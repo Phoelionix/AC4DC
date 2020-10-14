@@ -52,6 +52,10 @@ int BasisSet::i_from_e(double e) {
     return (avg_e[idx+1] - e > e - avg_e[idx]) ? idx : idx +1;
 }
 
+int BasisSet::lower_i_from_e(double e) {
+    // size_t idx = r_binsearch(e, avg_e.data(), avg_e.size(), 0);
+    return lower_idx(e, avg_e);
+}
 
 // Constructs the grid over which the electron distribution is solved. 
 void BasisSet::set_knot(const GridSpacing& gt){
@@ -80,7 +84,7 @@ void BasisSet::set_knot(const GridSpacing& gt){
     double lambda_exp = (log(_max) - log(_min))/(num_int-1);
     // hybrid linear-linear grid
 
-    size_t M = gt.num_low;
+    size_t M = gt.num_low + 1;
 
     assert(num_funcs > M);
     assert(_max > gt.transition_e);
@@ -88,7 +92,7 @@ void BasisSet::set_knot(const GridSpacing& gt){
     double B_hyb = (gt.transition_e - _min)/M;
     double C_hyb = (_max - gt.transition_e)/(num_funcs - M);
     
-    double p_powlaw = (log(_max-_min) - log(gt.transition_e - _min))/(log(num_funcs/M));
+    double p_powlaw = (log(_max-_min) - log(gt.transition_e - _min))/(log(1.*num_funcs/M));
     double A_powlaw = (_max - _min)/pow(num_funcs, p_powlaw);
 
 
@@ -285,9 +289,10 @@ double BasisSet::overlap(size_t j,size_t i) const{
 // returns a vector of intervals (bottom, K1), (K1, K2), (K2, top)
 // such that the splines are polynomial on these intervals
 std::vector<std::pair<double,double>> BasisSet::knots_between(double bottom, double top) const {
-    std::vector<std::pair<double,double> > intervals;
+    std::vector<std::pair<double,double> > intervals(0);
     // NOTE TO FUTURE DEVELOPERS:
     // These calls can nad should should be replaced with std::lower_bound calls.
+    if (bottom >= top) return intervals;
     size_t bottomidx = lower_idx(bottom, knot);
     size_t topidx = lower_idx(top, knot) + 1;
     if (topidx >= knot.size()) topidx = knot.size() -1;

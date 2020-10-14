@@ -83,6 +83,10 @@ vector<photo> DecayRates::Photo_Ion(double omega, ofstream & log)
 	U.GenerateTrial(Orbitals);
 
 	RadialWF Continuum(Lattice.size());
+
+	// These lines do not do anything, it just initialises bogus values of n and l
+	// so that valgrind does not complain about the comparison in Potential.cpp.
+	// n=-1 is chosen to distinguish it from bound states.
 	Continuum.set_N(-1);
 	Continuum.set_L(0); // bogus line to make valgrind happy
 	Continuum.set_occupancy(1);
@@ -112,8 +116,11 @@ vector<photo> DecayRates::Photo_Ion(double omega, ofstream & log)
 			if (Continuum.Energy > 0)
 			{
 				// Update here if Input.Hamiltonian == "LDA".
-				if (input.Hamiltonian() == 1) U.LDA_upd_dir(Orbitals);
-				else U.HF_upd_dir(&Continuum, Orbitals);
+				if (input.Hamiltonian() == 1) {
+					U.LDA_upd_dir(Orbitals);
+				} else {
+					U.HF_upd_dir(&Continuum, Orbitals); // This line seems to give 'conditional jump or move depends on uninitialised values'
+				}
 				if (input.Exited_Pot_Model() == "V_N-1") U.HF_V_N1(&Continuum, Orbitals, i, true, false);
 
 				for (int l = Orbitals[i].L() - 1; l <= Orbitals[i].L() + 1; l += 2)

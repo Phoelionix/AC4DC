@@ -14,6 +14,7 @@
 #include "Dipole.h"
 #include "GridSpacing.hpp"
 #include "LossGeometry.hpp"
+#include "config.h"
 
 
 // Represents a statistical distribution of electrons. Internal units are atomic units.
@@ -77,6 +78,8 @@ public:
     void get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
     void get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
     void get_Q_ee  (Eigen::VectorXd& v) const;
+
+    void get_Jac_ee (Eigen::MatrixXd& J) const; // Returns the Jacobian of Qee
     
     // N is the Number density (inverse au^3) of particles to be added at energy e.
     static void addDeltaLike(Eigen::VectorXd& v, double e, double N);
@@ -96,9 +99,15 @@ public:
         return basis.Gamma_tbr(Gamma, tbr, J, K);
     }
     static void precompute_Q_coeffs(vector<RateData::Atom>& Store) {
+        #ifndef NO_EII
         basis.precompute_QEII_coeffs(Store);   
+        #endif
+        #ifndef NO_TBR
         basis.precompute_QTBR_coeffs(Store);
+        #endif
+        #ifndef NO_EE
         basis.precompute_QEE_coeffs();     
+        #endif
     }
 
     double integral(double (f)(double));

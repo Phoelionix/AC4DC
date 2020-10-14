@@ -33,22 +33,6 @@ protected:
 };
 
 template<typename T>
-class Adams_BM : public IVPSolver<T>{
-public:
-    Adams_BM(unsigned int order=4);
-    void iterate(double t_initial, double t_final);
-
-private:
-    unsigned int order;
-    const double* b_AB;
-    const double* b_AM;
-
-    void step(int n); // Predictor-corrector multistep method
-    void step_rk4(int n); // Runge-Kutta 4th order calculator
-    void step_euler(int n); // Basic explicit Euler stepper
-};
-
-template<typename T>
 IVPSolver<T>::IVPSolver() {
     // TODO: GLobal refactor of y and t to have more obvious names
     y.resize(1);
@@ -70,6 +54,23 @@ void IVPSolver<T>::setup(const T& initial_state, double _dt, double _step_tolera
 
 
 ///////////////////////////////////
+
+template<typename T>
+class Adams_BM : public IVPSolver<T>{
+public:
+    Adams_BM(unsigned int order=4);
+    void iterate(double t_initial, double t_final);
+
+protected:
+    void run_steps();
+    void step(int n); // Predictor-corrector multistep method
+    void step_rk4(int n); // Runge-Kutta 4th order calculator
+    void step_euler(int n); // Basic explicit Euler stepper
+    unsigned int order;
+private:
+    const double* b_AB;
+    const double* b_AM;
+};
 
 template<typename T>
 Adams_BM<T>::Adams_BM(unsigned int _order):
@@ -192,30 +193,29 @@ void Adams_BM<T>::iterate(double t_initial, double t_final) {
 
     // Set up the t grid
     this->t[0] = t_initial;
-    // size_t middle_n = npoints/2;
-    // double C = (t_initial + t_final) / 2;
-    // double A = (t_final - t_initial) * 2 / npoints/npoints;
 
-    // for (size_t n=0; n<npoints; n++){
-    //     this->t[n] = (n > middle_n ) ? A*(n - middle_n)*(n - middle_n) + C : -A*(middle_n - n)*(middle_n - n) + C;
-    //     std::cout<<this->t[n]<<" ";
-    // }
     for (size_t n=1; n<npoints; n++){
         this->t[n] = this->t[n-1] + this->dt;
     }
+    this->run_steps();
+}
+
+template<typename T>
+void Adams_BM<T>::run_steps(){
+    assert(this->y.size() == this->t.size());
+    assert(this->t.size() >= order);
 
     // initialise enough points for multistepping to get going
     for (size_t n = 0; n < order; n++) {
-        step_rk4(n);
+        this->step_rk4(n);
     }
-
     // Run those steps
     std::cout << "[ sim ]                       ";
-    for (size_t n = order; n < npoints-1; n++) {
+    for (size_t n = this->order; n < this->t.size()-1; n++) {
         std::cout << "\r[ sim ] t="
                   << std::left<<std::setfill(' ')<<std::setw(6)
                   << this->t[n] << std::flush;
-        step(n);
+        this->step(n);
     }
     std::cout<<std::endl;
 

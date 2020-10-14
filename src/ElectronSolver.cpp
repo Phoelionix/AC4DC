@@ -76,7 +76,6 @@ void ElectronSolver::get_energy_bounds(double& max, double& min) {
 void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
     input_params.calc_rates(_log, recalc);
     hasRates = true;
-    // override max/min elec e
 
     // Set up the container class to have the correct size
     Distribution::set_elec_points(input_params.Num_Elec_Points(), input_params.Min_Elec_E(), input_params.Max_Elec_E(), input_params.elec_grid_type);
@@ -156,16 +155,19 @@ void ElectronSolver::precompute_gamma_coeffs() {
                     std::cout<<"\r[ Gamma precalc ] "<<counter<<"/"<<N<<" thread "<<omp_get_thread_num()<<std::flush;
                     counter++;
                 }
-                
+                #ifndef NO_EII
                 Distribution::Gamma_eii(RATE_EII[a][n], eiiVec, n);
+                #endif
                 // Weird indexing exploits symmetry of Gamma_TBR
                 // such that only half of the coefficients are stored
+                #ifndef NO_TBR
                 for (size_t m=n+1; m<N; m++) {
                     size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                     // // k = N... N(N+1)/2
                     Distribution::Gamma_tbr(RATE_TBR[a][k], tbrVec, n, m);
                 }
                 Distribution::Gamma_tbr(RATE_TBR[a][n], tbrVec, n, n);
+                #endif
                 
             }
         }
@@ -220,7 +222,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         for (size_t n=0; n<N; n++) {
             double tmp=0; // aggregator
             
-            #ifndef NO_EII_GAMMA
+            #ifndef NO_EII
             for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
                 for (auto& finPair : RATE_EII[a][n][init]) {
                     tmp = finPair.val*s.F[n]*P[init];
@@ -231,8 +233,8 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
             }
             #endif
             
-
-            #ifndef NO_TBR_GAMMA
+            
+            #ifndef NO_TBR
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
             // Note that RATE_TBR has the same geometry as InverseEIIdata.
             for (size_t m=n+1; m<N; m++) {
@@ -264,14 +266,18 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         }
 
         // compute the dfdt vector
-        
+        #ifdef NO_EII
+        #warning No impact ionisation
+        #else
         s.F.get_Q_eii(vec_dqdt, a, P);
+        #endif
+        #ifdef NO_TBR
+        #warning No three-body recombination
+        #else
         s.F.get_Q_tbr(vec_dqdt, a, P);
-        
+        #endif
     }
 
-    // #warning electron-electron is turned off.
-   // s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
 
     sdot.F.applyDelta(vec_dqdt);
 
@@ -284,8 +290,17 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         good_state = false;
         timestep_reached = t*Constant::fs_per_au;
     }
-    
+}
 
+void ElectronSolver::sys2(const state_type& s, state_type& sdot, const double t) {
+    sdot=0;
+    Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
+    #ifdef NO_EE
+    #warning No electron-electron interactions
+    #else
+    s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
+    #endif
+    sdot.F.applyDelta(vec_dqdt);
 }
 
 // IO functions

@@ -6,6 +6,7 @@ C 4
 #VOLUME
 34.98      // Volume per molecule in Angstrom^3.
 1750          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+none
 
 #PULSE
 6000         // Photon energy in eV.
@@ -17,10 +18,10 @@ C 4
 12            // Number of threads in OpenMP.
 0            // [only for nonthermal] minimum free-electron energy in eV
 7000          // [only for nonthermal] maximum free-electron energy in eV
-200            // [only for nonthermal] number of free-electron grid points
+100            // [only for nonthermal] number of free-electron grid points
 hybrid     // electron grid type
-120            // Number of "low-energy" grid points (hybrid & powerlaw grids only)
-200           // transition energy in eV
+40            // Number of "low-energy" grid points (hybrid & powerlaw grids only)
+500           // transition energy in eV
 
 #OUTPUT
 800         // Number of time steps in the output files.
