@@ -7,7 +7,7 @@
 #include <math.h>
 #include <iostream>
 #include <eigen3/Eigen/SparseCore>
-#include <eigen3/Eigen/Core>
+#include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/SparseCholesky>
 #include "Constant.h"
 #include "SplineIntegral.h"
@@ -120,6 +120,8 @@ public:
     static std::string output_energies_eV(size_t num_pts);
     std::string output_densities(size_t num_pts) const;
     
+    // This does electron-electron because it is CURSED
+    void from_backwards_Euler(double dt, const Distribution& prev_step, double tolerance, unsigned maxiter);
 
     double operator()(double e) const;
 

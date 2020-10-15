@@ -14,6 +14,7 @@ public:
     BasisSet() {};
     void set_parameters(size_t nfuncs, double min, double max, const GridSpacing& gt);
     Eigen::VectorXd Sinv(const Eigen::VectorXd& deltaf);
+    Eigen::MatrixXd Sinv(const Eigen::MatrixXd& J);
 
     double raw_bspline(size_t i, double x) const;
     double raw_Dbspline(size_t i, double x) const;

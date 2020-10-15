@@ -233,6 +233,11 @@ Eigen::VectorXd BasisSet::Sinv(const Eigen::VectorXd& deltaf) {
     return linsolver.solve(deltaf);
 }
 
+Eigen::MatrixXd BasisSet::Sinv(const Eigen::MatrixXd& J) {
+    // Solves the linear system S fdot = deltaf
+    return linsolver.solve(J);
+}
+
 double BasisSet::raw_bspline(size_t i, double x) const {
     assert(i < num_funcs && i >= 0);
     return BSpline::BSpline<BSPLINE_ORDER>(x, &knot[i]);

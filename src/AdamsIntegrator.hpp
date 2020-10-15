@@ -67,7 +67,6 @@ protected:
     void step_rk4(int n); // Runge-Kutta 4th order calculator
     void step_euler(int n); // Basic explicit Euler stepper
     unsigned int order;
-private:
     const double* b_AB;
     const double* b_AM;
 };
@@ -162,7 +161,7 @@ void Adams_BM<T>::step(int n) {
     T tmp2(tmp);
     this->sys(tmp2, tmp, this->t[n+1]);
     tmp *= b_AM[0];
-    // Now tmp goes back to bein an aggregator
+    // Now tmp goes back to being an aggregator
     for (size_t i = 1; i < order; i++) {
         this->sys(this->y[n-i+1], ydot, this->t[n-i+1]);
         ydot *= b_AM[i];

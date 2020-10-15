@@ -263,29 +263,9 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
                 }
             }
             #endif
-            
-            
         }
-    }
 
-    // This is loss.
-    sdot.F.addLoss(s.F, input_params.loss_geometry);
-
-    if (isnan(s.norm()) || isnan(sdot.norm())) {
-        cerr<<"NaN encountered in ODE iteration."<<endl;
-        cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
-        good_state = false;
-        timestep_reached = t*Constant::fs_per_au;
-    }
-}
-
-// Stiff part of the system
-void ElectronSolver::sys2(const state_type& s, state_type& sdot, const double t) {
-    sdot=0;
-    Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
-    // compute the dfdt vector
-    for (size_t a = 0; a < s.atomP.size(); a++) {
-        const bound_t& P = s.atomP[a];
+        // Free-electron parts
         #ifdef NO_EII
         #warning No impact ionisation
         #else
@@ -297,6 +277,31 @@ void ElectronSolver::sys2(const state_type& s, state_type& sdot, const double t)
         s.F.get_Q_tbr(vec_dqdt, a, P);
         #endif
     }
+
+
+    sdot.F.applyDelta(vec_dqdt);
+    // This is loss.
+    sdot.F.addLoss(s.F, input_params.loss_geometry);
+
+    if (isnan(s.norm()) || isnan(sdot.norm())) {
+        cerr<<"NaN encountered in ODE iteration."<<endl;
+        cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
+        good_state = false;
+        timestep_reached = t*Constant::fs_per_au;
+    }
+}
+
+
+// 'badly-behaved' part of the system
+void ElectronSolver::sys2(const state_type& s, state_type& sdot, const double t) {
+    sdot=0;
+    
+    // compute the dfdt vector
+    /*
+    for (size_t a = 0; a < s.atomP.size(); a++) {
+        const bound_t& P = s.atomP[a];  
+    }
+    */
     #ifdef NO_EE
     #warning No electron-electron interactions
     #else
