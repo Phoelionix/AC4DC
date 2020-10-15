@@ -97,9 +97,9 @@ void Hybrid<T>::Moulton(unsigned n){
     T tmp;
     tmp *= 0;
     // Now tmp goes back to being an aggregator
-    for (size_t i = 1; i < this->order; i++) {
+    for (int i = 1; i < this->order; i++) {
         T ydot;
-        this->sys2(this->y[n-i+1], ydot, this->t[n-i+1]);
+        this->sys2(this->y[1+n-i], ydot, this->t[1+n-i]);
         ydot *= this->b_AM[i];
         tmp += ydot;
     }

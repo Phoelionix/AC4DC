@@ -295,6 +295,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
 // 'badly-behaved' part of the system
 void ElectronSolver::sys2(const state_type& s, state_type& sdot, const double t) {
     sdot=0;
+    Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
     
     // compute the dfdt vector
     /*

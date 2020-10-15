@@ -63,11 +63,6 @@ private:
     void precompute_gamma_coeffs(); // populates above two tensors
     void set_flux(double Jcm2_per_Haa02);
     void set_initial_conditions();
-    // Components of sys that can be preallocated
-    Eigen::VectorXd vec_dqdt;
-    // vector<double> total_from; // accumulates total loss-per-unit-P from state [xi]
-    // vector<double> total_gain; // accumulates total gain for state [xi]
-
 
     void sys(const state_type& s, state_type& sdot, const double t); // general dynamics (uses explicit mehtod)
     void sys2(const state_type& s, state_type& sdot, const double t); // electron-electron (uses implicit method)
