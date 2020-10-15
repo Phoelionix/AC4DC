@@ -180,6 +180,8 @@ void ElectronSolver::precompute_gamma_coeffs() {
 // Incorporates all of the right hand side to the global
 // d/dt P[i] = \sum_i=1^N W_ij - W_ji P[j]
 // d/dt f = Q_B[f](t)
+
+// Non-stiff part of the system
 void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) {
     sdot=0;
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
@@ -264,22 +266,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
             
             
         }
-
-        // compute the dfdt vector
-        #ifdef NO_EII
-        #warning No impact ionisation
-        #else
-        s.F.get_Q_eii(vec_dqdt, a, P);
-        #endif
-        #ifdef NO_TBR
-        #warning No three-body recombination
-        #else
-        s.F.get_Q_tbr(vec_dqdt, a, P);
-        #endif
     }
-
-
-    sdot.F.applyDelta(vec_dqdt);
 
     // This is loss.
     sdot.F.addLoss(s.F, input_params.loss_geometry);
@@ -292,9 +279,24 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
     }
 }
 
+// Stiff part of the system
 void ElectronSolver::sys2(const state_type& s, state_type& sdot, const double t) {
     sdot=0;
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
+    // compute the dfdt vector
+    for (size_t a = 0; a < s.atomP.size(); a++) {
+        const bound_t& P = s.atomP[a];
+        #ifdef NO_EII
+        #warning No impact ionisation
+        #else
+        s.F.get_Q_eii(vec_dqdt, a, P);
+        #endif
+        #ifdef NO_TBR
+        #warning No three-body recombination
+        #else
+        s.F.get_Q_tbr(vec_dqdt, a, P);
+        #endif
+    }
     #ifdef NO_EE
     #warning No electron-electron interactions
     #else
