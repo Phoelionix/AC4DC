@@ -29,12 +29,11 @@ void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname) {
     ofstream f;
     cout << "[ Flux ] Saving to file "<<fname<<"..."<<endl;
     f.open(fname);
-    f << "# Time (fs) | Intensity (pht/cm2/s)" <<endl;
+    f << "# Time (fs) | Intensity (pht/cm2/fs)" <<endl;
     for (auto& t : Tvec) {
         f << t*Constant::fs_per_au << " ";
         double intensity = (*this)(t);
         intensity /= Constant::fs_per_au;
-        intensity *= 1e15;
         intensity /= Constant::cm_per_au*Constant::cm_per_au;
         f << intensity <<std::endl;
     }

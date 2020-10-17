@@ -127,7 +127,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	cout<<bc<<"Droplet Shape:  "<<clr<<loss_geometry<<endl<<endl;
 
 	cout<<bc<<"Photon energy:  "<<clr<<omega<<" eV"<<endl;
-	cout<<bc<<"Pulse fluence:  "<<clr<<fluence*10000<<" J/cm^2 = "<<fluence/omega/1.602e-19<<"ph cm^-2"<<endl;
+	cout<<bc<<"Pulse fluence:  "<<clr<<fluence*10000<<" J/cm^2 = "<<10000*fluence/omega/Constant::J_per_eV<<"ph cm^-2"<<endl;
 	cout<<bc<<"Pulse FWHM:     "<<clr<<width<<" fs"<<endl<<endl;
 
 	cout<<bc<<"Electron grid:  "<<clr<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
