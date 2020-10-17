@@ -33,7 +33,7 @@ namespace Constant
 	const double fs_per_au = 0.024188843265857;//femtosecond in au
 	const double eV_per_Ha = 27.211385;//electron volts in atomic units
 	// const double Intensity_in_au = 6.434;// x10^15 W/cm^2 //3.50944758;//x10^2 W/nm^2
-	const double Jcm2_per_Haa02 = 0.155689291;//J/cm^2
+	const double Jcm2_per_Haa02 = 6.4230434293;//J/cm^2 2.2937104486906e17*(5.2917721067e-11/1e-2)*(5.2917721067e-11/1e-2)
 	const double au2_in_barn = 5.2917721067*5.2917721067*1000000;//atomic units to Barns.
 	const double au2_in_Mbarn = 5.2917721067*5.2917721067;//atomic units to Mega Barns.
 	const double RiemannZeta3 = 1.202056903159594;
