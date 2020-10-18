@@ -62,8 +62,8 @@ void BasisSet::set_knot(const GridSpacing& gt){
     int Z_0 = gt.zero_degree_0;
     int Z_inf = gt.zero_degree_inf;
     if( BSPLINE_ORDER - Z_0 < 0){
-        std::cerr <<"Failed to set boundary condition at 0, defaulting to "<<BSPLINE_ORDER<<std::endl;
-        Z_0 = BSPLINE_ORDER;
+        std::cerr <<"Failed to set boundary condition at 0, defaulting to "<<0<<std::endl;
+        Z_0 = 0;
     }
     if (BSPLINE_ORDER - Z_inf < 0){
         std::cerr <<"Failed to set boundary condition at infinity, defaulting to "<<BSPLINE_ORDER<<std::endl;
@@ -187,22 +187,29 @@ void BasisSet::set_parameters(size_t num_int, double min, double max, const Grid
     // boundary at minimm energy enforces energy conservation
     set_knot(gt);
     
-    // Compute overlap matrix
-    Eigen::SparseMatrix<double> S(num_funcs, num_funcs);
+
+    
+    std::vector<Eigen::Triplet<double>> tripletList;
+    tripletList.reserve(BSPLINE_ORDER*2*num_funcs);
+    
     // Eigen::MatrixXd S(num_funcs, num_funcs);
     for (size_t i=0; i<num_funcs; i++) {
         for (size_t j=i+1; j<num_funcs; j++) {
             double tmp=overlap(i, j);
             if (tmp != 0) {
-                S.insert(i,j) = tmp;
-                S.insert(j,i) = tmp;
+                tripletList.push_back(Eigen::Triplet<double>(i,j,tmp));
+                tripletList.push_back(Eigen::Triplet<double>(j,i,tmp));
                 // S(i,j) = tmp;
                 // S(j,i) = tmp;
             }
         }
-        S.insert(i,i) = overlap(i,i);
+        // S.insert(i,i) = overlap(i,i);
+        tripletList.push_back(Eigen::Triplet<double>(i,i,overlap(i, i)));
         // S(i,i) = overlap(i,i);
     }
+    // Compute overlap matrix
+    Eigen::SparseMatrix<double> S(num_funcs, num_funcs);
+    S.setFromTriplets(tripletList.begin(), tripletList.end());
     // Precompute the LU decomposition
     linsolver.analyzePattern(S);
     linsolver.isSymmetric(true);

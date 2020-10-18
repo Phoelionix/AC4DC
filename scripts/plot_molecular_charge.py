@@ -336,9 +336,7 @@ class Plotter:
         self.fig_free = plt.figure(figsize=(3.1,2.5))
         ax = self.fig_free.add_subplot(111)
         self.fig_free.subplots_adjust(left=0.12, top=0.96, bottom=0.16,right=0.95)
-        # Need to turn freeData (matrix of BSpline coeffs)
-        # freeeData [t, c]
-        # into matrix of values.
+        
         if every is None:
             Z = self.freeData.T
             T = self.timeData
@@ -477,6 +475,6 @@ def moving_average(a, n=3) :
 
 if __name__ == "__main__":
     pl = Plotter(sys.argv[1])
-    pl.plot_free(log=True,min=1e-7)
+    # pl.plot_free(log=True,min=1e-7)
     # pl.plot_all_charges()
     plt.show()
