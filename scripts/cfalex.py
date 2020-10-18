@@ -13,7 +13,7 @@ from labellines import *
 import numpy as np
 
 raw_old = np.genfromtxt('../code_from_alex/old__AC4DC/output/Charge_C.txt')
-int_old = np.genfromtxt('../code_from_alex/old__AC4DC/output/Intensity_Carbon_HR2.txt')
+int_old = np.genfromtxt('../code_from_alex/old__AC4DC/output/Intensity_'+sys.argv[1]+'.txt')
 
 t=int_old[:,-1]
 t2 = raw_old[:,-1]
@@ -24,7 +24,7 @@ fig,ax = plt.subplots(figsize=(3,2.5))
 fig.subplots_adjust(bottom=0.2,right=0.95,top=0.95)
 ax2 = ax.twinx()
 
-x = 20/2
+x = 20
 
 min_idx2 = t2.searchsorted(-x)
 max_idx2 = t2.searchsorted(x)
@@ -33,7 +33,7 @@ max_idx = t.searchsorted(x)
 
 
 
-pl = Plotter('big_Carbon_HR2')
+pl = Plotter(sys.argv[1])
 pl.aggregate_charges()
 normed_charges = pl.chargeData['C'] / pl.chargeData['C'][0,0]
 
@@ -47,11 +47,8 @@ for (i,c) in zip(range(num_species), get_colors(num_species,400)):
 ax2.plot(t[min_idx:max_idx], old_pulse[min_idx:max_idx], ':', linewidth=1,alpha=0.5)
 ax2.yaxis.set_visible(False)
 
-ax3 = ax.twinx()
-ax3.plot(pl.timeData, pl.intensityData)
-
 ax.legend()
 ax.set_xlabel('Time (fs)')
 
 fig.savefig('/Users/alaric-mba/Desktop/cfalex.png')
-# fig.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/cfalex_huge.pgf')
+# fig.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/cfalex_'+sys.argv[1]+'.pgf')

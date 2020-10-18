@@ -211,8 +211,8 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         for ( auto& r : input_params.Store[a].Auger) {
             Pdot[r.to] += r.val*P[r.from];
             Pdot[r.from] -= r.val*P[r.from];
-            sdot.F.addDeltaSpike(r.energy, r.val*P[r.from]);
-            // sdot.F.add_maxwellian(r.energy*2./3., r.val*P[r.from]);
+            // sdot.F.addDeltaSpike(r.energy, r.val*P[r.from]);
+            sdot.F.add_maxwellian(r.energy*2./3., r.val*P[r.from]);
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
         }
 
