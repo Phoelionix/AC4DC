@@ -111,7 +111,7 @@ void BasisSet::set_knot(const GridSpacing& gt){
     // double C_hyb = _max - B_hyb * num_int;
     // double lambda_hyb = (log(B_hyb*M+C_hyb) - log(_min))/M;
 
-    knot.resize(num_funcs+BSPLINE_ORDER); // num_funcs == n + 1
+    knot.resize(num_funcs+BSPLINE_ORDER+1); // num_funcs == n + 1
 
     // Set the k - zero_deg repeated knots
     
@@ -122,6 +122,7 @@ void BasisSet::set_knot(const GridSpacing& gt){
     // TODO:
     // - Move this grid-construction code to GridSpacing.hpp
     // - Refactor to incorporate boundaries max and min into the GridSpacing object
+    // - Unfuck the boundary conditions (seems to break for BSPLINE_ORDER=3?)
 
     // At i=0, the value of knot will still be _min
     for(size_t i=start; i<=num_funcs + Z_inf; i++) {
@@ -302,8 +303,8 @@ double BasisSet::overlap(size_t j,size_t i) const{
 // such that the splines are polynomial on these intervals
 std::vector<std::pair<double,double>> BasisSet::knots_between(double bottom, double top) const {
     std::vector<std::pair<double,double> > intervals(0);
-    // NOTE TO FUTURE DEVELOPERS:
-    // These calls can nad should should be replaced with std::lower_bound calls.
+    // NOTE:
+    // These calls can and should should be replaced with std::lower_bound calls.
     if (bottom >= top) return intervals;
     size_t bottomidx = lower_idx(bottom, knot);
     size_t topidx = lower_idx(top, knot) + 1;
