@@ -1,5 +1,4 @@
 #include "Pulse.h"
-
 #include <fstream>
 #include <iostream>
 #include <cmath>
@@ -21,33 +20,32 @@ void Pulse::save(const std::vector<double>& Tvec, const std::string& fname) {
     f.close();
 }
 
-void GaussianPulse::set_pulse(double fluence, double fwhm) {
+void Pulse::set_pulse(double fluence, double _fwhm) {
     // The photon flux model
     // Gaussian model A e^{-t^2/B}
     std::cout<<"[ Flux ] fluence="<<fluence<<", fwhm="<<fwhm<<endl;
-    B = fwhm*fwhm/(4*0.6931471806); // f^2/4ln(2)
-    A = fluence/pow(Constant::Pi*B,0.5);
+    I0 = fluence/_fwhm;
+    fwhm = _fwhm;
+
 }
 
-inline double GaussianPulse::operator()(double t) {
+double Pulse::operator()(double t) {
     // Returns flux at time t (same units as fluence)
-    return A*exp(-t*t/B);
+    const double norm = sqrt(Constant::Pi/4/log(2));
+    switch (shape)
+    {
+    case PulseShape::gaussian:
+        return I0/fwhm/norm*pow(2,-t*t*4/fwhm*fwhm);
+        break;
+    case PulseShape::square:
+        if (t< -fwhm || t >0) {
+            return 0;
+        } else {
+            return I0;
+        }
+        break;
+    default:
+        throw runtime_error("Pulse shape has not been set.");
+        break;
+    }   
 }
-
-void SquarePulse::set_pulse(double fluence, double fwhm) {
-    // The photon flux model
-    // Gaussian model A e^{-t^2/B}
-    std::cout<<"[ Flux ] fluence="<<fluence<<", width="<<fwhm<<endl;
-    B = fwhm; // f^2/4ln(2)
-    A = fluence/fwhm;
-}
-
-inline double SquarePulse::operator()(double t) {
-    // Returns flux at time t (same units as fluence)
-    if (t< -B || t >0) {
-        return 0;
-    } else {
-        return A;
-    }
-}
-

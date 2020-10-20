@@ -6,6 +6,7 @@
 #include "SplineBasis.h"
 #include "GridSpacing.hpp"
 #include "LossGeometry.hpp"
+#include "Pulse.h"
 
 class MolInp
 {
@@ -51,6 +52,7 @@ public:
 
 	GridSpacing elec_grid_type;
 	LossGeometry loss_geometry;
+	PulseShape pulse_shape = PulseShape::none;
 
 	int num_time_steps = -1; // Number of time steps for time dynamics
 

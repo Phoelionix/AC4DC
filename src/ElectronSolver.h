@@ -28,8 +28,10 @@ class ElectronSolver : private ode::Hybrid<state_type>
 {
 public:
     ElectronSolver(const char* filename, ofstream& log) :
-    Hybrid(3), input_params(filename, log), pf(input_params.Fluence(), input_params.Width()) // (order Adams method)
+    Hybrid(3), input_params(filename, log), pf() // (order Adams method)
     {
+        pf.set_shape(input_params.pulse_shape);
+        pf.set_pulse(input_params.Fluence(), input_params.Width());
         timespan_au = input_params.Width()*5;
     }
     void solve();
@@ -37,9 +39,10 @@ public:
     void compute_cross_sections(std::ofstream& _log, bool recalc=true);
 private:
     MolInp input_params;
+    Pulse pf;
     double timespan_au; // Atomic units
     // Model parameters
-    SquarePulse pf;
+    
 
     // arrays computed at class initialisation
     vector<vector<eiiGraph> > RATE_EII;
