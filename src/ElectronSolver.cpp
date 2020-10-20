@@ -12,35 +12,6 @@
 #include "config.h"
 
 
-void PhotonFlux::set_pulse(double fluence, double fwhm) {
-    // The photon flux model
-    // Gaussian model A e^{-t^2/B}
-    cout<<"[ Flux ] fluence="<<fluence<<", fwhm="<<fwhm<<endl;
-    B = fwhm*fwhm/(4*0.6931471806); // f^2/4ln(2)
-    A = fluence/pow(Constant::Pi*B,0.5);
-}
-
-inline double PhotonFlux::operator()(double t) {
-    // Returns flux at time t (same units as fluence)
-    return A*exp(-t*t/B);
-}
-
-void PhotonFlux::save(const vector<double>& Tvec, const std::string& fname) {
-    ofstream f;
-    cout << "[ Flux ] Saving to file "<<fname<<"..."<<endl;
-    f.open(fname);
-    f << "# Time (fs) | Intensity (pht/cm2/fs)" <<endl;
-    for (auto& t : Tvec) {
-        f << t*Constant::fs_per_au << " ";
-        double intensity = (*this)(t);
-        intensity /= Constant::fs_per_au;
-        intensity /= Constant::cm_per_au*Constant::cm_per_au;
-        f << intensity <<std::endl;
-    }
-    f.close();
-}
-
-
 state_type ElectronSolver::get_ground_state() {
     state_type initial_condition;
     assert(initial_condition.atomP.size() == input_params.Store.size());

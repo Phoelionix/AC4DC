@@ -10,6 +10,7 @@ This file should arguably be called RateEquationSOlver, however, for historical 
 #include "Constant.h"
 #include "MolInp.h"
 #include "Input.h"
+#include "Pulse.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -20,21 +21,6 @@ This file should arguably be called RateEquationSOlver, however, for historical 
 //          typename Algebra = range_algebra,
 //          typename Operations = default_operations,
 //          typename Resizer = initially_resizer>
-
-class PhotonFlux
-{
-public:
-    PhotonFlux() {};
-    PhotonFlux(double fluence, double fwhm) {
-        set_pulse(fluence, fwhm);
-    };
-    void set_pulse(double, double);
-    inline double operator()(double t); // Yields Photon flux in same units as A
-    void save(const vector<double>& T, const std::string& file);
-private:
-    double A;
-    double B;
-};
 
 #define MAX_T_PTS 1e6
 
@@ -53,7 +39,7 @@ private:
     MolInp input_params;
     double timespan_au; // Atomic units
     // Model parameters
-    PhotonFlux pf;
+    SquarePulse pf;
 
     // arrays computed at class initialisation
     vector<vector<eiiGraph> > RATE_EII;
