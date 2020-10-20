@@ -47,7 +47,6 @@ private:
 
     void get_energy_bounds(double& max, double& min);
     void precompute_gamma_coeffs(); // populates above two tensors
-    void set_flux(double Jcm2_per_Haa02);
     void set_initial_conditions();
 
     void sys(const state_type& s, state_type& sdot, const double t); // general dynamics (uses explicit mehtod)

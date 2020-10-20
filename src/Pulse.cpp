@@ -5,6 +5,22 @@
 #include <cmath>
 #include "Constant.h"
 
+
+void Pulse::save(const std::vector<double>& Tvec, const std::string& fname) {
+    std::ofstream f;
+    std::cout << "[ Flux ] Saving to file "<<fname<<"..."<<endl;
+    f.open(fname);
+    f << "# Time (fs) | Intensity (pht/cm2/fs)" <<endl;
+    for (auto& t : Tvec) {
+        f << t*Constant::fs_per_au << " ";
+        double intensity = (*this)(t);
+        intensity /= Constant::fs_per_au;
+        intensity /= Constant::cm_per_au*Constant::cm_per_au;
+        f << intensity <<std::endl;
+    }
+    f.close();
+}
+
 void GaussianPulse::set_pulse(double fluence, double fwhm) {
     // The photon flux model
     // Gaussian model A e^{-t^2/B}
@@ -35,17 +51,3 @@ inline double SquarePulse::operator()(double t) {
     }
 }
 
-void Pulse::save(const std::vector<double>& Tvec, const std::string& fname) {
-    std::ofstream f;
-    std::cout << "[ Flux ] Saving to file "<<fname<<"..."<<endl;
-    f.open(fname);
-    f << "# Time (fs) | Intensity (pht/cm2/fs)" <<endl;
-    for (auto& t : Tvec) {
-        f << t*Constant::fs_per_au << " ";
-        double intensity = (*this)(t);
-        intensity /= Constant::fs_per_au;
-        intensity /= Constant::cm_per_au*Constant::cm_per_au;
-        f << intensity <<std::endl;
-    }
-    f.close();
-}
