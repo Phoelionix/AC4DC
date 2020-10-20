@@ -336,7 +336,7 @@ class Plotter:
         self.fig_free = plt.figure(figsize=(3.1,2.5))
         ax = self.fig_free.add_subplot(111)
         self.fig_free.subplots_adjust(left=0.12, top=0.96, bottom=0.16,right=0.95)
-        
+
         if every is None:
             Z = self.freeData.T
             T = self.timeData
@@ -410,7 +410,7 @@ class Plotter:
         plt.show()
         plt.colorbar()
 
-    def plot_step(self, t, normed=True, fitE=None, c=None):        
+    def plot_step(self, t, normed=True, fitE=None, **kwargs):        
         self.ax_steps.set_xlabel('Energy, eV')
         self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
         self.ax_steps.loglog()
@@ -423,9 +423,9 @@ class Plotter:
             tot = np.sum(data)
             data /= tot
         
-        return self.ax_steps.plot(X, data*X, label='%1.1f fs' % t)
+        return self.ax_steps.plot(X, data*X, label='%1.1f fs' % t, **kwargs)
 
-    def plot_fit(self, t, fitE, normed=True, c=None):
+    def plot_fit(self, t, fitE, normed=True, **kwargs):
         t_idx = self.timeData.searchsorted(t)
         fit = self.energyKnot.searchsorted(fitE)
         data = self.freeData[t_idx,:]
@@ -439,7 +439,7 @@ class Plotter:
         T, n = fit_maxwell(Xdata, Ydata)
         return self.ax_steps.plot(self.energyKnot, 
             maxwell(self.energyKnot, T, n)*self.energyKnot,
-            '--', lw=1,label='%3.1f eV' % T, color=c)
+            '--',label='%3.1f eV' % T, **kwargs)
 
     def get_temp(self, t, fitE):
         t_idx = self.timeData.searchsorted(t)

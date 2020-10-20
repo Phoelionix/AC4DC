@@ -12,8 +12,11 @@ import sys
 from labellines import *
 import numpy as np
 
+oldname='Carbon_HR1'
+newname='big_Carbon_HR1'
+
 raw_old = np.genfromtxt('../code_from_alex/old__AC4DC/output/Charge_C.txt')
-int_old = np.genfromtxt('../code_from_alex/old__AC4DC/output/Intensity_'+sys.argv[1]+'.txt')
+int_old = np.genfromtxt('../code_from_alex/old__AC4DC/output/Intensity_'+oldname+'.txt')
 
 t=int_old[:,-1]
 t2 = raw_old[:,-1]
@@ -33,7 +36,7 @@ max_idx = t.searchsorted(x)
 
 
 
-pl = Plotter(sys.argv[1])
+pl = Plotter(newname)
 pl.aggregate_charges()
 normed_charges = pl.chargeData['C'] / pl.chargeData['C'][0,0]
 
