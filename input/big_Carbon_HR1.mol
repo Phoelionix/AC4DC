@@ -17,8 +17,8 @@ none       // Spatial boundary shape - options are none, spherical, cylindrical,
 20000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12            // Number of threads in OpenMP.
 0            // [only for nonthermal] minimum free-electron energy in eV
-7000          // [only for nonthermal] maximum free-electron energy in eV
-200            // [only for nonthermal] number of free-electron grid points
+8000          // [only for nonthermal] maximum free-electron energy in eV
+100            // [only for nonthermal] number of free-electron grid points
 linear     // electron grid type
 100            // Number of "low-energy" grid points (hybrid & powerlaw grids only)
 2000           // transition energy in eV

@@ -10,3 +10,4 @@ tmp
 testOutput
 *.swp
 */__pycache__
+Makefile
