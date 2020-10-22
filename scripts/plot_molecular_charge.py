@@ -433,13 +433,19 @@ class Plotter:
             tot = np.sum(data)
             data /= tot
 
-        Xdata = self.energyKnot[fit//3:fit]
-        Ydata = data[fit//3:fit]
+        Xdata = self.energyKnot[:fit]
+        Ydata = data[:fit]
         mask = np.where(Ydata > 0)
         T, n = fit_maxwell(Xdata, Ydata)
         return self.ax_steps.plot(self.energyKnot, 
             maxwell(self.energyKnot, T, n)*self.energyKnot,
             '--',label='%3.1f eV' % T, **kwargs)
+
+    def plot_maxwell(self, kT, n, **kwargs):
+        return self.ax_steps.plot(self.energyKnot, 
+            maxwell(self.energyKnot, kT, n)*self.energyKnot,
+            '--',label='%3.1f eV' % kT, **kwargs)
+
 
     def get_temp(self, t, fitE):
         t_idx = self.timeData.searchsorted(t)

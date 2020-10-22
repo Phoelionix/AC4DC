@@ -14,7 +14,7 @@ SRCEXT := cpp
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT) )
 
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
-CXXFLAGS := -std=c++17 -fopenmp -MD -g -Wall
+CXXFLAGS := -std=c++17 -fopenmp -MD -g -Wall -DNO_EE
 
 debug: CXXFLAGS += -DDEBUG -Wpedantic
 release: CXXFLAGS += -O3 -DNDEBUG

@@ -20,7 +20,7 @@ plt.savefig('/Users/alaric-mba/Desktop/charge_conservation.png')
 plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_qcons.pgf')
 
 pl.fig.set_size_inches(3,2.5)
-pl.plot_free(log=True, min=1e-8, every=1)
+pl.plot_free(log=True, min=1e-7, every=5)
 plt.savefig('/Users/alaric-mba/Desktop/free.png')
 plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_free.pgf')
 
