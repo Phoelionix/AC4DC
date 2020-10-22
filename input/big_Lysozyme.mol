@@ -1,0 +1,36 @@
+// Lysozyme
+
+#ATOMS
+S 8
+H 700
+C 380
+N 92
+O 196
+
+
+#VOLUME
+12314.7      // Volume per molecule in Angstrom^3.
+175          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+spherical
+
+#PULSE
+8000         // Photon energy in eV.
+15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+10           // Pulse fluence in 10^4 * J/cm^2.
+
+#NUMERICAL
+200000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+12           // Number of threads in OpenMP.
+0          // [only for nonthermal] minimum free-electron energy in eV
+9000        // [only for nonthermal] maximum free-electron energy in eV
+100          // [only for nonthermal] number of free-electron grid points
+linear    // grid type
+22           // Number of low-energy points (hybrid /powerlaw only)
+220          // Transition to low-energy points (hybrid /powerlaw only)
+
+#OUTPUT
+1000         // Number of time steps in the output files.
+500          // Number of electron-energy grid points.
+N            // Write atomic charges in a separate file (Y/N)?
+Y            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?

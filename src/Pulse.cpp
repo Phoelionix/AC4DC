@@ -20,12 +20,11 @@ void Pulse::save(const std::vector<double>& Tvec, const std::string& fname) {
     f.close();
 }
 
-void Pulse::set_pulse(double fluence, double _fwhm) {
+void Pulse::set_pulse(double fluence, double fwhm_param) {
     // The photon flux model
-    // Gaussian model A e^{-t^2/B}
-    std::cout<<"[ Flux ] fluence="<<fluence<<", fwhm="<<fwhm<<endl;
-    I0 = fluence/_fwhm;
-    fwhm = _fwhm;
+    std::cout<<"[ Flux ] fluence="<<fluence<<", fwhm="<<fwhm_param<<endl;
+    this->I0 = fluence/fwhm_param;
+    this->fwhm = fwhm_param;
 
 }
 
@@ -35,10 +34,10 @@ double Pulse::operator()(double t) {
     switch (shape)
     {
     case PulseShape::gaussian:
-        return I0/fwhm/norm*pow(2,-t*t*4/fwhm*fwhm);
+        return this->I0/norm*pow(2,-t*t*4/this->fwhm/this->fwhm);
         break;
     case PulseShape::square:
-        if (t< -fwhm || t >0) {
+        if (t< -this->fwhm || t >0) {
             return 0;
         } else {
             return I0;

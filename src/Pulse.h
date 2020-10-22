@@ -14,8 +14,8 @@ class Pulse
 {
 public:
     Pulse() {};
-    Pulse(double fluence, double _fwhm, PulseShape ps) {
-        this->set_pulse(fluence, _fwhm);
+    Pulse(double _fluence, double _fwhm, PulseShape ps) {
+        this->set_pulse(_fluence, _fwhm);
         shape=ps;
     };
     double operator()(double t); // Yields Photon flux in units of A/fwhm
@@ -34,36 +34,6 @@ private:
     double I0;
     double fwhm;
 };
-/*
-class GaussianPulse : public Pulse
-{
-public:
-    // GaussianPulse() {};
-    GaussianPulse(double fluence, double fwhm) {
-        set_pulse(fluence, fwhm);
-    };
-    void set_pulse(double fluence, double width);
-    inline double operator()(double t); // Yields Photon flux in same units as A
-    // void save(const vector<double>& T, const std::string& file);
-private:
-    double A;
-    double B;
-};
-
-class SquarePulse : public Pulse
-{
-public:
-    SquarePulse(double fluence, double fwhm) {
-        set_pulse(fluence, fwhm);
-    };
-    void set_pulse(double fluence, double width);
-    inline double operator()(double t); // Yields Photon flux in same units as A
-    // void save(const vector<double>& T, const std::string& file);
-private:
-    double A;
-    double B;
-};
-*/
 
 namespace {
     

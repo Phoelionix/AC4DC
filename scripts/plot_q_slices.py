@@ -15,7 +15,7 @@ plt.rcParams["font.size"] = 8
 
 label = sys.argv[1] +'_' + sys.argv[2]
 
-slices = [-7.5,-5, -2.5, 0]
+slices = [-2.5, 0, 2.5, 5]
 # colours = ['red', 'green', 'blue', 'purple']
 energies = [400, 1000, 2000, 2000]
 
@@ -29,8 +29,8 @@ for (t, e ) in zip(slices, energies):
 pl.fig_steps.set_size_inches(3,2.5)
 
 
-pl.ax_steps.set_ylim([1e-3, 100])
-pl.ax_steps.set_xlim([10,10000]) 
+pl.ax_steps.set_ylim([1e-4, 10])
+pl.ax_steps.set_xlim([1,10000]) 
 
 pl.fig_steps.subplots_adjust(bottom=0.15,left=0.2,right=0.95,top=0.95)
 pl.ax_steps.xaxis.get_major_formatter().labelOnlyBase = False
