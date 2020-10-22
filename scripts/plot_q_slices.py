@@ -13,9 +13,11 @@ from labellines import *
 
 plt.rcParams["font.size"] = 8
 
-slices = [-5, 0, 5, 10]
+label = sys.argv[1] +'_' + sys.argv[2]
+
+slices = [-7.5,-5, -2.5, 0]
 # colours = ['red', 'green', 'blue', 'purple']
-energies = [300, 1500, 2000, 2000]
+energies = [400, 1000, 2000, 2000]
 
 pl = Plotter(sys.argv[1])
 
@@ -27,8 +29,8 @@ for (t, e ) in zip(slices, energies):
 pl.fig_steps.set_size_inches(3,2.5)
 
 
-pl.ax_steps.set_ylim([1e-3, 10])
-# pl.ax_steps.set_xlim([1,10000]) 
+pl.ax_steps.set_ylim([1e-3, 100])
+pl.ax_steps.set_xlim([10,10000]) 
 
 pl.fig_steps.subplots_adjust(bottom=0.15,left=0.2,right=0.95,top=0.95)
 pl.ax_steps.xaxis.get_major_formatter().labelOnlyBase = False
@@ -40,4 +42,4 @@ order = [0,2,4,6,1,3,5,7]
 pl.ax_steps.legend([handles[idx] for idx in order],[labels[idx] for idx in order], loc='upper left',ncol=2)
 # labelLines(fitlines,align=True,xvals = [80,170,280,360])
 plt.savefig('/Users/alaric-mba/Desktop/free_distribution_evolution.png')
-plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+sys.argv[1]+'_6keV_no_ee.pgf')
+plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_slices.pgf')

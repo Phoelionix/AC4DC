@@ -10,20 +10,22 @@ import matplotlib.pyplot as plt
 from plot_molecular_charge import Plotter
 import sys
 
+label = sys.argv[1] +'_' + sys.argv[2]
+
 pl = Plotter(sys.argv[1])
 
 pl.plot_tot_charge(every=10)
 pl.fig.set_size_inches(3,2.5)
 plt.savefig('/Users/alaric-mba/Desktop/charge_conservation.png')
-plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+sys.argv[1]+'_qcons_6keV_no_ee.pgf')
+plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_qcons.pgf')
 
-pl.fig.set_size_inches(3.5,2.5)
+pl.fig.set_size_inches(3,2.5)
 pl.plot_free(log=True, min=1e-8, every=1)
 plt.savefig('/Users/alaric-mba/Desktop/free.png')
-plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+sys.argv[1]+'_free_no_ee.pgf')
+plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_free.pgf')
 
 pl.plot_all_charges()
 pl.fig.set_size_inches(3,2.5)
 pl.fig.subplots_adjust(left=0.2,bottom=0.18,top=0.95)
 plt.savefig('/Users/alaric-mba/Desktop/dynamics.png')
-plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+sys.argv[1]+'_bound_no_ee.pgf')
+plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_bound.pgf')

@@ -24,6 +24,7 @@ state_type& state_type::operator+=(const state_type &s) {
         }
     }
     F += s.F;
+    bound_charge += s.bound_charge;
     return *this;
 }
 
@@ -34,6 +35,7 @@ state_type& state_type::operator*=(const double x) {
         }
     }
     F *= x;
+    bound_charge *=x;
     return *this;
 }
 
@@ -44,7 +46,8 @@ state_type& state_type::operator=(const double x) {
             p=x;
         }
     }
-    F = 0;
+    F = x;
+    bound_charge = x;
     return *this;
 }
 

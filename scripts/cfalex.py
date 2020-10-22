@@ -54,4 +54,4 @@ ax.legend()
 ax.set_xlabel('Time (fs)')
 
 fig.savefig('/Users/alaric-mba/Desktop/cfalex.png')
-# fig.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/cfalex_'+sys.argv[1]+'.pgf')
+fig.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/cfalex_'+sys.argv[1]+'.pgf')

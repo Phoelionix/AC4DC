@@ -165,9 +165,11 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         // PHOTOIONISATION
         double J = pf(t); // photon flux in atomic units
         for ( auto& r : input_params.Store[a].Photo) {
-            Pdot[r.to] += r.val*J*P[r.from];
-            Pdot[r.from] -= r.val*J*P[r.from];
+            double tmp = r.val*J*P[r.from];
+            Pdot[r.to] += tmp;
+            Pdot[r.from] -= tmp;
             sdot.F.addDeltaSpike(r.energy, r.val*J*P[r.from]);
+            sdot.bound_charge +=  tmp;
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
 
@@ -180,14 +182,14 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
 
         // AUGER
         for ( auto& r : input_params.Store[a].Auger) {
-            Pdot[r.to] += r.val*P[r.from];
-            Pdot[r.from] -= r.val*P[r.from];
+            double tmp = r.val*P[r.from];
+            Pdot[r.to] += tmp;
+            Pdot[r.from] -= tmp;
             sdot.F.addDeltaSpike(r.energy, r.val*P[r.from]);
             // sdot.F.add_maxwellian(r.energy*2./3., r.val*P[r.from]);
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
+            sdot.bound_charge +=  tmp;
         }
-
-        double dq =0; // verification: Keeps track of the sum of charges
 
         // EII / TBR bound-state dynamics
         size_t N = Distribution::size;
@@ -200,7 +202,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
                     tmp = finPair.val*s.F[n]*P[init];
                     Pdot[finPair.idx] += tmp;
                     Pdot[init] -= tmp;
-                    dq += tmp;
+                    sdot.bound_charge += tmp;
                 }
             }
             #endif
@@ -218,7 +220,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
                         tmp = finPair.val*s.F[n]*s.F[m]*P[init]*2;
                         Pdot[finPair.idx] += tmp;
                         Pdot[init] -= tmp;
-                        dq -= tmp;
+                        sdot.bound_charge -= tmp;
                     }
                 }
             }
@@ -229,7 +231,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
                     tmp = finPair.val*s.F[n]*s.F[n]*P[init];
                     Pdot[finPair.idx] += tmp;
                     Pdot[init] -= tmp;
-                    dq -= tmp;
+                    sdot.bound_charge -= tmp;
                 }
             }
             #endif
@@ -251,7 +253,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
 
     sdot.F.applyDelta(vec_dqdt);
     // This is loss.
-    sdot.F.addLoss(s.F, input_params.loss_geometry);
+    sdot.F.addLoss(s.F, input_params.loss_geometry, s.bound_charge);
 
     if (isnan(s.norm()) || isnan(sdot.norm())) {
         cerr<<"NaN encountered in ODE iteration."<<endl;

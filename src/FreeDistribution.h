@@ -86,7 +86,7 @@ public:
     // Adds a Dirac delta to the distribution
     void addDeltaSpike(double N, double e);
     // Applies the loss term to the distribution 
-    void addLoss(const Distribution& d, const LossGeometry& l);
+    void addLoss(const Distribution& d, const LossGeometry& l, double charge_density);
     
     // Sets the object to have a MB distribution
     void add_maxwellian(double N, double T);

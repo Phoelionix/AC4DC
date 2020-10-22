@@ -41,7 +41,7 @@ i = 1
 for symbol in ATOMS:
     ATOMNO[symbol] = i
     i += 1
-ATOMNO['forbidden_O'] = 8
+
 
 def get_colors(num, seed):
     idx = list(np.linspace(0, 1, num+1))[1:]
@@ -433,8 +433,8 @@ class Plotter:
             tot = np.sum(data)
             data /= tot
 
-        Xdata = self.energyKnot[:fit]
-        Ydata = data[:fit]
+        Xdata = self.energyKnot[fit//3:fit]
+        Ydata = data[fit//3:fit]
         mask = np.where(Ydata > 0)
         T, n = fit_maxwell(Xdata, Ydata)
         return self.ax_steps.plot(self.energyKnot, 
