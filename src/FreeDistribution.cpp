@@ -55,8 +55,8 @@ void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     // KLUDGE: Fix DebyeLength at 5 Angstrom = 9.4 Bohr
     // const double DebyeLength = 5. / Constant::Angs_per_au;
     // double CoulombLog = log(4./3.*Constant::Pi*DebyeLength*DebyeLength*DebyeLength*density());
-    double CoulombLog=3;
-    // double CoulombLog = CoulombLogarithm(size/3);
+    // double CoulombLog=3;
+    double CoulombLog = CoulombLogarithm(size/5);
     if (isnan(CoulombLog) || CoulombLog <= 0) return;
     for (size_t J=0; J<size; J++) {
         for (size_t K=0; K<size; K++) {
@@ -323,7 +323,6 @@ double Distribution::CoulombLogarithm(size_t cutoff) const {
     double kT = tmp*2./3./n;
     double DebyeLength3 = pow(kT/4/Constant::Pi/n,1.5);
     return log(4./3.*Constant::Pi* n*DebyeLength3);
-    // return 10;
 }
 
 

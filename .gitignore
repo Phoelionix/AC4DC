@@ -9,5 +9,5 @@ output
 tmp
 testOutput
 *.swp
-*/__pycache__
+*.pyc
 Makefile

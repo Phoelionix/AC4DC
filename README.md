@@ -64,11 +64,7 @@ EII parameters are stored in "sort-of-json" format - please note that the progra
 
 ### TODO
 
-1. ~~Test: Bspline derivative implementation~~
-2. ~~Test: QEE integral: is it sensible-looking?~~
-3. ~~Test: QEE integral: Does it conserve particles?~~
-4. ~~Test: QEE integral: Does it conserve energy?~~
-5. 
+1. Try to eliminate numerical artefacts when running with coarse grids at low energy
 4. Refactor to get rid of compiler warnings wherever possible
 5. Implement 'output version control' for atomic parameters in storage: avoid unnecessary recalculation, guarantee recalculation if new input parameters are incompatible
   - Add methods to `Input.cpp` to enable reading/writing salient parameters to file, e.g. `output/C/run_2021-04-11/input.txt`

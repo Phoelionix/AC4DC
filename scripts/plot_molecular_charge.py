@@ -420,7 +420,7 @@ class Plotter:
         X = self.energyKnot
 
         if normed:
-            tot = np.sum(data)
+            tot = self.get_density(t)
             data /= tot
         
         return self.ax_steps.plot(X, data*X, label='%1.1f fs' % t, **kwargs)
@@ -430,7 +430,7 @@ class Plotter:
         fit = self.energyKnot.searchsorted(fitE)
         data = self.freeData[t_idx,:]
         if normed:
-            tot = np.sum(data)
+            tot = self.get_density(t)
             data /= tot
 
         Xdata = self.energyKnot[:fit]
@@ -465,7 +465,7 @@ class Plotter:
 
 def fit_maxwell(X, Y):
     guess = [200, 12]
-    popt, _pcov = curve_fit(maxwell, X, Y, p0 = guess)
+    popt, _pcov = curve_fit(maxwell, X, Y, p0 = guess, sigma=1/(X*X))
     return popt
 
 def maxwell(e, kT, n):

@@ -10,8 +10,10 @@ rawQ = np.genfromtxt(sys.argv[1]+"_Q.csv")
 rawGamma = np.genfromtxt(sys.argv[1]+"_gamma.csv")
 
 energies = rawQ[:, 0]
-Qdata = rawQ[:, 1:]
-Gdata = rawGamma[:, 1:]
+scale = np.sqrt(np.outer(energies, energies))
+Qdata = rawQ[:, 1:]/scale
+Gdata = rawGamma[:, 1:]/scale
+
 
 
 maxG = np.max(Gdata)
@@ -24,6 +26,7 @@ cm = 'magma'
 def plotit():    
     fig, (ax1, ax2) = plt.subplots(nrows=1,ncols=2, sharex=True, sharey=True, figsize = (2.5,2))
     bottom = 0
+    
     im = ax1.pcolormesh(energies, energies, -Qdata, shading='nearest', vmin=bottom, vmax=bigg, cmap=cm,rasterized=True)
     ax1.set_title(r'Free')
     ax1.set_xlabel(r"$\epsilon_k$")
@@ -33,8 +36,8 @@ def plotit():
     # ax2.set_title(r'$\sum_{\eta} \Gamma^{TBR}_{kl}$',y=1.5)
     ax2.set_title(r'Bound')
     ax2.set_xlabel(r"$\epsilon_k$")
-    ax2.xaxis.set_label_coords(0.07, -0.07)
-    ax1.xaxis.set_label_coords(0.07, -0.07)
+    ax2.xaxis.set_label_coords(0.1, -0.1)
+    ax1.xaxis.set_label_coords(0.1, -0.1)
     
     # ax3.pcolormesh(energies, energies, np.abs(Gdata+ Qdata), vmin=bottom, vmax=bigg, cmap=cm)
     # ax3.set_title(r'$\left|\sum_{\eta} \Gamma^{TBR}_{kl} + \sum_j Q^{TBR}_{j, kl}\right|$',y=1.05)
