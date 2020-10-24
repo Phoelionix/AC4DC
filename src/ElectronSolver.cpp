@@ -278,7 +278,7 @@ void ElectronSolver::sys2(const state_type& s, state_type& sdot, const double t)
     #ifdef NO_EE
     #warning No electron-electron interactions
     #else
-    s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
+    s.F.get_Q_ee(vec_dqdt, input_params.elec_grid_type.num_low); // Electron-electon repulsions
     #endif
     sdot.F.applyDelta(vec_dqdt);
 }

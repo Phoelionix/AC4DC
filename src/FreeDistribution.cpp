@@ -50,12 +50,8 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) co
 
 
 // Puts the Q_EE changes into v
-void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
+void Distribution::get_Q_ee(Eigen::VectorXd& v, size_t cutoff) const {
     assert(basis.has_Qee());
-    // KLUDGE: Fix DebyeLength at 5 Angstrom = 9.4 Bohr
-    // const double DebyeLength = 5. / Constant::Angs_per_au;
-    // double CoulombLog = log(4./3.*Constant::Pi*DebyeLength*DebyeLength*DebyeLength*density());
-    // double CoulombLog=3;
     double CoulombLog = CoulombLogarithm(size/5);
     if (isnan(CoulombLog) || CoulombLog <= 0) return;
     for (size_t J=0; J<size; J++) {
@@ -85,7 +81,9 @@ void Distribution::get_Jac_ee(Eigen::MatrixXd& M) const{
     }
 }
 
+/*
 // Sets f_n+1 based on using a Newton-Rhapson-Euler stiff solver
+// Not currently used
 void Distribution::from_backwards_Euler(double dt, const Distribution& prev_step_dist, double tolerance, unsigned maxiter){
 
     Eigen::MatrixXd M(size, size);
@@ -105,7 +103,7 @@ void Distribution::from_backwards_Euler(double dt, const Distribution& prev_step
         
         old_curr_step = curr_step;
         v = Eigen::VectorXd::Zero(size);
-        this->get_Q_ee(v); // calculates v based on curr_step
+        this->get_Q_ee(v, size/3); // calculates v based on curr_step
         
         // Newton iterator
         get_Jac_ee(M);
@@ -124,6 +122,7 @@ void Distribution::from_backwards_Euler(double dt, const Distribution& prev_step
     }
     if (idx == MAX_ITER) std::cerr<<"Max stiff-solver iterations exceeded"<<std::endl;
 }
+*/
 
 // // Taken verbatim from Rockwood as quoted by Morgan and Penetrante in ELENDIF
 // void Distribution::add_Q_ee(const Distribution& d, double kT) {

@@ -52,8 +52,11 @@ private:
     void precompute_gamma_coeffs(); // populates above two tensors
     void set_initial_conditions();
 
+    /////// Overrides virtual system state methods
     void sys(const state_type& s, state_type& sdot, const double t); // general dynamics (uses explicit mehtod)
     void sys2(const state_type& s, state_type& sdot, const double t); // electron-electron (uses implicit method)
+    /////// 
+
     bool hasRates = false; // flags whether Store has been populated yet.
     void saveFree(const std::string& file);
     void saveFreeRaw(const std::string& fname);

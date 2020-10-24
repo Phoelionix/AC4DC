@@ -77,7 +77,7 @@ public:
     // e.g. dfdt v; F.calc_Qee(v);
     void get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
     void get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
-    void get_Q_ee  (Eigen::VectorXd& v) const;
+    void get_Q_ee  (Eigen::VectorXd& v, size_t cutoff) const;
 
     void get_Jac_ee (Eigen::MatrixXd& J) const; // Returns the Jacobian of Qee
     

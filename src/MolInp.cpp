@@ -114,7 +114,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	}
 
 	// Hardcode the boundary conditions
-	elec_grid_type.zero_degree_inf = 4;
+	elec_grid_type.zero_degree_inf = 3;
 	elec_grid_type.zero_degree_0 = 0;
 
 	const string bc = "\033[33m"; // begin colour escape code
@@ -134,6 +134,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	cout<<bc<<"Electron grid:  "<<clr<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
 	cout<<    "                "<<num_elec_points<<" points"<<endl;
 	cout<<bc<<"Grid type:      "<<clr<<elec_grid_type<<endl;
+	cout<<bc<<"Low energy cutoff for Coulomb logarithm estimation: "<<clr<<elec_grid_type.transition_e<<"eV"<<endl;
 	cout<<endl;
 
 	cout<<bc<<"ODE Iteration:  "<<clr<<num_time_steps<<" timesteps"<<endl<<endl;
@@ -213,11 +214,12 @@ bool MolInp::validate_inputs() {
 			cerr<<"Defaulting number of dense points to "<<num_elec_points/2;
 			elec_grid_type.num_low = num_elec_points/2;
 		}
-		if (elec_grid_type.transition_e <= min_elec_e || elec_grid_type.transition_e >= max_elec_e) {
-			cerr<<"Defaulting transition energy to "<<max_elec_e/4;
-			elec_grid_type.transition_e = max_elec_e/4;
-		}
 	}
+	if (elec_grid_type.transition_e <= min_elec_e || elec_grid_type.transition_e >= max_elec_e) {
+		cerr<<"Defaulting low-energy cutoff to "<<max_elec_e/4;
+		elec_grid_type.transition_e = max_elec_e/4;
+	}
+	
 
 	// unit cell volume.
 	if (unit_V <= 0) { cerr<<"ERROR: unit xell volume must be positive"; is_valid=false; }
