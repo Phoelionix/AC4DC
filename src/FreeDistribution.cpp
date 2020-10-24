@@ -9,7 +9,7 @@
 
 // Initialise static things
 size_t Distribution::size=0;
-size_t CoulombLog_cutoff=0;
+size_t Distribution::CoulombLog_cutoff=0;
 SplineIntegral Distribution::basis;
 
 // Psuedo-constructor thing
