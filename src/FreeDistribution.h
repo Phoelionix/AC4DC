@@ -77,7 +77,7 @@ public:
     // e.g. dfdt v; F.calc_Qee(v);
     void get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
     void get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) const;
-    void get_Q_ee  (Eigen::VectorXd& v, size_t cutoff) const;
+    void get_Q_ee  (Eigen::VectorXd& v) const;
 
     void get_Jac_ee (Eigen::MatrixXd& J) const; // Returns the Jacobian of Qee
     
@@ -113,9 +113,9 @@ public:
     double integral(double (f)(double));
     double density() const;
     double density(size_t cutoff) const;
-    // Returns an estimate of the plasma temperature based on all entries below cutoff
+    // Returns an estimate of the plasma temperature based on all entries below cutoff (in energy units)
     double k_temperature(size_t cutoff = size) const;
-    double CoulombLogarithm(size_t cutoff) const;
+    double CoulombLogarithm() const;
 
     static std::string output_energies_eV(size_t num_pts);
     std::string output_densities(size_t num_pts) const;
@@ -130,12 +130,12 @@ public:
     static std::string output_knots_eV();
 
 
-
     static size_t size;
 private:
     // double total;
     std::vector<double> f;
     static SplineIntegral basis;
+    static size_t CoulombLog_cutoff;
 
 };
 

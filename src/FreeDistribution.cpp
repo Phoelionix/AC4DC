@@ -16,6 +16,9 @@ void Distribution::set_elec_points(size_t n, double min_e, double max_e, GridSpa
     // Defines a grid of n points
     basis.set_parameters(n, min_e, max_e, grid_style);
     Distribution::size=n;
+    Distribution::CoulombLog_cutoff = basis.i_from_e(grid_style.transition_e);
+    cout<<"[ Free ] Estimating lnLambda based on first ";
+    cout<<CoulombLog_cutoff<<" points, up to "<<grid_style.transition_e<<" Ha"<<endl;
 }
 
 // Adds Q_eii to the parent Distribution
@@ -50,9 +53,9 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) co
 
 
 // Puts the Q_EE changes into v
-void Distribution::get_Q_ee(Eigen::VectorXd& v, size_t cutoff) const {
+void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     assert(basis.has_Qee());
-    double CoulombLog = CoulombLogarithm(size/5);
+    double CoulombLog = CoulombLogarithm();
     if (isnan(CoulombLog) || CoulombLog <= 0) return;
     for (size_t J=0; J<size; J++) {
         for (size_t K=0; K<size; K++) {
@@ -311,11 +314,11 @@ double Distribution::k_temperature(size_t cutoff) const {
 }
 
 // Returns an estimate of ln(N_D) based on density and low-energy arguments
-double Distribution::CoulombLogarithm(size_t cutoff) const {
+double Distribution::CoulombLogarithm() const {
     double tmp=0;
     // Dodgy integral of e * f(e) de
-    double n = this->density(cutoff);
-    for (size_t i = 0; i < cutoff; i++)
+    double n = this->density(CoulombLog_cutoff);
+    for (size_t i = 0; i < CoulombLog_cutoff; i++)
     {
         tmp += basis.avg_e[i]*f[i]*basis.areas[i];
     }
