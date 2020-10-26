@@ -62,6 +62,10 @@ Corresponding lines in the `index.txt` file explain which configuration the to/f
 EII parameters are stored in "sort-of-json" format - please note that the program does NOT use a robust json parser, and is sensitive to line formatting.
 
 
+### Known Bugs
+
+- When compiled unfer gcc8 on Debian (buster), a malloc error is thrown when trying to run lysozyme.
+
 ### TODO
 
 1. Try to eliminate numerical artefacts when running with coarse grids at low energy

@@ -12,8 +12,8 @@ import sys
 from labellines import *
 import numpy as np
 
-oldname='Carbon_HR1'
-newname='big_Carbon_HR1'
+oldname='Carbon_HR2'
+newname='Carbon_1um'
 
 raw_old = np.genfromtxt('../code_from_alex/old__AC4DC/output/Charge_C.txt')
 int_old = np.genfromtxt('../code_from_alex/old__AC4DC/output/Intensity_'+oldname+'.txt')
@@ -42,16 +42,19 @@ normed_charges = pl.chargeData['C'] / pl.chargeData['C'][0,0]
 
 
 num_species = old_charges.shape[1]
+# num_species = 5
 
 for (i,c) in zip(range(num_species), get_colors(num_species,400)):
-    l = ax.plot(pl.timeData, normed_charges, '-', linewidth=1, alpha=0.8)
-    ax.plot(t2[min_idx2:max_idx2], old_charges[min_idx2:max_idx2,i], '--', label='%d+' % i, linewidth=1,alpha=0.8,color=l[-1].get_color())
+    ax.plot(pl.timeData, normed_charges[:,i], '-', linewidth=1, color=c)
+    ax.plot(t2[min_idx2:max_idx2], old_charges[min_idx2:max_idx2,i], '--', label='%d+' % i, linewidth=1,color=c)
     
-ax2.plot(t[min_idx:max_idx], old_pulse[min_idx:max_idx], ':', linewidth=1,alpha=0.5)
+ax2.plot(t[min_idx:max_idx], old_pulse[min_idx:max_idx], 'k:', linewidth=1,alpha=0.5)
 ax2.yaxis.set_visible(False)
 
 ax.legend()
 ax.set_xlabel('Time (fs)')
 
 fig.savefig('/Users/alaric-mba/Desktop/cfalex.png')
-fig.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/cfalex_'+sys.argv[1]+'.pgf')
+outfile = '/Users/alaric-mba/Box Sync/Thesis/Figures/cfalex_'+sys.argv[1]+'.pgf'
+fig.savefig(outfile)
+print('saved figure to `' + outfile +'`')

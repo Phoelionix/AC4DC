@@ -44,9 +44,9 @@ for symbol in ATOMS:
 
 
 def get_colors(num, seed):
-    idx = list(np.linspace(0, 1, num+1))[1:]
+    idx = list(np.linspace(0, 1, num))[1:]
     random.seed(seed)
-    random.shuffle(idx)
+    # random.shuffle(idx)
     idx.insert(0,0)
     C = plt.cm.nipy_spectral
     return C(idx)
@@ -465,7 +465,8 @@ class Plotter:
 
 def fit_maxwell(X, Y):
     guess = [200, 12]
-    popt, _pcov = curve_fit(maxwell, X, Y, p0 = guess, sigma=1/(X*X))
+    popt, _pcov = curve_fit(maxwell, X, Y, p0 = guess, sigma=1/(X+10))
+    # popt, _pcov = curve_fit(maxwell, X, Y, p0 = guess)
     return popt
 
 def maxwell(e, kT, n):
