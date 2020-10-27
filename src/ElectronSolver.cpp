@@ -248,11 +248,7 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
         }
 
         // Free-electron parts
-        #ifdef NO_EII
-        #warning No impact ionisation
-        #else
-        s.F.get_Q_eii(vec_dqdt, a, P);
-        #endif
+        
         #ifdef NO_TBR
         #warning No three-body recombination
         #else
@@ -280,11 +276,18 @@ void ElectronSolver::sys2(const state_type& s, state_type& sdot, const double t)
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
     
     // compute the dfdt vector
-    /*
+    
     for (size_t a = 0; a < s.atomP.size(); a++) {
         const bound_t& P = s.atomP[a];  
+        #ifdef NO_EII
+        #warning No impact ionisation
+        #else
+        s.F.get_Q_eii(vec_dqdt, a, P);
+        #endif
     }
-    */
+    
+    
+
     #ifdef NO_EE
     #warning No electron-electron interactions
     #else
