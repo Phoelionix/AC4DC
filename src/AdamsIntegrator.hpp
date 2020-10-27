@@ -206,7 +206,8 @@ void Adams_BM<T>::run_steps(){
 
     // initialise enough points for multistepping to get going
     for (int n = 0; n < order; n++) {
-        this->step_rk4(n);
+        //this->step_rk4(n);
+	this->y[n+1] = this->y[0];
     }
     // Run those steps
     std::cout << "[ sim ]                       ";
