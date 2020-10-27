@@ -69,10 +69,16 @@ void ElectronSolver::solve() {
     auto start = std::chrono::system_clock::now();
 
     good_state = true;
-    this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
+    if (input_params.pulse_shape ==  PulseShape::square){
+        this->iterate(-input_params.Width(), timespan_au - input_params.Width()); // Inherited from ABM
+    } else {
+        this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
+    }
+    
+    
     cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<std::endl;
     
-    double time = -timespan_au/2;
+    double time = this->t[0];
     int retries = 1;
     while (!good_state) {
         std::cerr<<"\033[93;1m[ Rate Solver ] Halving timestep...\033[0m"<<std::endl;
@@ -90,7 +96,11 @@ void ElectronSolver::solve() {
         }
         retries--;
         this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
-        this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM        
+        if (input_params.pulse_shape ==  PulseShape::square){
+            this->iterate(-input_params.Width(), timespan_au - input_params.Width()); // Inherited from ABM
+        } else {
+            this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
+        }
     }
     
     
