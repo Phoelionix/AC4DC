@@ -56,12 +56,13 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) co
 // Puts the Q_EE changes into v
 void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     assert(basis.has_Qee());
-    double CoulombLog = CoulombLogarithm();
-    if (isnan(CoulombLog) || CoulombLog <= 0) CoulombLog = 1;
+    // double CoulombLog = CoulombLogarithm();
+    // if (isnan(CoulombLog) || CoulombLog <= 0) CoulombLog = 1;
+    double LnLambdaD = 0.5*log(this->k_temperature()/4/Constant::Pi/this->density());
     for (size_t J=0; J<size; J++) {
         for (size_t K=0; K<size; K++) {
             for (auto& q : basis.Q_EE[J][K]) {
-                 v[J] += q.val * f[K] * f[q.idx] * CoulombLog ;
+                 v[J] += q.val * f[K] * f[q.idx] * (LnLambdaD + basis.log_avg_e[J]);
             }
         }
     }

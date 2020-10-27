@@ -8,7 +8,7 @@ namespace ode {
 template<typename T>
 class Hybrid : public Adams_BM<T>{
     public:
-    Hybrid<T>(unsigned int order=4, double rtol=1e-5, unsigned max_iter = 200): 
+    Hybrid<T>(unsigned int order=4, double rtol=1e-5, unsigned max_iter = 2000): 
         Adams_BM<T>(order), stiff_rtol(rtol), stiff_max_iter(max_iter){};
     const static unsigned MAX_BEULER_ITER = 50;
     private:
@@ -125,7 +125,7 @@ void Hybrid<T>::Moulton(unsigned n){
         diff = prev.norm()/this->y[n+1].norm();
         idx++;
     }
-    if(idx==stiff_max_iter) std::cerr<<"Max Euler iterations exceeded"<<std::endl;
+    if(idx==stiff_max_iter) std::cerr<<"Max Euler iterations exceeded, err = "<<diff<<std::endl;
     this->y[n+1] += old;
 }
 

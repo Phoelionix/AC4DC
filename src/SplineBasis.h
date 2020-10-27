@@ -42,7 +42,7 @@ public:
     size_t num_funcs;
     const static int BSPLINE_ORDER = 3; // 1 = rectangles, 2=linear, 3=quadratic
     std::vector<double> avg_e;
-    std::vector<double> avg_e_sqrt;
+    std::vector<double> log_avg_e;
     std::vector<double> areas;
     int i_from_e(double e);
     int lower_i_from_e(double e);  
