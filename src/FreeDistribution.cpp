@@ -59,6 +59,9 @@ void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     // double CoulombLog = CoulombLogarithm();
     // if (isnan(CoulombLog) || CoulombLog <= 0) CoulombLog = 1;
     double LnLambdaD = 0.5*log(this->k_temperature()/4/Constant::Pi/this->density());
+    if (isnan(LnLambdaD)) LnLambdaD = 10;
+    // A guess. This should only happen when density is zero, so Debye length is indinity, so we guess
+    // the sample size is about 10^5 Bohr. This shouldn't ultimately matter much.
     for (size_t J=0; J<size; J++) {
         for (size_t K=0; K<size; K++) {
             for (auto& q : basis.Q_EE[J][K]) {
