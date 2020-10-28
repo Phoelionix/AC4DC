@@ -56,8 +56,8 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) co
 // Puts the Q_EE changes into v
 void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     assert(basis.has_Qee());
-    // double CoulombLog = CoulombLogarithm();
-    double CoulombLog = 3.4;
+    double CoulombLog = CoulombLogarithm();
+    // double CoulombLog = 3.4;
     // if (isnan(CoulombLog) || CoulombLog <= 0) CoulombLog = 1;
     // double LnLambdaD = 0.5*log(this->k_temperature()/4/Constant::Pi/this->density());
     // if (isnan(LnLambdaD)) LnLambdaD = 11;
@@ -324,14 +324,16 @@ double Distribution::k_temperature(size_t cutoff) const {
 double Distribution::CoulombLogarithm() const {
     double tmp=0;
     // Dodgy integral of e * f(e) de
-    double n = this->density();
+    double n = 0;
     for (size_t i = 0; i < CoulombLog_cutoff; i++)
     {
         tmp += basis.avg_e[i]*f[i]*basis.areas[i];
+        n += f[i]*basis.areas[i];
     }
     double kT = tmp*2./3./n;
     double DebyeLength3 = pow(kT/4/Constant::Pi/n,1.5);
-    return log(4./3.*Constant::Pi* n*DebyeLength3);
+    n = this->density();
+    return log(4.*Constant::Pi* n*DebyeLength3);
 }
 
 
