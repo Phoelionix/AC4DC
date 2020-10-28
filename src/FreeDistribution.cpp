@@ -57,16 +57,17 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) co
 void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     assert(basis.has_Qee());
     // double CoulombLog = CoulombLogarithm();
+    double CoulombLog = 3.4;
     // if (isnan(CoulombLog) || CoulombLog <= 0) CoulombLog = 1;
-    double LnLambdaD = 0.5*log(this->k_temperature()/4/Constant::Pi/this->density());
-    if (isnan(LnLambdaD)) LnLambdaD = 11;
-    cerr<<"LnDebLen = "<<LnLambdaD<<endl;
+    // double LnLambdaD = 0.5*log(this->k_temperature()/4/Constant::Pi/this->density());
+    // if (isnan(LnLambdaD)) LnLambdaD = 11;
+    // cerr<<"LnDebLen = "<<LnLambdaD<<endl;
     // A guess. This should only happen when density is zero, so Debye length is infinity.
     // Guess the sample size is about 10^5 Bohr. This shouldn't ultimately matter much.
     for (size_t J=0; J<size; J++) {
         for (size_t K=0; K<size; K++) {
             for (auto& q : basis.Q_EE[J][K]) {
-                 v[J] += q.val * f[K] * f[q.idx] * (LnLambdaD + basis.log_avg_e[J]);
+                 v[J] += q.val * f[K] * f[q.idx] * CoulombLog;
             }
         }
     }

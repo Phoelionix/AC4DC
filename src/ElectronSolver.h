@@ -32,7 +32,7 @@ public:
     {
         pf.set_shape(input_params.pulse_shape);
         pf.set_pulse(input_params.Fluence(), input_params.Width());
-        timespan_au = input_params.Width()*5;
+        timespan_au = input_params.Width()*4;
     }
     void solve();
     void save(const std::string& folder);
