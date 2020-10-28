@@ -35,8 +35,7 @@ print(n)
 lambdaD=np.sqrt(C.epsilon_0 * C.angstrom * T *C.eV / n /C.e/C.e) # should have units Angstrom
 slices = np.array(slices)
 ax, ax2 = pl.setup_axes()
-ax.yaxis.get_major_formatter().labelOnlyBase = False
-ax.set_yscale('log')
+# ax.set_yscale('log')
 ax.set_xlabel('Time (fs)')
 ax.set_ylabel('Debye length (\AA)')
 
