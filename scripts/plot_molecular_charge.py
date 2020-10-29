@@ -1,7 +1,7 @@
 import matplotlib.rcsetup as rcsetup
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.interpolate import BSpline
+# from scipy.interpolate import BSpline
 from math import log
 import os.path as path
 import matplotlib.colors as colors

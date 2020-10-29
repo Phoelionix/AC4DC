@@ -30,10 +30,10 @@ X2 = X2[X2[:,0].argsort()]
 X3 = X3[X3[:,0].argsort()]
 X4 = X4[X4[:,0].argsort()]
 
-ax.plot(X1[:,0],X1[:,1], label='-7.5fs, T=31eV',lw=1)
-ax.plot(X2[:,0],X2[:,1], label='-5fs, T=70eV',lw=1)
-ax.plot(X3[:,0],X3[:,1], label='-2.5fs, T=125eV',lw=1)
-ax.plot(X4[:,0],X4[:,1], label='0fs, T=195eV',lw=1)
+ax.plot(X1[:,0],X1[:,1], label='-7.5fs, T=31eV',lw=0.5)
+ax.plot(X2[:,0],X2[:,1], label='-5fs, T=70eV',lw=0.5)
+ax.plot(X3[:,0],X3[:,1], label='-2.5fs, T=125eV',lw=0.5)
+ax.plot(X4[:,0],X4[:,1], label='0fs, T=195eV',lw=0.5)
 
 ax.set_ylim([1e-3, 2e-1]) 
 ax.set_xlim([1,10000]) 

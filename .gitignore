@@ -11,3 +11,4 @@ testOutput
 *.swp
 *.pyc
 Makefile
+video
