@@ -11,6 +11,8 @@ from plot_molecular_charge import Plotter
 import sys
 from labellines import *
 
+cmap = plt.get_cmap("tab10")
+
 plt.rcParams["font.size"] = 8
 
 label = sys.argv[1] +'_' + sys.argv[2]
@@ -18,18 +20,19 @@ label = sys.argv[1] +'_' + sys.argv[2]
 # slices = [-2.5, 0, 2.5, 5]
 slices = [-7.5, -5, -2.5, 0]
 # slices = [0, 15, 23]
-# colours = ['red', 'green', 'blue', 'purple']
 energies = [200, 1000, 1000, 1000]
+colrs = [cmap(i) for i in range(4)]
+
 
 pl = Plotter(sys.argv[1])
 
-for (t, e ) in zip(slices, energies):
-    lines = pl.plot_step(t, normed=True, lw=0.5)
-    T = pl.plot_fit(t, e, normed=True, color=lines[-1].get_color(), lw=0.5)
+for (t, e, col ) in zip(slices, energies, colrs):
+    lines = pl.plot_step(t, normed=True, color = col, lw=0.5)
+    T = pl.plot_fit(t, e, normed=True, color=col, lw=0.5)
 
 pl.fig_steps.set_size_inches(3,2.5)
 
-pl.ax_steps.set_ylim([1e-3, 10])
+pl.ax_steps.set_ylim([1e-4, 1])
 pl.ax_steps.set_xlim([1,10000]) 
 
 pl.fig_steps.subplots_adjust(bottom=0.15,left=0.2,right=0.95,top=0.95)

@@ -18,9 +18,11 @@ struct GridSpacing {
     const static char unknown = 101;
     char mode = unknown;
     size_t num_low = 0; // Used for hybrid spec only
-    double transition_e = 0;
+    double transition_e = 0; // Also used to estimate Coulomb logarithm. THis should be split into a separate class
     unsigned zero_degree_0 = 0; // Number of derivatives to set to zero at the origin
     unsigned zero_degree_inf = 0; // Number of derivatives to set to zero at infinity
+    double min_coulomb_density=0; // Density below which to ignotre Coulomb interactions 
+    // (NOTE: This should have its own class, along with coulomb estimation cutoff)
 };
 
 namespace {

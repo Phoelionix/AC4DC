@@ -136,6 +136,7 @@ private:
     std::vector<double> f;
     static SplineIntegral basis;
     static size_t CoulombLog_cutoff;
+    static double CoulombDens_min; // ignores Coulomb repulsion if sensity is below this threhsold
 
 };
 

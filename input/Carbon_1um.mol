@@ -23,6 +23,7 @@ gaussian     // Pulse shape
 powerlaw     // electron grid type
 40            // Number of "low-energy" grid points (hybrid & powerlaw grids only)
 2500           // transition energy in eV
+1e-4             // Min ionisation per unit cell to turn on electron-electron interactions
 
 #OUTPUT
 800         // Number of time steps in the output files.

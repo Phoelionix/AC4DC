@@ -110,8 +110,19 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 5) stream >> elec_grid_type;
 		if (n == 6) stream >> elec_grid_type.num_low;
 		if (n == 7) stream >> elec_grid_type.transition_e;
+		if (n == 8) stream >> elec_grid_type.min_coulomb_density;
 
 	}
+
+	// for (size_t n = 0; n < FileContent["#GRID"].size(); n++) {
+	// 	stringstream stream(FileContent["#GRID"][n]);
+	// 	if (n == 0) stream >> min_elec_e;
+	// 	if (n == 1) stream >> max_elec_e;
+	// 	if (n == 2) stream >> num_elec_points;
+	// 	if (n == 3) stream >> elec_grid_type;
+	// 	if (n == 4) stream >> elec_grid_type.num_low;
+	// 	if (n == 5) stream >> elec_grid_type.transition_e;
+	// }
 
 	// Hardcode the boundary conditions
 	elec_grid_type.zero_degree_inf = 3;
@@ -135,6 +146,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	cout<<    "                "<<num_elec_points<<" points"<<endl;
 	cout<<bc<<"Grid type:      "<<clr<<elec_grid_type<<endl;
 	cout<<bc<<"Low energy cutoff for Coulomb logarithm estimation: "<<clr<<elec_grid_type.transition_e<<"eV"<<endl;
+	cout<<bc<<"Minimum num electrons per unit cell for Coulomb logarithm to be considered: "<<clr<<elec_grid_type.min_coulomb_density<<endl;
 	cout<<endl;
 
 	cout<<bc<<"ODE Iteration:  "<<clr<<num_time_steps<<" timesteps"<<endl<<endl;
@@ -151,6 +163,8 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	width /= Constant::fs_per_au;
 	loss_geometry.L0 /= Constant::Angs_per_au;
 	unit_V /= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
+
+	elec_grid_type.min_coulomb_density /= unit_V;
 
 	min_elec_e /= Constant::eV_per_Ha;
 	max_elec_e /= Constant::eV_per_Ha;

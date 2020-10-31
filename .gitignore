@@ -12,3 +12,4 @@ testOutput
 *.pyc
 Makefile
 video
+*.mp4
