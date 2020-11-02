@@ -474,8 +474,8 @@ class Plotter:
 
 def fit_maxwell(X, Y):
     guess = [200, 12]
-    # popt, _pcov = curve_fit(maxwell, X, Y, p0 = guess, sigma=1/(X+10))
-    popt, _pcov = curve_fit(maxwell, X, Y, p0 = guess)
+    popt, _pcov = curve_fit(maxwell, X, Y, p0 = guess, sigma=1/(X+10))
+    # popt, _pcov = curve_fit(maxwell, X, Y, p0 = guess)
     return popt
 
 def maxwell(e, kT, n):
