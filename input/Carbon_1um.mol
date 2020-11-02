@@ -15,15 +15,15 @@ cylindrical       // Spatial boundary shape - options are none, spherical, cylin
 gaussian     // Pulse shape
 
 #NUMERICAL
-1000000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+200000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12            // Number of threads in OpenMP.
 0            // [only for nonthermal] minimum free-electron energy in eV
 8000          // [only for nonthermal] maximum free-electron energy in eV
 100            // [only for nonthermal] number of free-electron grid points
 powerlaw     // electron grid type
-40            // Number of "low-energy" grid points (hybrid & powerlaw grids only)
+50            // Number of "low-energy" grid points (hybrid & powerlaw grids only)
 2500           // transition energy in eV
-1e-4             // Min ionisation per unit cell to turn on electron-electron interactions
+1e-2             // Min ionisation per unit cell to turn on electron-electron interactions
 
 #OUTPUT
 800         // Number of time steps in the output files.
