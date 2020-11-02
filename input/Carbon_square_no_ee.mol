@@ -23,6 +23,7 @@ square       // Pulse shape
 powerlaw        // electron grid type
 35             // Number of "low-energy" grid points (hybrid & powerlaw grids only)
 2000          // transition energy in eV 
+1e9           // Minimum density to condider Coulomb
 
 #OUTPUT
 800         // Number of time steps in the output files.
