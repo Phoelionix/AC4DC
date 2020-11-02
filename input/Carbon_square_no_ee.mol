@@ -11,7 +11,7 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 #PULSE
 6000         // Photon energy in eV.
 10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-2500         // Pulse fluence in 10^4 * J/cm^2.
+25         // Pulse fluence in 10^4 * J/cm^2.
 square       // Pulse shape
 
 #NUMERICAL
