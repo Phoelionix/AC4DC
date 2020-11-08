@@ -20,7 +20,7 @@ label = sys.argv[1] +'_' + sys.argv[2]
 # slices = [-2.5, 0, 2.5, 5]
 slices = [-7.5, -5, -2.5, 0]
 # slices = [0, 15, 23]
-energies = [200, 1000, 1500, 2000]
+energies = [200, 500, 500, 1000]
 colrs = [cmap(i) for i in range(4)]
 
 
