@@ -15,6 +15,8 @@ This file is part of AC4DC.
     along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
 ===========================================================================*/
 
+// (C) Alaric Sanders 2020
+
 #include "ComputeRateParam.h"
 #include "ElectronSolver.h"
 #include "Input.h"
@@ -98,6 +100,18 @@ struct CmdParser{
                         cout<<"  -s Look for stored precalculated rate coefficients"<<endl;
                         cout<<"  -x Skip rate-equaton solving"<<endl;
                         break;
+                    case 'w':
+                        // Warranty.
+                        cout<<"This program is provided as-is, with no warranty, explicit or implied."<<endl;
+                        cout<<"It is a simplified model of XFEL plasma dynamics, however it should not"<<endl;
+                        cout<<"be viewed as accurate under all conditions."<<endl;
+                        exit(0);
+                        break;
+                    case 'c':
+                        // Copyright.
+                        print_banner("LICENSE");
+                        exit(0);
+                        break;
                     default:
                         cout<<"Flag '"<<argv[a][i]<<"' is not a recognised flag."<<endl;
                 }
@@ -135,6 +149,11 @@ int main(int argc, const char *argv[]) {
     cout<<"\033[0m"<<endl<<endl;
 
     string name, logname, outdir;
+
+    cout<<"Copyright (C) 2020  Alaric Sanders and Alexander Kozlov"<<endl;
+    cout<<"This program comes with ABSOLUTELY NO WARRANTY; for details run `ac4dc w'."<<endl;
+    cout<<"This is free software, and you are welcome to redistribute it"<<endl;
+    cout<<"under certain conditions; run `ac4dc c' for details."<<endl;
 
     if (get_file_names(argv[1], name, logname, outdir) == 1)
         return 1;
