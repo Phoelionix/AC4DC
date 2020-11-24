@@ -248,7 +248,7 @@ class Plotter:
         ax.set_ylabel("Density")
         self.fig.subplots_adjust(left=0.2, right=0.92, top=0.93, bottom=0.1)
 
-    def plot_ffactor(self, a, num_tsteps = 10, timespan = None):
+    def plot_ffactor(self, a, num_tsteps = 10, timespan = None, show_avg = True, **kwargs):
 
         if timespan is None:
             timespan = (self.timeData[0], self.timeData[-1])
@@ -271,8 +271,22 @@ class Plotter:
         dynamic_k = np.tensordot(fdists.T, timedata.T,axes=1) 
         step = (stop_idx - start_idx) // num_tsteps
         cmap=plt.get_cmap('plasma')
+        fbar = np.zeros_like(dynamic_k[:,0])
+
+        n=0
         for i in range(start_idx, stop_idx, step):
-            ax.plot(kgrid, dynamic_k[:,i], label='%1.1f fs' % self.timeData[i], color=cmap(i/(stop_idx - start_idx)))
+            ax.plot(kgrid, dynamic_k[:,i], label='%1.1f fs' % self.timeData[i], color=cmap((i-start_idx)/(stop_idx - start_idx)))
+            fbar += dynamic_k[:,i]
+            n += 1
+
+        fbar /= n
+        if show_avg:
+            ax.plot(kgrid, fbar, 'k--', label=r'Effective Form Factor')
+        freal = dynamic_k[:,0]
+        print("R = ", np.sum(np.abs(fbar - freal))/np.sum(freal))
+        freal /= np.sum(freal)
+        fbar /= np.sum(fbar)
+        print("Normed R = ", np.sum(np.abs(fbar - freal))/np.sum(freal))
         return (fig2, ax)
 
     def plot_charges(self, a, rseed=404):

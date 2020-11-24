@@ -151,9 +151,9 @@ int main(int argc, const char *argv[]) {
     string name, logname, outdir;
 
     cout<<"Copyright (C) 2020  Alaric Sanders and Alexander Kozlov"<<endl;
-    cout<<"This program comes with ABSOLUTELY NO WARRANTY; for details run `ac4dc w'."<<endl;
+    cout<<"This program comes with ABSOLUTELY NO WARRANTY; for details run `ac4dc -w'."<<endl;
     cout<<"This is free software, and you are welcome to redistribute it"<<endl;
-    cout<<"under certain conditions; run `ac4dc c' for details."<<endl;
+    cout<<"under certain conditions; run `ac4dc -c' for details."<<endl;
 
     if (get_file_names(argv[1], name, logname, outdir) == 1)
         return 1;

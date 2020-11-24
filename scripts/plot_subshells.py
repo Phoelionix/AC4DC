@@ -15,7 +15,7 @@ import numpy as np
 
 plt.rcParams["font.size"] = 8
 
-handle = 'Carbon_HR1'
+handle = 'water_strong'
 
 label = handle
 
@@ -42,43 +42,39 @@ ax.set_ylabel(r"Electron density (\AA$^{-3}$)")
 pl.fig.subplots_adjust(left=0.2, right=0.95, top=0.95, bottom=0.2)
 
 # inset axes....
-axins = ax.inset_axes([0.5, 0.5, 0.47, 0.47])
+# axins = ax.inset_axes([0.5, 0.5, 0.47, 0.47])
 
-# def plot_subshell(a, subsh):
-#     ax.plot(pl.timeData, get_tot_occ(a,subsh), label=subsh)
-
-# def plot_subshell_zoomed(a, subsh):
-#     axins.plot(pl.timeData, get_tot_occ(a,subsh), label=subsh)
-
-a = 'C'
+a = 'O'
 
 for subsh in ['1s', '2s', '2p']:
     # for n in range(3):
         # name = '$%s^%d$' % (subsh, n)
-    ax.plot(pl.timeData, get_tot_occ(a,subsh), label=subsh)
-    axins.plot(pl.timeData, get_tot_occ(a,subsh), label=subsh)
+    ax.plot(pl.timeData, get_tot_occ(a,subsh), label='O ' + subsh)
+    # axins.plot(pl.timeData, get_tot_occ(a,subsh), label='O' + subsh)
 
+ax.plot(pl.timeData, get_tot_occ('H','1s'), label='H 1s')
 
-axbox = ax.get_position()
+# axbox = ax.get_position()
 
-pl.fig.legend( loc = (axbox.x0 + 0.5, axbox.y0 + 0.15))
+# pl.fig.legend( loc = (axbox.x0 + 0.5, axbox.y0 + 0.15))
+ax.legend()
 
 ax.xaxis.set_minor_locator(MultipleLocator(2))
 ax.yaxis.set_minor_locator(MultipleLocator(0.004))
 ax.tick_params(which='both', direction='in')
 
-# sub region of the original image
-x1, x2, y1, y2 = -10.1, -8, 0.093 , 0.112
-axins.set_xlim(x1, x2)
-axins.set_ylim(y1, y2)
-axins.set_xticklabels('')
-axins.set_yticklabels('')
+# # sub region of the original image
+# x1, x2, y1, y2 = -10.1, -8, 0.093 , 0.112
+# axins.set_xlim(x1, x2)
+# axins.set_ylim(y1, y2)
+# axins.set_xticklabels('')
+# axins.set_yticklabels('')
 
 # ax.legend()
 # ax.set_xlabel('Time (fs)')
 
 
-ax.indicate_inset_zoom(axins)
+# ax.indicate_inset_zoom(axins)
 
 plt.savefig('/Users/alaric-mba/Desktop/subshell_evolution.png')
 plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_subshells.pgf')

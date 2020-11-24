@@ -14,7 +14,7 @@ from scipy import constants as C
 
 # from labellines import *
 
-plt.rcParams["font.size"] = 8
+plt.rcParams["font.size"] = 16
 
 pl = Plotter(sys.argv[1])
 slices = np.linspace(pl.timeData[0],pl.timeData[-1],50)
@@ -33,7 +33,7 @@ print(T)
 
 lambdaD=np.sqrt(C.epsilon_0 * C.angstrom * T *C.eV / n /C.e/C.e) # should have units Angstrom
 slices = np.array(slices)
-fig, (ax, ax2) = plt.subplots(nrows=2, sharex=True, figsize=(3,2.5))
+fig, (ax, ax2) = plt.subplots(nrows=2, sharex=True, figsize=(6,5))
 # ax.set_yscale('log')
 ax.set_ylabel(r'Debye length $\lambda_D$ (\AA)')
 ax.set_ylim([0,5])
