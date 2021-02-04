@@ -9,6 +9,9 @@ output
 tmp
 testOutput
 *.swp
+*/__pycache__
+*.png
+video
 *.pyc
 Makefile
 video
