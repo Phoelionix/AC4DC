@@ -2,7 +2,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 import sys
-
+from plot_molecular_charge import maxwell
 
 raw = np.genfromtxt(sys.argv[1])
 
@@ -49,9 +49,6 @@ def plot_sums(min=0, max=None):
     ax.set_ylabel('Total density')
     # ax.set_ylim([0,max])
 
-
-def maxwell(e, kT, n):
-    return n * np.sqrt(e/(np.pi*kT**3)) * np.exp(-e/kT)
 
 def fit_step(idx = -1, guess = [1000, 1]):
     state = dat[idx,:]

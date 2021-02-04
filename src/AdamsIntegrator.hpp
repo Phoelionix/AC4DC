@@ -1,3 +1,20 @@
+/*===========================================================================
+This file is part of AC4DC.
+
+    AC4DC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AC4DC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
+===========================================================================*/
+
 #ifndef ADAMS_CXX_H
 #define ADAMS_CXX_H
 
@@ -67,7 +84,6 @@ protected:
     void step_rk4(int n); // Runge-Kutta 4th order calculator
     void step_euler(int n); // Basic explicit Euler stepper
     unsigned int order;
-private:
     const double* b_AB;
     const double* b_AM;
 };
@@ -162,8 +178,8 @@ void Adams_BM<T>::step(int n) {
     T tmp2(tmp);
     this->sys(tmp2, tmp, this->t[n+1]);
     tmp *= b_AM[0];
-    // Now tmp goes back to bein an aggregator
-    for (size_t i = 1; i < order; i++) {
+    // Now tmp goes back to being an aggregator
+    for (int i = 1; i < order; i++) {
         this->sys(this->y[n-i+1], ydot, this->t[n-i+1]);
         ydot *= b_AM[i];
         tmp += ydot;
@@ -194,7 +210,7 @@ void Adams_BM<T>::iterate(double t_initial, double t_final) {
     // Set up the t grid
     this->t[0] = t_initial;
 
-    for (size_t n=1; n<npoints; n++){
+    for (int n=1; n<npoints; n++){
         this->t[n] = this->t[n-1] + this->dt;
     }
     this->run_steps();
@@ -206,12 +222,13 @@ void Adams_BM<T>::run_steps(){
     assert(this->t.size() >= order);
 
     // initialise enough points for multistepping to get going
-    for (size_t n = 0; n < order; n++) {
-        this->step_rk4(n);
+    for (int n = 0; n < order; n++) {
+        //this->step_rk4(n);
+	this->y[n+1] = this->y[0];
     }
     // Run those steps
     std::cout << "[ sim ]                       ";
-    for (size_t n = this->order; n < this->t.size()-1; n++) {
+    for (int n = this->order; n < this->t.size()-1; n++) {
         std::cout << "\r[ sim ] t="
                   << std::left<<std::setfill(' ')<<std::setw(6)
                   << this->t[n] << std::flush;

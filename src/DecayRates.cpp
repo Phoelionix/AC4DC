@@ -88,8 +88,7 @@ vector<photo> DecayRates::Photo_Ion(double omega, ofstream & log)
 	// so that valgrind does not complain about the comparison in Potential.cpp.
 	// n=-1 is chosen to distinguish it from bound states.
 	Continuum.set_N(-1);
-	Continuum.set_L(0); 
-	
+	Continuum.set_L(0); // bogus line to make valgrind happy
 	Continuum.set_occupancy(1);
 	Continuum.set_infinity(Lattice.size() - 1);
 

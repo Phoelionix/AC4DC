@@ -1,3 +1,20 @@
+/*===========================================================================
+This file is part of AC4DC.
+
+    AC4DC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AC4DC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
+===========================================================================*/
+
 #include "RateSystem.h"
 #include "Dipole.h"
 #include <math.h>
@@ -24,6 +41,7 @@ state_type& state_type::operator+=(const state_type &s) {
         }
     }
     F += s.F;
+    bound_charge += s.bound_charge;
     return *this;
 }
 
@@ -34,6 +52,7 @@ state_type& state_type::operator*=(const double x) {
         }
     }
     F *= x;
+    bound_charge *=x;
     return *this;
 }
 
@@ -44,7 +63,8 @@ state_type& state_type::operator=(const double x) {
             p=x;
         }
     }
-    F = 0;
+    F = x;
+    bound_charge = x;
     return *this;
 }
 

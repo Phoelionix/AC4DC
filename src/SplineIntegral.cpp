@@ -1,3 +1,20 @@
+/*===========================================================================
+This file is part of AC4DC.
+
+    AC4DC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AC4DC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
+===========================================================================*/
+
 #include "SplineIntegral.h"
 #include "config.h"
 
@@ -18,8 +35,6 @@ void SplineIntegral::precompute_QEII_coeffs(vector<RateData::Atom>& Atoms) {
         }
         // NOTE: length of EII vector is generally shorter than length of P
         // (usually by 1 or 2, so dense matrices are fine)
-
-        
 
         size_t counter=1;
         #pragma omp parallel default(none) shared(a, counter, Atoms, std::cout)
@@ -131,6 +146,28 @@ void SplineIntegral::Gamma_eii( std::vector<SparsePair>& Gamma_xi, const RateDat
         
     }
 }
+/*
+void SplineIntegral::Gamma_eii( std::vector<SparsePair>& Gamma_xi, const RateData::EIIdata& eii, size_t K) const{
+    Gamma_xi.resize(0);
+    for (size_t eta = 0; eta < eii.fin.size(); eta++) {
+        // double a = max((float) this->supp_min(K), eii.ionB[eta]);
+        double a = this->supp_min(K);
+        double b = this->supp_max(K);
+        double tmp=0;
+        if (b > a) {
+            for (int i=0; i<GAUSS_ORDER_EII; i++) {
+                double e = gaussX_EII[i]*(b-a)/2 + (a+b)/2;
+                tmp += gaussW_EII[i]* (*this)(K, e)*pow(e,0.5)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+            }
+            tmp *= (b-a)/2;
+            tmp *= 1.4142; // Electron mass = 1 in atomic units
+            SparsePair rate;
+            rate.idx=eii.fin[eta];
+            rate.val= tmp;
+            Gamma_xi.push_back(rate);
+        }        
+    }
+}*/
 
 void SplineIntegral::Gamma_tbr( std::vector<SparsePair>& Gamma_xi, const RateData::InverseEIIdata& tbr, size_t K, size_t L) const {
     // Naming convention is unavoidably confusing.
@@ -190,6 +227,7 @@ void SplineIntegral::Gamma_tbr(eiiGraph& Gamma, const std::vector<RateData::Inve
     }
 }
 
+/*
 double SplineIntegral::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_t K) const {
     // computes sum of all Q_eii integrals away from eii.init, integrated against basis functions f_J, f_K
     // J is the 'free' index
@@ -250,6 +288,60 @@ double SplineIntegral::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_
             retval -= tmp*diff;
         }
         
+    }
+
+    retval *= 1.4142135624; 
+
+    return retval;
+} */
+
+
+double SplineIntegral::calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_t K) const {
+    // computes sum of all Q_eii integrals away from eii.init, integrated against basis functions f_J, f_K
+    // J is the 'free' index
+    // sqrt(2) sum_eta \int dep sqrt(ep) f(ep) dsigma/de (e | ep) - sqrt(e) sigma * f_J(e)
+    // 'missing' factor of 2 in front of RHS is not a mistake! (arises from definition of dsigma)
+
+    double min_J = this->supp_min(J);
+    double max_J = this->supp_max(J);
+
+    double retval=0;
+    // Sum over all transitions to eta values
+    for (size_t eta = 0; eta<eii.fin.size(); eta++)
+    {
+        double tmp = 0;
+        for (int j=0; j<GAUSS_ORDER_EII; j++)
+        {
+            double e = gaussX_EII[j]*(max_J-min_J)/2 + (max_J+min_J)/2;
+            double tmp2=0;
+            double min_ep = max(e+eii.ionB[eta], this->supp_min(K));
+            double max_ep = this->supp_max(K);
+            if (max_ep <= min_ep) continue;
+            for (int k=0; k<GAUSS_ORDER_EII; k++) {
+                double ep = gaussX_EII[k]*(max_ep-min_ep)*0.5 + (min_ep+max_ep)*0.5;
+                tmp2 += gaussW_EII[k]*(*this)(K, ep)*pow(ep,0.5)*
+                    Dipole::DsigmaBEB(ep, e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+            }
+            tmp2 *= (max_ep - min_ep)/2;
+            // tmp += gaussW_EII[j]*(*this)(J, e)*tmp2;
+            tmp += gaussW_EII[j]*raw_bspline(J, e)*tmp2;
+        }
+        tmp *= (max_J-min_J)/2;
+        retval += tmp;
+        // RHS part, 'missing' factor of 2 is incorporated into definition of sigma
+        tmp=0;
+        double min_JK = max(this->supp_min(J), this->supp_min(K));
+        min_JK = max(min_JK, (double) eii.ionB[eta]);
+        double max_JK = min(this->supp_max(J), this->supp_max(K));
+        if (max_JK <= min_JK) continue;
+        for (int k=0; k<GAUSS_ORDER_EII; k++)
+        {
+            double e = gaussX_EII[k]*(max_JK-min_JK)/2 + (min_JK+max_JK)/2;
+            // tmp += gaussW_EII[k]*pow(e, 0.5)*(*this)(J, e)*(*this)(K, e)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+            tmp += gaussW_EII[k]*pow(e, 0.5)*raw_bspline(J, e)*(*this)(K, e)*Dipole::sigmaBEB(e, eii.ionB[eta], eii.kin[eta], eii.occ[eta]);
+        }
+        tmp *= (max_JK-min_JK)/2;
+        retval -= tmp;
     }
 
     retval *= 1.4142135624; 

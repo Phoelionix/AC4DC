@@ -1,3 +1,20 @@
+/*===========================================================================
+This file is part of AC4DC.
+
+    AC4DC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AC4DC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
+===========================================================================*/
+
 #include "MolInp.h"
 #include "Constant.h"
 #include <fstream>
@@ -7,7 +24,6 @@
 #include <map>
 #include "HartreeFock.h"
 #include "ComputeRateParam.h"
-
 
 
 MolInp::MolInp(const char* filename, ofstream & log)
@@ -97,6 +113,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 0) stream >> omega;
 		if (n == 1) stream >> width;
 		if (n == 2) stream >> fluence;
+		if (n == 3) stream >> pulse_shape;
 	}
 
 	for (size_t n = 0; n < FileContent["#NUMERICAL"].size(); n++) {
@@ -110,11 +127,22 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 5) stream >> elec_grid_type;
 		if (n == 6) stream >> elec_grid_type.num_low;
 		if (n == 7) stream >> elec_grid_type.transition_e;
+		if (n == 8) stream >> elec_grid_type.min_coulomb_density;
 
 	}
 
+	// for (size_t n = 0; n < FileContent["#GRID"].size(); n++) {
+	// 	stringstream stream(FileContent["#GRID"][n]);
+	// 	if (n == 0) stream >> min_elec_e;
+	// 	if (n == 1) stream >> max_elec_e;
+	// 	if (n == 2) stream >> num_elec_points;
+	// 	if (n == 3) stream >> elec_grid_type;
+	// 	if (n == 4) stream >> elec_grid_type.num_low;
+	// 	if (n == 5) stream >> elec_grid_type.transition_e;
+	// }
+
 	// Hardcode the boundary conditions
-	elec_grid_type.zero_degree_inf = 4;
+	elec_grid_type.zero_degree_inf = 3;
 	elec_grid_type.zero_degree_0 = 0;
 
 	const string bc = "\033[33m"; // begin colour escape code
@@ -127,12 +155,15 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	cout<<bc<<"Droplet Shape:  "<<clr<<loss_geometry<<endl<<endl;
 
 	cout<<bc<<"Photon energy:  "<<clr<<omega<<" eV"<<endl;
-	cout<<bc<<"Pulse fluence:  "<<clr<<fluence*10000<<" J/cm^2"<<endl;
-	cout<<bc<<"Pulse FWHM:     "<<clr<<width<<" fs"<<endl<<endl;
+	cout<<bc<<"Pulse fluence:  "<<clr<<fluence*10000<<" J/cm^2 = "<<10000*fluence/omega/Constant::J_per_eV<<"ph cm^-2"<<endl;
+	cout<<bc<<"Pulse FWHM:     "<<clr<<width<<" fs"<<endl;
+	cout<<bc<<"Pulse shape:    "<<clr<<pulse_shape<<endl<<endl;
 
 	cout<<bc<<"Electron grid:  "<<clr<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
 	cout<<    "                "<<num_elec_points<<" points"<<endl;
 	cout<<bc<<"Grid type:      "<<clr<<elec_grid_type<<endl;
+	cout<<bc<<"Low energy cutoff for Coulomb logarithm estimation: "<<clr<<elec_grid_type.transition_e<<"eV"<<endl;
+	cout<<bc<<"Minimum num electrons per unit cell for Coulomb logarithm to be considered: "<<clr<<elec_grid_type.min_coulomb_density<<endl;
 	cout<<endl;
 
 	cout<<bc<<"ODE Iteration:  "<<clr<<num_time_steps<<" timesteps"<<endl<<endl;
@@ -149,6 +180,8 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	width /= Constant::fs_per_au;
 	loss_geometry.L0 /= Constant::Angs_per_au;
 	unit_V /= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
+
+	elec_grid_type.min_coulomb_density /= unit_V;
 
 	min_elec_e /= Constant::eV_per_Ha;
 	max_elec_e /= Constant::eV_per_Ha;
@@ -212,11 +245,12 @@ bool MolInp::validate_inputs() {
 			cerr<<"Defaulting number of dense points to "<<num_elec_points/2;
 			elec_grid_type.num_low = num_elec_points/2;
 		}
-		if (elec_grid_type.transition_e <= min_elec_e || elec_grid_type.transition_e >= max_elec_e) {
-			cerr<<"Defaulting transition energy to "<<max_elec_e/4;
-			elec_grid_type.transition_e = max_elec_e/4;
-		}
 	}
+	if (elec_grid_type.transition_e <= min_elec_e || elec_grid_type.transition_e >= max_elec_e) {
+		cerr<<"Defaulting low-energy cutoff to "<<max_elec_e/4;
+		elec_grid_type.transition_e = max_elec_e/4;
+	}
+	
 
 	// unit cell volume.
 	if (unit_V <= 0) { cerr<<"ERROR: unit xell volume must be positive"; is_valid=false; }

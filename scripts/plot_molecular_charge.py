@@ -1,7 +1,7 @@
 import matplotlib.rcsetup as rcsetup
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.interpolate import BSpline
+# from scipy.interpolate import BSpline
 from math import log
 import os.path as path
 import matplotlib.colors as colors
@@ -41,7 +41,15 @@ i = 1
 for symbol in ATOMS:
     ATOMNO[symbol] = i
     i += 1
-ATOMNO['forbidden_O'] = 8
+
+
+def get_colors(num, seed):
+    idx = list(np.linspace(0, 1, num))[1:]
+    random.seed(seed)
+    # random.shuffle(idx)
+    idx.insert(0,0)
+    C = plt.get_cmap('nipy_spectral')
+    return C(idx)
 
 class Plotter:
     # Initialistation: Plotter(water)
@@ -240,7 +248,14 @@ class Plotter:
         ax.set_ylabel("Density")
         self.fig.subplots_adjust(left=0.2, right=0.92, top=0.93, bottom=0.1)
 
-    def plot_ffactor(self, a, num_tsteps = 10):
+    def plot_ffactor(self, a, num_tsteps = 10, timespan = None, show_avg = True, **kwargs):
+
+        if timespan is None:
+            timespan = (self.timeData[0], self.timeData[-1])
+
+        start_idx = self.timeData.searchsorted(timespan[0])
+        stop_idx = self.timeData.searchsorted(timespan[1])
+
         fdists = np.genfromtxt('output/'+a+'/Xsections/Form_Factor.txt')
         # These correspond to the meaning of the FormFactor.txt entries themselves
         KMIN = 0
@@ -249,26 +264,36 @@ class Plotter:
         kgrid = np.linspace(KMIN,KMAX,fdists.shape[0 if dim == 1 else 1])
         fig2 = plt.figure()
         ax = fig2.add_subplot(111)
-        ax.set_xlabel('k, atomic units')
-        ax.set_ylabel('Elastic scattering form factor (arbitrary units)')
+        ax.set_xlabel('$k$ (atomic units)')
+        ax.set_ylabel('Form factor (arb. units)')
         
         timedata = self.boundData[a][:,:-1] # -1 excludes the bare nucleus
         dynamic_k = np.tensordot(fdists.T, timedata.T,axes=1) 
-        step = dynamic_k.shape[1] // num_tsteps
-        for i in range(0, dynamic_k.shape[1], step):
-            ax.plot(kgrid, dynamic_k[:,i])
-        fig2.legend()
-        fig2.show()
+        step = (stop_idx - start_idx) // num_tsteps
+        cmap=plt.get_cmap('plasma')
+        fbar = np.zeros_like(dynamic_k[:,0])
+
+        n=0
+        for i in range(start_idx, stop_idx, step):
+            ax.plot(kgrid, dynamic_k[:,i], label='%1.1f fs' % self.timeData[i], color=cmap((i-start_idx)/(stop_idx - start_idx)))
+            fbar += dynamic_k[:,i]
+            n += 1
+
+        fbar /= n
+        if show_avg:
+            ax.plot(kgrid, fbar, 'k--', label=r'Effective Form Factor')
+        freal = dynamic_k[:,0]
+        print("R = ", np.sum(np.abs(fbar - freal))/np.sum(freal))
+        freal /= np.sum(freal)
+        fbar /= np.sum(fbar)
+        print("Normed R = ", np.sum(np.abs(fbar - freal))/np.sum(freal))
+        return (fig2, ax)
 
     def plot_charges(self, a, rseed=404):
         ax, _ax2 = self.setup_axes()
         self.aggregate_charges()
-        idx = list(np.linspace(0, 1, self.chargeData[a].shape[1]+1))[1:]
-        random.seed(rseed)
-        random.shuffle(idx)
-        idx.insert(0,0)
-        C = plt.cm.nipy_spectral
-        ax.set_prop_cycle(rcsetup.cycler('color', C(idx)))
+        
+        ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))
         for i in range(self.chargeData[a].shape[1]):
             max_at_zero = np.max(self.chargeData[a][0,:])
             mask = self.chargeData[a][:,i] > max_at_zero*2
@@ -297,10 +322,11 @@ class Plotter:
 
         self.fig.subplots_adjust(left=0.2, right=0.95, top=0.95, bottom=0.2)
 
+
     def plot_tot_charge(self, every=1):
         ax, _ax2 = self.setup_axes()
         self.aggregate_charges()
-        self.fig.subplots_adjust(left=0.22, right=1, top=1, bottom=0.17)
+        self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
 
         T = self.timeData[::every]
         self.Q = np.zeros(T.shape[0])
@@ -315,7 +341,7 @@ class Plotter:
         de = de [1:] - de[:-1]
         tot_free_Q =-1*np.dot(self.freeData, de)
         ax.plot(T, tot_free_Q[::every], label = 'Free')
-        ax.set_ylabel("Charge density ($e$ Å$^-3$)")
+        ax.set_ylabel("Charge density ($e$ \AA$^{-3}$)")
         self.Q += tot_free_Q[::every]
         # ax.set_title("Charge Conservation")
         ax.plot(T, self.Q, label='total')
@@ -328,10 +354,10 @@ class Plotter:
             self.plot_charges(a,rseed)
 
     def plot_free(self, N=100, log=False, min = 0, max=None, every = None):
-        self.fig_free = plt.figure(figsize=(2.5,2))
-        # Need to turn freeData (matrix of BSpline coeffs)
-        # freeeData [t, c]
-        # into matrix of values.
+        self.fig_free = plt.figure(figsize=(3.1,2.5))
+        ax = self.fig_free.add_subplot(111)
+        self.fig_free.subplots_adjust(left=0.12, top=0.96, bottom=0.16,right=0.95)
+
         if every is None:
             Z = self.freeData.T
             T = self.timeData
@@ -349,15 +375,14 @@ class Plotter:
         # if log:
         #     Z = np.log10(Z)
 
-        ax = self.fig_free.add_subplot(111)
-        self.fig_free.subplots_adjust(left=0.2, top=0.96, bottom=0.21)
+        
         ax.set_facecolor('black')
 
         if log:
-            cm = ax.pcolormesh(T, self.energyKnot*1e-3, Z, shading='auto',norm=colors.LogNorm(vmin=min, vmax=max),cmap='magma',rasterized=True)
+            cm = ax.pcolormesh(T, self.energyKnot*1e-3, Z, shading='gouraud',norm=colors.LogNorm(vmin=min, vmax=max),cmap='magma',rasterized=True)
             cbar = self.fig_free.colorbar(cm)
         else:
-            cm = ax.pcolormesh(T, self.energyKnot, Z, N, cmap='magma',rasterized=True)
+            cm = ax.contourf(T, self.energyKnot, Z, N, cmap='magma',rasterized=True)
             cbar = self.fig_free.colorbar(cm)
 
         ax.set_ylabel("Energy (keV)")
@@ -406,8 +431,8 @@ class Plotter:
         plt.show()
         plt.colorbar()
 
-    def plot_step(self, t, normed=True, fitE=None, c=None):        
-        self.ax_steps.set_xlabel('Energy, eV')
+    def plot_step(self, t, normed=True, fitE=None, **kwargs):        
+        self.ax_steps.set_xlabel('Energy (eV)')
         self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
         self.ax_steps.loglog()
         # norm = np.sum(self.freeData[n,:])
@@ -416,30 +441,56 @@ class Plotter:
         X = self.energyKnot
 
         if normed:
-            tot = np.sum(data)
+            tot = self.get_density(t)
             data /= tot
+            data/=4*3.14
         
-        return self.ax_steps.plot(X, data*X, label='%1.1f fs' % t)
+        return self.ax_steps.plot(X, data*X, label='%1.1f fs' % t, **kwargs)
 
-    def plot_fit(self, t, fitE, normed=True, c=None):
-        n = self.timeData.searchsorted(t)
+    def plot_fit(self, t, fitE, normed=True, **kwargs):
+        t_idx = self.timeData.searchsorted(t)
         fit = self.energyKnot.searchsorted(fitE)
-        data = self.freeData[n,:]
+        data = self.freeData[t_idx,:]
         if normed:
-            tot = np.sum(data)
+            tot = self.get_density(t)
             data /= tot
+            data/=4*3.14
 
-        guess = [200, 12]
         Xdata = self.energyKnot[:fit]
         Ydata = data[:fit]
         mask = np.where(Ydata > 0)
-        popt, _pcov = curve_fit(maxwell, Xdata, Ydata, p0 = guess)
-    
-        print(popt)
+        T, n = fit_maxwell(Xdata, Ydata)
         return self.ax_steps.plot(self.energyKnot, 
-            maxwell(self.energyKnot, popt[0], popt[1])*self.energyKnot,
-            '--', lw=1,label='%3.1f eV' % popt[0], color=c)
+            maxwell(self.energyKnot, T, n)*self.energyKnot,
+            '--',label='%3.1f eV' % T, **kwargs)
+
+    def plot_maxwell(self, kT, n, **kwargs):
+        return self.ax_steps.plot(self.energyKnot, 
+            maxwell(self.energyKnot, kT, n)*self.energyKnot,
+            '--',label='%3.1f eV' % kT, **kwargs)
+
+
+    def get_temp(self, t, fitE):
+        t_idx = self.timeData.searchsorted(t)
+        fit = self.energyKnot.searchsorted(fitE)
+        Xdata = self.energyKnot[:fit]
+        Ydata = self.freeData[t_idx,:fit]
+        T, n = fit_maxwell(Xdata, Ydata)
+        return (T, n)
+
+    def get_density(self, t):
+        t_idx = self.timeData.searchsorted(t)
+        de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])
+        de = de [1:] - de[:-1]
+        return np.dot(self.freeData[t_idx, :], de)
+
         
+
+def fit_maxwell(X, Y):
+    guess = [200, 12]
+    # popt, _pcov = curve_fit(maxwell, X, Y, p0 = guess, sigma=1/(X+10))
+    popt, _pcov = curve_fit(maxwell, X, Y, p0 = guess)
+    return popt
 
 def maxwell(e, kT, n):
     return n * np.sqrt(e/(np.pi*kT**3)) * np.exp(-e/kT)
@@ -454,6 +505,6 @@ def moving_average(a, n=3) :
 
 if __name__ == "__main__":
     pl = Plotter(sys.argv[1])
-    pl.plot_free(log=True,min=1e-7)
+    # pl.plot_free(log=True,min=1e-7)
     # pl.plot_all_charges()
     plt.show()

@@ -11,5 +11,8 @@ testOutput
 *.swp
 */__pycache__
 *.png
-*.mp4
 video
+*.pyc
+Makefile
+video
+*.mp4

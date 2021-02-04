@@ -1,3 +1,20 @@
+/*===========================================================================
+This file is part of AC4DC.
+
+    AC4DC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AC4DC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
+===========================================================================*/
+
 #include "SplineBasis.h"
 #include <assert.h>
 #include "Constant.h"
@@ -62,8 +79,8 @@ void BasisSet::set_knot(const GridSpacing& gt){
     int Z_0 = gt.zero_degree_0;
     int Z_inf = gt.zero_degree_inf;
     if( BSPLINE_ORDER - Z_0 < 0){
-        std::cerr <<"Failed to set boundary condition at 0, defaulting to "<<BSPLINE_ORDER<<std::endl;
-        Z_0 = BSPLINE_ORDER;
+        std::cerr <<"Failed to set boundary condition at 0, defaulting to "<<0<<std::endl;
+        Z_0 = 0;
     }
     if (BSPLINE_ORDER - Z_inf < 0){
         std::cerr <<"Failed to set boundary condition at infinity, defaulting to "<<BSPLINE_ORDER<<std::endl;
@@ -111,7 +128,7 @@ void BasisSet::set_knot(const GridSpacing& gt){
     // double C_hyb = _max - B_hyb * num_int;
     // double lambda_hyb = (log(B_hyb*M+C_hyb) - log(_min))/M;
 
-    knot.resize(num_funcs+BSPLINE_ORDER); // num_funcs == n + 1
+    knot.resize(num_funcs+BSPLINE_ORDER+1); // num_funcs == n + 1
 
     // Set the k - zero_deg repeated knots
     
@@ -122,6 +139,7 @@ void BasisSet::set_knot(const GridSpacing& gt){
     // TODO:
     // - Move this grid-construction code to GridSpacing.hpp
     // - Refactor to incorporate boundaries max and min into the GridSpacing object
+    // - Unfuck the boundary conditions (seems to break for BSPLINE_ORDER=3?)
 
     // At i=0, the value of knot will still be _min
     for(size_t i=start; i<=num_funcs + Z_inf; i++) {
@@ -187,22 +205,29 @@ void BasisSet::set_parameters(size_t num_int, double min, double max, const Grid
     // boundary at minimm energy enforces energy conservation
     set_knot(gt);
     
-    // Compute overlap matrix
-    Eigen::SparseMatrix<double> S(num_funcs, num_funcs);
+
+    
+    std::vector<Eigen::Triplet<double>> tripletList;
+    tripletList.reserve(BSPLINE_ORDER*2*num_funcs);
+    
     // Eigen::MatrixXd S(num_funcs, num_funcs);
     for (size_t i=0; i<num_funcs; i++) {
         for (size_t j=i+1; j<num_funcs; j++) {
             double tmp=overlap(i, j);
             if (tmp != 0) {
-                S.insert(i,j) = tmp;
-                S.insert(j,i) = tmp;
+                tripletList.push_back(Eigen::Triplet<double>(i,j,tmp));
+                tripletList.push_back(Eigen::Triplet<double>(j,i,tmp));
                 // S(i,j) = tmp;
                 // S(j,i) = tmp;
             }
         }
-        S.insert(i,i) = overlap(i,i);
+        // S.insert(i,i) = overlap(i,i);
+        tripletList.push_back(Eigen::Triplet<double>(i,i,overlap(i, i)));
         // S(i,i) = overlap(i,i);
     }
+    // Compute overlap matrix
+    Eigen::SparseMatrix<double> S(num_funcs, num_funcs);
+    S.setFromTriplets(tripletList.begin(), tripletList.end());
     // Precompute the LU decomposition
     linsolver.analyzePattern(S);
     linsolver.isSymmetric(true);
@@ -212,12 +237,12 @@ void BasisSet::set_parameters(size_t num_int, double min, double max, const Grid
     }
 
     avg_e.resize(num_int);
-    avg_e_sqrt.resize(num_int);
+    log_avg_e.resize(num_int);
     areas.resize(num_int);
     for (size_t i = 0; i < num_int; i++) {
         // Chooses the 'center' of the B-spline
         avg_e[i] = (this->supp_max(i) + this->supp_min(i))/2 ;
-        avg_e_sqrt[i] = pow(avg_e[i],0.5);
+        log_avg_e[i] = log(avg_e[i]);
         double diff = (this->supp_max(i) - this->supp_min(i))/2;
         // Widths stores the integral of the j^th B-spline
         areas[i] = 0;
@@ -231,6 +256,11 @@ void BasisSet::set_parameters(size_t num_int, double min, double max, const Grid
 Eigen::VectorXd BasisSet::Sinv(const Eigen::VectorXd& deltaf) {
     // Solves the linear system S fdot = deltaf
     return linsolver.solve(deltaf);
+}
+
+Eigen::MatrixXd BasisSet::Sinv(const Eigen::MatrixXd& J) {
+    // Solves the linear system S fdot = deltaf
+    return linsolver.solve(J);
 }
 
 double BasisSet::raw_bspline(size_t i, double x) const {
@@ -290,8 +320,8 @@ double BasisSet::overlap(size_t j,size_t i) const{
 // such that the splines are polynomial on these intervals
 std::vector<std::pair<double,double>> BasisSet::knots_between(double bottom, double top) const {
     std::vector<std::pair<double,double> > intervals(0);
-    // NOTE TO FUTURE DEVELOPERS:
-    // These calls can nad should should be replaced with std::lower_bound calls.
+    // NOTE:
+    // These calls can and should should be replaced with std::lower_bound calls.
     if (bottom >= top) return intervals;
     size_t bottomidx = lower_idx(bottom, knot);
     size_t topidx = lower_idx(top, knot) + 1;

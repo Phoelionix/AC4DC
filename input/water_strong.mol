@@ -12,7 +12,7 @@ spherical    // Imaging geometry
 #PULSE
 7140         // Photon energy in eV.
 10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-60         // Pulse fluence in 10^4 * J/cm^2.
+600         // Pulse fluence in 10^4 * J/cm^2.
 square       // Pulse shape
 
 

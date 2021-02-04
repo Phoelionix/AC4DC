@@ -1,3 +1,20 @@
+/*===========================================================================
+This file is part of AC4DC.
+
+    AC4DC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AC4DC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
+===========================================================================*/
+
 #ifndef SPLINEBASIS_CXX_H
 #define SPLINEBASIS_CXX_H
 
@@ -14,6 +31,7 @@ public:
     BasisSet() {};
     void set_parameters(size_t nfuncs, double min, double max, const GridSpacing& gt);
     Eigen::VectorXd Sinv(const Eigen::VectorXd& deltaf);
+    Eigen::MatrixXd Sinv(const Eigen::MatrixXd& J);
 
     double raw_bspline(size_t i, double x) const;
     double raw_Dbspline(size_t i, double x) const;
@@ -39,9 +57,9 @@ public:
     double min_elec_e() {return _min;};
     double max_elec_e() {return _max;};
     size_t num_funcs;
-    const static int BSPLINE_ORDER = 4; // 1 = rectangles, 2=linear, 3=quadratic
+    const static int BSPLINE_ORDER = 3; // 1 = rectangles, 2=linear, 3=quadratic
     std::vector<double> avg_e;
-    std::vector<double> avg_e_sqrt;
+    std::vector<double> log_avg_e;
     std::vector<double> areas;
     int i_from_e(double e);
     int lower_i_from_e(double e);  

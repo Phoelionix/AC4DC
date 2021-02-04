@@ -1,3 +1,20 @@
+/*===========================================================================
+This file is part of AC4DC.
+
+    AC4DC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AC4DC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
+===========================================================================*/
+
 #ifndef FREEDISTRIBUTION_CXX_H
 #define FREEDISTRIBUTION_CXX_H
 
@@ -7,7 +24,7 @@
 #include <math.h>
 #include <iostream>
 #include <eigen3/Eigen/SparseCore>
-#include <eigen3/Eigen/Core>
+#include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/SparseCholesky>
 #include "Constant.h"
 #include "SplineIntegral.h"
@@ -86,7 +103,7 @@ public:
     // Adds a Dirac delta to the distribution
     void addDeltaSpike(double N, double e);
     // Applies the loss term to the distribution 
-    void addLoss(const Distribution& d, const LossGeometry& l);
+    void addLoss(const Distribution& d, const LossGeometry& l, double charge_density);
     
     // Sets the object to have a MB distribution
     void add_maxwellian(double N, double T);
@@ -113,13 +130,15 @@ public:
     double integral(double (f)(double));
     double density() const;
     double density(size_t cutoff) const;
-    // Returns an estimate of the plasma temperature based on all entries below cutoff
+    // Returns an estimate of the plasma temperature based on all entries below cutoff (in energy units)
     double k_temperature(size_t cutoff = size) const;
-    double CoulombLogarithm(size_t cutoff) const;
+    double CoulombLogarithm() const;
 
     static std::string output_energies_eV(size_t num_pts);
     std::string output_densities(size_t num_pts) const;
     
+    // This does electron-electron because it is CURSED
+    void from_backwards_Euler(double dt, const Distribution& prev_step, double tolerance, unsigned maxiter);
 
     double operator()(double e) const;
 
@@ -128,12 +147,13 @@ public:
     static std::string output_knots_eV();
 
 
-
     static size_t size;
 private:
     // double total;
     std::vector<double> f;
     static SplineIntegral basis;
+    static size_t CoulombLog_cutoff;
+    static double CoulombDens_min; // ignores Coulomb repulsion if sensity is below this threhsold
 
 };
 

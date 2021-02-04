@@ -1,4 +1,4 @@
-#include "AdamsIntegrator.hpp"
+#include "src/HybridIntegrator.hpp"
 #include <iostream>
 #include <cmath>
 
@@ -62,10 +62,10 @@ struct lvector {
 
 typedef lvector<2> vec_t;
 
-class Harmonic : Adams_BM<vec_t>{
+class Harmonic : ode::Hybrid<vec_t>{
     // Classic harmonic oscillator.
 public:
-    Harmonic(double _omega, size_t num_points, double _dt, int _order) : Adams_BM<vec_t>(_order) {
+    Harmonic(double _omega, size_t num_points, double _dt, int _order) : Hybrid<vec_t>(_order) {
         this->omega = _omega;
         this->omega2 = _omega*_omega;
         vec_t init;
@@ -108,7 +108,16 @@ protected:
         // q[0] = x
         // q[1] = v
         qdot.X[1] = -q.X[0]*omega2;
+        // qdot.X[0] = q.X[1];
+        // qdot.X[1] = 0;
+        qdot.X[0] = 0;
+    }
+    void sys2(const vec_t& q, vec_t& qdot, const double t) {
+        // q[0] = x
+        // q[1] = v
+        // qdot.X[1] = -q.X[0]*omega2;
         qdot.X[0] = q.X[1];
+        qdot.X[1] = 0;
     }
 };
 

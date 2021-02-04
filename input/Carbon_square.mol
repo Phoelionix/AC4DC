@@ -4,14 +4,14 @@
 C 1
 
 #VOLUME
-18.11        // Volume per molecule in Angstrom^3.
-2000         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
-none // Spatial boundary shape - options are none, spherical, cylindrical, planar
+18.11      // Volume per molecule in Angstrom^3.
+2000          // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
+none       // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
 6000         // Photon energy in eV.
 10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-2500         // Pulse fluence in 10^4 * J/cm^2.
+25         // Pulse fluence in 10^4 * J/cm^2.
 square       // Pulse shape
 
 #NUMERICAL

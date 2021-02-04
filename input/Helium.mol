@@ -15,11 +15,12 @@ He 1
 #NUMERICAL
 16000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12           // Number of threads in OpenMP.
-0.01         // minimum free-electron energy in eV
+0         // minimum free-electron energy in eV
 7000         // maximum free-electron energy in eV
 50          // number of free-electron grid points
 hybrid       // electron grid type
 17          // number of low-energy exponential grid points
+200         // Helium eV
 
 #OUTPUT
 400         // Number of time steps in the output files.

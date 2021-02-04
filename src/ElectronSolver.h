@@ -1,3 +1,21 @@
+/*===========================================================================
+This file is part of AC4DC.
+
+    AC4DC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AC4DC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
+===========================================================================*/
+// (C) Alaric Sanders 2020
+
 #ifndef SYS_SOLVER_CXX_H
 #define SYS_SOLVER_CXX_H
 
@@ -10,6 +28,7 @@ This file should arguably be called RateEquationSOlver, however, for historical 
 #include "Constant.h"
 #include "MolInp.h"
 #include "Input.h"
+#include "Pulse.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -21,39 +40,27 @@ This file should arguably be called RateEquationSOlver, however, for historical 
 //          typename Operations = default_operations,
 //          typename Resizer = initially_resizer>
 
-class PhotonFlux
-{
-public:
-    PhotonFlux() {};
-    PhotonFlux(double fluence, double fwhm) {
-        set_pulse(fluence, fwhm);
-    };
-    void set_pulse(double, double);
-    inline double operator()(double t); // Yields Photon flux in same units as A
-    void save(const vector<double>& T, const std::string& file);
-private:
-    double A;
-    double B;
-};
-
 #define MAX_T_PTS 1e6
 
 class ElectronSolver : private ode::Hybrid<state_type>
 {
 public:
     ElectronSolver(const char* filename, ofstream& log) :
-    Hybrid(3), input_params(filename, log), pf(input_params.Fluence(), input_params.Width()) // (order Adams method)
+    Hybrid(3), input_params(filename, log), pf() // (order Adams method)
     {
-        timespan_au = input_params.Width()*3;
+        pf.set_shape(input_params.pulse_shape);
+        pf.set_pulse(input_params.Fluence(), input_params.Width());
+        timespan_au = input_params.Width()*4;
     }
     void solve();
     void save(const std::string& folder);
     void compute_cross_sections(std::ofstream& _log, bool recalc=true);
 private:
     MolInp input_params;
+    Pulse pf;
     double timespan_au; // Atomic units
     // Model parameters
-    PhotonFlux pf;
+    
 
     // arrays computed at class initialisation
     vector<vector<eiiGraph> > RATE_EII;
@@ -61,16 +68,13 @@ private:
 
     void get_energy_bounds(double& max, double& min);
     void precompute_gamma_coeffs(); // populates above two tensors
-    void set_flux(double Jcm2_per_Haa02);
     void set_initial_conditions();
-    // Components of sys that can be preallocated
-    Eigen::VectorXd vec_dqdt;
-    // vector<double> total_from; // accumulates total loss-per-unit-P from state [xi]
-    // vector<double> total_gain; // accumulates total gain for state [xi]
 
-
+    /////// Overrides virtual system state methods
     void sys(const state_type& s, state_type& sdot, const double t); // general dynamics (uses explicit mehtod)
     void sys2(const state_type& s, state_type& sdot, const double t); // electron-electron (uses implicit method)
+    /////// 
+
     bool hasRates = false; // flags whether Store has been populated yet.
     void saveFree(const std::string& file);
     void saveFreeRaw(const std::string& fname);
