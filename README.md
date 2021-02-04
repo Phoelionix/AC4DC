@@ -70,7 +70,6 @@ EII parameters are stored in "sort-of-json" format - please note that the progra
 4. Implement 'output version control' for atomic parameters in storage: avoid unnecessary recalculation, guarantee recalculation if new input parameters are incompatible
   - Add methods to `Input.cpp` to enable reading/writing salient parameters to file, e.g. `output/C/run_2021-04-11/input.txt`
   - Add linear search implementation to input logic
-5. Try implementing with finite differencing
 5. Improve pulse shape code quality, add capability to input arbitrary pulse profiles
 6. Incorporate minimum and maximum energy into GridSpacing (perhaps rename it to GridParams)
 5. Refactor to decouple atomic physics from rate equation solving
