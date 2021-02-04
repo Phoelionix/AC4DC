@@ -10,3 +10,5 @@ tmp
 testOutput
 *.swp
 */__pycache__
+*.png
+*.mp4
