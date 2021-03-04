@@ -19,7 +19,7 @@ This file is part of AC4DC.
 #define HYBRID_INTEGRATE_HPP
 
 #include "AdamsIntegrator.hpp"
-#include <eigen3/Eigen/Dense>
+#include <Eigen/Dense>
 
 namespace ode {
 template<typename T>

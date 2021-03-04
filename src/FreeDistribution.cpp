@@ -19,7 +19,7 @@ This file is part of AC4DC.
 #include "Dipole.h"
 #include "Constant.h"
 #include "SplineIntegral.h"
-#include <eigen3/Eigen/StdVector>
+#include <Eigen/StdVector>
 
 // #define NDEBUG
 // to remove asserts

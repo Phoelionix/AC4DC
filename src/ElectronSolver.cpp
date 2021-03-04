@@ -22,8 +22,8 @@ This file is part of AC4DC.
 #include "SplineIntegral.h"
 #include <fstream>
 #include <algorithm>
-#include <eigen3/Eigen/SparseCore>
-#include <eigen3/Eigen/Dense>
+#include <Eigen/SparseCore>
+#include <Eigen/Dense>
 #include <chrono>
 #include <math.h>
 #include <omp.h>

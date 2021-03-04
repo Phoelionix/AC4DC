@@ -13,6 +13,5 @@ testOutput
 *.png
 video
 *.pyc
-Makefile
 video
 *.mp4
