@@ -38,6 +38,17 @@ using namespace std;
 // Note. this code is NOT compatible with Windows.
 // Rewriting with boost::filesystem is a good idea if this is required.
 
+void print_banner(const char* fname){
+    ifstream ifs(fname, ifstream::in);
+
+    char c = ifs.get();
+    while (ifs.good()) {
+        std::cout << c;
+        c = ifs.get();
+    }
+    ifs.close();
+}
+
 void try_mkdir(const std::string& fname) {
     if (mkdir(fname.c_str(), ACCESSPERMS) == -1) {
         if (errno != EEXIST)
@@ -123,18 +134,6 @@ struct CmdParser{
     bool valid_input = true;
     bool solve_rate_eq = true;
 };
-
-
-void print_banner(const char* fname){
-    ifstream ifs(fname, ifstream::in);
-
-    char c = ifs.get();
-    while (ifs.good()) {
-        std::cout << c;
-        c = ifs.get();
-    }
-    ifs.close();
-}
 
 int main(int argc, const char *argv[]) {
     CmdParser runsettings(argc, argv);
