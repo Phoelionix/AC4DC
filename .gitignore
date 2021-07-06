@@ -15,3 +15,4 @@ video
 *.pyc
 video
 *.mp4
+.ipynb_checkpoints
