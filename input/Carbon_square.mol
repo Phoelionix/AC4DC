@@ -10,18 +10,19 @@ none       // Spatial boundary shape - options are none, spherical, cylindrical,
 
 #PULSE
 6000         // Photon energy in eV.
-8           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-2546           // Pulse fluence in 10^4 * J/cm^2.
+10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+25         // Pulse fluence in 10^4 * J/cm^2.
+square       // Pulse shape
 
 #NUMERICAL
-20000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+200000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12            // Number of threads in OpenMP.
-0            // [only for nonthermal] minimum free-electron energy in eV
-8000          // [only for nonthermal] maximum free-electron energy in eV
-100            // [only for nonthermal] number of free-electron grid points
-linear     // electron grid type
-100            // Number of "low-energy" grid points (hybrid & powerlaw grids only)
-2000           // transition energy in eV
+0             // [only for nonthermal] minimum free-electron energy in eV
+10000          // [only for nonthermal] maximum free-electron energy in eV
+100           // [only for nonthermal] number of free-electron grid points
+powerlaw        // electron grid type
+35             // Number of "low-energy" grid points (hybrid & powerlaw grids only)
+2000          // transition energy in eV 
 
 #OUTPUT
 800         // Number of time steps in the output files.

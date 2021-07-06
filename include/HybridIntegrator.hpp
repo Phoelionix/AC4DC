@@ -1,14 +1,31 @@
+/*===========================================================================
+This file is part of AC4DC.
+
+    AC4DC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AC4DC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
+===========================================================================*/
+
 #ifndef HYBRID_INTEGRATE_HPP
 #define HYBRID_INTEGRATE_HPP
 
 #include "AdamsIntegrator.hpp"
-#include <eigen3/Eigen/Dense>
+#include <Eigen/Dense>
 
 namespace ode {
 template<typename T>
 class Hybrid : public Adams_BM<T>{
     public:
-    Hybrid<T>(unsigned int order=4, double rtol=1e-5, unsigned max_iter = 200): 
+    Hybrid<T>(unsigned int order=4, double rtol=1e-5, unsigned max_iter = 2000): 
         Adams_BM<T>(order), stiff_rtol(rtol), stiff_max_iter(max_iter){};
     const static unsigned MAX_BEULER_ITER = 50;
     private:
@@ -125,7 +142,7 @@ void Hybrid<T>::Moulton(unsigned n){
         diff = prev.norm()/this->y[n+1].norm();
         idx++;
     }
-    if(idx==stiff_max_iter) std::cerr<<"Max Euler iterations exceeded"<<std::endl;
+    if(idx==stiff_max_iter) std::cerr<<"Max Euler iterations exceeded, err = "<<diff<<std::endl;
     this->y[n+1] += old;
 }
 

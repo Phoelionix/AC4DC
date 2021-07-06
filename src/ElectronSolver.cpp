@@ -1,11 +1,29 @@
+/*===========================================================================
+This file is part of AC4DC.
+
+    AC4DC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AC4DC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
+===========================================================================*/
+// (C) Alaric Sanders 2020
+
 #include "ElectronSolver.h"
 #include "HartreeFock.h"
 #include "ComputeRateParam.h"
 #include "SplineIntegral.h"
 #include <fstream>
 #include <algorithm>
-#include <eigen3/Eigen/SparseCore>
-#include <eigen3/Eigen/Dense>
+#include <Eigen/SparseCore>
+#include <Eigen/Dense>
 #include <chrono>
 #include <math.h>
 #include <omp.h>
@@ -69,10 +87,16 @@ void ElectronSolver::solve() {
     auto start = std::chrono::system_clock::now();
 
     good_state = true;
-    this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
+    if (input_params.pulse_shape ==  PulseShape::square){
+        this->iterate(-input_params.Width(), timespan_au - input_params.Width()); // Inherited from ABM
+    } else {
+        this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
+    }
+    
+    
     cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<std::endl;
     
-    double time = -timespan_au/2;
+    double time = this->t[0];
     int retries = 1;
     while (!good_state) {
         std::cerr<<"\033[93;1m[ Rate Solver ] Halving timestep...\033[0m"<<std::endl;
@@ -90,7 +114,11 @@ void ElectronSolver::solve() {
         }
         retries--;
         this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
-        this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM        
+        if (input_params.pulse_shape ==  PulseShape::square){
+            this->iterate(-input_params.Width(), timespan_au - input_params.Width()); // Inherited from ABM
+        } else {
+            this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
+        }
     }
     
     
@@ -270,11 +298,14 @@ void ElectronSolver::sys2(const state_type& s, state_type& sdot, const double t)
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
     
     // compute the dfdt vector
-    /*
-    for (size_t a = 0; a < s.atomP.size(); a++) {
-        const bound_t& P = s.atomP[a];  
-    }
-    */
+    
+    // for (size_t a = 0; a < s.atomP.size(); a++) {
+    //     const bound_t& P = s.atomP[a];  
+        
+    // }
+    
+    
+
     #ifdef NO_EE
     #warning No electron-electron interactions
     #else

@@ -1,3 +1,21 @@
+/*===========================================================================
+This file is part of AC4DC.
+
+    AC4DC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AC4DC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
+===========================================================================*/
+// (C) Alaric Sanders 2020
+
 #ifndef SYS_SOLVER_CXX_H
 #define SYS_SOLVER_CXX_H
 
@@ -32,7 +50,7 @@ public:
     {
         pf.set_shape(input_params.pulse_shape);
         pf.set_pulse(input_params.Fluence(), input_params.Width());
-        timespan_au = input_params.Width()*5;
+        timespan_au = input_params.Width()*4;
     }
     void solve();
     void save(const std::string& folder);
@@ -52,8 +70,11 @@ private:
     void precompute_gamma_coeffs(); // populates above two tensors
     void set_initial_conditions();
 
+    /////// Overrides virtual system state methods
     void sys(const state_type& s, state_type& sdot, const double t); // general dynamics (uses explicit mehtod)
     void sys2(const state_type& s, state_type& sdot, const double t); // electron-electron (uses implicit method)
+    /////// 
+
     bool hasRates = false; // flags whether Store has been populated yet.
     void saveFree(const std::string& file);
     void saveFreeRaw(const std::string& fname);

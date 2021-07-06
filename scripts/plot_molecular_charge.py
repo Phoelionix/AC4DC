@@ -1,7 +1,7 @@
 import matplotlib.rcsetup as rcsetup
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.interpolate import BSpline
+# from scipy.interpolate import BSpline
 from math import log
 import os.path as path
 import matplotlib.colors as colors
@@ -44,11 +44,11 @@ for symbol in ATOMS:
 
 
 def get_colors(num, seed):
-    idx = list(np.linspace(0, 1, num+1))[1:]
+    idx = list(np.linspace(0, 1, num))[1:]
     random.seed(seed)
-    random.shuffle(idx)
+    # random.shuffle(idx)
     idx.insert(0,0)
-    C = plt.cm.nipy_spectral
+    C = plt.get_cmap('nipy_spectral')
     return C(idx)
 
 class Plotter:
@@ -248,7 +248,14 @@ class Plotter:
         ax.set_ylabel("Density")
         self.fig.subplots_adjust(left=0.2, right=0.92, top=0.93, bottom=0.1)
 
-    def plot_ffactor(self, a, num_tsteps = 10):
+    def plot_ffactor(self, a, num_tsteps = 10, timespan = None, show_avg = True, **kwargs):
+
+        if timespan is None:
+            timespan = (self.timeData[0], self.timeData[-1])
+
+        start_idx = self.timeData.searchsorted(timespan[0])
+        stop_idx = self.timeData.searchsorted(timespan[1])
+
         fdists = np.genfromtxt('output/'+a+'/Xsections/Form_Factor.txt')
         # These correspond to the meaning of the FormFactor.txt entries themselves
         KMIN = 0
@@ -257,16 +264,30 @@ class Plotter:
         kgrid = np.linspace(KMIN,KMAX,fdists.shape[0 if dim == 1 else 1])
         fig2 = plt.figure()
         ax = fig2.add_subplot(111)
-        ax.set_xlabel('k, atomic units')
-        ax.set_ylabel('Elastic scattering form factor (arbitrary units)')
+        ax.set_xlabel('$k$ (atomic units)')
+        ax.set_ylabel('Form factor (arb. units)')
         
         timedata = self.boundData[a][:,:-1] # -1 excludes the bare nucleus
         dynamic_k = np.tensordot(fdists.T, timedata.T,axes=1) 
-        step = dynamic_k.shape[1] // num_tsteps
-        for i in range(0, dynamic_k.shape[1], step):
-            ax.plot(kgrid, dynamic_k[:,i])
-        fig2.legend()
-        fig2.show()
+        step = (stop_idx - start_idx) // num_tsteps
+        cmap=plt.get_cmap('plasma')
+        fbar = np.zeros_like(dynamic_k[:,0])
+
+        n=0
+        for i in range(start_idx, stop_idx, step):
+            ax.plot(kgrid, dynamic_k[:,i], label='%1.1f fs' % self.timeData[i], color=cmap((i-start_idx)/(stop_idx - start_idx)))
+            fbar += dynamic_k[:,i]
+            n += 1
+
+        fbar /= n
+        if show_avg:
+            ax.plot(kgrid, fbar, 'k--', label=r'Effective Form Factor')
+        freal = dynamic_k[:,0]
+        print("R = ", np.sum(np.abs(fbar - freal))/np.sum(freal))
+        freal /= np.sum(freal)
+        fbar /= np.sum(fbar)
+        print("Normed R = ", np.sum(np.abs(fbar - freal))/np.sum(freal))
+        return (fig2, ax)
 
     def plot_charges(self, a, rseed=404):
         ax, _ax2 = self.setup_axes()
@@ -411,7 +432,7 @@ class Plotter:
         plt.colorbar()
 
     def plot_step(self, t, normed=True, fitE=None, **kwargs):        
-        self.ax_steps.set_xlabel('Energy, eV')
+        self.ax_steps.set_xlabel('Energy (eV)')
         self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
         self.ax_steps.loglog()
         # norm = np.sum(self.freeData[n,:])
@@ -420,8 +441,9 @@ class Plotter:
         X = self.energyKnot
 
         if normed:
-            tot = np.sum(data)
+            tot = self.get_density(t)
             data /= tot
+            data/=4*3.14
         
         return self.ax_steps.plot(X, data*X, label='%1.1f fs' % t, **kwargs)
 
@@ -430,8 +452,9 @@ class Plotter:
         fit = self.energyKnot.searchsorted(fitE)
         data = self.freeData[t_idx,:]
         if normed:
-            tot = np.sum(data)
+            tot = self.get_density(t)
             data /= tot
+            data/=4*3.14
 
         Xdata = self.energyKnot[:fit]
         Ydata = data[:fit]
@@ -465,6 +488,7 @@ class Plotter:
 
 def fit_maxwell(X, Y):
     guess = [200, 12]
+    # popt, _pcov = curve_fit(maxwell, X, Y, p0 = guess, sigma=1/(X+10))
     popt, _pcov = curve_fit(maxwell, X, Y, p0 = guess)
     return popt
 

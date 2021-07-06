@@ -10,4 +10,8 @@ tmp
 testOutput
 *.swp
 */__pycache__
-Makefile
+*.png
+video
+*.pyc
+video
+*.mp4

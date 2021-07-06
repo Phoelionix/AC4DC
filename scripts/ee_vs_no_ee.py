@@ -12,14 +12,14 @@ import sys
 import numpy as np
 import matplotlib.colors as colors
 
-plee = Plotter('big_Carbon_HR2')
-plne = Plotter('Carbon_HR2')
+plee = Plotter('Carbon_square')
+plne = Plotter('Carbon_square_no_ee')
 
 fig, (ax1, ax2) = plt.subplots(1,2,sharey=True, sharex=True,figsize=(6.2,2.5))
 fig.subplots_adjust(left=0.1, top=0.96, bottom=0.16,right=0.85)
 
 
-min_n = 1e-8
+min_n = 1e-7
 max_n1 = np.max(plne.freeData.max())
 max_n2 = np.max(plee.freeData.max())
 max_n = max(max_n1, max_n2)

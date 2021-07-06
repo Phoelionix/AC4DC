@@ -21,6 +21,7 @@ plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_qcons.pgf')
 
 pl.fig.set_size_inches(3,2.5)
 pl.plot_free(log=True, min=1e-7, every=5)
+pl.fig_free.subplots_adjust(left=0.15)
 plt.savefig('/Users/alaric-mba/Desktop/free.png')
 plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_free.pgf')
 

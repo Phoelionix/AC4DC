@@ -18,9 +18,9 @@ cylinder       // Geometry specifier - options are none, spherical, cylindrical,
 8000        // Initial guess for number of time step points for rate equation.
 12          // Number of threads in OpenMP.
 0           // minimum free-electron energy in eV
-14000        // maximum free-electron energy in eV
+9000        // maximum free-electron energy in eV
 200         // number of free-electron grid points
-linear   // electron grid type
+quadratic   // electron grid type
 100         // number of low-energy exponential grid points
 
 #OUTPUT

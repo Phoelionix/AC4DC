@@ -1,14 +1,33 @@
+/*===========================================================================
+This file is part of AC4DC.
+
+    AC4DC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AC4DC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
+===========================================================================*/
+
 #include "FreeDistribution.h"
 #include "Dipole.h"
 #include "Constant.h"
 #include "SplineIntegral.h"
-#include <eigen3/Eigen/StdVector>
+#include <Eigen/StdVector>
 
 // #define NDEBUG
 // to remove asserts
 
 // Initialise static things
 size_t Distribution::size=0;
+size_t Distribution::CoulombLog_cutoff=0;
+double Distribution::CoulombDens_min=0;
 SplineIntegral Distribution::basis;
 
 // Psuedo-constructor thing
@@ -16,6 +35,11 @@ void Distribution::set_elec_points(size_t n, double min_e, double max_e, GridSpa
     // Defines a grid of n points
     basis.set_parameters(n, min_e, max_e, grid_style);
     Distribution::size=n;
+    Distribution::CoulombLog_cutoff = basis.i_from_e(grid_style.transition_e);
+    Distribution::CoulombDens_min = grid_style.min_coulomb_density;
+    cout<<"[ Free ] Estimating lnLambda based on first ";
+    cout<<CoulombLog_cutoff<<" points, up to "<<grid_style.transition_e<<" Ha"<<endl;
+    cout<<"[ Free ] Neglecting electron-electron below density of n = "<<CoulombDens_min<<"au^-3"<<endl;
 }
 
 // Adds Q_eii to the parent Distribution
@@ -52,16 +76,20 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) co
 // Puts the Q_EE changes into v
 void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     assert(basis.has_Qee());
-    // KLUDGE: Fix DebyeLength at 5 Angstrom = 9.4 Bohr
-    // const double DebyeLength = 5. / Constant::Angs_per_au;
-    // double CoulombLog = log(4./3.*Constant::Pi*DebyeLength*DebyeLength*DebyeLength*density());
-    double CoulombLog=3;
-    // double CoulombLog = CoulombLogarithm(size/3);
-    if (isnan(CoulombLog) || CoulombLog <= 0) return;
+    double CoulombLog = this->CoulombLogarithm();
+    // double CoulombLog = 3.4;
+    if (CoulombLog <= 0) return; // skip calculation if LnLambda vanishes
+
+    if (isnan(CoulombLog) || CoulombLog > 11.5) CoulombLog = 11.5;
+    // double LnLambdaD = 0.5*log(this->k_temperature()/4/Constant::Pi/this->density());
+    // if (isnan(LnLambdaD)) LnLambdaD = 11;
+    // cerr<<"LnDebLen = "<<LnLambdaD<<endl;
+    // A guess. This should only happen when density is zero, so Debye length is infinity.
+    // Guess the sample size is about 10^5 Bohr. This shouldn't ultimately matter much.
     for (size_t J=0; J<size; J++) {
         for (size_t K=0; K<size; K++) {
             for (auto& q : basis.Q_EE[J][K]) {
-                 v[J] += q.val * f[K] * f[q.idx] * CoulombLog ;
+                 v[J] += q.val * f[K] * f[q.idx] * CoulombLog;
             }
         }
     }
@@ -85,7 +113,9 @@ void Distribution::get_Jac_ee(Eigen::MatrixXd& M) const{
     }
 }
 
+/*
 // Sets f_n+1 based on using a Newton-Rhapson-Euler stiff solver
+// Not currently used
 void Distribution::from_backwards_Euler(double dt, const Distribution& prev_step_dist, double tolerance, unsigned maxiter){
 
     Eigen::MatrixXd M(size, size);
@@ -105,7 +135,7 @@ void Distribution::from_backwards_Euler(double dt, const Distribution& prev_step
         
         old_curr_step = curr_step;
         v = Eigen::VectorXd::Zero(size);
-        this->get_Q_ee(v); // calculates v based on curr_step
+        this->get_Q_ee(v, size/3); // calculates v based on curr_step
         
         // Newton iterator
         get_Jac_ee(M);
@@ -124,6 +154,7 @@ void Distribution::from_backwards_Euler(double dt, const Distribution& prev_step
     }
     if (idx == MAX_ITER) std::cerr<<"Max stiff-solver iterations exceeded"<<std::endl;
 }
+*/
 
 // // Taken verbatim from Rockwood as quoted by Morgan and Penetrante in ELENDIF
 // void Distribution::add_Q_ee(const Distribution& d, double kT) {
@@ -312,18 +343,19 @@ double Distribution::k_temperature(size_t cutoff) const {
 }
 
 // Returns an estimate of ln(N_D) based on density and low-energy arguments
-double Distribution::CoulombLogarithm(size_t cutoff) const {
+double Distribution::CoulombLogarithm() const {
     double tmp=0;
     // Dodgy integral of e * f(e) de
-    double n = this->density(cutoff);
-    for (size_t i = 0; i < cutoff; i++)
-    {
+    double n = 0;
+    for (size_t i = 0; i < CoulombLog_cutoff; i++) {
         tmp += basis.avg_e[i]*f[i]*basis.areas[i];
+        n += f[i]*basis.areas[i];
     }
     double kT = tmp*2./3./n;
     double DebyeLength3 = pow(kT/4/Constant::Pi/n,1.5);
-    return log(4./3.*Constant::Pi* n*DebyeLength3);
-    // return 10;
+    n = this->density();
+    if (n < this->CoulombDens_min) return 0;
+    return log(4.*Constant::Pi* n*DebyeLength3);
 }
 
 

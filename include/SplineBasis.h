@@ -1,9 +1,26 @@
+/*===========================================================================
+This file is part of AC4DC.
+
+    AC4DC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AC4DC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
+===========================================================================*/
+
 #ifndef SPLINEBASIS_CXX_H
 #define SPLINEBASIS_CXX_H
 
 #include <vector>
-#include <eigen3/Eigen/SparseLU>
-// #include <eigen3/Eigen/LU>
+#include <Eigen/SparseLU>
+// #include <Eigen/LU>
 #include <iostream>
 #include "GridSpacing.hpp"
 
@@ -42,7 +59,7 @@ public:
     size_t num_funcs;
     const static int BSPLINE_ORDER = 3; // 1 = rectangles, 2=linear, 3=quadratic
     std::vector<double> avg_e;
-    std::vector<double> avg_e_sqrt;
+    std::vector<double> log_avg_e;
     std::vector<double> areas;
     int i_from_e(double e);
     int lower_i_from_e(double e);  

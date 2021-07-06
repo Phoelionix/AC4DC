@@ -1,9 +1,21 @@
-/*
-Solver executable. Reads output of the bin/ratecalculator executable.
+/*===========================================================================
+This file is part of AC4DC.
 
+    AC4DC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
 
+    AC4DC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
 
-*/
+    You should have received a copy of the GNU General Public License
+    along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
+===========================================================================*/
+
+// (C) Alaric Sanders 2020
 
 #include "ComputeRateParam.h"
 #include "ElectronSolver.h"
@@ -25,6 +37,17 @@ using namespace std;
 
 // Note. this code is NOT compatible with Windows.
 // Rewriting with boost::filesystem is a good idea if this is required.
+
+void print_banner(const char* fname){
+    ifstream ifs(fname, ifstream::in);
+
+    char c = ifs.get();
+    while (ifs.good()) {
+        std::cout << c;
+        c = ifs.get();
+    }
+    ifs.close();
+}
 
 void try_mkdir(const std::string& fname) {
     if (mkdir(fname.c_str(), ACCESSPERMS) == -1) {
@@ -88,6 +111,18 @@ struct CmdParser{
                         cout<<"  -s Look for stored precalculated rate coefficients"<<endl;
                         cout<<"  -x Skip rate-equaton solving"<<endl;
                         break;
+                    case 'w':
+                        // Warranty.
+                        cout<<"This program is provided as-is, with no warranty, explicit or implied."<<endl;
+                        cout<<"It is a simplified model of XFEL plasma dynamics, however it should not"<<endl;
+                        cout<<"be viewed as accurate under all conditions."<<endl;
+                        exit(0);
+                        break;
+                    case 'c':
+                        // Copyright.
+                        print_banner("LICENSE");
+                        exit(0);
+                        break;
                     default:
                         cout<<"Flag '"<<argv[a][i]<<"' is not a recognised flag."<<endl;
                 }
@@ -99,18 +134,6 @@ struct CmdParser{
     bool valid_input = true;
     bool solve_rate_eq = true;
 };
-
-
-void print_banner(const char* fname){
-    ifstream ifs(fname, ifstream::in);
-
-    char c = ifs.get();
-    while (ifs.good()) {
-        std::cout << c;
-        c = ifs.get();
-    }
-    ifs.close();
-}
 
 int main(int argc, const char *argv[]) {
     CmdParser runsettings(argc, argv);
@@ -125,6 +148,11 @@ int main(int argc, const char *argv[]) {
     cout<<"\033[0m"<<endl<<endl;
 
     string name, logname, outdir;
+
+    cout<<"Copyright (C) 2020  Alaric Sanders and Alexander Kozlov"<<endl;
+    cout<<"This program comes with ABSOLUTELY NO WARRANTY; for details run `ac4dc -w'."<<endl;
+    cout<<"This is free software, and you are welcome to redistribute it"<<endl;
+    cout<<"under certain conditions; run `ac4dc -c' for details."<<endl;
 
     if (get_file_names(argv[1], name, logname, outdir) == 1)
         return 1;

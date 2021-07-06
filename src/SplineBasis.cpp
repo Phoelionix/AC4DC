@@ -1,3 +1,20 @@
+/*===========================================================================
+This file is part of AC4DC.
+
+    AC4DC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AC4DC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
+===========================================================================*/
+
 #include "SplineBasis.h"
 #include <assert.h>
 #include "Constant.h"
@@ -220,12 +237,12 @@ void BasisSet::set_parameters(size_t num_int, double min, double max, const Grid
     }
 
     avg_e.resize(num_int);
-    avg_e_sqrt.resize(num_int);
+    log_avg_e.resize(num_int);
     areas.resize(num_int);
     for (size_t i = 0; i < num_int; i++) {
         // Chooses the 'center' of the B-spline
         avg_e[i] = (this->supp_max(i) + this->supp_min(i))/2 ;
-        avg_e_sqrt[i] = pow(avg_e[i],0.5);
+        log_avg_e[i] = log(avg_e[i]);
         double diff = (this->supp_max(i) - this->supp_min(i))/2;
         // Widths stores the integral of the j^th B-spline
         areas[i] = 0;

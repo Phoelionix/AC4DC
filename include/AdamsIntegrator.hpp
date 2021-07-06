@@ -1,3 +1,20 @@
+/*===========================================================================
+This file is part of AC4DC.
+
+    AC4DC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AC4DC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
+===========================================================================*/
+
 #ifndef ADAMS_CXX_H
 #define ADAMS_CXX_H
 
@@ -206,7 +223,8 @@ void Adams_BM<T>::run_steps(){
 
     // initialise enough points for multistepping to get going
     for (int n = 0; n < order; n++) {
-        this->step_rk4(n);
+        //this->step_rk4(n);
+	this->y[n+1] = this->y[0];
     }
     // Run those steps
     std::cout << "[ sim ]                       ";
