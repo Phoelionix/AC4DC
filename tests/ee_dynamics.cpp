@@ -1,5 +1,11 @@
-#include "src/HybridIntegrator.hpp"
-#include "src/RateSystem.h"
+/**
+ * @file ee_dynamics.cpp
+ * @brief 
+ * 
+ */
+
+#include "../include/HybridIntegrator.hpp"
+#include "../include/RateSystem.h"
 #include <iostream>
 #include <fstream>
 #include <cmath>

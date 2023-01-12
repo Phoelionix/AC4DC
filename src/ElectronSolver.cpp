@@ -1,3 +1,9 @@
+/**
+ * @file ElectronSolver.cpp
+ * @author Alaric Sanders 
+ * @brief @copybrief ElectronSolver.h
+ * @details 
+ */
 /*===========================================================================
 This file is part of AC4DC.
 

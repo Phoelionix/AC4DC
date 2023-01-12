@@ -1,3 +1,8 @@
+/**
+ * @file FreeDistribution.h
+ * @brief Defines the class Distribution that represents the energy distribution of free electrons.
+ * @details Expansion of original plasma code as part of Sanders' continuum plasma extension.
+ */
 /*===========================================================================
 This file is part of AC4DC.
 
@@ -34,7 +39,10 @@ This file is part of AC4DC.
 #include "config.h"
 
 
-// Represents a statistical distribution of electrons. Internal units are atomic units.
+/**
+ * @brief Electron distribution class.
+ * @details Represents a statistical distribution of electron density. Internal units are atomic units.
+ */
 class Distribution
 {
 public:
@@ -51,6 +59,12 @@ public:
     }
 
     // vector-space algebra
+
+    /**
+     * @brief Adds the densities of a distribution to the calling distribution.
+     * @param d The Distribution object whose densities are added to the caller
+     * @return Distribution& 
+     */
     Distribution& operator+=(const Distribution& d) {
         for (size_t i=0; i<size; i++) {
             f[i] += d.f[i];
@@ -59,6 +73,11 @@ public:
         return *this;
     }
 
+    /**
+     * @brief Scales electron density by given double
+     * @param x Factor to multiply the electron densities at each grid point by
+     * @return Distribution& 
+     */
     Distribution& operator*=(double x) {
         for (size_t i=0; i<size; i++) {
             f[i] *= x;
@@ -67,12 +86,22 @@ public:
         return *this;
     }
 
+    /**
+     * @brief Sets the electron distribution to equal that of the given Distribution. 
+     * @param d Distribution object that the caller sets its electron density to.
+     * @return Distribution& 
+     */
     Distribution& operator=(const Distribution& d) {
         f = d.f;
         // total = d.total;
         return *this;
     }
 
+    /**
+     * @brief Sets the electron densities at each grid point (energy) to the given double.
+     * @param y Value for the electron density to be set to. 
+     * @return Distribution& 
+     */
     Distribution& operator=(double y) {
         // total = y;
         for (size_t i=0; i<size; i++) {
@@ -85,7 +114,12 @@ public:
     double integral() const;
     // modifiers
 
-    // applies the df/dt vector v to the overall distribution
+    /**
+     * @brief Steps the density distribution through a time step using its time derivative.
+     * @details Computes then adds deltaf to f, where f is the electron density vector. 
+     * @todo This function is used in the (sensical) way described, but it calls basis.Sinv which apparently returns dfdt from deltaf, the reverse of what it should. Investigation of S needed.
+     * @param v Column vector df/dt (density/time gradient).
+     */
     void applyDelta(const Eigen::VectorXd& dfdt);
     
 
@@ -98,14 +132,14 @@ public:
 
     void get_Jac_ee (Eigen::MatrixXd& J) const; // Returns the Jacobian of Qee
     
-    // N is the Number density (inverse au^3) of particles to be added at energy e.
+    /// N is the Number density (inverse au^3) of particles to be added at energy e.
     static void addDeltaLike(Eigen::VectorXd& v, double e, double N);
-    // Adds a Dirac delta to the distribution
+    /// Adds a Dirac delta to the distribution
     void addDeltaSpike(double N, double e);
-    // Applies the loss term to the distribution 
+    /// Applies the loss term to the distribution 
     void addLoss(const Distribution& d, const LossGeometry& l, double charge_density);
     
-    // Sets the object to have a MB distribution
+    /// Sets the object to have a MB distribution
     void add_maxwellian(double N, double T);
 
     // Precalculators
@@ -130,19 +164,26 @@ public:
     double integral(double (f)(double));
     double density() const;
     double density(size_t cutoff) const;
-    // Returns an estimate of the plasma temperature based on all entries below cutoff (in energy units)
+    /// Returns an estimate of the plasma temperature based on all entries below cutoff (in energy units)
     double k_temperature(size_t cutoff = size) const;
     double CoulombLogarithm() const;
 
     static std::string output_energies_eV(size_t num_pts);
     std::string output_densities(size_t num_pts) const;
     
-    // This does electron-electron because it is CURSED
+    /// This does electron-electron because it is CURSED
     void from_backwards_Euler(double dt, const Distribution& prev_step, double tolerance, unsigned maxiter);
 
     double operator()(double e) const;
 
-    // The setup function
+    /**
+     * @brief The setup function.
+     * @details Grants the distribution its energy basis, which serves as the knot points for the spline. Assigns CoulombLog_cutoff and Distribution::CoulombDens_min.
+     * @param n 
+     * @param min_e 
+     * @param max_e 
+     * @param grid_style 
+     */
     static void set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style);
     static std::string output_knots_eV();
 
@@ -153,7 +194,8 @@ private:
     std::vector<double> f;
     static SplineIntegral basis;
     static size_t CoulombLog_cutoff;
-    static double CoulombDens_min; // ignores Coulomb repulsion if sensity is below this threhsold
+    /// Coulomb repulsion is ignored if (d)ensity is below this threshold
+    static double CoulombDens_min;
 
 };
 

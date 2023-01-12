@@ -1,3 +1,8 @@
+/**
+ * @file ComputeRateParam.h
+ * @brief 
+ * @details 
+ */
 /*===========================================================================
 This file is part of AC4DC.
 

@@ -1,3 +1,9 @@
+/**
+ * @file SplineIntegral.h
+ * @brief Part of Sanders' continuum plasma extension.
+ * 
+ */
+
 /*===========================================================================
 This file is part of AC4DC.
 

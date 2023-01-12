@@ -1,3 +1,8 @@
+/**
+ * @file SpineBasis.cpp
+ * @brief @copybrief SplineBasis.h
+ * 
+ */
 /*===========================================================================
 This file is part of AC4DC.
 

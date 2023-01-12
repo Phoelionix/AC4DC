@@ -1,3 +1,10 @@
+/**
+ * @file FreeDistribution.cpp
+ * @brief @copybrief FreeDistribution.h
+ * @details Grid points are synonymous w/ knot points for the B-splines. Note that this code expands 
+ * on the original AC4DC model by introducing these grid points, allowing for an approximation of a 
+ * continuous electron density distribution along the energy basis. 
+ */
 /*===========================================================================
 This file is part of AC4DC.
 
@@ -73,7 +80,7 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) co
 }
 
 
-// Puts the Q_EE changes into v
+// Puts the Q_EE changes in the supplied vector v
 void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     assert(basis.has_Qee());
     double CoulombLog = this->CoulombLogarithm();
@@ -272,10 +279,10 @@ void Distribution::addDeltaSpike(double e, double N) {
     f[idx] += N/basis.areas[idx];
 }
 
-
+//S\/ ?Expecting? f <-- f + deltaf(df/dt)  
 void Distribution::applyDelta(const Eigen::VectorXd& v) {
     Eigen::VectorXd u(size);
-    u= (this->basis.Sinv(v));
+    u= (this->basis.Sinv(v)); //S\/ Expect u = deltaf, so this is WEIRD, Sinv only seems to be intended for getting df/dt from deltaf, not the reverse.
     for (size_t i=0; i<size; i++) {
         f[i] += u[i];
     }

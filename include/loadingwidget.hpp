@@ -1,3 +1,8 @@
+/**
+ * @file loadingwidget.hpp
+ * @brief 
+ */
+
 #ifndef LOADINGWIDGET_CXX_HPP
 #define LOADINGWIDGET_CXX_HPP
 

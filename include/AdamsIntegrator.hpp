@@ -1,3 +1,7 @@
+/**
+ * @file AdamsIntegrator.hpp
+ * @brief 
+ */
 /*===========================================================================
 This file is part of AC4DC.
 

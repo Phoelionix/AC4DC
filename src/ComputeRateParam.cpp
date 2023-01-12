@@ -1,3 +1,7 @@
+/**
+ * @file ComputeRateParam.cpp
+ * @brief @copybrief ComputeRateParam.h
+*/
 /*===========================================================================
 This file is part of AC4DC.
 

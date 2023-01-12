@@ -1,3 +1,9 @@
+/**
+ * @file ElectronSolver.h
+ * @author Alaric Sanders 
+ * @brief 
+ * @details Core part of Sanders' continuum plasma extension.
+ */
 /*===========================================================================
 This file is part of AC4DC.
 
@@ -20,7 +26,7 @@ This file is part of AC4DC.
 #define SYS_SOLVER_CXX_H
 
 /*
-This file should arguably be called RateEquationSOlver, however, for historical reasons it is not.
+This file should arguably be called RateEquationSolver, however, for historical reasons it is not.
 */
 // #include <boost/numeric/odeint.hpp>
 #include "HybridIntegrator.hpp"

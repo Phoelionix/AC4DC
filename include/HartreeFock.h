@@ -1,3 +1,9 @@
+/**
+ * @file HartreeFock.h
+ * @brief Entrance to a terrifying rabbit hole.
+ * 
+ */
+
 /*===========================================================================
 This file is part of AC4DC.
 

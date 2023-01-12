@@ -1,3 +1,10 @@
+/**
+ * @file Constant.h
+ * @brief This header contains some Physical constants,
+functions for calculations of Wigner 3j, 6j symbols, and Clebsh-Gordan coefficients,
+and some data containers used throughout the code. 
+ */
+
 /*===========================================================================
 This file is part of AC4DC.
 
@@ -16,9 +23,6 @@ This file is part of AC4DC.
 ===========================================================================*/
 #pragma once
 
-/* This header contains some Physical constants,
-functions for calculations of Wigner 3j, 6j symbols, and Clebsh-Gordan coefficients,
-and some data containers used througout the code. */
 #include <vector>
 #include <string>
 #include <cassert>

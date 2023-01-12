@@ -1,3 +1,7 @@
+/**
+ * @file RateSystem.cpp
+ * @brief @copybrief RateSystem.h
+ */
 /*===========================================================================
 This file is part of AC4DC.
 

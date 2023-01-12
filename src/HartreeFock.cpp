@@ -1,3 +1,9 @@
+/**
+ * @file HartreeFock.h
+ * @brief POV you wanted to see if it was really that terrifying.
+ * 
+ */
+
 /*===========================================================================
 This file is part of AC4DC.
 

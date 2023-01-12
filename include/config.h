@@ -1,3 +1,9 @@
+/**
+ * @file config.h
+ * @author your name (you@domain.com)
+ * @brief 
+ */
+
 #pragma once
 
 #ifdef DEBUG
