@@ -1,0 +1,49 @@
+\hypertarget{classode_1_1IVPSolver}{}\doxysection{ode\+::I\+V\+P\+Solver$<$ T $>$ Class Template Reference}
+\label{classode_1_1IVPSolver}\index{ode::IVPSolver$<$ T $>$@{ode::IVPSolver$<$ T $>$}}
+
+
+Inheritance diagram for ode\+::I\+V\+P\+Solver$<$ T $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=204pt]{classode_1_1IVPSolver__inherit__graph}
+\end{center}
+\end{figure}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classode_1_1IVPSolver_af384d72b9fcd3afa0890cc0c8a9bcfed}\label{classode_1_1IVPSolver_af384d72b9fcd3afa0890cc0c8a9bcfed}} 
+void {\bfseries setup} (const T \&initial\+\_\+state, double \+\_\+dt, double \+\_\+tolerance=1e-\/2)
+\end{DoxyCompactItemize}
+\doxysubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classode_1_1IVPSolver_a15f35f87a137e87adab1cb790e071201}\label{classode_1_1IVPSolver_a15f35f87a137e87adab1cb790e071201}} 
+double {\bfseries dt}
+\item 
+\mbox{\Hypertarget{classode_1_1IVPSolver_af1e2d577d9f88ce6e3cfad4469dbbde7}\label{classode_1_1IVPSolver_af1e2d577d9f88ce6e3cfad4469dbbde7}} 
+double {\bfseries step\+\_\+tolerance}
+\end{DoxyCompactItemize}
+\doxysubsection*{Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classode_1_1IVPSolver_abc97679a1f394ff0bc9a9093b0ff64b6}\label{classode_1_1IVPSolver_abc97679a1f394ff0bc9a9093b0ff64b6}} 
+virtual void {\bfseries sys} (const T \&q, T \&qdot, double t)=0
+\end{DoxyCompactItemize}
+\doxysubsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classode_1_1IVPSolver_a24ef3a9cd1ca3e77c379108f27b28a7a}\label{classode_1_1IVPSolver_a24ef3a9cd1ca3e77c379108f27b28a7a}} 
+std\+::vector$<$ T $>$ {\bfseries y}
+\item 
+\mbox{\Hypertarget{classode_1_1IVPSolver_ae7074a48363a087c5fc9b9315c3bc140}\label{classode_1_1IVPSolver_ae7074a48363a087c5fc9b9315c3bc140}} 
+std\+::vector$<$ double $>$ {\bfseries t}
+\item 
+\mbox{\Hypertarget{classode_1_1IVPSolver_a117d1ee254e52de58d10f230596df358}\label{classode_1_1IVPSolver_a117d1ee254e52de58d10f230596df358}} 
+T {\bfseries zero\+\_\+y}
+\end{DoxyCompactItemize}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+/home/speno/\+A\+C4\+D\+C/include/\mbox{\hyperlink{AdamsIntegrator_8hpp}{Adams\+Integrator.\+hpp}}\end{DoxyCompactItemize}

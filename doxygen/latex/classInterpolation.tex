@@ -1,0 +1,32 @@
+\hypertarget{classInterpolation}{}\doxysection{Interpolation Class Reference}
+\label{classInterpolation}\index{Interpolation@{Interpolation}}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classInterpolation_a95f6683e9d627836d913ab38216dece5}\label{classInterpolation_a95f6683e9d627836d913ab38216dece5}} 
+{\bfseries Interpolation} (int Order=6)
+\item 
+\mbox{\Hypertarget{classInterpolation_a3902ce2ddfdd268b77f306d91c6c0499}\label{classInterpolation_a3902ce2ddfdd268b77f306d91c6c0499}} 
+vector$<$ double $>$ {\bfseries get\+\_\+value} (const vector$<$ double $>$ \&f, const vector$<$ double $>$ \&x\+\_\+ini, double X)
+\item 
+\mbox{\Hypertarget{classInterpolation_ad6e69642c8531bfd2cd851bd6f9cba8d}\label{classInterpolation_ad6e69642c8531bfd2cd851bd6f9cba8d}} 
+vector$<$ double $>$ {\bfseries get\+\_\+value} (\mbox{\hyperlink{classPairFunction}{Pair\+Function}} \&S\+\_\+old, \mbox{\hyperlink{classGrid}{Grid}} \&Lattice\+\_\+old, double X)
+\item 
+\mbox{\Hypertarget{classInterpolation_af606b6c245afa235ab211ee1a0688689}\label{classInterpolation_af606b6c245afa235ab211ee1a0688689}} 
+int {\bfseries Recalc\+WF} (\mbox{\hyperlink{classRadialWF}{Radial\+WF}} \&S\+\_\+old, \mbox{\hyperlink{classGrid}{Grid}} \&Lattice\+\_\+old, \mbox{\hyperlink{classRadialWF}{Radial\+WF}} \&S\+\_\+new, \mbox{\hyperlink{classGrid}{Grid}} \&Lattice\+\_\+new)
+\item 
+\mbox{\Hypertarget{classInterpolation_a85e44b035bb961ff991580a4c115093f}\label{classInterpolation_a85e44b035bb961ff991580a4c115093f}} 
+void {\bfseries gaussian\+\_\+sum} (vector$<$ double $>$ \&Vals, \mbox{\hyperlink{classGrid}{Grid}} \&Lattice, int max\+\_\+iter=1000, double conv\+\_\+toll=0.\+001)
+\end{DoxyCompactItemize}
+\doxysubsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classInterpolation_a50e296f4d6bd873dc8a4d573af4e0de8}\label{classInterpolation_a50e296f4d6bd873dc8a4d573af4e0de8}} 
+int {\bfseries order}
+\end{DoxyCompactItemize}
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+/home/speno/\+A\+C4\+D\+C/include/\mbox{\hyperlink{Numerics_8h}{Numerics.\+h}}\item 
+/home/speno/\+A\+C4\+D\+C/src/Numerics.\+cpp\end{DoxyCompactItemize}

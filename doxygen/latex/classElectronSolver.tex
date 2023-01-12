@@ -1,0 +1,99 @@
+\hypertarget{classElectronSolver}{}\doxysection{Electron\+Solver Class Reference}
+\label{classElectronSolver}\index{ElectronSolver@{ElectronSolver}}
+
+
+Inheritance diagram for Electron\+Solver\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=211pt]{classElectronSolver__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for Electron\+Solver\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{classElectronSolver__coll__graph}
+\end{center}
+\end{figure}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classElectronSolver_a925aaa114053869a296ee78dcfa43956}\label{classElectronSolver_a925aaa114053869a296ee78dcfa43956}} 
+{\bfseries Electron\+Solver} (const char $\ast$filename, ofstream \&log)
+\item 
+\mbox{\Hypertarget{classElectronSolver_ab16ffe7d9393f632ed7a2f7c74366a5d}\label{classElectronSolver_ab16ffe7d9393f632ed7a2f7c74366a5d}} 
+void {\bfseries solve} ()
+\item 
+\mbox{\Hypertarget{classElectronSolver_a4a4295a3bdb96284ef1105b66c970130}\label{classElectronSolver_a4a4295a3bdb96284ef1105b66c970130}} 
+void {\bfseries save} (const std\+::string \&folder)
+\item 
+\mbox{\Hypertarget{classElectronSolver_a9b6d9b581b35673a6ba4e3a57588cc02}\label{classElectronSolver_a9b6d9b581b35673a6ba4e3a57588cc02}} 
+void {\bfseries compute\+\_\+cross\+\_\+sections} (std\+::ofstream \&\+\_\+log, bool recalc=true)
+\end{DoxyCompactItemize}
+\doxysubsection*{Private Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classElectronSolver_a5535c750661ec2729687fd49f25d5c3a}\label{classElectronSolver_a5535c750661ec2729687fd49f25d5c3a}} 
+void {\bfseries get\+\_\+energy\+\_\+bounds} (double \&max, double \&min)
+\item 
+\mbox{\Hypertarget{classElectronSolver_ac0a3e3f0f1cdaa453c261e4adb9fab62}\label{classElectronSolver_ac0a3e3f0f1cdaa453c261e4adb9fab62}} 
+void {\bfseries precompute\+\_\+gamma\+\_\+coeffs} ()
+\item 
+\mbox{\Hypertarget{classElectronSolver_af024934d5c23509d507078f74587804f}\label{classElectronSolver_af024934d5c23509d507078f74587804f}} 
+void {\bfseries set\+\_\+initial\+\_\+conditions} ()
+\item 
+\mbox{\Hypertarget{classElectronSolver_a3b99f058d6208d7c534c901220b68fc0}\label{classElectronSolver_a3b99f058d6208d7c534c901220b68fc0}} 
+void {\bfseries sys} (const \mbox{\hyperlink{classstate__type}{state\+\_\+type}} \&s, \mbox{\hyperlink{classstate__type}{state\+\_\+type}} \&sdot, const double t)
+\item 
+\mbox{\Hypertarget{classElectronSolver_a1780773ccf6e807a936fa9c48242e983}\label{classElectronSolver_a1780773ccf6e807a936fa9c48242e983}} 
+void {\bfseries sys2} (const \mbox{\hyperlink{classstate__type}{state\+\_\+type}} \&s, \mbox{\hyperlink{classstate__type}{state\+\_\+type}} \&sdot, const double t)
+\item 
+\mbox{\Hypertarget{classElectronSolver_a99d5f098cdc7f61059ec32b8910b0e7f}\label{classElectronSolver_a99d5f098cdc7f61059ec32b8910b0e7f}} 
+void {\bfseries save\+Free} (const std\+::string \&file)
+\item 
+\mbox{\Hypertarget{classElectronSolver_a98626c91dc279ebfdca9f1960f4e93a3}\label{classElectronSolver_a98626c91dc279ebfdca9f1960f4e93a3}} 
+void {\bfseries save\+Free\+Raw} (const std\+::string \&fname)
+\item 
+\mbox{\Hypertarget{classElectronSolver_a83855c5f9c3a4f02673c8b33915b3be8}\label{classElectronSolver_a83855c5f9c3a4f02673c8b33915b3be8}} 
+void {\bfseries save\+Bound} (const std\+::string \&folder)
+\item 
+\mbox{\Hypertarget{classElectronSolver_a350ebb735e50d23e65c86b7d97379054}\label{classElectronSolver_a350ebb735e50d23e65c86b7d97379054}} 
+\mbox{\hyperlink{classstate__type}{state\+\_\+type}} {\bfseries get\+\_\+ground\+\_\+state} ()
+\end{DoxyCompactItemize}
+\doxysubsection*{Private Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classElectronSolver_afca52c071145398c482f9f6221a7a36d}\label{classElectronSolver_afca52c071145398c482f9f6221a7a36d}} 
+\mbox{\hyperlink{classMolInp}{Mol\+Inp}} {\bfseries input\+\_\+params}
+\item 
+\mbox{\Hypertarget{classElectronSolver_a54aac028239d4480a0270c16488b08a7}\label{classElectronSolver_a54aac028239d4480a0270c16488b08a7}} 
+\mbox{\hyperlink{classPulse}{Pulse}} {\bfseries pf}
+\item 
+\mbox{\Hypertarget{classElectronSolver_a10a14d7bc4f37075728696f6dbf6e6b9}\label{classElectronSolver_a10a14d7bc4f37075728696f6dbf6e6b9}} 
+double {\bfseries timespan\+\_\+au}
+\item 
+\mbox{\Hypertarget{classElectronSolver_a70a4d6694dea078e736a5cf9e4053c8b}\label{classElectronSolver_a70a4d6694dea078e736a5cf9e4053c8b}} 
+vector$<$ vector$<$ eii\+Graph $>$ $>$ {\bfseries R\+A\+T\+E\+\_\+\+E\+II}
+\item 
+\mbox{\Hypertarget{classElectronSolver_a24b04127a01b367d316ac7c3e2603ee3}\label{classElectronSolver_a24b04127a01b367d316ac7c3e2603ee3}} 
+vector$<$ vector$<$ eii\+Graph $>$ $>$ {\bfseries R\+A\+T\+E\+\_\+\+T\+BR}
+\item 
+\mbox{\Hypertarget{classElectronSolver_a4480019f1f34159b5ab3ab03d423e2ad}\label{classElectronSolver_a4480019f1f34159b5ab3ab03d423e2ad}} 
+bool {\bfseries has\+Rates} = false
+\item 
+\mbox{\Hypertarget{classElectronSolver_a3fd40a1ebda81936a1c121e4b0dfa6c0}\label{classElectronSolver_a3fd40a1ebda81936a1c121e4b0dfa6c0}} 
+bool {\bfseries good\+\_\+state} = true
+\item 
+\mbox{\Hypertarget{classElectronSolver_aee85e782c27bde1c1752701a025550ca}\label{classElectronSolver_aee85e782c27bde1c1752701a025550ca}} 
+double {\bfseries timestep\+\_\+reached} = 0
+\end{DoxyCompactItemize}
+\doxysubsection*{Additional Inherited Members}
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+/home/speno/\+A\+C4\+D\+C/include/\mbox{\hyperlink{ElectronSolver_8h}{Electron\+Solver.\+h}}\item 
+/home/speno/\+A\+C4\+D\+C/src/\mbox{\hyperlink{ElectronSolver_8cpp}{Electron\+Solver.\+cpp}}\end{DoxyCompactItemize}

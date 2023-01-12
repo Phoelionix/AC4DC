@@ -1,0 +1,129 @@
+\hypertarget{classSplineIntegral}{}\doxysection{Spline\+Integral Class Reference}
+\label{classSplineIntegral}\index{SplineIntegral@{SplineIntegral}}
+
+
+Inheritance diagram for Spline\+Integral\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=164pt]{classSplineIntegral__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for Spline\+Integral\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=164pt]{classSplineIntegral__coll__graph}
+\end{center}
+\end{figure}
+\doxysubsection*{Public Types}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classSplineIntegral_ad869707bc564b4da9cb076033b1634f5}\label{classSplineIntegral_ad869707bc564b4da9cb076033b1634f5}} 
+typedef std\+::vector$<$ \mbox{\hyperlink{structSparseTriple}{Sparse\+Triple}} $>$ {\bfseries sparse\+\_\+matrix}
+\item 
+\mbox{\Hypertarget{classSplineIntegral_aa2e75de7b8e12bc6356ad043b4598351}\label{classSplineIntegral_aa2e75de7b8e12bc6356ad043b4598351}} 
+typedef std\+::vector$<$ \mbox{\hyperlink{structSparsePair}{Sparse\+Pair}} $>$ {\bfseries pair\+\_\+list}
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a5e1b5b10b0af81c88a1fa4447985c3cf}\label{classSplineIntegral_a5e1b5b10b0af81c88a1fa4447985c3cf}} 
+typedef std\+::vector$<$ std\+::vector$<$ std\+::vector$<$ std\+::vector$<$ double $>$ $>$ $>$ $>$ {\bfseries Q\+\_\+eii\+\_\+t}
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a5306c38216e0112b3e0e5fa6bcb65232}\label{classSplineIntegral_a5306c38216e0112b3e0e5fa6bcb65232}} 
+typedef std\+::vector$<$ std\+::vector$<$ std\+::vector$<$ sparse\+\_\+matrix $>$ $>$ $>$ {\bfseries Q\+\_\+tbr\+\_\+t}
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a8b1ee304ed0b78296cfa2f4c6638b376}\label{classSplineIntegral_a8b1ee304ed0b78296cfa2f4c6638b376}} 
+typedef std\+::vector$<$ std\+::vector$<$ pair\+\_\+list $>$ $>$ {\bfseries Q\+\_\+ee\+\_\+t}
+\end{DoxyCompactItemize}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classSplineIntegral_ae2a05019d0329ce2daadd2d65ba7e9ae}\label{classSplineIntegral_ae2a05019d0329ce2daadd2d65ba7e9ae}} 
+void {\bfseries precompute\+\_\+\+Q\+E\+I\+I\+\_\+coeffs} (vector$<$ \mbox{\hyperlink{structRateData_1_1Atom}{Rate\+Data\+::\+Atom}} $>$ \&Atoms)
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a03fa547587371961f5f78bd1ff513bce}\label{classSplineIntegral_a03fa547587371961f5f78bd1ff513bce}} 
+void {\bfseries precompute\+\_\+\+Q\+T\+B\+R\+\_\+coeffs} (vector$<$ \mbox{\hyperlink{structRateData_1_1Atom}{Rate\+Data\+::\+Atom}} $>$ \&Atoms)
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a728220b44bf692611b100507962d6206}\label{classSplineIntegral_a728220b44bf692611b100507962d6206}} 
+void {\bfseries precompute\+\_\+\+Q\+E\+E\+\_\+coeffs} ()
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a496d16781fcc01af41a85b2d51f94aa8}\label{classSplineIntegral_a496d16781fcc01af41a85b2d51f94aa8}} 
+void {\bfseries Gamma\+\_\+eii} (eii\+Graph \&Gamma, const std\+::vector$<$ \mbox{\hyperlink{structRateData_1_1EIIdata}{Rate\+Data\+::\+E\+I\+Idata}} $>$ \&eii, size\+\_\+t J) const
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a07cbbefa9f2685c3a018bb5d654316e4}\label{classSplineIntegral_a07cbbefa9f2685c3a018bb5d654316e4}} 
+void {\bfseries Gamma\+\_\+tbr} (eii\+Graph \&Gamma, const std\+::vector$<$ \mbox{\hyperlink{structRateData_1_1EIIdata}{Rate\+Data\+::\+Inverse\+E\+I\+Idata}} $>$ \&eii, size\+\_\+t J, size\+\_\+t K) const
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a57f471274401ff870a41e56f3c8afec0}\label{classSplineIntegral_a57f471274401ff870a41e56f3c8afec0}} 
+void {\bfseries Gamma\+\_\+eii} (std\+::vector$<$ \mbox{\hyperlink{structSparsePair}{Sparse\+Pair}} $>$ \&Gamma\+\_\+xi, const \mbox{\hyperlink{structRateData_1_1EIIdata}{Rate\+Data\+::\+E\+I\+Idata}} \&eii, size\+\_\+t J) const
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a45c2d6ac6c0ba7ff98380a3e88bf5e97}\label{classSplineIntegral_a45c2d6ac6c0ba7ff98380a3e88bf5e97}} 
+void {\bfseries Gamma\+\_\+tbr} (std\+::vector$<$ \mbox{\hyperlink{structSparsePair}{Sparse\+Pair}} $>$ \&Gamma\+\_\+xi, const \mbox{\hyperlink{structRateData_1_1EIIdata}{Rate\+Data\+::\+Inverse\+E\+I\+Idata}} \&eii, size\+\_\+t J, size\+\_\+t K) const
+\item 
+\mbox{\Hypertarget{classSplineIntegral_aa16627c2a4eaa82f63266d0504819160}\label{classSplineIntegral_aa16627c2a4eaa82f63266d0504819160}} 
+bool {\bfseries has\+\_\+\+Qeii} ()
+\item 
+\mbox{\Hypertarget{classSplineIntegral_ae40dffb15c5713048b6990739d63ecb8}\label{classSplineIntegral_ae40dffb15c5713048b6990739d63ecb8}} 
+bool {\bfseries has\+\_\+\+Qtbr} ()
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a3046737513e7babf84e7b48b0e47f8b1}\label{classSplineIntegral_a3046737513e7babf84e7b48b0e47f8b1}} 
+bool {\bfseries has\+\_\+\+Qee} ()
+\end{DoxyCompactItemize}
+\doxysubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a69d228ca614e59feb03d1db79ad76d0a}\label{classSplineIntegral_a69d228ca614e59feb03d1db79ad76d0a}} 
+Q\+\_\+eii\+\_\+t {\bfseries Q\+\_\+\+E\+II}
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a18e9d9ce73dd74db0b4159a2388e6345}\label{classSplineIntegral_a18e9d9ce73dd74db0b4159a2388e6345}} 
+Q\+\_\+tbr\+\_\+t {\bfseries Q\+\_\+\+T\+BR}
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a90c804d368f8118bef4dfeb20db86edf}\label{classSplineIntegral_a90c804d368f8118bef4dfeb20db86edf}} 
+Q\+\_\+ee\+\_\+t {\bfseries Q\+\_\+\+EE}
+\end{DoxyCompactItemize}
+\doxysubsection*{Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a0584eda24d81c28b30f20d7f69e07688}\label{classSplineIntegral_a0584eda24d81c28b30f20d7f69e07688}} 
+double {\bfseries calc\+\_\+\+Q\+\_\+eii} (const \mbox{\hyperlink{structRateData_1_1EIIdata}{Rate\+Data\+::\+E\+I\+Idata}} \&eii, size\+\_\+t J, size\+\_\+t K) const
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a6bb759a5e788a60f10f2ca759925a200}\label{classSplineIntegral_a6bb759a5e788a60f10f2ca759925a200}} 
+sparse\+\_\+matrix {\bfseries calc\+\_\+\+Q\+\_\+tbr} (const \mbox{\hyperlink{structRateData_1_1EIIdata}{Rate\+Data\+::\+Inverse\+E\+I\+Idata}} \&tbr, size\+\_\+t J) const
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a34d05fe8a788b0a95b3936d53e91a351}\label{classSplineIntegral_a34d05fe8a788b0a95b3936d53e91a351}} 
+pair\+\_\+list {\bfseries calc\+\_\+\+Q\+\_\+ee} (size\+\_\+t J, size\+\_\+t K) const
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a883ccf64f342b6d361de2b5705f6e7ff}\label{classSplineIntegral_a883ccf64f342b6d361de2b5705f6e7ff}} 
+double {\bfseries Q\+\_\+ee\+\_\+F} (double e, size\+\_\+t K) const
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a5352f285f2db935f69c1515ad1e21cd0}\label{classSplineIntegral_a5352f285f2db935f69c1515ad1e21cd0}} 
+double {\bfseries Q\+\_\+ee\+\_\+G} (double e, size\+\_\+t K) const
+\end{DoxyCompactItemize}
+\doxysubsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classSplineIntegral_ae55b74e7da900db075b906592981e8a9}\label{classSplineIntegral_ae55b74e7da900db075b906592981e8a9}} 
+bool {\bfseries \+\_\+has\+\_\+\+Qeii} = false
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a786dda5d47c6802f83d7416dcb5cfbd4}\label{classSplineIntegral_a786dda5d47c6802f83d7416dcb5cfbd4}} 
+bool {\bfseries \+\_\+has\+\_\+\+Qtbr} = false
+\item 
+\mbox{\Hypertarget{classSplineIntegral_ab7eb1e0901e7a7ef35c2d6162237bac1}\label{classSplineIntegral_ab7eb1e0901e7a7ef35c2d6162237bac1}} 
+bool {\bfseries \+\_\+has\+\_\+\+Qee} = false
+\end{DoxyCompactItemize}
+\doxysubsection*{Static Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classSplineIntegral_a32c5de1201450f2e88afdc07df8cf8f5}\label{classSplineIntegral_a32c5de1201450f2e88afdc07df8cf8f5}} 
+static constexpr double {\bfseries D\+B\+L\+\_\+\+C\+U\+T\+O\+F\+F\+\_\+\+T\+BR} = 1e-\/16
+\item 
+\mbox{\Hypertarget{classSplineIntegral_ab91c13163b995a155f7b13ad91b069cc}\label{classSplineIntegral_ab91c13163b995a155f7b13ad91b069cc}} 
+static constexpr double {\bfseries D\+B\+L\+\_\+\+C\+U\+T\+O\+F\+F\+\_\+\+Q\+EE} = 1e-\/16
+\end{DoxyCompactItemize}
+\doxysubsection*{Additional Inherited Members}
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+/home/speno/\+A\+C4\+D\+C/include/\mbox{\hyperlink{SplineIntegral_8h}{Spline\+Integral.\+h}}\item 
+/home/speno/\+A\+C4\+D\+C/src/Spline\+Integral.\+cpp\end{DoxyCompactItemize}

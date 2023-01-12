@@ -1,0 +1,152 @@
+\hypertarget{classMolInp}{}\doxysection{Mol\+Inp Class Reference}
+\label{classMolInp}\index{MolInp@{MolInp}}
+
+
+Collaboration diagram for Mol\+Inp\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=283pt]{classMolInp__coll__graph}
+\end{center}
+\end{figure}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classMolInp_af8a602ab5327b131c0cb168863b96b2c}\label{classMolInp_af8a602ab5327b131c0cb168863b96b2c}} 
+{\bfseries Mol\+Inp} (const char $\ast$filename, ofstream \&log)
+\item 
+\mbox{\Hypertarget{classMolInp_a582f09e4376a1ae6fd7397cb9815b8b9}\label{classMolInp_a582f09e4376a1ae6fd7397cb9815b8b9}} 
+double {\bfseries Omega} ()
+\item 
+\mbox{\Hypertarget{classMolInp_af4fa4ec23f8eaa3d8ba1aec5604a03c9}\label{classMolInp_af4fa4ec23f8eaa3d8ba1aec5604a03c9}} 
+double {\bfseries Width} ()
+\item 
+\mbox{\Hypertarget{classMolInp_a6a0aeec90213c977845408ca5128ac0c}\label{classMolInp_a6a0aeec90213c977845408ca5128ac0c}} 
+double {\bfseries Fluence} ()
+\item 
+\mbox{\Hypertarget{classMolInp_acc355c47bda183dc1432cc7b0779952c}\label{classMolInp_acc355c47bda183dc1432cc7b0779952c}} 
+int {\bfseries Num\+\_\+\+Time\+\_\+\+Steps} ()
+\item 
+\mbox{\Hypertarget{classMolInp_af970ff28a812cf1c85f42d84d208cd02}\label{classMolInp_af970ff28a812cf1c85f42d84d208cd02}} 
+double {\bfseries dropl\+\_\+R} ()
+\item 
+\mbox{\Hypertarget{classMolInp_ac3aa4d5f52b68fe96420c3cf32fd9078}\label{classMolInp_ac3aa4d5f52b68fe96420c3cf32fd9078}} 
+bool {\bfseries Write\+\_\+\+Charges} ()
+\item 
+\mbox{\Hypertarget{classMolInp_af5a29c0e36431cc05aacdda7c4ec0e2e}\label{classMolInp_af5a29c0e36431cc05aacdda7c4ec0e2e}} 
+bool {\bfseries Write\+\_\+\+Intensity} ()
+\item 
+\mbox{\Hypertarget{classMolInp_a0cd51a79cbb8c7edbf893aa3d0d8b7e1}\label{classMolInp_a0cd51a79cbb8c7edbf893aa3d0d8b7e1}} 
+bool {\bfseries Write\+\_\+\+M\+D\+\_\+data} ()
+\item 
+\mbox{\Hypertarget{classMolInp_a73d8fbaef8bf94131c14f172ca472ecd}\label{classMolInp_a73d8fbaef8bf94131c14f172ca472ecd}} 
+int {\bfseries Out\+\_\+\+T\+\_\+size} ()
+\item 
+\mbox{\Hypertarget{classMolInp_a2a8510f63006df401eeb26eb79d7b816}\label{classMolInp_a2a8510f63006df401eeb26eb79d7b816}} 
+int {\bfseries Out\+\_\+\+F\+\_\+size} ()
+\item 
+\mbox{\Hypertarget{classMolInp_aec75a0756758335e387b5523d8f7a529}\label{classMolInp_aec75a0756758335e387b5523d8f7a529}} 
+double {\bfseries Max\+\_\+\+Elec\+\_\+E} ()
+\item 
+\mbox{\Hypertarget{classMolInp_a7bd4f790d397fb0c97b88171a2af0e4b}\label{classMolInp_a7bd4f790d397fb0c97b88171a2af0e4b}} 
+double {\bfseries Min\+\_\+\+Elec\+\_\+E} ()
+\item 
+\mbox{\Hypertarget{classMolInp_ae54bdcd4deae1dd81163355617b1a03f}\label{classMolInp_ae54bdcd4deae1dd81163355617b1a03f}} 
+size\+\_\+t {\bfseries Num\+\_\+\+Elec\+\_\+\+Points} ()
+\item 
+\mbox{\Hypertarget{classMolInp_a87e016ef7dd927afe7e9106233eb66ad}\label{classMolInp_a87e016ef7dd927afe7e9106233eb66ad}} 
+void {\bfseries calc\+\_\+rates} (ofstream \&\+\_\+log, bool recalc=true)
+\end{DoxyCompactItemize}
+\doxysubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classMolInp_aaf821e25d45864fcb359d21cc430ab04}\label{classMolInp_aaf821e25d45864fcb359d21cc430ab04}} 
+vector$<$ \mbox{\hyperlink{classInput}{Input}} $>$ {\bfseries Atomic}
+\item 
+\mbox{\Hypertarget{classMolInp_aa0c127df76492df390fa43c01a6a6076}\label{classMolInp_aa0c127df76492df390fa43c01a6a6076}} 
+vector$<$ \mbox{\hyperlink{structRateData_1_1Atom}{Rate\+Data\+::\+Atom}} $>$ {\bfseries Store}
+\item 
+\mbox{\Hypertarget{classMolInp_ad228b0eee5318e1d41c974973dfa2d58}\label{classMolInp_ad228b0eee5318e1d41c974973dfa2d58}} 
+vector$<$ \mbox{\hyperlink{classPotential}{Potential}} $>$ {\bfseries Pots}
+\item 
+\mbox{\Hypertarget{classMolInp_aba7e21e660bc0f766f73f365d5fd6817}\label{classMolInp_aba7e21e660bc0f766f73f365d5fd6817}} 
+vector$<$ vector$<$ \mbox{\hyperlink{classRadialWF}{Radial\+WF}} $>$ $>$ {\bfseries Orbits}
+\item 
+\mbox{\Hypertarget{classMolInp_a118e0d983dd191ba1c5ac5c9260d606b}\label{classMolInp_a118e0d983dd191ba1c5ac5c9260d606b}} 
+vector$<$ \mbox{\hyperlink{classGrid}{Grid}} $>$ {\bfseries Latts}
+\item 
+\mbox{\Hypertarget{classMolInp_a9963bfde5bd911fd01ac00b8b636642b}\label{classMolInp_a9963bfde5bd911fd01ac00b8b636642b}} 
+vector$<$ vector$<$ vector$<$ int $>$ $>$ $>$ {\bfseries Index}
+\item 
+\mbox{\Hypertarget{classMolInp_a81c02346fdf3fe9d77075e2531a4fdab}\label{classMolInp_a81c02346fdf3fe9d77075e2531a4fdab}} 
+string {\bfseries name} = \char`\"{}\char`\"{}
+\item 
+\mbox{\Hypertarget{classMolInp_a7d024b95eb92d21aaab752ac873a63d4}\label{classMolInp_a7d024b95eb92d21aaab752ac873a63d4}} 
+\mbox{\hyperlink{structGridSpacing}{Grid\+Spacing}} {\bfseries elec\+\_\+grid\+\_\+type}
+\item 
+\mbox{\Hypertarget{classMolInp_a8db762b523a47c1bf722e0d74e1a8a92}\label{classMolInp_a8db762b523a47c1bf722e0d74e1a8a92}} 
+\mbox{\hyperlink{structLossGeometry}{Loss\+Geometry}} {\bfseries loss\+\_\+geometry}
+\item 
+\mbox{\Hypertarget{classMolInp_a999b570e353ef2ca42313d2ae84cf62e}\label{classMolInp_a999b570e353ef2ca42313d2ae84cf62e}} 
+Pulse\+Shape {\bfseries pulse\+\_\+shape} = Pulse\+Shape\+::none
+\item 
+\mbox{\Hypertarget{classMolInp_aca2b0765e70023c38d0b967039a781b6}\label{classMolInp_aca2b0765e70023c38d0b967039a781b6}} 
+int {\bfseries num\+\_\+time\+\_\+steps} = -\/1
+\end{DoxyCompactItemize}
+\doxysubsection*{Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classMolInp_a24e51eae51b13fa4dc5f9c8729017a68}\label{classMolInp_a24e51eae51b13fa4dc5f9c8729017a68}} 
+bool {\bfseries validate\+\_\+inputs} ()
+\end{DoxyCompactItemize}
+\doxysubsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classMolInp_a59cf816b4a1e7698d9683cea3ad50ae0}\label{classMolInp_a59cf816b4a1e7698d9683cea3ad50ae0}} 
+double {\bfseries omega} = -\/1
+\item 
+\mbox{\Hypertarget{classMolInp_a35cfd7593d1a2a98d3a3216e45714915}\label{classMolInp_a35cfd7593d1a2a98d3a3216e45714915}} 
+double {\bfseries width} = -\/1
+\item 
+\mbox{\Hypertarget{classMolInp_a21fe27163610d61e2b36ae32e8b09d39}\label{classMolInp_a21fe27163610d61e2b36ae32e8b09d39}} 
+double {\bfseries fluence} = -\/1
+\item 
+\mbox{\Hypertarget{classMolInp_a4787d59a33dfab765aae6649ae6f9e3f}\label{classMolInp_a4787d59a33dfab765aae6649ae6f9e3f}} 
+int {\bfseries out\+\_\+\+T\+\_\+size} = 0
+\item 
+\mbox{\Hypertarget{classMolInp_ac89ebd8a36b7523a13bc5757cbd5bb62}\label{classMolInp_ac89ebd8a36b7523a13bc5757cbd5bb62}} 
+int {\bfseries out\+\_\+\+F\+\_\+size} = 100
+\item 
+\mbox{\Hypertarget{classMolInp_a154003c5f90b17205fcc3a4f376a09c6}\label{classMolInp_a154003c5f90b17205fcc3a4f376a09c6}} 
+double {\bfseries radius} = -\/1
+\item 
+\mbox{\Hypertarget{classMolInp_aee5708eb039acc468b98c5ab9adb2369}\label{classMolInp_aee5708eb039acc468b98c5ab9adb2369}} 
+int {\bfseries omp\+\_\+threads} = 1
+\item 
+\mbox{\Hypertarget{classMolInp_ac1f388a359b47a0994fd8e7350b279a3}\label{classMolInp_ac1f388a359b47a0994fd8e7350b279a3}} 
+bool {\bfseries write\+\_\+charges} = false
+\item 
+\mbox{\Hypertarget{classMolInp_aea8795f7e97527b55d7c3c4f1caada10}\label{classMolInp_aea8795f7e97527b55d7c3c4f1caada10}} 
+bool {\bfseries write\+\_\+intensity} = false
+\item 
+\mbox{\Hypertarget{classMolInp_aafa53823e3f52ef18dcc6dafd58d5f7f}\label{classMolInp_aafa53823e3f52ef18dcc6dafd58d5f7f}} 
+bool {\bfseries write\+\_\+md\+\_\+data} = true
+\item 
+\mbox{\Hypertarget{classMolInp_a35e819f446b3ec30df7c60eb2d728e83}\label{classMolInp_a35e819f446b3ec30df7c60eb2d728e83}} 
+double {\bfseries unit\+\_\+V} = -\/1.
+\item 
+\mbox{\Hypertarget{classMolInp_aa4e8b697b77c791ce68941e59586e734}\label{classMolInp_aa4e8b697b77c791ce68941e59586e734}} 
+double {\bfseries min\+\_\+elec\+\_\+e} = -\/1
+\item 
+\mbox{\Hypertarget{classMolInp_a768efa03b6eb2dba356878f9f5105388}\label{classMolInp_a768efa03b6eb2dba356878f9f5105388}} 
+double {\bfseries max\+\_\+elec\+\_\+e} = -\/1
+\item 
+\mbox{\Hypertarget{classMolInp_a5595c570ba07a01d5775907529daff80}\label{classMolInp_a5595c570ba07a01d5775907529daff80}} 
+size\+\_\+t {\bfseries num\+\_\+elec\+\_\+points} = -\/1
+\end{DoxyCompactItemize}
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+/home/speno/\+A\+C4\+D\+C/include/\mbox{\hyperlink{MolInp_8h}{Mol\+Inp.\+h}}\item 
+/home/speno/\+A\+C4\+D\+C/src/Mol\+Inp.\+cpp\end{DoxyCompactItemize}
