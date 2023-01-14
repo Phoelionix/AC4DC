@@ -1,0 +1,167 @@
+\hypertarget{classComputeRateParam}{}\doxysection{Compute\+Rate\+Param Class Reference}
+\label{classComputeRateParam}\index{ComputeRateParam@{ComputeRateParam}}
+
+
+Collaboration diagram for Compute\+Rate\+Param\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{classComputeRateParam__coll__graph}
+\end{center}
+\end{figure}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_ad341dd8b59d2b5bfed6fa0559b918411}\label{classComputeRateParam_ad341dd8b59d2b5bfed6fa0559b918411}} 
+{\bfseries Compute\+Rate\+Param} (\mbox{\hyperlink{classGrid}{Grid}} \&Lattice, vector$<$ \mbox{\hyperlink{classRadialWF}{Radial\+WF}} $>$ \&Orbitals, \mbox{\hyperlink{classPotential}{Potential}} \&U, \mbox{\hyperlink{classInput}{Input}} \&Inp, bool recalc=true)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a42c0a1a2cd324aa45e25883ee212aba6}\label{classComputeRateParam_a42c0a1a2cd324aa45e25883ee212aba6}} 
+int {\bfseries Solve\+Frozen} (vector$<$ int $>$ Max\+\_\+occ, vector$<$ int $>$ Final\+\_\+occ, ofstream \&log)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a488ca298a76b45c02d2189be5bfde8ba}\label{classComputeRateParam_a488ca298a76b45c02d2189be5bfde8ba}} 
+\mbox{\hyperlink{structRateData_1_1Atom}{Rate\+Data\+::\+Atom}} {\bfseries Solve\+Plasma\+B\+EB} (vector$<$ int $>$ Max\+\_\+occ, vector$<$ int $>$ Final\+\_\+occ, ofstream \&log)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a807afea233b103a9c03422b5985240b7}\label{classComputeRateParam_a807afea233b103a9c03422b5985240b7}} 
+int {\bfseries Symbolic} (const string \&input, const string \&output)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a1cc22dca302163c3e0c07a43aa7be8af}\label{classComputeRateParam_a1cc22dca302163c3e0c07a43aa7be8af}} 
+int {\bfseries Charge} (int Iconf)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_accb3cb32942f6ad7d9eb2dd372d9bffb}\label{classComputeRateParam_accb3cb32942f6ad7d9eb2dd372d9bffb}} 
+vector$<$ double $>$ {\bfseries Perturb\+Me} (vector$<$ \mbox{\hyperlink{classRadialWF}{Radial\+WF}} $>$ \&Virtual, double Dist, double Einit)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_aac6e60c5adca9d4b6cb43e4dea7e8a91}\label{classComputeRateParam_aac6e60c5adca9d4b6cb43e4dea7e8a91}} 
+vector$<$ double $>$ {\bfseries Secular} (vector$<$ \mbox{\hyperlink{classRadialWF}{Radial\+WF}} $>$ \&Virtual, double Dist, double Einit)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a05527b7b5102bba9a9b44a00b2f59490}\label{classComputeRateParam_a05527b7b5102bba9a9b44a00b2f59490}} 
+int {\bfseries Num\+Path} ()
+\item 
+\mbox{\Hypertarget{classComputeRateParam_ae9f0c9c3a1b4a59fdc4b74bbca062c4b}\label{classComputeRateParam_ae9f0c9c3a1b4a59fdc4b74bbca062c4b}} 
+vector$<$ double $>$ {\bfseries generate\+\_\+G} ()
+\item 
+\mbox{\Hypertarget{classComputeRateParam_ac830f9accfb85deb19e43bc34f777363}\label{classComputeRateParam_ac830f9accfb85deb19e43bc34f777363}} 
+vector$<$ double $>$ {\bfseries Times} ()
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a74320ab70e6b47560ba3692666a19334}\label{classComputeRateParam_a74320ab70e6b47560ba3692666a19334}} 
+vector$<$ double $>$ {\bfseries d\+Times} ()
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a044e1f4b7ef1ef185f23482b41cf2656}\label{classComputeRateParam_a044e1f4b7ef1ef185f23482b41cf2656}} 
+vector$<$ double $>$ {\bfseries Probs} (int i)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a4665a17ea3b0e69f71262233f157cc4d}\label{classComputeRateParam_a4665a17ea3b0e69f71262233f157cc4d}} 
+vector$<$ vector$<$ double $>$ $>$ {\bfseries All\+Probs} ()
+\item 
+\mbox{\Hypertarget{classComputeRateParam_add0d8b24ab91d1e9f1ddfd2e0923a2e1}\label{classComputeRateParam_add0d8b24ab91d1e9f1ddfd2e0923a2e1}} 
+bool {\bfseries Setup\+Index} (vector$<$ int $>$ Max\+\_\+occ, vector$<$ int $>$ Final\+\_\+occ, ofstream \&log)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_aa33be9c3c5c69651eb62c7e3d5a55bb3}\label{classComputeRateParam_aa33be9c3c5c69651eb62c7e3d5a55bb3}} 
+vector$<$ vector$<$ int $>$ $>$ {\bfseries Get\+\_\+\+Indexes} ()
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a1ecbf6146aec5b4ba242ee75be21750b}\label{classComputeRateParam_a1ecbf6146aec5b4ba242ee75be21750b}} 
+\mbox{\hyperlink{classGrid}{Grid}} \& {\bfseries Atom\+\_\+\+Mesh} ()
+\end{DoxyCompactItemize}
+\doxysubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a5728940dfb7296051504d19d809afac9}\label{classComputeRateParam_a5728940dfb7296051504d19d809afac9}} 
+vector$<$ vector$<$ double $>$ $>$ {\bfseries density} = vector$<$vector$<$double$>$$>$(0)
+\end{DoxyCompactItemize}
+\doxysubsection*{Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a8c8cbcb1a8b2b61ddd212fb7c125c647}\label{classComputeRateParam_a8c8cbcb1a8b2b61ddd212fb7c125c647}} 
+int {\bfseries map\+Occ\+Ind} (vector$<$ \mbox{\hyperlink{classRadialWF}{Radial\+WF}} $>$ \&Orbitals)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_acbdb0e344f157b49f96acfd78f739b11}\label{classComputeRateParam_acbdb0e344f157b49f96acfd78f739b11}} 
+string {\bfseries Interpret\+Index} (int i)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a53f7c5adc1082577b1439d68c4d73cc8}\label{classComputeRateParam_a53f7c5adc1082577b1439d68c4d73cc8}} 
+int {\bfseries extend\+\_\+I} (vector$<$ double $>$ \&Intensity, double new\+\_\+max\+\_\+T, double step\+\_\+T)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_abd8eb8870d8d048a9b8c74d3034f7f72}\label{classComputeRateParam_abd8eb8870d8d048a9b8c74d3034f7f72}} 
+vector$<$ double $>$ {\bfseries generate\+\_\+I} (vector$<$ double $>$ \&T, double I\+\_\+max, double Half\+Width)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a47eda56fdf899dd00ccc9896dc0d5ea0}\label{classComputeRateParam_a47eda56fdf899dd00ccc9896dc0d5ea0}} 
+vector$<$ double $>$ {\bfseries generate\+\_\+T} (vector$<$ double $>$ \&dT)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_aa13787b532b15f0d75e57211f4f9187f}\label{classComputeRateParam_aa13787b532b15f0d75e57211f4f9187f}} 
+vector$<$ double $>$ {\bfseries generate\+\_\+dT} (int num\+\_\+elem)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a89678f67f7e4dd33bcab35617796704b}\label{classComputeRateParam_a89678f67f7e4dd33bcab35617796704b}} 
+double {\bfseries T\+\_\+avg\+\_\+\+R\+MS} (vector$<$ pair$<$ double, int $>$$>$ conf\+\_\+\+R\+MS)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a2fe45e67146cd19312b87a7250f4136a}\label{classComputeRateParam_a2fe45e67146cd19312b87a7250f4136a}} 
+double {\bfseries T\+\_\+avg\+\_\+\+Charge} ()
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a1e0e96f4ac22de57221fd64c6a331aa5}\label{classComputeRateParam_a1e0e96f4ac22de57221fd64c6a331aa5}} 
+void {\bfseries Generate\+Rate\+Keys} (vector$<$ \mbox{\hyperlink{structRateData_1_1Rate}{Rate\+Data\+::\+Rate}} $>$ \&To\+Sort)
+\end{DoxyCompactItemize}
+\doxysubsection*{Static Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_acb8b0cd05889a2c7802321c6ba7d1075}\label{classComputeRateParam_acb8b0cd05889a2c7802321c6ba7d1075}} 
+static bool {\bfseries sort\+E\+I\+Iby\+Ind} (\mbox{\hyperlink{structRateData_1_1EIIdata}{Rate\+Data\+::\+E\+I\+Idata}} A, \mbox{\hyperlink{structRateData_1_1EIIdata}{Rate\+Data\+::\+E\+I\+Idata}} B)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a6366555c7c7e11374834eb3961f63b4c}\label{classComputeRateParam_a6366555c7c7e11374834eb3961f63b4c}} 
+static bool {\bfseries sort\+Rates\+From} (\mbox{\hyperlink{structRateData_1_1Rate}{Rate\+Data\+::\+Rate}} A, \mbox{\hyperlink{structRateData_1_1Rate}{Rate\+Data\+::\+Rate}} B)
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a9a3ffb39927a74b9d21f0ca46b9936e7}\label{classComputeRateParam_a9a3ffb39927a74b9d21f0ca46b9936e7}} 
+static bool {\bfseries sort\+Rates\+To} (\mbox{\hyperlink{structRateData_1_1Rate}{Rate\+Data\+::\+Rate}} A, \mbox{\hyperlink{structRateData_1_1Rate}{Rate\+Data\+::\+Rate}} B)
+\end{DoxyCompactItemize}
+\doxysubsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a684a6fb05233b28db7499fad4d39cc00}\label{classComputeRateParam_a684a6fb05233b28db7499fad4d39cc00}} 
+\mbox{\hyperlink{classGrid}{Grid}} \& {\bfseries lattice}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a2677ca3cb1a0aa1c28087c55fed55360}\label{classComputeRateParam_a2677ca3cb1a0aa1c28087c55fed55360}} 
+\mbox{\hyperlink{classInput}{Input}} \& {\bfseries input}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_ace35276b68af31d1f6a01ecf5f92e91e}\label{classComputeRateParam_ace35276b68af31d1f6a01ecf5f92e91e}} 
+vector$<$ \mbox{\hyperlink{classRadialWF}{Radial\+WF}} $>$ \& {\bfseries orbitals}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a7349b63ffeeb4040a342743cd24a37d8}\label{classComputeRateParam_a7349b63ffeeb4040a342743cd24a37d8}} 
+\mbox{\hyperlink{classPotential}{Potential}} \& {\bfseries u}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a51cb903b86fcf97d5a52c21e951f7dd7}\label{classComputeRateParam_a51cb903b86fcf97d5a52c21e951f7dd7}} 
+bool {\bfseries recalculate}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a2839cffd62f500c2a532d639f4a5c785}\label{classComputeRateParam_a2839cffd62f500c2a532d639f4a5c785}} 
+vector$<$ \mbox{\hyperlink{structCustomDataType_1_1polarize}{Custom\+Data\+Type\+::polarize}} $>$ {\bfseries Mix\+Me}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_ab25b94eeb51b31c853efadc48e016939}\label{classComputeRateParam_ab25b94eeb51b31c853efadc48e016939}} 
+int {\bfseries dimension}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_af645f6a4f22dc97cfd757bad4947be81}\label{classComputeRateParam_af645f6a4f22dc97cfd757bad4947be81}} 
+vector$<$ vector$<$ double $>$ $>$ {\bfseries charge}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a4643ab93e8234405e7e495b6760f6845}\label{classComputeRateParam_a4643ab93e8234405e7e495b6760f6845}} 
+vector$<$ double $>$ {\bfseries T}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a86f949a95e68978904867a332f34fc62}\label{classComputeRateParam_a86f949a95e68978904867a332f34fc62}} 
+vector$<$ double $>$ {\bfseries dT}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_aef8911e5867ffec3f7bf4fb16c8e1f54}\label{classComputeRateParam_aef8911e5867ffec3f7bf4fb16c8e1f54}} 
+vector$<$ vector$<$ double $>$ $>$ {\bfseries P}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a25790c13bae5e8cd60120bc55c3560e5}\label{classComputeRateParam_a25790c13bae5e8cd60120bc55c3560e5}} 
+vector$<$ vector$<$ int $>$ $>$ {\bfseries Index}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a045e7f9c3cd43e1541ac588931d999de}\label{classComputeRateParam_a045e7f9c3cd43e1541ac588931d999de}} 
+\mbox{\hyperlink{structRateData_1_1Atom}{Rate\+Data\+::\+Atom}} {\bfseries Store}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a0643ea528a7ab01517af12c49f78d508}\label{classComputeRateParam_a0643ea528a7ab01517af12c49f78d508}} 
+vector$<$ \mbox{\hyperlink{structCustomDataType_1_1ffactor}{Custom\+Data\+Type\+::ffactor}} $>$ {\bfseries FF}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_ab64266877337a2970a4a501adc68d577}\label{classComputeRateParam_ab64266877337a2970a4a501adc68d577}} 
+vector$<$ int $>$ {\bfseries hole\+\_\+posit}
+\item 
+\mbox{\Hypertarget{classComputeRateParam_a32915b822d4314e6f51e6d4a7d898586}\label{classComputeRateParam_a32915b822d4314e6f51e6d4a7d898586}} 
+vector$<$ int $>$ {\bfseries Rates\+From\+Keys}
+\end{DoxyCompactItemize}
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+/home/speno/\+A\+C4\+D\+C/include/\mbox{\hyperlink{ComputeRateParam_8h}{Compute\+Rate\+Param.\+h}}\item 
+/home/speno/\+A\+C4\+D\+C/src/\mbox{\hyperlink{ComputeRateParam_8cpp}{Compute\+Rate\+Param.\+cpp}}\end{DoxyCompactItemize}
