@@ -1,9 +1,0 @@
-<map id="/home/speno/AC4DC/include/FreeDistribution.h" name="/home/speno/AC4DC/include/FreeDistribution.h">
-<area shape="rect" id="node1" title="Defines the class Distribution that represents the energy distribution of free electrons." alt="" coords="331,5,537,47"/>
-<area shape="rect" id="node2" href="$RateSystem_8h.html" title=" " alt="" coords="223,95,429,136"/>
-<area shape="rect" id="node7" href="$FreeDistribution_8cpp.html" title=" " alt="" coords="454,95,633,136"/>
-<area shape="rect" id="node3" href="$ElectronSolver_8h.html" title=" " alt="" coords="5,184,212,225"/>
-<area shape="rect" id="node5" href="$RateSystem_8cpp.html" title=" " alt="" coords="237,184,415,225"/>
-<area shape="rect" id="node6" href="$ee__dynamics_8cpp.html" title=" " alt="" coords="440,184,631,225"/>
-<area shape="rect" id="node4" href="$ElectronSolver_8cpp.html" title=" " alt="" coords="19,273,198,315"/>
-</map>
