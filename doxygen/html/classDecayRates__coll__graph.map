@@ -1,6 +1,0 @@
-<map id="DecayRates" name="DecayRates">
-<area shape="rect" id="node1" title=" " alt="" coords="89,201,189,228"/>
-<area shape="rect" id="node2" href="$classGrid.html" title="The Grid class creates the coordinate grid on the interval from [r_min, r_max] with &quot;num_grid_pts&quot; po..." alt="" coords="5,5,55,32"/>
-<area shape="rect" id="node4" href="$classPotential.html" title=" " alt="" coords="99,96,179,123"/>
-<area shape="rect" id="node3" href="$classInput.html" title=" " alt="" coords="204,96,259,123"/>
-</map>
