@@ -79,7 +79,11 @@ int BasisSet::lower_i_from_e(double e) {
     return lower_idx(e, avg_e);
 }
 
-// Constructs the grid over which the electron distribution is solved. 
+/**
+ * @brief Constructs the grid over which the electron distribution is solved. 
+ * 
+ * @param gt grid type, also referred to as grid_style.
+ */
 void BasisSet::set_knot(const GridSpacing& gt){
     int Z_0 = gt.zero_degree_0;
     int Z_inf = gt.zero_degree_inf;
@@ -230,8 +234,8 @@ void BasisSet::set_parameters(size_t num_int, double min, double max, const Grid
         tripletList.push_back(Eigen::Triplet<double>(i,i,overlap(i, i)));
         // S(i,i) = overlap(i,i);
     }
-    // Compute overlap matrix
-    Eigen::SparseMatrix<double> S(num_funcs, num_funcs);
+    /// Compute overlap matrix   //s\/ If we use the grid basis (with num_int points) the splines overlap. S takes us to a spline-independent basis I believe.
+    Eigen::SparseMatrix<double> S(num_funcs, num_funcs);  //s\/ rows and cols. 
     S.setFromTriplets(tripletList.begin(), tripletList.end());
     // Precompute the LU decomposition
     linsolver.analyzePattern(S);
@@ -258,11 +262,19 @@ void BasisSet::set_parameters(size_t num_int, double min, double max, const Grid
     }
 }
 
+/**
+ * @brief Changes basis of vector deltaf from spline basis to grid basis, see details.
+ * @details From SplineBasis.cpp - "If grid has num_int+k+1 points, num_int of these are usable splines".
+ */
 Eigen::VectorXd BasisSet::Sinv(const Eigen::VectorXd& deltaf) {
     // Solves the linear system S fdot = deltaf
     return linsolver.solve(deltaf);
 }
 
+/**
+ * @brief Changes basis of matrix J from spline basis to grid basis, see details.
+ * @details From SplineBasis.cpp - "If grid has num_int+k+1 points, num_int of these are usable splines".
+ */
 Eigen::MatrixXd BasisSet::Sinv(const Eigen::MatrixXd& J) {
     // Solves the linear system S fdot = deltaf
     return linsolver.solve(J);

@@ -1,6 +1,6 @@
 /**
  * @file HartreeFock.h
- * @brief POV you wanted to see if it was really that terrifying.
+ * @brief You wanted to see if it was really that terrifying.
  * 
  */
 

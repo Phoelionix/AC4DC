@@ -1,5 +1,4 @@
-
-CPP := g++-11
+CPP := /home/linuxbrew/.linuxbrew/bin/g++-10#g++-11
 
 LIB := -fopenmp
 

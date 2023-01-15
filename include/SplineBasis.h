@@ -34,7 +34,9 @@ class BasisSet{
 public:
     BasisSet() {};
     void set_parameters(size_t nfuncs, double min, double max, const GridSpacing& gt);
+    /// Returns S_inverse(deltaf) 
     Eigen::VectorXd Sinv(const Eigen::VectorXd& deltaf);
+    /// Returns S_inverse(J)
     Eigen::MatrixXd Sinv(const Eigen::MatrixXd& J);
 
     double raw_bspline(size_t i, double x) const;

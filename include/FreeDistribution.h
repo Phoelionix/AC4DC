@@ -115,10 +115,11 @@ public:
     // modifiers
 
     /**
-     * @brief Steps the density distribution through a time step using its time derivative.
-     * @details Computes then adds deltaf to f, where f is the electron density vector. 
-     * @todo This function is used in the (sensical) way described, but it calls basis.Sinv which apparently returns dfdt from deltaf, the reverse of what it should. Investigation of S needed.
-     * @param v Column vector df/dt (density/time gradient).
+     * @brief Updates the grid's density distribution (f) with a given deltaf in the spline basis.
+     * @details Adds to f, where f is the electron density vector. 
+     * @todo Original comment said v was column vector df/dt (density/time gradient), but likely mean the change in f for a time step. 
+     * This seems correct, given that dfdt is inputted for the spline basis's Sinv (S_inverse * <VectorXd input>) function, which names the input deltaf.
+     * @param v deltaf
      */
     void applyDelta(const Eigen::VectorXd& dfdt);
     

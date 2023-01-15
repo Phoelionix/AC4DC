@@ -1,6 +1,6 @@
 /**
  * @file EigenSolver.h
- * 
+ * @brief Defines the EigenSolver class, which solves Ay = b and generalised eigenvalue equation (HC ≈) FC = eSC for F.
  */
 /*===========================================================================
 This file is part of AC4DC.

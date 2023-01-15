@@ -279,10 +279,14 @@ void Distribution::addDeltaSpike(double e, double N) {
     f[idx] += N/basis.areas[idx];
 }
 
-//S\/ ?Expecting? f <-- f + deltaf(df/dt)  
+/**
+ * @brief f <-- f + df/dt|basis  
+ * 
+ * @param v 
+ */
 void Distribution::applyDelta(const Eigen::VectorXd& v) {
     Eigen::VectorXd u(size);
-    u= (this->basis.Sinv(v)); //S\/ Expect u = deltaf, so this is WEIRD, Sinv only seems to be intended for getting df/dt from deltaf, not the reverse.
+    u= (this->basis.Sinv(v)); 
     for (size_t i=0; i<size; i++) {
         f[i] += u[i];
     }
