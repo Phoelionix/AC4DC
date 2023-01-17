@@ -7,7 +7,7 @@ import matplotlib
 #     'pgf.rcfonts': False,
 # })
 import matplotlib.pyplot as plt
-from plot_molecular_charge import Plotter
+from plotter_core import Plotter
 import sys
 import numpy as np
 import os

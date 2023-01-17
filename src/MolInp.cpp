@@ -131,6 +131,13 @@ MolInp::MolInp(const char* filename, ofstream & log)
 
 	}
 
+	for (size_t n = 0; n < FileContent["#DEBUG"].size(); n++) {
+		stringstream stream(FileContent["#DEBUG"][n]);
+
+		if (n == 0) stream >> simulation_cutoff_fraction;
+
+	}
+
 	// for (size_t n = 0; n < FileContent["#GRID"].size(); n++) {
 	// 	stringstream stream(FileContent["#GRID"][n]);
 	// 	if (n == 0) stream >> min_elec_e;
@@ -157,6 +164,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	cout<<bc<<"Photon energy:  "<<clr<<omega<<" eV"<<endl;
 	cout<<bc<<"Pulse fluence:  "<<clr<<fluence*10000<<" J/cm^2 = "<<10000*fluence/omega/Constant::J_per_eV<<"ph cm^-2"<<endl;
 	cout<<bc<<"Pulse FWHM:     "<<clr<<width<<" fs"<<endl;
+	cout<<bc<<"Simulated Fraction of twice-FWHM:     "<<clr<<simulation_cutoff_fraction*100<<"%"<<endl;  //TODO make clearer/dynamic
 	cout<<bc<<"Pulse shape:    "<<clr<<pulse_shape<<endl<<endl;
 
 	cout<<bc<<"Electron grid:  "<<clr<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
@@ -229,6 +237,7 @@ bool MolInp::validate_inputs() {
 	cerr<<"\033[31;1m";
 	if (omega <= 0 ) { cerr<<"ERROR: pulse omega must be positive"; is_valid=false; }
 	if (width <= 0 ) { cerr<<"ERROR: pulse width must be positive"; is_valid=false; }
+	if (simulation_cutoff_fraction <= 0){ cerr<<"ERROR: the simulation cutoff must be a positive factor"; is_valid=false; }
 	if (fluence <= 0 ) { cerr<<"ERROR: pulse fluence must be positive"; is_valid=false; }
 	if (num_time_steps <= 0 ) { cerr<<"ERROR: got negative number of timesteps"; is_valid=false; }
 	if (out_T_size <= 0) { cerr<<"ERROR: system set to output zero timesteps"; is_valid=false; }

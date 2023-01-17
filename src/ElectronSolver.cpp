@@ -96,7 +96,7 @@ void ElectronSolver::solve() {
     if (input_params.pulse_shape ==  PulseShape::square){
         this->iterate(-input_params.Width(), timespan_au - input_params.Width()); // Inherited from ABM
     } else {
-        this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
+        this->iterate(-timespan_au/2, -timespan_au/2 + timespan_cutoff); // Inherited from ABM.
     }
     
     
@@ -123,7 +123,7 @@ void ElectronSolver::solve() {
         if (input_params.pulse_shape ==  PulseShape::square){
             this->iterate(-input_params.Width(), timespan_au - input_params.Width()); // Inherited from ABM
         } else {
-            this->iterate(-timespan_au/2, timespan_au/2); // Inherited from ABM
+            this->iterate(-timespan_au/2, -timespan_au/2 + timespan_cutoff); // Inherited from ABM
         }
     }
     

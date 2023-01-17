@@ -1,9 +1,11 @@
+import stringprep
 import matplotlib.rcsetup as rcsetup
 import matplotlib.pyplot as plt
 import numpy as np
 # from scipy.interpolate import BSpline
 from math import log
 import os.path as path
+import os
 import matplotlib.colors as colors
 import sys
 # import glob
@@ -52,13 +54,42 @@ def get_colors(num, seed):
     return C(idx)
 
 class Plotter:
-    # Initialistation: Plotter(water)
-    # expects there to be a control file named input/water.mol
+    # Example initialisation: Plotter(water)
+    # expects there to be a control file named water.mol within AC4DC/input/ or a subdirectory.
     def __init__(self, mol):
         self.p = path.abspath(path.join(__file__ ,"../../"))
         # Inputs
-        molfile = self.p+"/input/"+mol+".mol"
+        
+        # Get molfile from all subdirectories in input folder.  Old -> #molfile = self.p+"/input/"+mol+".mol"
+        molfname_candidates = []
+        for dirpath, dirnames, fnames in os.walk(self.p):
+            for molfname in [f for f in fnames if f == mol+".mol"]:
+                molfname_candidates.append(path.join(dirpath, molfname))
+        # No file found
+        if len(molfname_candidates) == 0:
+            print('\033[91m' + "No "+ mol + " input file found in input folders, trying default path." +'\033[0m')
+            molfile = self.p+"/input/"+mol+".mol"
+        elif len(molfname_candidates) == 1:
+            molfile = molfname_candidates[0]
+        # File found in multiple directories
+        else:
+            print('\033[95m' + "Multiple mol files with given name detected. Please input number corresponding to desired directory." + '\033[0m' )
+            for idx, val in enumerate(molfname_candidates):
+                print(idx,val)
+            selected_file = False
+            while selected_file == False: 
+                molfile = molfname_candidates[int(input("Input directory number: "))]
+                print('\033[95m' + molfile + " selected." + '\033[0m')
+                y_n_check = input("Input 'y'/'n' to continue/select a different file: ")
+                if y_n_check.casefold() not in map(str.casefold,["y","yes"]):
+                    if y_n_check.casefold() not in map(str.casefold,["n","no"]):
+                        print("Invalid response, using 'n'.")
+                    continue
+                else:
+                    print("Continuing...")
+                    selected_file = True
         self.mol = {'name': mol, 'infile': molfile, 'mtime': path.getmtime(molfile)}
+        
         # Stores the atomic input files read by ac4dc
         self.atomdict = {}
         self.statedict = {}
@@ -493,6 +524,8 @@ def fit_maxwell(X, Y):
     return popt
 
 def maxwell(e, kT, n):
+    if kT < 0:
+        return 0 # Dirty silencing of fitting error.
     return n * np.sqrt(e/(np.pi*kT**3)) * np.exp(-e/kT)
 
 def lnmaxwell(e, kT, n):

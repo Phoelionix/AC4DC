@@ -235,7 +235,7 @@ void Adams_BM<T>::run_steps(){
     for (int n = this->order; n < this->t.size()-1; n++) {
         std::cout << "\r[ sim ] t="
                   << std::left<<std::setfill(' ')<<std::setw(6)
-                  << this->t[n] << std::flush;
+                  << this->t[n] << "au" << std::flush;
         this->step(n);
     }
     std::cout<<std::endl;

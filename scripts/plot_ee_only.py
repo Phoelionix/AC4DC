@@ -2,7 +2,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 import sys
-from plot_molecular_charge import maxwell
+from plotter_core import maxwell
 
 raw = np.genfromtxt(sys.argv[1])
 

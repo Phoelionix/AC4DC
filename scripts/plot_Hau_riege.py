@@ -7,7 +7,7 @@ matplotlib.rcParams.update({
     'pgf.rcfonts': False,
 })
 import matplotlib.pyplot as plt
-from plot_molecular_charge import fit_maxwell, maxwell
+from plotter_core import fit_maxwell, maxwell
 
 plt.rcParams["font.size"] = 8
 cmap = plt.get_cmap("tab10")

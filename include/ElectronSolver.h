@@ -35,6 +35,8 @@ This file should arguably be called RateEquationSolver, however, for historical 
 #include "MolInp.h"
 #include "Input.h"
 #include "Pulse.h"
+#include <fstream>
+#include <sstream>
 #include <iostream>
 #include <stdexcept>
 
@@ -56,7 +58,15 @@ public:
     {
         pf.set_shape(input_params.pulse_shape);
         pf.set_pulse(input_params.Fluence(), input_params.Width());
-        timespan_au = input_params.Width()*4;
+        timespan_au = input_params.Width()*4;   // 4*FWHM, capturing effectively entire pulse.
+        // Get cutoff
+            timespan_cutoff = timespan_au*input_params.Simulated_Fraction();
+            const string bc = "\033[33m"; // begin colour escape code
+	        const string clr = "\033[0m"; // clear escape code
+            const string banner = "================================================================================";
+            cout<<banner<<endl;
+            cout<<bc<<"Timespan cutoff:  "<<clr<<(-timespan_au/2 + timespan_cutoff)*Constant::fs_per_au<<" fs"<<endl;
+            cout<<banner<<endl;
     }
     void solve();
     void save(const std::string& folder);
@@ -65,6 +75,8 @@ private:
     MolInp input_params;
     Pulse pf;
     double timespan_au; // Atomic units
+    double timespan_cutoff;
+    double fraction_of_pulse_simulated;
     // Model parameters
     
 

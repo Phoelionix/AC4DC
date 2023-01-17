@@ -7,7 +7,7 @@ matplotlib.rcParams.update({
     'pgf.rcfonts': False,
 })
 import matplotlib.pyplot as plt
-from plot_molecular_charge import Plotter, parse_elecs_from_latex
+from plotter_core import Plotter, parse_elecs_from_latex
 import sys
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator

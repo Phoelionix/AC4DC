@@ -14,7 +14,7 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 2000           // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
-200000           // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+200000           //Original:200000 Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12             // Number of threads in OpenMP.
 0              // [only for nonthermal] minimum free-electron energy in eV
 7000           // [only for nonthermal] maximum free-electron energy in eV

@@ -7,7 +7,7 @@ matplotlib.rcParams.update({
     'pgf.rcfonts': False,
 })
 import matplotlib.pyplot as plt
-from plot_molecular_charge import Plotter, get_colors
+from plotter_core import Plotter, get_colors
 import sys
 from labellines import *
 import numpy as np

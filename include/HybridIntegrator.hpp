@@ -1,5 +1,5 @@
 /** @file HybridIntegrator.hpp
- * @brief 
+ * @brief Defines the Hybrid class which adds a Moulton step after each step from the inherited method of Adams_BM.
 */
 /*===========================================================================
 This file is part of AC4DC.
@@ -22,6 +22,7 @@ This file is part of AC4DC.
 #define HYBRID_INTEGRATE_HPP
 
 #include "AdamsIntegrator.hpp"
+#include "Constant.h"
 #include <Eigen/Dense>
 
 namespace ode {
@@ -42,7 +43,8 @@ class Hybrid : public Adams_BM<T>{
 
     void run_steps();
     void iterate(double t_initial, double t_final);
-    void backward_Euler(unsigned n);
+    /// Unused
+    void backward_Euler(unsigned n); 
     void Moulton(unsigned n);
 };
 
@@ -96,7 +98,7 @@ void Hybrid<T>::run_steps(){
     for (size_t n = this->order; n < this->t.size()-1; n++) {
         std::cout << "\r[ sim ] t="
                   << std::left<<std::setfill(' ')<<std::setw(6)
-                  << this->t[n] << std::flush;
+                  << this->t[n] * Constant::fs_per_au << std::flush;  //TODO check if this multiplication is taxing.
         this->step(n);
         
         // this->y[n+1].from_backwards_Euler(this->dt, this->y[n], stiff_rtol, stiff_max_iter);
@@ -176,7 +178,7 @@ void Hybrid<T>::backward_Euler(unsigned n){
         idx++;
     }
     this->y[n+1] += old;
-    if(idx==stiff_max_iter) std::cerr<<"Max Euler iterations exceeded"<<std::endl;
+    if(idx==stiff_max_iter) std::cerr<<"Max Euler iterations exceeded (B)"<<std::endl;
 }
 
 
