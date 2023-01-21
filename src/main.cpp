@@ -18,7 +18,7 @@ This file is part of AC4DC.
 // (C) Alaric Sanders 2020
 
 #include "ComputeRateParam.h"
-#include "ElectronSolver.h"
+#include "ElectronRateSolver.h"
 #include "Input.h"
 #include "Constant.h"
 #include <iostream>
@@ -161,7 +161,7 @@ int main(int argc, const char *argv[]) {
     cout << "logfile name: " << logname <<endl;
     ofstream log(logname);
     cout << "\033[1;32mInitialising... \033[0m" <<endl;
-    ElectronSolver S(argv[1], log); // Contains all of the collision parameters.
+    ElectronRateSolver S(argv[1], log); // Contains all of the collision parameters.
     cout << "\033[1;32mComputing cross sections... \033[0m" <<endl;
     S.compute_cross_sections(log, runsettings.recalc);
     if (runsettings.solve_rate_eq) {

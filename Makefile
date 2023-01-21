@@ -50,7 +50,7 @@ debug: all
 release: all
 
 scrub:
-	$(RM) build/FreeDistribution.o build/ElectronSolver.o build/SplineBasis.o build/SplineIntegral.o
+	$(RM) build/FreeDistribution.o build/ElectronRateSolver.o build/SplineBasis.o build/SplineIntegral.o
 
 clean:
 	@echo " Cleaning...";

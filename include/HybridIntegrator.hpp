@@ -33,7 +33,7 @@ class Hybrid : public Adams_BM<T>{
         Adams_BM<T>(order), stiff_rtol(rtol), stiff_max_iter(max_iter){};
     const static unsigned MAX_BEULER_ITER = 50;
     private:
-    virtual void sys2(const T& q, T& qdot, double t) =0;
+    virtual void sys_ee(const T& q, T& qdot, double t) =0;
     // virtual void Jacobian2(const T& q, T& qdot, double t) =0;
     protected:
 
@@ -45,13 +45,13 @@ class Hybrid : public Adams_BM<T>{
     void iterate(double t_initial, double t_final);
     /// Unused
     void backward_Euler(unsigned n); 
-    void Moulton(unsigned n);
+    void step_stiff_part(unsigned n);
 };
 
 // template <typename T>
 // void Hybrid<T>::step_backward_euler(int n){
 //     T dndt;
-//     // this->sys(this->y[n], dndt, this->t[n]);
+//     // this->sys_bound(this->y[n], dndt, this->t[n]);
 //     dndt *=this->dt;
 //     this->y[n+1] = this->y[n];
 //     this->y[n+1] += dndt;
@@ -82,7 +82,12 @@ void Hybrid<T>::iterate(double t_initial, double t_final) {
     this->run_steps();
 }
 
-// Override the underlying Adams method
+// Overrides the underlying Adams method, adding a more refined but computationally expensive treatment for the stiff Q^{ee} contribution to deltaf.
+/**
+ * @brief  Iterates through the (t_final-t_initial = simulation_timespan)/dt timesteps.
+ * 
+ * @tparam T 
+ */
 template<typename T>
 void Hybrid<T>::run_steps(){
     assert(this->y.size() == this->t.size());
@@ -99,29 +104,30 @@ void Hybrid<T>::run_steps(){
         std::cout << "\r[ sim ] t="
                   << std::left<<std::setfill(' ')<<std::setw(6)
                   << this->t[n] * Constant::fs_per_au << std::flush;  //TODO check if this multiplication is taxing.
-        this->step(n);
+     
+        this->step_nonstiff_part(n); 
         
         // this->y[n+1].from_backwards_Euler(this->dt, this->y[n], stiff_rtol, stiff_max_iter);
-        this->Moulton(n);
+        this->step_stiff_part(n);
     }
     std::cout<<std::endl;
 }
 
-
+/// Use a true implicit method to estimate change to bad part of system based solely on its own action.
 template<typename T>
-void Hybrid<T>::Moulton(unsigned n){
+void Hybrid<T>::step_stiff_part(unsigned n){
     T old = this->y[n];
     old *= -1.;
     old += this->y[n+1];
 
-    // Adams-Moulton step
+    // Adams-Moulton step - (Same as one called for end of good part of system).
     // Here, tmp is the y_n+1 guessed in the preceding step, handle i=0 explicitly:
     T tmp;
     tmp *= 0;
     // Now tmp goes back to being an aggregator
     for (int i = 1; i < this->order; i++) {
         T ydot;
-        this->sys2(this->y[1+n-i], ydot, this->t[1+n-i]);
+        this->sys_ee(this->y[1+n-i], ydot, this->t[1+n-i]);
         ydot *= this->b_AM[i];
         tmp += ydot;
     }
@@ -131,6 +137,8 @@ void Hybrid<T>::Moulton(unsigned n){
     tmp += this->y[n];
 
     // tmp now stores the additive constant for y_n+1 = tmp + h b0 f(y_n+1, t_n+1)
+
+    // Picard iteration
     T prev;
     double diff = stiff_rtol*2;
     unsigned idx=0;
@@ -139,7 +147,7 @@ void Hybrid<T>::Moulton(unsigned n){
         prev = this->y[n+1];
         prev *= -1;
         T dydt;
-        this->sys2(this->y[n+1], dydt, this->t[n+1]);
+        this->sys_ee(this->y[n+1], dydt, this->t[n+1]);
         dydt *= this->b_AM[0]*this->dt;
         this->y[n+1] = tmp;
         this->y[n+1] += dydt;
@@ -161,14 +169,14 @@ void Hybrid<T>::backward_Euler(unsigned n){
     //old caches the step from the regular part
 
     // Guess. (Naive Euler)
-    sys2(this->y[n+1], this->y[n+1], this->t[n+1]);
+    sys_ee(this->y[n+1], this->y[n+1], this->t[n+1]);
     this->y[n+1] *= this->dt;
     this->y[n+1] += this->y[n]; 
 
     double diff = stiff_rtol*2;
     while (diff > stiff_rtol && idx < stiff_max_iter){
         T tmp = this->y[n+1];
-        sys2(tmp, this->y[n+1], this->t[n+1]);
+        sys_ee(tmp, this->y[n+1], this->t[n+1]);
         this->y[n+1] *= this->dt;
         this->y[n+1] += this->y[n];
         

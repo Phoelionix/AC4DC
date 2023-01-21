@@ -41,14 +41,15 @@ class IVPSolver{
 public:
     IVPSolver();
     void setup(const T& initial_state, double _dt, double _tolerance = 1e-2);
-    double dt;
+    /// Should really be called deltat. Length of the time steps - S.P.
+    double dt;  
     double step_tolerance;
 
     // void export_to(string fname);
 protected:
     std::vector<T> y;
     std::vector<double> t;
-    virtual void sys(const T& q, T& qdot, double t) =0;
+    virtual void sys_bound(const T& q, T& qdot, double t) =0;
     T zero_y;
 
 };
@@ -84,7 +85,7 @@ public:
 
 protected:
     void run_steps();
-    void step(int n); // Predictor-corrector multistep method
+    void step_nonstiff_part(int n); // Predictor-corrector multistep method
     void step_rk4(int n); // Runge-Kutta 4th order calculator
     void step_euler(int n); // Basic explicit Euler stepper
     unsigned int order;
@@ -107,7 +108,7 @@ Adams_BM<T>::Adams_BM(unsigned int _order):
 template <typename T>
 void Adams_BM<T>::step_euler(int n){
     T dndt;
-    this->sys(this->y[n], dndt, this->t[n]);
+    this->sys_bound(this->y[n], dndt, this->t[n]);
     dndt *=this->dt;
     this->y[n+1] = this->y[n];
     this->y[n+1] += dndt;
@@ -119,24 +120,24 @@ void Adams_BM<T>::step_euler(int n){
 template<typename T>
 void Adams_BM<T>::step_rk4(int n) {
     T k1, k2, k3, k4, tmp;
-    this->sys(this->y[n], k1, this->t[n]);
+    this->sys_bound(this->y[n], k1, this->t[n]);
     //tmp = this->y[n]+k1*0.5
     k1 *= this->dt;
     tmp = k1;
     tmp *= 0.5;
     tmp += this->y[n];
-    this->sys(tmp, k2, this->t[n]+this->dt*0.5);
+    this->sys_bound(tmp, k2, this->t[n]+this->dt*0.5);
     // tmp = this->y[n]+k2*0.5
     k2 *= this->dt;
     tmp = k2;
     tmp *=0.5;
     tmp += this->y[n];
-    this->sys(tmp, k3, this->t[n]+this->dt*0.5);
+    this->sys_bound(tmp, k3, this->t[n]+this->dt*0.5);
     // tmp = this->y[n] + k3;
     k3 *= this->dt;
     tmp = k3;
     tmp += this->y[n];
-    this->sys(tmp, k4, this->t[n]+this->dt    );
+    this->sys_bound(tmp, k4, this->t[n]+this->dt    );
     
     k4 *= this->dt;
     //y[n+1] = y[n] + (k1*(1./6) + k2*(1./3) + k3*(1./3) + k4*(1./6)) * this->dt;;
@@ -156,7 +157,12 @@ void Adams_BM<T>::step_rk4(int n) {
 }
 
 template<typename T>
-void Adams_BM<T>::step(int n) {
+/**
+ * @brief Uses the explicit Adams-Bashforth method, then applies the implicit Adams-Moulton method as a correction. 
+ * @tparam T 
+ * @param n Index of current time step.
+ */
+void Adams_BM<T>::step_nonstiff_part(int n) {
     // Predicts the value y_n+1
     // Adams-Bashforth predictor routine:
 
@@ -164,7 +170,7 @@ void Adams_BM<T>::step(int n) {
     tmp = this->zero_y;
 
     for (size_t i = 0; i < order; i++) {
-        this->sys(this->y[n-i], ydot, this->t[n-i]);
+        this->sys_bound(this->y[n-i], ydot, this->t[n-i]);
         ydot *= b_AB[i];
         tmp += ydot;
     }
@@ -180,11 +186,11 @@ void Adams_BM<T>::step(int n) {
     // Adams-Moulton corrector step
     // Here, tmp is the y_n+1 guessed in the preceding step, handle i=0 explicitly:
     T tmp2(tmp);
-    this->sys(tmp2, tmp, this->t[n+1]);
+    this->sys_bound(tmp2, tmp, this->t[n+1]);
     tmp *= b_AM[0];
     // Now tmp goes back to being an aggregator
     for (int i = 1; i < order; i++) {
-        this->sys(this->y[n-i+1], ydot, this->t[n-i+1]);
+        this->sys_bound(this->y[n-i+1], ydot, this->t[n-i+1]);
         ydot *= b_AM[i];
         tmp += ydot;
     }
@@ -236,7 +242,7 @@ void Adams_BM<T>::run_steps(){
         std::cout << "\r[ sim ] t="
                   << std::left<<std::setfill(' ')<<std::setw(6)
                   << this->t[n] << "au" << std::flush;
-        this->step(n);
+        this->step_nonstiff_part(n);
     }
     std::cout<<std::endl;
 

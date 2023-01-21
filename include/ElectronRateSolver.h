@@ -1,8 +1,8 @@
 /**
- * @file ElectronSolver.h
+ * @file ElectronRateSolver.h
  * @author Alaric Sanders 
  * @brief 
- * @details Core part of Sanders' continuum plasma extension.
+ * @details Core part of Sanders' continuum plasma extension. This was historically named ElectronSolver.
  */
 /*===========================================================================
 This file is part of AC4DC.
@@ -25,9 +25,6 @@ This file is part of AC4DC.
 #ifndef SYS_SOLVER_CXX_H
 #define SYS_SOLVER_CXX_H
 
-/*
-This file should arguably be called RateEquationSolver, however, for historical reasons it is not.
-*/
 // #include <boost/numeric/odeint.hpp>
 #include "HybridIntegrator.hpp"
 #include "RateSystem.h"
@@ -50,23 +47,17 @@ This file should arguably be called RateEquationSolver, however, for historical 
 
 #define MAX_T_PTS 1e6
 
-class ElectronSolver : private ode::Hybrid<state_type>
+class ElectronRateSolver : private ode::Hybrid<state_type>
 {
 public:
-    ElectronSolver(const char* filename, ofstream& log) :
+    ElectronRateSolver(const char* filename, ofstream& log) :
     Hybrid(3), input_params(filename, log), pf() // (order Adams method)
     {
         pf.set_shape(input_params.pulse_shape);
         pf.set_pulse(input_params.Fluence(), input_params.Width());
         timespan_au = input_params.Width()*4;   // 4*FWHM, capturing effectively entire pulse.
         // Get cutoff
-            timespan_cutoff = timespan_au*input_params.Simulated_Fraction();
-            const string bc = "\033[33m"; // begin colour escape code
-	        const string clr = "\033[0m"; // clear escape code
-            const string banner = "================================================================================";
-            cout<<banner<<endl;
-            cout<<bc<<"Timespan cutoff:  "<<clr<<(-timespan_au/2 + timespan_cutoff)*Constant::fs_per_au<<" fs"<<endl;
-            cout<<banner<<endl;
+            truncated_timespan = timespan_au*input_params.Simulated_Fraction();
     }
     void solve();
     void save(const std::string& folder);
@@ -75,7 +66,7 @@ private:
     MolInp input_params;
     Pulse pf;
     double timespan_au; // Atomic units
-    double timespan_cutoff;
+    double truncated_timespan;
     double fraction_of_pulse_simulated;
     // Model parameters
     
@@ -89,8 +80,8 @@ private:
     void set_initial_conditions();
 
     /////// Overrides virtual system state methods
-    void sys(const state_type& s, state_type& sdot, const double t); // general dynamics (uses explicit mehtod)
-    void sys2(const state_type& s, state_type& sdot, const double t); // electron-electron (uses implicit method)
+    void sys_bound(const state_type& s, state_type& sdot, const double t); // general dynamics (uses explicit mehtod)
+    void sys_ee(const state_type& s, state_type& sdot, const double t); // electron-electron (uses implicit method)
     /////// 
 
     bool hasRates = false; // flags whether Store has been populated yet.

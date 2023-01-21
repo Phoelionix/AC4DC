@@ -45,8 +45,14 @@ void Pulse::set_pulse(double fluence, double fwhm_param) {
 
 }
 
+/**
+ * @brief Returns pulse's flux at time t
+ * @details If pulse shape is gaussian, t = 0 is defined as peak of pulse. If it's square, it's defined as the end of the pulse.
+ * 
+ * @param t time, in same units as the time-integrated flux (fluence)
+ * @return double 
+ */
 double Pulse::operator()(double t) {
-    // Returns flux at time t (same units as fluence)
     const double norm = sqrt(Constant::Pi/4/log(2));
     switch (shape)
     {

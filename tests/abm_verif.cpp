@@ -104,7 +104,7 @@ protected:
     vector<vec_t> analytic;
     double omega=1;
     double omega2=1;
-    void sys(const vec_t& q, vec_t& qdot, const double t) {
+    void sys_bound(const vec_t& q, vec_t& qdot, const double t) {
         // q[0] = x
         // q[1] = v
         qdot.X[1] = -q.X[0]*omega2;
@@ -112,7 +112,7 @@ protected:
         // qdot.X[1] = 0;
         qdot.X[0] = 0;
     }
-    void sys2(const vec_t& q, vec_t& qdot, const double t) {
+    void sys_ee(const vec_t& q, vec_t& qdot, const double t) {
         // q[0] = x
         // q[1] = v
         // qdot.X[1] = -q.X[0]*omega2;

@@ -13,14 +13,14 @@ He 1
 2000   //(EXFEL is 106)  //Pulse fluence in 10^4 * J/cm^2.  
 
 #NUMERICAL
-300000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+50000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 20           // Number of threads in OpenMP.
 0         // minimum free-electron energy in eV
 7000         // maximum free-electron energy in eV
-125          // number of free-electron grid points
+1100          // number of free-electron grid points
 hybrid       // electron grid type
-30          // Number of "low-energy" grid points (hybrid & powerlaw grids only)
-200         // Helium eV
+800       // Number of "low-energy" grid points (hybrid & powerlaw grids only)
+2000         //(default 200) Helium eV
 
 #OUTPUT
 800         // Number of time steps in the output files.
@@ -28,3 +28,6 @@ hybrid       // electron grid type
 N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
+
+#DEBUG
+0.005      // Percentage of time steps to iterate through before stopping early.

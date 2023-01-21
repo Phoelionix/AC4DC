@@ -52,13 +52,14 @@ label = sys.argv[1] +'_' + sys.argv[2] + '_'
 
 pl = Plotter(sys.argv[1])
 
+#if not one_fs_wiggle_testing: # don't need these plots now
 pl.plot_tot_charge(every=10)
 pl.fig.set_size_inches(3,2.5)
 plt.savefig(dname_Figures + label + fname_charge_conservation + figures_ext)
 #plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_qcons.pgf')
 
 
-if not one_fs_wiggle_testing:
+if not one_fs_wiggle_testing:  # Free graph breaks. 
     pl.fig.set_size_inches(3,2.5)
     pl.plot_free(log=True, min=1e-7, every=5)
     pl.fig_free.subplots_adjust(left=0.15)
@@ -94,11 +95,26 @@ plt.rcParams["font.size"] = 16 # 8
 tt = 0
 slices = [-7.5+tt, -5+tt, -2.5+tt, 0+tt]
 # slices = [0, 15, 23]
-energies = [200, 500, 500, 1000]
+energies = [200, 500, 500, 1000]  #MB upper boundary on energy?
 colrs = [cmap(i) for i in range(4)]
 
-wiggle_slices = [-15.5,-15,-14,-13]
-wiggle_energies = [200,200,200,200]
+#Wiggle testing                       # Proportion of time steps (Starts at -16 fs unless otherwise stated)
+#wiggle_slices = [-15.5,-15,-14,-14]  #0.1
+#wiggle_slices = [-15.95,-15.85,-15.75,-15.65]  # 0.015 
+#wiggle_slices = [-29.90,-29.70,-29.50,-29.30]  # 0.015 15 fs
+#wiggle_slices = [-15.95,-15.95,-15.95,-15.95]  # 0.005
+#wiggle_slices = [-0.009,0,0.009,0.019,] #square keV 0.01 fs
+
+#pulse wiggle testing
+#wiggle_slices = [-15.995,-15.98,-15.965,-15.95]  # 0.001 square
+#wiggle_slices = [-15.995,-15.98,-15.965,-15.95]  # 0.005
+#wiggle_slices = [-15.99,-15.9,-15.8,-15.8]  # 0.005 square
+#wiggle_slices = [-7.95,-7.95,-7.95,-7.95]  # square 
+
+### shape, %, time,
+wiggle_slices = [-9.5,-8.5,-7.5,-6.5]      # square 10%, 10 fs, 
+
+wiggle_energies = [50,50,50,50]
 
 if not one_fs_wiggle_testing:  
     for (t, e, col ) in zip(slices, energies, colrs):
@@ -107,13 +123,17 @@ if not one_fs_wiggle_testing:
 else:
     for (t, e, col ) in zip(wiggle_slices, wiggle_energies, colrs):
         lines = pl.plot_step(t, normed=True, color = col, lw=0.5)
-        T = pl.plot_fit(t, e, normed=True, color=col, lw=0.5)  # Got no idea what changing e does.
+        T = pl.plot_fit(t, e, normed=True, color=col, lw=0.5)  # Seems that e is the cutoff energy. Approx. double the peak of the MB.
 
 # pl.fig_steps.set_size_inches(3,2.5)
 pl.fig_steps.set_size_inches(6,5)
 
+#all
 pl.ax_steps.set_ylim([1e-4, 1])
 pl.ax_steps.set_xlim([1,10000]) 
+#spike
+#pl.ax_steps.set_ylim([1e-40, 1])
+#pl.ax_steps.set_xlim([5000,7000]) 
 
 pl.fig_steps.subplots_adjust(bottom=0.15,left=0.2,right=0.95,top=0.95)
 pl.ax_steps.xaxis.get_major_formatter().labelOnlyBase = False

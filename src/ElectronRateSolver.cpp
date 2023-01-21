@@ -1,8 +1,8 @@
 /**
- * @file ElectronSolver.cpp
+ * @file ElectronRateSolver.cpp
  * @author Alaric Sanders 
- * @brief @copybrief ElectronSolver.h
- * @details 
+ * @brief @copybrief ElectronRateSolver.h
+ * @details @copydetail ElectronRateSolver.h
  */
 /*===========================================================================
 This file is part of AC4DC.
@@ -22,7 +22,7 @@ This file is part of AC4DC.
 ===========================================================================*/
 // (C) Alaric Sanders 2020
 
-#include "ElectronSolver.h"
+#include "ElectronRateSolver.h"
 #include "HartreeFock.h"
 #include "ComputeRateParam.h"
 #include "SplineIntegral.h"
@@ -36,7 +36,7 @@ This file is part of AC4DC.
 #include "config.h"
 
 
-state_type ElectronSolver::get_ground_state() {
+state_type ElectronRateSolver::get_ground_state() {
     state_type initial_condition;
     assert(initial_condition.atomP.size() == input_params.Store.size());
     for (size_t a=0; a<input_params.Store.size(); a++) {
@@ -51,7 +51,7 @@ state_type ElectronSolver::get_ground_state() {
     return initial_condition;
 }
 
-void ElectronSolver::get_energy_bounds(double& max, double& min) {
+void ElectronRateSolver::get_energy_bounds(double& max, double& min) {
     max = 0;
     min = 1e9;
     for(auto& atom : input_params.Store) {
@@ -67,7 +67,7 @@ void ElectronSolver::get_energy_bounds(double& max, double& min) {
 }
 
 
-void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
+void ElectronRateSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
     input_params.calc_rates(_log, recalc);
     hasRates = true;
 
@@ -88,26 +88,38 @@ void ElectronSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
     Distribution::precompute_Q_coeffs(input_params.Store);
 }
 
-void ElectronSolver::solve() {
-    assert (hasRates || "No rates found! Use ElectronSolver::compute_cross_sections(log)\n");
+void ElectronRateSolver::solve() {
+    assert (hasRates || "No rates found! Use ElectronRateSolver::compute_cross_sections(log)\n");
     auto start = std::chrono::system_clock::now();
 
+    // Call hybrid integrator to iterate through the time steps (good state)
+    const string banner = "================================================================================";
+    cout<<banner<<endl;
     good_state = true;
     if (input_params.pulse_shape ==  PulseShape::square){
-        this->iterate(-input_params.Width(), timespan_au - input_params.Width()); // Inherited from ABM
+        cout<<"\033[33m"<<"Final time step:  "<<"\033[0m"<<(-input_params.Width() + truncated_timespan)*Constant::fs_per_au<<" fs"<<endl;
+        cout<<banner<<endl;
+        this->iterate(-input_params.Width(), - input_params.Width() + truncated_timespan); // Inherited from ABM. -FWHM <= t <= 3FWHM
     } else {
-        this->iterate(-timespan_au/2, -timespan_au/2 + timespan_cutoff); // Inherited from ABM.
+        cout<<"\033[33m"<<"Final time step:  "<<"\033[0m"<<(-timespan_au/2 + truncated_timespan)*Constant::fs_per_au<<" fs"<<endl;
+        cout<<banner<<endl;
+        this->iterate(-timespan_au/2, -timespan_au/2 + truncated_timespan); // Inherited from ABM.  -2FWHM <= t <= 2FWHM
     }
     
-    
+
+
     cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<std::endl;
     
+    // Using finer time steps to attempt to resolve NaN encountered in ODE solving. 
+    /* Seems to be redoing ENTIRE simulation if it doesn't leave the loop early. Have only seen this used (but breaking out of the loop) for square pulses. Gaussian pulse, at least, had big issues with hybrid integrator 
+    running out of steps deep into the simulation if time steps were not fine enough, so expanding this code to deal with that would be useful.-S.P.
+    */
     double time = this->t[0];
     int retries = 1;
     while (!good_state) {
         std::cerr<<"\033[93;1m[ Rate Solver ] Halving timestep...\033[0m"<<std::endl;
         good_state = true;
-        input_params.num_time_steps *= 2;
+        input_params.num_time_steps *= 2;           //  -S.P.
         if (input_params.num_time_steps > MAX_T_PTS){
             std::cerr<<"\033[31;1m[ Rate Solver ] Exceeded maximum T size. Skipping remaining iteration."<<std::endl;
             break;
@@ -115,15 +127,15 @@ void ElectronSolver::solve() {
         if (timestep_reached - time < 0 || retries == 0){
             std::cerr<<"\033[31;1m[ Rate Solver ] Shorter timestep failed to improve convergence. Skipping remaining iteration."<<std::endl;
             break;
-        } else {
+        } else {  // Unnecessary else statement? -S.P.
             time = timestep_reached;
         }
         retries--;
         this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
         if (input_params.pulse_shape ==  PulseShape::square){
-            this->iterate(-input_params.Width(), timespan_au - input_params.Width()); // Inherited from ABM
+            this->iterate(-input_params.Width(), -input_params.Width() + truncated_timespan); // Inherited from ABM
         } else {
-            this->iterate(-timespan_au/2, -timespan_au/2 + timespan_cutoff); // Inherited from ABM
+            this->iterate(-timespan_au/2, -timespan_au/2 + truncated_timespan); // Inherited from ABM
         }
     }
     
@@ -142,7 +154,7 @@ void ElectronSolver::solve() {
 
 // Populates RATE_EII and RATE_TBR based on calls to Distribution::Gamma_eii/ Distribution::Gamma_tbr
 // 
-void ElectronSolver::precompute_gamma_coeffs() {
+void ElectronRateSolver::precompute_gamma_coeffs() {
     std::cout<<"[ Gamma precalc ] Beginning coefficient computation..."<<std::endl;
     size_t N = Distribution::size;
     for (size_t a = 0; a < input_params.Store.size(); a++) {
@@ -180,13 +192,13 @@ void ElectronSolver::precompute_gamma_coeffs() {
 }
 
 
-// The Big One: The global ODE functon
+// The Big One: The global ODE function, separated into sys_bound and sys_ee.
 // Incorporates all of the right hand side to the global
-// d/dt P[i] = \sum_i=1^N W_ij - W_ji P[j]
-// d/dt f = Q_B[f](t)
+// d/dt P[i] = \sum_i=1^N W_ij - W_ji P[j] = d/dt(average-atomic-state)
+// d/dt f = Q_B[f](t)                      = d/dt(electron-energy-distribution)  // TODO what is Q_B? Q_{Bound}? Q_{ee} contributes though. 
 
-// Non-stiff part of the system
-void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) {
+// Non-stiff part of the system. Bound-electron dynamics.
+void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, const double t) {
     sdot=0;
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
 
@@ -298,8 +310,8 @@ void ElectronSolver::sys(const state_type& s, state_type& sdot, const double t) 
 }
 
 
-// 'badly-behaved' part of the system
-void ElectronSolver::sys2(const state_type& s, state_type& sdot, const double t) {
+// 'badly-behaved' i.e. stiff part of the system. Electron-electron interactions.
+void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot, const double t) {
     sdot=0;
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
     
@@ -321,7 +333,7 @@ void ElectronSolver::sys2(const state_type& s, state_type& sdot, const double t)
 }
 
 // IO functions
-void ElectronSolver::save(const std::string& _dir) {
+void ElectronRateSolver::save(const std::string& _dir) {
     string dir = _dir; // make a copy of the const value
     dir = (dir.back() == '/') ? dir : dir + "/";
 
@@ -340,7 +352,7 @@ void ElectronSolver::save(const std::string& _dir) {
 
 }
 
-void ElectronSolver::saveFree(const std::string& fname) {
+void ElectronRateSolver::saveFree(const std::string& fname) {
     // Saves a table of free-electron dynamics to file fname
     ofstream f;
     cout << "[ Free ] Saving to file "<<fname<<"..."<<endl;
@@ -359,7 +371,7 @@ void ElectronSolver::saveFree(const std::string& fname) {
     f.close();
 }
 
-void ElectronSolver::saveFreeRaw(const std::string& fname) {
+void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     ofstream f;
     cout << "[ Free ] Saving to file "<<fname<<"..."<<endl;
     f.open(fname);
@@ -375,7 +387,7 @@ void ElectronSolver::saveFreeRaw(const std::string& fname) {
     f.close();
 }
 
-void ElectronSolver::saveBound(const std::string& dir) {
+void ElectronRateSolver::saveBound(const std::string& dir) {
     // saves a table of bound-electron dynamics , split by atom, to folder dir.
     assert(y.size() == t.size());
     // Iterate over atom types
