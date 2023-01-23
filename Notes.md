@@ -31,4 +31,4 @@ Verifies a few key properties of the sigma integrals.
 - Convergence is VERY sensitive to input parameters.
 - Generally, wiggles in the 50-500eV region are attributable to QEII ad QTBR, but wiggles at lower energy are a sign of the influence of QEE.
 - high-energy wiggles become less severe as the grid is made finer in that region.
-- Low-energy wiggles are exacerbated by a finer grid - this is due to divergence of the derivative as x-> 0. Only affects QEE.   //s\/ Appears to be an issue with power law grid.
+- Low-energy wiggles are exacerbated by a finer grid - this is due to divergence of the derivative as x-> 0. Only affects QEE.

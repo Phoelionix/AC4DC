@@ -37,7 +37,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 // At this point, the occupancies will be that given by the .inp file.  
 // To handle "average shell" orbital inputs, this code separates each element of Orbitals into shell occupancy containers. e.g. occupancies for 2p 2, 3N 5 -> {0,2,0,0},{2,3,0,0}
 // TODO test working as expected
-	float s = 0, p = 1;
+	float s = 0; //,p = 1;
 	int N_elec_n0 = 0;// Num screening electrons on current shell.
 	int N_elec_n1 = 0, N_elec_n2_plus = 0;// Num screening electrons in shells with n-1 and {n-2,n-3,...,} respectively.
 
@@ -46,7 +46,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 
 	Potential.GenerateTrial(Orbitals);
 
-	
+	// TODO I feel like this many for loops is a sin, rejigging how inputs work or vectorising would help -S.P.
 	for (int i = 0; i < Orbitals.size(); i++)
 	{
 		N_elec_n0 = -1; // Electron does not screen itself //Orbitals[i].occupancy() - 1;
@@ -75,19 +75,32 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 					}
 				}
 				// [nd] and [nf] groups closer to the nucleus.
-				else if (L > Orbitals[j].L() && Orbitals[i].N() >= Orbitals[j].N())
-					{
-						N_elec_n2_plus += Orbitals[j].occupancy();
+				else
+				{ 	for(int L_other = 0; L_other < screening_shell_occupancies.size(); L++){ 
+						if (L > L_other && Orbitals[i].N() >= Orbitals[j].N())
+						{ N_elec_n2_plus += Orbitals[j].occupancy();
+						}
 					}
+				}
 			}
+			// Set subshell's energy.
 			s = 0.35*N_elec_n0 + 0.85*N_elec_n1 + 1.0*N_elec_n2_plus;   // TODO should use s = 0.30 * N_elec_n0 for 1s case right? Check. - S.P.
 			Orbitals[i].Energy += -0.5*(Potential.NuclCharge() - s)*(Potential.NuclCharge() - s) / Orbitals[i].N() / Orbitals[i].N()
 			* (shell_occupancies[L]/Orbitals[i].occupancy()); // Average out the energy for shell averages.
 		}
 	}
+	// Quick and dirty approximation of shells to a 2p orbital. TODO
+	for (int i = 0; i <Orbitals.size();i++){
+		if(Orbitals[i].L() == -10){
+			Orbitals[i].set_L(1);
+		}
+	}
+
 //==========================================================================================================
 // Find initial Guess for wavefunctions. Check if there is a single orbital occupied. If there is
-// only one electron (hydrogenic case) solve problem.
+// only one electron within that orbital (hydrogenic case) solve problem.
+
+// Initialising/fetching variables
 	Master_tolerance = Inp.Master_toll();
 	No_exchange_tolerance = Inp.No_Exch_toll();
 	HF_tolerance = Inp.HF_toll();
@@ -104,21 +117,21 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 
 	E_max_error = 1;
 
-// Check if the system has a single occupied orbital
-	int check_orb = 0, single = -1;
+// Check if the atom has a single (occupied) orbital
+	int num_occupied_orbs = 0, single_orb_idx = -1;
 	for (int i = 0; i < Orbitals.size(); i++)
 	{
 		if (Orbitals[i].occupancy() != 0)
 		{
-			check_orb++;
-			single = i;
+			num_occupied_orbs++;
+			single_orb_idx = i;
 		}
 	}
-	if (check_orb != 1) single =-1;
+	if (num_occupied_orbs != 1) single_orb_idx =-1;
 
 	Potential.GenerateTrial(Orbitals);
 
-	if (check_orb == 1 && Orbitals[single].occupancy() == 1) Potential.Reset();
+	if (num_occupied_orbs == 1 && Orbitals[single_orb_idx].occupancy() == 1) Potential.Reset();
 
 	for (int i = 0; i < Orbitals.size(); i++) {
 		Master(&Lattice, &Orbitals[i], &Potential, Master_tolerance, log);
@@ -130,40 +143,44 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 	vector<double> V_old = Potential.V;
 	double V_tmp = 0;
 
-	if (check_orb == 1 && Orbitals[single].occupancy() > 1 && Inp.Hamiltonian() == 0) {
+	if (num_occupied_orbs == 1 && Orbitals[single_orb_idx].occupancy() > 1 && Inp.Hamiltonian() == 0) {
+		float p = 1;
 		// A single occupied orbital. HF (with Exchange) solution is here.
 		// Afterwards unoccupied orbitals are calculated.
-		for (int i = 0; i < Orbitals.size(); i++) {
-			if (Orbitals[i].occupancy() != 0) single = i;
-		}
+		
+		// Set single to be the orbital index... TODO redundant??? - S.P.
+		// for (int i = 0; i < Orbitals.size(); i++) {
+		// 	if (Orbitals[i].occupancy() != 0) single_orb_idx = i;
+		// }
 
-		while (E_rel_change[single] > HF_tolerance) {
+		while (E_rel_change[single_orb_idx] > HF_tolerance) {
 			if (m > 20) {
 				log << "Starting approximation does not converge... " << endl;
 				break;
 			}
 
-			Potential.HF_upd_dir(&Orbitals[single], Orbitals);
+			Potential.HF_upd_dir(&Orbitals[single_orb_idx], Orbitals);
 			for (int j = 0; j < Lattice.size(); j++) {
 				Potential.V[j] = p*Potential.V[j] + (1 - p)*V_old[j];
 			}
 			if (m == 0) p = 0.5;
 			if (m == 6) p = 0.8;
 
-			Master(&Lattice, &Orbitals[single], &Potential, Master_tolerance, log);
-			E_rel_change[single] = fabs(Orbitals[single].Energy / Orbitals_old[single].Energy - 1);
+			Master(&Lattice, &Orbitals[single_orb_idx], &Potential, Master_tolerance, log);
+			E_rel_change[single_orb_idx] = fabs(Orbitals[single_orb_idx].Energy / Orbitals_old[single_orb_idx].Energy - 1);
 
-			Orbitals_old[single] = Orbitals[single];
+			Orbitals_old[single_orb_idx] = Orbitals[single_orb_idx];
 			V_old = Potential.V;
 			m++;
 		}
 		m = 0;
 	}
-	if (check_orb == 1 && Orbitals[single].occupancy() == 1) {
+	// Single orbital with 1 electron
+	if (num_occupied_orbs == 1 && Orbitals[single_orb_idx].occupancy() == 1) {
 		Potential.Reset();
 		for (auto& Orb: Orbitals) Master(&Lattice, &Orb, &Potential, Master_tolerance, log);
 	} else {
-		p = 0.5;
+		float p = 0.5;
 		// There is more than one orbital.
 
 		// Set up starting approximation for the Hartree-Fock equations.
@@ -270,7 +287,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 
 				for (int i = 0; i < Orbitals.size(); i++)
 				{
-					if (i == single) continue;
+					if (i == single_orb_idx) continue;
 					if (E_rel_change[i] < E_max_error && m != 0) continue;
 
 					Potential.HF_upd_dir(&Orbitals[i], Orbitals_old);

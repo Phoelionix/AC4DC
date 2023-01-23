@@ -2,7 +2,7 @@
 // Carbon_HR_V1_hyb.mol (formerly Carbon_HR1_hyb.mol), used in Sanders' thesis.
 
 #ATOMS
-Ne 1
+C 1
 
 #VOLUME
 18.11        // Volume per molecule in Angstrom^3.
@@ -12,7 +12,7 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 #PULSE
 6000         // Photon energy in eV.
 10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-2500         // Pulse fluence in 10^4 * J/cm^2.  // - At the focal point it was 2000 for HR, so the added 500 must be a correction accounting for energy from outside the focus? TODO Or it should be 2000. Still testing. - S.P.
+2000         // Pulse fluence in 10^4 * J/cm^2.  // - At the focal point it was 2000 for HR, so the added 500 must be a correction accounting for energy from outside the focus? TODO Or it should be 2000. Still testing. - S.P.
 square       // Pulse shape
 
 #NUMERICAL
@@ -20,9 +20,9 @@ square       // Pulse shape
 12            // Number of threads in OpenMP.
 0             // [only for nonthermal] minimum free-electron energy in eV
 10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
-100           // [only for nonthermal] number of free-electron grid points
+150           // [only for nonthermal] number of free-electron grid points
 powerlaw        // electron grid type
-35             // Number of "low-energy" grid points (hybrid & powerlaw grids only)
+50             // Number of "low-energy" grid points (hybrid & powerlaw grids only)
 2000          // transition energy in eV 
 
 #OUTPUT

@@ -38,7 +38,6 @@ void RadialWF::set_L(int X)
 {
 	l = X;
 	occup_number = 4 * l + 2;
-    // if X = -10, we deal with it later, in  [TODO finish this commment] - S.P.
 }
 
 /**
@@ -64,8 +63,9 @@ std::vector<int> RadialWF::get_subshell_occupancies()
         if(i != shell_orbital_occupancy.size() && shell_orbital_occupancy[i+1] > 0){
             shell_orbital_occupancy[i] *= -1;
         }
+        // Higher subshells empty
         else{
-            // Count how many electrons are free to add to this subshell after accounting for lower orbitals.
+            // Determine how many electrons are free to add to this subshell after accounting for lower orbitals.
             shell_orbital_occupancy[i] = 0;
             for(int j = i - 1; j >=0;j--){
                 shell_orbital_occupancy[i] -= shell_orbital_occupancy[j];

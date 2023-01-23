@@ -51,7 +51,7 @@ vector<photo> DecayRates::Photo_Ion(double omega, ofstream & log)
 	for (int i = 0; i < orbitals.size(); i++)
 	{
 		Orbitals[i].set_N(orbitals[i].N());
-		Orbitals[i].set_L(orbitals[i].L());        
+		Orbitals[i].set_L(orbitals[i].L());        // Resets occupancy
 		Orbitals[i].Energy = orbitals[i].Energy;
 		if (orbitals[i].occupancy() != 0)
 		{
