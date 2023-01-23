@@ -60,7 +60,7 @@ class Plotter:
         self.p = path.abspath(path.join(__file__ ,"../../"))
         # Inputs
         
-        # Get molfile from all subdirectories in input folder.  Old -> #molfile = self.p+"/input/"+mol+".mol"
+        # Get molfile from all subdirectories in input folder.  Old comment -> #molfile = self.p+"/input/"+mol+".mol"
         molfname_candidates = []
         for dirpath, dirnames, fnames in os.walk(self.p):
             for molfname in [f for f in fnames if f == mol+".mol"]:
@@ -135,7 +135,7 @@ class Plotter:
                 if reading:
                     a = line.split(' ')[0].strip()
                     if len(a) != 0:
-                        file = self.p + '/input/' + a + '.inp'
+                        file = self.p + '/input/atoms/' + a + '.inp'
                         self.atomdict[a]={
                             'infile': file,
                             'mtime': path.getmtime(file),
@@ -525,8 +525,15 @@ def fit_maxwell(X, Y):
 
 def maxwell(e, kT, n):
     if kT < 0:
-        return 0 # Dirty silencing of fitting error.
+        return 0 # Dirty silencing of fitting error - note we get negative values from unphysical oscillations, so this increases the average value around this point. -S.P.
     return n * np.sqrt(e/(np.pi*kT**3)) * np.exp(-e/kT)
+
+def plot_maxwell(kT, n):
+    e_points = np.logspace(0,4,100)
+    #plt.plot(e_points,maxwell(e_points,kT,n))
+    #pl.ax_steps.plot(e_points,maxwell(e_points,kT,n))
+    pl.ax_steps.plot(e_points,maxwell(e_points,kT,n)*e_points,'--', **kwargs)
+    return
 
 def lnmaxwell(e, kT, n):
     return np.log(n) + 0.5*np.log(e/np.pi*kT**3) - e /kT

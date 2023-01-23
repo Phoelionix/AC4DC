@@ -1,4 +1,5 @@
 // Average over configuration fractional occupancy is supported, atomic orbital occupancies are between 0 and 4L+2.
+// Considering past commits, there may be something that isn't working with this input. Ominous. -S.P.
 
 #ATOM
 8            // Nuclear charge

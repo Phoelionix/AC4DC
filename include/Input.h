@@ -1,6 +1,6 @@
 /**
  * @file Input.h
- * @brief  Defines the Input class, which holds the inputs (don't invite Input.h to your party, they're a wet blanket).
+ * @brief  Defines the Input class, which holds the inputs from .inp atomic files. (Don't invite Input.h to your party, they're a wet blanket).
  * @details The Input class reads and stores the configuration-defining information from the input files or an Input object.  
  */
 /*===========================================================================

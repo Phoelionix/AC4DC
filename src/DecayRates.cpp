@@ -51,7 +51,7 @@ vector<photo> DecayRates::Photo_Ion(double omega, ofstream & log)
 	for (int i = 0; i < orbitals.size(); i++)
 	{
 		Orbitals[i].set_N(orbitals[i].N());
-		Orbitals[i].set_L(orbitals[i].L());
+		Orbitals[i].set_L(orbitals[i].L());        
 		Orbitals[i].Energy = orbitals[i].Energy;
 		if (orbitals[i].occupancy() != 0)
 		{
@@ -132,7 +132,7 @@ vector<photo> DecayRates::Photo_Ion(double omega, ofstream & log)
 				{
 					if (l >= 0)
 					{
-						Continuum.set_L(l);
+						Continuum.set_L(l);   //TODO make sure this is fine - S.P.
 						if (IntegrateContinuum(Lattice, U, Orbitals, &Continuum, i) < 0) {
 						log << "====================================================================" << endl;
 							log << "Continuum didn't converge: " << endl;
@@ -356,7 +356,7 @@ vector<auger> DecayRates::Auger(vector<int> Max_occ, ofstream & log)
 					for (int l_E = min_L_cont; l_E <= Orbitals[e].L() + Orbitals[f].L() + Orbitals[h].L(); l_E++)
 					{
 						//sum over all posible Continuum states
-						Continuum.set_L(l_E);
+						Continuum.set_L(l_E); //TODO make sure this is fine -S.P.
 						if (IntegrateContinuum(Lattice, U, Orbitals, &Continuum, f) < 0) {
 							log << "Continuum didn't converge: " << endl;
 							for (int i = 0; i < orbitals.size(); i++)

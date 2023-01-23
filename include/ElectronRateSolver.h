@@ -63,7 +63,7 @@ public:
     void save(const std::string& folder);
     void compute_cross_sections(std::ofstream& _log, bool recalc=true);
 private:
-    MolInp input_params;
+    MolInp input_params;  // (Note this is initialised/constructed in the above constructor)
     Pulse pf;
     double timespan_au; // Atomic units
     double truncated_timespan;
@@ -85,6 +85,7 @@ private:
     /////// 
 
     bool hasRates = false; // flags whether Store has been populated yet.
+    void copyInput(const std::string& src,const std::string& dir);
     void saveFree(const std::string& file);
     void saveFreeRaw(const std::string& fname);
     void saveBound(const std::string& folder);

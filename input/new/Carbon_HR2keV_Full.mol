@@ -6,7 +6,7 @@ C 1
 #VOLUME
 18.11        // Volume per molecule in Angstrom^3.
 2000         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
-none // Spatial boundary shape - options are none, spherical, cylindrical, planar
+none        // Spatial boundary shape - options are none, spherical, cylindrical, planar  // This means there is NO LOSS - S.P. 
 
 #PULSE
 2000         // Photon energy in eV.

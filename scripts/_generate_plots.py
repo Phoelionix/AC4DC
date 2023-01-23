@@ -95,7 +95,7 @@ plt.rcParams["font.size"] = 16 # 8
 tt = 0
 slices = [-7.5+tt, -5+tt, -2.5+tt, 0+tt]
 # slices = [0, 15, 23]
-energies = [200, 500, 500, 1000]  #MB upper boundary on energy?
+energies = [200, 500, 500, 1000]  #MB upper boundary on energy? -S.P.
 colrs = [cmap(i) for i in range(4)]
 
 #Wiggle testing                       # Proportion of time steps (Starts at -16 fs unless otherwise stated)
@@ -112,9 +112,10 @@ colrs = [cmap(i) for i in range(4)]
 #wiggle_slices = [-7.95,-7.95,-7.95,-7.95]  # square 
 
 ### shape, %, time,
-wiggle_slices = [-9.5,-8.5,-7.5,-6.5]      # square 10%, 10 fs, 
-
-wiggle_energies = [50,50,50,50]
+wiggle_slices = [-9.5,-8.5,-7.5]      # square 10%, 10 fs, 
+wiggle_energies = [500,500,500]
+#wiggle_energies = [1000]
+#wiggle_slices = [-7.5]
 
 if not one_fs_wiggle_testing:  
     for (t, e, col ) in zip(slices, energies, colrs):
@@ -149,6 +150,7 @@ def add_curve(mat, fitE, **kwargs):
     Ydata = mat[:fit, 1]/Xdata
     T, n = fit_maxwell(Xdata, Ydata)
     print(T, n)
+    # Equivalent to plot_maxwell(T,n, **kwargs)
     X = np.logspace(0,4,100)
     pl.ax_steps.plot(X, maxwell(X, T, n)*X,
         '--', **kwargs)
@@ -158,13 +160,15 @@ def add_curve(mat, fitE, **kwargs):
 # add_curve(X3, 500,  color = cmap(2),lw=0.5)
 # add_curve(X4, 1000, color = cmap(3),lw=0.5)
 
+#------\testing/-------
+#pl.plot_maxwell(44.1,0.06*3/2)  # ~Sanders -7.5 fs - density of MB assumed to be 50% of total.  
 #########
 # 
 #####
 
 handles, labels = pl.ax_steps.get_legend_handles_labels()
-order = [0,2,4,6,1,3,5,7]
-# order = [0,2,4,1,3,5]
+# e.g. for 8 labels (4 time steps), order = [0,2,4,6,1,3,5,7]  
+order = list(range(0,len(labels) - 1,2)) + list(range(1,len(labels),2))
 
 #if not one_fs_wiggle_testing:
 pl.ax_steps.legend([handles[idx] for idx in order],[labels[idx] for idx in order], loc='upper left',ncol=2)

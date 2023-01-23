@@ -192,12 +192,16 @@ void BasisSet::set_knot(const GridSpacing& gt){
     #endif
 }
 
-// Sets up the B-spline knot to have the appropriate shape (respecting boundary conditions)
+/**
+ * @brief Sets up the B-spline knot to have the appropriate shape (respecting boundary conditions)
+ * @details 
+ * 
+ * @param num_int the number of B-splines to use in the basis. 
+ * @param min minimum energy
+ * @param max maximum energy
+ * @param gt gt.zero_degree_0: The number of derivatives to set to zero: 0 = open conditions, 1=impose f(0)=0, 2=impose f(0)=f'(0) =0
+ */
 void BasisSet::set_parameters(size_t num_int, double min, double max, const GridSpacing& gt) {
-    // gt.zero_degree_0: The number of derivatives to set to zero: 0 = open conditions, 1=impose f(0)=0, 2=impose f(0)=f'(0) =0
-    // num_int: the number of Bsplins to use in the basis
-    // min: minimum energy
-    // max: maximum energy
     this->_min = min;
     this->_max = max;
 

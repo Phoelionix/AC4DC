@@ -22,16 +22,20 @@ This file is part of AC4DC.
 #include "Input.h"
 #include "Constant.h"
 #include <iostream>
+#include <filesystem>
 
 using namespace std;
 
-// Rate system solver.
-// Uses precomputed rates from AC4DC for all atomic cross-section data.
-// KEEP IN MIND:
-// - For every atom X listed in the .mol file, AC4DC must be run for the file X.inp
-// - AC4DC has input parameters for pulse width, energy and fluence.
-// - Only photon energy affects the rate calculations.
-// Let scripts/run.py handle all of these details.
+////// The below paragraph isn't currently implemented; for now, the rates are calculated here.
+////// Note the computationally expensive part of the code is the solving of equations, not the rates, so 
+////// that should be taken into account when considering the priority of refactoring.   - S.P.
+    // Rate system solver.
+    // Uses precomputed rates from AC4DC for all atomic cross-section data.
+    // KEEP IN MIND:
+    // - For every atom X listed in the .mol file, AC4DC must be run for the file X.inp
+    // - AC4DC has input parameters for pulse width, energy and fluence.
+    // - Only photon energy affects the rate calculations.
+    // Let scripts/run.py handle all of these details.
 
 
 
@@ -53,6 +57,22 @@ void try_mkdir(const std::string& fname) {
     if (mkdir(fname.c_str(), ACCESSPERMS) == -1) {
         if (errno != EEXIST)
             cerr<<"mkdir error attempting to create "<< fname << ":" << errno;
+    }
+}
+
+/// Copies .mol file to output directory
+void save_mol_file(const std::string& in_dir,const std::string& out_dir) {
+    
+    cout << "[ Input ] copying input to directory "<<out_dir<<"..."<<endl;
+    std::filesystem::path infile_path = string(in_dir);
+    std::filesystem::path outfile_path = out_dir + string(infile_path.filename()); // infile_path.filename() Returns "MoleculeName.mol"
+
+    try{
+        std::filesystem::copy_file(infile_path,outfile_path);
+    }
+    catch (std::exception& e)
+    {
+        std::cout << e.what();
     }
 }
 
@@ -165,13 +185,14 @@ int main(int argc, const char *argv[]) {
     cout << "\033[1;32mComputing cross sections... \033[0m" <<endl;
     S.compute_cross_sections(log, runsettings.recalc);
     if (runsettings.solve_rate_eq) {
-        cout << "\033[1;32mSolving rate equations... \033[0m" <<endl;
+        cout << "\033[1;32mSolving rate equations..." << "\033[35m\033[1mTarget: " << name << "\033[0m" <<endl;
         S.solve();
         cout << "\033[1;32mDone! \033[0m" <<endl;
         S.save(outdir);
     } else {
         cout << "\033[1;32mDone! \033[0m" <<endl;
     }
+    save_mol_file(argv[1],outdir);
 
     return 0;
 }

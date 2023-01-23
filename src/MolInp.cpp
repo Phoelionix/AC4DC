@@ -200,8 +200,8 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	// H 2
 	// O 1
 	// Then scans for atomic files of the form 
-	// input/H.inp
-	// input/O.inp
+	// input/atoms/H.inp
+	// input/atoms/O.inp
 	// Store is then populated with the atomic data read in below.
 	for (size_t i = 0; i < num_atoms; i++) {
 		string at_name;
@@ -214,7 +214,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		Store[i].name = at_name;
 		// Store[i].R = radius;
 
-		at_name = "input/" + at_name + ".inp";
+		at_name = "input/atoms/" + at_name + ".inp";
 
 		Atomic.push_back(Input((char*)at_name.c_str(), Orbits[i], Latts[i], log));
 		// Overrides pulses found in .inp files

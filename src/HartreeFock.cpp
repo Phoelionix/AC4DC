@@ -22,6 +22,8 @@ This file is part of AC4DC.
 ===========================================================================*/
 #include "HartreeFock.h"
 #include <algorithm>
+#include <iostream>
+#include <numeric>
 
 using namespace std;
 
@@ -31,34 +33,57 @@ int SetBoundaryValuesApprox(Grid*, RadialWF*, Potential*);
 HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &Potential, Input & Inp, ofstream & log) : lattice(&Lattice)
 {
 //==========================================================================================================
-// Estimate starting energies using Slater rules.
+// Estimate starting energies for atom using Slater rules.
+// At this point, the occupancies will be that given by the .inp file.  
+// To handle "average shell" orbital inputs, this code separates each element of Orbitals into shell occupancy containers. e.g. occupancies for 2p 2, 3N 5 -> {0,2,0,0},{2,3,0,0}
+// TODO test working as expected
 	float s = 0, p = 1;
-	int N_elec_shell = 0;// Current shell.
-	int N_elec_n1 = 0, N_elec_n2 = 0;// Shell with n-1 and n-2 respectively.
+	int N_elec_n0 = 0;// Num screening electrons on current shell.
+	int N_elec_n1 = 0, N_elec_n2_plus = 0;// Num screening electrons in shells with n-1 and {n-2,n-3,...,} respectively.
+
+	std::vector<int> shell_occupancies = {0,0,0,0};  // Number of electrons in each orbital of a shell {s,p,d,f}
+	std::vector<int> screening_shell_occupancies = {0,0,0,0};
 
 	Potential.GenerateTrial(Orbitals);
 
+	
 	for (int i = 0; i < Orbitals.size(); i++)
 	{
-		N_elec_shell = Orbitals[i].occupancy() - 1;
+		N_elec_n0 = -1; // Electron does not screen itself //Orbitals[i].occupancy() - 1;
 		N_elec_n1 = 0;
-		N_elec_n2 = 0;
-		for (int j = 0; j < Orbitals.size(); j++)
+		N_elec_n2_plus = 0;
+		Orbitals[i].Energy = 0;
+		shell_occupancies = Orbitals[i].get_subshell_occupancies(); // 
+		// Iterate through each subshell
+		for (int L = 0; L < shell_occupancies.size(); L++)
 		{
-			if (j == i) { continue; }// No double counting.
-			if (Orbitals[i].L() <= 1)// [s] and [s,p] groups.
+			// Get the screening contribution on an electron in the i'th orbital/shell with orbital L, due to the j'th orbital/shell.
+			for (int j = 0; j < Orbitals.size(); j++)
 			{
-				if (Orbitals[j].N() == Orbitals[i].N() && Orbitals[j].L() < 2) { N_elec_shell += Orbitals[j].occupancy(); }
-				if (Orbitals[j].N() == Orbitals[i].N() - 1) { N_elec_n1 += Orbitals[j].occupancy(); }
-				if (Orbitals[j].N() < Orbitals[i].N() - 1) { N_elec_n2 += Orbitals[j].occupancy(); }
+				screening_shell_occupancies = Orbitals[j].get_subshell_occupancies();
+				// [1s] and [ns,np] groups.
+				if (L == 0 || L == 1 )
+				{
+					if(Orbitals[j].N() == Orbitals[i].N()){
+						N_elec_n0 += screening_shell_occupancies[0] + screening_shell_occupancies[1];
+					}
+					if (Orbitals[j].N() == Orbitals[i].N() - 1) { 
+						N_elec_n1 += Orbitals[j].occupancy(); 
+					}
+					if (Orbitals[j].N() < Orbitals[i].N() - 1) { 
+						N_elec_n2_plus += Orbitals[j].occupancy(); 
+					}
+				}
+				// [nd] and [nf] groups closer to the nucleus.
+				else if (L > Orbitals[j].L() && Orbitals[i].N() >= Orbitals[j].N())
+					{
+						N_elec_n2_plus += Orbitals[j].occupancy();
+					}
 			}
-			else if (Orbitals[i].L() > Orbitals[j].L() && Orbitals[j].N() <= Orbitals[i].N())// [d] and [f] groups.
-			{
-				N_elec_n2 += Orbitals[j].occupancy();
-			}
+			s = 0.35*N_elec_n0 + 0.85*N_elec_n1 + 1.0*N_elec_n2_plus;   // TODO should use s = 0.30 * N_elec_n0 for 1s case right? Check. - S.P.
+			Orbitals[i].Energy += -0.5*(Potential.NuclCharge() - s)*(Potential.NuclCharge() - s) / Orbitals[i].N() / Orbitals[i].N()
+			* (shell_occupancies[L]/Orbitals[i].occupancy()); // Average out the energy for shell averages.
 		}
-		s = 0.35*N_elec_shell + 0.85*N_elec_n1 + 1.0*N_elec_n2;
-		Orbitals[i].Energy = -0.5*(Potential.NuclCharge() - s)*(Potential.NuclCharge() - s) / Orbitals[i].N() / Orbitals[i].N();
 	}
 //==========================================================================================================
 // Find initial Guess for wavefunctions. Check if there is a single orbital occupied. If there is

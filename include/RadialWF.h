@@ -1,6 +1,6 @@
 /**
  * @file RadialWF.h
- * @brief
+ * @brief Radial WaveFunction
  */
 /*===========================================================================
 This file is part of AC4DC.
@@ -53,6 +53,8 @@ public:
 	int pract_infinity() { return infinity; }
 	int occupancy() { return occup_number; }//might be fractional for future uses
 	int turn_pt() { return turn; }
+
+	std::vector<int> get_subshell_occupancies();
 
 	const RadialWF& operator=(const RadialWF& Psi)
 	{

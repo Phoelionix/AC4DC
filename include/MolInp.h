@@ -1,6 +1,6 @@
 /**
  * @file MolInp.h
- * @brief
+ * @brief Molecular input for coupled atom/electron plasma calculations.
  */
 /*===========================================================================
 This file is part of AC4DC.
@@ -31,7 +31,7 @@ This file is part of AC4DC.
 
 class MolInp
 {
-	// Molecular input for coupled atom/electron plasma calcualtions.
+	// Molecular input for coupled atom/electron plasma calculations.
 public:
 	MolInp(const char* filename, ofstream & log);
 	~MolInp() {}
