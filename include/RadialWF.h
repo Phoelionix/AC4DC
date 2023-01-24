@@ -39,14 +39,14 @@ public:
 	double Energy = 0;
 
 	int L() { return l; }
-	void set_L(int X);
+	void set_L(int X,bool reset_occupancy = true);
 
 	int GetNodes() { return (n-l-1); }
 	int check_nodes(); //checks current number of nodes in F. Used in many routines to adjust the energy.
 	int N() { return n; }
 
 	void set_N(int X) { n = X; }
-	void set_infinity(int X) { infinity = X; }
+	void set_infinity(int X) { infinity = X; }  //TODO this should at least throw a warning if below Lagrange_N - S.P.
 	void set_turn(int X) { turn = X; } // calculate number of nodes till turning point, discard the nodes after the turning point
 	void set_occupancy(int X) { occup_number = X; }//set custom occupancy, useful for average over configurations
 

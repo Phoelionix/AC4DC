@@ -2,7 +2,7 @@
 // Carbon_HR_V1_hyb.mol (formerly Carbon_HR1_hyb.mol), used in Sanders' thesis.
 
 #ATOMS
-C 1
+F 1
 
 #VOLUME
 18.11        // Volume per molecule in Angstrom^3.
@@ -16,11 +16,11 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 square       // Pulse shape
 
 #NUMERICAL
-700000          // (Original:200k, but fails and restarts with 400k if this is used) Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+400000          // (Original:200k, but fails and restarts with 400k if this is used) Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12            // Number of threads in OpenMP.
 0             // [only for nonthermal] minimum free-electron energy in eV
 10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
-150           // [only for nonthermal] number of free-electron grid points
+100           // [only for nonthermal] number of free-electron grid points
 powerlaw        // electron grid type
 35             // Number of "low-energy" grid points (hybrid & powerlaw grids only)
 2000          // transition energy in eV 

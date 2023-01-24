@@ -140,19 +140,22 @@ void Adams::Integrate(RadialWF* Psi, int start_pt, int end_pt)
 
 		F_tmp = Psi->F[i - incr] + incr*Adams_Coeff[0] * Lattice.dR(i) * X[i] ;
 		G_tmp = Psi->G[i - incr] + incr*Adams_Coeff[0] * Lattice.dR(i) * Y[i] ;
-
+		if (std::isnan(F_tmp) || std::isnan(G_tmp)){throw std::invalid_argument("F_tmp or G_tmp is nan!");}
 		for (int j = 1; j < Adams_N; j++)
 		{
 			F_tmp += incr * Adams_Coeff[j] * dF_dR[i - incr*j] * Lattice.dR(i - incr*j);
 			G_tmp += incr * Adams_Coeff[j] * dG_dR[i - incr*j] * Lattice.dR(i - incr*j);
 		}
-
+		if (std::isnan(Psi->F[i])){throw std::invalid_argument("Psi->F[i] is nan!");}
+		
 		Psi->F[i] = (F_tmp * (1.0 - incr * Lattice.dR(i) * Adams_Coeff[0] * D[i]) + G_tmp * incr * Lattice.dR(i) * Adams_Coeff[0] * B[i]) / Det;
 		Psi->G[i] = (F_tmp * incr * Lattice.dR(i) * Adams_Coeff[0] * C[i] + G_tmp * (1.0 - incr * Lattice.dR(i) * Adams_Coeff[0] * A[i])) / Det;
-
+		if (std::isnan(Psi->F[i])){throw std::invalid_argument("Psi->F[i] is nan!1");}
+		
 		dF_dR[i] = A[i] * Psi->F[i] + B[i] * Psi->G[i] + X[i];
 		dG_dR[i] = C[i] * Psi->F[i] + D[i] * Psi->G[i] + Y[i];
-
+		if (std::isnan(Psi->F[i])){throw std::invalid_argument("Psi->F[i] is nan!2");}
+		
 		if (dF_dR[i-incr] * dF_dR[i] < 0)
 		{
 			if (FirstMaxima == 0)
@@ -165,7 +168,7 @@ void Adams::Integrate(RadialWF* Psi, int start_pt, int end_pt)
 				if (fabs(Psi->F[FirstMaxima]) < fabs(Psi->F[i])) { FirstMaxima = abs(i); }
 			}
 		}
-
+		if (std::isnan(Psi->F[i])){throw std::invalid_argument("Psi->F[i] is nan!3 End of func: Adams::Integrate()");}
 	}
 }
 
@@ -314,7 +317,7 @@ double Adams::Integrate(std::vector<double>* Func, int start_pt, int end_pt)
 			RightVect[i] = Lagrange[Lagrange_N - i - 1][Lagrange_N] * Result[0];
 		}
 
-		RightVect[i] += Func->at(start_pt + incr*(i + 1)) * Lattice.dR(start_pt + incr*(i + 1));
+		RightVect[i] += Func->at(start_pt + incr*(i + 1)) * Lattice.dR(start_pt + incr*(i + 1));  // += density[start_pt +- (i+1)]*Lattice.dR(start_pt +- (i+1))
 	}
 
 	EigenSolver W;
@@ -324,11 +327,13 @@ double Adams::Integrate(std::vector<double>* Func, int start_pt, int end_pt)
 
 	for (int i = 0; i < Result.size(); i++)
 	{
+		if (std::isnan(Result[i])){throw std::invalid_argument("Adams::Integrate returned nan!");}
 		Result[i] = RightVect[i];
 	}
 
 	for (int i = start; incr*i <= incr*end; i += incr)
 	{
+		if (std::isnan(Result[Adams_N - 1])){throw std::invalid_argument("Adams::Integrate returned nan!");}
 		Result[Adams_N-1] = Result[Adams_N - 2] + incr * Adams_Coeff[0] * Lattice.dR(i) * Func->at(i);
 
 		for (int j = 1; j < Adams_N; j++)
@@ -432,8 +437,11 @@ void Adams::StartAdams(RadialWF* Psi, int start_pt, bool forward)
 			RightVect[i] = Lagrange[Lagrange_N - i - 1][Lagrange_N] * Psi->F[start_pt] + incr*X[start_pt + incr*(i + 1)] * Lattice.dR(start_pt + incr*(i + 1));
 			RightVect[i + Lagrange_N] = Lagrange[Lagrange_N - i - 1][Lagrange_N] * Psi->G[start_pt] + incr*Y[start_pt + incr*(i + 1)] * Lattice.dR(start_pt + incr*(i + 1));
 		}
+		if (std::isinf(RightVect[i])){throw std::invalid_argument("RightVect element is inf!");}
+		if (std::isnan(RightVect[i])){throw std::invalid_argument("RightVect element is nan!");}
+		if (std::isnan(RightVect[i+Lagrange_N])){throw std::invalid_argument("RightVect element is nan!");}
 	}
-
+		
 	//Solve the system of inhomogenious equations
 	// LaftMatr * X = RightVect
 	// the result is returned to RightVect
@@ -442,9 +450,13 @@ void Adams::StartAdams(RadialWF* Psi, int start_pt, bool forward)
 	W.SolveSystem(LeftMatr, RightVect, (2 * Lagrange_N));
 
 	for (int i = 0; i < Lagrange_N; i++)
-	{
+	{		
 		Psi->F[start_pt + incr*(i + 1)] = RightVect[i];
 		Psi->G[start_pt + incr*(i + 1)] = RightVect[Lagrange_N + i];
+		if (std::isinf(Psi->F[start_pt + incr*(i + 1)])){throw std::invalid_argument("Psi->F[] is inf!");}
+		if (std::isnan(Psi->F[start_pt + incr*(i + 1)])){throw std::invalid_argument("Psi->F[] is nan!");}
+		if (std::isnan(Psi->G[start_pt + incr*(i + 1)])){throw std::invalid_argument("Psi->G[] is nan!");}
+		if (std::isinf(Psi->G[start_pt + incr*(i + 1)])){throw std::invalid_argument("Psi->G[] is inf!");}
 	}
 }
 
