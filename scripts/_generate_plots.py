@@ -112,8 +112,8 @@ colrs = [cmap(i) for i in range(4)]
 #wiggle_slices = [-7.95,-7.95,-7.95,-7.95]  # square 
 
 ### shape, %, time,
-#wiggle_slices = [-9.5,-8.5,-7.5]      # square 10%, 10 fs, 
-wiggle_slices = [-9.99,-9.98,-9.97]      # square 10%, 10 fs, 
+wiggle_slices = [-9.5,-8.5,-7.5]      # square 10%, 10 fs, 
+#wiggle_slices = [-9.99,-9.98,-9.97]      # square << 1%, 10 fs, 
 
 wiggle_energies = [500,500,500]
 #wiggle_energies = [1000]

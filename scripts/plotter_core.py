@@ -42,6 +42,7 @@ ATOMNO = {}
 i = 1
 for symbol in ATOMS:
     ATOMNO[symbol] = i
+    ATOMNO[symbol + '_fast'] = i
     i += 1
 
 
@@ -63,6 +64,7 @@ class Plotter:
         # Get molfile from all subdirectories in input folder.  Old comment -> #molfile = self.p+"/input/"+mol+".mol"
         molfname_candidates = []
         for dirpath, dirnames, fnames in os.walk(self.p):
+            if not "input/" in dirpath: continue
             for molfname in [f for f in fnames if f == mol+".mol"]:
                 molfname_candidates.append(path.join(dirpath, molfname))
         # No file found

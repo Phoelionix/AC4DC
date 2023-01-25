@@ -1,14 +1,12 @@
 // Template AC4DC input file created from file.pdb
 
 #ATOMS
-N 1500
-C 4754
-O 3157
-S 80
-H 10789
+N 5
+C 17
+O 8
 
 #VOLUME
-236961.26      // Volume per molecule in Angstrom^3.
+515.69      // Volume per molecule in Angstrom^3.
 250          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
 
 #PULSE
