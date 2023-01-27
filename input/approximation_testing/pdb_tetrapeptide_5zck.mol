@@ -34,4 +34,4 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-1         // Proportion of time steps to iterate through before stopping early.
+0.07         // Proportion of time steps to iterate through before stopping early.

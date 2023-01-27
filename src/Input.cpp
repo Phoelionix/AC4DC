@@ -134,9 +134,10 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 			if (occupancy == 0){
 				cerr << "[ Atomic ] \033[31;1mOrbital with N=" << N << ", L=" << subshell_to_angular[tmp] << " has occupancy=0 \033[0m" << endl;
 			}
-			if (N == 0){ // TODO test: if this would throw if orbital wasn't specified, as seems like it doesn't (virtual orbitals are allowed according to .inp comments). If not, not sure why N == 0 specifically is checked, only positive integer values of N are valid. -S.P.
-				cerr << "[ Atomic ] \033[31;1m Orbital with N=0 encountered: "<<filename<<"\033[0m" << endl;
-				cerr << "[ Atomic ] Did you specify the right number of orbitals?" << endl;  // TODO Unsure why this is an appropriate error message -S.P.
+			// It seems like this effectively throws if the wrong number of orbitals is specified. As virtual orbitals are allowed. -S.P.
+			if (N == 0){
+				cerr << "[ Atomic ] \033[31;1m Incorrect number of orbital types specified in input file: "<<filename<<"\033[0m" << endl;
+				cerr << "Note that a shell approximation for orbitals only counts for 1" << endl;
 				throw runtime_error("Bad atomic input");
 			}
 			Orbitals.push_back(RadialWF(num_grid_pts)); // Adds a radial wavefunction

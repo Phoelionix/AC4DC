@@ -23,6 +23,7 @@ This file is part of AC4DC.
 #include "Constant.h"
 #include <iostream>
 #include <filesystem>
+#include <ctime>
 
 using namespace std;
 
@@ -60,12 +61,12 @@ void try_mkdir(const std::string& fname) {
     }
 }
 
-/// Copies .mol file to output directory
-void save_mol_file(const std::string& in_dir,const std::string& out_dir) {
+/// Copies .mol file (e.g. to log directory).
+void save_mol_file(const std::string& path_to_file,const std::string& out_path) {
     
-    cout << "[ Input ] copying input to directory "<<out_dir<<"..."<<endl;
-    std::filesystem::path infile_path = string(in_dir);
-    std::filesystem::path outfile_path = out_dir + string(infile_path.filename()); // infile_path.filename() Returns "MoleculeName.mol"
+    cout << "Storing input in directory "<<out_path<<"..."<<endl;
+    std::filesystem::path infile_path = string(path_to_file);
+    std::filesystem::path outfile_path = out_path; // infile_path.filename() Returns "MoleculeName.mol"
 
     try{
         std::filesystem::copy_file(infile_path,outfile_path);
@@ -75,21 +76,43 @@ void save_mol_file(const std::string& in_dir,const std::string& out_dir) {
         std::cout << e.what();
     }
 }
+/// Moves .mol file (e.g. from log to output directory). EDIT: Just copies now, leaving the "log" mol file intact. 
+string move_mol_file(const string& path_to_file,const string& out_dir, const string& tag) {
+    cout << "[ Input ] Copying input to directory "<<out_dir<<"..."<<endl;
+    std::filesystem::path infile_path = string(path_to_file);
+    std::filesystem::path outfile_path = out_dir + tag + ".mol"; // infile_path.filename() Returns "MoleculeName.mol"
+    try{
+        std::filesystem::copy_file(infile_path,outfile_path);
+        //std::filesystem::remove(infile_path);
+    }
+    catch (std::exception& e)
+    {
+        std::cout << e.what();
+    }
+    return outfile_path;
+}
 
-int get_file_names(const char* infile_, string &tag, string &logfile, string&outdir) {
+int get_file_names(const char* infile_, string &tag, string &logfile, string &tmp_molfile, string&outdir) {
     // Takes infile of the form "DIR/Lysozyme.mol"
-    // Stores "Lysozyme" in tag, "output/log/run_Lysozyme" in logfile
+    // Stores "Lysozyme" in tag, "output/log/run_Lysozyme" in logfile, and "output/log/Lysozyme_[timestamp].mol" in tmp_molfile
     string infile = string(infile_);
     size_t tagstart = infile.rfind('/');
     size_t tagend = infile.rfind('.');
     tagstart = (tagstart==string::npos) ? 0 : tagstart + 1;// Exclude leading slash
     tagend = (tagend==string::npos) ? infile.size() : tagend;
     tag = infile.substr(tagstart, tagend-tagstart);
+
+    time_t time_temp = std::time(nullptr); 
+    tm time = *localtime(&time_temp);
+    ostringstream time_tag;
+    time_tag << std::put_time(&time, "%d-%m-%Y %H-%M-%S");
+    
     // guarantee the existence of a folder structure
     try_mkdir("output");
     try_mkdir("output/log");
     try_mkdir("output/__Molecular");
-    logfile = "output/log/run_" + tag + ".log";
+    logfile = "output/log/run_" + tag + "_" + time_tag.str() + ".log";
+    tmp_molfile = "output/log/mol_" + tag + "_" + time_tag.str() + ".mol"; 
     // check correct format
     outdir = "output/__Molecular/"+tag+"/";
     try_mkdir(outdir);
@@ -167,15 +190,17 @@ int main(int argc, const char *argv[]) {
     print_banner("config/version.txt");
     cout<<"\033[0m"<<endl<<endl;
 
-    string name, logname, outdir;
+    string name, logname, tmp_molfile, outdir;
 
     cout<<"Copyright (C) 2020  Alaric Sanders and Alexander Kozlov"<<endl;
     cout<<"This program comes with ABSOLUTELY NO WARRANTY; for details run `ac4dc -w'."<<endl;
     cout<<"This is free software, and you are welcome to redistribute it"<<endl;
     cout<<"under certain conditions; run `ac4dc -c' for details."<<endl;
 
-    if (get_file_names(argv[1], name, logname, outdir) == 1)
+    if (get_file_names(argv[1], name, logname, tmp_molfile, outdir) == 1)
         return 1;
+
+    save_mol_file(argv[1],tmp_molfile);
 
     cout<<"Running simulation for target "<<name<<endl;
     cout << "logfile name: " << logname <<endl;
@@ -192,7 +217,7 @@ int main(int argc, const char *argv[]) {
     } else {
         cout << "\033[1;32mDone! \033[0m" <<endl;
     }
-    save_mol_file(argv[1],outdir);
+    move_mol_file(tmp_molfile,outdir, name);
 
     return 0;
 }

@@ -30,7 +30,7 @@ def set_highlighted_excepthook():
     sys.excepthook = myexcepthook
 
 set_highlighted_excepthook()
-if  len(sys.argv) != 3:
+if  len(sys.argv) < 3:
     raise Exception("Usage: python ./_generate_plots.py Carbon_HR1 NAME")
 
 ############
@@ -52,31 +52,31 @@ label = sys.argv[1] +'_' + sys.argv[2] + '_'
 
 pl = Plotter(sys.argv[1])
 
-#if not one_fs_wiggle_testing: # don't need these plots now
-pl.plot_tot_charge(every=10)
-pl.fig.set_size_inches(3,2.5)
-plt.savefig(dname_Figures + label + fname_charge_conservation + figures_ext)
-#plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_qcons.pgf')
-
-
-if not one_fs_wiggle_testing:  # Free graph breaks. 
+if not one_fs_wiggle_testing: # don't need these plots now
+    pl.plot_tot_charge(every=10)
     pl.fig.set_size_inches(3,2.5)
-    pl.plot_free(log=True, min=1e-7, every=5)
-    pl.fig_free.subplots_adjust(left=0.15)
-    plt.savefig(dname_Figures + label + fname_free + figures_ext)
+    plt.savefig(dname_Figures + label + fname_charge_conservation + figures_ext)
+    #plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_qcons.pgf')
     plt.close()
-    #plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_free.pgf')
+
+    if not one_fs_wiggle_testing:  # Free graph breaks. 
+        pl.fig.set_size_inches(3,2.5)
+        pl.plot_free(log=True, min=1e-7, every=5)
+        pl.fig_free.subplots_adjust(left=0.15)
+        plt.savefig(dname_Figures + label + fname_free + figures_ext)
+        plt.close()
+        #plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_free.pgf')
 
 
 
-pl.plot_all_charges()
-pl.fig.set_size_inches(3,2.5)
-pl.fig.subplots_adjust(left=0.2,bottom=0.18,top=0.95)
-plt.savefig(dname_Figures + label + fname_bound_dynamics + figures_ext)
-#plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_bound.pgf')
+    pl.plot_all_charges()
+    pl.fig.set_size_inches(3,2.5)
+    pl.fig.subplots_adjust(left=0.2,bottom=0.18,top=0.95)
+    plt.savefig(dname_Figures + label + fname_bound_dynamics + figures_ext)
+    #plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_bound.pgf')
 
-plt.close()
-plt.close()
+    plt.close()
+
 
 #########
 #  HR style

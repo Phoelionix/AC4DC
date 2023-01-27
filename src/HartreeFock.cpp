@@ -90,16 +90,14 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 			double factor = 1;
 			if(Orbitals[i].occupancy() != 0){
 				factor = static_cast<float>(shell_occupancies[L])/static_cast<float>(Orbitals[i].occupancy()); // Average out the possible energies.
-				std::cout << "factor" << factor << endl;
 			}			
 			Orbitals[i].Energy += factor*-0.5*(Potential.NuclCharge() - s)*(Potential.NuclCharge() - s) / Orbitals[i].N() / Orbitals[i].N();
 
-			std::cout << "Slater orbital energy is: " << Orbitals[i].Energy <<endl;
+			// std::cout << "Slater orbital energy is: " << Orbitals[i].Energy <<endl;
 		}
 	}
 	// Quick and dirty approximation of shells to a 2p orbital. TODO
 	for (int i = 0; i < Orbitals.size();i++){
-		std::cout << i << endl; 
 		if(Orbitals[i].L() == -10){ 
 			Orbitals[i].set_L(1,false);  
 		}	
@@ -142,9 +140,9 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 	if (num_occupied_orbs == 1 && Orbitals[single_orb_idx].occupancy() == 1) Potential.Reset();
 	
 	for (int i = 0; i < Orbitals.size(); i++) {
-		if (std::isnan(Orbitals[1].F[i])){throw std::invalid_argument("F invalid pre-Master!");}
+		if (std::isnan(Orbitals[Orbitals.size()-1].F[i])){throw std::invalid_argument("F invalid pre-Master!");}
 		Master(&Lattice, &Orbitals[i], &Potential, Master_tolerance, log);
-		if (std::isnan(Orbitals[1].F[i])){throw std::invalid_argument("F invalid post-Master!");}
+		if (std::isnan(Orbitals[Orbitals.size()-1].F[i])){throw std::invalid_argument("F invalid post-Master!");}
 	}
 
 //==========================================================================================================
@@ -511,7 +509,7 @@ int SetBoundaryValuesApprox(Grid * Lattice, RadialWF * Psi, Potential* U)
 		//set boundary values for inwards integration
 		lambda = sqrt(-2 * Psi->Energy);
 		sigma = (U->V[infinity] * Lattice->R(infinity) - 1.) / lambda;
-		if(Psi->Energy > -0.01){std::cout << "WARNING: orbital energy is: "<< Psi->Energy <<", which leads lambda and sigma to be:"<<lambda<<" "<<sigma<<endl;}
+		if(Psi->Energy > -0.01){std::cout << "Low orbital energy: "<< Psi->Energy <<", which leads lambda and sigma to be:"<<lambda<<" "<<sigma<<endl;}
 
 		a[0] = 1;
 		b[0] = -lambda;
@@ -692,7 +690,7 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 	//normalize the answer
 	Psi->scale(1. / sqrt(Norm));
 	if (std::isnan(1/sqrt(Norm))){throw std::invalid_argument("Invalid normalisation! func: HartreeFock::Master()");}
-	std::cout << 'psi energy = ' << Psi->Energy << endl;
+
 	return 0;
 }
 

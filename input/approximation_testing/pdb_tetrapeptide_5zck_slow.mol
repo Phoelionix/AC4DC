@@ -1,7 +1,9 @@
 // Template AC4DC input file created from file.pdb
 
 #ATOMS
-N_fast 30
+N 5
+C 17
+O 8
 
 #VOLUME
 515.69      // Volume per molecule in Angstrom^3.

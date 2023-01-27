@@ -1,20 +1,19 @@
 // Average over configuration fractional occupancy is supported, atomic orbital occupancies are between 0 and 4L+2.
-// Considering past commits, there may be something that isn't working with this input. Ominous. -S.P.
 
 #ATOM
-8            // Nuclear charge
+16            // Nuclear charge
 coulomb      // Nuclear potential model. Can be "coulomb" for point-like nucleus, "sphere" for spherical nucleus.
 HF           // Hamiltonian form. Can be HF, LDA.
 // Orbitals and their occupancies
 3	           // Number of orbitals. Can include virtual orbitals which have occupancy = 0.
 1s 2
-2s 2
-2p 4
+2N 8
+3N 6
 V_N          // Potential model. Can be "V_N" for Hartree-Fock, "V_N-1no" for non-orthogonal excited state orbitals, "V_N-1" for classical potential.
 length       // Gauge type for matrix elements involving photon absorption/emission. Can be either "length" or "velocity".
 
 #NUMERICAL
-2000          // Number of radial grid points.
+2000          // Number of grid points
 0.001	        // Origin of the coordinate grid. Should be > 0.
 100	          // Box radius, maximum distance from the nucleus.
 1000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation soluving step.

@@ -317,7 +317,7 @@ double Adams::Integrate(std::vector<double>* Func, int start_pt, int end_pt)
 			RightVect[i] = Lagrange[Lagrange_N - i - 1][Lagrange_N] * Result[0];
 		}
 
-		RightVect[i] += Func->at(start_pt + incr*(i + 1)) * Lattice.dR(start_pt + incr*(i + 1));  // += density[start_pt +- (i+1)]*Lattice.dR(start_pt +- (i+1))
+		RightVect[i] += Func->at(start_pt + incr*(i + 1)) * Lattice.dR(start_pt + incr*(i + 1));  // Func->at(i) equiv. to density[i]
 	}
 
 	EigenSolver W;

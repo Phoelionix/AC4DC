@@ -56,10 +56,10 @@ std::vector<int> RadialWF::get_subshell_occupancies()
             std::cerr<<"ERROR: invalid orbital angular momentum encountered! Ensure that all [atom].inp subshells are s, p, d, f, or N.";
         }
         shell_orbital_occupancy[l] = occup_number;
-        std::cout<<"l = "<<l<<" occup_number = "<<occup_number<<std::endl;
-        std::cout<<"Returning {";
-        for(auto i: shell_orbital_occupancy) std::cout << i << ' ';
-        std::cout<<"}"<<std::endl;
+        // std::cout<<"l = "<<l<<" occup_number = "<<occup_number<<std::endl;
+        // std::cout<<"Returning {";
+        // for(auto i: shell_orbital_occupancy) std::cout << i << ' ';
+        // std::cout<<"}"<<std::endl;
         return shell_orbital_occupancy;
     }
     // Shell (averaged orbitals) case
@@ -85,9 +85,10 @@ std::vector<int> RadialWF::get_subshell_occupancies()
     {
         std::cerr<<"WARNING: g subshell not supported (> 32 electrons in one shell detected in [atom].inp file).";
     }
-    std::cout<<"l = "<<l<<" occup_number = "<<occup_number<<std::endl;
-    std::cout<<"Returning {";
-    for(auto i: shell_orbital_occupancy) std::cout << i << ' ';
-    std::cout<<"}"<<std::endl;    
+    // std::cout<<"l = "<<l<<" occup_number = "<<occup_number<<std::endl;
+    // std::cout<<"Returning {";
+    // for(auto i: shell_orbital_occupancy) std::cout << i << ' ';
+    // std::cout<<"}"<<std::endl;
+
     return shell_orbital_occupancy;
 }
