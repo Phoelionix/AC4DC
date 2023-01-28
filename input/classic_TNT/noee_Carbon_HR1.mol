@@ -18,7 +18,7 @@ cylindrical       // Spatial boundary shape - options are none, spherical, cylin
 12            // Number of threads in OpenMP.
 0            // [only for nonthermal] minimum free-electron energy in eV
 7000          // [only for nonthermal] maximum free-electron energy in eV
-100            // [only for nonthermal] number of free-electron grid points
+100            // total number of free-electron grid points
 quadratic     // electron grid type
 100            // Number of "low-energy" grid points (hybrid & powerlaw grids only)
 2000           // transition energy in eV

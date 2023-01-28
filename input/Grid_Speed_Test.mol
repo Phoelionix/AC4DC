@@ -1,9 +1,7 @@
 // Template AC4DC input file created from file.pdb
 
 #ATOMS
-N 5
-C 17
-O 8
+N_fast 30
 
 #VOLUME
 515.69      // Volume per molecule in Angstrom^3.
@@ -21,9 +19,9 @@ square       // Pulse shape.
 12           // Number of threads in OpenMP.
 0            // [only for nonthermal] minimum free-electron energy in eV.
 10000        // [only for nonthermal] maximum free-electron energy in eV. Should not be near photon energy.
-100          // total number of free-electron grid points.
+175          // Number of free-electron grid points.
 powerlaw     // electron grid type.
-35           // Number of "low-energy" grid points (hybrid & powerlaw grids only).
+20           // Number of "low-energy" grid points (hybrid & powerlaw grids only).
 2000         // transition energy in eV.
 
 #OUTPUT
@@ -34,7 +32,7 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-0.07         // Proportion of time steps to iterate through before stopping early.
+0.001         // Proportion of time steps to iterate through before stopping early.
 ####END#####
 
 Notes:

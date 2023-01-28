@@ -2,7 +2,7 @@
 // Carbon_HR_V1_hyb.mol (formerly Carbon_HR1_hyb.mol), used in Sanders' thesis.
 
 #ATOMS
-C 1
+C_fast 1
 
 #VOLUME
 18.11        // Volume per molecule in Angstrom^3.
@@ -12,17 +12,17 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 #PULSE
 6000         // Photon energy in eV.
 10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-2000         // Pulse fluence in 10^4 * J/cm^2.  // - At the focal point it was 2000 for HR, so the added 500 must be a correction accounting for energy from outside the focus? TODO Or it should be 2000. Still testing. - S.P.
+2500         // Pulse fluence in 10^4 * J/cm^2.  // - At the focal point it was 2000 for HR, so the added 500 must be a correction accounting for energy from outside the focus? TODO Or it should be 2000. Still testing. - S.P.
 square       // Pulse shape
 
 #NUMERICAL
 400000          // (Original:200k, but fails and restarts with 400k if this is used) Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
-12            // Number of threads in OpenMP.
+12            // Number of threads in OpenMP.  // TODO implemented? -S.P.
 0             // [only for nonthermal] minimum free-electron energy in eV
 10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
-150           // [only for nonthermal] number of free-electron grid points
+100           // total number of free-electron grid points
 powerlaw        // electron grid type
-50             // Number of "low-energy" grid points (hybrid & powerlaw grids only)
+35             // Number of "low-energy" grid points (hybrid & powerlaw grids only)
 2000          // transition energy in eV 
 
 #OUTPUT
@@ -34,3 +34,6 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
 0.07      // Proportion of time steps to iterate through before stopping early. TODO Left as a proportion for now since it requires less understanding of code, but inputs should be made clearer (can set start time and end time, and proportion of time that is pulse or (2?)*FWHM for example).
+####END#####
+
+Notes:

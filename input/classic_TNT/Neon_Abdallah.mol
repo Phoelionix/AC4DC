@@ -19,7 +19,7 @@ square
 12          // Number of threads in OpenMP.
 0           // [only for nonthermal] minimum free-electron energy in eV
 2000         // [only for nonthermal] maximum free-electron energy in eV
-100           // [only for nonthermal] number of free-electron grid points
+100           // total number of free-electron grid points
 powerlaw       // electron grid
 50          // number of low-energy exponential grid points (hybrid only)
 2500           // low energy cutoff (eV)

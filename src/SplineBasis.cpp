@@ -62,10 +62,12 @@ int r_binsearch(double val, const double* arr, int len, int idx) {
     }
 }
 
+/// @todo make variable names clearer
 int lower_idx(double val, const std::vector<double>& arr){
     return r_binsearch(val, arr.data(), arr.size(), 0);
 }
 
+/// @todo make variable names clearer
 int BasisSet::i_from_e(double e) {
     // size_t idx = r_binsearch(e, avg_e.data(), avg_e.size(), 0);
     size_t idx = lower_idx(e, avg_e);
@@ -81,6 +83,16 @@ int BasisSet::lower_i_from_e(double e) {
 
 /**
  * @brief Constructs the grid over which the electron distribution is solved. 
+ * @details Idea: Want num_funcs usable B-splines
+ *  If grid has num_funcs+k+1 points, num_funcs of these are usable splines
+ *  grid layout for open boundary:
+ *  t0=t1=t2=...=tk-1,   tn+1 = tn+2 =... =tn+k
+ *  homogeneous Dirichlet boundary:
+ *  t0=t1=t2=...=tk-2,   tn+2 =... =tn+k
+ *  Neumann boundary:
+ *  t0=t1=...=tk-3, tn+3=...=tn+k
+ *     
+ *  boundary at minimm energy enforces energy conservation
  * 
  * @param gt grid type, also referred to as grid_style.
  */
@@ -129,12 +141,12 @@ void BasisSet::set_knot(const GridSpacing& gt){
     }
 
 
-    // std::function<double(double)> f = [=](double B) {return _min*exp(B*M/(_max - B*(num_int-M))) + B*(num_int-M) - _max;};
+    // std::function<double(double)> f = [=](double B) {return _min*exp(B*M/(_max - B*(num_funcs-M))) + B*(num_funcs-M) - _max;};
     // double B_hyb = 0;
     // if (gt.mode == GridSpacing::hybrid){
-    //     B_hyb = find_root(f, 0, _max/(num_int-M + 1));
+    //     B_hyb = find_root(f, 0, _max/(num_funcs-M + 1));
     // }
-    // double C_hyb = _max - B_hyb * num_int;
+    // double C_hyb = _max - B_hyb * num_funcs;
     // double lambda_hyb = (log(B_hyb*M+C_hyb) - log(_min))/M;
 
     knot.resize(num_funcs+BSPLINE_ORDER+1); // num_funcs == n + 1
@@ -150,7 +162,7 @@ void BasisSet::set_knot(const GridSpacing& gt){
     // - Refactor to incorporate boundaries max and min into the GridSpacing object
     // - Unfuck the boundary conditions (seems to break for BSPLINE_ORDER=3?)
 
-    // At i=0, the value of knot will still be _min
+    // Keep in mind: At i=0, the value of knot will still be _min
     for(size_t i=start; i<=num_funcs + Z_inf; i++) {
         switch (gt.mode)
         {
@@ -196,18 +208,18 @@ void BasisSet::set_knot(const GridSpacing& gt){
  * @brief Sets up the B-spline knot to have the appropriate shape (respecting boundary conditions)
  * @details 
  * 
- * @param num_int the number of B-splines to use in the basis. 
+ * @param _num_funcs the number of B-splines to use in the basis. 
  * @param min minimum energy
  * @param max maximum energy
  * @param gt gt.zero_degree_0: The number of derivatives to set to zero: 0 = open conditions, 1=impose f(0)=0, 2=impose f(0)=f'(0) =0
  */
-void BasisSet::set_parameters(size_t num_int, double min, double max, const GridSpacing& gt) {
+void BasisSet::set_parameters(size_t _num_funcs, double min, double max, const GridSpacing& gt) {
     this->_min = min;
     this->_max = max;
 
-    num_funcs = num_int;
-    // Idea: Want num_int usable B-splines
-    // If grid has num_int+k+1 points, num_int of these are usable splines
+    num_funcs = _num_funcs;  //size_t num_int = num_funcs + Z_inf - start;
+    // Idea: Want num_funcs usable B-splines
+    // If grid has num_funcs+k+1 points, num_funcs of these are usable splines
     // grid layout for open boundary:
     // t0=t1=t2=...=tk-1,   tn+1 = tn+2 =... =tn+k
     // homogeneous Dirichlet boundary:
@@ -238,7 +250,7 @@ void BasisSet::set_parameters(size_t num_int, double min, double max, const Grid
         tripletList.push_back(Eigen::Triplet<double>(i,i,overlap(i, i)));
         // S(i,i) = overlap(i,i);
     }
-    /// Compute overlap matrix   //s\/ If we use the grid basis (with num_int points) the splines overlap. S takes us to a spline-independent basis I believe.
+    /// Compute overlap matrix   //s\/ If we use the grid basis (with num_func splines) the splines overlap. S takes us to a spline-independent basis I believe.
     Eigen::SparseMatrix<double> S(num_funcs, num_funcs);  //s\/ rows and cols. 
     S.setFromTriplets(tripletList.begin(), tripletList.end());
     // Precompute the LU decomposition
@@ -249,10 +261,10 @@ void BasisSet::set_parameters(size_t num_int, double min, double max, const Grid
         throw runtime_error("Factorisation of overlap matrix failed!");
     }
 
-    avg_e.resize(num_int);
-    log_avg_e.resize(num_int);
-    areas.resize(num_int);
-    for (size_t i = 0; i < num_int; i++) {
+    avg_e.resize(num_funcs);
+    log_avg_e.resize(num_funcs);
+    areas.resize(num_funcs);
+    for (size_t i = 0; i < num_funcs; i++) {
         // Chooses the 'center' of the B-spline
         avg_e[i] = (this->supp_max(i) + this->supp_min(i))/2 ;
         log_avg_e[i] = log(avg_e[i]);
@@ -268,7 +280,7 @@ void BasisSet::set_parameters(size_t num_int, double min, double max, const Grid
 
 /**
  * @brief Changes basis of vector deltaf from spline basis to grid basis, see details.
- * @details From SplineBasis.cpp - "If grid has num_int+k+1 points, num_int of these are usable splines".
+ * @details From SplineBasis.cpp - "If grid has num_funcs+k+1 points, num_funcs of these are usable splines".
  */
 Eigen::VectorXd BasisSet::Sinv(const Eigen::VectorXd& deltaf) {
     // Solves the linear system S fdot = deltaf
@@ -277,7 +289,7 @@ Eigen::VectorXd BasisSet::Sinv(const Eigen::VectorXd& deltaf) {
 
 /**
  * @brief Changes basis of matrix J from spline basis to grid basis, see details.
- * @details From SplineBasis.cpp - "If grid has num_int+k+1 points, num_int of these are usable splines".
+ * @details From SplineBasis.cpp - "If grid has num_funcs +k+1 points, num_funcs of these are usable splines".
  */
 Eigen::MatrixXd BasisSet::Sinv(const Eigen::MatrixXd& J) {
     // Solves the linear system S fdot = deltaf

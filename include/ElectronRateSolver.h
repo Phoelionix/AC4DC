@@ -59,9 +59,14 @@ public:
         // Get cutoff
             truncated_timespan = timespan_au*input_params.Simulated_Fraction();
     }
-    void solve();
+    /// Solve the rate equations
+    void solve(ofstream & _log);
     void save(const std::string& folder);
+    /// Sets up the rate equations, which requires computing the atomic cross-sections/avg. transition rates to get the coefficients.
     void compute_cross_sections(std::ofstream& _log, bool recalc=true);
+
+    /// Number of secs taken for simulation to run
+    long secs;
 private:
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)
     Pulse pf;
@@ -86,9 +91,13 @@ private:
 
     bool hasRates = false; // flags whether Store has been populated yet.
     void copyInput(const std::string& src,const std::string& dir);
+    /// Saves a table of free-electron dynamics to file fname
     void saveFree(const std::string& file);
     void saveFreeRaw(const std::string& fname);
+    /// saves a table of bound-electron dynamics , split by atom, to folder dir.
     void saveBound(const std::string& folder);
+    /// Log final details pertaining to the simulation's execution to file fname (e.g. total runtime)
+    void log_extra_details(ofstream & _log); 
     state_type get_ground_state();
 
 

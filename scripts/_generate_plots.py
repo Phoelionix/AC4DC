@@ -9,6 +9,7 @@ matplotlib.rcParams.update({
 import matplotlib.pyplot as plt
 from plotter_core import Plotter
 import sys
+import re
 
 ############
 # Basic num arguments check
@@ -31,7 +32,10 @@ def set_highlighted_excepthook():
 
 set_highlighted_excepthook()
 if  len(sys.argv) < 3:
-    raise Exception("Usage: python ./_generate_plots.py Carbon_HR1 NAME")
+    print("Usage: python ./_generate_plots.py Carbon_HR1 label_for_graph")
+    print("Or to automatically use output mol file: python ./_generate_plots.py Carbon_HR1 label_for_graph y")
+    exit()
+    
 
 ############
 # File/directory names
@@ -49,6 +53,9 @@ one_fs_wiggle_testing = True
 
 
 label = sys.argv[1] +'_' + sys.argv[2] + '_'
+name = sys.argv[1].replace('_',' ')
+#name = ' '.join(re.split('(?<=.)(?=[A-Z])', sys.argv[1]))
+#name = sys.argv[1].partition("_")[0] 
 
 pl = Plotter(sys.argv[1])
 
@@ -112,7 +119,8 @@ colrs = [cmap(i) for i in range(4)]
 #wiggle_slices = [-7.95,-7.95,-7.95,-7.95]  # square 
 
 ### shape, %, time,
-wiggle_slices = [-9.5,-8.5,-7.5]      # square 10%, 10 fs, 
+#wiggle_slices = [-9.5,-8.5,-7.5]      # square 10%, 10 fs,
+wiggle_slices = [-9.8,-9.5] 
 #wiggle_slices = [-9.99,-9.98,-9.97]      # square << 1%, 10 fs, 
 
 wiggle_energies = [500,500,500]
@@ -132,7 +140,7 @@ else:
 pl.fig_steps.set_size_inches(6,5)
 
 #all
-pl.ax_steps.set_ylim([1e-4, 1])
+pl.ax_steps.set_ylim([1e-40, 1])
 pl.ax_steps.set_xlim([1,10000]) 
 #spike
 #pl.ax_steps.set_ylim([1e-40, 1])
@@ -175,6 +183,12 @@ order = list(range(0,len(labels) - 1,2)) + list(range(1,len(labels),2))
 #if not one_fs_wiggle_testing:
 pl.ax_steps.legend([handles[idx] for idx in order],[labels[idx] for idx in order], loc='upper left',ncol=2)
 #plt.gcf()
+
+plt.title(name + " - Free-electron distribution")
+plt.tight_layout()
+
 plt.savefig(dname_Figures + label + fname_HR_style + figures_ext)
 
 print("Done! Remember to drink water!")
+
+#TODO: Change size to match my screen by default, add --y option

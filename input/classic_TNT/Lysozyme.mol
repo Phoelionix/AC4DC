@@ -24,7 +24,7 @@ gaussian    // pulse shape
 12           // Number of threads in OpenMP.
 0          // [only for nonthermal] minimum free-electron energy in eV
 10000        // [only for nonthermal] maximum free-electron energy in eV
-100          // [only for nonthermal] number of free-electron grid points
+100          // total number of free-electron grid points
 linear    // grid type
 22           // Number of low-energy points (hybrid /powerlaw only)
 220          // Transition to low-energy points (hybrid /powerlaw only)

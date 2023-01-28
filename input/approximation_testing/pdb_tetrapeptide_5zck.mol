@@ -21,7 +21,7 @@ square       // Pulse shape.
 12           // Number of threads in OpenMP.
 0            // [only for nonthermal] minimum free-electron energy in eV.
 10000        // [only for nonthermal] maximum free-electron energy in eV. Should not be near photon energy.
-100          // [only for nonthermal] number of free-electron grid points.
+100          // total number of free-electron grid points.
 powerlaw     // electron grid type.
 35           // Number of "low-energy" grid points (hybrid & powerlaw grids only).
 2000         // transition energy in eV.
@@ -35,3 +35,6 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
 0.07         // Proportion of time steps to iterate through before stopping early.
+####END#####
+
+Notes:

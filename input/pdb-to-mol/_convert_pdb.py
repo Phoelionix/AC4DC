@@ -23,7 +23,9 @@ def main():
   # Get paths for in and out files, based on input arguments. 
   infile_path = sys.argv[1]
   outfile_dir = sys.argv[2] + ('/' if sys.argv[2][-1] != '/' else '') if sys.argv[2] !='/' else ''
-  outfile_name = 'pdb_' + input_argument.name + '_' + os.path.splitext(infile_path)[0]
+  input_argument.name = '_' + input_argument.name 
+  if input_argument.name != '_': input_argument.name += '_'
+  outfile_name = 'pdb' + input_argument.name + os.path.splitext(infile_path)[0]
   outfile_path = outfile_dir + outfile_name + '.mol'
   out_MD_path = sys.argv[2] + 'MD_' + os.path.splitext(infile_path)[0] + '.xyz'
 
@@ -148,7 +150,7 @@ def make_plasma_input(outfile, **kwargs):
   plasma_file.write("""12           // Number of threads in OpenMP.\n""")
   plasma_file.write("""0            // [only for nonthermal] minimum free-electron energy in eV.\n""")
   plasma_file.write("""10000        // [only for nonthermal] maximum free-electron energy in eV. Should not be near photon energy.\n""")
-  plasma_file.write("""100          // [only for nonthermal] number of free-electron grid points.\n""")
+  plasma_file.write("""100          // total number of free-electron grid points.\n""")
   plasma_file.write("""powerlaw     // electron grid type.\n""")
   plasma_file.write("""35           // Number of "low-energy" grid points (hybrid & powerlaw grids only).\n""")
   plasma_file.write("""2000         // transition energy in eV.\n""")
@@ -161,8 +163,10 @@ def make_plasma_input(outfile, **kwargs):
   plasma_file.write("""Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?\n""")
 
   plasma_file.write("""\n#DEBUG\n""")
-  plasma_file.write("""1         // Proportion of time steps to iterate through before stopping early.""")
-
+  plasma_file.write("""1         // Proportion of time steps to iterate through before stopping early.\n""")
+  plasma_file.write("####END####\n\n")
+  
+  plasma_file.write("Notes:")
 
   plasma_file.close()
 

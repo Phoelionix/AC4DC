@@ -6,20 +6,19 @@ C 1
 #VOLUME
 18.11        // Volume per molecule in Angstrom^3.
 2000         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
-none        // Spatial boundary shape - options are none, spherical, cylindrical, planar  // This means there is NO LOSS - S.P. 
+none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
 2000         // Photon energy in eV.
 10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 2500         // Pulse fluence in 10^4 * J/cm^2.
-square       // Pulse shape
 
 #NUMERICAL
-500000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
-20            // Number of threads in OpenMP.
+200000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+12            // Number of threads in OpenMP.
 0             // [only for nonthermal] minimum free-electron energy in eV
 4000          // [only for nonthermal] maximum free-electron energy in eV
-100           // [only for nonthermal] number of free-electron grid points
+100           // total number of free-electron grid points
 powerlaw        // electron grid type
 60             // Number of "low-energy" grid points (hybrid & powerlaw grids only)
 2000          // transition energy in eV 
@@ -32,4 +31,4 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-0.1      // Proportion of time steps to iterate through before stopping early.
+0.015      // Percentage of time steps to iterate through before stopping early.

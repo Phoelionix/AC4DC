@@ -39,7 +39,8 @@ SplineIntegral Distribution::basis;
 
 // Psuedo-constructor thing
 void Distribution::set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style) {
-    // Defines a grid of n points
+    // Defines a grid of n points (the total number of free-electron grid points specified in the .mol file.)
+    // Note: In reality we are defining the number of grid points as the number of "usable" splines/knots -S.P. TODO double check
     basis.set_parameters(n, min_e, max_e, grid_style);
     Distribution::size=n;
     Distribution::CoulombLog_cutoff = basis.i_from_e(grid_style.transition_e);

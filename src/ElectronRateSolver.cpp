@@ -88,7 +88,7 @@ void ElectronRateSolver::compute_cross_sections(std::ofstream& _log, bool recalc
     Distribution::precompute_Q_coeffs(input_params.Store);
 }
 
-void ElectronRateSolver::solve() {
+void ElectronRateSolver::solve(ofstream & _log) {
     assert (hasRates || "No rates found! Use ElectronRateSolver::compute_cross_sections(log)\n");
     auto start = std::chrono::system_clock::now();
 
@@ -145,10 +145,10 @@ void ElectronRateSolver::solve() {
     auto end = chrono::system_clock::now();
     chrono::duration<double> elapsed_seconds = end-start;
     time_t end_time = std::chrono::system_clock::to_time_t(end);
-
     cout << "[ Solver ] finished computation at " << ctime(&end_time) << endl;
-    long secs = elapsed_seconds.count();
-    cout<<"[ Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << endl;
+    secs = elapsed_seconds.count();
+    cout <<"[ Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << endl;
+    log_extra_details(_log);
 
 }
 
@@ -351,6 +351,15 @@ void ElectronRateSolver::save(const std::string& _dir) {
     }
     pf.save(fake_t,dir+"intensity.csv");
 
+}
+
+void ElectronRateSolver::log_extra_details(ofstream & _log){
+    // Saves details pertaining to the simulation's execution to file fname
+    if(_log.is_open()){
+        cout << "[ Details ] Logging run-specific details..."<<endl;
+        _log << endl << "[ Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << endl;
+        _log.flush();
+    }
 }
 
 void ElectronRateSolver::saveFree(const std::string& fname) {

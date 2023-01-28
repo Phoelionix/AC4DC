@@ -27,7 +27,7 @@ This file is part of AC4DC.
 
 using namespace std;
 
-////// The below paragraph isn't currently implemented; for now, the rates are calculated here.
+////// The below paragraph isn't currently implemented; for now, the rates are calculated here (compute_cross_sections()).
 ////// Note the computationally expensive part of the code is the solving of equations, not the rates, so 
 ////// that should be taken into account when considering the priority of refactoring.   - S.P.
     // Rate system solver.
@@ -92,15 +92,71 @@ string move_mol_file(const string& path_to_file,const string& out_dir, const str
     return outfile_path;
 }
 
-int get_file_names(const char* infile_, string &tag, string &logfile, string &tmp_molfile, string&outdir) {
+bool string_in_file(vector<string> FileContent, string outdir){
+    for (int n = 0; n < FileContent.size(); n++){
+        if (FileContent[n] == outdir){
+            return true;
+        }
+    }    
+    return false;
+}
+
+int reserve_output_name(string &outdir,string &tag){
+    ifstream f_read;
+    string fname = "output/reserved_output_names.txt";
+    f_read.open(fname);    
+    vector<string> FileContent;
+	string comment = "//";
+	string curr_key;
+    // Store file content
+	while (!f_read.eof() && f_read.is_open()) {
+		string line;
+		getline(f_read, line);
+		if (!line.compare(0, 2, comment)) continue;
+		if (!line.compare(0, 2, "")) continue;
+		FileContent.push_back(line);
+	}
+
+    int count = 0;
+    outdir = "";
+    while(outdir == ""||string_in_file(FileContent,outdir)){
+            count++;
+            outdir = "output/__Molecular/"+tag+"_"+to_string(count)+"/";
+            if(count > 30){
+                cerr << "Directory naming loop failsafe triggered in get_file_names() of main.cpp" << endl;
+                return 1;
+            }
+        }
+    f_read.close();
+    // Reserve the name in the file
+    ofstream f_write;
+    f_write.open(fname,fstream::app); 
+    f_write << endl <<outdir;        
+    // Ensure we can make the directory
+    try_mkdir(outdir);
+    std::filesystem::remove(outdir);
+    f_write.close();
+    return 0;
+}
+
+int get_file_names(string &infile_, string &tag, string &logfname, string &tmp_molfile, string&outdir) {
     // Takes infile of the form "DIR/Lysozyme.mol"
     // Stores "Lysozyme" in tag, "output/log/run_Lysozyme" in logfile, and "output/log/Lysozyme_[timestamp].mol" in tmp_molfile
-    string infile = string(infile_);
-    size_t tagstart = infile.rfind('/');
-    size_t tagend = infile.rfind('.');
+    
+    if (!std::filesystem::exists(infile_)){
+        // Allow for user to not include extension.
+        infile_ += ".mol";
+        if (!std::filesystem::exists(infile_)){
+            cerr <<"File "<< infile_ <<" not found."<<endl;
+            return 1;
+        }
+    }
+
+    size_t tagstart = infile_.rfind('/');
+    size_t tagend = infile_.rfind('.');
     tagstart = (tagstart==string::npos) ? 0 : tagstart + 1;// Exclude leading slash
-    tagend = (tagend==string::npos) ? infile.size() : tagend;
-    tag = infile.substr(tagstart, tagend-tagstart);
+    tagend = (tagend==string::npos) ? infile_.size() : tagend;
+    tag = infile_.substr(tagstart, tagend-tagstart);
 
     time_t time_temp = std::time(nullptr); 
     tm time = *localtime(&time_temp);
@@ -111,12 +167,11 @@ int get_file_names(const char* infile_, string &tag, string &logfile, string &tm
     try_mkdir("output");
     try_mkdir("output/log");
     try_mkdir("output/__Molecular");
-    logfile = "output/log/run_" + tag + "_" + time_tag.str() + ".log";
+    logfname = "output/log/run_" + tag + "_" + time_tag.str() + ".log";
     tmp_molfile = "output/log/mol_" + tag + "_" + time_tag.str() + ".mol"; 
+    if (reserve_output_name(outdir,tag) == 1){return 1;}
     // check correct format
-    outdir = "output/__Molecular/"+tag+"/";
-    try_mkdir(outdir);
-    string extension = infile.substr(tagend);
+    string extension = infile_.substr(tagend);
     if (extension != ".mol") {
         cerr<<"This file is for coupled calculations. Please provide a .mol file similar to Lysozyme.mol"<<endl;
         return 1;
@@ -197,27 +252,30 @@ int main(int argc, const char *argv[]) {
     cout<<"This is free software, and you are welcome to redistribute it"<<endl;
     cout<<"under certain conditions; run `ac4dc -c' for details."<<endl;
 
-    if (get_file_names(argv[1], name, logname, tmp_molfile, outdir) == 1)
+    // Temporarily convert to string, so we can add .mol for ease of use.
+    string input_file_path = string(argv[1]); 
+    if (get_file_names(input_file_path, name, logname, tmp_molfile, outdir) == 1)
         return 1;
 
-    save_mol_file(argv[1],tmp_molfile);
+    save_mol_file(input_file_path,tmp_molfile);
 
     cout<<"Running simulation for target "<<name<<endl;
     cout << "logfile name: " << logname <<endl;
-    ofstream log(logname);
+    ofstream log(logname); 
     cout << "\033[1;32mInitialising... \033[0m" <<endl;
-    ElectronRateSolver S(argv[1], log); // Contains all of the collision parameters.
+    const char* const_path = input_file_path.c_str();
+    ElectronRateSolver S(const_path, log); // Contains all of the collision parameters.
     cout << "\033[1;32mComputing cross sections... \033[0m" <<endl;
     S.compute_cross_sections(log, runsettings.recalc);
     if (runsettings.solve_rate_eq) {
         cout << "\033[1;32mSolving rate equations..." << "\033[35m\033[1mTarget: " << name << "\033[0m" <<endl;
-        S.solve();
+        S.solve(log);
         cout << "\033[1;32mDone! \033[0m" <<endl;
+        try_mkdir(outdir);
         S.save(outdir);
     } else {
         cout << "\033[1;32mDone! \033[0m" <<endl;
     }
     move_mol_file(tmp_molfile,outdir, name);
-
     return 0;
 }

@@ -84,7 +84,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 					}
 				}
 			}
-			// Set orbitals' energy.
+			// Set orbitals' energy via Slater approximation.  E = -[(Z-s)/n]^2 . TODO figure out why 0.5 factor is there.
 			
 			s = 0.35*max(0,N_elec_n0) + 0.85*N_elec_n1 + 1.0*N_elec_n2_plus;   // I added max(0, N_elec_n0) in case this energy is used when no electrons are present. TODO should use s = 0.30 * N_elec_n0 for 1s case right? Check. - S.P.
 			double factor = 1;
@@ -92,8 +92,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 				factor = static_cast<float>(shell_occupancies[L])/static_cast<float>(Orbitals[i].occupancy()); // Average out the possible energies.
 			}			
 			Orbitals[i].Energy += factor*-0.5*(Potential.NuclCharge() - s)*(Potential.NuclCharge() - s) / Orbitals[i].N() / Orbitals[i].N();
-
-			// std::cout << "Slater orbital energy is: " << Orbitals[i].Energy <<endl;
+			//std::cout << "Slater orbital energy is: " << Orbitals[i].Energy << " (x2)Ry"<<endl;
 		}
 	}
 	// Quick and dirty approximation of shells to a 2p orbital. TODO

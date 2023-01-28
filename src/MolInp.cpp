@@ -48,13 +48,16 @@ MolInp::MolInp(const char* filename, ofstream & log)
     }
 	string comment = "//";
 	string curr_key = "";
+	string end_file = "####END####";
 
+	// Store the parameter-holding file content
 	while (!infile.eof())
 	{
 		string line;
 		getline(infile, line);
 		if (!line.compare(0, 2, comment)) continue;
 		if (!line.compare(0, 1, "")) continue;
+		if (!line.compare(0,end_file.length(),end_file)) break;
 		if (!line.compare(0, 1, "#")) {
 			if ( FileContent.find(line) == FileContent.end() ) {
 				FileContent[line] = vector<string>(0);
@@ -125,7 +128,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 3) stream >> max_elec_e;
 		if (n == 4) stream >> num_elec_points;
 		if (n == 5) stream >> elec_grid_type;
-		if (n == 6) stream >> elec_grid_type.num_low;
+		if (n == 6) stream >> elec_grid_type.num_low;   // TODO currently it uses an extra point than stated here for some reason (or rather, this number excludes the "transition point" - S.P.
 		if (n == 7) stream >> elec_grid_type.transition_e;
 		if (n == 8) stream >> elec_grid_type.min_coulomb_density;
 
@@ -251,7 +254,7 @@ bool MolInp::validate_inputs() {
 	}
 	if (elec_grid_type.mode == GridSpacing::hybrid || elec_grid_type.mode == GridSpacing::powerlaw) {
 		if (elec_grid_type.num_low <= 0 || elec_grid_type.num_low >= num_elec_points) { 
-			cerr<<"Defaulting number of dense points to "<<num_elec_points/2;
+			cerr<<"Defaulting number of dense (low-energy) points to "<<num_elec_points/2;
 			elec_grid_type.num_low = num_elec_points/2;
 		}
 	}

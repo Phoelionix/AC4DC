@@ -1,12 +1,13 @@
 // Template AC4DC input file created from file.pdb
 
 #ATOMS
-N_fast 5
-C_fast 17
-O_fast 8
+N 187
+C 611
+O 271
+S 10
 
 #VOLUME
-515.69      // Volume per molecule in Angstrom^3.
+55961.80      // Volume per molecule in Angstrom^3.
 2000      // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
 none      // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
 
@@ -21,7 +22,7 @@ square       // Pulse shape.
 12           // Number of threads in OpenMP.
 0            // [only for nonthermal] minimum free-electron energy in eV.
 10000        // [only for nonthermal] maximum free-electron energy in eV. Should not be near photon energy.
-100          // [only for nonthermal] number of free-electron grid points.
+100          // total number of free-electron grid points.
 powerlaw     // electron grid type.
 35           // Number of "low-energy" grid points (hybrid & powerlaw grids only).
 2000         // transition energy in eV.
@@ -35,3 +36,6 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
 1         // Proportion of time steps to iterate through before stopping early.
+####END####
+
+Notes:

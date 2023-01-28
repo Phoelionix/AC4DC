@@ -2,7 +2,7 @@
 // Carbon_HR_V1_hyb.mol (formerly Carbon_HR1_hyb.mol), used in Sanders' thesis.
 
 #ATOMS
-C_fast 1
+F 1
 
 #VOLUME
 18.11        // Volume per molecule in Angstrom^3.
@@ -17,10 +17,10 @@ square       // Pulse shape
 
 #NUMERICAL
 400000          // (Original:200k, but fails and restarts with 400k if this is used) Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
-12            // Number of threads in OpenMP.  // TODO implemented? -S.P.
+12            // Number of threads in OpenMP.
 0             // [only for nonthermal] minimum free-electron energy in eV
 10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
-100           // [only for nonthermal] number of free-electron grid points  // TODO Surely this is for hybrid and power law only? -S.P.
+100           // total number of free-electron grid points
 powerlaw        // electron grid type
 35             // Number of "low-energy" grid points (hybrid & powerlaw grids only)
 2000          // transition energy in eV 

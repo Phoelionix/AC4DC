@@ -1,12 +1,14 @@
 // Template AC4DC input file created from file.pdb
 
 #ATOMS
-N 5
-C 17
-O 8
+N 1500
+C 4754
+O 3157
+S 80
+H 10789
 
 #VOLUME
-515.69      // Volume per molecule in Angstrom^3.
+236961.26      // Volume per molecule in Angstrom^3.
 2000      // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
 none      // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
 
@@ -34,7 +36,7 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-0.07         // Proportion of time steps to iterate through before stopping early.
-####END#####
+1         // Proportion of time steps to iterate through before stopping early.
+####END####
 
 Notes:
