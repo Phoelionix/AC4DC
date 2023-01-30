@@ -129,6 +129,7 @@ int reserve_output_name(string &outdir,string &tag){
         }
     f_read.close();
     // Reserve the name in the file
+    print("Reserving folder name: '" + fname + "'")
     ofstream f_write;
     f_write.open(fname,fstream::app); 
     f_write << endl <<outdir;        

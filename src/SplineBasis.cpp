@@ -111,7 +111,7 @@ void BasisSet::set_knot(const GridSpacing& gt){
     size_t start = BSPLINE_ORDER-Z_0-1;
     size_t num_int = num_funcs + Z_inf - start;
     
-
+ 
     double A_lin = (_max - _min)/(num_int-1);
     double A_sqrt = (_max - _min)/(num_int-1)/(num_int-1);
     // exponential grid

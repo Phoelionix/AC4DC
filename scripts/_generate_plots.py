@@ -8,15 +8,12 @@ matplotlib.rcParams.update({
 })
 import matplotlib.pyplot as plt
 from plotter_core import Plotter
-import sys
-import re
+import sys, traceback
+import pickle
 
-############
-# Basic num arguments check
-#######  
+# Exception colouring
 # https://stackoverflow.com/questions/14775916/coloring-exceptions-from-python-on-a-terminal
 def set_highlighted_excepthook():  
-    import sys, traceback
     from pygments import highlight
     from pygments.lexers import get_lexer_by_name
     from pygments.formatters import TerminalFormatter
@@ -29,11 +26,13 @@ def set_highlighted_excepthook():
         sys.stderr.write(highlight(tbtext, lexer, formatter))
 
     sys.excepthook = myexcepthook
-
 set_highlighted_excepthook()
-if  len(sys.argv) < 3:
-    print("Usage: python ./_generate_plots.py Carbon_HR1 label_for_graph")
-    print("Or to automatically use output mol file: python ./_generate_plots.py Carbon_HR1 label_for_graph y")
+
+
+# Basic num arguments check
+if  len(sys.argv) < 2:
+    print("Usage: python generate_plots.py Carbon_1")
+    print("Or to automatically use output mol file: python generate_plots.py Carbon_1 y")
     exit()
     
 
@@ -51,13 +50,20 @@ fname_bound_dynamics = "bound_dynamics"  #Was called both _bound and dynamics so
 one_fs_wiggle_testing = True
 #######
 
+label = sys.argv[1] +'_' 
 
-label = sys.argv[1] +'_' + sys.argv[2] + '_'
+#TODO make user inputs less big
+if len(sys.argv) > 3:
+     label += sys.argv[3] + '_'
+
 name = sys.argv[1].replace('_',' ')
 #name = ' '.join(re.split('(?<=.)(?=[A-Z])', sys.argv[1]))
 #name = sys.argv[1].partition("_")[0] 
 
-pl = Plotter(sys.argv[1])
+output_mol_query = ""
+if len(sys.argv) > 2:
+     output_mol_query = sys.argv[2]
+pl = Plotter(sys.argv[1],output_mol_query)
 
 if not one_fs_wiggle_testing: # don't need these plots now
     pl.plot_tot_charge(every=10)
@@ -98,49 +104,50 @@ cmap = plt.get_cmap("tab10")
 
 plt.rcParams["font.size"] = 16 # 8
 
+''' #V2 DEFAULTS 
 # slices = [-2.5, 0, 2.5, 5]
 tt = 0
 slices = [-7.5+tt, -5+tt, -2.5+tt, 0+tt]
 # slices = [0, 15, 23]
-energies = [200, 500, 500, 1000]  #MB upper boundary on energy? -S.P.
+energies = [200, 500, 500, 1000]  
+'''
+
 colrs = [cmap(i) for i in range(4)]
 
 #Wiggle testing                       # Proportion of time steps (Starts at -16 fs unless otherwise stated)
-#wiggle_slices = [-15.5,-15,-14,-14]  #0.1
-#wiggle_slices = [-15.95,-15.85,-15.75,-15.65]  # 0.015 
-#wiggle_slices = [-29.90,-29.70,-29.50,-29.30]  # 0.015 15 fs
-#wiggle_slices = [-15.95,-15.95,-15.95,-15.95]  # 0.005
-#wiggle_slices = [-0.009,0,0.009,0.019,] #square keV 0.01 fs
+#slices = [-15.5,-15,-14,-14]  #0.1
+#slices = [-15.95,-15.85,-15.75,-15.65]  # 0.015 
+#slices = [-29.90,-29.70,-29.50,-29.30]  # 0.015 15 fs
+#slices = [-15.95,-15.95,-15.95,-15.95]  # 0.005
+#slices = [-0.009,0,0.009,0.019,] #square keV 0.01 fs
 
 #pulse wiggle testing
-#wiggle_slices = [-15.995,-15.98,-15.965,-15.95]  # 0.001 square
-#wiggle_slices = [-15.995,-15.98,-15.965,-15.95]  # 0.005
-#wiggle_slices = [-15.99,-15.9,-15.8,-15.8]  # 0.005 square
-#wiggle_slices = [-7.95,-7.95,-7.95,-7.95]  # square 
+#slices = [-15.995,-15.98,-15.965,-15.95]  # 0.001 square
+#slices = [-15.995,-15.98,-15.965,-15.95]  # 0.005
+#slices = [-15.99,-15.9,-15.8,-15.8]  # 0.005 square
+#slices = [-7.95,-7.95,-7.95,-7.95]  # square 
 
 ### shape, %, time,
-#wiggle_slices = [-9.5,-8.5,-7.5]      # square 10%, 10 fs,
-wiggle_slices = [-9.8,-9.5] 
-#wiggle_slices = [-9.99,-9.98,-9.97]      # square << 1%, 10 fs, 
+#slices = [-9.5,-8.5,-7.5]      # square 10%, 10 fs,
+slices = [-7.6]#[-9.8,-9.5] 
+#slices = [-9.99,-9.98,-9.97]      # square << 1%, 10 fs, 
 
-wiggle_energies = [500,500,500]
-#wiggle_energies = [1000]
-#wiggle_slices = [-7.5]
+energies = [500,500,500,500,500,500]     # Cutoff energies for fitting MB curves. 
+plot_fits = True # Whether to plot MB curves
 
-if not one_fs_wiggle_testing:  
-    for (t, e, col ) in zip(slices, energies, colrs):
+
+for (t, e, col ) in zip(slices, energies, colrs):
         lines = pl.plot_step(t, normed=True, color = col, lw=0.5)
-        T = pl.plot_fit(t, e, normed=True, color=col, lw=0.5)
-else:
-    for (t, e, col ) in zip(wiggle_slices, wiggle_energies, colrs):
-        lines = pl.plot_step(t, normed=True, color = col, lw=0.5)
-        T = pl.plot_fit(t, e, normed=True, color=col, lw=0.5)  # Seems that e is the cutoff energy. Approx. double the peak of the MB.
+        if plot_fits:
+            T = pl.plot_fit(t, e, normed=True, color=col, lw=0.5)  # Seems that e is the fitted cutoff energy for considering fitting. Default settings had it as approx. double the peak of the MB. -S.P.
 
 # pl.fig_steps.set_size_inches(3,2.5)
 pl.fig_steps.set_size_inches(6,5)
 
 #all
-pl.ax_steps.set_ylim([1e-40, 1])
+pl.ax_steps.set_ylim([1e-10, 1])
+#plt.yscale("linear")
+#pl.ax_steps.set_ylim([-0.035, 0.035])
 pl.ax_steps.set_xlim([1,10000]) 
 #spike
 #pl.ax_steps.set_ylim([1e-40, 1])
@@ -149,7 +156,6 @@ pl.ax_steps.set_xlim([1,10000])
 pl.fig_steps.subplots_adjust(bottom=0.15,left=0.2,right=0.95,top=0.95)
 pl.ax_steps.xaxis.get_major_formatter().labelOnlyBase = False
 pl.ax_steps.yaxis.get_major_formatter().labelOnlyBase = False
-
 
 ######### 
 # Curve adding

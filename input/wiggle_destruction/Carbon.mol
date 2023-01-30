@@ -16,13 +16,13 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 square       // Pulse shape
 
 #NUMERICAL
-800000          // (Original:200k, but fails and restarts with 400k if this is used) Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+2500000          // (Original:200k, but fails and restarts with 400k if this is used) Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12            // Number of threads in OpenMP.
 0             // [only for nonthermal] minimum free-electron energy in eV
 10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
-150           // total number of free-electron grid points
+215           // total number of free-electron grid points
 powerlaw        // electron grid type
-35             // Number of "low-energy" grid points (hybrid & powerlaw grids only)
+80             // Number of "low-energy" grid points (hybrid & powerlaw grids only)
 2000          // transition energy in eV 
 
 #OUTPUT
@@ -37,6 +37,8 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 ####END#####
 
 Notes: 
+From interactive graph, seems like increasing the number of low-energy gird points is promising.
+
 Wiggle extends down to negative value for 100|(low 35) grid point settings, seeing if solution converges as 
 grid points become finer. Additionally, on the lookout for hints of where instability is from. Running for just 
 0.5 fs. 
