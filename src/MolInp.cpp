@@ -127,7 +127,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 2) stream >> min_elec_e;
 		if (n == 3) stream >> max_elec_e;
 		if (n == 4) stream >> num_elec_points;
-		if (n == 5) stream >> elec_grid_type;
+		if (n == 5) stream >> elec_grid_type; // (Note >> operator is user-defined here)
 		if (n == 6) stream >> elec_grid_type.num_low;   // TODO currently it uses an extra point than stated here for some reason (or rather, this number excludes the "transition point" - S.P.
 		if (n == 7) stream >> elec_grid_type.transition_e;
 		if (n == 8) stream >> elec_grid_type.min_coulomb_density;

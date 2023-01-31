@@ -122,14 +122,14 @@ int reserve_output_name(string &outdir,string &tag){
     while(outdir == ""||string_in_file(FileContent,outdir)){
             count++;
             outdir = "output/__Molecular/"+tag+"_"+to_string(count)+"/";
-            if(count > 30){
+            if(count > 300){
                 cerr << "Directory naming loop failsafe triggered in get_file_names() of main.cpp" << endl;
                 return 1;
             }
         }
     f_read.close();
     // Reserve the name in the file
-    print("Reserving folder name: '" + fname + "'")
+    cout << "Reserving folder name: '" << fname << "'" << endl;
     ofstream f_write;
     f_write.open(fname,fstream::app); 
     f_write << endl <<outdir;        
@@ -278,5 +278,7 @@ int main(int argc, const char *argv[]) {
         cout << "\033[1;32mDone! \033[0m" <<endl;
     }
     move_mol_file(tmp_molfile,outdir, name);
+    
     return 0;
+    
 }

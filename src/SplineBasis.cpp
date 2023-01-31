@@ -132,7 +132,9 @@ void BasisSet::set_knot(const GridSpacing& gt){
     
     double p_powlaw = (log(_max-_min) - log(gt.transition_e - _min))/(log(1.*num_funcs/M));
     double A_powlaw = (_max - _min)/pow(num_funcs, p_powlaw);
-
+    
+    double p_powlaw_test = (log(_max-_min) - log(150 - _min))/(log(1.*num_funcs/M));
+    double A_powlaw_test = (_max - _min)/pow(num_funcs, p_powlaw_test);
 
     std::cout<<"[ Knot ] Using splines of "<<BSPLINE_ORDER<<"th order "<<std::endl;
     std::cout<<"[ Knot ] (i.e. piecewise polynomial has leading order x^"<<BSPLINE_ORDER-1<<")"<<std::endl;
@@ -181,6 +183,9 @@ void BasisSet::set_knot(const GridSpacing& gt){
             break;
         case GridSpacing::powerlaw:
             knot[i] = A_powlaw * pow(i-start, p_powlaw) + _min;
+            break;
+        case GridSpacing::test:
+            knot[i] = A_powlaw_test * pow(i - start, p_powlaw_test) + _min;
             break;
         default:
             throw std::runtime_error("Grid spacing has not been defined.");

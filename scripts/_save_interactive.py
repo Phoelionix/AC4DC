@@ -2,10 +2,10 @@
 ### Params
 
 #sys_argv = ["","Carbon_165_50"]
-sys_argv = ["","Sulfur_Sanders_Settings"]
-sys_argv = ["","C_180_60"]
+#sys_argv = ["","Sulfur_Sanders_Settings"]
+#sys_argv = ["","Carbon_27"]
 
-terminal_mode = False
+terminal_mode = True
 xmax = 1e4
 
 
@@ -46,50 +46,6 @@ def set_highlighted_excepthook():
 
     sys.excepthook = myexcepthook
 set_highlighted_excepthook()
-
-# Basic num arguments check
-if  len(sys_argv) < 2:
-    #print("Usage: python3 _save_interactive.py Carbon_1 <number of steps> <name_suffix (optional)>")
-    print("Usage: python3 _save_interactive.py Carbon_1 <name_suffix (optional)>")
-    exit()
-
-
-label = sys_argv[1]
-if len(sys_argv) > 2:
-     label += '_' + sys_argv[2]
-name = sys_argv[1].replace('_',' ')
-print(sys_argv[1])
-pl = Plotter(sys_argv[1],"y")
-
-
-
-normalise = True
-
-# Initialisation
-pl.max_t = pl.timeData[-1]
-pl.min_t = pl.timeData[0+1]
-pl.fig_steps.set_size_inches(9,7.5)
-pl.ax_steps.set_xlim([1,xmax]) 
-pl.line = pl.plot_step(pl.min_t, normed=normalise, lw=0.7, color=(0,0,0,1))
-#nsteps = int(sys_argv[2])
-#times = np.linspace(pl.min_t,pl.max_t,nsteps)
-
-#-----Widgets-----#
-# Time Slider
-pl.ax_steps.set_yscale('linear')
-scale = 5
-pl.axtime = pl.fig_steps.add_axes([0.25, 0.01, 0.1*scale, 0.03*scale])
-# time_slider = Slider(
-#     ax=pl.axtime,
-#     label='Time [fs]',
-#     valmin=pl.min_t,
-#     valmax=pl.max_t,
-#     valinit=pl.min_t,
-# )
-
-# # Y-Scale Button
-pl.scale_button_ax = pl.fig_steps.add_axes([0.8, 0.025, scale*0.1, scale*0.04])
-# scale_button = RadioButtons(pl.scale_button_ax, ['Log','Lin','SymLog'],0, activecolor='0.975') ## ミ=͟͟͞͞(✿ʘ ᴗʘ)っ
 
 class WidgetHandler:  
     def __init__(self,_pl,_time_slider = None,_scale_button = None):
@@ -147,7 +103,7 @@ class WidgetHandler:
         col = tuple(rgb)
         pl.ax_steps.set_ylim([log_ymin, log_ymax]) # Needed as pl.plot_step sets scales to log by default.
         pl.line[-1].remove()
-        pl.line = pl.plot_step(t, normed=normalise, lw=0.7, color=col)     # pl handles the continuous values of the time for us.
+        pl.line = pl.plot_step(t, normed=pl.normalise, lw=0.7, color=col)     # pl handles the continuous values of the time for us.
         
         if scale_button.value_selected == "Log":
             pass
@@ -160,84 +116,72 @@ class WidgetHandler:
 
         pl.fig_steps.canvas.draw_idle()
  
+def main():
 
-# widg_test = WidgetHandler(pl,time_slider,scale_button)
-
-# widg_test.update(0) 
-# scale_button.on_clicked(widg_test.update)
-# time_slider.on_changed(widg_test.update)
-# time_slider.set_val(pl.min_t+(pl.max_t-pl.min_t)/10)
-# scale_button.set_active(0)
+    # Basic num arguments check
+    if  len(sys_argv) < 2:
+        #print("Usage: python3 _save_interactive.py Carbon_1 <number of steps> <name_suffix (optional)>")
+        print("Usage: python3 _save_interactive.py Carbon_1 <name_suffix (optional)>")
+        exit()
 
 
-#-----Plot-----#
+    label = sys_argv[1]
+    if len(sys_argv) > 2:
+        label += '_' + sys_argv[2]
+    name = sys_argv[1].replace('_',' ')
+    print(sys_argv[1])
+    pl = Plotter(sys_argv[1],"y")
 
-pl.fig_steps.subplots_adjust(bottom=0.15,left=0.2,right=0.95,top=0.95)
-#pl.plot_maxwell(44.1,0.06*3/2)  # ~Sanders -7.5 fs - density of MB assumed to be 50% of total.  
-pl.ax_steps.set_title(name + " - Free-electron distribution",fontsize = 20)#plt.title(name + " - Free-electron distribution")
+    # Initialisation
+    pl.normalise = True
+    pl.max_t = pl.timeData[-1]
+    pl.min_t = pl.timeData[0+1]
+    pl.fig_steps.set_size_inches(9,7.5)
+    pl.ax_steps.set_xlim([1,xmax]) 
+    pl.line = pl.plot_step(pl.min_t, normed=pl.normalise, lw=0.7, color=(0,0,0,1))
+    #nsteps = int(sys_argv[2])
+    #times = np.linspace(pl.min_t,pl.max_t,nsteps)
 
-#-----Picklin-----#
-extension = ".fig.pickle"
-outdir = "../../../AC4DC_Interactives/"
-file_path = path.abspath(path.join(__file__ ,outdir + label + extension))
-with open(file_path, 'wb') as f:
-    pickle.dump(pl, f)
+    #-----Widgets-----#
+    # Time Slider
+    pl.ax_steps.set_yscale('linear')
+    scale = 5
+    pl.axtime = pl.fig_steps.add_axes([0.25, 0.01, 0.1*scale, 0.03*scale])
+    # time_slider = Slider(
+    #     ax=pl.axtime,
+    #     label='Time [fs]',
+    #     valmin=pl.min_t,
+    #     valmax=pl.max_t,
+    #     valinit=pl.min_t,
+    # )
 
-print("Done!")
+    # # Y-Scale Button
+    pl.scale_button_ax = pl.fig_steps.add_axes([0.8, 0.025, scale*0.1, scale*0.04])
+    # scale_button = RadioButtons(pl.scale_button_ax, ['Log','Lin','SymLog'],0, activecolor='0.975') ## ミ=͟͟͞͞(✿ʘ ᴗʘ)っ
 
-'''
-def run_interactive(interactive_directory):
-    set_highlighted_excepthook()
-    indir = interactive_directory # Definitely what indir means.
-    #fname = sys.argv[1]
-    #fname = input("Input file name: ")
-    fname = "Carbon_150_35"
-    fname = "Sulfur_Sanders_Settings"
+    # widg_test = WidgetHandler(pl,time_slider,scale_button)
+
+    # widg_test.update(0) 
+    # scale_button.on_clicked(widg_test.update)
+    # time_slider.on_changed(widg_test.update)
+    # time_slider.set_val(pl.min_t+(pl.max_t-pl.min_t)/10)
+    # scale_button.set_active(0)
+
+
+    #-----Plot-----#
+
+    pl.fig_steps.subplots_adjust(bottom=0.15,left=0.2,right=0.95,top=0.95)
+    #pl.plot_maxwell(44.1,0.06*3/2)  # ~Sanders -7.5 fs - density of MB assumed to be 50% of total.  
+    pl.ax_steps.set_title(name + " - Free-electron distribution",fontsize = 20)#plt.title(name + " - Free-electron distribution")
+
+    #-----Picklin-----#
     extension = ".fig.pickle"
-    if len(fname) < len(extension) or fname[-len(extension):] != extension:
-        fname += extension
+    outdir = "../../../AC4DC_Interactives/"
+    file_path = path.abspath(path.join(__file__ ,outdir + label + extension))
+    with open(file_path, 'wb') as f:
+        pickle.dump(pl, f)
 
-    # Loads the pl object, 
-    #global pl
-    #pl = pickle.load(open(indir + fname, 'rb'))
-    print(pl.fig_steps)
-    plt.figure(pl.fig_steps)
-    #%matplotlib widget
-
-    widgies = WidgetHandler(pl)
-    widget_update = widgies.update
-    widget_update(0) 
-    #plt.ion()
-    plt.show()
-indir = "../../../AC4DC_Interactives/"
-indir = path.abspath(path.join(__file__ ,indir)) + "/"
-run_interactive(indir)
-'''
-'''
-indir = "../../../AC4DC_Interactives/" # Definitely what indir means.
-indir = path.abspath(path.join(__file__ ,indir)) + "/"
-set_highlighted_excepthook()
-#fname = sys.argv[1]
-#fname = input("Input file name: ")
-fname = "Carbon_150_35"
-fname = "Sulfur_Sanders_Settings"
-extension = ".fig.pickle"
-if len(fname) < len(extension) or fname[-len(extension):] != extension:
-    fname += extension
-
-# Loads the pl object, 
-#global pl
-#pl = pickle.load(open(indir + fname, 'rb'))
-print(pl.fig_steps)
-plt.figure(pl.fig_steps)
-#%matplotlib widget
-
-widgies = WidgetHandler(pl)
-widget_update = widgies.update
-widget_update(0) 
-#plt.ion()
-plt.show()
-'''
-plt.close() # IMPORTANT. If importing methods the whole code is run.
-
+    print("Done!")
+if __name__ == "__main__":
+    main()
 # %%

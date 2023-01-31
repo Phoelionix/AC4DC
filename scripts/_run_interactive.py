@@ -59,7 +59,7 @@ if len(fname) < len(extension) or fname[-len(extension):] != extension:
 #global pl
 print("Loading pickle...")
 pl = pickle.load(open(indir + fname, 'rb'))
-print("Done!")
+print(indir+fname,"loaded!")
 print(pl.fig_steps)
 plt.figure(pl.fig_steps)
 #%matplotlib widget
@@ -67,8 +67,16 @@ plt.figure(pl.fig_steps)
 widgies = WidgetHandler(pl)
 widget_update = widgies.update
 widget_update(0) 
+
 #plt.ion()
+#plt.subplots_adjust(right=0.9)
+#plt.margins(0.3,0.3)
 plt.show()
+
+#pt.mpl_to_plotly(plt.gcf())
+
+#unique_url = py.plot_mpl(pl.fig_steps, filename="plotly test plot")
+
 
 
 # matplotlib.use("pgf")
@@ -95,9 +103,19 @@ plt.show()
 # # %%
 
 # %%
-fname = "C_180_60"
+#fname = "C_180_60"
 #fname = "C_215_100"
 #fname = "C_215_50"
 #fname = "C_250_100"
 #fname = "C_215_80"
+#fname = "Sulfur_Sanders_Settings"
+#fname = "Carbon_26"
+#fname = "Carbon_25"
+#fname = "Carbon_30"
+fname = "Carbon_27"
+fname = "Carbon_28"
+fname = "Carbon_33"
+fname = "Carbon_35"
+fname = "Carbon_36"
+fname = "Sulfur_Sanders_Settings"
 # %%

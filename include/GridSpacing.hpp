@@ -36,6 +36,7 @@ struct GridSpacing {
     const static char exponential = 2;
     const static char hybrid = 3;
     const static char powerlaw = 4;
+    const static char test = 5;
     const static char unknown = 101;
     char mode = unknown;
     size_t num_low = 0; // Used for hybrid spec only
@@ -65,6 +66,9 @@ namespace {
         case GridSpacing::powerlaw:
             os << "power-law grid going through M="<<gs.num_low<<", e="<<gs.transition_e;
             break;
+        case GridSpacing::test:
+            os << "experimental grid going through M="<<gs.num_low<<", e="<<gs.transition_e;
+            break;
         default:
             os << "Unknown grid type";
             break;
@@ -72,6 +76,7 @@ namespace {
         return os;
     }
 
+    /// Sets mode of the grid style aka grid type
     [[maybe_unused]] std::istream& operator>>(std::istream& is, GridSpacing& gs) {
         std::string tmp;
         is >> tmp;
@@ -96,6 +101,9 @@ namespace {
             break;
         case 'p':
             gs.mode = GridSpacing::powerlaw;
+            break;
+        case 't':
+            gs.mode = GridSpacing::test;
             break;
         default:
             std::cerr<<"Unrecognised grid type \""<<tmp<<"\""<<std::endl;
