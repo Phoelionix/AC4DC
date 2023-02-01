@@ -81,7 +81,7 @@ def main():
     # Add widgets
     ipl.add_scale_button(y_log_args,y_lin_args)                 
     ipl.add_time_slider()  
-    ipl.add_simulation_menu()
+    #ipl.add_simulation_menu()
 
     # from dash import Dash, html, Input, Output
     # from dash import dcc

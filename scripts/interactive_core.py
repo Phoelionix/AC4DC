@@ -19,6 +19,9 @@ from scipy.optimize import curve_fit
 from scipy.stats import linregress
 import chart_studio.plotly as py
 import plotly.graph_objects as go
+import plotly.io as pio
+#pio.templates.default = "plotly_dark"
+
 
 engine = re.compile(r'(\d[spdf])\^\{(\d+)\}')
 
@@ -546,11 +549,11 @@ class InteractivePlotter:
         self.fig = go.Figure()
         self.fig.update_layout(
             title= target + " - Free-electron distribution",
-            font=dict(
-                family="Courier New, monospace",
-                size=20,
-                color="RebeccaPurple"
-            )
+            # font=dict(
+            #     family="Courier New, monospace",
+            #     size=20,
+            #     color="RebeccaPurple"
+            # )
         )
         self.fig.update_xaxes(x_args)
         self.fig.update_yaxes(y_args)        
@@ -598,6 +601,7 @@ class InteractivePlotter:
     def add_time_slider(self):
         self.steps_groups = [] # Stores the steps for each plot separately
         start_step = 0
+        time_slider = []
         for g in range(self.num_plots):
             steps = []
             target = self.target_data[g]
@@ -606,19 +610,21 @@ class InteractivePlotter:
                     method="update",
                     args=[{"visible": [False] * len(self.fig.data)}  # style attribute
                         ,{"title": "Step: " + str(1 + i)}],  # layout attribute
-                    label= str(target.timeData[i+1])
+                    label= str(target.timeData[i+1]),
                 )
                 step["args"][0]["visible"][start_step + i] = True  #  When at this step toggle i'th trace in target's group to "visible"
                 steps.append(step)
             self.steps_groups.append(steps)
             start_step += len(steps)
 
-        time_slider = [dict(
-        active=0,
-        currentvalue={"prefix": "Time [fs]: "},
-        pad={"t": 50,"r": 200,"l":0},
-        steps=self.steps_groups[0],
-        )]
+            time_slider.append(dict(
+            active=0,
+            tickwidth=0,
+            currentvalue={"prefix": target.target_mol["name"] + " - Time [fs]: "},
+            pad={"t": 50+125*g,"r": 200,"l":0},
+            steps=steps
+            
+            ))
         self.fig.update_layout(sliders=time_slider)    
 
     # Scale Button 
@@ -649,53 +655,6 @@ class InteractivePlotter:
         self.fig.update_layout(
             updatemenus = [scale_button]
         )    
-
-    #TODO really annoying problem where slider can't be synced with what is visible, due to sliders being an object 
-    # that updates through the API, and thus passing a new slider creates a new object, but the graph visibility
-    # is only stored in these objects through the visibility argument of the step, - if we pass that through, 
-    # we are only passing through a reference to a particular step.
-    # Ultimately the visibiility needs to be updated by this button, but it can't access what it needs. Need dash probably.
-    def add_simulation_menu(self):   
-        import copy
-
-        sim_dicts = []
-        start_step = 0
-        for i in range(self.num_plots):
-
-            # Initialise *new* slider objects
-            sliders = copy.deepcopy(self.fig.layout["sliders"])
-            time_slider = sliders[0]
-            fig_data = copy.deepcopy(self.fig.data)
-            time_slider["steps"] = self.steps_groups[i]
-            # Initial params, altered by use of slider.
-            time_slider["active"] = 0
-            fig_data[start_step].visible = True        # Why we needed to make a copy?
-            start_step += len(time_slider["steps"]) 
-            # These are not altered sadly.
-            active_step = time_slider["active"] 
-            visibility = time_slider["steps"][active_step]["args"][0]["visible"]
-            title = time_slider["steps"][active_step]["args"][1]["title"]
-
-            sim_dict = dict(
-                args = [{"visible": visibility}, {"sliders": sliders,"title":title}],  #[{restyle_dict}, {relayout_dict}]
-                label = self.target_data[i].target_mol["name"],
-                method = "update",
-            )            
-            sim_dicts.append(sim_dict)
-
-        button_layer_1_height = 1.15
-        simulation_selector = go.layout.Updatemenu(
-                buttons=list(sim_dicts),
-                direction="down",
-                pad={"r": 10, "t": 10},
-                showactive=True,
-                x=0.02,
-                xanchor="left",
-                y=button_layer_1_height,
-                yanchor="top",
-                active = 0
-            )
-        self.fig.layout["updatemenus"] += simulation_selector,   
 
             
     # def plot_fit(self, t, fitE, normed=True, **kwargs):
