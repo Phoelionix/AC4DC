@@ -52,24 +52,16 @@ for symbol in ATOMS:
 #     C = plt.get_cmap('nipy_spectral')
 #     return C(idx)
 
-class InteractivePlotter:
-    # Example initialisation: Plotter(water)
-    # --> expects there to be a control file named water.mol within AC4DC/input/ or a subdirectory.
-    def __init__(self, mol, output_mol_query):
-        self.p = path.abspath(path.join(__file__ ,"../../")) + "/"
+class PlotData:
+    def __init__(self,target_path, mol_name,output_mol_query):
+        self.p = target_path
+        molfile = self.get_mol_file(mol_name,output_mol_query) 
+        self.target_mol = {'name': mol_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}
 
-        molfile = self.get_mol_file(mol,output_mol_query)
-        self.mol = {'name': mol, 'infile': molfile, 'mtime': path.getmtime(molfile)}        
-        
         # Stores the atomic input files read by ac4dc
         self.atomdict = {}
         self.statedict = {}
-
-        # Outputs
-        self.outDir = self.p + "/output/__Molecular/" + mol
-        self.freeFile = self.outDir+"/freeDist.csv"
-        self.intFile = self.outDir + "/intensity.csv"
-
+                
         self.boundData={}
         self.chargeData={}
         self.freeData=None
@@ -77,14 +69,103 @@ class InteractivePlotter:
         self.energyKnot=None
         self.timeData=None
 
+        # Directories of target data
+        self.outDir = self.p + "/output/__Molecular/" + mol_name
+        self.freeFile = self.outDir+"/freeDist.csv"
+        self.intFile = self.outDir + "/intensity.csv"
+
+
         self.get_atoms()
         self.update_outputs()
-        self.autorun=False
 
-        #self.setup_step_axes()
+   # Reads the control file specified by self.mol['infile']
+    # and populates the atomdict data structure accordingly
+    def get_atoms(self):
+        self.atomdict = {}
+        with open(self.target_mol['infile'], 'r') as f:
+            reading = False
+            for line in f:
+                if line.startswith("#ATOMS"):
+                    reading=True
+                    continue
+                elif line.startswith("#"):
+                    reading=False
+                    continue
+                if reading:
+                    a = line.split(' ')[0].strip()
+                    if len(a) != 0:
+                        file = self.p + '/input/atoms/' + a + '.inp'
+                        self.atomdict[a]={
+                            'infile': file,
+                            'mtime': path.getmtime(file),
+                            'outfile': self.outDir+"/dist_%s.csv"%a}        
+                        
+    def update_outputs(self):
+        raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
+        self.intensityData = raw[:,1]
+        self.timeData = raw[:, 0]
+        self.energyKnot = np.array(self.get_free_energy_spec(), dtype=np.float64)
+        raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
+        self.freeData = raw[:,1:]
+        for a in self.atomdict:
+            raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
+            self.boundData[a] = raw[:, 1:]
+            self.statedict[a] = self.get_bound_config_spec(a)    
 
+    def get_free_energy_spec(self):
+        erow = []
+        with open(self.freeFile) as f:
+            r = csv.reader(f, delimiter=' ')
+            for row in r:
+                if row[0] != '#':
+                    raise Exception('parser could not find energy grid specification, expected #  |')
+                reading=False
+                for entry in row:
+                    # skip whitespace
+                    if entry == '' or entry == '#':
+                        continue
+                    # it's gotta be a pipe or nothin'
+                    if reading:
+                        erow.append(entry)
+                    elif entry == '|':
+                        reading=True
+                    else:
+                        break
+                if reading:
+                    break
+        return erow        
+        
+    def get_bound_config_spec(self, a):
+        # gets the configuration strings corresponding to atom a
+        specs = []
+        with open(self.atomdict[a]['outfile']) as f:
+            r = csv.reader(f, delimiter=' ')
+            for row in r:
+                if row[0] != '#':
+                    raise Exception('parser could not find atomic state specification, expected #  |')
+                reading=False
+                for entry in row:
+                    # skip whitespace
+                    if entry == '' or entry == '#':
+                        continue
+                    # it's gotta be a pipe or nothin'
+                    if reading:
+                        specs.append(entry)
+                    elif entry == '|':
+                        reading=True
+                    else:
+                        break
+                if reading:
+                    break
+        return specs    
+    
+    def get_density(self, t):
+        t_idx = self.timeData.searchsorted(t)
+        de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])
+        de = de [1:] - de[:-1]
+        return np.dot(self.freeData[t_idx, :], de)    
 
-    def get_mol_file(self, mol,output_mol_query = ""):
+    def get_mol_file(self, mol, output_mol_query = ""):
         #### Inputs ####
         #Check if .mol file in outputs
         use_input_mol_file = False
@@ -164,35 +245,24 @@ class InteractivePlotter:
                 else:
                     print("Continuing...")
                     selected_file = True
-        return molfile    
+        return molfile                                  
+
+class InteractivePlotter:
+    # Example initialisation: Plotter(water)
+    # --> expects there to be a control file named water.mol within AC4DC/input/ or a subdirectory.
+    def __init__(self, target_names, output_mol_query):
+        target_path = path.abspath(path.join(__file__ ,"../../")) + "/"
+        self.num_plots = len(target_names)
+        self.target_data = []
+        for mol_name in target_names:    
+            self.target_data.append(PlotData(target_path,mol_name,output_mol_query))
+
+        #self.autorun=False  
 
     # def setup_step_axes(self):
     #     self.fig_steps = py.figure(figsize=(4,3))
     #     self.ax_steps = self.fig_steps.add_subplot(111)
     #     self.fig_steps.subplots_adjust(left=0.18,right=0.97, top=0.97, bottom= 0.16)
-        
-
-    # Reads the control file specified by self.mol['infile']
-    # and populates the atomdict data structure accordingly
-    def get_atoms(self):
-        self.atomdict = {}
-        with open(self.mol['infile'], 'r') as f:
-            reading = False
-            for line in f:
-                if line.startswith("#ATOMS"):
-                    reading=True
-                    continue
-                elif line.startswith("#"):
-                    reading=False
-                    continue
-                if reading:
-                    a = line.split(' ')[0].strip()
-                    if len(a) != 0:
-                        file = self.p + '/input/atoms/' + a + '.inp'
-                        self.atomdict[a]={
-                            'infile': file,
-                            'mtime': path.getmtime(file),
-                            'outfile': self.outDir+"/dist_%s.csv"%a}
 
     def update_inputs(self):
         self.get_atoms()
@@ -221,53 +291,6 @@ class InteractivePlotter:
                 return False
         return True
 
-    def get_free_energy_spec(self):
-        erow = []
-        with open(self.freeFile) as f:
-            r = csv.reader(f, delimiter=' ')
-            for row in r:
-                if row[0] != '#':
-                    raise Exception('parser could not find energy grid specification, expected #  |')
-                reading=False
-                for entry in row:
-                    # skip whitespace
-                    if entry == '' or entry == '#':
-                        continue
-                    # it's gotta be a pipe or nothin'
-                    if reading:
-                        erow.append(entry)
-                    elif entry == '|':
-                        reading=True
-                    else:
-                        break
-                if reading:
-                    break
-        return erow
-
-    def get_bound_config_spec(self, a):
-        # gets the configuration strings corresponding to atom a
-        specs = []
-        with open(self.atomdict[a]['outfile']) as f:
-            r = csv.reader(f, delimiter=' ')
-            for row in r:
-                if row[0] != '#':
-                    raise Exception('parser could not find atomic state specification, expected #  |')
-                reading=False
-                for entry in row:
-                    # skip whitespace
-                    if entry == '' or entry == '#':
-                        continue
-                    # it's gotta be a pipe or nothin'
-                    if reading:
-                        specs.append(entry)
-                    elif entry == '|':
-                        reading=True
-                    else:
-                        break
-                if reading:
-                    break
-        return specs
-
     def aggregate_charges(self):
         # populates self.chargeData based on contents of self.boundData
         for a in self.atomdict:
@@ -282,19 +305,6 @@ class InteractivePlotter:
                 orboccs = parse_elecs_from_latex(states[i])
                 charge = ATOMNO[a] - sum(orboccs.values())
                 self.chargeData[a][:, charge] += self.boundData[a][:, i]
-
-
-    def update_outputs(self):
-        raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
-        self.intensityData = raw[:,1]
-        self.timeData = raw[:, 0]
-        self.energyKnot = np.array(self.get_free_energy_spec(), dtype=np.float64)
-        raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
-        self.freeData = raw[:,1:]
-        for a in self.atomdict:
-            raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
-            self.boundData[a] = raw[:, 1:]
-            self.statedict[a] = self.get_bound_config_spec(a)
 
     def go(self):
         if not self.check_current():
@@ -515,22 +525,22 @@ class InteractivePlotter:
     #     plt.show()
     #     plt.colorbar()
 
-    # Plots a single point in time.
-    def plot_step(self, t, normed=True, fitE=None, **kwargs):        
-        self.ax_steps.set_xlabel('Energy (eV)')
-        self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
-        self.ax_steps.loglog()
-        # norm = np.sum(self.freeData[n,:])
-        n = self.timeData.searchsorted(t)
-        data = self.freeData[n,:]
-        X = self.energyKnot
+    # # Plots a single point in time.
+    # def plot_step(self, t, normed=True, fitE=None, **kwargs):        
+    #     self.ax_steps.set_xlabel('Energy (eV)')
+    #     self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
+    #     self.ax_steps.loglog()
+    #     # norm = np.sum(self.freeData[n,:])
+    #     n = self.timeData.searchsorted(t)
+    #     data = self.freeData[n,:]
+    #     X = self.energyKnot
 
-        if normed:
-            tot = self.get_density(t)
-            data /= tot
-            data/=4*3.14
+    #     if normed:
+    #         tot = self.get_density(t)
+    #         data /= tot
+    #         data/=4*3.14
         
-        return self.ax_steps.plot(X, data*X, label='%1.1f fs' % t, **kwargs)
+    #    return self.ax_steps.plot(X, data*X, label='%1.1f fs' % t, **kwargs)
     
     def initialise_interactive(self, target, x_args={}, y_args={}):
         self.fig = go.Figure()
@@ -546,60 +556,68 @@ class InteractivePlotter:
         self.fig.update_yaxes(y_args)        
 
     def plot_traces(self, normed = True, fitE = None, **kwargs):
-        min_t = self.timeData[0]   #
-        max_t = self.timeData[-2]  # hack, weird indices fix colours and don't affect data.
-        # Add traces, one for each slider step
-        X = self.energyKnot
-        for j, t in enumerate(self.timeData):
-            if j == 0: continue  # Skip empty plot
+        # Add a group of traces for each target, but the time slider needs to manual separate them out. Probably a better way to do this but oh well.
+        for target in self.target_data:
+            min_t = target.timeData[0]   #
+            max_t = target.timeData[-1]-(target.timeData[-1]-min_t)/len(target.timeData)  # hack, weird indices fix colours and don't affect data.
+            # Add traces, one for each slider step
+            X = target.energyKnot
+            for j, t in enumerate(target.timeData):
+                if j == 0: continue  # Skip empty plot
 
-            data = self.freeData[j,:]
-            if normed:
-                tot = self.get_density(t)
-                data /= tot
-                data/=4*3.14
+                data = target.freeData[j,:]
+                if normed:
+                    tot = target.get_density(t)
+                    data /= tot
+                    data/=4*3.14
 
-            ### Cute colours  ★ﾟ~(◠ᴗ ◕✿)ﾟ*｡:ﾟ+ 
-            rgb_intensity = [1,0.68,1]  # max = 1
-            rgb_width = [0.4,0.6,0.9]
-            rgb_bndry = [1,0.6,0]
-            rgb = [0,0,1]
-            # Linear interpolation
-            for i in range(len(rgb)):
-                t_norm = (t-min_t)/(max_t-min_t)
-                rgb[i] = rgb_intensity[i]*(1-((t_norm-rgb_bndry[i])/rgb_width[i])**2)
-                rgb[i] = min(1, max(0, rgb[i])) 
-            col = "rgb" + str(tuple(rgb))         
-              
-            self.fig.add_trace(
-                go.Scatter(
-                    visible=False,
-                    line=dict(color=col, width=6),
-                    name="t = " + str(t),
-                    x=X,
-                    y=data*X))
+                ### Cute colours  ★ﾟ~(◠ᴗ ◕✿)ﾟ*｡:ﾟ+ 
+                rgb_intensity = [1,0.68,1]  # max = 1
+                rgb_width = [0.4,0.6,0.9]
+                rgb_bndry = [1,0.6,0]
+                rgb = [0,0,1]
+                # Linear interpolation
+                for i in range(len(rgb)):
+                    t_norm = (t-min_t)/(max_t-min_t)
+                    rgb[i] = rgb_intensity[i]*(1-((t_norm-rgb_bndry[i])/rgb_width[i])**2)
+                    rgb[i] = min(1, max(0, rgb[i])) 
+                col = "rgb" + str(tuple(rgb))         
+                
+                self.fig.add_trace(
+                    go.Scatter(
+                        visible=False,
+                        line=dict(color=col, width=6),
+                        name="t = " + str(t),
+                        x=X,
+                        y=data*X))
+        
         self.fig.data[0].visible = True
 
     #----Widgets----#
     # Time Slider
     def add_time_slider(self):
-        steps = []
-        for i in range(len(self.fig.data)):
-            step = dict(
-                method="update",
-                args=[{"visible": [False] * len(self.fig.data)}
-                    ,{"title": "Step: " + str(i)}],  # layout attribute
-                label= str(self.timeData[i+1])
-            )
-            step["args"][0]["visible"][i] = True  # Toggle i'th trace to "visible"
-            steps.append(step)
-            
+        self.steps_groups = [] # Stores the steps for each plot separately
+        start_step = 0
+        for g in range(self.num_plots):
+            steps = []
+            target = self.target_data[g]
+            for i in range(len(target.timeData) - 1): # -1 as don't have trace for zeroth time step.
+                step = dict(
+                    method="update",
+                    args=[{"visible": [False] * len(self.fig.data)}  # style attribute
+                        ,{"title": "Step: " + str(1 + i)}],  # layout attribute
+                    label= str(target.timeData[i+1])
+                )
+                step["args"][0]["visible"][start_step + i] = True  #  When at this step toggle i'th trace in target's group to "visible"
+                steps.append(step)
+            self.steps_groups.append(steps)
+            start_step += len(steps)
 
         time_slider = [dict(
-        active=1,
+        active=0,
         currentvalue={"prefix": "Time [fs]: "},
         pad={"t": 50,"r": 200,"l":0},
-        steps=steps
+        steps=self.steps_groups[0],
         )]
         self.fig.update_layout(sliders=time_slider)    
 
@@ -632,6 +650,54 @@ class InteractivePlotter:
             updatemenus = [scale_button]
         )    
 
+    #TODO really annoying problem where slider can't be synced with what is visible, due to sliders being an object 
+    # that updates through the API, and thus passing a new slider creates a new object, but the graph visibility
+    # is only stored in these objects through the visibility argument of the step, - if we pass that through, 
+    # we are only passing through a reference to a particular step.
+    # Ultimately the visibiility needs to be updated by this button, but it can't access what it needs. Need dash probably.
+    def add_simulation_menu(self):   
+        import copy
+
+        sim_dicts = []
+        start_step = 0
+        for i in range(self.num_plots):
+
+            # Initialise *new* slider objects
+            sliders = copy.deepcopy(self.fig.layout["sliders"])
+            time_slider = sliders[0]
+            fig_data = copy.deepcopy(self.fig.data)
+            time_slider["steps"] = self.steps_groups[i]
+            # Initial params, altered by use of slider.
+            time_slider["active"] = 0
+            fig_data[start_step].visible = True        # Why we needed to make a copy?
+            start_step += len(time_slider["steps"]) 
+            # These are not altered sadly.
+            active_step = time_slider["active"] 
+            visibility = time_slider["steps"][active_step]["args"][0]["visible"]
+            title = time_slider["steps"][active_step]["args"][1]["title"]
+
+            sim_dict = dict(
+                args = [{"visible": visibility}, {"sliders": sliders,"title":title}],  #[{restyle_dict}, {relayout_dict}]
+                label = self.target_data[i].target_mol["name"],
+                method = "update",
+            )            
+            sim_dicts.append(sim_dict)
+
+        button_layer_1_height = 1.15
+        simulation_selector = go.layout.Updatemenu(
+                buttons=list(sim_dicts),
+                direction="down",
+                pad={"r": 10, "t": 10},
+                showactive=True,
+                x=0.02,
+                xanchor="left",
+                y=button_layer_1_height,
+                yanchor="top",
+                active = 0
+            )
+        self.fig.layout["updatemenus"] += simulation_selector,   
+
+            
     # def plot_fit(self, t, fitE, normed=True, **kwargs):
     #     t_idx = self.timeData.searchsorted(t)
     #     fit = self.energyKnot.searchsorted(fitE)
@@ -662,12 +728,6 @@ class InteractivePlotter:
     #     Ydata = self.freeData[t_idx,:fit]
     #     T, n = fit_maxwell(Xdata, Ydata)
     #     return (T, n)
-
-    def get_density(self, t):
-        t_idx = self.timeData.searchsorted(t)
-        de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])
-        de = de [1:] - de[:-1]
-        return np.dot(self.freeData[t_idx, :], de)
 
         
 
@@ -702,3 +762,4 @@ if __name__ == "__main__":
     # pl.plot_free(log=True,min=1e-7)
     # pl.plot_all_charges()
     plt.show()
+

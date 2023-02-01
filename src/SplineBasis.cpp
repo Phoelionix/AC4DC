@@ -133,7 +133,7 @@ void BasisSet::set_knot(const GridSpacing& gt){
     double p_powlaw = (log(_max-_min) - log(gt.transition_e - _min))/(log(1.*num_funcs/M));
     double A_powlaw = (_max - _min)/pow(num_funcs, p_powlaw);
     
-    double p_powlaw_test = (log(_max-_min) - log(150 - _min))/(log(1.*num_funcs/M));
+    double p_powlaw_test = (log(_max-_min) - log(2.51 - _min))/(log(1.*num_funcs/M));   // transition e is in Ha, which are ~27 * larger than eV.
     double A_powlaw_test = (_max - _min)/pow(num_funcs, p_powlaw_test);
 
     std::cout<<"[ Knot ] Using splines of "<<BSPLINE_ORDER<<"th order "<<std::endl;

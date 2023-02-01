@@ -36,28 +36,30 @@ def symlog(arr, base=10, linthresh=1e-10, linscale=1):
 def main():
     print("[ Interactive ] Creating electron density interactive figure")
 
-    if terminal_mode:
-        sys_argv = [sys.argv[0],sys.argv[1]]    
-    target_folder_name = sys_argv[1]     
-    if target_folder_name.endswith(".mol"):
-        target_folder_name = target_folder_name[0:-4] 
-
     set_highlighted_excepthook()
 
-    # Basic num arguments check
+    if terminal_mode:
+        sys_argv = sys.argv  
     if  len(sys_argv) < 2:
         print("Usage: python3 _save_interactive.py Carbon_1 <name_suffix (optional)>")
-        exit()
+        exit()        
+
+    target_folder_names = []  
+    # Store folder names from commandline args without .mol extension. 
+    for i, target in enumerate(sys_argv):
+        if i == 0: continue #####
+        if target.endswith(".mol"):
+            target = target[0:-4]         
+        target_folder_names.append(target)
 
     # Naming file/plot
-    label = target_folder_name
+    fname_out = target_folder_names[0]
     if len(sys_argv) > 2:
-        label += '_' + sys_argv[2]
-    label += "_interactive"
-    name = target_folder_name.replace('_',' ')
+        fname_out += '_' + sys_argv[2][:10] + "..-"
+    fname_out += "_interactive"
+    plot_title = fname_out.replace('_',' ')
     
-
-    # Initialisation
+    # Y scaling
     lin_ymax = 0.035
     lin_ymin = -0.035
     log_ymax = 1
@@ -70,20 +72,52 @@ def main():
     y_lin_args = {'title': ylabel + " (lin)", 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
     y_log_args = {'title': ylabel + " (log)", 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
     #
-    ipl = InteractivePlotter(target_folder_name,"y")
-    ipl.initialise_interactive(name, x_args,y_log_args)
-    # Plot line for each point in time
+    # Initialises plotter object with data from files.
+    ipl = InteractivePlotter(target_folder_names,"y")  
+    # Initialises graph object.
+    ipl.initialise_interactive(plot_title, x_args,y_log_args) 
+    # The meat of the plotting. Plot line for each point in time
     ipl.plot_traces(normed=normalise)
     # Add widgets
     ipl.add_scale_button(y_log_args,y_lin_args)                 
     ipl.add_time_slider()  
+    ipl.add_simulation_menu()
 
-    #ipl.plot_maxwell(44.1,0.06*3/2)  # ~Sanders -7.5 fs - density of MB assumed to be 50% of total.  
-    #ipl.fig.show()
+    # from dash import Dash, html, Input, Output
+    # from dash import dcc
+    # import dash_daq as daq
+
+    # app = Dash(__name__)
+
+    # # app.layout = html.Div([
+    # #     daq.Slider(
+    # #         id='my-daq-slider-ex-1',
+    # #         value=17
+    # #     ),
+    # #     html.Div(id='slider-output-1')
+    # # ])
+
+    # app.layout = html.Div([
+    #     dcc.Graph(
+    #         figure=ipl.fig,
+    #         id='my-daq-slider-ex-1',
+    #     ),
+    #     html.Div(id='slider-output-1')
+    # ])
+
+    # @app.callback(
+    #     Output('slider-output-1', 'children'),
+    #     Input('my-daq-slider-ex-1', 'value')
+    # )
+    # def update_output(value):
+    #     return f'The slider is currently at {value}.'
+    # app.run_server(debug=True)
+    # #ipl.plot_maxwell(44.1,0.06*3/2)  # ~Sanders -7.5 fs - density of MB assumed to be 50% of total.  
+    # #ipl.fig.show()
     #-----Save-----#
     extension = ".html"
     outdir = "../../../AC4DC_Interactives/"
-    file_path = path.abspath(path.join(__file__ ,outdir + label + extension))
+    file_path = path.abspath(path.join(__file__ ,outdir + fname_out + extension))
     ipl.fig.write_html(file_path)
 
     print("Done!")
