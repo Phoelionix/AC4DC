@@ -24,8 +24,8 @@ square       // Pulse shape
 wiggledestruction        // electron grid type
 50              // Number of "low-energy" grid points (hybrid & powerlaw grids only, not for hybrid_power grids though!!!)
 2000          // transition energy in eV (used for grid point boundary, unless hybrid_power grid.)
-1|2|52|72|170                // boundary indices, with first point excluded. No spaces. Last point overrides num free-e pnts for now.
-5.7|10|200|2000|10000        // boundary energies, with first point excluded. No spaces.
+1|15|75|113|213                // boundary indices, with first point excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
+1.5|10|100|2000|10000        // boundary energies, with first point excluded. No spaces.
 
 
 
@@ -37,8 +37,9 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-0.000075     //0.0075      // Proportion of time steps to iterate through before stopping early. TODO Left as a proportion for now since it requires less understanding of code, but inputs should be made clearer (can set start time and end time, and proportion of time that is pulse or (2?)*FWHM for example).
+0.00001     //0.0075      // Proportion of time steps to iterate through before stopping early. TODO Left as a proportion for now since it requires less understanding of code, but inputs should be made clearer (can set start time and end time, and proportion of time that is pulse or (2?)*FWHM for example).
 ####END#####
 
 Notes: 
 Targeting the wiggle at the 10-200 eV energy range with custom grid regions.
+Eventually we will use at least the same grid points everywhere as Sanders, but with more in this area.
