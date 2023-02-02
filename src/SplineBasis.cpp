@@ -124,7 +124,7 @@ void BasisSet::set_knot(const GridSpacing& gt){
 
     size_t M = gt.num_low + 1;
 
-    assert(num_funcs > M);
+    assert(num_funcs > M); // TODO should only give a warning if not relevant to grid type. -S.P.
     assert(_max > gt.transition_e);
 
     double B_hyb = (gt.transition_e - _min)/M;
@@ -136,10 +136,45 @@ void BasisSet::set_knot(const GridSpacing& gt){
     double p_powlaw_test = (log(_max-_min) - log(2.51 - _min))/(log(1.*num_funcs/M));   // transition e is in Ha, which are ~27 * larger than eV.
     double A_powlaw_test = (_max - _min)/pow(num_funcs, p_powlaw_test);
 
+    /// Wiggle destroyer.  Continuous piecewise.
+    // e.g. 6k eV photon beam. Have delta-like stuff in MB and dirac.
+    // Idea: Define four energy regions: (eV) <-0--low--10--mid--200-trans.--2000--high--10000--surplus->
+    // We want to have higher density in the mid and high energy regions, and low in the low, transition, and surplus regions.
+    // Start with power law since, numerical analysis aside, it nearly works already.
+    // 
+
+    std::vector<double> hyb_powlaw_power (_region_bndry_index.size() - 1,0.);
+    std::vector<double> hyb_powlaw_factor (_region_bndry_index.size() - 1,0.);
+    // Params that define region boundaries:
+    int n_M, n_N; //Index of first point in region/next region.  
+    double E_M, E_N; // Corresponding energies.
+    // R region boundaries and 1 power law for each region --> R - 1 power laws.
+    for (size_t i=0; i< hyb_powlaw_power.size(); i++){
+        n_M = _region_bndry_index[i];
+        E_M = _region_bndry_energy[i];
+        n_N = _region_bndry_index[i+1];
+        E_N = _region_bndry_energy[i+1];
+        
+        hyb_powlaw_power[i] = (log(E_N - _min) - log(E_M - _min))/(log(1.*n_N) - log(1.*n_M));
+        hyb_powlaw_factor[i] = (E_N - _min)/pow(n_N, hyb_powlaw_power[i]);
+    }
+
     std::cout<<"[ Knot ] Using splines of "<<BSPLINE_ORDER<<"th order "<<std::endl;
     std::cout<<"[ Knot ] (i.e. piecewise polynomial has leading order x^"<<BSPLINE_ORDER-1<<")"<<std::endl;
     if ( gt.mode == GridSpacing::powerlaw) {
         std::cout<<"[ Knot ] Using power-law exponent "<<p_powlaw<<std::endl;
+    }
+    if ( gt.mode == GridSpacing::hybrid_power){
+        std::cout<<"[ Knot ] Using power-law exponents: "; 
+        for (int j = 0; j < hyb_powlaw_power.size(); j++){
+            cout << hyb_powlaw_power[j] << ", ";
+        }
+        std::cout << std::endl; 
+        std::cout<<"[ Knot ] Using power-law factors: ";
+        for (int j = 0; j < hyb_powlaw_factor.size(); j++){
+            cout << hyb_powlaw_factor[j] << ", ";
+        }
+        std::cout << std::endl;         
     }
 
 
@@ -183,10 +218,29 @@ void BasisSet::set_knot(const GridSpacing& gt){
             break;
         case GridSpacing::powerlaw:
             knot[i] = A_powlaw * pow(i-start, p_powlaw) + _min;
+            cout << knot[i] * Constant::eV_per_Ha  << "," << i << endl;
             break;
         case GridSpacing::test:
             knot[i] = A_powlaw_test * pow(i - start, p_powlaw_test) + _min;
             break;
+        case GridSpacing::hybrid_power:
+        {
+            if (i == 0){
+                knot[i] = 0.;
+                break;
+            }
+            //  Get the index of the region that this point is part of.
+            size_t rgn = 0;
+            for( ; rgn < hyb_powlaw_power.size(); rgn++){
+                if(rgn == hyb_powlaw_power.size() - 1
+                 ||i - start < _region_bndry_index[rgn+1]){
+                    break;
+                 }
+            }
+            knot[i] = hyb_powlaw_factor[rgn] * pow(i - start, hyb_powlaw_power[rgn]) + _min;
+            cout << knot[i] * Constant::eV_per_Ha  << "," << rgn << ", i: " << i << endl;
+            break;
+        }
         default:
             throw std::runtime_error("Grid spacing has not been defined.");
             break;
@@ -217,14 +271,22 @@ void BasisSet::set_knot(const GridSpacing& gt){
  * @param min minimum energy
  * @param max maximum energy
  * @param gt gt.zero_degree_0: The number of derivatives to set to zero: 0 = open conditions, 1=impose f(0)=0, 2=impose f(0)=f'(0) =0
+ * @param  
  */
-void BasisSet::set_parameters(size_t _num_funcs, double min, double max, const GridSpacing& gt) {
+void BasisSet::set_parameters(size_t num_of_funcs, double min, double max, const GridSpacing& gt, std::vector<int> region_bndry_index, std::vector<double> region_bndry_energy) {
     this->_min = min;
     this->_max = max;
+    this->_region_bndry_index = region_bndry_index;   // TODO: refactor, can replace min and max with array of region start and region ends. -S.P.
+    this -> _region_bndry_energy = region_bndry_energy;   
 
-    num_funcs = _num_funcs;  //size_t num_int = num_funcs + Z_inf - start;
+    num_funcs = num_of_funcs;
+    // Override params
+    if(gt.mode == GridSpacing::hybrid_power){
+        num_funcs = _region_bndry_index[_region_bndry_index.size()-1];
+        this->_max = _region_bndry_energy[_region_bndry_energy.size()-1];
+    }
     // Idea: Want num_funcs usable B-splines
-    // If grid has num_funcs+k+1 points, num_funcs of these are usable splines
+    // If grid has num_funcs+k+1 points, num_funcs of these are usable splines (num_int = num_funcs + Z_inf - start)
     // grid layout for open boundary:
     // t0=t1=t2=...=tk-1,   tn+1 = tn+2 =... =tn+k
     // homogeneous Dirichlet boundary:

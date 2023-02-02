@@ -130,8 +130,14 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 5) stream >> elec_grid_type; // (Note >> operator is user-defined here)
 		if (n == 6) stream >> elec_grid_type.num_low;   // TODO currently it uses an extra point than stated here for some reason (or rather, this number excludes the "transition point" - S.P.
 		if (n == 7) stream >> elec_grid_type.transition_e;
-		if (n == 8) stream >> elec_grid_type.min_coulomb_density;
-
+		// n = 8,9 correspond to updating elec_grid_regions.start, elec_grid_regions.E_min.
+		if (n == 8) stream >> elec_grid_regions; 
+		if (n == 9){
+			stream >> elec_grid_regions;        
+			// Temp fix until split off. TODO
+			num_elec_points = elec_grid_regions.start[elec_grid_regions.start.size()-1];
+		}
+		if (n == 10) stream >> elec_grid_type.min_coulomb_density;
 	}
 
 	for (size_t n = 0; n < FileContent["#DEBUG"].size(); n++) {
@@ -198,6 +204,9 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	max_elec_e /= Constant::eV_per_Ha;
 
 	elec_grid_type.transition_e /= Constant::eV_per_Ha;
+	for (size_t i = 0; i < elec_grid_regions.E_min.size(); i++){
+		elec_grid_regions.E_min[i] /= Constant::eV_per_Ha;
+	}
 
 	// Reads the very top of the file, expecting input of the form
 	// H 2

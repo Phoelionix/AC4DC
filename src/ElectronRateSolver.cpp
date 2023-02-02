@@ -72,7 +72,7 @@ void ElectronRateSolver::compute_cross_sections(std::ofstream& _log, bool recalc
     hasRates = true;
 
     // Set up the container class to have the correct size
-    Distribution::set_elec_points(input_params.Num_Elec_Points(), input_params.Min_Elec_E(), input_params.Max_Elec_E(), input_params.elec_grid_type);
+    Distribution::set_elec_points(input_params.Num_Elec_Points(), input_params.Min_Elec_E(), input_params.Max_Elec_E(), input_params.elec_grid_type, input_params.elec_grid_regions.start, input_params.elec_grid_regions.E_min);
     state_type::set_P_shape(input_params.Store);
     // Set up the rate equations (setup called from parent Adams_BM)
     this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);

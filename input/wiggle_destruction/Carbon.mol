@@ -16,14 +16,18 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 square       // Pulse shape
 
 #NUMERICAL
-8000000          // (Original:200k, but fails and restarts with 400k if this is used) Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+500000          // (Original:200k, but fails and restarts with 400k if this is used) Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12            // Number of threads in OpenMP.
 0             // [only for nonthermal] minimum free-electron energy in eV
 10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
-215           // total number of free-electron grid points
-test        // electron grid type
-4              // Number of "low-energy" grid points (hybrid & powerlaw grids only)
-2000          // transition energy in eV 
+150           // total number of free-electron grid points
+wiggledestruction        // electron grid type
+50              // Number of "low-energy" grid points (hybrid & powerlaw grids only, not for hybrid_power grids though!!!)
+2000          // transition energy in eV (used for grid point boundary, unless hybrid_power grid.)
+1|2|52|72|170                // boundary indices, with first point excluded. No spaces. Last point overrides num free-e pnts for now.
+5.7|10|200|2000|10000        // boundary energies, with first point excluded. No spaces.
+
+
 
 #OUTPUT
 800         // Number of time steps in the output files.
@@ -33,27 +37,8 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-0.0075      // Proportion of time steps to iterate through before stopping early. TODO Left as a proportion for now since it requires less understanding of code, but inputs should be made clearer (can set start time and end time, and proportion of time that is pulse or (2?)*FWHM for example).
+0.000075     //0.0075      // Proportion of time steps to iterate through before stopping early. TODO Left as a proportion for now since it requires less understanding of code, but inputs should be made clearer (can set start time and end time, and proportion of time that is pulse or (2?)*FWHM for example).
 ####END#####
 
 Notes: 
-I wasn't doing a grid boundary of 150 eV before, I was doing 150 Ha, which is 150*27. Soooo it didn't work.
-Trying 2 Ha (50 eV).
-
-For this test , reasoning below:
-The idea here is we are keeping  < 270 eV still a low number of points without sacrificing, since the issue
-with using high low-energy gps leads to very low energy instabilities, but we get mid-energy divergences if we 
-don't use enough low-energy gps. 
-
-With a 100_35 powerlaw grid (100 total, 35 low ), and a 2000 boundary ,we have the 10th gp at 293 eV. This is quite low.
-With 215_80, which worked well above ~ 20 eV, we have the 10th gp at 68 eV. So let's take this boundary, but 
-demand we have only 5 gps below 68 eV, leaving us free to not worry about the low divergences and only the medium ones. 
-So 215_5 with a 68 eV boundary. We have our tenth grid point now at 170 eV.
-Notably, we have 100 grid points above 4359 eV, as opposed to 65 above 2000 eV.
-
-However, this reduces the number of grid points around the mid energy level, so after this test we will need
-to try having a hybrid power law grid, where we have a sparser power law grid below ~ 50 eV, but a jump in density
-above ~50 eV. We might even opt for a power that is increasing with energy.
-
-Although honestly at this point I'm very tempted to just replace the high peak with a gaussian, which I would do if 
-not for my other solution.
+Targeting the wiggle at the 10-200 eV energy range with custom grid regions.

@@ -33,7 +33,7 @@ static constexpr bool USING_SQRTE_PREFACTOR = true;
 class BasisSet{
 public:
     BasisSet() {};
-    void set_parameters(size_t nfuncs, double min, double max, const GridSpacing& gt);
+    void set_parameters(size_t nfuncs, double min, double max, const GridSpacing& gt, std::vector<int> region_bndry_index, std::vector<double> region_bndry_energy);
     /// Returns S_inverse(deltaf) 
     Eigen::VectorXd Sinv(const Eigen::VectorXd& deltaf);
     /// Returns S_inverse(J)
@@ -78,6 +78,8 @@ protected:
     
     double _min;
     double _max;
+    std::vector<int> _region_bndry_index;
+    std::vector<double> _region_bndry_energy;
 };
 
 

@@ -73,6 +73,7 @@ public:
     void calc_rates(ofstream &_log, bool recalc=true);
 
 	GridSpacing elec_grid_type;
+	GridBoundaries elec_grid_regions;
 	LossGeometry loss_geometry;
 	PulseShape pulse_shape = PulseShape::none;
 

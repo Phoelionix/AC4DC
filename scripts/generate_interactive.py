@@ -68,18 +68,19 @@ def main():
     # Axis params
     xlabel = 'Energy (eV)'
     ylabel = '$f(\\epsilon) \\Delta \\epsilon$'   #TODO: Get this working on offline file saves somehow.
-    x_args = {'title': xlabel, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
-    y_lin_args = {'title': ylabel + " (lin)", 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
-    y_log_args = {'title': ylabel + " (log)", 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
+    x_log_args = {'title': xlabel + " - log scale", 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
+    x_lin_args = {'title': xlabel + " - lin scale", 'type' : "linear", "range" : [xmin,xmax]}
+    y_lin_args = {'title': ylabel + " - lin scale", 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
+    y_log_args = {'title': ylabel + " - log scale", 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
     #
     # Initialises plotter object with data from files.
     ipl = InteractivePlotter(target_folder_names,"y")  
     # Initialises graph object.
-    ipl.initialise_interactive(plot_title, x_args,y_log_args) 
+    ipl.initialise_interactive(plot_title, x_log_args,y_log_args) 
     # The meat of the plotting. Plot line for each point in time
     ipl.plot_traces(normed=normalise)
     # Add widgets
-    ipl.add_scale_button(y_log_args,y_lin_args)                 
+    ipl.add_scale_button(x_log_args,x_lin_args, y_log_args,y_lin_args)                 
     ipl.add_time_slider()  
     #ipl.add_simulation_menu()
 

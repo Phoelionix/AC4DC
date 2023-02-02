@@ -37,6 +37,7 @@ struct GridSpacing {
     const static char hybrid = 3;
     const static char powerlaw = 4;
     const static char test = 5;
+    const static char hybrid_power = 6;
     const static char unknown = 101;
     char mode = unknown;
     size_t num_low = 0; // Used for hybrid spec only
@@ -45,6 +46,17 @@ struct GridSpacing {
     unsigned zero_degree_inf = 0; // Number of derivatives to set to zero at infinity
     double min_coulomb_density=0; // Density below which to ignotre Coulomb interactions 
     // (NOTE: This should have its own class, along with coulomb estimation cutoff)
+};
+
+// currently for hybrid_power only.
+struct GridBoundaries {
+    // Quick and dirty attachment parameters TODO this should replace num_low, and should fill the role of 
+    // transition_e so it can be split off (as the coulomb log cutoff) along with the coulomb density.
+    // Should also replace num_elec_points, min_elec_e, max_elec_e
+    // Note this current implementation includes the energy/index of last grid point.
+    std::vector<int> start ={-1};
+    bool start_parsed = false;
+    std::vector<double> E_min ={-1.};  // In eV
 };
 
 namespace {
@@ -105,6 +117,9 @@ namespace {
         case 't':
             gs.mode = GridSpacing::test;
             break;
+        case 'w':
+            gs.mode = GridSpacing::hybrid_power;
+            break;
         default:
             std::cerr<<"Unrecognised grid type \""<<tmp<<"\""<<std::endl;
             gs.mode = GridSpacing::linear;
@@ -112,6 +127,92 @@ namespace {
         }
         return is;
     }
+
+//     /// Sets region boundaries
+//     [[maybe_unused]] std::istream& operator>>(std::istream& is, GridBoundaries& gb) {
+//         std::string tmp;
+//         is >> tmp;
+//         if (tmp.length() == 0) {
+//             std::cerr<<"No boundaries provided, default case not implemented yet...!"<<std::endl;
+//             return is;
+//         }
+//         switch ((char) tmp[0])
+//         {
+//         // no surplus region.
+//         case 'a':
+//             gb.start = {1,  2,  32,  52, 150};
+//             gb.E_min = {5.66978,  10, 200, 2000,10000};
+//             break;
+//         case 'b':
+//             gb.start = {1,  2,  22,  42, 140};
+//             gb.E_min = {5.66978,  10, 200, 2000, 10000};
+//             break;
+//         case 'c':
+//             gb.start = {1,  35,  100};
+//             gb.E_min = {5.66978, 2000., 10000.};
+//             break;            
+//         default:
+//             std::cerr<<"Unrecognised region boundary settings, no default case! \""<<tmp<<"\""<<std::endl;
+//             break;
+//         }
+//         return is;
+//     }    
+//
+
+
+    /// Sets region boundaries
+    [[maybe_unused]] std::istream& operator>>(std::istream& is, GridBoundaries& gb) {
+        std::string tmp;
+        is >> tmp;
+        if (tmp.length() == 0) {
+            std::cerr<<"No boundaries provided, default case not implemented yet...!"<<std::endl;
+            return is;
+        }
+
+        // Get vector from string. I'm not proud of this.
+        std::vector<double> target_vector;
+        std::string delimiter_char = "|";
+        std::string skip_char = " ";
+        size_t pos = 0;
+        //size_t space_pos = 0;
+        double token;
+        std::string token_str;  
+        while ((pos = tmp.find(delimiter_char)) != std::string::npos) {
+            // get rid of spaces
+            token_str = tmp.substr(0, pos);
+            // std::string::iterator end_pos = std::remove(token_str.begin(), token_str.end(), ' ');
+            // token_str.erase(end_pos, token_str.end());     
+            // space_pos = token_str.find(' ');
+            // token_str = tmp.substr(0, space_pos);
+
+            // Add our number
+            token =  stod(token_str);
+            target_vector.push_back(token);
+            // Erase input string up to next delimiter
+            tmp.erase(0, pos + delimiter_char.length());
+        }        
+        if(tmp.size() > 0){
+            std::string::iterator end_pos = std::remove(tmp.begin(), tmp.end(), ' ');
+            tmp.erase(end_pos, tmp.end());
+            target_vector.push_back(stod(tmp));
+        }
+
+        if(!gb.start_parsed){
+            gb.start.resize(target_vector.size());
+            for(int i = 0; i < target_vector.size(); i++){
+                target_vector[i] += 0.5;
+                gb.start[i] = (int)target_vector[i];
+                gb.start_parsed = true;
+            }
+        }
+        else{
+            gb.E_min = target_vector;
+        }
+        std::cout << "elem of grid region inputs:" << std::endl;
+        std::cout << gb.E_min[0] << std::endl; 
+        std::cout << gb.start[0] << std::endl;
+        return is;
+    }    
 }
 
 #endif

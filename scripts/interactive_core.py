@@ -20,7 +20,7 @@ from scipy.stats import linregress
 import chart_studio.plotly as py
 import plotly.graph_objects as go
 import plotly.io as pio
-#pio.templates.default = "plotly_dark"
+pio.templates.default = "seaborn" #"plotly_dark" # "plotly"
 
 
 engine = re.compile(r'(\d[spdf])\^\{(\d+)\}')
@@ -628,19 +628,24 @@ class InteractivePlotter:
         self.fig.update_layout(sliders=time_slider)    
 
     # Scale Button 
-    def add_scale_button(self,log_args,lin_args):      
+    def add_scale_button(self,x_log_args, x_lin_args, y_log_args,y_lin_args,):      
         scale_button = go.layout.Updatemenu(
                 buttons=list([
                     dict(
-                        args=[{'yaxis': log_args,}],
+                        args=[{'yaxis': y_log_args, 'xaxis': x_log_args}],
                         label="Log",
                         method="relayout"
                     ),
                     dict(
-                        args=[{'yaxis': lin_args}],
+                        args=[{'yaxis': y_lin_args, 'xaxis': x_log_args}],
                         label="Linear",
                         method="relayout"    
-                    ),                
+                    ),              
+                    dict(
+                        args=[{'yaxis': y_lin_args, 'xaxis': x_lin_args}],
+                        label="LinLin",
+                        method="relayout"              
+                    )  
                 ]),
                 type="buttons",
                 direction = "down",

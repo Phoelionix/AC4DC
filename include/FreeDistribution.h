@@ -180,12 +180,12 @@ public:
     /**
      * @brief The setup function.
      * @details Grants the distribution its energy basis, which serves as the knot points for the spline. Assigns CoulombLog_cutoff and Distribution::CoulombDens_min.
-     * @param n 
-     * @param min_e 
-     * @param max_e 
+     * @param n  Num elec points
+     * @param min_e min elec energy
+     * @param max_e max elec energy
      * @param grid_style 
      */
-    static void set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style);
+    static void set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style,vector<int> region_bndry_index, vector<double> region_bndry_energy);
     static std::string output_knots_eV();
 
 
