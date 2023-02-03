@@ -144,6 +144,7 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 			Orbitals.back().set_N(N);
 			Orbitals.back().set_L(subshell_to_angular[tmp]);//setting L overwrites occupancy with 4L+2 (which is simpler for DecayRates.cpp), so occupancy must be set after this.
 			Orbitals.back().set_occupancy(occupancy);
+			Orbitals.back().flag_shell();  // remember if this is a shell
 		}
 		if (n == num_orbitals + 4) stream >> potential;
 		if (n == num_orbitals + 5) stream >> me_gauge;

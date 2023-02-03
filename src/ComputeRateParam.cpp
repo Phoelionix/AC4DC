@@ -204,7 +204,7 @@ int ComputeRateParam::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, of
 
 // Called for molecular inputs.
 // Computes molecular collision parameters.
-RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
+RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, vector<bool> shell_check, ofstream & runlog)
 {
 	// Uses BEB model to compute fundamental
 	// EII, Auger, Photoionisation and Fluorescence rates
@@ -278,7 +278,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		density.clear();
 
 	  	#pragma omp parallel default(none) num_threads(input.Num_Threads())\
-		shared(cout, runlog, MaxBindInd, have_Aug, have_Flr, have_Pht, saveFF) \
+		shared(cout, runlog, shell_check, MaxBindInd, have_Aug, have_Flr, have_Pht, saveFF) \
 		private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor, LocalEIIparams, tmpEIIparams, LocalFF)
 		{
 			#pragma omp for schedule(dynamic) nowait
@@ -290,6 +290,8 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				for (size_t j = 0;j < Orbitals.size(); j++) {
 					Orbitals[j].set_occupancy(orbitals[j].occupancy() - Index[i][j]);
 					N_elec += Orbitals[j].occupancy();
+					// Store shell flag if orbital corresponds to shell
+					if(shell_check[j]) Orbitals[j].flag_shell(true);
 				}
 				// Grid Lattice(lattice.size(), lattice.R(0), lattice.R(lattice.size() - 1) / (0.3*(u.NuclCharge() - N_elec) + 1), 4);
 				// Change Lattice to lattice for electron density evaluation.

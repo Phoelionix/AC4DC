@@ -292,15 +292,18 @@ void MolInp::calc_rates(ofstream &_log, bool recalc) {
 		ComputeRateParam Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], recalc);
 		vector<int> final_occ(Orbits[a].size(), 0);
 		vector<int> max_occ(Orbits[a].size(), 0);
-		for (size_t i = 0; i < max_occ.size(); i++) {
+		vector<bool> shell_check(Orbits[a].size(),0); // Store the indices of shell-approximated orbitals
+		for (size_t i = 0; i < Orbits[a].size(); i++) {
 			if (fabs(Orbits[a][i].Energy) > Omega()) final_occ[i] = Orbits[a][i].occupancy();
 			max_occ[i] = Orbits[a][i].occupancy();
+			shell_check[i] = Orbits[a][i].is_shell();
 		}
 
 		string name = Store[a].name;
 		double nAtoms = Store[a].nAtoms;
 
-		Store[a] = Dynamics.SolvePlasmaBEB(max_occ, final_occ, _log);
+
+		Store[a] = Dynamics.SolvePlasmaBEB(max_occ, final_occ, shell_check,_log);
 		Store[a].name = name;
 		Store[a].nAtoms = nAtoms;
 		// Store[a].R = dropl_R();

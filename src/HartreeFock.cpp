@@ -34,7 +34,9 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 {
 //==========================================================================================================
 // Estimate starting energies for atom using Slater rules.
-// At this point, the occupancies will be that given by the .inp file.  
+// At first call, the occupancies will be that given by the .inp file.
+
+
 // To handle "average shell" orbital inputs, this code separates each element of Orbitals into shell occupancy containers. e.g. occupancies for 2p 2, 3N 5 -> {0,2,0,0},{2,3,0,0}
 // TODO test working as expected
 	float s = 0; //,p = 1;
@@ -101,6 +103,12 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 			Orbitals[i].set_L(1,false);  
 		}	
 	}
+
+	// cout << "Orbital energies:" << endl;
+	// for (int i = 0; i < Orbitals.size();i++){
+	// 	std::cout << Orbitals[i].Energy << " Ry; Occupancy: " << Orbitals[i].occupancy() << endl; 
+	// }	
+	std::cout << "[ORBENG]: " << Orbitals[0].Energy << " "<<Orbitals[1].Energy << " "<<Orbitals[2].Energy <<" Ry; Occupancy: " <<Orbitals[0].occupancy() << " "<<Orbitals[1].occupancy() << " "<<Orbitals[2].occupancy() << endl; 
 //==========================================================================================================
 // Find initial Guess for wavefunctions. Check if there is a single orbital occupied. If there is
 // only one electron within that orbital (hydrogenic case) solve problem.

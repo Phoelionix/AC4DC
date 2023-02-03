@@ -43,14 +43,27 @@ void RadialWF::set_L(int X, bool reset_occupancy)
     }
 }
 
+void RadialWF::flag_shell(bool force_flag)
+{
+    if (l == -10 || force_flag) shell_flag = true;   
+
+}
+
+void RadialWF::shell_flag_check()
+{
+    if (shell_flag)set_L(-10,false);
+    
+}
+
 /**
  * @brief Recover{s, p, d, f} orbital counts, assuming that atom in ground state. TODO I made this really complicated because I was scared of adding variables -S.P.
  * @return a vector with each element corresponding to the number of electrons with angular momentum equal to the index. e.g. occupancies for 2p 2 -> {0,2,0,0},  3N 5 -> {2,3,0,0}
  */
 std::vector<int> RadialWF::get_subshell_occupancies()
 {
+    shell_flag_check();
     // Orbital case
-    if (l != -10){ 
+    if (l != -10){  //TODO replace with shell_flag - S.P.
         std::vector<int> shell_orbital_occupancy = {0,0,0,0};
         if (l > 3){
             std::cerr<<"ERROR: invalid orbital angular momentum encountered! Ensure that all [atom].inp subshells are s, p, d, f, or N.";

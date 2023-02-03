@@ -22,6 +22,7 @@ This file is part of AC4DC.
 
 #include <vector>
 #include "PairFunction.h"
+#include <iostream>
 
 class RadialWF : public PairFunction
 {
@@ -33,6 +34,7 @@ public:
 		turn = 0;
 		Energy = 0;
 		occup_number = 0;
+		shell_flag = false;
 	}
 	RadialWF(const RadialWF& other);
 
@@ -53,6 +55,10 @@ public:
 	int pract_infinity() { return infinity; }
 	int occupancy() { return occup_number; }//might be fractional for future uses
 	int turn_pt() { return turn; }
+	
+	bool is_shell(){return shell_flag;}
+	void flag_shell(bool force_flag = false);
+	void shell_flag_check();  // Used for retrieving correct orbitals for slater energy when running through all possible configurations. set the orbital's l to -10 if it is a shell. TODO just replace checking if l == -10 with checking if shell_flag -S.P.
 
 	std::vector<int> get_subshell_occupancies();
 
@@ -66,6 +72,7 @@ public:
 		infinity = Psi.infinity;
 		turn = Psi.turn;
 		occup_number = Psi.occup_number;
+		shell_flag = Psi.shell_flag;  //-S.P.
 
 		return *this;
 	}
@@ -78,4 +85,5 @@ protected:
 	int infinity;
 	int turn;
 	int occup_number;
+	bool shell_flag;
 };

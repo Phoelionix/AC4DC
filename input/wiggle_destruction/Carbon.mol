@@ -1,6 +1,3 @@
-// Carbon (amorphous similar to Hau-Riege). Assumes 100nm cylindrical beam fired into much larger target.
-// Carbon_HR_V1_hyb.mol (formerly Carbon_HR1_hyb.mol), used in Sanders' thesis.
-
 #ATOMS
 C_fast 1
 
@@ -16,7 +13,7 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 square       // Pulse shape
 
 #NUMERICAL
-500000          // (Original:200k, but fails and restarts with 400k if this is used) Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+1000000          // (400k works for 35_100 grid) Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12            // Number of threads in OpenMP.
 0             // [only for nonthermal] minimum free-electron energy in eV
 10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
@@ -24,8 +21,8 @@ square       // Pulse shape
 wiggledestruction        // electron grid type
 50              // Number of "low-energy" grid points (hybrid & powerlaw grids only, not for hybrid_power grids though!!!)
 2000          // transition energy in eV (used for grid point boundary, unless hybrid_power grid.)
-1|15|75|113|213                // boundary indices, with first point excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
-1.5|10|100|2000|10000        // boundary energies, with first point excluded. No spaces.
+1|5|95|180|260   //1|5|35|73|138                // boundary indices, with first point excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
+1|10|100|2000|10000        // boundary energies, with first point excluded. No spaces.
 
 
 
@@ -37,9 +34,8 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-0.00001     //0.0075      // Proportion of time steps to iterate through before stopping early. TODO Left as a proportion for now since it requires less understanding of code, but inputs should be made clearer (can set start time and end time, and proportion of time that is pulse or (2?)*FWHM for example).
+0.00001     //0.0075 = -10 to -9.7 fs (time period over which wiggle tends to appear), 0.00001 for a few steps (good for determinining initial wiggle quickly).      // Proportion of time steps to iterate through before stopping early. TODO Left as a proportion for now since it requires less understanding of code, but inputs should be made clearer (can set start time and end time, and proportion of time that is pulse or (2?)*FWHM for example).
 ####END#####
 
 Notes: 
-Targeting the wiggle at the 10-200 eV energy range with custom grid regions.
-Eventually we will use at least the same grid points everywhere as Sanders, but with more in this area.
+Trying to minimise number of grid points

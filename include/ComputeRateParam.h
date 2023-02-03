@@ -64,7 +64,7 @@ public:
 
 	// Halfwidth = 5/Constant::Time -> 5 fs half width.
 	int SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & log);
-	RateData::Atom SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & log);
+	RateData::Atom SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, vector<bool> shell_check, ofstream & log);
 	// // Atomic.
 	// int SetupAndSolve(ofstream & log);
 	// // Molecular.
