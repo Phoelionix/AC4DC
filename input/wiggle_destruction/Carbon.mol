@@ -13,7 +13,7 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 square       // Pulse shape
 
 #NUMERICAL
-1000000          // (400k works for 35_100 grid) Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+100000          // (400k works for 35_100 grid) Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12            // Number of threads in OpenMP.
 0             // [only for nonthermal] minimum free-electron energy in eV
 10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
@@ -21,8 +21,8 @@ square       // Pulse shape
 wiggledestruction        // electron grid type
 50              // Number of "low-energy" grid points (hybrid & powerlaw grids only, not for hybrid_power grids though!!!)
 2000          // transition energy in eV (used for grid point boundary, unless hybrid_power grid.)
-1|5|95|180|260   //1|5|35|73|138                // boundary indices, with first point excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
-1|10|100|2000|10000        // boundary energies, with first point excluded. No spaces.
+1|42|52|85|95|150|155                // boundary indices, with first point excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
+5|50|200|500|4500|6500|10000        // boundary energies, with first point excluded. No spaces.
 
 
 
@@ -34,8 +34,29 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-0.00001     //0.0075 = -10 to -9.7 fs (time period over which wiggle tends to appear), 0.00001 for a few steps (good for determinining initial wiggle quickly).      // Proportion of time steps to iterate through before stopping early. TODO Left as a proportion for now since it requires less understanding of code, but inputs should be made clearer (can set start time and end time, and proportion of time that is pulse or (2?)*FWHM for example).
+0.0038     //0.0075 = -10 to -9.7 fs (time period over which wiggle tends to appear), 0.00001 for a few steps (good for determinining initial wiggle quickly).      // Proportion of time steps to iterate through before stopping early. TODO Left as a proportion for now since it requires less understanding of code, but inputs should be made clearer (can set start time and end time, and proportion of time that is pulse or (2?)*FWHM for example).
 ####END#####
 
-Notes: 
-Trying to minimise number of grid points
+Notes:
+Stress test, low time steps. We want to find the point at which it doesn't break at x. (see below)
+
+|eV
+|0, mandatory
+|x, CRITICAL, the lower x is the more likely the simulation breaks/diverges there. There are two regimes:
+    x < γ (current bounds are 1-5):
+    - simulation-breaking, cannot be remedied.
+    Trying either using 3x the grid points or using ten times the time steps with x = 1 had a small but 
+    impractical reduction on the divergence. 
+    x>= γ:
+    - Breakage doesn't occur at x, but rather at the MB peak that is lower than x.
+    - increasing time steps is helpful. For x = 5, going from 10k -> 100k steps moved divergence from t=-9.97 to t=-9.86
+    - Unknown how helpful fineness of grid points near here is. 
+
+
+// 
+|x-6 region where MB peak isn't so likely to break
+|6-50 early sharp MB peak  (it's about 6 eV for carbon, I need to check if higher for heavier elements?) - It's actually a very sharp peak, which is hidden on a log scale, and we had less electrons here before!
+|boring
+|200-500 covers range of the auger peak for Carbon and nitrogen.   (carbon peak 337 eV, I need to check why not ~ 270 eV)
+|transition region
+|4500-6500 photoelectron dirac delta (carbon peak ~5666 eV)
