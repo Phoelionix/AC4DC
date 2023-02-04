@@ -117,8 +117,10 @@ class PlotData:
         self.energyKnot = np.array(self.get_free_energy_spec(), dtype=np.float64)
         
         raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
-        while self.max_points < np.searchsorted(raw[:,1],self.plot_final_t):
+        while len(self.timeData) < len(raw[:,1]):
             raw = np.delete(raw, list(range(0, raw.shape[0], 2)),axis=0)
+        if  len(self.timeData) != len(raw[:,1]):
+            raise Exception("time and free lengths don't match")
         self.freeData = raw[:,1:]   
         for a in self.atomdict:
             raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
