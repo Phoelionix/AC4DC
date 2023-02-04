@@ -1,1 +1,0 @@
-Examples only display first ~ 2.5 fs at the moment.
