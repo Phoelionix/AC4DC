@@ -72,13 +72,17 @@ class PlotData:
         self.energyKnot=None
         self.timeData=None
 
+        self.plot_final_t = -9.7603 # TODO temporary, move to generate_interactive.
+        self.max_points = 80 # TODO temporary, move to generate_interactive.
+        
+
         # Directories of target data
         self.outDir = self.p + "/output/__Molecular/" + mol_name
         self.freeFile = self.outDir+"/freeDist.csv"
         self.intFile = self.outDir + "/intensity.csv"
 
-
         self.get_atoms()
+
         self.update_outputs()
 
    # Reads the control file specified by self.mol['infile']
@@ -105,15 +109,21 @@ class PlotData:
                         
     def update_outputs(self):
         raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
+        # Remove every other point until we have less than the max number of points in our to-be-plotted time range.
+        while self.max_points < np.searchsorted(raw[:,0],self.plot_final_t):
+            raw = np.delete(raw, list(range(0, raw.shape[0], 2)),axis=0)       
         self.intensityData = raw[:,1]
-        self.timeData = raw[:, 0]
+        self.timeData = raw[:, 0]       
         self.energyKnot = np.array(self.get_free_energy_spec(), dtype=np.float64)
+        
         raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
-        self.freeData = raw[:,1:]
+        while self.max_points < np.searchsorted(raw[:,1],self.plot_final_t):
+            raw = np.delete(raw, list(range(0, raw.shape[0], 2)),axis=0)
+        self.freeData = raw[:,1:]   
         for a in self.atomdict:
             raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
             self.boundData[a] = raw[:, 1:]
-            self.statedict[a] = self.get_bound_config_spec(a)    
+            self.statedict[a] = self.get_bound_config_spec(a)   
 
     def get_free_energy_spec(self):
         erow = []
@@ -566,6 +576,9 @@ class InteractivePlotter:
             # Add traces, one for each slider step
             X = target.energyKnot
             for j, t in enumerate(target.timeData):
+                if t > target.plot_final_t:
+                    break
+
                 if j == 0: continue  # Skip empty plot
 
                 data = target.freeData[j,:]
@@ -606,11 +619,13 @@ class InteractivePlotter:
             steps = []
             target = self.target_data[g]
             for i in range(len(target.timeData) - 1): # -1 as don't have trace for zeroth time step.
+                if target.timeData[i+1] > target.plot_final_t:
+                    break                
                 step = dict(
                     method="update",
                     args=[{"visible": [False] * len(self.fig.data)}  # style attribute
                         ,{"title": "Step: " + str(1 + i)}],  # layout attribute
-                    label= str(target.timeData[i+1]),
+                    label= str(target.timeData[i+1]), 
                 )
                 step["args"][0]["visible"][start_step + i] = True  #  When at this step toggle i'th trace in target's group to "visible"
                 steps.append(step)
