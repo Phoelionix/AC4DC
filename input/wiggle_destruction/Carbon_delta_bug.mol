@@ -13,7 +13,7 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 square       // Pulse shape
 
 #NUMERICAL
-3000000          // (400k works for 35_100 grid) Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+800000          // (400k works for 35_100 grid) Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 12            // Number of threads in OpenMP.
 0             // [only for nonthermal] minimum free-electron energy in eV
 10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
@@ -34,7 +34,7 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-0.00001  //0.068     //0.0075 = -10 to -9.7 fs (time period over which wiggle tends to appear), 0.00001 for a few steps (good for determinining initial wiggle quickly).      // Proportion of time steps to iterate through before stopping early. TODO Left as a proportion for now since it requires less understanding of code, but inputs should be made clearer (can set start time and end time, and proportion of time that is pulse or (2?)*FWHM for example).
+0.070     //0.0075 = -10 to -9.7 fs (time period over which wiggle tends to appear), 0.00001 for a few steps (good for determinining initial wiggle quickly).      // Proportion of time steps to iterate through before stopping early. TODO Left as a proportion for now since it requires less understanding of code, but inputs should be made clearer (can set start time and end time, and proportion of time that is pulse or (2?)*FWHM for example).
 ####END#####
 
 Notes:
@@ -82,5 +82,4 @@ x   | CRITICAL, should be above  γ (current bounds are 1-5). The lower x is the
 50-200  | boringly smooth
 200-500 | covers range of the auger peak for Carbon and nitrogen.   (carbon peak 337 eV, I need to check why not ~ 270 eV)
 500-4500| transition region
-4500-6500| photoelectron delta-like peak (carbon peak ~5666 eV). W/ peak width looking ~ 100 on a lin scale, peak halves in   
-        0.1 fs and width goes up ~ 1.5x, in 6kev 2000 *10^4 fluence (i.e. rapid ionisation) conditions.
+4500-6500| photoelectron delta-like peak (carbon peak ~5666 eV)
