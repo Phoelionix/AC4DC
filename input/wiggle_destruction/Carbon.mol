@@ -80,7 +80,7 @@ x   | CRITICAL, should be above  γ (current bounds are 1-5). The lower x is the
 
 10-50   | sharp MB peak  (it's about 6 eV for carbon, I need to check if higher for heavier elements?) - It's actually a very sharp peak, which is hidden on a log scale, and we had less electrons here before!
 50-200  | boringly smooth
-200-500 | covers range of the auger peak for Carbon and nitrogen.   (carbon peak 337 eV, I need to check why not ~ 270 eV)
+200-500 | covers range of the auger peak for Carbon and nitrogen.   (carbon peak 337 eV, I need to check why not ~ 230 eV)
 500-4500| transition region
 4500-6500| photoelectron delta-like peak (carbon peak ~5666 eV). W/ peak width looking ~ 100 on a lin scale, peak halves in   
         0.1 fs and width goes up ~ 1.5x, in 6kev 2000 *10^4 fluence (i.e. rapid ionisation) conditions.
