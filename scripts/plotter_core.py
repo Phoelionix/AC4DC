@@ -58,7 +58,7 @@ def get_colors(num, seed):
 class Plotter:
     # Example initialisation: Plotter(water)
     # --> expects there to be a control file named water.mol within AC4DC/input/ or a subdirectory.
-    def __init__(self, mol, output_mol_query):
+    def __init__(self, mol, output_mol_query = ""):
         self.p = path.abspath(path.join(__file__ ,"../../")) + "/"
 
         molfile = self.get_mol_file(mol,output_mol_query)
