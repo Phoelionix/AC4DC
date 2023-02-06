@@ -65,30 +65,30 @@ if len(sys.argv) > 2:
      output_mol_query = sys.argv[2]
 pl = Plotter(sys.argv[1],output_mol_query)
 
-if not one_fs_wiggle_testing: # don't need these plots now
-    pl.plot_tot_charge(every=10)
+#if not one_fs_wiggle_testing: 
+pl.plot_tot_charge(every=10)
+pl.fig.set_size_inches(3,2.5)
+plt.savefig(dname_Figures + label + fname_charge_conservation + figures_ext)
+#plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_qcons.pgf')
+plt.close()
+
+if not one_fs_wiggle_testing:  # Free graph breaks. 
     pl.fig.set_size_inches(3,2.5)
-    plt.savefig(dname_Figures + label + fname_charge_conservation + figures_ext)
-    #plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_qcons.pgf')
+    pl.plot_free(log=True, min=1e-7, every=5)
+    pl.fig_free.subplots_adjust(left=0.15)
+    plt.savefig(dname_Figures + label + fname_free + figures_ext)
     plt.close()
-
-    if not one_fs_wiggle_testing:  # Free graph breaks. 
-        pl.fig.set_size_inches(3,2.5)
-        pl.plot_free(log=True, min=1e-7, every=5)
-        pl.fig_free.subplots_adjust(left=0.15)
-        plt.savefig(dname_Figures + label + fname_free + figures_ext)
-        plt.close()
-        #plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_free.pgf')
+    #plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_free.pgf')
 
 
 
-    pl.plot_all_charges()
-    pl.fig.set_size_inches(3,2.5)
-    pl.fig.subplots_adjust(left=0.2,bottom=0.18,top=0.95)
-    plt.savefig(dname_Figures + label + fname_bound_dynamics + figures_ext)
-    #plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_bound.pgf')
+pl.plot_all_charges()
+pl.fig.set_size_inches(3,2.5)
+pl.fig.subplots_adjust(left=0.2,bottom=0.18,top=0.95)
+plt.savefig(dname_Figures + label + fname_bound_dynamics + figures_ext)
+#plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_bound.pgf')
 
-    plt.close()
+plt.close()
 
 
 #########
@@ -129,10 +129,10 @@ colrs = [cmap(i) for i in range(4)]
 
 ### shape, %, time,
 #slices = [-9.5,-8.5,-7.5]      # square 10%, 10 fs,
-slices = [-7.6]#[-9.8,-9.5] 
+slices = [-7.5]#[-9.8,-9.5] 
 #slices = [-9.99,-9.98,-9.97]      # square << 1%, 10 fs, 
 
-energies = [500,500,500,500,500,500]     # Cutoff energies for fitting MB curves. 
+energies = [200,500,500,500,500,500]     # Cutoff energies for fitting MB curves. 
 plot_fits = True # Whether to plot MB curves
 
 
@@ -145,7 +145,7 @@ for (t, e, col ) in zip(slices, energies, colrs):
 pl.fig_steps.set_size_inches(6,5)
 
 #all
-pl.ax_steps.set_ylim([1e-10, 1])
+pl.ax_steps.set_ylim([1e-4, 1])
 #plt.yscale("linear")
 #pl.ax_steps.set_ylim([-0.035, 0.035])
 pl.ax_steps.set_xlim([1,10000]) 
@@ -178,6 +178,8 @@ def add_curve(mat, fitE, **kwargs):
 
 #------\testing/-------
 #pl.plot_maxwell(44.1,0.06*3/2)  # ~Sanders -7.5 fs - density of MB assumed to be 50% of total.  
+pl.plot_maxwell(31,0.06*3/2,color = "r") #Hau-Riege
+extr_handle,extr_label = pl.ax_steps.get_legend_handles_labels()
 #########
 # 
 #####
@@ -188,6 +190,8 @@ order = list(range(0,len(labels) - 1,2)) + list(range(1,len(labels),2))
 
 #if not one_fs_wiggle_testing:
 pl.ax_steps.legend([handles[idx] for idx in order],[labels[idx] for idx in order], loc='upper left',ncol=2)
+pl.ax_steps.legend(extr_handle,extr_label,ncol=2)
+
 #plt.gcf()
 
 plt.title(name + " - Free-electron distribution")

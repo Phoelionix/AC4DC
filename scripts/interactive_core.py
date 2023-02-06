@@ -20,6 +20,7 @@ from scipy.stats import linregress
 import chart_studio.plotly as py
 import plotly.graph_objects as go
 import plotly.io as pio
+import copy
 pio.templates.default = "seaborn" #"plotly_dark" # "plotly"
 
 
@@ -59,12 +60,16 @@ class PlotData:
     def __init__(self,target_path, mol_name,output_mol_query):
         self.p = target_path
         molfile = self.get_mol_file(mol_name,output_mol_query) 
-        self.target_mol = {'name': mol_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}
 
-        # Stores the atomic input files read by ac4dc
+        # Subplot dictionary
+        subplot_name = mol_name.replace('_',' ')
+        self.target_mol = {'name': subplot_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}
+
+        # Stores the atomic input files read by AC4DC
         self.atomdict = {}
         self.statedict = {}
-                
+
+        # Stores the output of AC4DC
         self.boundData={}
         self.chargeData={}
         self.freeData=None
@@ -72,10 +77,10 @@ class PlotData:
         self.energyKnot=None
         self.timeData=None
 
-        self.plot_final_t = -9.7603 # TODO temporary, move to generate_interactive.
-        self.max_points = 80 # TODO temporary, move to generate_interactive.
+        self.plot_final_t = -7.4 # TODO temporary, move to generate_interactive.
+        self.max_points = 70 # TODO temporary, move to generate_interactive.
         
-
+        self.title_colour = "#4d50b3"
         # Directories of target data
         self.outDir = self.p + "/output/__Molecular/" + mol_name
         self.freeFile = self.outDir+"/freeDist.csv"
@@ -559,20 +564,25 @@ class InteractivePlotter:
     
     def initialise_interactive(self, target, x_args={}, y_args={}):
         self.fig = go.Figure()
+        
         self.fig.update_layout(
-            title= target + " - Free-electron distribution",
-            # font=dict(
-            #     family="Courier New, monospace",
-            #     size=20,
-            #     color="RebeccaPurple"
-            # )
+            title= target + " - Free-electron distribution",  # Attention: title overwritten by add_time_slider()
+            showlegend=False,
+            font=dict(
+                family="Courier New, monospace",
+                size=1,
+                # color='rgba(0,0,0,0)' # hide tick numbers? Nope.
+            ),
+            paper_bgcolor= '#F7CAC9' #'#f7dac9' '#F7CAC9'  '#FFD580' "#92A8D1"  lgrey = '#bbbfbf',
         )
         self.fig.update_xaxes(x_args)
         self.fig.update_yaxes(y_args)        
 
-    def plot_traces(self, normed = True, fitE = None, **kwargs):
+    # line_args - a list of kwarg dictionaries to be used for the line argument of go.Scatter().
+    # colour_mixup - good for distinguishing plots that are on the same timescale.
+    def plot_traces(self, saturation = 0.85, normed = True, colour_mixup = True, line_kwargs = [{},{},{},{},{}], fitE = None):
         # Add a group of traces for each target, but the time slider needs to manual separate them out. Probably a better way to do this but oh well.
-        for target in self.target_data:
+        for g, target in enumerate(self.target_data):
             min_t = target.timeData[0]   #
             max_t = target.timeData[-1]-(target.timeData[-1]-min_t)/len(target.timeData)  # hack, weird indices fix colours and don't affect data.
             # Add traces, one for each slider step
@@ -590,21 +600,68 @@ class InteractivePlotter:
                     data/=4*3.14
 
                 ### Cute colours  ★ﾟ~(◠ᴗ ◕✿)ﾟ*｡:ﾟ+ 
-                rgb_intensity = [1,0.68,1]  # max = 1
-                rgb_width = [0.4,0.6,0.9]
-                rgb_bndry = [1,0.6,0]
-                rgb = [0,0,1]
+                rgb = [None,None,None]
+                a = 1 
+                if len(self.target_data) > 1: a = 0.8
+                if colour_mixup:
+                    # randomish mix thing
+                    # mix = 1- g/len(self.target_data)   
+                    # rgb_intensity = [mix*1,0.68 + (1-mix)*0.5,mix*1]  # max = 1
+                    # rgb_width = [0.4 + (1-mix)*2, 0.6 + (1-mix)*0.3,0.9 + (1-mix)*0.4]
+                    # rgb_bndry = [1,0.6+(1-mix)*0.2,(1-mix)*0.2]
+
+                    # # temp
+                    # if g == 1:
+                    #     rgb_intensity = [1,0.68,1]
+                    #     rgb_width = [0.4 + 2, 0.6,0.9] 
+                    #     rgb_bndry = [1,0.6,0]
+
+                    if g == 0:
+                    ## blue_grey-mustard
+                        rgb_intensity = [0.6,0.6,0.8]  # max = 1
+                        rgb_width = [1,2,1]
+                        rgb_bndry = [1,1,0]
+
+                        target.title_colour =  "#4d50b3" 
+                    
+                    else:      
+                        target.title_colour =  "#4d50b3"  # "#a44ae8" 
+                        ## blue-purp
+                        # rgb_intensity = [1,0,1]  # max = 1
+                        # rgb_width = [1,0.5,1]
+                        # rgb_bndry = [1,0.5,0]
+
+                        ## blue-orange
+                        rgb_intensity = [1,0.68,1]  # max = 1
+                        rgb_width = [0.5,0.6,0.5]
+                        rgb_bndry = [1,0.6,0]                               
+                
+                else:
+                    rgb_intensity = [1,0.68,1]  # max = 1
+                    rgb_width = [0.4,0.6,0.9]
+                    rgb_bndry = [1,0.6,0]
+
                 # Linear interpolation
                 for i in range(len(rgb)):
                     t_norm = (t-min_t)/(max_t-min_t)
-                    rgb[i] = rgb_intensity[i]*(1-((t_norm-rgb_bndry[i])/rgb_width[i])**2)
-                    rgb[i] = min(1, max(0, rgb[i])) 
-                col = "rgb" + str(tuple(rgb))         
+                    rgb[i] = saturation * rgb_intensity[i] * (1-((t_norm-rgb_bndry[i])/rgb_width[i])**2)
+                    rgb[i] = 255*min(1, max(0, rgb[i]))
+                    rgba = tuple(rgb) + (a,)
+                col = "rgba" + str(tuple(rgba))      
                 
                 self.fig.add_trace(
                     go.Scatter(
                         visible=False,
-                        line=dict(color=col, width=6),
+                        # Can't get to work
+                        # marker=dict(
+                        #     color='LightSkyBlue',
+                        #     size=12,
+                        # ),
+                        # fillpattern = dict(
+                        #     shape = "+",                    
+                        #     fillmode = 'overlay',
+                        # ),
+                        line=dict(color=col, **line_kwargs[g]),
                         name="t = " + str(t),
                         x=X,
                         y=data*X))
@@ -614,34 +671,68 @@ class InteractivePlotter:
     #----Widgets----#
     # Time Slider
     def add_time_slider(self):
-        self.steps_groups = [] # Stores the steps for each plot separately
+        self.steps_groups = [] # Stores the steps for each plot separately 
         start_step = 0
         time_slider = []
+        simul_steps=[]
         for g in range(self.num_plots):
             steps = []
             target = self.target_data[g]
+            displaying = "<span style='font-size: 28px; font-family: Roboto'>" +"Displaying:                  </span>"
+            subplot_title = dict(text= displaying + "<span style='font-size: 35px;color:"+ target.title_colour +"; font-family: Roboto'>" + target.target_mol["name"]  + "</span>", yanchor = "top", xanchor = "left", pad = dict(b = 0,l=-400))  # margin-top:100px; display:inline-block;
+            allplot_title = copy.deepcopy(subplot_title) 
+            allplot_title_colour = "#4d50b3" 
+            allplot_title["text"] = displaying + "<span style='font-size: 35px;color:"+ allplot_title_colour +"; font-family: Roboto'>" + "          All"
+            if g == 0:
+                self.fig.update_layout({"title": subplot_title})
             for i in range(len(target.timeData) - 1): # -1 as don't have trace for zeroth time step.
                 if target.timeData[i+1] > target.plot_final_t:
                     break                
                 step = dict(
                     method="update",
-                    args=[{"visible": [False] * len(self.fig.data)}  # style attribute
-                        ,{"title": "Step: " + str(1 + i)}],  # layout attribute
-                    label= str(target.timeData[i+1]), 
+                    args=[
+                        {"visible": [False] * len(self.fig.data)},  # style attribute
+                        {"title": subplot_title},                   # layout attribute         #Add line below: + '<br>' +  '<span style="font-size: 12px;">line2</span>'}  
+                    ],      
+                    label= "  " + "%.2f" % target.timeData[i+1],
                 )
                 step["args"][0]["visible"][start_step + i] = True  #  When at this step toggle i'th trace in target's group to "visible"
                 steps.append(step)
+                #   Initialise slider that shows all plots.
+                if g == 0:
+                    simul_step = copy.deepcopy(step)
+                    simul_step["label"] = "  " + "%.2f" % target.timeData[i+1]
+                    simul_steps.append(simul_step)    
+                    simul_step["args"][1]["title"] = allplot_title 
+                #   Add later plots' traces at same step (not necessarily same time...).
+                elif i < len(simul_steps):
+                    simul_steps[i]["args"][0]["visible"][start_step+i] = True    
+                    simul_steps[i]["label"] += "  |  " + "%.2f" % target.timeData[i+1]
+            ###
             self.steps_groups.append(steps)
             start_step += len(steps)
 
             time_slider.append(dict(
-            active=0,
-            tickwidth=0,
-            currentvalue={"prefix": target.target_mol["name"] + " - Time [fs]: "},
-            pad={"t": 50+125*g,"r": 200,"l":0},
-            steps=steps
-            
+                active=0,
+                tickwidth=0,
+                tickcolor = "rgba(0,0,0,0)",
+                currentvalue={"prefix": "<span style='font-size: 25px; font-family: Roboto; color = black'>" + target.target_mol["name"] + " - Time [fs]: "},
+                pad={"t": 85+90*g,"r": 200,"l":0},
+                steps=steps,
+                #font = {"color":"rgba(0.5,0.5,0.5,1)"}
             ))
+        
+        all_slider = dict(
+            active = 0,
+            tickwidth = 0,
+            currentvalue = {"prefix": "<span style='font-size: 25px; font-family: Roboto; color = white;'>" +"All" + " - Times [fs]: "},
+            pad={"t": 85+90*(g+1),"r": 200,"l":0},
+            steps = simul_steps,
+            #font = {"color":"rgba(0.5,0.5,0.5,1)"}
+        )
+
+        time_slider.append(all_slider)
+        
         self.fig.update_layout(sliders=time_slider)    
 
     # Scale Button 
@@ -650,29 +741,30 @@ class InteractivePlotter:
                 buttons=list([
                     dict(
                         args=[{'yaxis': y_log_args, 'xaxis': x_log_args}],
-                        label="Log",
-                        method="relayout"
+                        label="<br>Log-Log<br>",
+                        method="relayout",
                     ),
                     dict(
                         args=[{'yaxis': y_lin_args, 'xaxis': x_log_args}],
-                        label="Linear",
+                        label="<br>Lin-Log<br>",
                         method="relayout"    
                     ),              
                     dict(
                         args=[{'yaxis': y_lin_args, 'xaxis': x_lin_args}],
-                        label="LinLin",
+                        label="<br>Lin-Lin<br>",
                         method="relayout"              
                     )  
                 ]),
                 type="buttons",
                 direction = "down",
                 # anchor top of button to bottom right of graph, then push down.
-                pad={"r": 50, "t": 50},
+                pad={"r": 0, "t": 35},
                 showactive=True,
                 x= 1,
                 xanchor="right",
                 y= 0, 
-                yanchor="top"
+                yanchor="top",
+                font = {"size": 25,"family": "Roboto"},
         )   
         self.fig.update_layout(
             updatemenus = [scale_button]

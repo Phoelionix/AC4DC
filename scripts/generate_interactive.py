@@ -60,25 +60,28 @@ def main():
     plot_title = fname_out.replace('_',' ')
     
     # Y scaling
-    lin_ymax = 0.035
-    lin_ymin = -0.035
+    lin_ymax = 0.03
+    lin_ymin = -0.005
     log_ymax = 1
-    log_ymin = 1e-10      
+    log_ymin = 1e-4      
     normalise = True  # TODO make True default, and False an option for cmdline arg.
     # Axis params
     xlabel = 'Energy (eV)'
     ylabel = '$f(\\epsilon) \\Delta \\epsilon$'   #TODO: Get this working on offline file saves somehow.
-    x_log_args = {'title': xlabel + " - log scale", 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
-    x_lin_args = {'title': xlabel + " - lin scale", 'type' : "linear", "range" : [xmin,xmax]}
-    y_lin_args = {'title': ylabel + " - lin scale", 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
-    y_log_args = {'title': ylabel + " - log scale", 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
+    x_log_args = {'title': {"text": xlabel + " - log scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
+    x_lin_args = {'title': {"text": xlabel + " - lin scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "linear", "range" : [xmin,xmax]}
+    y_lin_args = {'title': {"text": ylabel + " - lin scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
+    y_log_args = {'title': {"text": ylabel + " - log scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
     #
     # Initialises plotter object with data from files.
     ipl = InteractivePlotter(target_folder_names,"y")  
     # Initialises graph object.
     ipl.initialise_interactive(plot_title, x_log_args,y_log_args) 
     # The meat of the plotting. Plot line for each point in time
-    ipl.plot_traces(normed=normalise)
+    line_1 = {'width': 6,"dash": '10,1'}
+    line_2 = {'width': 6,}
+    line_kwargs = [line_1,line_2]
+    ipl.plot_traces(normed=normalise, line_kwargs=line_kwargs)
     # Add widgets
     ipl.add_scale_button(x_log_args,x_lin_args, y_log_args,y_lin_args)                 
     ipl.add_time_slider()  

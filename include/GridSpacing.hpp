@@ -128,38 +128,6 @@ namespace {
         return is;
     }
 
-//     /// Sets region boundaries
-//     [[maybe_unused]] std::istream& operator>>(std::istream& is, GridBoundaries& gb) {
-//         std::string tmp;
-//         is >> tmp;
-//         if (tmp.length() == 0) {
-//             std::cerr<<"No boundaries provided, default case not implemented yet...!"<<std::endl;
-//             return is;
-//         }
-//         switch ((char) tmp[0])
-//         {
-//         // no surplus region.
-//         case 'a':
-//             gb.start = {1,  2,  32,  52, 150};
-//             gb.E_min = {5.66978,  10, 200, 2000,10000};
-//             break;
-//         case 'b':
-//             gb.start = {1,  2,  22,  42, 140};
-//             gb.E_min = {5.66978,  10, 200, 2000, 10000};
-//             break;
-//         case 'c':
-//             gb.start = {1,  35,  100};
-//             gb.E_min = {5.66978, 2000., 10000.};
-//             break;            
-//         default:
-//             std::cerr<<"Unrecognised region boundary settings, no default case! \""<<tmp<<"\""<<std::endl;
-//             break;
-//         }
-//         return is;
-//     }    
-//
-
-
     /// Sets region boundaries
     [[maybe_unused]] std::istream& operator>>(std::istream& is, GridBoundaries& gb) {
         std::string tmp;
@@ -178,14 +146,14 @@ namespace {
         double token;
         std::string token_str;  
         while ((pos = tmp.find(delimiter_char)) != std::string::npos) {
-            // get rid of spaces
             token_str = tmp.substr(0, pos);
+            // // get rid of spaces 
             // std::string::iterator end_pos = std::remove(token_str.begin(), token_str.end(), ' ');
             // token_str.erase(end_pos, token_str.end());     
             // space_pos = token_str.find(' ');
             // token_str = tmp.substr(0, space_pos);
 
-            // Add our number
+            // Add num to vector
             token =  stod(token_str);
             target_vector.push_back(token);
             // Erase input string up to next delimiter
