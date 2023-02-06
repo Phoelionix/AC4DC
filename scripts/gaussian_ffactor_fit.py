@@ -1,20 +1,24 @@
+#%%
+%matplotlib widget
 import numpy as np
 import scipy.optimize as opt
 import csv
 import matplotlib.pyplot as plt
 import sys
-from pathlib import Path
+import pathlib
+import os.path as path
 
 # This script goes through all form-factor files (stored in output/X/Rates/Form_Factor.txt )
-# Expects to be run from the base directory - python3 scripts/gaussian_ffactor_fit.py
+# Expects to be in a folder within base directory that contains /output.
 
 # FITPARAMS
 # A1 s1 A2 s2 A3 s3 ...
 
 # Dodgy L2 norm of model vs. data
 #
-FLAG_PLOT = False
+FLAG_PLOT = True
 FLAG_DEBUG = False
+
 
 def model(fitparams, local_x):
     Y = np.zeros_like(local_x)
@@ -38,6 +42,7 @@ def ReadAndFit(filename, legend):
         params = fit_gauss(fdists, kgrid, num_gaussians)
         retval[legend[0]]=params
         if FLAG_PLOT:
+            print("Plotting...")
             smoothK = np.linspace(KMIN,KMAX,100)
             # make the fit look prettier
             plt.clf()
@@ -53,6 +58,7 @@ def ReadAndFit(filename, legend):
             params = fit_gauss(fdists[i], kgrid, num_gaussians)
             retval[legend[i]]=params
             if FLAG_PLOT:
+                print("Plotting...")
                 smoothK = np.linspace(KMIN,KMAX,100)
                 # make the fit look prettier
                 plt.clf()
@@ -124,11 +130,15 @@ def fit_gauss(F, K, NGAUSS):
 
 
 
-p = Path('./output/')
+p = path.abspath(path.join(__file__ ,".././output/")) 
+p = pathlib.Path('./output/')
+
+p = pathlib.Path(__file__).resolve().parent
+p = pathlib.Path(p) / "../" / "output/"
 paramList = []
 for x in p.iterdir():
     if x.is_dir():
-        f = x / 'Rates/Form_Factor.txt'
+        f = x / 'Xsections/Form_Factor.txt'
         if f.is_file():
             print("===================================================")
             print("Fitting data for dir " + str(x))
@@ -142,3 +152,7 @@ for x in p.iterdir():
             print('Missing form factors for ', x)
 print("===================================================\n\n")
 print(paramList)
+
+
+
+# %%
