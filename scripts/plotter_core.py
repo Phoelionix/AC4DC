@@ -10,7 +10,6 @@ import matplotlib.colors as colors
 import sys
 # import glob
 import csv
-import time
 import subprocess
 import re
 from matplotlib.ticker import LogFormatter 
@@ -83,9 +82,8 @@ class Plotter:
         self.get_atoms()
         self.update_outputs()
         self.autorun=False
-
-        self.setup_step_axes()
-
+        
+        self.setup_step_axes()   
 
     def get_mol_file(self, mol,output_mol_query = ""):
         #### Inputs ####
@@ -271,6 +269,182 @@ class Plotter:
                     break
         return specs
 
+
+    def get_atomic_numbers(self):
+        # Get atomic number by considering states at time 0.
+        return_dict = {}
+        for a in self.atomdict:
+            states = self.statedict[a]  
+            atomic_number = 0
+            for val in parse_elecs_from_latex(states[0]).values():
+                atomic_number += val
+            return_dict[a] = atomic_number
+        return return_dict
+    
+
+    def plot_A_map(self, start_t, end_t, q_max, atom1, atom2,q_fineness=50,t_fineness=50,vmin=0.,vmax=1.,naive=False,title=r"Foreground coherence $\bar{A}$"):
+        def A(i,j):
+            # Transform indices to desired q
+            q1 = i*q_max/q_fineness
+            q2 = j*q_max/q_fineness
+            if q1 > 11.5 and q2 > 11.5:
+                print("HI,", q1,q2, A_norm*self.get_A_bar(start_t,end_t,q1,q2,atom1,atom2,t_fineness))
+            if naive == False:
+                return self.get_A_bar(start_t,end_t,q1,q2,atom1,atom2,t_fineness)
+            elif naive == True:
+                return self.get_naive_A_bar(start_t,end_t,q1,q2,atom1,atom2,t_fineness)
+
+        A_norm = 1/A(0,0)
+        print(A_norm) 
+        A_matrix = A_norm*np.fromfunction(np.vectorize(A),(q_fineness,q_fineness,))
+        print(A_matrix)
+        fig_size = 5
+        self.fig = plt.figure(figsize=(fig_size,fig_size))
+        ax = self.fig.add_subplot(111)
+        ax.set_title(title)
+        ax.set_xlabel("$k_{1}$",fontsize=12)
+        ax.set_ylabel("$k_{2}$", rotation=0,labelpad = 7,fontsize=12)
+        ax.set_xlim(0,q_fineness-1)  
+        ax.set_ylim(0,q_fineness-1)  
+        ticks = np.linspace(0,q_fineness-1,5)
+        ticklabels = ["{:6.2f}".format(i) for i in ticks/(q_fineness-1)*q_max/(2*np.pi)]
+        
+        
+        ax.set_xticks(ticks)
+        ax.set_xticklabels(ticklabels)
+        ax.set_yticks(ticks)
+        ax.set_yticklabels(ticklabels)  
+
+        im = ax.imshow(
+            A_matrix,
+            cmap = plt.get_cmap('PiYG'),
+            vmin=vmin,
+            vmax=vmax,
+        )
+        cbar = self.fig.colorbar(im, ax=ax, extend='both')
+        cbar.minorticks_on()
+        
+
+    # Get the foreground coherence matrix A bar.(Martin A.V. & Quiney H.M., 2016)
+    # a1, str, atomic name key
+    # a2, str, other atomic name key
+    def get_A_bar(self, start_t, end_t, q1, q2, atom1, atom2, t_fineness = 50):
+        # f_1 = scattering factor of atomic species 1.
+        #Integrand = <(f_1)(f_2)*> = (f_Z1)(f_Z2) since real scatt. factors   TODO check where imaginary f may be relevant
+        
+        
+        
+        def integrand(idx):
+            # We pass in indices from 0 to fineness-1, transform to time:
+            t = start_t + idx/t_fineness*(end_t-start_t) 
+            val = self.get_form_factor(q1,[atom1],t)*self.get_form_factor(q2,[atom2],t)
+            return val
+        form_factor_product = np.fromfunction(integrand,(t_fineness,))   # Happily it works without using np.vectorise, which is far more costly.
+        time = np.linspace(start_t,end_t,t_fineness)
+        #Approximate integral with composite trapezoidal rule.
+        A_bar = np.trapz(form_factor_product,time)
+        return A_bar
+
+    def get_naive_A_bar(self, start_t, end_t, q1, q2, atom1, atom2, t_fineness = 50):
+        time = np.linspace(start_t,end_t,t_fineness)
+        form_factor_1 = self.get_form_factor(q1,[atom1],time)  
+        form_factor_2 = self.get_form_factor(q2,[atom2],time)
+
+        #Average form factors 
+        average_form_factor_1 = np.average(form_factor_1)
+        average_form_factor_2 = np.average(form_factor_2)
+        A_bar = average_form_factor_1 * average_form_factor_2
+        return A_bar        
+
+    def plot_form_factor(self,times = [-7.5],q_max = 2*2*np.pi, atoms=None):  # q = 4*np.pi = 2*k. c.f. Sanders plot.
+        if atoms == None:
+            atoms = self.atomdict  # All atoms
+
+        #lattice_const = 18.11**(1/3)
+
+
+        #TODO figure out overlaying.
+        q = np.linspace(0,q_max,250)
+        k = q/2/np.pi
+        k_max = q_max /2/np.pi
+        self.fig = plt.figure(figsize=(3,2.5))
+        ax = self.fig.add_subplot(111)
+
+        cmap=plt.get_cmap('plasma')
+        min_time = np.inf
+        max_time = -np.inf 
+        for time in times:
+            min_time = min(min_time,time)
+            max_time = max(max_time,time) 
+
+        for time in times:
+            f = [self.get_form_factor(x,atoms,time=time) for x in q]
+            ax.plot(k, f,label="t = " + str(time)+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))
+            ax.set_title("")
+            ax.set_xlabel("k")
+            ax.set_ylabel("Form factor (normed)")
+            ax.set_xlim(0,k_max)   
+            ax.legend()
+            self.fig.set_size_inches(6,5)         
+        #core_f = [self.get_form_factor(x,atomic_numbers,time=time,n=1) for x in q]
+        #ax.plot(q,core_f)
+    
+    def get_form_factor(self,q,atoms, time=-7.5,n=None):
+        idx = np.searchsorted(self.timeData,time)
+         
+        # Iterate through each a passed. 
+        for a in atoms:
+            ff = 0
+            states = self.statedict[a]   
+            atomic_density = self.boundData[a][0, 0]
+            for i in range(len(states)):
+                if n != None:
+                    if n != i+1:
+                        continue
+                orboccs = parse_elecs_from_latex(states[i])             
+                state_density = self.boundData[a][idx, i]       
+                # Get the form factors for each shell
+                occ_list = [-99]*10
+                for orb, occ in orboccs.items():
+                    l = int(orb[0]) - 1
+                    if occ_list[l] == -99:
+                        occ_list[l] = 0
+                    occ_list[l] += occ
+                occ_list = occ_list[:len(occ_list)-occ_list.count(-99)]
+                shielding = SlaterShielding(self.atomic_numbers[a],occ_list)              
+                ff += shielding.get_atomic_ff(q,state_density,atomic_density)
+        return ff
+                # Get the average atomic form factor
+
+
+    def print_bound_slice(self,time=-7.5):
+        idx = np.searchsorted(self.timeData,time)
+        for a in self.atomdict:
+            states = self.statedict[a]
+
+            print("Atom:",a)
+
+            atomic_number = 0
+
+            # Get atomic number and density by considering states at time 0.
+            
+            for val in parse_elecs_from_latex(states[0]).values():
+                atomic_number += val
+            atomic_density = self.boundData[a][0, 0]
+            print("atomic number, density",atomic_number,atomic_density)
+            
+            average_occupancy = dict.fromkeys(parse_elecs_from_latex(states[0]), 0)
+            for i in range(len(states)):
+                orboccs = parse_elecs_from_latex(states[i])              
+                state_density = self.boundData[a][idx, i]
+                print("Occs: ", orboccs ,", time: ",self.timeData[idx], ", density: ",state_density)
+                # Get the average number of orbitals in each state
+                for orb, occ in orboccs.items(): 
+                    average_occupancy[orb] += occ*(state_density/atomic_density)
+
+            print("Average occupancy:",average_occupancy)
+            print("Atomic density:", atomic_density)
+
     def aggregate_charges(self):
         # populates self.chargeData based on contents of self.boundData
         for a in self.atomdict:
@@ -298,6 +472,7 @@ class Plotter:
             raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
             self.boundData[a] = raw[:, 1:]
             self.statedict[a] = self.get_bound_config_spec(a)
+        self.atomic_numbers = self.get_atomic_numbers()
 
     def go(self):
         if not self.check_current():
@@ -335,7 +510,9 @@ class Plotter:
         ax.set_ylabel("Density")
         self.fig.subplots_adjust(left=0.2, right=0.92, top=0.93, bottom=0.1)
 
-    def plot_ffactor(self, a, num_tsteps = 10, timespan = None, show_avg = True, **kwargs):
+    # Seems to plot ffactors through time, "timedata" is where the densities come from - the form factor text file corresponds to specific configurations (vertical axis) at different q (horizontal axis)
+    # In any case, my ffactor function is probably bugged since it doesn't match this. - S.P.
+    def plot_ffactor_time_slices(self, a, num_tsteps = 10, timespan = None, show_avg = True, **kwargs):
 
         if timespan is None:
             timespan = (self.timeData[0], self.timeData[-1])
@@ -343,7 +520,8 @@ class Plotter:
         start_idx = self.timeData.searchsorted(timespan[0])
         stop_idx = self.timeData.searchsorted(timespan[1])
 
-        fdists = np.genfromtxt('output/'+a+'/Xsections/Form_Factor.txt')
+        ff_path = path.abspath(path.join(__file__ ,"../../output/"+a+"/Xsections/Form_Factor.txt"))
+        fdists = np.genfromtxt(ff_path)
         # These correspond to the meaning of the FormFactor.txt entries themselves
         KMIN = 0
         KMAX = 2
@@ -355,7 +533,8 @@ class Plotter:
         ax.set_ylabel('Form factor (arb. units)')
         
         timedata = self.boundData[a][:,:-1] # -1 excludes the bare nucleus
-        dynamic_k = np.tensordot(fdists.T, timedata.T,axes=1) 
+        temporary_fact = 3/0.994/0.99992  # Just normalising carbon - S.P.
+        dynamic_k = temporary_fact*np.tensordot(fdists.T, timedata.T,axes=1) 
         step = (stop_idx - start_idx) // num_tsteps
         cmap=plt.get_cmap('plasma')
         fbar = np.zeros_like(dynamic_k[:,0])
@@ -378,7 +557,9 @@ class Plotter:
 
     def plot_charges(self, ax, a, rseed=404):
         self.aggregate_charges()
-        
+
+        #print_idx = np.searchsorted(self.timeData,-7.5)
+
         ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))
         for i in range(self.chargeData[a].shape[1]):
             max_at_zero = np.max(self.chargeData[a][0,:])
@@ -386,6 +567,7 @@ class Plotter:
             mask |= self.chargeData[a][:,i] < -max_at_zero*2
             Y = np.ma.masked_where(mask, self.chargeData[a][:,i])
             ax.plot(self.timeData, Y, label = "%d+" % i)
+            #print("Charge: ", i ,", time: ",self.timeData[print_idx], ", density: ",self.chargeData[a][print_idx,i])
         # ax.set_title("Charge state dynamics")
         ax.set_ylabel(r"Density (\AA$^{-3}$)")
 
@@ -599,6 +781,56 @@ def moving_average(a, n=3) :
     ret = np.cumsum(a, dtype=float)
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n - 1:] / n
+
+# Slater form factor
+# Warning: Only for states with exclusively s, p orbitals
+class SlaterShielding:
+    # Z:  nuclear charge
+    # shell_config: The number of electrons in each shell, passed as a list e.g. [1,8,8]
+    def __init__(self,Z,shell_occs):
+        self.Z = Z 
+        self.shell_occs = shell_occs
+        self.s_p_slater_shielding()
+    def s_p_slater_shielding(self):
+        self.s = []
+        for n in range(len(self.shell_occs)):  
+            s = 0
+            for m, N_e in enumerate(self.shell_occs): # N_e = num (screening) electrons
+                if m > n:
+                    continue
+                if m == n:
+                    s_factor = 0.35
+                    if n == 0:
+                        s_factor = 0.30
+                    s += s_factor * max(0, N_e - 1)
+                elif m == n - 1:
+                    s += 0.85*N_e
+                else:
+                    s += N_e           
+            self.s.append(s) 
+            if s > self.Z:
+                print("Warning, s =",self.s)        
+                    
+    def get_shell_ff(self, q, shell_num ):
+        lamb = self.Z - self.s[shell_num-1]
+        lamb/=shell_num
+        D = (4*lamb**2+q**2)
+        if shell_num == 1:            
+            return 16*lamb**4/D**2
+        if shell_num == 2:
+            return 64*lamb**6*(4*lamb**2-q**2)/D**4
+        if shell_num == 3:
+            return 128*lamb**7/6*(192*lamb**5-160*lamb**3*q**2+12*lamb*q**4)/D**6
+        else:
+            print("ERROR! shell_ff")
+        
+    # Gets a single configuration's form factor * its density.
+    def get_atomic_ff(self, q, density, atomic_density):
+        ff = 0
+        norm = 1/atomic_density/self.Z # such that at t = 0, form factor = 1. (At t = 0, we have neutral config density = atomic density, and a factor of N where N is the number of shells, since the shell ff is normalised.)
+        for i in range(len(self.shell_occs)):
+            ff += self.get_shell_ff(q,i+1)*norm*self.shell_occs[i]
+        return ff * density
 
 if __name__ == "__main__":
     pl = Plotter(sys.argv[1])

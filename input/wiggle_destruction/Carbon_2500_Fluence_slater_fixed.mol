@@ -1,0 +1,87 @@
+#ATOMS
+C_fast 1
+
+#VOLUME
+18.11        // Volume per molecule in Angstrom^3.
+2000         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
+none // Spatial boundary shape - options are none, spherical, cylindrical, planar
+
+#PULSE
+6000         // Photon energy in eV.
+10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+2500         // Pulse fluence in 10^4 * J/cm^2.  // - At the focal point it was 2000 for HR, so the added 500 must be a correction accounting for energy from outside the focus? TODO Or it should be 2000. Still testing. - S.P.
+square       // Pulse shape
+
+#NUMERICAL
+1500000          // (400k works for 35_100 grid) Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+12            // Number of threads in OpenMP.
+0             // [only for nonthermal] minimum free-electron energy in eV
+10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
+150           // total number of free-electron grid points
+wiggledestruction        // electron grid type
+50              // Number of "low-energy" grid points (hybrid & powerlaw grids only, not for hybrid_power grids though!!!)
+2000          // transition energy in eV (used for grid point boundary, unless hybrid_power grid.)
+1|2|35|45|80|105|165|170                // boundary indices, with first point excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
+5|10|50|200|500|4500|6500|10000        // boundary energies, with first point excluded. No spaces.
+
+
+
+#OUTPUT
+800         // Number of time steps in the output files.
+4000        // number of free-electron grid points in output file.
+N            // Write atomic charges in a separate file (Y/N)?
+Y            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
+
+#DEBUG
+0.068     //0.0075 = -10 to -9.7 fs (time period over which wiggle tends to appear), 0.00001 for a few steps (good for determinining initial wiggle quickly).      // Proportion of time steps to iterate through before stopping early. TODO Left as a proportion for now since it requires less understanding of code, but inputs should be made clearer (can set start time and end time, and proportion of time that is pulse or (2?)*FWHM for example).
+####END#####
+
+Notes:
+Realised I didn't use 2500 fluence like Sanders *facepalm*.  
+. 
+---
+
+
+(1 grid point at 5 and 10 seems to make smoother and slightly more stable with low time steps. 1 at 5, and 1 at 6 or 7 seemed worse. and
+1 at 4 and 6 seemed worse. 5 and 9 might be slightly better? )
+
+remedies for breaks in each region:
+- Remedy is determined by whether it increases the time of stable simulation.
+- Since spline overlap is sparse, it is probable that a divergence in one region is relatively independent of another.
+- Of course, these regions are defined by myself, and there might be better classifications.  However, my goal 
+  is to get what we need out of this simulation for templates, not to make it wiggle-proof. 
+
+Region (ev) | Looks like | Remedy
+x           | Divergence at x           | increase x!
+x-10        | w/ higher grid point density than 10-50 region, very fine wiggles near end of region, but no wiggling (at first) below a point above x. Also had sudden disappearence with higher time steps.  | reduce number of points OR more time steps. (Possibility: Don't use a power law here?)
+(Could be something else, combining this region with 10-50 leads to a wiggle minimum at 9.4 eV, presumably due to undershooting to reach up to MB)
+leads to:
+??          | small wiggle around 10 eV that keeps getting wider towards 0. | increase time steps.
+10-50       | Wiggles in region that aren't divergent but make solution unstable    | increase grid fineness
+200-500     | Auger peak's width is unstable.  | increase grid fineness   (position was unstable a bit too when I varied some params, but haven't narrowed down cause)
+4500-6500   | Lots of wiggles | Move to a linear scale where the entire peak can be seen. Only if it looks wiggly add grid points.
+
+
+
+Grid point regions:
+eV|
+0-x | empty, apart from point at 0. 
+x   | CRITICAL, should be above  γ (current bounds are 1-5). The lower x is the more likely the simulation breaks/diverges there. 
+    There are two regimes:
+    x < γ:
+        - simulation-breaking, cannot be remedied. Is either a separate effect or a regime where MB breaks the grid almost instantly
+        Trying either using 3x the grid points or using ten times the time steps with x = 1 had a small but 
+        impractical reduction on the divergence. 
+    x>= γ:
+        - small sad wiggle at x that is overtaken by MB relatively quick.  
+        -Breakage more obviously due to MB peak being too sharp.
+        - increasing time steps is helpful. For x = 5, going from 20k -> 100k steps moved divergence from t=-9.97 to t=-9.8552
+        - Finess of grid points in 5-10 eV region doesn't seem to help, but it can make it break earlier with more of them.
+
+10-50   | sharp MB peak  (it's about 6 eV for carbon, I need to check if higher for heavier elements?) - It's actually a very sharp peak, which is hidden on a log scale, and we had less electrons here before!
+50-200  | boringly smooth
+200-500 | covers range of the auger peak for Carbon and nitrogen.   (carbon peak 337 eV, I need to check why not ~ 230 eV)
+500-4500| transition region
+4500-6500| photoelectron delta-like peak (carbon peak ~5666 eV). W/ peak width looking ~ 100 on a lin scale, peak halves in   
+        0.1 fs and width goes up ~ 1.5x, in 6kev 2000 *10^4 fluence (i.e. rapid ionisation) conditions.

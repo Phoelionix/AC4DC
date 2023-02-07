@@ -44,16 +44,16 @@ def main():
         print("Usage: python3 _save_interactive.py Carbon_1 <name_suffix (optional)>")
         exit()        
 
-    target_folder_names = []  
+    target_handles = []  
     # Store folder names from commandline args without .mol extension. 
     for i, target in enumerate(sys_argv):
         if i == 0: continue #####
         if target.endswith(".mol"):
             target = target[0:-4]         
-        target_folder_names.append(target)
+        target_handles.append(target)
 
     # Naming file/plot
-    fname_out = target_folder_names[0]
+    fname_out = target_handles[0]
     if len(sys_argv) > 2:
         fname_out += '_' + sys_argv[2][:10] + "..-"
     fname_out += "_interactive"
@@ -74,7 +74,7 @@ def main():
     y_log_args = {'title': {"text": ylabel + " - log scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
     #
     # Initialises plotter object with data from files.
-    ipl = InteractivePlotter(target_folder_names,"y")  
+    ipl = InteractivePlotter(target_handles,"y")  
     # Initialises graph object.
     ipl.initialise_interactive(plot_title, x_log_args,y_log_args) 
     # The meat of the plotting. Plot line for each point in time

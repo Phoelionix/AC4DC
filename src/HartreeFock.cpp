@@ -88,7 +88,11 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 			}
 			// Set orbitals' energy via Slater approximation.  E = -[(Z-s)/n]^2 . TODO figure out why 0.5 factor is there.
 			
-			s = 0.35*max(0,N_elec_n0) + 0.85*N_elec_n1 + 1.0*N_elec_n2_plus;   // I added max(0, N_elec_n0) in case this energy is used when no electrons are present. TODO should use s = 0.30 * N_elec_n0 for 1s case right? Check. - S.P.
+			// TODO still need to ask why s = 0.35 was being used before, rather than 0.30, for 1s group.
+			float s_p_fact = 0.30;
+			if (i != 0) s_p_fact = 0.35;
+			
+			s = s_p_fact*max(0,N_elec_n0) + 0.85*N_elec_n1 + 1.0*N_elec_n2_plus;   // I added max(0, N_elec_n0) in case this energy is used when no electrons are present. TODO should use s = 0.30 * N_elec_n0 for 1s case right? Check. - S.P.
 			double factor = 1;
 			if(Orbitals[i].occupancy() != 0){
 				factor = static_cast<float>(shell_occupancies[L])/static_cast<float>(Orbitals[i].occupancy()); // Average out the possible energies.
@@ -108,7 +112,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 	// for (int i = 0; i < Orbitals.size();i++){
 	// 	std::cout << Orbitals[i].Energy << " Ry; Occupancy: " << Orbitals[i].occupancy() << endl; 
 	// }	
-	std::cout << "[ORBENG]: " << Orbitals[0].Energy << " "<<Orbitals[1].Energy << " "<<Orbitals[2].Energy <<" Ry; Occupancy: " <<Orbitals[0].occupancy() << " "<<Orbitals[1].occupancy() << " "<<Orbitals[2].occupancy() << endl; 
+	// std::cout << "[ORBENG]: " << Orbitals[0].Energy << " "<<Orbitals[1].Energy << " "<<Orbitals[2].Energy <<" Ry; Occupancy: " <<Orbitals[0].occupancy() << " "<<Orbitals[1].occupancy() << " "<<Orbitals[2].occupancy() << endl; 
 //==========================================================================================================
 // Find initial Guess for wavefunctions. Check if there is a single orbital occupied. If there is
 // only one electron within that orbital (hydrogenic case) solve problem.
