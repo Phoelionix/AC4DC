@@ -398,7 +398,8 @@ class Plotter:
         ax.set_xlabel("k length",fontsize = 12)
         ax.set_xscale("log")
         ax.set_xlim(dual_axis[0][0],dual_axis[-1][0])
-        ax.set_ylim(0,0.7) 
+        ax.set_ylim(0,0.1) 
+        ax.set_ylabel("R")
         ax.plot(k_lengths,R_factor)
 
         # Resolution or angle axis 
