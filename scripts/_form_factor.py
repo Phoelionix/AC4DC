@@ -29,7 +29,7 @@ fname_free = "free"
 fname_HR_style = "HR_style"
 fname_bound_dynamics = "bound_dynamics"  #Was called both _bound and dynamics so I assume it's bound dynamics or something.
 
-handle =  "Carbon_Wiggleless"#"Carbon_Sanders"
+handle =  "Carbon_Wiggleless_2500_Fluence"#"Carbon_Sanders"""
 #######
 
 label = handle +'_' 
@@ -38,21 +38,29 @@ name = handle.replace('_',' ')
 
 pl = Plotter(handle,"y")
 plt.close()
+photon_energy = 6000
+q_max = 2 # pl.theta_to_q(22,photon_energy) # In units of bohr^-1. 
+pl.initialise_coherence_params(-10,-7.5,q_max,photon_energy,100,100,False)
 
-q_max = 2*np.pi#2*2*np.pi for sanders  # HR significant range is 0.1 to 0.6 lattice spacings 2*np.pi*0.6
+
+
+
 # form factors dependent on q 
-#pl.plot_ffactor_time_slices("C_fast")
+pl.plot_ffactor_time_slices("C_fast")
 # Atomic form factor at time as a function of q
 
-pl.plot_form_factor(np.linspace(-10,-7.5,11),q_max) 
+
+
+pl.plot_form_factor(np.linspace(-10,-7.5,11)) 
 
 print(pl.get_A_bar(-10,-7.5,12,12,"C_fast","C_fast",100))
 
 vmin = 0
 vmax = 1
-pl.plot_A_map(-10,-7.5,q_max,"C_fast","C_fast",100,100,vmin=vmin,vmax=vmax)
-pl.plot_A_map(-10,-7.5,q_max,"C_fast","C_fast",100,100,vmin=vmin,vmax=vmax,naive=True,title = r"Naive Foreground coherence $\bar{A}$")
 
+pl.plot_A_map("C_fast","C_fast",vmin=vmin,vmax=vmax)
+pl.plot_A_map("C_fast","C_fast",vmin=vmin,vmax=vmax,title = r"Naive Foreground coherence $\bar{A}$")
+pl.plot_R_factor()
 #pl.print_bound_slice(-10)
 #print(" GAP ")
 #pl.print_bound_slice(-7.5)

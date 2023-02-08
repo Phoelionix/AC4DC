@@ -282,22 +282,144 @@ class Plotter:
         return return_dict
     
 
-    def plot_A_map(self, start_t, end_t, q_max, atom1, atom2,q_fineness=50,t_fineness=50,vmin=0.,vmax=1.,naive=False,title=r"Foreground coherence $\bar{A}$"):
-        def A(i,j):
-            # Transform indices to desired q
-            q1 = i*q_max/q_fineness
-            q2 = j*q_max/q_fineness
-            if q1 > 11.5 and q2 > 11.5:
-                print("HI,", q1,q2, A_norm*self.get_A_bar(start_t,end_t,q1,q2,atom1,atom2,t_fineness))
-            if naive == False:
-                return self.get_A_bar(start_t,end_t,q1,q2,atom1,atom2,t_fineness)
-            elif naive == True:
-                return self.get_naive_A_bar(start_t,end_t,q1,q2,atom1,atom2,t_fineness)
 
-        A_norm = 1/A(0,0)
-        print(A_norm) 
-        A_matrix = A_norm*np.fromfunction(np.vectorize(A),(q_fineness,q_fineness,))
-        print(A_matrix)
+    def initialise_coherence_params(self, start_t,end_t, q_max, photon_energy, q_fineness=50,t_fineness=50,naive=False):
+        args = locals()
+        self.__dict__ .update(args)  # Is this a coding sin?
+        self.q_max *= 2*np.pi  # Change to wavenumber.  TODO change code so that the form factor calcs are the only part that use this convention.
+ 
+    
+    # q in units of bohr^-1
+    def theta_to_q(self,scattering_angle_deg,photon_energy=None):
+        if photon_energy == None:
+            photon_energy = self.photon_energy
+        theta = scattering_angle_deg*np.pi/180
+        bohr_per_nm = 18.8973; c_nm = 2.99792458e17; h = 6.582119569e-16 *2 *np.pi
+        wavelength =  h*c_nm/photon_energy
+        wavelength *= bohr_per_nm
+        return 4*np.pi*np.sin(theta)/wavelength
+    # q in units of bohr^-1
+    def q_to_theta(self,q,photon_energy=None):
+        if photon_energy == None:
+            photon_energy = self.photon_energy        
+        bohr_per_nm = 18.8973; c_nm = 2.99792458e17; h = 6.582119569e-16 *2 *np.pi
+        wavelength =  h*c_nm/photon_energy   
+        wavelength *= bohr_per_nm
+        return 180/np.pi*np.arcsin(q*wavelength/(4*np.pi))     
+
+
+    def get_A_bar_matrix(self,atom1,atom2):
+        # Matrix constructor to be vectorised and passed to np.fromfunction
+        def A_maker(i,j,atom1,atom2):
+            # Transform indices to desired q
+            q1 = i*self.q_max/self.q_fineness
+            q2 = j*self.q_max/self.q_fineness
+            if self.naive == False:
+                return self.get_A_bar(self.start_t,self.end_t,q1,q2,atom1,atom2,self.t_fineness)
+            elif self.naive == True:
+                return self.get_naive_A_bar(self.start_t,self.end_t,q1,q2,atom1,atom2,self.t_fineness)         
+                   
+        A_norm = 1/A_maker(0,0,atom1,atom2) 
+        return A_norm*np.fromfunction(np.vectorize(A_maker),(self.q_fineness,self.q_fineness,),atom1=atom1,atom2=atom2)
+    
+    def plot_R_factor(self, atoms_subset=None):
+        atoms = atoms_subset
+        if atoms_subset == None:
+            atoms = self.atomdict
+
+        I_real = None
+        I_ideal = None
+
+        ### I_real
+        for atom1 in atoms:
+            for atom2 in atoms:
+                A_matrix = self.get_A_bar_matrix(atom1,atom2)
+                if I_real == None:
+                    I_real = A_matrix
+                else:
+                    I_real += A_matrix
+        ### I_ideal.
+        # Using naive setting (so that np.trapz doesn't return 0), and start_time, A_bar will just be the ideal factor squared
+        # Temporarily overwrite variables
+        old_naive_param = self.naive
+        old_end_t_param = self.end_t
+        self.naive = True
+        self.end_t = self.start_t
+        for atom1 in atoms:
+            for atom2 in atoms:
+                A_matrix_ideal = self.get_A_bar_matrix(atom1,atom2)
+                if I_ideal == None:
+                    I_ideal = A_matrix_ideal
+                else:
+                    I_ideal += A_matrix_ideal
+        self.naive = old_naive_param
+        self.end_t = old_end_t_param
+        ### Weird R_factor_inspired_matrix thing that probably isn't a thing because I got confused by a paper's notation:
+        R_like_matrix_that_is_not_a_thing =  (np.sqrt(I_real) - np.sqrt(I_ideal))/np.sqrt(I_ideal)
+        
+        # Plot R over different q ranges, up to q_max which corresponds to the best resolution but should have the lowest R-factor.
+        
+        
+        q_lengths = np.linspace(0,self.q_max,self.q_fineness-1)  #TODO make better and don't try and do in head...     
+
+        R_factor = []
+        # Compute single term of R's sum
+        def get_R_num_term(idx):
+            I_r = I_real[idx][idx]
+            I_i = I_ideal[idx][idx]
+            return abs(np.sqrt(I_r)-np.sqrt(I_i))
+        def get_R_den_term(idx):
+            I_i = I_ideal[idx][idx]    
+            return np.sqrt(I_i)        
+        # Get R for each q_length
+        cumulative_R_num = 0
+        cumulative_R_den = 0
+        for i,q in enumerate(q_lengths): 
+            cumulative_R_num += get_R_num_term(i)
+            cumulative_R_den += get_R_den_term(i)
+            R_factor.append(cumulative_R_num/cumulative_R_den)  
+        
+        q_resolution = np.array([[3.2,1],[0.032,100]])  # Based off Hau-Riege 2007 TODO research relationship between q and resolution properly.
+        k_lengths = q_lengths/2/np.pi    #TODO This is a mess. really need to deal with this k and q thing properly.
+        q_theta = []
+        for i, k in enumerate(k_lengths):
+            if i%(int(self.q_fineness/5)) == 1:
+                q_theta.append([k,self.q_to_theta(k)])
+        q_theta.reverse()
+        q_theta = np.array(q_theta)
+        
+        dual_axis = q_theta
+        #top_label = r"Resolution (\AA)"
+        top_label = r"Theta"         
+        
+        fig_size = 5
+        self.fig = plt.figure(figsize=(fig_size,fig_size))
+        ax = self.fig.add_subplot(111)
+        ax.set_xlabel("k length",fontsize = 12)
+        ax.set_xscale("log")
+        ax.set_xlim(dual_axis[0][0],dual_axis[-1][0])
+        ax.set_ylim(0,0.7) 
+        ax.plot(k_lengths,R_factor)
+
+        # Resolution or angle axis 
+        top_tick_locations = dual_axis[:,0]
+        top_tick_labels = dual_axis[:,1]    
+        top_tick_labels = ['%.2f' % l for l in top_tick_labels]
+         
+        ax2 = ax.twiny()              
+        #ax2.set_xlim(q_resolution[1][1],q_resolution[0][1])
+        ax2.set_xlim(ax.get_xlim())
+        ax2.set_xticklabels(top_tick_labels)
+        ax2.set_xticks(top_tick_locations)
+        ax2.set_xlabel(top_label)
+        
+    
+
+    def plot_A_map(self, atom1, atom2, vmin=0.,vmax=1.,title=r"Foreground coherence $\bar{A}$"):
+        q_fineness = self.q_fineness
+        
+        A_matrix = self.get_A_bar_matrix(atom1,atom2)
+
         fig_size = 5
         self.fig = plt.figure(figsize=(fig_size,fig_size))
         ax = self.fig.add_subplot(111)
@@ -307,7 +429,7 @@ class Plotter:
         ax.set_xlim(0,q_fineness-1)  
         ax.set_ylim(0,q_fineness-1)  
         ticks = np.linspace(0,q_fineness-1,5)
-        ticklabels = ["{:6.2f}".format(i) for i in ticks/(q_fineness-1)*q_max/(2*np.pi)]
+        ticklabels = ["{:6.2f}".format(i) for i in ticks/(q_fineness-1)*self.q_max/(2*np.pi)]
         
         
         ax.set_xticks(ticks)
@@ -332,8 +454,6 @@ class Plotter:
         # f_1 = scattering factor of atomic species 1.
         #Integrand = <(f_1)(f_2)*> = (f_Z1)(f_Z2) since real scatt. factors   TODO check where imaginary f may be relevant
         
-        
-        
         def integrand(idx):
             # We pass in indices from 0 to fineness-1, transform to time:
             t = start_t + idx/t_fineness*(end_t-start_t) 
@@ -356,7 +476,9 @@ class Plotter:
         A_bar = average_form_factor_1 * average_form_factor_2
         return A_bar        
 
-    def plot_form_factor(self,times = [-7.5],q_max = 2*2*np.pi, atoms=None):  # q = 4*np.pi = 2*k. c.f. Sanders plot.
+    def plot_form_factor(self,times = [-7.5],q_max = None, atoms=None):  # q = 4*np.pi = 2*k. c.f. Sanders plot.
+        if q_max == None:  #TODO check if can remove argument entirely.
+            q_max = self.q_max
         if atoms == None:
             atoms = self.atomdict  # All atoms
 
@@ -365,7 +487,7 @@ class Plotter:
 
         #TODO figure out overlaying.
         q = np.linspace(0,q_max,250)
-        k = q/2/np.pi
+        k = q/2/np.pi  # Convert to momentum TODO assuming this is also units of lattice parameter, but need to check this is right, seems to match...
         k_max = q_max /2/np.pi
         self.fig = plt.figure(figsize=(3,2.5))
         ax = self.fig.add_subplot(111)
@@ -377,19 +499,25 @@ class Plotter:
             min_time = min(min_time,time)
             max_time = max(max_time,time) 
 
+        f_avg =[]
         for time in times:
             f = [self.get_form_factor(x,atoms,time=time) for x in q]
-            ax.plot(k, f,label="t = " + str(time)+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))
-            ax.set_title("")
-            ax.set_xlabel("k")
-            ax.set_ylabel("Form factor (normed)")
-            ax.set_xlim(0,k_max)   
-            ax.legend()
-            self.fig.set_size_inches(6,5)         
+            f_avg.append(f)
+            ax.plot(k, f,label="t = " + str(time)+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))     
+        f_avg = np.average(f_avg,axis=0)
+        ax.plot(k, f_avg,'k--',label="Average")  
+
+        ax.set_title("")
+        ax.set_xlabel("k")
+        ax.set_ylabel("Form factor (normed)")
+        ax.set_xlim(0,k_max)   
+        ax.legend()
+        self.fig.set_size_inches(6,5)           
+
         #core_f = [self.get_form_factor(x,atomic_numbers,time=time,n=1) for x in q]
         #ax.plot(q,core_f)
     
-    def get_form_factor(self,q,atoms, time=-7.5,n=None):
+    def get_form_factor(self,q,atoms,time=-7.5,n=None):
         idx = np.searchsorted(self.timeData,time)
          
         # Iterate through each a passed. 
