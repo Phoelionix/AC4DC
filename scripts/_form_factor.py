@@ -29,7 +29,7 @@ fname_free = "free"
 fname_HR_style = "HR_style"
 fname_bound_dynamics = "bound_dynamics"  #Was called both _bound and dynamics so I assume it's bound dynamics or something.
 
-handle =  "Carbon_Wiggleless_2500_Fluence"#"Carbon_Sanders"""
+handle =  "Carbon_294"#"Carbon_Wiggleless_2500_Fluence"#"Carbon_Sanders"""
 #######
 
 label = handle +'_' 
@@ -40,7 +40,7 @@ pl = Plotter(handle,"y")
 plt.close()
 photon_energy = 6000
 q_max = 2#pl.theta_to_q(22,photon_energy) # In units of bohr^-1. 
-pl.initialise_coherence_params(-10,-7.5,q_max,photon_energy,100,100,False)
+pl.initialise_coherence_params(-10,-6.4,q_max,photon_energy,20,100,True)
 
 
 
@@ -51,9 +51,9 @@ pl.plot_ffactor_time_slices("C_fast")
 
 
 
-#pl.plot_form_factor(np.linspace(-10,-7.5,11)) 
+pl.plot_form_factor(np.linspace(-10,-6.4,11)) 
 
-print(pl.get_A_bar(-10,-7.5,12,12,"C_fast","C_fast",100))
+#print(pl.get_A_bar(-10,-7.5,12,12,"C_fast","C_fast",100))
 
 vmin = 0
 vmax = 1

@@ -286,10 +286,10 @@ class Plotter:
     def initialise_coherence_params(self, start_t,end_t, q_max, photon_energy, q_fineness=50,t_fineness=50,naive=False):
         args = locals()
         self.__dict__ .update(args)  # Is this a coding sin?
-        self.q_max *= 2*np.pi  # Change to wavenumber.  TODO change code so that the form factor calcs are the only part that use this convention.
+        self.k_max = 2*np.pi * self.q_max  # Change to wavenumber.
  
     
-    # q in units of bohr^-1
+    # k in units of bohr^-1
     def theta_to_q(self,scattering_angle_deg,photon_energy=None):
         if photon_energy == None:
             photon_energy = self.photon_energy
@@ -298,31 +298,32 @@ class Plotter:
         wavelength =  h*c_nm/photon_energy
         wavelength *= bohr_per_nm
         return 4*np.pi*np.sin(theta)/wavelength
-    # q in units of bohr^-1
-    def q_to_theta(self,q,photon_energy=None):
+    # k in units of bohr^-1
+    def q_to_theta(self,k,photon_energy=None):
         if photon_energy == None:
             photon_energy = self.photon_energy        
         bohr_per_nm = 18.8973; c_nm = 2.99792458e17; h = 6.582119569e-16 *2 *np.pi
         wavelength =  h*c_nm/photon_energy   
         wavelength *= bohr_per_nm
-        return 180/np.pi*np.arcsin(q*wavelength/(4*np.pi))     
+        return 180/np.pi*np.arcsin(k*wavelength/(4*np.pi))     
 
 
-    def get_A_bar_matrix(self,atom1,atom2):
+    def get_A_bar_matrix(self,atom1,atom2,ideal=False): #TODO change to getting just A_bar vector, since q's are the same.
         # Matrix constructor to be vectorised and passed to np.fromfunction
         def A_maker(i,j,atom1,atom2):
-            # Transform indices to desired q
-            q1 = i*self.q_max/self.q_fineness
-            q2 = j*self.q_max/self.q_fineness
+            # Transform indices to desired k
+            q1 = i*self.k_max/self.q_fineness
+            q2 = j*self.k_max/self.q_fineness
             if self.naive == False:
                 return self.get_A_bar(self.start_t,self.end_t,q1,q2,atom1,atom2,self.t_fineness)
             elif self.naive == True:
-                return self.get_naive_A_bar(self.start_t,self.end_t,q1,q2,atom1,atom2,self.t_fineness)         
+                return self.get_naive_A_bar(self.start_t,self.end_t,q1,q2,atom1,atom2,self.t_fineness,ideal=ideal)         
                    
-        A_norm = 1/A_maker(0,0,atom1,atom2) 
+        #A_norm = 1/A_maker(0,0,atom1,atom2) WHYYYYYYY DID YOU DO THISSS
+        A_norm = 1
         return A_norm*np.fromfunction(np.vectorize(A_maker),(self.q_fineness,self.q_fineness,),atom1=atom1,atom2=atom2)
     
-    def plot_R_factor(self, atoms_subset=None):
+    def plot_R_factor(self, atoms_subset=None):   #TODO Would be best to integrate with Sanders' code since that uses the simulation's calculated struct. factors which are presumably more accurate.
         atoms = atoms_subset
         if atoms_subset == None:
             atoms = self.atomdict
@@ -339,28 +340,21 @@ class Plotter:
                 else:
                     I_real += A_matrix
         ### I_ideal.
-        # Using naive setting (so that np.trapz doesn't return 0), and start_time, A_bar will just be the ideal factor squared
-        # Temporarily overwrite variables
-        old_naive_param = self.naive
-        old_end_t_param = self.end_t
+        # Intensity corresponding to no damage, A_bar will be intensity squared, scaled by the same factor as I_real is due to integration.
+        old_naive = self.naive
         self.naive = True
-        self.end_t = self.start_t
         for atom1 in atoms:
             for atom2 in atoms:
-                A_matrix_ideal = self.get_A_bar_matrix(atom1,atom2)
+                A_matrix_ideal = self.get_A_bar_matrix(atom1,atom2,ideal = True)
                 if I_ideal == None:
                     I_ideal = A_matrix_ideal
                 else:
                     I_ideal += A_matrix_ideal
-        self.naive = old_naive_param
-        self.end_t = old_end_t_param
-        ### Weird R_factor_inspired_matrix thing that probably isn't a thing because I got confused by a paper's notation:
-        R_like_matrix_that_is_not_a_thing =  (np.sqrt(I_real) - np.sqrt(I_ideal))/np.sqrt(I_ideal)
+        self.naive = old_naive
         
-        # Plot R over different q ranges, up to q_max which corresponds to the best resolution but should have the lowest R-factor.
-        
-        
-        q_lengths = np.linspace(0,self.q_max,self.q_fineness-1)  #TODO make better and don't try and do in head...     
+        # Plot R over different k ranges, up to k_max which corresponds to the best resolution but should have the lowest R-factor.
+
+        k_points = np.linspace(0,self.k_max,self.q_fineness-1)  #TODO make better and don't try and do in head...     
 
         R_factor = []
         # Compute single term of R's sum
@@ -371,20 +365,32 @@ class Plotter:
         def get_R_den_term(idx):
             I_i = I_ideal[idx][idx]    
             return np.sqrt(I_i)        
-        # Get R for each q_length
+        #Get R for each q_length
         cumulative_R_num = 0
         cumulative_R_den = 0
-        for i,q in enumerate(q_lengths): 
+        for i,k in enumerate(k_points): 
             cumulative_R_num += get_R_num_term(i)
             cumulative_R_den += get_R_den_term(i)
             R_factor.append(cumulative_R_num/cumulative_R_den)  
+        # for i,k in enumerate(k_points): 
+        #     R_factor.append(get_R_num_term(i)/get_R_den_term(i))    
+
+        F_i = []
+        F_r = []
+        for i,k in enumerate(k_points):
+            F_i.append(np.sqrt(I_ideal[i][i]))
+            F_r.append(np.sqrt(I_real[i][i]))
+        print("real",F_r)
+        print("ideal",F_i)
+
+      
         
-        q_resolution = np.array([[3.2,1],[0.032,100]])  # Based off Hau-Riege 2007 TODO research relationship between q and resolution properly.
-        k_lengths = q_lengths/2/np.pi    #TODO This is a mess. really need to deal with this k and q thing properly.
+        #q_resolution = np.array([[3.2,1],[0.032,100]])  #TODO
+        q_points = k_points/2/np.pi    
         q_theta = []
-        for i, k in enumerate(k_lengths):
+        for i, q in enumerate(q_points):
             if i%(int(self.q_fineness/5)) == 1:
-                q_theta.append([k,self.q_to_theta(k)])
+                q_theta.append([q,self.q_to_theta(q)])
         q_theta.reverse()
         q_theta = np.array(q_theta)
         
@@ -395,12 +401,12 @@ class Plotter:
         fig_size = 5
         self.fig = plt.figure(figsize=(fig_size,fig_size))
         ax = self.fig.add_subplot(111)
-        ax.set_xlabel("k length",fontsize = 12)
+        ax.set_xlabel("q length",fontsize = 12)
         ax.set_xscale("log")
         ax.set_xlim(dual_axis[0][0],dual_axis[-1][0])
-        ax.set_ylim(0,0.1) 
+        ax.set_ylim(0,1) 
         ax.set_ylabel("R")
-        ax.plot(k_lengths,R_factor)
+        ax.plot(q_points,R_factor)
 
         # Resolution or angle axis 
         top_tick_locations = dual_axis[:,0]
@@ -416,7 +422,7 @@ class Plotter:
         
     
 
-    def plot_A_map(self, atom1, atom2, vmin=0.,vmax=1.,title=r"Foreground coherence $\bar{A}$"):
+    def plot_A_map(self, atom1, atom2, vmin=0.,vmax=1.,title=r"Foreground coherence $\bar{A}$"): #TODO Remove this.
         q_fineness = self.q_fineness
         
         A_matrix = self.get_A_bar_matrix(atom1,atom2)
@@ -430,7 +436,7 @@ class Plotter:
         ax.set_xlim(0,q_fineness-1)  
         ax.set_ylim(0,q_fineness-1)  
         ticks = np.linspace(0,q_fineness-1,5)
-        ticklabels = ["{:6.2f}".format(i) for i in ticks/(q_fineness-1)*self.q_max/(2*np.pi)]
+        ticklabels = ["{:6.2f}".format(i) for i in ticks/(q_fineness-1)*self.k_max/(2*np.pi)]
         
         
         ax.set_xticks(ticks)
@@ -463,23 +469,31 @@ class Plotter:
         form_factor_product = np.fromfunction(integrand,(t_fineness,))   # Happily it works without using np.vectorise, which is far more costly.
         time = np.linspace(start_t,end_t,t_fineness)
         #Approximate integral with composite trapezoidal rule.
-        A_bar = np.trapz(form_factor_product,time)
+        A_bar = np.trapz(form_factor_product,time)/(time[-1]-time[0])    
         return A_bar
 
-    def get_naive_A_bar(self, start_t, end_t, q1, q2, atom1, atom2, t_fineness = 50):
+    def get_naive_A_bar(self, start_t, end_t, q1, q2, atom1, atom2, t_fineness = 50, ideal=False):
+        if ideal: 
+            actual_end_t = end_t
+            end_t = start_t
         time = np.linspace(start_t,end_t,t_fineness)
         form_factor_1 = self.get_form_factor(q1,[atom1],time)  
         form_factor_2 = self.get_form_factor(q2,[atom2],time)
-
+        
         #Average form factors 
         average_form_factor_1 = np.average(form_factor_1)
         average_form_factor_2 = np.average(form_factor_2)
-        A_bar = average_form_factor_1 * average_form_factor_2
+        form_factor_product = average_form_factor_1 * average_form_factor_2
+        # Integrate via same method as get_A_bar to ensure same scale. (Alternatively could divide get_A_bar output by the timespan)
+        form_factor_product = np.tile(form_factor_product, (t_fineness))
+        if ideal:
+            time = np.linspace(start_t,actual_end_t,t_fineness)
+        A_bar = np.trapz(form_factor_product,time)/(time[-1]-time[0])
         return A_bar        
 
-    def plot_form_factor(self,times = [-7.5],q_max = None, atoms=None):  # q = 4*np.pi = 2*k. c.f. Sanders plot.
-        if q_max == None:  #TODO check if can remove argument entirely.
-            q_max = self.q_max
+    def plot_form_factor(self,times = [-7.5],k_max = None, atoms=None):  # k = 4*np.pi = 2*q. c.f. Sanders plot.
+        if k_max == None:  #TODO check if can remove argument entirely.
+            k_max = self.k_max
         if atoms == None:
             atoms = self.atomdict  # All atoms
 
@@ -487,9 +501,11 @@ class Plotter:
 
 
         #TODO figure out overlaying.
-        q = np.linspace(0,q_max,250)
-        k = q/2/np.pi  # Convert to momentum TODO assuming this is also units of lattice parameter, but need to check this is right, seems to match...
-        k_max = q_max /2/np.pi
+        k = np.linspace(0,k_max,250)  # Wavenumber
+        q = k/2/np.pi
+        q_max = self.q_max 
+        if self.q_max != k_max /2/np.pi: (print("Warning q_max does not match with k_max."))
+
         self.fig = plt.figure(figsize=(3,2.5))
         ax = self.fig.add_subplot(111)
 
@@ -502,23 +518,23 @@ class Plotter:
 
         f_avg =[]
         for time in times:
-            f = [self.get_form_factor(x,atoms,time=time) for x in q]
+            f = [self.get_form_factor(x,atoms,time=time) for x in k]
             f_avg.append(f)
-            ax.plot(k, f,label="t = " + str(time)+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))     
+            ax.plot(q, f,label="t = " + str(time)+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))     
         f_avg = np.average(f_avg,axis=0)
-        ax.plot(k, f_avg,'k--',label="Average")  
+        ax.plot(q, f_avg,'k--',label="Average")  
 
         ax.set_title("")
-        ax.set_xlabel("k")
+        ax.set_xlabel("q")
         ax.set_ylabel("Form factor (normed)")
-        ax.set_xlim(0,k_max)   
+        ax.set_xlim(0,q_max)   
         ax.legend()
         self.fig.set_size_inches(6,5)           
 
-        #core_f = [self.get_form_factor(x,atomic_numbers,time=time,n=1) for x in q]
-        #ax.plot(q,core_f)
+        #core_f = [self.get_form_factor(x,atomic_numbers,time=time,n=1) for x in k]
+        #ax.plot(k,core_f)
     
-    def get_form_factor(self,q,atoms,time=-7.5,n=None):
+    def get_form_factor(self,k,atoms,time=-7.5,n=None):
         idx = np.searchsorted(self.timeData,time)
          
         # Iterate through each a passed. 
@@ -541,7 +557,7 @@ class Plotter:
                     occ_list[l] += occ
                 occ_list = occ_list[:len(occ_list)-occ_list.count(-99)]
                 shielding = SlaterShielding(self.atomic_numbers[a],occ_list)              
-                ff += shielding.get_atomic_ff(q,state_density,atomic_density)
+                ff += shielding.get_atomic_ff(k,state_density,atomic_density)
         return ff
                 # Get the average atomic form factor
 
@@ -639,7 +655,7 @@ class Plotter:
         ax.set_ylabel("Density")
         self.fig.subplots_adjust(left=0.2, right=0.92, top=0.93, bottom=0.1)
 
-    # Seems to plot ffactors through time, "timedata" is where the densities come from - the form factor text file corresponds to specific configurations (vertical axis) at different q (horizontal axis)
+    # Seems to plot ffactors through time, "timedata" is where the densities come from - the form factor text file corresponds to specific configurations (vertical axis) at different k (horizontal axis)
     # In any case, my ffactor function is probably bugged since it doesn't match this. - S.P.
     def plot_ffactor_time_slices(self, a, num_tsteps = 10, timespan = None, show_avg = True, **kwargs):
 
@@ -658,12 +674,12 @@ class Plotter:
         kgrid = np.linspace(KMIN,KMAX,fdists.shape[0 if dim == 1 else 1])
         fig2 = plt.figure()
         ax = fig2.add_subplot(111)
-        ax.set_xlabel('$k$ (atomic units)')
+        ax.set_xlabel('$q$ (atomic units)')
         ax.set_ylabel('Form factor (arb. units)')
         
         timedata = self.boundData[a][:,:-1] # -1 excludes the bare nucleus
         temporary_fact = 3/0.994/0.99992  # Just normalising carbon - S.P.
-        dynamic_k = temporary_fact*np.tensordot(fdists.T, timedata.T,axes=1) 
+        dynamic_k = temporary_fact*np.tensordot(fdists.T, timedata.T,axes=1)   # Getting all k points? This has equal spacing -S.P. 
         step = (stop_idx - start_idx) // num_tsteps
         cmap=plt.get_cmap('plasma')
         fbar = np.zeros_like(dynamic_k[:,0])
@@ -677,11 +693,15 @@ class Plotter:
         fbar /= n
         if show_avg:
             ax.plot(kgrid, fbar, 'k--', label=r'Effective Form Factor')
-        freal = dynamic_k[:,0]
-        print("R = ", np.sum(np.abs(fbar - freal))/np.sum(freal))
+        freal = dynamic_k[:,0]  # Real as in the real structure? - S.P.
+        print("R = ", np.sum(np.abs(fbar - freal))/np.sum(freal))    # Struct fact defn. of R (essentially equivalent to intensity definition)
+        print("freal",freal)
+        print("fbar",fbar)
         freal /= np.sum(freal)
         fbar /= np.sum(fbar)
         print("Normed R = ", np.sum(np.abs(fbar - freal))/np.sum(freal))
+        # print("freal",freal)
+        # print("fbar",fbar)
         return (fig2, ax)
 
     def plot_charges(self, ax, a, rseed=404):
@@ -940,25 +960,25 @@ class SlaterShielding:
             if s > self.Z:
                 print("Warning, s =",self.s)        
                     
-    def get_shell_ff(self, q, shell_num ):
+    def get_shell_ff(self, k, shell_num ):
         lamb = self.Z - self.s[shell_num-1]
         lamb/=shell_num
-        D = (4*lamb**2+q**2)
+        D = (4*lamb**2+k**2)
         if shell_num == 1:            
             return 16*lamb**4/D**2
         if shell_num == 2:
-            return 64*lamb**6*(4*lamb**2-q**2)/D**4
+            return 64*lamb**6*(4*lamb**2-k**2)/D**4
         if shell_num == 3:
-            return 128*lamb**7/6*(192*lamb**5-160*lamb**3*q**2+12*lamb*q**4)/D**6
+            return 128*lamb**7/6*(192*lamb**5-160*lamb**3*k**2+12*lamb*k**4)/D**6
         else:
             print("ERROR! shell_ff")
         
     # Gets a single configuration's form factor * its density.
-    def get_atomic_ff(self, q, density, atomic_density):
+    def get_atomic_ff(self, k, density, atomic_density):
         ff = 0
         norm = 1/atomic_density/self.Z # such that at t = 0, form factor = 1. (At t = 0, we have neutral config density = atomic density, and a factor of N where N is the number of shells, since the shell ff is normalised.)
         for i in range(len(self.shell_occs)):
-            ff += self.get_shell_ff(q,i+1)*norm*self.shell_occs[i]
+            ff += self.get_shell_ff(k,i+1)*norm*self.shell_occs[i]
         return ff * density
 
 if __name__ == "__main__":
