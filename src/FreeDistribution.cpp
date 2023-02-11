@@ -56,14 +56,18 @@ void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) co
     assert(P.size() == basis.Q_EII[a].size());
     assert((unsigned) v.size() == size);
     
-    #pragma omp parallel for num_threads(16) collapse(3)  // [Parallel] Notable speed increase, cuts off an additional 25% of time after TBR . 
+    //#pragma omp parallel for num_threads(16) collapse(3)  // [1.b)Parallel] Notable speed increase, cuts off an additional 25% of time after TBR . Messes up output though.
+    
     for (size_t xi=0; xi<P.size(); xi++) {
+        double v_copy [size] = {0};
         // Loop over configurations that P refers to
+        #pragma omp parallel for num_threads(17) reduction(+ : v_copy)
         for (size_t J=0; J<size; J++) {
             for (size_t K=0; K<size; K++) {
-                v[J] += P[xi]*f[K]*basis.Q_EII[a][xi][J][K];
+                v_copy[J] += P[xi]*f[K]*basis.Q_EII[a][xi][J][K];
             }
         }
+        v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
     }
 }
 
@@ -79,11 +83,11 @@ void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) co
 void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) const {
     assert(basis.has_Qtbr());
     assert(P.size() == basis.Q_TBR[a].size());
-    //#pragma omp parallel for num_threads(16) collapse(2)   // [1.Parallel] BIG speed increase (about 2/3rds of time saved). The collapse cuts off 20% more time than without. TODO make [parallel] notes clearer or remove.
+    //#pragma omp parallel for num_threads(16) collapse(2)   // [1.a)Parallel] BIG speed increase (about 2/3rds of time saved). The collapse cuts off 20% more time than without. TODO make [parallel] notes clearer or remove.
     for (size_t eta=0; eta<P.size(); eta++) {
         //#pragma omp parallel for num_threads(17)            // [2.Parallel] This may be worse on high-performance computing, but on 16/4 3.8Ghz/4.9Ghz desktop this improved the 22 s process to 18 s (total sim. time 30 s so a 13% cut).
         // Loop over configurations that P refers to
-        double v_copy [170] = {0}; 
+        double v_copy [size] = {0}; 
         #pragma omp parallel for num_threads(17) reduction(+ : v_copy) // [4.Parallel] RIDICULOUSLY faster, only takes 5 s now as opposed to 12!!!!!
         for (size_t J=0; J<size; J++) {                   // size = num grid points
             //int debug_count = 0;
@@ -96,7 +100,7 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) co
             }
             //cout << debug_count << endl;
         }
-        v += Eigen::Map<Eigen::VectorXd>(v_copy,170);
+        v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
     }
 }
 
