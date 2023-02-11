@@ -46,7 +46,7 @@ pl.initialise_coherence_params(-10,-6.4,q_max,photon_energy,20,100,True)
 
 
 # form factors dependent on q 
-pl.plot_ffactor_time_slices("C_fast")
+pl.plot_ffactor_get_R_sanders("C_fast")
 # Atomic form factor at time as a function of q
 
 

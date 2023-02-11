@@ -36,6 +36,7 @@ This file is part of AC4DC.
 #include <sstream>
 #include <iostream>
 #include <stdexcept>
+#include <chrono>
 
 // using namespace boost::numeric::odeint;
 
@@ -67,6 +68,10 @@ public:
 
     /// Number of secs taken for simulation to run
     long secs;
+
+    /// time duration of get_Q_tbr and get_Q_eii
+    std::chrono::duration<double, std::milli> tbr_time;
+    std::chrono::duration<double, std::milli> eii_time;
 private:
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)
     Pulse pf;

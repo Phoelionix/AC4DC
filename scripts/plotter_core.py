@@ -501,7 +501,7 @@ class Plotter:
 
 
         #TODO figure out overlaying.
-        k = np.linspace(0,k_max,250)  # Wavenumber
+        k = np.linspace(0,k_max,self.q_fineness)  # Wavenumber
         q = k/2/np.pi
         q_max = self.q_max 
         if self.q_max != k_max /2/np.pi: (print("Warning q_max does not match with k_max."))
@@ -657,7 +657,7 @@ class Plotter:
 
     # Seems to plot ffactors through time, "timedata" is where the densities come from - the form factor text file corresponds to specific configurations (vertical axis) at different k (horizontal axis)
     # In any case, my ffactor function is probably bugged since it doesn't match this. - S.P.
-    def plot_ffactor_time_slices(self, a, num_tsteps = 10, timespan = None, show_avg = True, **kwargs):
+    def plot_ffactor_get_R_sanders(self, a, num_tsteps = 10, timespan = None, show_avg = True, **kwargs):
 
         if timespan is None:
             timespan = (self.timeData[0], self.timeData[-1])

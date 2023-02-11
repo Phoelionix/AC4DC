@@ -30,7 +30,6 @@ This file is part of AC4DC.
 #include <algorithm>
 #include <Eigen/SparseCore>
 #include <Eigen/Dense>
-#include <chrono>
 #include <math.h>
 #include <omp.h>
 #include "config.h"
@@ -147,7 +146,13 @@ void ElectronRateSolver::solve(ofstream & _log) {
     time_t end_time = std::chrono::system_clock::to_time_t(end);
     cout << "[ Solver ] finished computation at " << ctime(&end_time) << endl;
     secs = elapsed_seconds.count();
+    auto eii_time_m = std::chrono::duration_cast<std::chrono::minutes>(eii_time); 
+    auto tbr_time_m = std::chrono::duration_cast<std::chrono::minutes>(tbr_time);
+    auto eii_time_s = std::chrono::duration_cast<std::chrono::seconds>(eii_time); 
+    auto tbr_time_s = std::chrono::duration_cast<std::chrono::seconds>(tbr_time);
     cout <<"[ Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << endl;
+    cout <<"[ Solver ] get_Q_eii() took "<< eii_time_m.count()/60/1000 <<"m " << eii_time_s.count() << "s" << endl;
+    cout <<"[ Solver ] get_Q_tbr() took "<< tbr_time_m.count()/60/1000 <<"m " << tbr_time_s.count() << "s" << endl;
     log_extra_details(_log);
 
 }
@@ -258,6 +263,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, const 
             #ifndef NO_TBR
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
             // Note that RATE_TBR has the same geometry as InverseEIIdata.
+            // [Parallel] Insignificant compared to get_Q_tbr
             for (size_t m=n+1; m<N; m++) {
                 size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                 // k = N... N(N+1)/2-1
@@ -271,6 +277,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, const 
                     }
                 }
             }
+            // [Parallel] Insignificant compared to get_Q_tbr
             // the diagonal
             // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
             for (size_t init=0;  init<RATE_TBR[a][n].size(); init++) {
@@ -288,12 +295,18 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, const 
         #ifdef NO_EII
         #warning No impact ionisation
         #else
+        auto t1 = std::chrono::high_resolution_clock::now();
         s.F.get_Q_eii(vec_dqdt, a, P);
+        auto t2 = std::chrono::high_resolution_clock::now();
+        eii_time += t2 - t1;
         #endif
         #ifdef NO_TBR
         #warning No three-body recombination
         #else
-        s.F.get_Q_tbr(vec_dqdt, a, P);
+        auto t3 = std::chrono::high_resolution_clock::now();
+        s.F.get_Q_tbr(vec_dqdt, a, P);  // This is essentially the computational bulk of the program at present - S.P.
+        auto t4 = std::chrono::high_resolution_clock::now();
+        tbr_time += t4 - t3;
         #endif
     }
 
