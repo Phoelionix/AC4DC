@@ -56,7 +56,7 @@ void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) co
     assert(P.size() == basis.Q_EII[a].size());
     assert((unsigned) v.size() == size);
     
-    //#pragma omp parallel for num_threads(16) collapse(3)  // [Parallel] Notable speed increase, cuts off an additional 25% of time after TBR . 
+    #pragma omp parallel for num_threads(16) collapse(3)  // [Parallel] Notable speed increase, cuts off an additional 25% of time after TBR . 
     for (size_t xi=0; xi<P.size(); xi++) {
         // Loop over configurations that P refers to
         for (size_t J=0; J<size; J++) {
@@ -84,19 +84,19 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) co
         //#pragma omp parallel for num_threads(17)            // [2.Parallel] This may be worse on high-performance computing, but on 16/4 3.8Ghz/4.9Ghz desktop this improved the 22 s process to 18 s (total sim. time 30 s so a 13% cut).
         // Loop over configurations that P refers to
         double v_copy [170] = {0}; 
-        //#pragma omp parallel for num_threads(17) reduction(+ : v_copy) // [4.Parallel] RIDICULOUSLY faster, only takes 5 s now as opposed to 12!!!!!
+        #pragma omp parallel for num_threads(17) reduction(+ : v_copy) // [4.Parallel] RIDICULOUSLY faster, only takes 5 s now as opposed to 12!!!!!
         for (size_t J=0; J<size; J++) {                   // size = num grid points
             //int debug_count = 0;
             // cout << "J:" << J << endl;
             //#pragma omp parallel for num_threads(17) reduction(+ : v_copy[J])         // [3.Parallel] Insanely faster, function is now 12 s rather than 18 s
             for (auto& q : basis.Q_TBR[a][eta][J]) {   // Thousands of iterations for each J (use debug_count). - S.P.
                 //debug_count++;
-                 //v_copy[J] += q.val * P[eta] * f[q.K] * f[q.L];
-                 v[J] += q.val * P[eta] * f[q.K] * f[q.L];
+                 v_copy[J] += q.val * P[eta] * f[q.K] * f[q.L];
+                 //v[J] += q.val * P[eta] * f[q.K] * f[q.L];
             }
             //cout << debug_count << endl;
         }
-        //v += Eigen::Map<Eigen::VectorXd>(v_copy,170);
+        v += Eigen::Map<Eigen::VectorXd>(v_copy,170);
     }
 }
 
