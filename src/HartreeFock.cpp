@@ -596,6 +596,7 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 			log << "Oops, Master failed to converge." << endl
 				<< "Practical infinity: " << Lattice->R(infinity) << endl
 				<< "n = " << Psi->N() << " l = " << Psi->L() << " Energy = " << Psi->Energy << endl;
+			cout << "WARNING, HF Master failed to converge! See logs." <<endl;  //TODO figure out why this randomly happens. Started after parallelisation of plasma part of code, unsure if that's affecting this somehow.
 			return 1;
 		}
 		

@@ -146,16 +146,22 @@ void ElectronRateSolver::solve(ofstream & _log) {
     time_t end_time = std::chrono::system_clock::to_time_t(end);
     cout << "[ Solver ] finished computation at " << ctime(&end_time) << endl;
     secs = elapsed_seconds.count();
-    auto eii_time_m = std::chrono::duration_cast<std::chrono::minutes>(eii_time); 
-    auto tbr_time_m = std::chrono::duration_cast<std::chrono::minutes>(tbr_time);
-    auto ee_time_m = std::chrono::duration_cast<std::chrono::minutes>(ee_time);
-    auto eii_time_s = std::chrono::duration_cast<std::chrono::seconds>(eii_time); 
-    auto tbr_time_s = std::chrono::duration_cast<std::chrono::seconds>(tbr_time);
-    auto ee_time_s = std::chrono::duration_cast<std::chrono::seconds>(ee_time);
+    auto eii_m = std::chrono::duration_cast<std::chrono::minutes>(eii_time); 
+    auto tbr_m = std::chrono::duration_cast<std::chrono::minutes>(tbr_time);
+    auto ee_m = std::chrono::duration_cast<std::chrono::minutes>(ee_time);
+    auto apply_delta_m = std::chrono::duration_cast<std::chrono::minutes>(apply_delta_time);
+    auto misc_m = std::chrono::duration_cast<std::chrono::minutes>(misc_time);
+    auto eii_s = std::chrono::duration_cast<std::chrono::seconds>(eii_time); 
+    auto tbr_s = std::chrono::duration_cast<std::chrono::seconds>(tbr_time);
+    auto ee_s = std::chrono::duration_cast<std::chrono::seconds>(ee_time);
+    auto apply_delta_s = std::chrono::duration_cast<std::chrono::seconds>(apply_delta_time);
+    auto misc_s = std::chrono::duration_cast<std::chrono::seconds>(misc_time);
     cout <<"[ Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << endl;
-    cout <<"[ Solver ] get_Q_ee() took "<< ee_time_m.count()/60/1000 <<"m " << ee_time_s.count() << "s" << endl;
-    cout <<"[ Solver ] get_Q_eii() took "<< eii_time_m.count()/60/1000 <<"m " << eii_time_s.count() << "s" << endl;
-    cout <<"[ Solver ] get_Q_tbr() took "<< tbr_time_m.count()/60/1000 <<"m " << tbr_time_s.count() << "s" << endl;
+    cout <<"[ Solver ] get_Q_ee() took "<< ee_m.count() <<"m " << ee_s.count() << "s" << endl;
+    cout <<"[ Solver ] get_Q_eii() took "<< eii_m.count() <<"m " << eii_s.count() << "s" << endl;
+    cout <<"[ Solver ] get_Q_tbr() took "<< tbr_m.count() <<"m " << tbr_s.count() << "s" << endl;
+    cout <<"[ Solver ] apply_delta() took "<< apply_delta_m.count() <<"m " << apply_delta_s.count() << "s" << endl;
+    cout <<"[ Solver ] misc processes took "<< misc_m.count() <<"m " << misc_s.count() << "s" << endl;
     log_extra_details(_log);
 
 }
@@ -247,7 +253,11 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, const 
         }
 
         // EII / TBR bound-state dynamics
+        auto t9 = std::chrono::high_resolution_clock::now();
+        double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
+        double sdot_bound_charge_subst = 0; 
         size_t N = Distribution::size;
+        #pragma omp parallel for num_threads(17) reduction(+ : Pdot_subst,sdot_bound_charge_subst)     
         for (size_t n=0; n<N; n++) {
             double tmp=0; // aggregator
             
@@ -255,9 +265,9 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, const 
             for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
                 for (auto& finPair : RATE_EII[a][n][init]) {
                     tmp = finPair.val*s.F[n]*P[init];
-                    Pdot[finPair.idx] += tmp;
-                    Pdot[init] -= tmp;
-                    sdot.bound_charge += tmp;
+                    Pdot_subst[finPair.idx] += tmp;
+                    Pdot_subst[init] -= tmp;
+                    sdot_bound_charge_subst += tmp;   //TODO Not a minus sign like others, double check that's intentional. -S.P.
                 }
             }
             #endif
@@ -274,9 +284,9 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, const 
                 for (size_t init=0;  init<RATE_TBR[a][k].size(); init++) {
                     for (auto& finPair : RATE_TBR[a][k][init]) {
                         tmp = finPair.val*s.F[n]*s.F[m]*P[init]*2;
-                        Pdot[finPair.idx] += tmp;
-                        Pdot[init] -= tmp;
-                        sdot.bound_charge -= tmp;
+                        Pdot_subst[finPair.idx] += tmp;
+                        Pdot_subst[init] -= tmp;
+                        sdot_bound_charge_subst -= tmp;
                     }
                 }
             }
@@ -286,13 +296,21 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, const 
             for (size_t init=0;  init<RATE_TBR[a][n].size(); init++) {
                 for (auto& finPair : RATE_TBR[a][n][init]) {
                     tmp = finPair.val*s.F[n]*s.F[n]*P[init];
-                    Pdot[finPair.idx] += tmp;
-                    Pdot[init] -= tmp;
-                    sdot.bound_charge -= tmp;
+                    Pdot_subst[finPair.idx] += tmp;
+                    Pdot_subst[init] -= tmp;
+                    sdot_bound_charge_subst -= tmp;
                 }
             }
             #endif
         }
+        // Add parallel containers to their parent containers.
+        for(size_t i=0;i < Pdot.size();i++){
+            Pdot[i] += Pdot_subst[i];
+        }
+        sdot.bound_charge += sdot_bound_charge_subst;
+
+        auto t10 = std::chrono::high_resolution_clock::now();
+        misc_time += t10 - t9;
 
         // Free-electron parts
         #ifdef NO_EII
@@ -349,7 +367,10 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot, const dou
     auto t6 = std::chrono::high_resolution_clock::now();
     ee_time += t6 - t5;
     #endif
+    auto t7 = std::chrono::high_resolution_clock::now();
     sdot.F.applyDelta(vec_dqdt);
+    auto t8 = std::chrono::high_resolution_clock::now();
+    apply_delta_time += t8 - t7;
 }
 
 // IO functions
