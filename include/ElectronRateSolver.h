@@ -72,6 +72,7 @@ public:
     /// time duration of get_Q_tbr and get_Q_eii
     std::chrono::duration<double, std::milli> tbr_time;
     std::chrono::duration<double, std::milli> eii_time;
+    std::chrono::duration<double, std::milli> ee_time;
 private:
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)
     Pulse pf;

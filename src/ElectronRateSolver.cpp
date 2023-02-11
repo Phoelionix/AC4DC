@@ -148,9 +148,12 @@ void ElectronRateSolver::solve(ofstream & _log) {
     secs = elapsed_seconds.count();
     auto eii_time_m = std::chrono::duration_cast<std::chrono::minutes>(eii_time); 
     auto tbr_time_m = std::chrono::duration_cast<std::chrono::minutes>(tbr_time);
+    auto ee_time_m = std::chrono::duration_cast<std::chrono::minutes>(ee_time);
     auto eii_time_s = std::chrono::duration_cast<std::chrono::seconds>(eii_time); 
     auto tbr_time_s = std::chrono::duration_cast<std::chrono::seconds>(tbr_time);
+    auto ee_time_s = std::chrono::duration_cast<std::chrono::seconds>(ee_time);
     cout <<"[ Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << endl;
+    cout <<"[ Solver ] get_Q_ee() took "<< ee_time_m.count()/60/1000 <<"m " << ee_time_s.count() << "s" << endl;
     cout <<"[ Solver ] get_Q_eii() took "<< eii_time_m.count()/60/1000 <<"m " << eii_time_s.count() << "s" << endl;
     cout <<"[ Solver ] get_Q_tbr() took "<< tbr_time_m.count()/60/1000 <<"m " << tbr_time_s.count() << "s" << endl;
     log_extra_details(_log);
@@ -341,7 +344,10 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot, const dou
     #ifdef NO_EE
     #warning No electron-electron interactions
     #else
+    auto t5 = std::chrono::high_resolution_clock::now();
     s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
+    auto t6 = std::chrono::high_resolution_clock::now();
+    ee_time += t6 - t5;
     #endif
     sdot.F.applyDelta(vec_dqdt);
 }

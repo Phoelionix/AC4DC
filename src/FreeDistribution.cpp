@@ -59,8 +59,8 @@ void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) co
     //#pragma omp parallel for num_threads(16) collapse(3)  // [1.b)Parallel] Notable speed increase, cuts off an additional 25% of time after TBR . Messes up output though.
     
     for (size_t xi=0; xi<P.size(); xi++) {
-        double v_copy [size] = {0};
         // Loop over configurations that P refers to
+        double v_copy [size] = {0};
         #pragma omp parallel for num_threads(17) reduction(+ : v_copy)
         for (size_t J=0; J<size; J++) {
             for (size_t K=0; K<size; K++) {
@@ -90,15 +90,10 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) co
         double v_copy [size] = {0}; 
         #pragma omp parallel for num_threads(17) reduction(+ : v_copy) // [4.Parallel] RIDICULOUSLY faster, only takes 5 s now as opposed to 12!!!!!
         for (size_t J=0; J<size; J++) {                   // size = num grid points
-            //int debug_count = 0;
-            // cout << "J:" << J << endl;
             //#pragma omp parallel for num_threads(17) reduction(+ : v_copy[J])         // [3.Parallel] Insanely faster, function is now 12 s rather than 18 s
-            for (auto& q : basis.Q_TBR[a][eta][J]) {   // Thousands of iterations for each J (use debug_count). - S.P.
-                //debug_count++;
+            for (auto& q : basis.Q_TBR[a][eta][J]) {   // Thousands of iterations for each J - S.P.
                  v_copy[J] += q.val * P[eta] * f[q.K] * f[q.L];
-                 //v[J] += q.val * P[eta] * f[q.K] * f[q.L];
             }
-            //cout << debug_count << endl;
         }
         v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
     }
@@ -116,17 +111,20 @@ void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     // if (isnan(LnLambdaD)) LnLambdaD = 11;
     // cerr<<"LnDebLen = "<<LnLambdaD<<endl;
     // A guess. This should only happen when density is zero, so Debye length is infinity.
-    // Guess the sample size is about 10^5 Bohr. This shouldn't ultimately matter much.
+    // Guess the sample size is about 10^5 Bohr. This shouldn't ultimately matter much.   /// Attention - S.P.
     for (size_t J=0; J<size; J++) {
+        double v_copy [size] = {0}; 
+        #pragma omp parallel for num_threads(17) reduction(+ : v_copy)         
         for (size_t K=0; K<size; K++) {
             for (auto& q : basis.Q_EE[J][K]) {
-                 v[J] += q.val * f[K] * f[q.idx] * CoulombLog;
+                 v_copy[J] += q.val * f[K] * f[q.idx] * CoulombLog;
             }
         }
+        v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
     }
 }
 
-void Distribution::get_Jac_ee(Eigen::MatrixXd& M) const{
+void Distribution::get_Jac_ee(Eigen::MatrixXd& M) const{   // Unused currently -S.P.
     // Returns Q^p_qjc^q + Q^p_jrc^r
     assert(basis.has_Qee());
     M = Eigen::MatrixXd::Zero(size,size);
