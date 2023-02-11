@@ -157,11 +157,11 @@ void ElectronRateSolver::solve(ofstream & _log) {
     auto apply_delta_s = std::chrono::duration_cast<std::chrono::seconds>(apply_delta_time);
     auto misc_s = std::chrono::duration_cast<std::chrono::seconds>(misc_time);
     cout <<"[ Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << endl;
-    cout <<"[ Solver ] get_Q_ee() took "<< ee_m.count() <<"m " << ee_s.count() << "s" << endl;
-    cout <<"[ Solver ] get_Q_eii() took "<< eii_m.count() <<"m " << eii_s.count() << "s" << endl;
-    cout <<"[ Solver ] get_Q_tbr() took "<< tbr_m.count() <<"m " << tbr_s.count() << "s" << endl;
-    cout <<"[ Solver ] apply_delta() took "<< apply_delta_m.count() <<"m " << apply_delta_s.count() << "s" << endl;
-    cout <<"[ Solver ] misc processes took "<< misc_m.count() <<"m " << misc_s.count() << "s" << endl;
+    cout <<"[ Solver ] get_Q_ee() took "<< ee_m.count() <<"m " << ee_s.count()%60 << "s" << endl;
+    cout <<"[ Solver ] get_Q_eii() took "<< eii_m.count() <<"m " << eii_s.count()%60 << "s" << endl;
+    cout <<"[ Solver ] get_Q_tbr() took "<< tbr_m.count() <<"m " << tbr_s.count()%60 << "s" << endl;
+    cout <<"[ Solver ] apply_delta() took "<< apply_delta_m.count() <<"m " << apply_delta_s.count()%60 << "s" << endl;
+    cout <<"[ Solver ] misc processes took "<< misc_m.count() <<"m " << misc_s.count()%60 << "s" << endl;
     log_extra_details(_log);
 
 }
@@ -435,6 +435,10 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
         f<<t[i]*Constant::fs_per_au<<" "<<y[i].F<<endl;
     }
     f.close();
+}
+
+void ElectronRateSolver::loadFreeRaw(const std::string& fname) {
+
 }
 
 void ElectronRateSolver::saveBound(const std::string& dir) {
