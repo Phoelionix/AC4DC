@@ -73,6 +73,8 @@ public:
     std::chrono::duration<double, std::milli> tbr_time;
     std::chrono::duration<double, std::milli> eii_time;
     std::chrono::duration<double, std::milli> ee_time;
+    std::chrono::duration<double, std::milli> apply_delta_time;
+    std::chrono::duration<double, std::milli> misc_time;
 private:
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)
     Pulse pf;

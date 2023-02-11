@@ -57,7 +57,7 @@ for symbol in ATOMS:
 #     return C(idx)
 
 class PlotData:
-    def __init__(self,target_path, mol_name,output_mol_query):
+    def __init__(self,target_path, mol_name,output_mol_query, plot_final_t, max_points):
         self.p = target_path
         molfile = self.get_mol_file(mol_name,output_mol_query) 
 
@@ -77,8 +77,8 @@ class PlotData:
         self.energyKnot=None
         self.timeData=None
 
-        self.plot_final_t = -9.996#0 # TODO temporary, move to generate_interactive.
-        self.max_points = 70 # TODO temporary, move to generate_interactive.
+        self.plot_final_t = plot_final_t # TODO temporary, move to generate_interactive.
+        self.max_points = max_points # TODO temporary, move to generate_interactive.
         
         self.title_colour = "#4d50b3"
         # Directories of target data
@@ -270,12 +270,14 @@ class PlotData:
 class InteractivePlotter:
     # Example initialisation: Plotter(water)
     # --> expects there to be a control file named water.mol within AC4DC/input/ or a subdirectory.
-    def __init__(self, target_names, output_mol_query):
+    # plot_final_t, float, end time in femtoseconds. Not equivalent to time duration
+    # max_points, int, number of points (within the timespan) for the interactive to have at maximum.
+    def __init__(self, target_names, output_mol_query, plot_final_t = 30, max_points = 70):
         target_path = path.abspath(path.join(__file__ ,"../../")) + "/"
         self.num_plots = len(target_names)
         self.target_data = []
         for mol_name in target_names:    
-            self.target_data.append(PlotData(target_path,mol_name,output_mol_query))
+            self.target_data.append(PlotData(target_path,mol_name,output_mol_query,plot_final_t=plot_final_t,max_points=max_points))
 
         #self.autorun=False  
 
