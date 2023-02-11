@@ -34,11 +34,7 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-<<<<<<< HEAD
 0.0001      //0.0075 = -10 to -9.7 fs (time period over which wiggle tends to appear), 0.00001 for a few steps (good for determinining initial wiggle quickly).      // Proportion of time steps to iterate through before stopping early. TODO Left as a proportion for now since it requires less understanding of code, but inputs should be made clearer (can set start time and end time, and proportion of time that is pulse or (2?)*FWHM for example).
-=======
-0.0001   //0.068     //0.0075 = -10 to -9.7 fs (time period over which wiggle tends to appear), 0.00001 for a few steps (good for determinining initial wiggle quickly).      // Proportion of time steps to iterate through before stopping early. TODO Left as a proportion for now since it requires less understanding of code, but inputs should be made clearer (can set start time and end time, and proportion of time that is pulse or (2?)*FWHM for example).
->>>>>>> serial_root
 ####END#####
 
 Notes:
