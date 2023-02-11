@@ -437,9 +437,9 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     f.close();
 }
 
-void ElectronRateSolver::loadFreeRaw(const std::string& fname) {
+// void ElectronRateSolver::loadFreeRaw(const std::string& fname) {
 
-}
+// }
 
 void ElectronRateSolver::saveBound(const std::string& dir) {
     // saves a table of bound-electron dynamics , split by atom, to folder dir.
