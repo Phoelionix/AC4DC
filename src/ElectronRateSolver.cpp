@@ -110,16 +110,14 @@ void ElectronRateSolver::solve(ofstream & _log) {
     cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<std::endl;
     
     // Using finer time steps to attempt to resolve NaN encountered in ODE solving. 
-    /* Currently redoes the ENTIRE simulation (if it doesn't throw one of the below errors). Have only seen this used for square pulses. Gaussian pulse, at least, had big issues with hybrid 
-    integrator running past the maximum number of steps deep into the simulation if time steps were not fine enough, so expanding this code to deal with that would be useful. 
-    Perhaps time steps should be made finer as soon as the number of euler iterations reach a certain threshold? -S.P. 
+    /* Redoes the ENTIRE simulation. TODO make it halve remaining time steps instead. turned off for now because it's annoying for dev purposes.  
     */
     double time = this->t[0];
-    int retries = 1;
+    int retries = 0;  // int retries = 1;  <---- Turned off for now
     while (!good_state) {
         std::cerr<<"\033[93;1m[ Rate Solver ] Halving timestep...\033[0m"<<std::endl;  // Unsure if this is faster than continuing the simulation with halved timesteps rather than restarting and doing so -S.P.
         good_state = true;
-        input_params.num_time_steps *= 2;           //  -S.P.
+        input_params.num_time_steps *= 2;           
         if (input_params.num_time_steps > MAX_T_PTS){
             std::cerr<<"\033[31;1m[ Rate Solver ] Exceeded maximum T size. Skipping remaining iteration."<<std::endl;
             break;
