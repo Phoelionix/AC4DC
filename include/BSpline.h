@@ -35,7 +35,7 @@ namespace BSpline{
         {
             double a=0;
             double h = *(t+k-1)-*t;
-            a += (fabs(h) > 1e-16) ? BSpline<k-1>(x, t) * (x - *t) / h : 0;
+            a += (fabs(h) > 1e-16) ? BSpline<k-1>(x, t) * (x - *t) / h : 0; // 1e-16 is smallest machine precision -S.P.
             h = (*(t+k) - *(t+1));
             a += (fabs(h) > 1e-16) ? BSpline<k-1>(x, (t+1)) * (*(t+k) - x) / h : 0;
             return a;
@@ -60,7 +60,7 @@ namespace BSpline{
         {
             double a=0;
             double h = *(t+k-1)-*t;
-            if (fabs(h) > 1e-16) a += BSpline<k-1>(x, t) / h ;
+            if (fabs(h) > 1e-16) a += BSpline<k-1>(x, t) / h ;   // 1e-16 is smallest machine precision -S.P.
             h = (*(t+k) - *(t+1));
             if (fabs(h) > 1e-16) a -= BSpline<k-1>(x, (t+1)) / h ;
             return a * (k - 1);

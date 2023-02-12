@@ -62,7 +62,7 @@ static const int GAUSS_ORDER_EE = 4;
 
 // Specialised quadrature rules for integrals of the form \int_-1^1 dx sqrt(x+1) f(x)
 // calculated using this excelent tool https://keisan.casio.com/exec/system/15041456505628
-static const int GAUSS_ORDER_SQRT = 6;
+static const int GAUSS_ORDER_SQRT = 6; // i.e. length of the below containers -S.P.
 static const double gaussX_sqrt[] = {-0.8937779292142465272226, -0.5977085045355194007473, -0.1747746522411171589491, 0.2850548710873168381781, 0.6839736445131432976427, 0.9372325703904229510983};
 static const double gaussW_sqrt[] = {0.0679848323648580100291, 0.2364639422771327772543, 0.4158087090592895378275, 0.5047613331425565232555, 0.4387744028120991078995, 0.2218248635081907754697};
 
@@ -147,7 +147,7 @@ protected:
     bool _has_Qtbr = false;  // Flags wheter Q_TBR has been calculated
     bool _has_Qee = false;  // Flags wheter Q_EE has been calculated
 
-    static constexpr double DBL_CUTOFF_TBR = 1e-16;
+    static constexpr double DBL_CUTOFF_TBR = 1e-16; // 1e-16 is smallest machine pracision -S.P.
     static constexpr double DBL_CUTOFF_QEE = 1e-16;
 };
 

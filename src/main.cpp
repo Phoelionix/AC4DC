@@ -183,9 +183,10 @@ int get_file_names(string &infile_, string &tag, string &logfname, string &tmp_m
 struct CmdParser{
     CmdParser(int argc, const char *argv[]) {
         if (argc < 2) {
-            cout << "Usage: solver path/to/molecular/in.mol [-rh]";
+            std::cout << "Usage: solver path/to/molecular/in.mol [-rh]" << std::endl;
             valid_input = false;
         }
+        
         for (int a=2; a<argc; a++) {
             if (argv[a][0] != '-')
                 continue;
@@ -222,6 +223,10 @@ struct CmdParser{
                         print_banner("LICENSE");
                         exit(0);
                         break;
+                    case 'l':
+                        // load previous simulation
+                        load_data = true;
+
                     default:
                         cout<<"Flag '"<<argv[a][i]<<"' is not a recognised flag."<<endl;
                 }
@@ -232,6 +237,7 @@ struct CmdParser{
     bool recalc = true;
     bool valid_input = true;
     bool solve_rate_eq = true;
+    bool load_data = false;
 };
 
 int main(int argc, const char *argv[]) {
@@ -266,6 +272,10 @@ int main(int argc, const char *argv[]) {
     cout << "\033[1;32mInitialising... \033[0m" <<endl;
     const char* const_path = input_file_path.c_str();
     ElectronRateSolver S(const_path, log); // Contains all of the collision parameters.
+    if (runsettings.load_data){
+        std::pair<string,double> fname_and_time = get_load_sim_config();
+        S.set_load_params(fname_and_time);
+    }
     cout << "\033[1;32mComputing cross sections... \033[0m" <<endl;
     S.compute_cross_sections(log, runsettings.recalc);
     if (runsettings.solve_rate_eq) {

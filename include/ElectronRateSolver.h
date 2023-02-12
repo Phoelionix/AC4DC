@@ -1,8 +1,9 @@
 /**
  * @file ElectronRateSolver.h
  * @author Alaric Sanders 
- * @brief 
- * @details Core part of Sanders' continuum plasma extension. This was historically named ElectronSolver.
+ * @brief Defines the ElectronRateSolver class, which executes the high-level operations of the electron ODE solving.
+ * @details This is the central hub of Sanders' continuum plasma extension, and is called by main.cpp. This was historically named ElectronSolver.
+ * @todo The cross-sectional computations should be computed before the class is called, in main.cpp, rather than within the class, decoupling the parts of the code.
  */
 /*===========================================================================
 This file is part of AC4DC.
@@ -65,6 +66,7 @@ public:
     void save(const std::string& folder);
     /// Sets up the rate equations, which requires computing the atomic cross-sections/avg. transition rates to get the coefficients.
     void compute_cross_sections(std::ofstream& _log, bool recalc=true);
+    void set_load_params(pair<string,double> name_time){load_fname = name_time.first; latest_start_time = name_time.second;}
 
     /// Number of secs taken for simulation to run
     long secs;
@@ -102,11 +104,19 @@ private:
     /// Saves a table of free-electron dynamics to file fname
     void saveFree(const std::string& file);
     void saveFreeRaw(const std::string& fname);
+    /// Loads the table at the given time
+    void loadFreeRaw();
     /// saves a table of bound-electron dynamics , split by atom, to folder dir.
     void saveBound(const std::string& folder);
     /// Log final details pertaining to the simulation's execution to file fname (e.g. total runtime)
-    void log_extra_details(ofstream & _log); 
+    void log_extra_details(ofstream & _log);
+
+    state_type get_starting_state();
+    state_type load_state();
     state_type get_ground_state();
+
+    string load_fname = "";  // if "" don't load anything.
+    double latest_start_time;  // [fs]
 };
 
 

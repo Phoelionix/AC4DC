@@ -48,21 +48,24 @@ MolInp::MolInp(const char* filename, ofstream & log)
     }
 	string comment = "//";
 	string curr_key = "";
-	string end_file = "####END####";
+	string end_file = "####END####";  // Do not parse text past a line beginning with this string 
 
 	// Store the parameter-holding file content
 	while (!infile.eof())
 	{
 		string line;
 		getline(infile, line);
+		// Non-information
 		if (!line.compare(0, 2, comment)) continue;
 		if (!line.compare(0, 1, "")) continue;
-		if (!line.compare(0,end_file.length(),end_file)) break;
+		if (!line.compare(0,end_file.length(),end_file)) break; 
+		// A category of inputs
 		if (!line.compare(0, 1, "#")) {
 			if ( FileContent.find(line) == FileContent.end() ) {
 				FileContent[line] = vector<string>(0);
 			}
 			curr_key = line;
+		// An input
 		} else {
 			FileContent[curr_key].push_back(line);
 		}

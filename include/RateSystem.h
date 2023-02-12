@@ -35,8 +35,10 @@ This file is part of AC4DC.
 class state_type
 {
 public:
-    std::vector<bound_t> atomP; // Probabilities of state for all atoms.
-    Distribution F; // Energy distribution function
+    /// Probabilities of state for all atoms.
+    std::vector<bound_t> atomP; 
+    /// Energy distribution function
+    Distribution F; 
     double bound_charge;
 
     state_type();

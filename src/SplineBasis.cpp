@@ -121,8 +121,8 @@ void BasisSet::set_knot(const GridSpacing& gt){
     double A_exp = _min;
     double lambda_exp = (log(_max) - log(_min))/(num_int-1);
     // hybrid linear-linear grid
-
     size_t M = gt.num_low + 1;
+
 
     assert(num_funcs > M); // TODO should only give a warning if not relevant to grid type. -S.P.
     assert(_max > gt.transition_e);
@@ -290,8 +290,8 @@ void BasisSet::set_parameters(size_t num_of_funcs, double min, double max, const
     // Neumann boundary:
     // t0=t1=...=tk-3, tn+3=...=tn+k
     
-    // boundary at minimm energy enforces energy conservation
-    set_knot(gt);
+    // boundary at minimm energy enforces energy conservation 
+    set_knot(gt); //TODO see if this allows for turning off fixed origin boundary.
     
 
     

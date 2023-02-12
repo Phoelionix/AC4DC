@@ -101,7 +101,7 @@ namespace CustomDataType
 	};
 }
 
-typedef std::vector<double> bound_t;
+typedef std::vector<double> bound_t; // TODO I'm debating removing this since there are lots of std::vector<double> declarations that this makes confusing -S.P.
 
 
 namespace RateData {

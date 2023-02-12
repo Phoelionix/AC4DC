@@ -35,6 +35,15 @@ This file is part of AC4DC.
 #include "config.h"
 
 
+
+
+state_type ElectronRateSolver::get_starting_state() {
+    if (load_fname != "") 
+        loadFreeRaw();
+    else
+    return get_ground_state();
+}
+
 state_type ElectronRateSolver::get_ground_state() {
     state_type initial_condition;
     assert(initial_condition.atomP.size() == input_params.Store.size());
@@ -74,7 +83,7 @@ void ElectronRateSolver::compute_cross_sections(std::ofstream& _log, bool recalc
     Distribution::set_elec_points(input_params.Num_Elec_Points(), input_params.Min_Elec_E(), input_params.Max_Elec_E(), input_params.elec_grid_type, input_params.elec_grid_regions.start, input_params.elec_grid_regions.E_min);
     state_type::set_P_shape(input_params.Store);
     // Set up the rate equations (setup called from parent Adams_BM)
-    this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
+    this->setup(get_starting_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
     // create the tensor of coefficients
     RATE_EII.resize(input_params.Store.size());
     RATE_TBR.resize(input_params.Store.size());
@@ -129,7 +138,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
             time = timestep_reached;
         }
         retries--;
-        this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
+        this->setup(get_starting_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
         if (input_params.pulse_shape ==  PulseShape::square){
             this->iterate(-input_params.Width(), -input_params.Width() + truncated_timespan); // Inherited from ABM
         } else {
@@ -437,9 +446,76 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     f.close();
 }
 
-// void ElectronRateSolver::loadFreeRaw(const std::string& fname) {
+/**
+ * @brief Loads all times and free e densities from previous simulation's raw output.
+ * @param fname Raw distribution file path
+ * @param latest_start_time Basically the resume point of the simulation. Specifically, all data points before this time are loaded.
+ */
+void ElectronRateSolver::loadFreeRaw() {
+    const std::string& fname = load_fname;
+    vector<string> time_and_density;
+    
+    ifstream infile(fname);
+    cout << "[ Free ] Loading distribution from file "<<fname<<"..."<<endl;
+    cout << "Opening..."<<endl;
+	if (infile.good())
+        std::cout<<"Success!"<<endl;
+    else {
+        std::cerr<<"Failed."<<endl;
+		exit(EXIT_FAILURE); // Quit with a huff.
+        return;
+    }
+    
+    // get the each raw line
+    string comment = "#";
+    string grid_point_flag = "# Energy Knot:";
+	while (!infile.eof())
+	{    
+        string line;
+        getline(infile, line);
+        if (!line.compare(0,grid_point_flag.length(),grid_point_flag)){
+            // Remove boilerplate
+            line.erase(0,grid_point_flag.size()+1);
+            // Get grid points (knots)
+            std::vector<double> knots;
+            std::stringstream s(line);
 
-// }
+            
+            s.seekg(0,ios::end);
+            while (s.tellg() > 0){   // go through every (space-separated) element of s
+                s.seekg(0,ios::beg);
+                double elem;
+                s >> elem;
+                knots.push_back(elem);
+                s.seekg(0,ios::end);
+            }
+        }
+        else if (!line.compare(0, 1, comment)) continue;
+        if (!line.compare(0, 1, "")) continue;
+        time_and_density.push_back(line);
+    }
+    // get times and corresponding densities separately
+    //std::string saved_time[time_and_density.size()] {0};
+    bound_t saved_time(time_and_density.size(),0);
+    std::vector<double> saved_F(time_and_density.size(),0); 
+    int count = 0;
+    for(auto elem : time_and_density){
+        // time
+        std::stringstream s(elem);
+        s >> saved_time[count];
+        if(saved_time[count] > latest_start_time){
+            // time is past the maximum
+            saved_time.resize(count-1);  
+            saved_F.resize(count-1);
+            break;
+        }
+        // density
+        count++;
+    }
+
+    // fill elec points with spline-interpolated densities
+
+}
 
 void ElectronRateSolver::saveBound(const std::string& dir) {
     // saves a table of bound-electron dynamics , split by atom, to folder dir.
