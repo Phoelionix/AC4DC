@@ -225,10 +225,6 @@ void BasisSet::set_knot(const GridSpacing& gt){
             break;
         case GridSpacing::hybrid_power:
         {
-            if (i == 0){
-                knot[i] = 0.;
-                break;
-            }
             //  Get the index of the region that this point is part of.
             size_t rgn = 0;
             for( ; rgn < hyb_powlaw_power.size(); rgn++){
