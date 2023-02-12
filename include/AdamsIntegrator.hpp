@@ -44,11 +44,11 @@ public:
     /// Should really be called deltat. Length of the time steps - S.P.
     double dt;  
     double step_tolerance;
-
+    
     // void export_to(string fname);
 protected:
     std::vector<T> y;
-    std::vector<double> t;
+    std::vector<double> t;    
     virtual void sys_bound(const T& q, T& qdot, double t) =0;
     T zero_y;
 

@@ -125,10 +125,11 @@ public:
      * @return SplineIntegral& 
      */
     SplineIntegral& operator=(vector<double> knot_energies){
-        knot = knot_energies;           
+        knot = knot_energies;   
+        return *this;        
     }    
 
-    vector<double> SplineIntegral::get_knot(){return knot;}
+    vector<double> get_knot(){return knot;}
 
     SplineIntegral() {};
     void precompute_QEII_coeffs(vector<RateData::Atom>& Atoms);

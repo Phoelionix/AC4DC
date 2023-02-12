@@ -68,6 +68,7 @@ public:
             simulation_start_time = -timespan_au/2;
             simulation_end_time = -timespan_au/2 + truncated_timespan; 
         }
+        simulation_resume_time = simulation_start_time;
 
         
     }
@@ -82,6 +83,7 @@ public:
         load_bound_fname = bound;
         loaded_data_time_boundary = time/Constant::fs_per_au;
     }
+    void tokenise(std::string str, std::vector<double> &out, const char delim = ' ');
 
     /// Number of secs taken for simulation to run
     long secs;
@@ -97,6 +99,7 @@ private:
     Pulse pf;
     double timespan_au; // Atomic units
     double simulation_start_time;  // [Au]
+    double simulation_resume_time; // [Au] same as simulation_start_time unless loading simulation state.
     double simulation_end_time;  // [Au]    
     double fraction_of_pulse_simulated;
     // Model parameters

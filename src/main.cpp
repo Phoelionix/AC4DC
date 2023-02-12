@@ -226,6 +226,7 @@ struct CmdParser{
                     case 'l':
                         // load previous simulation
                         load_data = true;
+                        break;
 
                     default:
                         cout<<"Flag '"<<argv[a][i]<<"' is not a recognised flag."<<endl;
@@ -240,6 +241,13 @@ struct CmdParser{
     bool load_data = false;
 };
 
+void set_load_sim_config(string &free_raw_file,string &bound_file,double &time_boundary){
+    string folder = "output/__Molecular/Carbon_467/"; 
+    free_raw_file = folder + "freeDistRaw.csv";
+    bound_file = folder + "dist_C_fast.csv";
+    time_boundary = -6.4;
+}
+
 int main(int argc, const char *argv[]) {
     CmdParser runsettings(argc, argv);
     if (!runsettings.valid_input) {
@@ -253,6 +261,9 @@ int main(int argc, const char *argv[]) {
     cout<<"\033[0m"<<endl<<endl;
 
     string name, logname, tmp_molfile, outdir;
+    
+    string free_file, bound_file; 
+    double time_boundary;
 
     cout<<"Copyright (C) 2020  Alaric Sanders and Alexander Kozlov"<<endl;
     cout<<"This program comes with ABSOLUTELY NO WARRANTY; for details run `ac4dc -w'."<<endl;
@@ -273,7 +284,7 @@ int main(int argc, const char *argv[]) {
     const char* const_path = input_file_path.c_str();
     ElectronRateSolver S(const_path, log); // Contains all of the collision parameters.
     if (runsettings.load_data){
-        std::pair<std::pair<string,string>,double> fnames_and_time = get_load_sim_config();
+        set_load_sim_config(free_file,bound_file,time_boundary);
         S.set_load_params(free_file,bound_file,time_boundary);
     }
     cout << "\033[1;32mComputing cross sections... \033[0m" <<endl;

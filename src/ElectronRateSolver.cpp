@@ -39,14 +39,20 @@ This file is part of AC4DC.
 
 state_type ElectronRateSolver::get_starting_state() {
     if (load_free_fname != "" && load_bound_fname != ""){ 
+        // Spooky setup inception - setup everything then bootstrap on the stuff we want to change.
+        this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
+        cout << "[ Plasma ] loading sim state from specified files." << endl;
         loadFreeRaw_and_times();
         loadBound();
+        simulation_resume_time = t.back();
+        return y.back();
     }
     else if (load_free_fname != "" || load_bound_fname != ""){
-            cout << "[ Load sim error ], only had one file name specified." << endl;
+            cout << "[ Plasma - Load sim error ], only had one file name specified." << endl;
             exit(EXIT_FAILURE); // Chuck a hissy fit and quit
     }
     else{
+        cout << "[ Plasma ] Creating ground state" << endl;
         return get_ground_state();
     }
 }
@@ -91,6 +97,8 @@ void ElectronRateSolver::compute_cross_sections(std::ofstream& _log, bool recalc
     state_type::set_P_shape(input_params.Store);
     // Set up the rate equations (setup called from parent Adams_BM)
     this->setup(get_starting_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
+
+
     // create the tensor of coefficients
     RATE_EII.resize(input_params.Store.size());
     RATE_TBR.resize(input_params.Store.size());
@@ -107,13 +115,15 @@ void ElectronRateSolver::solve(ofstream & _log) {
     assert (hasRates || "No rates found! Use ElectronRateSolver::compute_cross_sections(log)\n");
     auto start = std::chrono::system_clock::now();
 
+    if (simulation_resume_time > simulation_end_time){cout << "[ Error ] simulation_resume_time is greater than end time." << endl;}
+    
     // Call hybrid integrator to iterate through the time steps (good state)
     good_state = true;
     const string banner = "================================================================================";
     cout<<banner<<endl;
     cout<<"\033[33m"<<"Final time step:  "<<"\033[0m"<<(simulation_end_time)*Constant::fs_per_au<<" fs"<<endl;
     cout<<banner<<endl;
-    this->iterate(simulation_start_time, simulation_end_time); // Inherited from ABM
+    this->iterate(simulation_resume_time, simulation_end_time); // Inherited from ABM
 
 
     cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<std::endl;
@@ -139,7 +149,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
         }
         retries--;
         this->setup(get_starting_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
-        this->iterate(simulation_start_time, simulation_end_time); // Inherited from ABM
+        this->iterate(simulation_resume_time, simulation_end_time); // Inherited from ABM
     }
     
     
@@ -445,6 +455,20 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
 /**
  * @brief Loads all times and free e densities from previous simulation's raw output, and uses that to populate y[i].F, the free distribution.
  */
+
+
+void ElectronRateSolver::tokenise(std::string str, std::vector<double> &out, const char delim)
+{
+    std::istringstream ss(str);
+
+    std::string s;
+    while (std::getline(ss, s, delim)) {
+        if (s.size() == 0){continue;}
+        double d = stod(s);
+        out.push_back(d);
+    }
+}
+
 void ElectronRateSolver::loadFreeRaw_and_times() {
     vector<string> time_and_densities;
     const std::string& fname = load_free_fname;
@@ -474,56 +498,76 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             // Remove boilerplate
             line.erase(0,grid_point_flag.size()+1);
             // Get grid points (knots)
-            std::stringstream s(line);
-            s.seekg(0,ios::end);
-            while (s.tellg() > 0){   // go through every (space-separated) element of s
-                s.seekg(0,ios::beg);
-                double elem;
-                s >> elem;
-                saved_knots.push_back(elem);
-                s.seekg(0,ios::end);
-            }       
+            this->tokenise(line,saved_knots);
+            // Convert to Atomic units
+            for (time_t k = 0; k < saved_knots.size();k++){
+                saved_knots[k]/=Constant::eV_per_Ha; 
+            }
+            continue;
         }
-        else if (!line.compare(0, 1, comment)) continue;
+        else if (!line.compare(0, 1, comment)){
+            continue;
+        }
         if (!line.compare(0, 1, "")) continue;
         time_and_densities.push_back(line);
     }
 
     // Populate solver with distributions at each time step
     int num_steps = time_and_densities.size();
-    t.resize(num_steps);
-    y.resize(num_steps);    
-    bound_t saved_time(time_and_densities.size(),0);
-    std::vector<double> saved_f(time_and_densities.size(),0); 
+    int step_skip_size = 1;
+    int max_num_loaded_steps = 500;
+    while(num_steps/step_skip_size > max_num_loaded_steps){
+        step_skip_size*=2;
+    }     
+    num_steps = num_steps/step_skip_size;
+    t.resize(num_steps,0);  // (Resized later by integrator for full sim.)
+    y.resize(num_steps,y[0]);    
+    bound_t saved_time(num_steps,0);  // this is a mere stand-in for t at best.
     int count = 0;
-    for(string elem : time_and_densities){
-        // TIME
-        std::stringstream s(elem);
-        s >> saved_time[count];
-        // Convert to right units (based on saveFreeRaw)
-        saved_time[count] /= Constant::fs_per_au;
+    for(const string elem : time_and_densities){
+        // skip over steps
+        if (count%step_skip_size != 0){
+            count++;
+            continue;
+        }
+        int i = count/step_skip_size;
 
-        if(saved_time[count] > loaded_data_time_boundary){
+        // TIME
+        std::istringstream s(elem);
+        string str_time;
+        s >> str_time;
+        saved_time[i] = stod(str_time);
+        // Convert to right units (based on saveFreeRaw)
+        saved_time[i] /= Constant::fs_per_au;
+
+        if(saved_time[i] > loaded_data_time_boundary || i >= y.size()){
             // time is past the maximum
             break;
         }
         // DENSITY
-        s.seekg(0,ios::end);
-        while (s.tellg() > 0){   // go through every (space-separated) element of s
-            s.seekg(0,ios::beg);
-            double elem;
-            s >> elem;
-            saved_f.push_back(elem);
-            s.seekg(0,ios::end);
-        }        
+        std::vector<double> saved_f;
+        this->tokenise(elem,saved_f);
+        saved_f.erase(saved_f.begin());    
         // FREE DISTRIBUTION
-        // Fill old dist with grid points and densities.
-        Distribution old_distribution;
-        old_distribution.set_distribution(saved_knots,saved_f);
+        // Fill old dist with grid points and densities. // No idea why this doesn't work - S.P.
+        //Distribution old_distribution; 
+        //old_distribution = 0 
+        // old_distribution.set_distribution(saved_knots,saved_f);
+        // // To ensure compatibility, "translate" old distribution to new grid points.
+        // old_distribution.transform_to_new_basis(y[0].F.get_knot_energies());
+        std::vector<double> new_knots =  y[0].F.get_knot_energies();      
+        std::vector<double> non_boundary_knots =  y[0].F.get_knot_energies();  
+        y[i].F.set_distribution(saved_knots,saved_f);
         // To ensure compatibility, "translate" old distribution to new grid points.
-        old_distribution.transform_to_new_basis(y[0].F.get_knot_energies());  
-        y[count].F = old_distribution;  
-        t[count] = saved_time[count];
+        // Remove boundary knots.
+        while(non_boundary_knots[0] == 0 && non_boundary_knots.size() > 0){
+            non_boundary_knots.erase(non_boundary_knots.begin());
+        }        
+        while (non_boundary_knots.back() > input_params.Max_Elec_E() && non_boundary_knots.size() > 0){
+            non_boundary_knots.pop_back();// or new_knots.erase(new_knots.end() - 1);
+        }            
+        y[i].F.transform_to_new_basis(non_boundary_knots,new_knots);  
+        t[i] = saved_time[i];
         count++;
     }
 
@@ -534,73 +578,6 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         }
     }
 }
-
-/**
- * @brief Loads all times and free e densities from previous simulation's raw output, and uses that to populate y[i].F, the free distribution.
- * @attention Currently assumes same input states
- */
-
-void ElectronRateSolver::loadBound() {
-    const std::string& fname = load_bound_fname;
-    cout << "[ Free ] Loading bound states from file. "<<fname<<"..."<<endl;
-    cout << "[ Caution ] Ensure same atoms and corresponding .inp files are used!"<<endl; 
-
-
-    
-    for (size_t a=0; a<input_params.Store.size(); a++) {   
-        ifstream infile(fname);
-        // READ
-        // get each raw line
-        string comment = "#";
-        vector<string> saved_occupancies;
-        while (!infile.eof())
-        {    
-            string line;
-            getline(infile, line);
-            if (!line.compare(0, 1, comment)) continue;
-            if (!line.compare(0, 1, "")) continue;
-            saved_occupancies.push_back(line);
-        }        
-
-        int num_steps = y.size();
-        if (num_steps==0){
-            cout << y.size() << " <- y.size()" << endl;
-            cout << "[[Dev warning]] It seems loadBound was run before loadFreeRaw_and_times, but this means loadBound won't know what times to use." << endl;
-        }
-        // Until saving raw files, fill with 0 and just use element closest to final time 
-        int num_states = y[0].atomP.size();
-        for(size_t count = 0; count < num_steps; count++){
-            y[count].atomP[a] = std::vector<double>(num_states,0);
-        }
-
-        // Find closest time
-        std::vector<double> last_occ_density;
-        for(string elem : saved_occupancies){
-            // TIME
-            std::stringstream s(elem);
-            double elem_time;
-            s >> elem_time;
-            // Convert to right units (based on saveFreeRaw)
-            elem_time /= Constant::fs_per_au;
-
-            // OCCUPANCY 
-            //std::vector<double> prev_elem_density = elem_density;
-            if (elem_time == t[-1]){
-                last_occ_density.resize(0);
-                s.seekg(0,ios::end);
-                while (s.tellg() > 0){   // go through every (space-separated) element of s
-                    s.seekg(0,ios::beg);
-                    double elem;
-                    s >> elem;
-                    last_occ_density.push_back(elem);
-                    s.seekg(0,ios::end);
-                }     
-            }
-        }
-        y[-1].atomP[a] = last_occ_density;
-    }
-}
-
 
 void ElectronRateSolver::saveBound(const std::string& dir) {
     // saves a table of bound-electron dynamics , split by atom, to folder dir.
@@ -632,4 +609,81 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         f.close();
     }
 
+}
+
+/**
+ * @brief Loads all times and free e densities from previous simulation's raw output, and uses that to populate y[i].F, the free distribution.
+ * @attention Currently assumes same input states
+ * @todo need to change load_bound_fname to a map from atom names to the specific bound file (currently just takes 1 bound file)
+ */
+void ElectronRateSolver::loadBound() {
+    cout << "Loading atoms' bound states"<<endl; 
+    cout << "[ Caution ] Ensure same atoms and corresponding .inp files are used!"<<endl; 
+
+
+    
+    for (size_t a=0; a<input_params.Store.size(); a++) {
+        // (unimplemented) select atom's bound file  
+        const std::string& fname = load_bound_fname; 
+        cout << "[ Free ] Loading bound states from file. "<<fname<<"..."<<endl;
+         
+        ifstream infile(fname);
+        // READ
+        // get each raw line
+        string comment = "#";
+        vector<string> saved_occupancies;
+        while (!infile.eof())
+        {    
+            string line;
+            getline(infile, line);
+            if (!line.compare(0, 1, comment)) continue;
+            if (!line.compare(0, 1, "")) continue;
+            saved_occupancies.push_back(line);
+        }        
+        
+
+        int num_steps = y.size();
+        if (y.size()==0){
+            cout << y.size() << " <- y.size()" << endl;
+            cout << "[[Dev warning]] It seems loadBound was run before loadFreeRaw_and_times, but this means loadBound won't know what times to use." << endl;
+        }
+        
+        // Until saving raw files, fill with initial state and just make last element correct.
+        for(size_t count = 1; count < num_steps; count++){
+            this->y[count].atomP[a] = this->y[0].atomP[a];
+        }
+        
+        std::vector<double> last_occ_density;
+        // Iterate backwards until reach a time that matches.
+        reverse(saved_occupancies.begin(),saved_occupancies.end());      
+        int matching_idx;
+        for(string elem : saved_occupancies){
+            // TIME
+            std::stringstream s(elem);
+            double elem_time;
+            string str_time;
+            s >> str_time;            
+            elem_time = stod(str_time);
+            // Convert to right units (based on saveFreeRaw)
+            elem_time /= Constant::fs_per_au;
+            if(elem_time > t.back()){
+                continue;
+            }            
+            matching_idx = find(t.begin(),t.end(),elem_time) - t.begin(); 
+            if (matching_idx >= t.size()){
+                continue;
+            }
+            else{
+                last_occ_density.resize(0);
+                tokenise(elem,last_occ_density);
+                last_occ_density.erase(last_occ_density.begin()); // remove time element
+                break;
+            }
+        }
+        // Shave time and state containers to the time that matches with the bound state.
+        y.resize(matching_idx + 1);
+        t.resize(matching_idx + 1);        
+        this->y.back().atomP[a] = last_occ_density;
+
+    }
 }

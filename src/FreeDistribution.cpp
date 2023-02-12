@@ -273,14 +273,14 @@ std::string Distribution::output_densities(size_t num_pts) const {
     return ss.str();
 }
 
-void Distribution::transform_to_new_basis(std::vector<double> knot_energies){
-    std::vector<double> new_densities(knot_energies.size(),0);
+void Distribution::transform_to_new_basis(std::vector<double> non_boundary_knots, std::vector<double> all_knot_energies){
+    std::vector<double> new_densities(non_boundary_knots.size(),0);
 
-    for (size_t i=0; i<knot_energies[i]; i++){
-        double e = knot_energies[i];
+    for (size_t i=0; i<non_boundary_knots.size(); i++){
+        double e = non_boundary_knots[i];
         new_densities[i] = (*this)(e);
     }
-    set_distribution(knot_energies,new_densities);
+    set_distribution(all_knot_energies,new_densities);
 }
 
 /**
@@ -357,7 +357,7 @@ void Distribution::addDeltaLike(Eigen::VectorXd& v, double e, double height) {
 }
 
 double Distribution::norm() const{
-    assert(f.size() == Distribution::size);
+    assert(f.size() == Distribution::size);  // A very blessed check, lord thank you Sanders -S.P.
     double x=0;
     for (auto&fi : f) {
         x+= fabs(fi);

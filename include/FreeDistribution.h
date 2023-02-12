@@ -110,7 +110,7 @@ public:
         return *this;
     }
 
-    vector<double> Distribution::get_knot_energies(){return basis.get_knot();}
+    vector<double> get_knot_energies(){return basis.get_knot();}
 
     /**
      * @brief Replaces both grid points and their associated densities with the ones provided. 
@@ -118,7 +118,7 @@ public:
      * @param d Distribution object that the caller sets its electron density to.
      * @return Distribution& 
      */
-    void Distribution::set_distribution(vector<double> new_knot, vector<double> new_f);
+    void set_distribution(vector<double> new_knot, vector<double> new_f);
 
     double norm() const;
     double integral() const;
@@ -182,7 +182,7 @@ public:
     static std::string output_energies_eV(size_t num_pts);
     std::string output_densities(size_t num_pts) const;
     // Switch grid points to the knot_energies provided, and replace densities with the ones interpolated to by the splines. 
-    void Distribution::transform_to_new_basis(std::vector<double> knot_energies);
+    void transform_to_new_basis(std::vector<double> non_boundary_knots, std::vector<double> all_knot_energies);
     
     /// This does electron-electron because it is CURSED
     void from_backwards_Euler(double dt, const Distribution& prev_step, double tolerance, unsigned maxiter);

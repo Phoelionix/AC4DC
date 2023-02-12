@@ -73,7 +73,7 @@ void Hybrid<T>::iterate(double t_initial, double t_final) {
     size_t npoints = (t_final - t_initial)/this->dt + 1;
     
     npoints = (npoints >= this->order) ? npoints : this->order;
-    // Set up the containters
+    // Set up the containers
     this->t.resize(npoints);
     this->y.resize(npoints);
 
