@@ -38,10 +38,17 @@ This file is part of AC4DC.
 
 
 state_type ElectronRateSolver::get_starting_state() {
-    if (load_free_fname != "") 
-        loadFreeRaw();
-    else
-    return get_ground_state();
+    if (load_free_fname != "" && load_bound_fname != ""){ 
+        loadFreeRaw_and_times();
+        loadBound();
+    }
+    else if (load_free_fname != "" || load_bound_fname != ""){
+            cout << "[ Load sim error ], only had one file name specified." << endl;
+            exit(EXIT_FAILURE); // Chuck a hissy fit and quit
+    }
+    else{
+        return get_ground_state();
+    }
 }
 
 state_type ElectronRateSolver::get_ground_state() {
@@ -438,7 +445,7 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
 /**
  * @brief Loads all times and free e densities from previous simulation's raw output, and uses that to populate y[i].F, the free distribution.
  */
-void ElectronRateSolver::loadFreeRaw() {
+void ElectronRateSolver::loadFreeRaw_and_times() {
     vector<string> time_and_densities;
     const std::string& fname = load_free_fname;
     
@@ -453,6 +460,7 @@ void ElectronRateSolver::loadFreeRaw() {
         return;
     }
     
+    // READ
     // get each raw line
     string comment = "#";
     string grid_point_flag = "# Energy Knot:";
@@ -461,8 +469,8 @@ void ElectronRateSolver::loadFreeRaw() {
 	{    
         string line;
         getline(infile, line);
+         // KNOTS
         if (!line.compare(0,grid_point_flag.length(),grid_point_flag)){
-            // KNOTS
             // Remove boilerplate
             line.erase(0,grid_point_flag.size()+1);
             // Get grid points (knots)
@@ -474,12 +482,7 @@ void ElectronRateSolver::loadFreeRaw() {
                 s >> elem;
                 saved_knots.push_back(elem);
                 s.seekg(0,ios::end);
-            }
-            // Unnecessary as using raw file// Convert to right units (based on output_densities)
-            // const double units = Constant::eV_per_Ha*Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
-            // for(size_t k = 0; k++; k < saved_knots.size()){
-            //     saved_knots[k] *= units; 
-            // }            
+            }       
         }
         else if (!line.compare(0, 1, comment)) continue;
         if (!line.compare(0, 1, "")) continue;
@@ -493,7 +496,7 @@ void ElectronRateSolver::loadFreeRaw() {
     bound_t saved_time(time_and_densities.size(),0);
     std::vector<double> saved_f(time_and_densities.size(),0); 
     int count = 0;
-    for(auto elem : time_and_densities){
+    for(string elem : time_and_densities){
         // TIME
         std::stringstream s(elem);
         s >> saved_time[count];
@@ -505,14 +508,14 @@ void ElectronRateSolver::loadFreeRaw() {
             break;
         }
         // DENSITY
+        s.seekg(0,ios::end);
+        while (s.tellg() > 0){   // go through every (space-separated) element of s
+            s.seekg(0,ios::beg);
+            double elem;
+            s >> elem;
+            saved_f.push_back(elem);
             s.seekg(0,ios::end);
-            while (s.tellg() > 0){   // go through every (space-separated) element of s
-                s.seekg(0,ios::beg);
-                double elem;
-                s >> elem;
-                saved_f.push_back(elem);
-                s.seekg(0,ios::end);
-            }        
+        }        
         // FREE DISTRIBUTION
         // Fill old dist with grid points and densities.
         Distribution old_distribution;
@@ -538,9 +541,64 @@ void ElectronRateSolver::loadFreeRaw() {
  */
 
 void ElectronRateSolver::loadBound() {
+    const std::string& fname = load_bound_fname;
     cout << "[ Free ] Loading bound states from file. "<<fname<<"..."<<endl;
-    cout << "[ Caution ] Ensure same input files are used!"<<endl;    
-    t[i*t_idx_step]/Constant::fs_per_au
+    cout << "[ Caution ] Ensure same atoms and corresponding .inp files are used!"<<endl; 
+
+
+    
+    for (size_t a=0; a<input_params.Store.size(); a++) {   
+        ifstream infile(fname);
+        // READ
+        // get each raw line
+        string comment = "#";
+        vector<string> saved_occupancies;
+        while (!infile.eof())
+        {    
+            string line;
+            getline(infile, line);
+            if (!line.compare(0, 1, comment)) continue;
+            if (!line.compare(0, 1, "")) continue;
+            saved_occupancies.push_back(line);
+        }        
+
+        int num_steps = y.size();
+        if (num_steps==0){
+            cout << y.size() << " <- y.size()" << endl;
+            cout << "[[Dev warning]] It seems loadBound was run before loadFreeRaw_and_times, but this means loadBound won't know what times to use." << endl;
+        }
+        // Until saving raw files, fill with 0 and just use element closest to final time 
+        int num_states = y[0].atomP.size();
+        for(size_t count = 0; count < num_steps; count++){
+            y[count].atomP[a] = std::vector<double>(num_states,0);
+        }
+
+        // Find closest time
+        std::vector<double> last_occ_density;
+        for(string elem : saved_occupancies){
+            // TIME
+            std::stringstream s(elem);
+            double elem_time;
+            s >> elem_time;
+            // Convert to right units (based on saveFreeRaw)
+            elem_time /= Constant::fs_per_au;
+
+            // OCCUPANCY 
+            //std::vector<double> prev_elem_density = elem_density;
+            if (elem_time == t[-1]){
+                last_occ_density.resize(0);
+                s.seekg(0,ios::end);
+                while (s.tellg() > 0){   // go through every (space-separated) element of s
+                    s.seekg(0,ios::beg);
+                    double elem;
+                    s >> elem;
+                    last_occ_density.push_back(elem);
+                    s.seekg(0,ios::end);
+                }     
+            }
+        }
+        y[-1].atomP[a] = last_occ_density;
+    }
 }
 
 

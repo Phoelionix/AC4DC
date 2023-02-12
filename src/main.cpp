@@ -274,7 +274,7 @@ int main(int argc, const char *argv[]) {
     ElectronRateSolver S(const_path, log); // Contains all of the collision parameters.
     if (runsettings.load_data){
         std::pair<std::pair<string,string>,double> fnames_and_time = get_load_sim_config();
-        S.set_load_params(fnames_and_time);
+        S.set_load_params(free_file,bound_file,time_boundary);
     }
     cout << "\033[1;32mComputing cross sections... \033[0m" <<endl;
     S.compute_cross_sections(log, runsettings.recalc);
