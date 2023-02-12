@@ -283,6 +283,12 @@ void Distribution::transform_to_new_basis(std::vector<double> knot_energies){
     set_distribution(knot_energies,new_densities);
 }
 
+/**
+ * @brief Returns the spline-interpolated density at any energy 
+ * 
+ * @param e 
+ * @return double 
+ */
 double Distribution::operator()(double e) const{
     double tmp=0;
     for (size_t j = 0; j < size; j++) {

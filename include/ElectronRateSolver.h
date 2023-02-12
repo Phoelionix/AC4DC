@@ -76,9 +76,11 @@ public:
     void save(const std::string& folder);
     /// Sets up the rate equations, which requires computing the atomic cross-sections/avg. transition rates to get the coefficients.
     void compute_cross_sections(std::ofstream& _log, bool recalc=true);
-    void set_load_params(pair<string,double> name_time){
-        load_fname = name_time.first; 
-        loaded_data_time_boundary = name_time.second/Constant::fs_per_au;
+    // TODO I am disgusted with myself I must fix this when I am not paralysed by its horror. -S.P.
+    void set_load_params(pair<pair<string,string>,double> names_time){
+        load_free_fname = names_time.first.first; 
+        load_bound_fname = names_time.first.second;
+        loaded_data_time_boundary = names_time.second/Constant::fs_per_au;
     }
 
     /// Number of secs taken for simulation to run
@@ -129,8 +131,8 @@ private:
     state_type load_state();
     state_type get_ground_state();
 
-    string load_fname = "";  // if "" don't load anything.
-    double loaded_data_time_boundary;  // [Au]
+    string load_free_fname = "";  // Raw distribution file path. If "" don't load anything. 
+    double loaded_data_time_boundary;  // [Au] Basically the resume point of the simulation. Specifically, all data points before this time are loaded
 };
 
 

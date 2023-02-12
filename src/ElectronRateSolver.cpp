@@ -38,7 +38,7 @@ This file is part of AC4DC.
 
 
 state_type ElectronRateSolver::get_starting_state() {
-    if (load_fname != "") 
+    if (load_free_fname != "") 
         loadFreeRaw();
     else
     return get_ground_state();
@@ -436,16 +436,14 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
 }
 
 /**
- * @brief Loads all times and free e densities from previous simulation's raw output.
- * @param fname Raw distribution file path
- * @param loaded_data_time_boundary Basically the resume point of the simulation. Specifically, all data points before this time are loaded.
+ * @brief Loads all times and free e densities from previous simulation's raw output, and uses that to populate y[i].F, the free distribution.
  */
 void ElectronRateSolver::loadFreeRaw() {
     vector<string> time_and_densities;
-    const std::string& fname = load_fname;
+    const std::string& fname = load_free_fname;
     
     ifstream infile(fname);
-    cout << "[ Free ] Loading distribution from file. "<<fname<<"..."<<endl;
+    cout << "[ Free ] Loading free distribution from file. "<<fname<<"..."<<endl;
     cout << "[ Caution ] Ensure same input files are used!"<<endl;
 	if (infile.good())
         std::cout<<"Opened successfully!"<<endl;
@@ -455,7 +453,7 @@ void ElectronRateSolver::loadFreeRaw() {
         return;
     }
     
-    // get the each raw line
+    // get each raw line
     string comment = "#";
     string grid_point_flag = "# Energy Knot:";
     std::vector<double> saved_knots;
@@ -477,10 +475,11 @@ void ElectronRateSolver::loadFreeRaw() {
                 saved_knots.push_back(elem);
                 s.seekg(0,ios::end);
             }
-            // Convert to right units
-            for(size_t k = 0; k++; k < saved_knots.size()){
-                saved_knots[k] /= Constant::eV_per_Ha;
-            }            
+            // Unnecessary as using raw file// Convert to right units (based on output_densities)
+            // const double units = Constant::eV_per_Ha*Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
+            // for(size_t k = 0; k++; k < saved_knots.size()){
+            //     saved_knots[k] *= units; 
+            // }            
         }
         else if (!line.compare(0, 1, comment)) continue;
         if (!line.compare(0, 1, "")) continue;
@@ -498,7 +497,7 @@ void ElectronRateSolver::loadFreeRaw() {
         // TIME
         std::stringstream s(elem);
         s >> saved_time[count];
-        // Convert to right units
+        // Convert to right units (based on saveFreeRaw)
         saved_time[count] /= Constant::fs_per_au;
 
         if(saved_time[count] > loaded_data_time_boundary){
@@ -533,8 +532,15 @@ void ElectronRateSolver::loadFreeRaw() {
     }
 }
 
+/**
+ * @brief Loads all times and free e densities from previous simulation's raw output, and uses that to populate y[i].F, the free distribution.
+ * @attention Currently assumes same input states
+ */
+
 void ElectronRateSolver::loadBound() {
- 
+    cout << "[ Free ] Loading bound states from file. "<<fname<<"..."<<endl;
+    cout << "[ Caution ] Ensure same input files are used!"<<endl;    
+    t[i*t_idx_step]/Constant::fs_per_au
 }
 
 
