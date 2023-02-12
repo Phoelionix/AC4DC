@@ -58,15 +58,28 @@ public:
         pf.set_shape(input_params.pulse_shape);
         pf.set_pulse(input_params.Fluence(), input_params.Width());
         timespan_au = input_params.Width()*4;   // 4*FWHM, capturing effectively entire pulse.
+        
         // Get cutoff
-            truncated_timespan = timespan_au*input_params.Simulated_Fraction();
+        double truncated_timespan = timespan_au*input_params.Simulated_Fraction();
+        if (input_params.pulse_shape ==  PulseShape::square){  //-FWHM <= t <= 3FWHM
+            simulation_start_time = -input_params.Width();
+            simulation_end_time =  -input_params.Width() + truncated_timespan; 
+        } else { //-2FWHM <= t <= 2FWHM
+            simulation_start_time = -timespan_au/2;
+            simulation_end_time = -timespan_au/2 + truncated_timespan; 
+        }
+
+        
     }
     /// Solve the rate equations
     void solve(ofstream & _log);
     void save(const std::string& folder);
     /// Sets up the rate equations, which requires computing the atomic cross-sections/avg. transition rates to get the coefficients.
     void compute_cross_sections(std::ofstream& _log, bool recalc=true);
-    void set_load_params(pair<string,double> name_time){load_fname = name_time.first; latest_start_time = name_time.second;}
+    void set_load_params(pair<string,double> name_time){
+        load_fname = name_time.first; 
+        loaded_data_time_boundary = name_time.second/Constant::fs_per_au;
+    }
 
     /// Number of secs taken for simulation to run
     long secs;
@@ -81,7 +94,8 @@ private:
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)
     Pulse pf;
     double timespan_au; // Atomic units
-    double truncated_timespan;
+    double simulation_start_time;  // [Au]
+    double simulation_end_time;  // [Au]    
     double fraction_of_pulse_simulated;
     // Model parameters
     
@@ -116,7 +130,7 @@ private:
     state_type get_ground_state();
 
     string load_fname = "";  // if "" don't load anything.
-    double latest_start_time;  // [fs]
+    double loaded_data_time_boundary;  // [Au]
 };
 
 

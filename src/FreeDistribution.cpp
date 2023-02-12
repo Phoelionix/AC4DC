@@ -50,6 +50,11 @@ void Distribution::set_elec_points(size_t n, double min_e, double max_e, GridSpa
     cout<<"[ Free ] Neglecting electron-electron below density of n = "<<CoulombDens_min<<"au^-3"<<endl;
 }
 
+void Distribution::set_distribution(vector<double> new_knot, vector<double> new_f) {
+    f = new_f;
+    basis = new_knot;
+}
+
 // Adds Q_eii to the parent Distribution
 void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const {
     assert(basis.has_Qeii());
@@ -266,6 +271,16 @@ std::string Distribution::output_densities(size_t num_pts) const {
         }
     }
     return ss.str();
+}
+
+void Distribution::transform_to_new_basis(std::vector<double> knot_energies){
+    std::vector<double> new_densities(knot_energies.size(),0);
+
+    for (size_t i=0; i<knot_energies[i]; i++){
+        double e = knot_energies[i];
+        new_densities[i] = (*this)(e);
+    }
+    set_distribution(knot_energies,new_densities);
 }
 
 double Distribution::operator()(double e) const{

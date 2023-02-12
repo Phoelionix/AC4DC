@@ -101,19 +101,12 @@ void ElectronRateSolver::solve(ofstream & _log) {
     auto start = std::chrono::system_clock::now();
 
     // Call hybrid integrator to iterate through the time steps (good state)
+    good_state = true;
     const string banner = "================================================================================";
     cout<<banner<<endl;
-    good_state = true;
-    if (input_params.pulse_shape ==  PulseShape::square){
-        cout<<"\033[33m"<<"Final time step:  "<<"\033[0m"<<(-input_params.Width() + truncated_timespan)*Constant::fs_per_au<<" fs"<<endl;
-        cout<<banner<<endl;
-        this->iterate(-input_params.Width(), - input_params.Width() + truncated_timespan); // Inherited from ABM. -FWHM <= t <= 3FWHM
-    } else {
-        cout<<"\033[33m"<<"Final time step:  "<<"\033[0m"<<(-timespan_au/2 + truncated_timespan)*Constant::fs_per_au<<" fs"<<endl;
-        cout<<banner<<endl;
-        this->iterate(-timespan_au/2, -timespan_au/2 + truncated_timespan); // Inherited from ABM.  -2FWHM <= t <= 2FWHM
-    }
-    
+    cout<<"\033[33m"<<"Final time step:  "<<"\033[0m"<<(simulation_end_time)*Constant::fs_per_au<<" fs"<<endl;
+    cout<<banner<<endl;
+    this->iterate(simulation_start_time, simulation_end_time); // Inherited from ABM
 
 
     cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<std::endl;
@@ -139,11 +132,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
         }
         retries--;
         this->setup(get_starting_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
-        if (input_params.pulse_shape ==  PulseShape::square){
-            this->iterate(-input_params.Width(), -input_params.Width() + truncated_timespan); // Inherited from ABM
-        } else {
-            this->iterate(-timespan_au/2, -timespan_au/2 + truncated_timespan); // Inherited from ABM
-        }
+        this->iterate(simulation_start_time, simulation_end_time); // Inherited from ABM
     }
     
     
@@ -449,19 +438,19 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
 /**
  * @brief Loads all times and free e densities from previous simulation's raw output.
  * @param fname Raw distribution file path
- * @param latest_start_time Basically the resume point of the simulation. Specifically, all data points before this time are loaded.
+ * @param loaded_data_time_boundary Basically the resume point of the simulation. Specifically, all data points before this time are loaded.
  */
 void ElectronRateSolver::loadFreeRaw() {
+    vector<string> time_and_densities;
     const std::string& fname = load_fname;
-    vector<string> time_and_density;
     
     ifstream infile(fname);
-    cout << "[ Free ] Loading distribution from file "<<fname<<"..."<<endl;
-    cout << "Opening..."<<endl;
+    cout << "[ Free ] Loading distribution from file. "<<fname<<"..."<<endl;
+    cout << "[ Caution ] Ensure same input files are used!"<<endl;
 	if (infile.good())
-        std::cout<<"Success!"<<endl;
+        std::cout<<"Opened successfully!"<<endl;
     else {
-        std::cerr<<"Failed."<<endl;
+        std::cerr<<"Opening failed."<<endl;
 		exit(EXIT_FAILURE); // Quit with a huff.
         return;
     }
@@ -469,53 +458,85 @@ void ElectronRateSolver::loadFreeRaw() {
     // get the each raw line
     string comment = "#";
     string grid_point_flag = "# Energy Knot:";
+    std::vector<double> saved_knots;
 	while (!infile.eof())
 	{    
         string line;
         getline(infile, line);
         if (!line.compare(0,grid_point_flag.length(),grid_point_flag)){
+            // KNOTS
             // Remove boilerplate
             line.erase(0,grid_point_flag.size()+1);
             // Get grid points (knots)
-            std::vector<double> knots;
             std::stringstream s(line);
-
-            
             s.seekg(0,ios::end);
             while (s.tellg() > 0){   // go through every (space-separated) element of s
                 s.seekg(0,ios::beg);
                 double elem;
                 s >> elem;
-                knots.push_back(elem);
+                saved_knots.push_back(elem);
                 s.seekg(0,ios::end);
             }
+            // Convert to right units
+            for(size_t k = 0; k++; k < saved_knots.size()){
+                saved_knots[k] /= Constant::eV_per_Ha;
+            }            
         }
         else if (!line.compare(0, 1, comment)) continue;
         if (!line.compare(0, 1, "")) continue;
-        time_and_density.push_back(line);
+        time_and_densities.push_back(line);
     }
-    // get times and corresponding densities separately
-    //std::string saved_time[time_and_density.size()] {0};
-    bound_t saved_time(time_and_density.size(),0);
-    std::vector<double> saved_F(time_and_density.size(),0); 
+
+    // Populate solver with distributions at each time step
+    int num_steps = time_and_densities.size();
+    t.resize(num_steps);
+    y.resize(num_steps);    
+    bound_t saved_time(time_and_densities.size(),0);
+    std::vector<double> saved_f(time_and_densities.size(),0); 
     int count = 0;
-    for(auto elem : time_and_density){
-        // time
+    for(auto elem : time_and_densities){
+        // TIME
         std::stringstream s(elem);
         s >> saved_time[count];
-        if(saved_time[count] > latest_start_time){
+        // Convert to right units
+        saved_time[count] /= Constant::fs_per_au;
+
+        if(saved_time[count] > loaded_data_time_boundary){
             // time is past the maximum
-            saved_time.resize(count-1);  
-            saved_F.resize(count-1);
             break;
         }
-        // density
+        // DENSITY
+            s.seekg(0,ios::end);
+            while (s.tellg() > 0){   // go through every (space-separated) element of s
+                s.seekg(0,ios::beg);
+                double elem;
+                s >> elem;
+                saved_f.push_back(elem);
+                s.seekg(0,ios::end);
+            }        
+        // FREE DISTRIBUTION
+        // Fill old dist with grid points and densities.
+        Distribution old_distribution;
+        old_distribution.set_distribution(saved_knots,saved_f);
+        // To ensure compatibility, "translate" old distribution to new grid points.
+        old_distribution.transform_to_new_basis(y[0].F.get_knot_energies());  
+        y[count].F = old_distribution;  
+        t[count] = saved_time[count];
         count++;
     }
 
-    // fill elec points with spline-interpolated densities
-
+    // Translate time to match input of THIS run. 
+    if (simulation_start_time != saved_time[0]){
+        for(size_t i = 0; i < saved_time.size(); i++){
+            t[i] += simulation_start_time - saved_time[0];
+        }
+    }
 }
+
+void ElectronRateSolver::loadBound() {
+ 
+}
+
 
 void ElectronRateSolver::saveBound(const std::string& dir) {
     // saves a table of bound-electron dynamics , split by atom, to folder dir.

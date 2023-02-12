@@ -117,6 +117,19 @@ public:
     //     tmp += q.val*F[K]*F[q.idx]
     // }
     // 1000 times fewer components than QTBR, not a problem
+
+    /**
+     * @brief Sets the grid points to the energies given by the array 
+     * 
+     * @param knot_energies The new knot vector, in case you knew not.
+     * @return SplineIntegral& 
+     */
+    SplineIntegral& operator=(vector<double> knot_energies){
+        knot = knot_energies;           
+    }    
+
+    vector<double> SplineIntegral::get_knot(){return knot;}
+
     SplineIntegral() {};
     void precompute_QEII_coeffs(vector<RateData::Atom>& Atoms);
     void precompute_QTBR_coeffs(vector<RateData::Atom>& Atoms);

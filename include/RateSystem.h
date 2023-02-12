@@ -38,7 +38,7 @@ public:
     /// Probabilities of state for all atoms.
     std::vector<bound_t> atomP; 
     /// Energy distribution function
-    Distribution F; 
+    Distribution F;   //TODO I want to rename this, it is confusing since F.f refers to the densities vector, but there are far too many "F" variables to do quickly and safely -S.P.
     double bound_charge;
 
     state_type();
