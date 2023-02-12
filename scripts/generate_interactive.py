@@ -41,7 +41,7 @@ def main():
     if terminal_mode:
         sys_argv = sys.argv  
     if  len(sys_argv) < 2:
-        print("Usage: python3 _save_interactive.py Carbon_1 <name_suffix (optional)>")
+        print("Usage: python3 " +path.basename(__file__)+ " Carbon_1 <name_suffix (optional)>")
         exit()        
 
     target_handles = []  

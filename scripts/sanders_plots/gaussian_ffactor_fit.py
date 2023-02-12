@@ -1,5 +1,3 @@
-#%%
-%matplotlib widget
 import numpy as np
 import scipy.optimize as opt
 import csv
@@ -10,6 +8,7 @@ import os.path as path
 
 # This script goes through all form-factor files (stored in output/X/Rates/Form_Factor.txt )
 # Expects to be in a folder within base directory that contains /output.
+## (I couldn't get this working but I didn't try very long - S.P.)
 
 # FITPARAMS
 # A1 s1 A2 s2 A3 s3 ...
@@ -155,4 +154,3 @@ print(paramList)
 
 
 
-# %%

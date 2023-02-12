@@ -107,10 +107,6 @@ private:
     /// Log final details pertaining to the simulation's execution to file fname (e.g. total runtime)
     void log_extra_details(ofstream & _log); 
     state_type get_ground_state();
-
-
-    bool good_state = true;
-    double timestep_reached = 0;
 };
 
 

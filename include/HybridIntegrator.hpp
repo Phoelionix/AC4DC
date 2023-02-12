@@ -32,13 +32,17 @@ class Hybrid : public Adams_BM<T>{
     Hybrid<T>(unsigned int order=4, double rtol=1e-5, unsigned max_iter = 2000): 
         Adams_BM<T>(order), stiff_rtol(rtol), stiff_max_iter(max_iter){};
     const static unsigned MAX_BEULER_ITER = 50;
+    bool good_state = true;
+    double timestep_reached = 0;       
     private:
     virtual void sys_ee(const T& q, T& qdot, double t) =0;
-    // virtual void Jacobian2(const T& q, T& qdot, double t) =0;
+    // virtual void Jacobian2(const T& q, T& qdot, double t) =0; 
     protected:
 
     double stiff_rtol = 1e-4;
+    double intolerable_stiff_err =stiff_rtol*10;
     unsigned stiff_max_iter = 200;
+     
 
 
     void run_steps();
@@ -120,11 +124,13 @@ void Hybrid<T>::step_stiff_part(unsigned n){
     old *= -1.;
     old += this->y[n+1];
 
+    if(!good_state) return;
+
     // Adams-Moulton step - (Same as one called for end of good part of system).
     // Here, tmp is the y_n+1 guessed in the preceding step, handle i=0 explicitly:
     T tmp;
-    tmp *= 0;
     // Now tmp goes back to being an aggregator
+    tmp *= 0;
     for (int i = 1; i < this->order; i++) {
         T ydot;
         this->sys_ee(this->y[1+n-i], ydot, this->t[1+n-i]);
@@ -155,7 +161,14 @@ void Hybrid<T>::step_stiff_part(unsigned n){
         diff = prev.norm()/this->y[n+1].norm();
         idx++;
     }
-    if(idx==stiff_max_iter) std::cerr<<"Max Euler iterations exceeded, err = "<<diff<<std::endl;
+    if(idx==stiff_max_iter){
+        std::cerr<<"Max Euler iterations exceeded, err = "<<diff<<std::endl;
+        if (diff > intolerable_stiff_err){
+            std::cerr << "Max error ("<<intolerable_stiff_err<<") exceeded, ending simulation early." <<std::endl;
+            this->good_state = false;
+            this->timestep_reached = this->t[n+1]*Constant::fs_per_au; // t[n+1] is equiv. to t in bound !good_state case
+        }
+    }
     this->y[n+1] += old;
 }
 

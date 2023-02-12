@@ -335,7 +335,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, const 
     sdot.F.applyDelta(vec_dqdt);
     // This is loss.
     sdot.F.addLoss(s.F, input_params.loss_geometry, s.bound_charge);
-
+    
     if (isnan(s.norm()) || isnan(sdot.norm())) {
         cerr<<"NaN encountered in ODE iteration."<<endl;
         cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
@@ -350,6 +350,8 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot, const dou
     sdot=0;
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
     
+    //if (!good_state) return;
+
     // compute the dfdt vector
     
     // for (size_t a = 0; a < s.atomP.size(); a++) {

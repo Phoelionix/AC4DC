@@ -63,8 +63,8 @@ x       | CRITICAL, should be above  γ (current bounds are 1-5). The lower x is
         - increasing time steps is helpful. For x = 5, going from 20k -> 100k steps moved divergence from t=-9.97 to t=-9.8552
         - Finess of grid points in 5-10 eV region doesn't seem to help, but it can make it break earlier with more of them.
 
-10-50   | sharp MB peak  (it's about 6 eV for carbon, I need to check if higher for heavier elements?) - The sharpness of this peak is hidden by a log scale.
-50-200  | boringly smooth
+10-50   | Sharp MB peak  - The sharpness of this peak is hidden by a log scale.
+50-200  | Smooth for the early stages. However too few grid points here leads to crashes later. Worth running simulation in two parts with different grid points if this happens. (Still implementing) 
 200-500 | Auger peak region, wider than MB peak on a linear scale, but sharper logarithmically.  (carbon peak 337 eV, I need to check why not ~ 270 eV)
 500-3000/4500| transition region
 3000-4000, 4500-6500| photoelectron delta-like peak, sharper than MB peak. Mainly made up of ionised core electrons for Carbon, but for heavier elements like Sulfur, the ionisation cross-section for higher shells is large enough that colder photoelectrons dominate. (To illustrate, in 1 fs for Carbon the median ionic charge is +1. For Sulfur, it's +8-+9.)
@@ -83,6 +83,7 @@ x-10        | w/ higher grid point density than 10-50 region, very fine wiggles 
 leads to:
 ??          | small wiggle around 10 eV that keeps getting wider towards 0. | increase time steps.
 10-50       | Wiggles in region that aren't divergent but make solution unstable    | increase grid fineness
+50-200 | A continuous cycle of wiggles at MB peak that prevent MB from moving into this region (unless the intolerable stiff error is made low enough to catch it)    |  Simulate this period with finer grid points.
 200-500     | Auger peak's width is unstable.  | increase grid fineness   (position was unstable a bit too when I varied some params, but haven't narrowed down cause)
 4500-6500   | Lots of wiggles | Move to a linear scale where the entire peak can be seen. Only if it looks wiggly add grid points.
 
