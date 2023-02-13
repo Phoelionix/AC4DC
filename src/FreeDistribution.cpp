@@ -253,7 +253,7 @@ void Distribution::add_density_distribution(vector<vector<double>> densities){
         double b = basis.supp_max(i);
         for (size_t j=0; j<64; j++) {
             double e = (b-a)/2 *gaussX_64[j] + (a+b)/2;
-            v[i] += gaussW_64[j]*basis(i, e)*densities[i][j]/pow(e,0.5);  // Don't ask me why this works I tried every possible combination until it worked like a crazy person. -S.P.
+            v[i] += gaussW_64[j]*basis.raw_bspline(i, e)*densities[i][j];  // Don't ask me why this works I just copied add_maxwellian and moved everything around like a crazy person -S.P.
         }
         v[i] *= (b-a)/2;//*=densities[i]*(b-a)/2;
     }
