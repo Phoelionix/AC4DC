@@ -242,7 +242,7 @@ struct CmdParser{
 };
 
 void set_load_sim_config(string &free_raw_file,string &bound_file,double &time_boundary){
-    string folder = "output/__Molecular/Carbon_467/"; 
+    string folder = "output/__Molecular/Carbon_294/"; 
     free_raw_file = folder + "freeDistRaw.csv";
     bound_file = folder + "dist_C_fast.csv";
     time_boundary = -6.4;

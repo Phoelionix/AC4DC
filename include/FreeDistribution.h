@@ -169,7 +169,6 @@ public:
      * @param energies Energies in ascending order.
      */
     void add_density_distribution(std::vector<vector<double>>);
-    //void add_density_distribution(vector<double>);
 
     // Precalculators
     static void Gamma_eii( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J) {

@@ -45,8 +45,8 @@ class Hybrid : public Adams_BM<T>{
      
 
 
-    void run_steps();
-    void iterate(double t_initial, double t_final);
+    void run_steps(double t_resume);
+    void iterate(double t_initial, double t_final, double t_resume);
     /// Unused
     void backward_Euler(unsigned n); 
     void step_stiff_part(unsigned n);
@@ -62,7 +62,8 @@ class Hybrid : public Adams_BM<T>{
 // }
 
 template<typename T>
-void Hybrid<T>::iterate(double t_initial, double t_final) {
+// t_resume = the time to resume simulation from if loading a sim.
+void Hybrid<T>::iterate(double t_initial, double t_final, double t_resume) {
 
     if (this->dt < 1E-16) {
         std::cerr<<"WARN: step size "<<this->dt<<"is smaller than machine precision"<<std::endl;
@@ -72,18 +73,29 @@ void Hybrid<T>::iterate(double t_initial, double t_final) {
 
     size_t npoints = (t_final - t_initial)/this->dt + 1;
     
+    bool resume_sim = (t_resume == t_initial) ? false : true;
+
+    if (resume_sim){
+        npoints -= ((t_resume-t_initial)/this->dt + 1);
+        npoints += this->t.size();
+    }
+
     npoints = (npoints >= this->order) ? npoints : this->order;
+
     // Set up the containers
     this->t.resize(npoints);
     this->y.resize(npoints);
 
-    // Set up the t grid
+    // Set up the t grid       
     this->t[0] = t_initial;
 
     for (size_t n=1; n<npoints; n++){
+        if (resume_sim && this->t[n] <= t_resume){
+            continue; // Don't reset already simulated states
+        }
         this->t[n] = this->t[n-1] + this->dt;
     }
-    this->run_steps();
+    this->run_steps(t_resume);
 }
 
 // Overrides the underlying Adams method, adding a more refined but computationally expensive treatment for the stiff Q^{ee} contribution to deltaf.
@@ -93,7 +105,7 @@ void Hybrid<T>::iterate(double t_initial, double t_final) {
  * @tparam T 
  */
 template<typename T>
-void Hybrid<T>::run_steps(){
+void Hybrid<T>::run_steps(double t_resume){
     assert(this->y.size() == this->t.size());
     assert(this->t.size() >= this->order);
 
@@ -108,7 +120,9 @@ void Hybrid<T>::run_steps(){
         std::cout << "\r[ sim ] t="
                   << std::left<<std::setfill(' ')<<std::setw(6)
                   << this->t[n] * Constant::fs_per_au << std::flush;  //TODO check if this multiplication is taxing.
-     
+        
+        if (this->t[n] <= t_resume) continue; // Skip loaded steps.
+
         this->step_nonstiff_part(n); 
         
         // this->y[n+1].from_backwards_Euler(this->dt, this->y[n], stiff_rtol, stiff_max_iter);

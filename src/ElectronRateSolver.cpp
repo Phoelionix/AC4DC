@@ -123,7 +123,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
     cout<<banner<<endl;
     cout<<"\033[33m"<<"Final time step:  "<<"\033[0m"<<(simulation_end_time)*Constant::fs_per_au<<" fs"<<endl;
     cout<<banner<<endl;
-    this->iterate(simulation_resume_time, simulation_end_time); // Inherited from ABM
+    this->iterate(simulation_start_time, simulation_end_time, simulation_resume_time); // Inherited from ABM
 
 
     cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<std::endl;
@@ -149,7 +149,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
         }
         retries--;
         this->setup(get_starting_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
-        this->iterate(simulation_resume_time, simulation_end_time); // Inherited from ABM
+        this->iterate(simulation_start_time, simulation_end_time, simulation_resume_time); // Inherited from ABM
     }
     
     
@@ -475,27 +475,46 @@ void ElectronRateSolver::tokenise(std::string str, std::vector<double> &out, con
 }
 
 void ElectronRateSolver::loadFreeRaw_and_times() {
-    vector<string> time_and_densities;
+    vector<string> time_and_BS_factors;
     const std::string& fname = load_free_fname;
     
-    ifstream infile(fname);
-    cout << "[ Free ] Loading free distribution from file. "<<fname<<"..."<<endl;
+    
+    cout << "[ Free ] Applying free distribution from file with order 64 gaussian quadrature."<<fname<<"..."<<endl;
     cout << "[ Caution ] Ensure same input files are used!"<<endl;
+    
+    ifstream infile(fname);
 	if (infile.good())
         std::cout<<"Opened successfully!"<<endl;
     else {
         std::cerr<<"Opening failed."<<endl;
 		exit(EXIT_FAILURE); // Quit with a huff.
         return;
-    }
+    }    
     
-    // READ
-    // get each raw line
+    // READ  
     string comment = "#";
     string grid_point_flag = "# Energy Knot:";
+        
+     // Count num lines
+    int num_steps = -3;
+    std::string line;
+    while (std::getline(infile, line))
+        ++num_steps;
+
+    int step_skip_size = 1;
+    int max_num_loaded_steps = 5000;
+    while(num_steps/step_skip_size > max_num_loaded_steps){
+        step_skip_size*=2;
+    }            
+    num_steps = num_steps/step_skip_size;           
+    // get each raw line
+    infile.clear();  
+    infile.seekg(0, std::ios::beg);
+    int count = -4;
     std::vector<double> saved_knots;
 	while (!infile.eof())
 	{    
+        count++;
         string line;
         getline(infile, line);
          // KNOTS
@@ -514,29 +533,16 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             continue;
         }
         if (!line.compare(0, 1, "")) continue;
-        time_and_densities.push_back(line);
+        if (count%(step_skip_size) != 0 || count < 0) continue;
+        time_and_BS_factors.push_back(line);
     }
 
     // Populate solver with distributions at each time step
-    int num_steps = time_and_densities.size();
-    int step_skip_size = 1;
-    int max_num_loaded_steps = 500;
-    while(num_steps/step_skip_size > max_num_loaded_steps){
-        step_skip_size*=2;
-    }     
-    num_steps = num_steps/step_skip_size;
     t.resize(num_steps,0);  // (Resized later by integrator for full sim.)
     y.resize(num_steps,y[0]);    
     bound_t saved_time(num_steps,0);  // this is a mere stand-in for t at best.
-    int count = 0;
-    for(const string elem : time_and_densities){
-        // skip over steps
-        if (count%(step_skip_size) != 0){
-            count++;
-            continue;
-        }
-        int i = count/step_skip_size;
-
+    int i = 0;
+    for(const string elem : time_and_BS_factors){
         // TIME
         std::istringstream s(elem);
         string str_time;
@@ -558,12 +564,9 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         y[i].F.set_distribution(saved_knots,saved_f);
         // To ensure compatibility, "translate" old distribution to new grid points.    
 
-        y[i].F.transform_to_new_basis(new_knots);  
-        if (i >= num_steps-1){
-            int tad = 0;
-        }        
+        y[i].F.transform_to_new_basis(new_knots);         
         t[i] = saved_time[i];
-        count++;
+        i++;
     }
 
     // Translate time to match input of THIS run. 

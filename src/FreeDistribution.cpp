@@ -345,12 +345,10 @@ void Distribution::transform_to_new_basis(std::vector<double> new_knots){
     //// Get knots that have densities
     std::vector<double> inner_knots = get_trimmed_knots(new_knots); 
     //// Compute densities for knots
-    //std::vector<double> new_densities(inner_knots.size(), 0);
     std::vector<std::vector<double>> new_densities(inner_knots.size(), std::vector<double>(64, 0));
     for (size_t i=0; i<inner_knots.size(); i++){
-        // Use current basis to generate density at new basis point.
-        // double e = inner_knots[i];
-        // new_densities[i] = (*this)(e);   
+        // Use current basis to generate density at new basis point.   
+        // Black magic.
         double a = basis.supp_min(i);
         double b = basis.supp_max(i);        
         for(size_t j=0; j < 64; j++){
