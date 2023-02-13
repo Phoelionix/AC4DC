@@ -111,11 +111,20 @@ public:
     }
 
     vector<double> get_knot_energies(){return basis.get_knot();}
+    
+    /**
+     * @brief Returns an order-preserved copy of knots with points that overlap with the basis's boundary removed.
+     * 
+     * @param knots Knot energies ordered from lowest to highest.
+     * @return std::vector<double> 
+    */
+    std::vector<double> get_trimmed_knots(std::vector<double> knots);
 
     /**
-     * @brief Replaces both grid points and their associated densities with the ones provided. 
+     * @brief Replaces non-boundary grid points and their associated densities with the ones provided. 
      * @details An alternative to set_elec_points() that allows for a specific distribution state to be set.
-     * @param d Distribution object that the caller sets its electron density to.
+     * @param new_knot new knots (Attention: all knots that are at or below basis._min, or above basis._max, are ignored)
+     * @param new_f new density
      * @return Distribution& 
      */
     void set_distribution(vector<double> new_knot, vector<double> new_f);
@@ -181,8 +190,13 @@ public:
 
     static std::string output_energies_eV(size_t num_pts);
     std::string output_densities(size_t num_pts) const;
-    // Switch grid points to the knot_energies provided, and replace densities with the ones interpolated to by the splines. 
-    void transform_to_new_basis(std::vector<double> non_boundary_knots, std::vector<double> all_knot_energies);
+    // 
+    /**
+     * @brief Switch grid points to the knot_energies provided, and replace densities with the ones interpolated to by the splines. 
+     * 
+     * @param all_knot_energies All knots including basis._max and basis._min. (Currently does not support replacing boundaries). 
+     */
+    void transform_to_new_basis(std::vector<double> new_knots);
     
     /// This does electron-electron because it is CURSED
     void from_backwards_Euler(double dt, const Distribution& prev_step, double tolerance, unsigned maxiter);

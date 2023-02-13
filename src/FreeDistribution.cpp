@@ -51,7 +51,9 @@ void Distribution::set_elec_points(size_t n, double min_e, double max_e, GridSpa
 }
 
 void Distribution::set_distribution(vector<double> new_knot, vector<double> new_f) {
-    f = new_f;
+    f = new_f; 
+    // Remove boundary knots
+    new_knot = get_trimmed_knots(new_knot);
     basis = new_knot;
 }
 
@@ -273,15 +275,31 @@ std::string Distribution::output_densities(size_t num_pts) const {
     return ss.str();
 }
 
-void Distribution::transform_to_new_basis(std::vector<double> non_boundary_knots, std::vector<double> all_knot_energies){
-    std::vector<double> new_densities(non_boundary_knots.size(),0);
-
-    for (size_t i=0; i<non_boundary_knots.size(); i++){
-        double e = non_boundary_knots[i];
-        new_densities[i] = (*this)(e);
+void Distribution::transform_to_new_basis(std::vector<double> new_knots){
+    //// Get knots that have densities
+    std::vector<double> inner_knots = get_trimmed_knots(new_knots); 
+    //// Compute densities for knots
+    std::vector<double> new_densities(inner_knots.size(),0);
+    for (size_t i=0; i<inner_knots.size(); i++){
+        // Use current basis to generate density at new basis point.
+        double e = inner_knots[i];
+        new_densities[i] = (*this)(e);  
     }
-    set_distribution(all_knot_energies,new_densities);
+    set_distribution(new_knots,new_densities);
 }
+
+// Could be moved to basis class if it is useful.
+std::vector<double> Distribution::get_trimmed_knots(std::vector<double> knots){
+    // Remove boundary knots
+    while(knots[0] <= basis.min_elec_e() && knots.size() > 0){
+        knots.erase(knots.begin());
+    }        
+    while (knots.back() > basis.max_elec_e() && knots.size() > 0){
+        knots.erase(knots.end() - 1);
+    }   
+    return knots;
+}
+
 
 /**
  * @brief Returns the spline-interpolated density at any energy 

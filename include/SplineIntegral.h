@@ -118,16 +118,31 @@ public:
     // }
     // 1000 times fewer components than QTBR, not a problem
 
-    /**
-     * @brief Sets the grid points to the energies given by the array 
+     /**
+     * @brief // Replaces inner knots with the ones provided, using the current boundaries to determine which are inner. 
+     * @details Note that knot[i] is just an energy. Intended for use in loading prev. simulation states.
      * 
-     * @param knot_energies The new knot vector, in case you knew not.
+     * @param inner_knots Inner knot energies in Hartrees [Ha]. The new (non-boundary) knot vector, in case you knew not.
      * @return SplineIntegral& 
      */
-    SplineIntegral& operator=(vector<double> knot_energies){
-        knot = knot_energies;   
+    SplineIntegral& operator=(vector<double> inner_knots){
+        // Count number of boundary knots
+        int lower = 0;
+        int upper = 0;
+        for(size_t k = 0; k  < knot.size(); k++){
+            if(knot[k] <= _min){  
+                lower++;}
+            else if (knot[k] > _max){ // note knot at _max is not boundary knot. knot.
+                upper++;}
+        }
+        // Remove inner knots
+        knot.erase(std::next(knot.begin(), lower), std::next(knot.begin(), knot.size()- upper));
+        // Insert new knots
+        knot.reserve(lower + inner_knots.size() + upper);
+        knot.insert(knot.begin() + lower,inner_knots.begin(),inner_knots.end());
         return *this;        
     }    
+
 
     vector<double> get_knot(){return knot;}
 

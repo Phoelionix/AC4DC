@@ -549,24 +549,10 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         this->tokenise(elem,saved_f);
         saved_f.erase(saved_f.begin());    
         // FREE DISTRIBUTION
-        // Fill old dist with grid points and densities. // No idea why this doesn't work - S.P.
-        //Distribution old_distribution; 
-        //old_distribution = 0 
-        // old_distribution.set_distribution(saved_knots,saved_f);
-        // // To ensure compatibility, "translate" old distribution to new grid points.
-        // old_distribution.transform_to_new_basis(y[0].F.get_knot_energies());
         std::vector<double> new_knots =  y[0].F.get_knot_energies();      
-        std::vector<double> non_boundary_knots =  y[0].F.get_knot_energies();  
         y[i].F.set_distribution(saved_knots,saved_f);
-        // To ensure compatibility, "translate" old distribution to new grid points.
-        // Remove boundary knots.
-        while(non_boundary_knots[0] == 0 && non_boundary_knots.size() > 0){
-            non_boundary_knots.erase(non_boundary_knots.begin());
-        }        
-        while (non_boundary_knots.back() > input_params.Max_Elec_E() && non_boundary_knots.size() > 0){
-            non_boundary_knots.pop_back();// or new_knots.erase(new_knots.end() - 1);
-        }            
-        y[i].F.transform_to_new_basis(non_boundary_knots,new_knots);  
+        // To ensure compatibility, "translate" old distribution to new grid points.    
+        y[i].F.transform_to_new_basis(new_knots);  
         t[i] = saved_time[i];
         count++;
     }
