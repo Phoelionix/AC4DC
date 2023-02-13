@@ -121,7 +121,7 @@ public:
     std::vector<double> get_trimmed_knots(std::vector<double> knots);
 
     /**
-     * @brief Replaces non-boundary grid points and their associated densities with the ones provided. 
+     * @brief Replaces non-boundary grid points and their associated density spline basis expansion factors with the ones provided. 
      * @details An alternative to set_elec_points() that allows for a specific distribution state to be set.
      * @param new_knot new knots (Attention: all knots that are at or below basis._min, or above basis._max, are ignored)
      * @param new_f new density
@@ -134,9 +134,9 @@ public:
     // modifiers
 
     /**
-     * @brief Updates the grid's density distribution (f) with a given deltaf in the spline basis.
+     * @brief Updates the grid's spline factors (f) with a given deltaf in the spline basis.
      * @details Adds to f, where f is the electron density vector. 
-     * @todo Original comment said v was column vector df/dt (density/time gradient), but likely mean the change in f for a time step. 
+     * @todo Original comment said v was column vector df/dt, but likely mean the change in f for a time step. 
      * This seems correct, given that dfdt is inputted for the spline basis's Sinv (S_inverse * <VectorXd input>) function, which names the input deltaf.
      * @param v deltaf
      */
@@ -161,6 +161,15 @@ public:
     
     /// Sets the object to have a MB distribution
     void add_maxwellian(double N, double T);
+
+    /**
+     * @brief 
+     * 
+     * @param densities Densities corresponding to each energy.
+     * @param energies Energies in ascending order.
+     */
+    void add_density_distribution(std::vector<vector<double>>);
+    //void add_density_distribution(vector<double>);
 
     // Precalculators
     static void Gamma_eii( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J) {
@@ -218,7 +227,7 @@ public:
     static size_t size;
 private:
     // double total;
-    std::vector<double> f;
+    std::vector<double> f;  // Spline expansion factor? TODO I called a lot of things densities that were the factor... S.P.
     static SplineIntegral basis;
     static size_t CoulombLog_cutoff;
     /// Coulomb repulsion is ignored if (d)ensity is below this threshold

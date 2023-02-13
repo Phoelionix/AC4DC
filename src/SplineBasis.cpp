@@ -313,7 +313,7 @@ void BasisSet::set_parameters(size_t num_of_funcs, double min, double max, const
         tripletList.push_back(Eigen::Triplet<double>(i,i,overlap(i, i)));
         // S(i,i) = overlap(i,i);
     }
-    /// Compute overlap matrix   //s\/ If we use the grid basis (with num_func splines) the splines overlap. S takes us to a spline-independent basis I believe.
+    /// Compute overlap matrix   //s\/ If we use the grid basis (with num_func splines) the splines overlap. S takes us to a spline-independent basis I believe -S.P.
     Eigen::SparseMatrix<double> S(num_funcs, num_funcs);  //s\/ rows and cols. 
     S.setFromTriplets(tripletList.begin(), tripletList.end());
     // Precompute the LU decomposition
@@ -342,17 +342,17 @@ void BasisSet::set_parameters(size_t num_of_funcs, double min, double max, const
 }
 
 /**
- * @brief Changes basis of vector deltaf from spline basis to grid basis, see details.
- * @details From SplineBasis.cpp - "If grid has num_funcs+k+1 points, num_funcs of these are usable splines".
+ * @brief Sinv = S inverse. Changes basis of vector deltaf from spline basis to grid basis and vice versa I think? -S.P.
+ * @details
  */
 Eigen::VectorXd BasisSet::Sinv(const Eigen::VectorXd& deltaf) {
-    // Solves the linear system S fdot = deltaf
+    // Solves the linear system S fdot = deltaf   (returning f dot -S.P.)
     return linsolver.solve(deltaf);
 }
 
 /**
- * @brief Changes basis of matrix J from spline basis to grid basis, see details.
- * @details From SplineBasis.cpp - "If grid has num_funcs +k+1 points, num_funcs of these are usable splines".
+ * @brief Sinv = S inverse.
+ * @details 
  */
 Eigen::MatrixXd BasisSet::Sinv(const Eigen::MatrixXd& J) {
     // Solves the linear system S fdot = deltaf

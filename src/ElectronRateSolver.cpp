@@ -436,13 +436,18 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
     f.close();
 }
 
+/**
+ * @brief Saves each time and corresponding B-spline coefficients.
+ * 
+ * @param fname 
+ */
 void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     ofstream f;
     cout << "[ Free ] Saving to file "<<fname<<"..."<<endl;
     f.open(fname);
     f << "# Free electron dynamics"<<endl;
     f << "# Energy Knot: "<< Distribution::output_knots_eV() << endl;
-    f << "# Time (fs) | Expansion Coeffs"  << endl;
+    f << "# Time (fs) | Expansion Coeffs (not density)"  << endl;
 
     assert(y.size() == t.size());
     
@@ -526,7 +531,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
     int count = 0;
     for(const string elem : time_and_densities){
         // skip over steps
-        if (count%step_skip_size != 0){
+        if (count%(step_skip_size) != 0){
             count++;
             continue;
         }
@@ -544,7 +549,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             // time is past the maximum
             break;
         }
-        // DENSITY
+        // SPLINE FACTORS
         std::vector<double> saved_f;
         this->tokenise(elem,saved_f);
         saved_f.erase(saved_f.begin());    
@@ -552,7 +557,11 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         std::vector<double> new_knots =  y[0].F.get_knot_energies();      
         y[i].F.set_distribution(saved_knots,saved_f);
         // To ensure compatibility, "translate" old distribution to new grid points.    
+
         y[i].F.transform_to_new_basis(new_knots);  
+        if (i >= num_steps-1){
+            int tad = 0;
+        }        
         t[i] = saved_time[i];
         count++;
     }

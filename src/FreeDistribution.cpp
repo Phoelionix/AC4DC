@@ -32,7 +32,7 @@ This file is part of AC4DC.
 // to remove asserts
 
 // Initialise static things
-size_t Distribution::size=0;
+size_t Distribution::size=0;  // modified by set_distribution now - S.P.
 size_t Distribution::CoulombLog_cutoff=0;
 double Distribution::CoulombDens_min=0;
 SplineIntegral Distribution::basis;
@@ -50,10 +50,11 @@ void Distribution::set_elec_points(size_t n, double min_e, double max_e, GridSpa
     cout<<"[ Free ] Neglecting electron-electron below density of n = "<<CoulombDens_min<<"au^-3"<<endl;
 }
 
-void Distribution::set_distribution(vector<double> new_knot, vector<double> new_f) {
-    f = new_f; 
+void Distribution::set_distribution(vector<double> new_knot, vector<double> new_spline_factors) {
+    f = new_spline_factors; 
     // Remove boundary knots
     new_knot = get_trimmed_knots(new_knot);
+    size = new_knot.size();
     basis = new_knot;
 }
 
@@ -212,8 +213,8 @@ void Distribution::add_maxwellian(double T, double N) {
         double a = basis.supp_min(i);
         double b = basis.supp_max(i);
         for (size_t j=0; j<10; j++) {
-            double e = (b-a)/2 *gaussX_10[j] + (a+b)/2;
-            v[i] +=  gaussW_10[j]*exp(-e/T)*basis(i, e)*pow(e,0.5);;
+            double e = (b-a)/2 *gaussX_10[j] + (a+b)/2;                 // (a+b)/2 = avg energy. 
+            v[i] +=  gaussW_10[j]*exp(-e/T)*basis(i, e)*pow(e,0.5);;   // Add gaussian's contribution. Equivalent to the naive way thanks to gaussian properties. -S.P.
         }
         v[i] *= (b-a)/2;
         v[i] *= N*pow(T, -1.5)*2/pow(Constant::Pi,0.5);
@@ -223,6 +224,71 @@ void Distribution::add_maxwellian(double T, double N) {
         this->f[i] += u[i];
     }
 }
+
+
+// void Distribution::add_density_distribution(vector<double> densities){
+//     assert(densities.size() == size);
+//     Eigen::VectorXd v(size);
+//     std::vector<double> energies = get_trimmed_knots(get_knot_energies());//basis.avg_e;//get_trimmed_knots(get_knot_energies());
+//     for (size_t i=0; i<size; i++) {
+//         v[i] = 0;
+//         double a = basis.supp_min(i);
+//         double b = basis.supp_max(i);
+//         v[i] += densities[i];//*basis(i, energies[i]);
+//         v[i] *= basis.areas[i];//*=(b-a)/2;
+//     }
+//     Eigen::VectorXd u = this->basis.Sinv(v);
+//     for (size_t i=0; i<size; i++) {
+//         this->f[i] += u[i];
+//     }
+// }
+
+void Distribution::add_density_distribution(vector<vector<double>> densities){
+    assert(densities.size() == size);
+    Eigen::VectorXd v(size);
+    std::vector<double> energies = get_trimmed_knots(get_knot_energies());//basis.avg_e;//get_trimmed_knots(get_knot_energies());
+    for (size_t i=0; i<size; i++) {
+        v[i] = 0;
+        double a = basis.supp_min(i);
+        double b = basis.supp_max(i);
+        for (size_t j=0; j<64; j++) {
+            double e = (b-a)/2 *gaussX_64[j] + (a+b)/2;
+            v[i] += gaussW_64[j]*basis(i, e)*densities[i][j]/pow(e,0.5);  // Don't ask me why this works I tried every possible combination until it worked like a crazy person. -S.P.
+        }
+        v[i] *= (b-a)/2;//*=densities[i]*(b-a)/2;
+    }
+    Eigen::VectorXd u = this->basis.Sinv(v);
+    for (size_t i=0; i<size; i++) {
+        this->f[i] += u[i];
+    }
+}
+
+// void Distribution::add_density_distribution(vector<double> densities){
+//     assert(densities.size() == size);
+//     Eigen::VectorXd v(size);
+//     std::vector<double> energies = get_trimmed_knots(get_knot_energies());//basis.avg_e;//get_trimmed_knots(get_knot_energies());
+//     for (size_t i=0; i<size; i++) {
+//         v[i] = 0;
+//         double a = basis.supp_min(i);
+//         double b = basis.supp_max(i);
+//         for (size_t j=0; j<64; j++) {
+//             double e = (b-a)/2 *gaussX_64[j] + (a+b)/2;
+//             v[i] += gaussW_64[j]*basis(i, e);
+//         }
+//         v[i] *= (b-a)/2*densities[i];//*=densities[i]*(b-a)/2;
+//     }
+//     Eigen::VectorXd u = this->basis.Sinv(v);
+//     for (size_t i=0; i<size; i++) {
+//         this->f[i] += u[i];
+//     }
+// }
+
+// // Widths stores the integral of the j^th B-spline
+// areas[i] = 0;
+// for (size_t j=0; j<10; j++){
+//     areas[i] += gaussW_10[j]*(*this)(i, gaussX_10[j]*diff+ avg_e[i]);
+// }
+// areas[i] *= diff;
 
 // ==========================
 // IO
@@ -279,13 +345,26 @@ void Distribution::transform_to_new_basis(std::vector<double> new_knots){
     //// Get knots that have densities
     std::vector<double> inner_knots = get_trimmed_knots(new_knots); 
     //// Compute densities for knots
-    std::vector<double> new_densities(inner_knots.size(),0);
+    //std::vector<double> new_densities(inner_knots.size(), 0);
+    std::vector<std::vector<double>> new_densities(inner_knots.size(), std::vector<double>(64, 0));
     for (size_t i=0; i<inner_knots.size(); i++){
         // Use current basis to generate density at new basis point.
-        double e = inner_knots[i];
-        new_densities[i] = (*this)(e);  
+        // double e = inner_knots[i];
+        // new_densities[i] = (*this)(e);   
+        double a = basis.supp_min(i);
+        double b = basis.supp_max(i);        
+        for(size_t j=0; j < 64; j++){
+            double e = (b-a)/2 *gaussX_64[j] + (a+b)/2;
+            new_densities[i][j] = (*this)(e);  
+        }
     }
-    set_distribution(new_knots,new_densities);
+    // Remove boundary knots
+    size = inner_knots.size();
+    basis = inner_knots;
+    // Set spline factors    
+    f = vector<double>(size,0);
+    add_density_distribution(new_densities);
+
 }
 
 // Could be moved to basis class if it is useful.
@@ -302,9 +381,10 @@ std::vector<double> Distribution::get_trimmed_knots(std::vector<double> knots){
 
 
 /**
- * @brief Returns the spline-interpolated density at any energy 
+ * @brief Returns the spline-interpolated electron density (in atomic units, Ha/a0^-3 [Hartree]/[bohr radius]^3) at any energy.
  * 
- * @param e 
+ * @details This does a dot product of the "Frobenius-treated" basis with each spline's expansion coefficient.
+ * @param e energy to get density from.
  * @return double 
  */
 double Distribution::operator()(double e) const{
