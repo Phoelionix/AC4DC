@@ -17,4 +17,7 @@ video
 *.mp4
 .ipynb_checkpoints
 ac4dc
+ac4dc_*
+MakefileDebug
+debug_ac4dc.out
 doxygen/*
