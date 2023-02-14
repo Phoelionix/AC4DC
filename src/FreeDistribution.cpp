@@ -277,7 +277,8 @@ void Distribution::add_density_distribution(vector<vector<double>> densities){
         v[i] = 0;
         double a = basis.supp_min(i);
         double b = basis.supp_max(i);
-        // This uses gaussian quadrature to approximate the integral of bspline_i.density_i between the boundaries of the splines, but with some basis shenanigans to spice it up.
+        // This uses gaussian quadrature (https://pomax.github.io/bezierinfo/legendre-gauss.html)
+        // to approximate the integral of bspline_i.density_i between the boundaries of the splines, but with some basis shenanigans to spice it up.
         // Thus v[i] would correspond to the total num electrons contributed by spline i. -S.P.
         for (size_t j=0; j<64; j++) {
             double e = (b-a)/2 *gaussX_64[j] + (a+b)/2;    // e = element E_i of gaussian quadrature sum

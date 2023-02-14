@@ -152,7 +152,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 	
 	for (int i = 0; i < Orbitals.size(); i++) {
 		if (std::isnan(Orbitals[Orbitals.size()-1].F[i])){throw std::invalid_argument("F invalid pre-Master!");}
-		Master(&Lattice, &Orbitals[i], &Potential, Master_tolerance, log);
+		if (Master(&Lattice, &Orbitals[i], &Potential, Master_tolerance, log)){throw std::invalid_argument("Master encountered an error.");}
 		if (std::isnan(Orbitals[Orbitals.size()-1].F[i])){throw std::invalid_argument("F invalid post-Master!");}
 	}
 
@@ -592,11 +592,11 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 	while (fabs(E_tmp / Psi->Energy) > Epsilon)
 	{
 		Alarm++;
-		if (Alarm > 25) {
+		if (Alarm > 29) {  // For some reason "corrupted size vs. prev_size" throws if alarm ends up reaching 30.  -S.P.
 			log << "Oops, Master failed to converge." << endl
 				<< "Practical infinity: " << Lattice->R(infinity) << endl
 				<< "n = " << Psi->N() << " l = " << Psi->L() << " Energy = " << Psi->Energy << endl;
-			cout << "WARNING, HF Master failed to converge! This may be bad luck - may be worth retrying the simulation a few times. See logs." <<endl;  //TODO figure out why this randomly happens otherwise make the whole thing restart. Started after parallelisation of plasma part of code, unsure if that's affecting this somehow.
+			cout << "WARNING, HF Master failed to converge! This may be bad parallelisation luck - may be worth retrying the simulation a few times. See logs." <<endl;  //TODO figure out why this randomly happens otherwise make the whole thing restart. Started after parallelisation of plasma part of code, unsure if that's affecting this somehow.
 			return 1;
 		}
 		
