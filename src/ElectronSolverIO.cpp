@@ -139,7 +139,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
     const std::string& fname = load_free_fname;
     
     
-    cout << "[ Free ] Applying free distribution from file with order 64 gaussian quadrature: "<<fname<<"..."<<endl;
+    cout << "[ Free ] Applying free distribution from file with order 10 gaussian quadrature: "<<fname<<"..."<<endl;
     cout << "[ Caution ] Ensure same input files are used!"<<endl;
     
     ifstream infile(fname);

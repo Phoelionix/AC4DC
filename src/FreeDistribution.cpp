@@ -205,6 +205,7 @@ void Distribution::from_backwards_Euler(double dt, const Distribution& prev_step
 // ============================
 // utility
 
+// See add_density_destribution comments
 // Expects T to have units of Ha
 void Distribution::add_maxwellian(double T, double N) {
     Eigen::VectorXd v(size);
@@ -213,8 +214,8 @@ void Distribution::add_maxwellian(double T, double N) {
         double a = basis.supp_min(i);
         double b = basis.supp_max(i);
         for (size_t j=0; j<10; j++) {
-            double e = (b-a)/2 *gaussX_10[j] + (a+b)/2;                 // (a+b)/2 = avg energy. 
-            v[i] +=  gaussW_10[j]*exp(-e/T)*basis(i, e)*pow(e,0.5);;   // Add gaussian's contribution. Equivalent to the naive way thanks to gaussian properties. -S.P.
+            double e = (b-a)/2 *gaussX_10[j] + (a+b)/2;                 
+            v[i] +=  gaussW_10[j]*exp(-e/T)*basis(i, e)*pow(e,0.5);; 
         }
         v[i] *= (b-a)/2;
         v[i] *= N*pow(T, -1.5)*2/pow(Constant::Pi,0.5);
@@ -253,8 +254,8 @@ void Distribution::transform_to_new_basis(std::vector<double> new_knots){
         // Black magic.
         double a = basis.supp_min(i);
         double b = basis.supp_max(i);        
-        for(size_t j=0; j < 10; j++){
-            double e = (b-a)/2 *gaussX_10[j] + (a+b)/2;
+        for(size_t j=0; j < 64; j++){
+            double e = (b-a)/2 *gaussX_64[j] + (a+b)/2;
             new_densities[i][j] = (*this)(e);  
         }
     }
@@ -268,6 +269,7 @@ void Distribution::transform_to_new_basis(std::vector<double> new_knots){
 }
 
 void Distribution::add_density_distribution(vector<vector<double>> densities){
+
     assert(densities.size() == size);
     Eigen::VectorXd v(size);
     std::vector<double> energies = get_trimmed_knots(get_knot_energies());//basis.avg_e;//get_trimmed_knots(get_knot_energies());
@@ -275,12 +277,15 @@ void Distribution::add_density_distribution(vector<vector<double>> densities){
         v[i] = 0;
         double a = basis.supp_min(i);
         double b = basis.supp_max(i);
-        for (size_t j=0; j<10; j++) {
-            double e = (b-a)/2 *gaussX_10[j] + (a+b)/2;
-            v[i] += gaussW_10[j]*basis.raw_bspline(i, e)*densities[i][j];  // Don't ask me why this works I just copied add_maxwellian and moved everything around like a crazy person -S.P.
+        // This uses gaussian quadrature to approximate the integral of bspline_i.density_i between the boundaries of the splines, but with some basis shenanigans to spice it up.
+        // Thus v[i] would correspond to the total num electrons contributed by spline i. -S.P.
+        for (size_t j=0; j<64; j++) {
+            double e = (b-a)/2 *gaussX_64[j] + (a+b)/2;    // e = element E_i of gaussian quadrature sum
+            v[i] += gaussW_64[j]*basis.raw_bspline(i, e)*densities[i][j];  // Don't ask me why this works I just copied add_maxwellian and moved everything around like a crazy person -S.P.
         }
         v[i] *= (b-a)/2;//*=densities[i]*(b-a)/2;
     }
+    // Su = v, where u[i] is the electron density, S is the (sparse) overlap matrix, and v[i] is the num electrons the spline represents. 
     Eigen::VectorXd u = this->basis.Sinv(v);
     for (size_t i=0; i<size; i++) {
         this->f[i] += u[i];
