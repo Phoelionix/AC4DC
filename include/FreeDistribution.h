@@ -42,6 +42,8 @@ This file is part of AC4DC.
 /**
  * @brief Electron distribution class.
  * @details Represents a statistical distribution of electron density. Internal units are atomic units.
+ * @note F is referred to as the distribution throughout the code. F[i] returns the i'th spline factor, but
+ * F.f is the container that holds the spline factors. F(e) expands out the basis to return the density at energy e. 
  */
 class Distribution
 {
@@ -50,6 +52,11 @@ public:
         f.resize(size);
     }
 
+    /**
+     * @brief Get spline factor at 
+     * @param n 
+     * @return 
+     */
     inline double& operator[](size_t n) {
         return this->f[n];
     }
@@ -62,7 +69,7 @@ public:
 
     /**
      * @brief Adds the densities of a distribution to the calling distribution.
-     * @param d The Distribution object whose densities are added to the caller
+     * @param d The Distribution object whose spline factors d.f are added to the caller
      * @return Distribution& 
      */
     Distribution& operator+=(const Distribution& d) {
@@ -87,7 +94,7 @@ public:
     }
 
     /**
-     * @brief Sets the electron distribution to equal that of the given Distribution. 
+     * @brief Sets the electron density distribution to equal that of the given Distribution. 
      * @param d Distribution object that the caller sets its electron density to.
      * @return Distribution& 
      */
@@ -98,7 +105,7 @@ public:
     }
 
     /**
-     * @brief Sets the electron densities at each grid point (energy) to the given double.
+     * @brief Sets the spline factors at each grid point (energy) to the given double.
      * @param y Value for the electron density to be set to. 
      * @return Distribution& 
      */
@@ -205,7 +212,8 @@ public:
      * @param all_knot_energies All knots including basis._max and basis._min. (Currently does not support replacing boundaries). 
      */
     void transform_to_new_basis(std::vector<double> new_knots);
-    
+    void transform_to_new_basis_but_cooler(std::vector<double> new_knots);
+    Eigen::VectorXd black_magic(std::vector<double> new_knots);
     /// This does electron-electron because it is CURSED
     void from_backwards_Euler(double dt, const Distribution& prev_step, double tolerance, unsigned maxiter);
 

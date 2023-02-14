@@ -31,14 +31,18 @@ This file is part of AC4DC.
 
 
 
-// Class responsible for storing the system state.
+/**
+ * @brief Class responsible for storing the system state at a moment in time.
+ * @details y[i] corresponds to t[i] throughout the plasma code, which is somewhat unfortunate.
+ * y[i].F and y.atomP are everything you'd want to pop on a plot's axes for time t[i]... perhaps, even, on the y-axis against t? -S.P.
+ */
 class state_type
 {
 public:
     /// Probabilities of state for all atoms.
     std::vector<bound_t> atomP; 
     /// Energy distribution function
-    Distribution F;   //TODO I want to rename this, it is confusing since F.f refers to the densities vector, but there are far too many "F" variables to do quickly and safely -S.P.
+    Distribution F;   
     double bound_charge;
 
     state_type();

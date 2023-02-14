@@ -62,7 +62,7 @@ class Hybrid : public Adams_BM<T>{
 // }
 
 template<typename T>
-// t_resume = the time to resume simulation from if loading a sim.
+// t_resume = the time to resume simulation from if loading a sim. -S.P.
 void Hybrid<T>::iterate(double t_initial, double t_final, double t_resume) {
 
     if (this->dt < 1E-16) {
@@ -76,6 +76,7 @@ void Hybrid<T>::iterate(double t_initial, double t_final, double t_resume) {
     bool resume_sim = (t_resume == t_initial) ? false : true;
 
     if (resume_sim){
+        // TODO implement assertion that density isn't empty.
         npoints -= ((t_resume-t_initial)/this->dt + 1);
         npoints += this->t.size();
     }

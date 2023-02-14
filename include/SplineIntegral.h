@@ -29,6 +29,7 @@ This file is part of AC4DC.
 #include "SplineBasis.h"
 #include <omp.h>
 
+
 struct SparsePair
 {
     int idx;
@@ -163,6 +164,8 @@ public:
     Q_eii_t Q_EII;
     Q_tbr_t Q_TBR;
     Q_ee_t Q_EE;
+    static constexpr double DBL_CUTOFF_QEE = 1e-16;
+
 protected:
     // Computes the overlap of the J^th df/ft term with the K^th basis function in f
     double calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_t K) const;
@@ -177,7 +180,6 @@ protected:
     bool _has_Qee = false;  // Flags wheter Q_EE has been calculated
 
     static constexpr double DBL_CUTOFF_TBR = 1e-16; // 1e-16 is smallest machine pracision -S.P.
-    static constexpr double DBL_CUTOFF_QEE = 1e-16;
 };
 
 #endif /* end of include guard: AC4DC_SPLINEINTEGRAL_CXX_H */

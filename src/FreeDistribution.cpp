@@ -243,6 +243,46 @@ void Distribution::add_maxwellian(double T, double N) {
 //     }
 // }
 
+void Distribution::transform_to_new_basis(std::vector<double> new_knots){
+    //// Get knots that have densities
+    std::vector<double> inner_knots = get_trimmed_knots(new_knots); 
+    //// Compute densities for knots
+    std::vector<std::vector<double>> new_densities(inner_knots.size(), std::vector<double>(64, 0));
+    for (size_t i=0; i<inner_knots.size(); i++){
+        // Use current basis to generate density at new basis point.   
+        // Black magic.
+        double a = basis.supp_min(i);
+        double b = basis.supp_max(i);        
+        for(size_t j=0; j < 10; j++){
+            double e = (b-a)/2 *gaussX_10[j] + (a+b)/2;
+            new_densities[i][j] = (*this)(e);  
+        }
+    }
+    // Remove boundary knots
+    size = inner_knots.size();
+    basis = inner_knots;
+    // Set spline factors    
+    f = vector<double>(size,0);
+    add_density_distribution(new_densities);
+
+}
+
+/**
+ * @brief Intended to be a more accurate version that just rips the same idea used in calc_Q_ee. 
+ * 
+ * @param new_knots 
+ */
+/*
+void Distribution::transform_to_new_basis_but_cooler(std::vector<double> new_knots){
+    // Get the goods
+    Eigen::VectorXd u = black_magic(new_knots);
+    for (size_t i=0; i<size; i++) {
+        this->f[i] = u[i];
+    }    
+}
+
+*/
+
 void Distribution::add_density_distribution(vector<vector<double>> densities){
     assert(densities.size() == size);
     Eigen::VectorXd v(size);
@@ -251,9 +291,9 @@ void Distribution::add_density_distribution(vector<vector<double>> densities){
         v[i] = 0;
         double a = basis.supp_min(i);
         double b = basis.supp_max(i);
-        for (size_t j=0; j<64; j++) {
-            double e = (b-a)/2 *gaussX_64[j] + (a+b)/2;
-            v[i] += gaussW_64[j]*basis.raw_bspline(i, e)*densities[i][j];  // Don't ask me why this works I just copied add_maxwellian and moved everything around like a crazy person -S.P.
+        for (size_t j=0; j<10; j++) {
+            double e = (b-a)/2 *gaussX_10[j] + (a+b)/2;
+            v[i] += gaussW_10[j]*basis.raw_bspline(i, e)*densities[i][j];  // Don't ask me why this works I just copied add_maxwellian and moved everything around like a crazy person -S.P.
         }
         v[i] *= (b-a)/2;//*=densities[i]*(b-a)/2;
     }
@@ -261,6 +301,81 @@ void Distribution::add_density_distribution(vector<vector<double>> densities){
     for (size_t i=0; i<size; i++) {
         this->f[i] += u[i];
     }
+}
+
+
+/**
+ * @brief A goofy attempt at a Calc_Q_ee mimic
+ * 
+ * @param new_inner_knots 
+ * @return
+ */
+/*
+Eigen::VectorXd Distribution::black_magic(std::vector<double> new_knots){
+    //// Remove boundary grid points (that do not correspond to splines).
+    std::vector<double> inner_knots = get_trimmed_knots(new_knots);     
+
+    Eigen::VectorXd v(size);
+
+    for (size_t L = 0; L < basis.num_funcs; L++) {
+        double total=0;
+        double min_point = basis.supp_min(L);
+        double max_point = basis.supp_max(L);
+        
+        if (max_point <= min_point) continue;
+
+        for (auto&& boundary : basis.knots_between(min_point,max_point)){
+            double tmp=0;
+            if (boundary.first < basis.DBL_CUTOFF_QEE) {
+                for (size_t i = 0; i < GAUSS_ORDER_SQRT; i++) {
+                    double e = boundary.second*(gaussX_sqrt[i] + 1)/2.;
+                    double density = (*this)(e);
+                    tmp += gaussW_sqrt[i]*basis.raw_bspline(i,e)*density;
+                }
+                tmp *= pow(boundary.second/2, 0.5);
+                static_assert(USING_SQRTE_PREFACTOR);
+            } else {
+                double diff = (boundary.second - boundary.first)/2.;
+                double avg = (boundary.second + boundary.first)/2.;
+                for (size_t i = 0; i < GAUSS_ORDER_EE; i++) {
+                    double e = gaussX_EE[i] * diff + avg;
+                    double density = (*this)(e);
+                    static_assert(USING_SQRTE_PREFACTOR);
+                    tmp += gaussW_EE[i]*basis.raw_bspline(i,e)*density;
+                }
+                tmp *= diff;
+            }
+            total += tmp;
+        }
+        if (fabs(total) > basis.DBL_CUTOFF_QEE){        
+            v[L] = total;
+        }
+
+        // // Multiply by alpha
+        // total *= 2./3.*Constant::Pi*sqrt(2);
+        // // N.B. this value still needs to be multiplied by the Coulomb logarithm.
+        // if (fabs(total) > DBL_CUTOFF_QEE){
+        //     SparsePair s;
+        //     s.idx = L;
+        //     s.val = total;
+        //     p.push_back(s);
+        // }
+    }
+    return basis.Sinv(v);
+}
+*/
+
+
+// Could be moved to basis class if it is useful.
+std::vector<double> Distribution::get_trimmed_knots(std::vector<double> knots){
+    // Remove boundary knots
+    while(knots[0] <= basis.min_elec_e() && knots.size() > 0){
+        knots.erase(knots.begin());
+    }        
+    while (knots.back() > basis.max_elec_e() && knots.size() > 0){
+        knots.erase(knots.end() - 1);
+    }   
+    return knots;
 }
 
 // void Distribution::add_density_distribution(vector<double> densities){
@@ -339,42 +454,6 @@ std::string Distribution::output_densities(size_t num_pts) const {
         }
     }
     return ss.str();
-}
-
-void Distribution::transform_to_new_basis(std::vector<double> new_knots){
-    //// Get knots that have densities
-    std::vector<double> inner_knots = get_trimmed_knots(new_knots); 
-    //// Compute densities for knots
-    std::vector<std::vector<double>> new_densities(inner_knots.size(), std::vector<double>(64, 0));
-    for (size_t i=0; i<inner_knots.size(); i++){
-        // Use current basis to generate density at new basis point.   
-        // Black magic.
-        double a = basis.supp_min(i);
-        double b = basis.supp_max(i);        
-        for(size_t j=0; j < 64; j++){
-            double e = (b-a)/2 *gaussX_64[j] + (a+b)/2;
-            new_densities[i][j] = (*this)(e);  
-        }
-    }
-    // Remove boundary knots
-    size = inner_knots.size();
-    basis = inner_knots;
-    // Set spline factors    
-    f = vector<double>(size,0);
-    add_density_distribution(new_densities);
-
-}
-
-// Could be moved to basis class if it is useful.
-std::vector<double> Distribution::get_trimmed_knots(std::vector<double> knots){
-    // Remove boundary knots
-    while(knots[0] <= basis.min_elec_e() && knots.size() > 0){
-        knots.erase(knots.begin());
-    }        
-    while (knots.back() > basis.max_elec_e() && knots.size() > 0){
-        knots.erase(knots.end() - 1);
-    }   
-    return knots;
 }
 
 
@@ -526,10 +605,10 @@ double Distribution::integral(double (g)(double)) {
     return retval;
 }
 
-
 ostream& operator<<(ostream& os, const Distribution& dist) {
     for (size_t i= 0; i < Distribution::size; i++) {
         os<<" "<<dist[i]/Constant::eV_per_Ha;
     }
     return os;
 }
+

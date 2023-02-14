@@ -526,7 +526,8 @@ inline double SplineIntegral::Q_ee_G(double e, size_t K) const {
 // Uses a modified form of the result quoted by Rockwood 1973, 
 // "Elastic and Inelastic Cross Sections for Electron-Hg Scattering From Hg Transport Data"
 // Originally attributable to Rosenbluth
-// N.B. this is NOT an efficient implementation, but it only runs once -  \_( '_')_/
+// N.B. this is NOT an efficient implementation, but it only runs once -  \_( '_')_/    <<*Cries in trying to load simulation state* - S.P.>>
+// J, K, L refer to spline indices.
 SplineIntegral::pair_list SplineIntegral::calc_Q_ee(size_t J, size_t K) const {
     double J_min = this->supp_min(J);
     double J_max = this->supp_max(J);

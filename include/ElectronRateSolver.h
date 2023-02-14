@@ -123,7 +123,7 @@ private:
     /// Saves a table of free-electron dynamics to file fname
     void saveFree(const std::string& file);
     void saveFreeRaw(const std::string& fname);
-    /// Loads the table at the given time
+    /// Loads the table of free-electron dynamics at the given time
     void loadFreeRaw_and_times();
     void loadBound();
     /// saves a table of bound-electron dynamics , split by atom, to folder dir.
