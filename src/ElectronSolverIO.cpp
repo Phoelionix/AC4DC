@@ -245,7 +245,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         y[i].F.set_distribution(saved_knots,saved_f);
         // To ensure compatibility, "translate" old distribution to new grid points.    
 
-        y[i].F.transform_to_new_basis_but_cooler(new_knots);         
+        y[i].F.transform_to_new_basis(new_knots);         
         t[i] = saved_time[i];
         i++;
     }

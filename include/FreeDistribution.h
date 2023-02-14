@@ -212,8 +212,7 @@ public:
      * @param all_knot_energies All knots including basis._max and basis._min. (Currently does not support replacing boundaries). 
      */
     void transform_to_new_basis(std::vector<double> new_knots);
-    void transform_to_new_basis_but_cooler(std::vector<double> new_knots);
-    Eigen::VectorXd black_magic(std::vector<double> new_knots);
+
     /// This does electron-electron because it is CURSED
     void from_backwards_Euler(double dt, const Distribution& prev_step, double tolerance, unsigned maxiter);
 

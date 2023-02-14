@@ -267,22 +267,6 @@ void Distribution::transform_to_new_basis(std::vector<double> new_knots){
 
 }
 
-/**
- * @brief Intended to be a more accurate version that just rips the same idea used in calc_Q_ee. 
- * 
- * @param new_knots 
- */
-/*
-void Distribution::transform_to_new_basis_but_cooler(std::vector<double> new_knots){
-    // Get the goods
-    Eigen::VectorXd u = black_magic(new_knots);
-    for (size_t i=0; i<size; i++) {
-        this->f[i] = u[i];
-    }    
-}
-
-*/
-
 void Distribution::add_density_distribution(vector<vector<double>> densities){
     assert(densities.size() == size);
     Eigen::VectorXd v(size);
@@ -303,70 +287,6 @@ void Distribution::add_density_distribution(vector<vector<double>> densities){
     }
 }
 
-
-/**
- * @brief A goofy attempt at a Calc_Q_ee mimic
- * 
- * @param new_inner_knots 
- * @return
- */
-/*
-Eigen::VectorXd Distribution::black_magic(std::vector<double> new_knots){
-    //// Remove boundary grid points (that do not correspond to splines).
-    std::vector<double> inner_knots = get_trimmed_knots(new_knots);     
-
-    Eigen::VectorXd v(size);
-
-    for (size_t L = 0; L < basis.num_funcs; L++) {
-        double total=0;
-        double min_point = basis.supp_min(L);
-        double max_point = basis.supp_max(L);
-        
-        if (max_point <= min_point) continue;
-
-        for (auto&& boundary : basis.knots_between(min_point,max_point)){
-            double tmp=0;
-            if (boundary.first < basis.DBL_CUTOFF_QEE) {
-                for (size_t i = 0; i < GAUSS_ORDER_SQRT; i++) {
-                    double e = boundary.second*(gaussX_sqrt[i] + 1)/2.;
-                    double density = (*this)(e);
-                    tmp += gaussW_sqrt[i]*basis.raw_bspline(i,e)*density;
-                }
-                tmp *= pow(boundary.second/2, 0.5);
-                static_assert(USING_SQRTE_PREFACTOR);
-            } else {
-                double diff = (boundary.second - boundary.first)/2.;
-                double avg = (boundary.second + boundary.first)/2.;
-                for (size_t i = 0; i < GAUSS_ORDER_EE; i++) {
-                    double e = gaussX_EE[i] * diff + avg;
-                    double density = (*this)(e);
-                    static_assert(USING_SQRTE_PREFACTOR);
-                    tmp += gaussW_EE[i]*basis.raw_bspline(i,e)*density;
-                }
-                tmp *= diff;
-            }
-            total += tmp;
-        }
-        if (fabs(total) > basis.DBL_CUTOFF_QEE){        
-            v[L] = total;
-        }
-
-        // // Multiply by alpha
-        // total *= 2./3.*Constant::Pi*sqrt(2);
-        // // N.B. this value still needs to be multiplied by the Coulomb logarithm.
-        // if (fabs(total) > DBL_CUTOFF_QEE){
-        //     SparsePair s;
-        //     s.idx = L;
-        //     s.val = total;
-        //     p.push_back(s);
-        // }
-    }
-    return basis.Sinv(v);
-}
-*/
-
-
-// Could be moved to basis class if it is useful.
 std::vector<double> Distribution::get_trimmed_knots(std::vector<double> knots){
     // Remove boundary knots
     while(knots[0] <= basis.min_elec_e() && knots.size() > 0){
@@ -377,33 +297,6 @@ std::vector<double> Distribution::get_trimmed_knots(std::vector<double> knots){
     }   
     return knots;
 }
-
-// void Distribution::add_density_distribution(vector<double> densities){
-//     assert(densities.size() == size);
-//     Eigen::VectorXd v(size);
-//     std::vector<double> energies = get_trimmed_knots(get_knot_energies());//basis.avg_e;//get_trimmed_knots(get_knot_energies());
-//     for (size_t i=0; i<size; i++) {
-//         v[i] = 0;
-//         double a = basis.supp_min(i);
-//         double b = basis.supp_max(i);
-//         for (size_t j=0; j<64; j++) {
-//             double e = (b-a)/2 *gaussX_64[j] + (a+b)/2;
-//             v[i] += gaussW_64[j]*basis(i, e);
-//         }
-//         v[i] *= (b-a)/2*densities[i];//*=densities[i]*(b-a)/2;
-//     }
-//     Eigen::VectorXd u = this->basis.Sinv(v);
-//     for (size_t i=0; i<size; i++) {
-//         this->f[i] += u[i];
-//     }
-// }
-
-// // Widths stores the integral of the j^th B-spline
-// areas[i] = 0;
-// for (size_t j=0; j<10; j++){
-//     areas[i] += gaussW_10[j]*(*this)(i, gaussX_10[j]*diff+ avg_e[i]);
-// }
-// areas[i] *= diff;
 
 // ==========================
 // IO
