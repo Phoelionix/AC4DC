@@ -19,7 +19,7 @@ This file is part of AC4DC.
 #include <algorithm>
 #include <iostream>
 
-RadialWF::RadialWF(const RadialWF& other) : PairFunction(other), l(other.l), Energy(other.Energy), n(other.n), infinity(other.infinity), turn(other.turn), occup_number(other.occup_number)
+RadialWF::RadialWF(const RadialWF& other) : PairFunction(other), l(other.l), Energy(other.Energy), n(other.n), infinity(other.infinity), turn(other.turn), occup_number(other.occup_number),shell_flag(other.shell_flag) // Necessary due to use of push_back. Cursed. - S.P. 
 {}
 
 int RadialWF::check_nodes()

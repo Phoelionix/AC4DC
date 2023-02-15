@@ -34,7 +34,7 @@ public:
 		turn = 0;
 		Energy = 0;
 		occup_number = 0;
-		shell_flag = false;
+		shell_flag = false;   // If you want to add variables here ensure you add it to the constructor in RadialWF.cpp or it will become uninitialised due to std::push_back()'s destructor then constructor calls. -S.P.
 	}
 	RadialWF(const RadialWF& other);
 
