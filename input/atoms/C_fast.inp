@@ -17,7 +17,7 @@ length       // Gauge type for matrix elements involving photon absorption/emiss
 0.001	      // Origin of the coordinate grid. Should be > 0.
 70	          // Box radius, maximum distance from the nucleus.
 1000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation soluving step.
-7             // Number of threads in OpenMP.
+7             // Number of threads in OpenMP. (overridden by molinp)
 // Hartree-Fock implementation numerical parameters.
 -6            // Hartree-Fock tolerance.
 -10           // Radial Schroedinger equation solver, tolerance (Master).

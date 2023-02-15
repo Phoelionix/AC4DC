@@ -117,13 +117,20 @@ void ElectronRateSolver::solve(ofstream & _log) {
 
     if (simulation_resume_time > simulation_end_time){cout << "\033[91m[ Error ]\033[0m Simulation is attempting to resume from loaded data with a time after that which it is set to end at." << endl;}
     
+    int steps_per_time_update = max(1 , (int)(input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
+
     // Call hybrid integrator to iterate through the time steps (good state)
     good_state = true;
     const string banner = "================================================================================";
     cout<<banner<<endl;
+    if (steps_per_time_update > 1){
+        cout<< "Updating time every " << steps_per_time_update << " steps." <<"\n";
+    }
     cout<<"\033[33m"<<"Final time step:  "<<"\033[0m"<<(simulation_end_time)*Constant::fs_per_au<<" fs"<<endl;
     cout<<banner<<endl;
-    this->iterate(simulation_start_time, simulation_end_time, simulation_resume_time); // Inherited from ABM
+    
+    
+    this->iterate(simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
 
 
     cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<std::endl;
@@ -149,7 +156,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
         }
         retries--;
         this->setup(get_starting_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
-        this->iterate(simulation_start_time, simulation_end_time, simulation_resume_time); // Inherited from ABM
+        this->iterate(simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
     }
     
     
@@ -174,7 +181,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
     cout <<"[ Solver ] get_Q_eii() took "<< eii_m.count() <<"m " << eii_s.count()%60 << "s" << endl;
     cout <<"[ Solver ] get_Q_tbr() took "<< tbr_m.count() <<"m " << tbr_s.count()%60 << "s" << endl;
     cout <<"[ Solver ] apply_delta() took "<< apply_delta_m.count() <<"m " << apply_delta_s.count()%60 << "s" << endl;
-    cout <<"[ Solver ] misc processes took "<< misc_m.count() <<"m " << misc_s.count()%60 << "s" << endl;
+    cout <<"[ Solver ] some misc processes took "<< misc_m.count() <<"m " << misc_s.count()%60 << "s" << endl;
     log_extra_details(_log);
 
 }
@@ -227,6 +234,8 @@ void ElectronRateSolver::precompute_gamma_coeffs() {
 
 // Non-stiff part of the system. Bound-electron dynamics.
 void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, const double t) {
+    const int threads = input_params.Plasma_Threads();
+    
     sdot=0;
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
 
@@ -269,8 +278,8 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, const 
         auto t9 = std::chrono::high_resolution_clock::now();
         double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
         double sdot_bound_charge_subst = 0; 
-        size_t N = Distribution::size;
-        #pragma omp parallel for num_threads(17) reduction(+ : Pdot_subst,sdot_bound_charge_subst)     
+        size_t N = Distribution::size; 
+        #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_subst)     
         for (size_t n=0; n<N; n++) {
             double tmp=0; // aggregator
             
@@ -289,7 +298,6 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, const 
             #ifndef NO_TBR
             // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
             // Note that RATE_TBR has the same geometry as InverseEIIdata.
-            // [Parallel] Insignificant compared to get_Q_tbr
             for (size_t m=n+1; m<N; m++) {
                 size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                 // k = N... N(N+1)/2-1
@@ -303,7 +311,6 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, const 
                     }
                 }
             }
-            // [Parallel] Insignificant compared to get_Q_tbr
             // the diagonal
             // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
             for (size_t init=0;  init<RATE_TBR[a][n].size(); init++) {
@@ -330,7 +337,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, const 
         #warning No impact ionisation
         #else
         auto t1 = std::chrono::high_resolution_clock::now();
-        s.F.get_Q_eii(vec_dqdt, a, P);
+        s.F.get_Q_eii(vec_dqdt, a, P, threads);
         auto t2 = std::chrono::high_resolution_clock::now();
         eii_time += t2 - t1;
         #endif
@@ -338,7 +345,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, const 
         #warning No three-body recombination
         #else
         auto t3 = std::chrono::high_resolution_clock::now();
-        s.F.get_Q_tbr(vec_dqdt, a, P);  // This is essentially the computational bulk of the program at present - S.P.
+        s.F.get_Q_tbr(vec_dqdt, a, P, threads);  // Serially, this is the computational bulk of the program - S.P.
         auto t4 = std::chrono::high_resolution_clock::now();
         tbr_time += t4 - t3;
         #endif
@@ -378,7 +385,7 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot, const dou
     #warning No electron-electron interactions
     #else
     auto t5 = std::chrono::high_resolution_clock::now();
-    s.F.get_Q_ee(vec_dqdt); // Electron-electon repulsions
+    s.F.get_Q_ee(vec_dqdt, input_params.Plasma_Threads()); // Electron-electon repulsions
     auto t6 = std::chrono::high_resolution_clock::now();
     ee_time += t6 - t5;
     #endif

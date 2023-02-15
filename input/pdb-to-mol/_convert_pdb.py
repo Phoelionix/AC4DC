@@ -164,6 +164,7 @@ def make_plasma_input(outfile, **kwargs):
 
   plasma_file.write("""\n#DEBUG\n""")
   plasma_file.write("""1         // Proportion of time steps to iterate through before stopping early.\n""")
+  plasma_file.write("""0.001         // Interval to update current timestep [fs].\n""")
   plasma_file.write("####END####\n\n")
   
   plasma_file.write("Notes:")

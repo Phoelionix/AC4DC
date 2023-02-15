@@ -147,6 +147,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		stringstream stream(FileContent["#DEBUG"][n]);
 
 		if (n == 0) stream >> simulation_cutoff_fraction;
+		if (n == 1) stream >> time_update_gap;
 
 	}
 
@@ -198,6 +199,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 
 	// Convert to atomic units.
 	width /= Constant::fs_per_au;
+	time_update_gap /= Constant::fs_per_au;
 	loss_geometry.L0 /= Constant::Angs_per_au;
 	unit_V /= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
 
