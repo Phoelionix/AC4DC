@@ -9,19 +9,19 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 #PULSE
 6000         // Photon energy in eV.
 10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-2000         // Pulse fluence in 10^4 * J/cm^2.  // - At the focal point it was 2000 for HR, so the added 500 must be a correction accounting for energy from outside the focus? TODO Or it should be 2000. Still testing. - S.P.
+2500         // Pulse fluence in 10^4 * J/cm^2. This is to 2 S.Fs the fluence for 2mJ on a 100 nm spot. 1.28 mJ corresponds to Neutze for 6keV photons.
 square       // Pulse shape
 
 #NUMERICAL
 1500000          // (400k works for 35_100 grid) Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
-17            // Number of threads in OpenMP.
+12            // Number of threads in OpenMP.
 0             // [only for nonthermal] minimum free-electron energy in eV
 10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
 150           // total number of free-electron grid points
 wiggledestruction        // electron grid type
 50              // Number of "low-energy" grid points (hybrid & powerlaw grids only, not for hybrid_power grids though!!!)
 2000          // transition energy in eV (used for grid point boundary, unless hybrid_power grid.)
-1|2|35|45|80|105|165|170                // boundary indices, with first point excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
+1|2|35|60|100|125|185|190                // boundary indices, with first point excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
 5|10|50|200|500|4500|6500|10000        // boundary energies, with first point excluded. No spaces.
 
 
@@ -34,9 +34,20 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-0.091  // 0.1 for -6fs. Proportion of time steps to iterate through before stopping early. TODO Left as a proportion for now since it requires less understanding of code, but inputs should be made clearer (can set start time and end time, and proportion of time that is pulse or (2?)*FWHM for example).
-0.0001    // Interval to update current timestep [fs].
+0.25      //0.0075 = -10 to -9.7 fs (time period over which wiggle tends to appear), 0.00001 for a few steps (good for determinining initial wiggle quickly).      // Proportion of time steps to iterate through before stopping early. TODO Left as a proportion for now since it requires less understanding of code, but inputs should be made clearer (can set start time and end time, and proportion of time that is pulse or (2?)*FWHM for example).
+0.001    // Interval to update current timestep [fs].
 ####END#####
 
 Notes:
-Carbon_294 file
+
+---
+
+Grid point regions:
+eV|
+0-5 | empty, apart from point(s) at 0. 
+5   | Lowest non-zero gp.
+10-50   | sharp MB peak 
+50-200  | MB peak later times
+200-500 | auger peaks 
+500-4500| transition region
+4500-6500| photoelectron delta-like peak 

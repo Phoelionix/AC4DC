@@ -59,17 +59,14 @@ void Distribution::set_distribution(vector<double> new_knot, vector<double> new_
 }
 
 // Adds Q_eii to the parent Distribution
-void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const {
+void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P, const int threads) const {
     assert(basis.has_Qeii());
     assert(P.size() == basis.Q_EII[a].size());
     assert((unsigned) v.size() == size);
-    
-    //#pragma omp parallel for num_threads(16) collapse(3)  // [1.b)Parallel] Notable speed increase, cuts off an additional 25% of time after TBR . Messes up output though.
-    
     for (size_t xi=0; xi<P.size(); xi++) {
         // Loop over configurations that P refers to
         double v_copy [size] = {0};
-        #pragma omp parallel for num_threads(17) reduction(+ : v_copy)
+        #pragma omp parallel for num_threads(threads) reduction(+ : v_copy)
         for (size_t J=0; J<size; J++) {
             for (size_t K=0; K<size; K++) {
                 v_copy[J] += P[xi]*f[K]*basis.Q_EII[a][xi][J][K];
@@ -88,27 +85,24 @@ void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) co
  * @param P d/dt P[i] = \sum_i=1^N W_ij - W_ji ~~~~ P[j] = d/dt(average-atomic-state)
  */
 // Puts the Q_TBR changes in the supplied vector v
-void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) const {
+void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P, const int threads) const {
     assert(basis.has_Qtbr());
     assert(P.size() == basis.Q_TBR[a].size());
-    //#pragma omp parallel for num_threads(16) collapse(2)   // [1.a)Parallel] BIG speed increase (about 2/3rds of time saved). The collapse cuts off 20% more time than without. TODO make [parallel] notes clearer or remove.
-    for (size_t eta=0; eta<P.size(); eta++) {
-        //#pragma omp parallel for num_threads(17)            // [2.Parallel] This may be worse on high-performance computing, but on 16/4 3.8Ghz/4.9Ghz desktop this improved the 22 s process to 18 s (total sim. time 30 s so a 13% cut).
+    double v_copy [size] = {0}; 
+    #pragma omp parallel for num_threads(threads) reduction(+ : v_copy) collapse(2)
+    for (size_t eta=0; eta<P.size(); eta++) {          
         // Loop over configurations that P refers to
-        double v_copy [size] = {0}; 
-        #pragma omp parallel for num_threads(17) reduction(+ : v_copy) // [4.Parallel] RIDICULOUSLY faster, only takes 5 s now as opposed to 12!!!!!
         for (size_t J=0; J<size; J++) {                   // size = num grid points
-            //#pragma omp parallel for num_threads(17) reduction(+ : v_copy[J])         // [3.Parallel] Insanely faster, function is now 12 s rather than 18 s
             for (auto& q : basis.Q_TBR[a][eta][J]) {   // Thousands of iterations for each J - S.P.
                  v_copy[J] += q.val * P[eta] * f[q.K] * f[q.L];
             }
         }
-        v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
     }
+    v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
 }
 
 // Puts the Q_EE changes in the supplied vector v
-void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
+void Distribution::get_Q_ee(Eigen::VectorXd& v, const int threads) const {
     assert(basis.has_Qee());
     double CoulombLog = this->CoulombLogarithm();
     // double CoulombLog = 3.4;
@@ -120,16 +114,16 @@ void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     // cerr<<"LnDebLen = "<<LnLambdaD<<endl;
     // A guess. This should only happen when density is zero, so Debye length is infinity.
     // Guess the sample size is about 10^5 Bohr. This shouldn't ultimately matter much.   /// Attention - S.P.
+    double v_copy [size] = {0}; 
+    #pragma omp parallel for num_threads(threads) reduction(+ : v_copy)  collapse(2)       
     for (size_t J=0; J<size; J++) {
-        double v_copy [size] = {0}; 
-        #pragma omp parallel for num_threads(17) reduction(+ : v_copy)         
         for (size_t K=0; K<size; K++) {
             for (auto& q : basis.Q_EE[J][K]) {
                  v_copy[J] += q.val * f[K] * f[q.idx] * CoulombLog;
             }
         }
-        v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
     }
+    v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
 }
 
 void Distribution::get_Jac_ee(Eigen::MatrixXd& M) const{   // Unused currently -S.P.
@@ -244,28 +238,30 @@ void Distribution::add_maxwellian(double T, double N) {
 //     }
 // }
 
+// Assumes new basis has same B spline order.
 void Distribution::transform_to_new_basis(std::vector<double> new_knots){
+    int new_basis_order = basis.BSPLINE_ORDER;
     //// Get knots that have densities
-    std::vector<double> inner_knots = get_trimmed_knots(new_knots); 
+    int num_new_splines = get_trimmed_knots(new_knots).size();   // TODO replace get_trimmed_knots with get_num_funcs?. 
     //// Compute densities for knots
-    std::vector<std::vector<double>> new_densities(inner_knots.size(), std::vector<double>(64, 0));
-    for (size_t i=0; i<inner_knots.size(); i++){
-        // Use current basis to generate density at new basis point.   
-        // Black magic.
-        double a = basis.supp_min(i);
-        double b = basis.supp_max(i);        
+    std::vector<std::vector<double>> new_densities(num_new_splines, std::vector<double>(64, 0));
+
+    // Cackle and iterate through each new spline.
+    for (size_t i=0; i<num_new_splines; i++){
+        // Use current basis to generate the density terms for gaussian integration at for each basis point.   
+        // Black magic. ଘ(੭ˊᵕˋ)੭.*･｡ﾟ
+        double a = new_knots[i];                  // i.e. <new_basis>.supp_min(i);
+        double b = new_knots[i+new_basis_order];  // i.e. <new_basis>.supp_max(i);        
         for(size_t j=0; j < 64; j++){
             double e = (b-a)/2 *gaussX_64[j] + (a+b)/2;
             new_densities[i][j] = (*this)(e);  
         }
     }
-    // Remove boundary knots
-    size = inner_knots.size();
-    basis = inner_knots;
-    // Set spline factors    
-    f = vector<double>(size,0);
+    // Change distribution to empty one in new basis.    
+    vector<double> new_f(num_new_splines,0);
+    set_distribution(new_knots,new_f);
+    // Add densities in new basis.
     add_density_distribution(new_densities);
-
 }
 
 void Distribution::add_density_distribution(vector<vector<double>> densities){

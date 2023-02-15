@@ -64,6 +64,8 @@ public:
 	double Min_Elec_E() {return min_elec_e;}
 	size_t Num_Elec_Points() {return num_elec_points;}
 
+	int Plasma_Threads(){return omp_threads;}
+
 
 	string name = "";
 
@@ -79,6 +81,7 @@ public:
 
 	int num_time_steps = -1; // Number of time steps for time dynamics
 
+	double time_update_gap = 0; // interval between each cout'd time.	 
 protected:
 
 	bool validate_inputs();

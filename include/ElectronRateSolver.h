@@ -77,7 +77,7 @@ public:
     void save(const std::string& folder);
     /// Sets up the rate equations, which requires computing the atomic cross-sections/avg. transition rates to get the coefficients.
     void compute_cross_sections(std::ofstream& _log, bool recalc=true);
-    // TODO I am disgusted with myself I must fix this when I am not paralysed by its horror. -S.P.
+    // Simulation loading parameters 
     void set_load_params(string free, string bound, double time){
         load_free_fname = free;
         load_bound_fname = bound;

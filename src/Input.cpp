@@ -99,7 +99,7 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 		if (n == 1) stream >> r_min;
 		if (n == 2) stream >> r_box;
 		if (n == 3) stream >> num_time_steps;
-		if (n == 4) stream >> omp_threads;
+		if (n == 4) stream >> omp_threads;  // Overridden by .mol
 		if (n == 5) {
 			int tmp = 0;
 			stream >> tmp;
