@@ -21,3 +21,7 @@ ac4dc_*
 MakefileDebug
 debug_ac4dc.out
 doxygen/*
+slurm*
+load_modules.sh
+*.slurm
+Makefile_S
