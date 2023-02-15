@@ -200,7 +200,7 @@ int Potential::HF_upd_dir(RadialWF* Current, std::vector<RadialWF> &Orbitals)
 	}
 
 	if (std::isnan(V[0])){
-		throw std::invalid_argument("Potential is invalid (func: HF_upd_dir).");
+		throw std::runtime_error("Potential is invalid (func: HF_upd_dir).");
 	}
 
 	return 0;
@@ -217,12 +217,6 @@ int Potential::LDA_upd_dir(std::vector<RadialWF> &Orbitals)
 	int N_elec = 0;
 	double Q = 1;
 
-	if (std::isnan(V[0])){
-		throw std::invalid_argument("Potential is invalid (start of func: LDA_upd_dir).");
-	}	
-	if (std::isnan(density[0])){
-		throw std::invalid_argument("Density is invalid (start of func: LDA_upd_dir).");
-	}		
 	LocExc.clear();
 	LocExc.resize(lattice->size());
 	Asympt.clear();
@@ -236,7 +230,6 @@ int Potential::LDA_upd_dir(std::vector<RadialWF> &Orbitals)
 
 		for (int j = 0; j < Orbitals[i].pract_infinity(); j++) {
 			density[j] += Q * Orbitals[i].F[j] * Orbitals[i].F[j];
-			if (std::isnan(density[j])){throw std::invalid_argument("density is invalid (Orbitals[i].F[j] adding part of func: LDA_upd_dir).");}
 		}
 
 		N_elec += Orbitals[i].occupancy();
@@ -244,10 +237,7 @@ int Potential::LDA_upd_dir(std::vector<RadialWF> &Orbitals)
 	}
 
 	if (N_elec == 1) {
-		V = nuclear;
-		if (std::isnan(V[0])){
-			throw std::invalid_argument("nuclear is likely invalid (func: LDA_upd_dir).");
-		}			
+		V = nuclear;		
 		for (int i = 0; i < lattice->size(); i++) {
 			LocExc[i] = 0;
 			Asympt[i] = 0;
@@ -279,7 +269,7 @@ int Potential::LDA_upd_dir(std::vector<RadialWF> &Orbitals)
 		}
 	}
 	if (std::isnan(V[0])){
-		throw std::invalid_argument("Potential is invalid (end of func: LDA_upd_dir).");
+		throw std::runtime_error("Potential is invalid (end of func: LDA_upd_dir).");
 	}	
 	return 0;
 }
@@ -400,7 +390,7 @@ std::vector<double> Potential::Y_k(int k, std::vector<double> density, int infin
 	std::vector<double> Y_less(infinity+1, 0.);
 	std::vector<double> Y_gtr(infinity+1, 0.);
 	int adams_order = 10;
-	if (std::isnan(density[0])){throw std::invalid_argument("Density is invalid (start of func: Y_k).");}
+
 	Y_less[0] = density[0] * lattice->R(0)/(L+3);
 	Y_gtr[infinity] = density[infinity] * lattice->dR(infinity);
 
@@ -437,7 +427,7 @@ std::vector<double> Potential::Y_k(int k, std::vector<double> density, int infin
 
 	}
 	if (std::isnan(Result[0])){
-		throw std::invalid_argument("Y_k returned invalid result.");
+		throw std::runtime_error("Y_k returned invalid result.");
 	}	
 	return Result;
 }

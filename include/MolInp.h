@@ -47,7 +47,8 @@ public:
 
 	double Omega() {return omega;}
 	double Width() {return width;}
-	double Simulated_Fraction() {return simulation_cutoff_fraction;}
+	double Cutoff_Inputted() {return cutoff_flag;}
+	double Simulation_Cutoff() {return simulation_cutoff_time;}
 	double Fluence() {return fluence;}
 	int Num_Time_Steps() {return num_time_steps;}
 	double dropl_R() {return radius;}
@@ -90,8 +91,10 @@ protected:
 	double width = -1; // XFEL pulse width in au. Gaussian profile hardcoded.
 	double fluence = -1; // XFEL pulse fluence, au.
 	
-	// Percentage of simulation time steps to run through. Note that simulation (w/ rate equations) temporal width is 4*FWHM.
-	double simulation_cutoff_fraction = 1; 
+	// Simulation end time, inputted as fs. Note that simulation (w/ rate equations) temporal width is 4*FWHM.
+	double simulation_cutoff_time = 1; 
+	// Whether the cutoff was given
+	bool cutoff_flag = false;
 
 	int out_T_size = 0; // Unlike atomic input, causes to output all points.
 	int out_F_size = 100; // Number of F grid points to use when outputting.

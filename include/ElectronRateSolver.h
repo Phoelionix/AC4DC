@@ -59,14 +59,15 @@ public:
         pf.set_pulse(input_params.Fluence(), input_params.Width());
         timespan_au = input_params.Width()*4;   // 4*FWHM, capturing effectively entire pulse.
         
-        // Get cutoff
-        double truncated_timespan = timespan_au*input_params.Simulated_Fraction();
         if (input_params.pulse_shape ==  PulseShape::square){  //-FWHM <= t <= 3FWHM
             simulation_start_time = -input_params.Width();
-            simulation_end_time =  -input_params.Width() + truncated_timespan; 
+            simulation_end_time =  -input_params.Width(); 
         } else { //-2FWHM <= t <= 2FWHM
             simulation_start_time = -timespan_au/2;
-            simulation_end_time = -timespan_au/2 + truncated_timespan; 
+            simulation_end_time = -timespan_au/2; 
+        }
+        if (input_params.Cutoff_Inputted()){
+            simulation_end_time = input_params.Simulation_Cutoff();
         }
         simulation_resume_time = simulation_start_time;
 

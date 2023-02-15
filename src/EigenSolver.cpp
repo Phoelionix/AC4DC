@@ -32,11 +32,11 @@ void EigenSolver::SolveSystem(std::vector<std::vector<double>> &A, std::vector<d
 	for (int i = 0; i < Length; i++)
 	{
 		Y(i) = B[i];
-		if (std::isnan(B[i])){throw std::invalid_argument("SolveSystem encountered nan!");}
+		if (std::isnan(B[i])){throw std::runtime_error("SolveSystem encountered nan!");}
 		for (int j = 0; j < Length; j++)
 		{
 			M(i, j) = A[i][j];
-			if (std::isnan(A[i][j])){throw std::invalid_argument("SolveSystem encountered nan!");}
+			if (std::isnan(A[i][j])){throw std::runtime_error("SolveSystem encountered nan!");}
 		}
 	}
 
@@ -54,10 +54,10 @@ void EigenSolver::SolveSystem(std::vector<std::vector<double>> &A, std::vector<d
 			Eigen::IOFormat fmt(4, 0, ", ", "\n", "", "");
 			cout << Y.transpose().format(fmt) << endl;
 			
-			throw std::invalid_argument("SolveSystem encountered nan!");
+			throw std::runtime_error("SolveSystem encountered nan!");
 		}
 		if (std::isinf(Y[0])){
-			throw std::invalid_argument("SolveSystem encountered inf!");
+			throw std::runtime_error("SolveSystem encountered inf!");
 		}
 	}
 }

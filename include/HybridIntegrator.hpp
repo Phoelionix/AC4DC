@@ -40,7 +40,7 @@ class Hybrid : public Adams_BM<T>{
     protected:
 
     double stiff_rtol = 1e-4;
-    double intolerable_stiff_err =stiff_rtol*10;
+    double intolerable_stiff_err =0.5;
     unsigned stiff_max_iter = 200;
      
 
@@ -125,7 +125,7 @@ void Hybrid<T>::run_steps(const double t_resume, const int steps_per_time_update
                     << this->t[n] * Constant::fs_per_au << std::flush;  //TODO check if this multiplication is taxing.
         }
         
-        if (this->t[n] <= t_resume) continue; // Skip loaded steps.
+        if (this->t[n+1] <= t_resume) continue; // Start with n = last step.
 
         this->step_nonstiff_part(n); 
         
@@ -134,8 +134,12 @@ void Hybrid<T>::run_steps(const double t_resume, const int steps_per_time_update
     }
     std::cout<<std::endl;
 }
-
-/// Use a true implicit method to estimate change to bad part of system based solely on its own action.
+/**
+ * @brief Use a true implicit method to estimate change to bad part of system based solely on its own action.
+ * 
+ * @param n n+1 is the index of the step to predict.
+ * @return template<typename T> 
+ */
 template<typename T>
 void Hybrid<T>::step_stiff_part(unsigned n){
     T old = this->y[n];

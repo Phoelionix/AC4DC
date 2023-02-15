@@ -126,6 +126,9 @@ void ElectronRateSolver::solve(ofstream & _log) {
     if (steps_per_time_update > 1){
         cout<< "Updating time every " << steps_per_time_update << " steps." <<"\n";
     }
+    if (simulation_resume_time != simulation_start_time){
+        cout<<"\033[33m"<<"Loaded simulation at:  "<<"\033[0m"<<(simulation_resume_time)*Constant::fs_per_au<<" fs"<<endl;
+    }
     cout<<"\033[33m"<<"Final time step:  "<<"\033[0m"<<(simulation_end_time)*Constant::fs_per_au<<" fs"<<endl;
     cout<<banner<<endl;
     

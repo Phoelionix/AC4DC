@@ -146,7 +146,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	for (size_t n = 0; n < FileContent["#DEBUG"].size(); n++) {
 		stringstream stream(FileContent["#DEBUG"][n]);
 
-		if (n == 0) stream >> simulation_cutoff_fraction;
+		if (n == 0){ stream >> simulation_cutoff_time; cutoff_flag = true;}
 		if (n == 1) stream >> time_update_gap;
 
 	}
@@ -199,6 +199,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 
 	// Convert to atomic units.
 	width /= Constant::fs_per_au;
+	simulation_cutoff_time /= Constant::fs_per_au;
 	time_update_gap /= Constant::fs_per_au;
 	loss_geometry.L0 /= Constant::Angs_per_au;
 	unit_V /= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
@@ -254,7 +255,6 @@ bool MolInp::validate_inputs() {
 	cerr<<"\033[31;1m";
 	if (omega <= 0 ) { cerr<<"ERROR: pulse omega must be positive"; is_valid=false; }
 	if (width <= 0 ) { cerr<<"ERROR: pulse width must be positive"; is_valid=false; }
-	if (simulation_cutoff_fraction <= 0){ cerr<<"ERROR: the simulation cutoff must be a positive factor"; is_valid=false; }
 	if (fluence <= 0 ) { cerr<<"ERROR: pulse fluence must be positive"; is_valid=false; }
 	if (num_time_steps <= 0 ) { cerr<<"ERROR: got negative number of timesteps"; is_valid=false; }
 	if (out_T_size <= 0) { cerr<<"ERROR: system set to output zero timesteps"; is_valid=false; }

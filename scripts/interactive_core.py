@@ -77,8 +77,8 @@ class PlotData:
         self.energyKnot=None
         self.timeData=None
 
-        self.plot_final_t = plot_final_t # TODO temporary, move to generate_interactive.
-        self.max_points = max_points # TODO temporary, move to generate_interactive.
+        self.plot_final_t = plot_final_t 
+        self.max_points = max_points 
         
         self.title_colour = "#4d50b3"
         # Directories of target data

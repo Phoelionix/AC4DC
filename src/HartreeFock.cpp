@@ -151,9 +151,9 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 	if (num_occupied_orbs == 1 && Orbitals[single_orb_idx].occupancy() == 1) Potential.Reset();
 	
 	for (int i = 0; i < Orbitals.size(); i++) {
-		if (std::isnan(Orbitals[Orbitals.size()-1].F[i])){throw std::invalid_argument("F invalid pre-Master!");}
-		if (Master(&Lattice, &Orbitals[i], &Potential, Master_tolerance, log)){throw std::invalid_argument("Master did not converge. If the error is tolerable, you may wish to turn off this throw.");}
-		if (std::isnan(Orbitals[Orbitals.size()-1].F[i])){throw std::invalid_argument("F invalid post-Master!");}
+		if (std::isnan(Orbitals[Orbitals.size()-1].F[i])){throw std::runtime_error("F invalid pre-Master!");}
+		Master(&Lattice, &Orbitals[i], &Potential, Master_tolerance, log);
+		if (std::isnan(Orbitals[Orbitals.size()-1].F[i])){throw std::runtime_error("F invalid post-Master!");}
 	}
 
 //==========================================================================================================
@@ -242,7 +242,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 				}*/
 				if (E_rel_change[i] < E_max_error && m != 0) continue;
 				if (std::isnan(Potential.V[0])){
-					throw std::invalid_argument("Potential is invalid (HF w/o exchange).");
+					throw std::runtime_error("Potential is invalid (HF w/o exchange).");
 				}	
 				if (Master(&Lattice, &Orbitals[i], &Potential, Master_tolerance, log)) {
 					// Master didn't converge. This is bad. Return to old solution and
@@ -496,7 +496,7 @@ int SetBoundaryValuesApprox(Grid * Lattice, RadialWF * Psi, Potential* U)
 	double S = 0;
 
 	if (std::isnan(U->V[Turn])){
-		throw std::invalid_argument("Potential is invalid (func: SetBoundaryValuesApprox).");
+		throw std::runtime_error("Potential is invalid (func: SetBoundaryValuesApprox).");
 	}
 
 	if (Psi->Energy < 0.)
@@ -547,7 +547,7 @@ int SetBoundaryValuesApprox(Grid * Lattice, RadialWF * Psi, Potential* U)
 			Psi->F[Inf] *= S;
 			Psi->G[Inf] *= S;
 			if (std::isinf(Psi->F[Inf])){
-				throw std::invalid_argument("Psi has inf value!");
+				throw std::runtime_error("Psi has inf value!");
 			}
 		}
 	}
@@ -613,7 +613,7 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 			Psi->Energy *= 2;
 			continue;
 		}
-		if (std::isinf(Psi->F[infinity-1])){throw std::invalid_argument("Psi has inf value!");}
+		if (std::isinf(Psi->F[infinity-1])){throw std::runtime_error("Psi has inf value!");}
 
 		NumIntgr.StartAdams(Psi, 0, true);
 
@@ -626,12 +626,12 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 
 		F_left = Psi->F[Turn];
 		G_left = Psi->G[Turn] / F_left;
-		if (std::isinf(Psi->F[infinity-1])){throw std::invalid_argument("Psi has inf value!");}
+		if (std::isinf(Psi->F[infinity-1])){throw std::runtime_error("Psi has inf value!");}
 		NumIntgr.StartAdams(Psi, infinity, false);
 		NumIntgr.Integrate(Psi, infinity, Turn);
 
 		F_right = Psi->F[Turn];
-		if (std::isnan(Psi->F[0])){throw std::invalid_argument("Psi->F[i] is nan!");}
+		if (std::isnan(Psi->F[0])){throw std::runtime_error("Psi->F[i] is nan!");}
 		G_right = Psi->G[Turn] / F_right;
 
 		for (int i = 0; i <= infinity; i++) {
@@ -642,9 +642,9 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 				Psi->F[i] /= F_left;
 				Psi->G[i] /= F_left;
 			}
-			if (std::isnan(Psi->F[i])){throw std::invalid_argument("Psi->F[i] is nan!");}
+			if (std::isnan(Psi->F[i])){throw std::runtime_error("Psi->F[i] is nan!");}
 			density[i] = Psi->F[i] * Psi->F[i];
-			if (std::isnan(density[i])){throw std::invalid_argument("Density is nan!");}
+			if (std::isnan(density[i])){throw std::runtime_error("Density is nan!");}
 		}
 
 		// ~~~Issues with this line may crop up after it has already failed (if it returns nan it will lead to an issue on the second loop)~~~
@@ -701,7 +701,7 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 	Psi->set_infinity(infinity);
 	//normalize the answer
 	Psi->scale(1. / sqrt(Norm));
-	if (std::isnan(1/sqrt(Norm))){throw std::invalid_argument("Invalid normalisation! func: HartreeFock::Master()");}
+	if (std::isnan(1/sqrt(Norm))){throw std::runtime_error("Invalid normalisation! func: HartreeFock::Master()");}
 
 	return 0;
 }
