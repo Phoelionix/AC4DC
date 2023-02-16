@@ -141,6 +141,56 @@ public:
         // Insert new knots
         knot.reserve(lower + inner_knots.size() + upper);
         knot.insert(knot.begin() + lower,inner_knots.begin(),inner_knots.end());
+        // update num_funcs
+        num_funcs = inner_knots.size();
+
+
+        //// Copy pasted from set_parameters. TODO turn that and this into one function //// 
+        std::vector<Eigen::Triplet<double>> tripletList;
+        tripletList.reserve(BSPLINE_ORDER*2*num_funcs);
+        
+        // Eigen::MatrixXd S(num_funcs, num_funcs);
+        for (size_t i=0; i<num_funcs; i++) {
+            for (size_t j=i+1; j<num_funcs; j++) {
+                double tmp=overlap(i, j);
+                if (tmp != 0) {
+                    tripletList.push_back(Eigen::Triplet<double>(i,j,tmp));
+                    tripletList.push_back(Eigen::Triplet<double>(j,i,tmp));
+                    // S(i,j) = tmp;
+                    // S(j,i) = tmp;
+                }
+            }
+            // S.insert(i,i) = overlap(i,i);
+            tripletList.push_back(Eigen::Triplet<double>(i,i,overlap(i, i)));
+            // S(i,i) = overlap(i,i);
+        }
+        /// Compute overlap matrix   //s\/ If we use the grid basis (with num_func splines) the splines overlap. S takes us to a spline-independent basis I believe -S.P.
+        Eigen::SparseMatrix<double> S(num_funcs, num_funcs);  //s\/ rows and cols. 
+        S.setFromTriplets(tripletList.begin(), tripletList.end());
+        // Precompute the LU decomposition
+        linsolver.analyzePattern(S);
+        linsolver.isSymmetric(true);
+        linsolver.factorize(S);
+        if(linsolver.info()!=Eigen::Success) {
+            throw runtime_error("Factorisation of overlap matrix failed!");
+        }
+
+        avg_e.resize(num_funcs);
+        log_avg_e.resize(num_funcs);
+        areas.resize(num_funcs);
+        for (size_t i = 0; i < num_funcs; i++) {
+            // Chooses the 'center' of the B-spline
+            avg_e[i] = (this->supp_max(i) + this->supp_min(i))/2 ;
+            log_avg_e[i] = log(avg_e[i]);
+            double diff = (this->supp_max(i) - this->supp_min(i))/2;
+            // Widths stores the integral of the j^th B-spline
+            areas[i] = 0;
+            for (size_t j=0; j<10; j++){
+                areas[i] += gaussW_10[j]*(*this)(i, gaussX_10[j]*diff+ avg_e[i]);
+            }
+            areas[i] *= diff;
+        }
+
         return *this;        
     }    
 

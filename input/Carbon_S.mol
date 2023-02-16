@@ -14,7 +14,7 @@ square       // Pulse shape
 
 #NUMERICAL
 1500000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
-18            // Number of threads in OpenMP.
+18           // Number of threads in OpenMP.
 0             // [only for nonthermal] minimum free-electron energy in eV
 10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
 150           // total number of free-electron grid points
@@ -34,7 +34,7 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-0.0001     //0.0075 = -10 to -9.7 fs (time period over which wiggle tends to appear), 0.00001 for a few steps (good for determinining initial wiggle quickly).      // Proportion of time steps to iterate through before stopping early. TODO Left as a proportion for now since it requires less understanding of code, but inputs should be made clearer (can set start time and end time, and proportion of time that is pulse or (2?)*FWHM for example).
+-9.99      // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 

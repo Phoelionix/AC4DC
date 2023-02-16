@@ -58,7 +58,7 @@ void ElectronRateSolver::log_extra_details(ofstream & _log){
     // Saves details pertaining to the simulation's execution to file fname
     if(_log.is_open()){
         cout << "[ Details ] Logging run-specific details..."<<endl;
-        _log << endl << "[ Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << endl;
+        _log << endl << "[ Rate Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << endl;
         _log.flush();
     }
 }
@@ -139,8 +139,8 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
     const std::string& fname = load_free_fname;
     
     
-    cout << "\n[ Free ] Applying free distribution from file with order 10 gaussian quadrature: "<<fname<<"..."<<endl;
-    cout << "[ Caution ] Ensure same input files are used!"<<endl;
+    cout << "\n[ Free ] Applying free distribution from file with order 64 gaussian quadrature: "<<fname<<"..."<<endl;
+    cout << "[ Caution ] Ensure same atomic input files are used!"<<endl;
     
     ifstream infile(fname);
 	if (infile.good())
@@ -193,7 +193,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             continue;
         }
         if (!line.compare(0, 1, "")) continue;
-        if (count%(step_skip_size) != 0 || count < 0) continue;
+        if ((count-1)%(step_skip_size) != 0 || count < 0) continue;
         time_and_BS_factors.push_back(line);
     }
 
@@ -278,12 +278,14 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         // Iterate over time.
         size_t num_t_points = input_params.Out_T_size();
         if ( num_t_points >  t.size() ) num_t_points = t.size();
+        // ATTENTION I'm overriding this as otherwise simulation loading is more painful, though it will work regardless just will be forced to find a time that syncs with the raw times. TODO make a new parameter or make the two loading functions find the latest common time and add it to their vectors. 
+        num_t_points = t.size();
         size_t t_idx_step = t.size() / num_t_points;        
         for (size_t i=0; i<num_t_points; i++) {
             // Make sure all "natom-dimensioned" objects are the size expected
             assert(input_params.Store.size() == y[i].atomP.size());
             
-            f<<t[i*t_idx_step]*Constant::fs_per_au << ' ' << y[i*t_idx_step].atomP[a]<<endl;
+            f<<t[i*t_idx_step]*Constant::fs_per_au << ' ' << y[i*t_idx_step].atomP[a]<<endl;   // prob. multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au
         }
         f.close();
     }
@@ -359,9 +361,15 @@ void ElectronRateSolver::loadBound() {
                 break;
             }
         }
+        // Convert to correct units
+        const double units = 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au;  
+        for(size_t k = 0; k < last_occ_density.size();k++){
+            last_occ_density[k] /= units;
+        }        
         // Shave time and state containers to the time that matches with the bound state.
         y.resize(matching_idx + 1);
-        t.resize(matching_idx + 1);        
+        t.resize(matching_idx + 1);
+              
         this->y.back().atomP[a] = last_occ_density;
 
     }

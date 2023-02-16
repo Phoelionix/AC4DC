@@ -188,7 +188,7 @@ void Hybrid<T>::step_stiff_part(unsigned n){
         if (diff > intolerable_stiff_err){
             std::cerr << "Max error ("<<intolerable_stiff_err<<") exceeded, ending simulation early." <<std::endl;
             this->good_state = false;
-            this->timestep_reached = this->t[n+1]*Constant::fs_per_au; // t[n+1] is equiv. to t in bound !good_state case
+            this->timestep_reached = this->t[n+1]*Constant::fs_per_au; // t[n+1] is equiv. to t in bound !good_state case, where error condition this is modelled off is found.
         }
     }
     this->y[n+1] += old;

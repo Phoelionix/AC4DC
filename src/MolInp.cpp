@@ -177,7 +177,6 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	cout<<bc<<"Photon energy:  "<<clr<<omega<<" eV"<<endl;
 	cout<<bc<<"Pulse fluence:  "<<clr<<fluence*10000<<" J/cm^2 = "<<10000*fluence/omega/Constant::J_per_eV<<"ph cm^-2"<<endl;
 	cout<<bc<<"Pulse FWHM:     "<<clr<<width<<" fs"<<endl;
-	cout<<bc<<"Simulated Fraction of twice-FWHM:     "<<clr<<simulation_cutoff_fraction*100<<"%"<<endl;  //TODO make clearer/dynamic
 	cout<<bc<<"Pulse shape:    "<<clr<<pulse_shape<<endl<<endl;
 
 	cout<<bc<<"Electron grid:  "<<clr<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
@@ -187,10 +186,16 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	cout<<bc<<"Minimum num electrons per unit cell for Coulomb logarithm to be considered: "<<clr<<elec_grid_type.min_coulomb_density<<endl;
 	cout<<endl;
 
-	cout<<bc<<"ODE Iteration:  "<<clr<<num_time_steps<<" timesteps"<<endl<<endl;
+	cout<<bc<<"ODE Iteration:  "<<clr<<num_time_steps<<" timesteps"<<endl;
+	if(cutoff_flag){cout<<bc<<"Simulation set to cut off early at: "<<clr<<simulation_cutoff_time<<" fs"<<endl;}
+	else{cout<<bc<<"Simulation cutoff is inactive."<<clr<<endl; }	
+	cout <<endl;
 
 	cout<<bc<<"Output:         "<<clr<<out_T_size<<" time grid points"<<endl;
-	cout<<    "                "<<out_F_size<<" energy grid points"<<endl;
+	cout<<    "                "<<out_F_size<<" energy grid points"<<endl << endl;
+	
+	cout<<bc<<"OMP threads:  "<<clr<<omp_threads<<" threads"<<endl;
+
 	cout<<banner<<endl;
 
 	// Convert to number of photon flux.

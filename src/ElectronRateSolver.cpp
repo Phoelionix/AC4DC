@@ -139,11 +139,17 @@ void ElectronRateSolver::solve(ofstream & _log) {
     cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<std::endl;
     
     // Using finer time steps to attempt to resolve NaN encountered in ODE solving. 
-    /* Redoes the ENTIRE simulation. TODO make it halve remaining time steps instead. turned off for now because it's annoying for dev purposes.  
+    /* Redoes the ENTIRE simulation. As it seems to be intended to, it should be fixed to start from timestep_reached. 
+    // But really it should start from earlier than timestep_reached since bad states tend start before they appear, in a snowball-like effect. -S.P.
     */
     double time = this->t[0];
     int retries = 0;  // int retries = 1;  <---- Turned off for now
     while (!good_state) {
+        if(_log.is_open()){
+            cout << " Logging."<<endl;
+            _log << endl << "[ Rate Solver ] "<< "Stopped at bad state encountered at t = " << timestep_reached << " fs"  << endl;
+            _log.flush();
+        }        
         std::cerr<<"\033[93;1m[ Rate Solver ] Halving timestep...\033[0m"<<std::endl;  // Unsure if this is faster than continuing the simulation with halved timesteps rather than restarting and doing so -S.P.
         good_state = true;
         input_params.num_time_steps *= 2;           
@@ -154,7 +160,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
         if (timestep_reached - time < 0 || retries == 0){
             std::cerr<<"\033[31;1m[ Rate Solver ] Shorter timestep failed to improve convergence. Skipping remaining iteration."<<std::endl;
             break;
-        } else {  // Unnecessary else statement? -S.P.
+        } else {  // I don't think this is working properly? Seems to restart entirely -S.P.
             time = timestep_reached;
         }
         retries--;

@@ -176,9 +176,6 @@ namespace {
         else{
             gb.E_min = target_vector;
         }
-        std::cout << "elem of grid region inputs:" << std::endl;
-        std::cout << gb.E_min[0] << std::endl; 
-        std::cout << gb.start[0] << std::endl;
         return is;
     }    
 }

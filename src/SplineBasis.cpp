@@ -218,7 +218,6 @@ void BasisSet::set_knot(const GridSpacing& gt){
             break;
         case GridSpacing::powerlaw:
             knot[i] = A_powlaw * pow(i-start, p_powlaw) + _min;
-            cout << knot[i] * Constant::eV_per_Ha  << "," << i << endl;
             break;
         case GridSpacing::test:
             knot[i] = A_powlaw_test * pow(i - start, p_powlaw_test) + _min;
@@ -234,7 +233,7 @@ void BasisSet::set_knot(const GridSpacing& gt){
                  }
             }
             knot[i] = hyb_powlaw_factor[rgn] * pow(i - start, hyb_powlaw_power[rgn]) + _min;
-            cout << knot[i] * Constant::eV_per_Ha  << "," << rgn << ", i: " << i << endl;
+            //cout << knot[i] * Constant::eV_per_Ha  << "," << rgn << ", i: " << i << endl;  //DEBUG
             break;
         }
         default:

@@ -1,6 +1,9 @@
 #####
 terminal_mode = True
 xmin, xmax = 1, 1e4
+
+END_T = -3.0
+POINTS = 2000
 #####
 
 import os.path as path
@@ -64,7 +67,7 @@ def main():
     lin_ymin = -0.005
     log_ymax = 1
     log_ymin = 1e-4      
-    normalise = True  # TODO make True default, and False an option for cmdline arg.
+    normalise = False  # TODO make True default, and False an option for cmdline arg.
     # Axis params
     xlabel = 'Energy (eV)'
     ylabel = '$f(\\epsilon) \\Delta \\epsilon$'   #TODO: Get this working on offline file saves somehow.
@@ -74,7 +77,7 @@ def main():
     y_log_args = {'title': {"text": ylabel + " - log scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
     #
     # Initialises plotter object with data from files.
-    ipl = InteractivePlotter(target_handles,"y",plot_final_t=-6,max_points=70)  
+    ipl = InteractivePlotter(target_handles,"y",plot_final_t=END_T,max_points=POINTS)  
     # Initialises graph object.
     ipl.initialise_interactive(plot_title, x_log_args,y_log_args) 
     # The meat of the plotting. Plot line for each point in time
