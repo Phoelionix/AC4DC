@@ -42,6 +42,7 @@ void ElectronRateSolver::save(const std::string& _dir) {
     saveFree(dir+"freeDist.csv");
     saveFreeRaw(dir+"freeDistRaw.csv");
     saveBound(dir);
+    saveBound(dir,true);
 
     std::vector<double> fake_t;
     size_t num_t_points = input_params.Out_T_size();
@@ -51,6 +52,14 @@ void ElectronRateSolver::save(const std::string& _dir) {
         fake_t.push_back(t[i*t_idx_step]);
     }
     pf.save(fake_t,dir+"intensity.csv");
+
+    std::vector<double> fake_t;
+    size_t num_t_points = num_t_points = t.size();
+    size_t t_idx_step = t.size() / num_t_points;
+    for (size_t i=0; i<num_t_points; i++) {
+        fake_t.push_back(t[i*t_idx_step]);
+    }
+    pf.save(fake_t,dir+"intensityRaw.csv");    
 
 }
 
@@ -128,17 +137,14 @@ void ElectronRateSolver::tokenise(std::string str, std::vector<double> &out, con
  * The code parasitically overrides the distribution object with the original spline basis coefficients, 
  * after which it transforms to the grid point basis submitted for *this* run via transform_to_new_basis().
  * It should be noted that transform_to_new_basis() is an *approximation*, albeit it is very good due to using 
- * order 64 gaussian quadrature. (Though it seems excessive)
- *  
- * I had no idea what I was doing so it is possible it doesn't need to be an approximation.
+ * order 64 gaussian quadrature.
  * 
  * @todo this should probably be moved to a new methods file.
  */
 void ElectronRateSolver::loadFreeRaw_and_times() {
     vector<string> time_and_BS_factors;
-    const std::string& fname = load_free_fname;
-    
-    
+    const std::string& fname = input_params.Load_Folder() + "freeDistRaw.csv";
+
     cout << "\n[ Free ] Applying free distribution from file with order 64 gaussian quadrature: "<<fname<<"..."<<endl;
     cout << "[ Caution ] Ensure same atomic input files are used!"<<endl;
     
@@ -212,7 +218,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         // Convert to right units (based on saveFreeRaw)
         saved_time[i] /= Constant::fs_per_au;
 
-        if(saved_time[i] > loaded_data_time_boundary || i >= y.size()){
+        if(saved_time[i] > input_params.Load_Time_Max() || i >= y.size()){
             // time is past the maximum
             y.resize(i); // (Resized later by integrator for full sim.)
             t.resize(i);
@@ -258,13 +264,14 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
     }
 }
 
-void ElectronRateSolver::saveBound(const std::string& dir) {
+void ElectronRateSolver::saveBound(const std::string& dir, bool save_all_times) {
     // saves a table of bound-electron dynamics , split by atom, to folder dir.
     assert(y.size() == t.size());
     // Iterate over atom types
     for (size_t a=0; a<input_params.Store.size(); a++) {
         ofstream f;
         string fname = dir+"dist_"+input_params.Store[a].name+".csv";
+        if (save_all_times) {fname = dir+"dist_"+input_params.Store[a].name+"_Raw.csv";}
         cout << "[ Atom ] Saving to file "<<fname<<"..."<<endl;
         f.open(fname);
         f << "# Ionic electron dynamics"<<endl;
@@ -277,9 +284,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         f<<endl;
         // Iterate over time.
         size_t num_t_points = input_params.Out_T_size();
-        if ( num_t_points >  t.size() ) num_t_points = t.size();
-        // ATTENTION I'm overriding this as otherwise simulation loading is more painful, though it will work regardless just will be forced to find a time that syncs with the raw times. TODO make a new parameter or make the two loading functions find the latest common time and add it to their vectors. 
-        num_t_points = t.size();
+        if ( num_t_points >  t.size() || save_all_times) num_t_points = t.size();
         size_t t_idx_step = t.size() / num_t_points;        
         for (size_t i=0; i<num_t_points; i++) {
             // Make sure all "natom-dimensioned" objects are the size expected
@@ -295,7 +300,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
 /**
  * @brief Loads all times and free e densities from previous simulation's raw output, and uses that to populate y[i].F, the free distribution.
  * @attention Currently assumes same input states
- * @todo need to change load_bound_fname to a map from atom names to the specific bound file (currently just takes 1 bound file)
+ * @todo need to change load_bound_path to a map from atom names to the specific bound file (currently just takes 1 bound file)
  */
 void ElectronRateSolver::loadBound() {
     cout << "Loading atoms' bound states"<<endl; 
@@ -305,7 +310,8 @@ void ElectronRateSolver::loadBound() {
     
     for (size_t a=0; a<input_params.Store.size(); a++) {
         // (unimplemented) select atom's bound file  
-        const std::string& fname = load_bound_fname; 
+        const std::string& fname = input_params.Load_Folder() + "dist_" + input_params.Store[a].name + "_Raw.csv";
+
         cout << "[ Free ] Loading bound states from file. "<<fname<<"..."<<endl;
          
         ifstream infile(fname);

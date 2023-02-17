@@ -112,14 +112,14 @@ MolInp::MolInp(const char* filename, ofstream & log)
 			if (tmp != 'Y') write_md_data = false;
 		}
 	}
-
-	for (size_t n = 0; n < FileContent["#PULSE"].size(); n++) {
+	
+	for (size_t n = 0; n < FileContent["#PULSE"].size(); n++) {  
 		stringstream stream(FileContent["#PULSE"][n]);
 
 		if (n == 0) stream >> omega;
 		if (n == 1) stream >> width;
 		if (n == 2) stream >> fluence;
-		if (n == 3) stream >> pulse_shape;
+		if (n == 3) stream >> pulse_shape;  // (Note user-defined operators)
 	}
 
 	for (size_t n = 0; n < FileContent["#NUMERICAL"].size(); n++) {
@@ -130,26 +130,36 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 2) stream >> min_elec_e;
 		if (n == 3) stream >> max_elec_e;
 		if (n == 4) stream >> num_elec_points;
-		if (n == 5) stream >> elec_grid_type; // (Note >> operator is user-defined here)
-		if (n == 6) stream >> elec_grid_type.num_low;   // TODO currently it uses an extra point than stated here for some reason (or rather, this number excludes the "transition point" - S.P.
+		if (n == 5) stream >> elec_grid_type; 
+		if (n == 6) stream >> elec_grid_type.num_low;   // This number excludes the "transition point" - S.P.
 		if (n == 7) stream >> elec_grid_type.transition_e;
-		// n = 8,9 correspond to updating elec_grid_regions.start, elec_grid_regions.E_min.
+		
+		//#GRID ,
 		if (n == 8) stream >> elec_grid_regions; 
 		if (n == 9){
-			stream >> elec_grid_regions;        
+			stream >> elec_grid_regions;   // elec_grid_regions.start        
 			// Temp fix until split off. TODO
 			num_elec_points = elec_grid_regions.start[elec_grid_regions.start.size()-1];
 		}
-		if (n == 10) stream >> elec_grid_type.min_coulomb_density;
+		if (n == 10) stream >> elec_grid_regions; //elec_grid_regions.E_min
+		if (n == 11) stream >> elec_grid_type.min_coulomb_density; //elec_grid_regions.powers
 	}
 
-	for (size_t n = 0; n < FileContent["#DEBUG"].size(); n++) {
-		stringstream stream(FileContent["#DEBUG"][n]);
+	for (size_t n = 0; n < FileContent["#LOAD"].size(); n++) {
+		stringstream stream(FileContent["#LOAD"][n]);
 
 		if (n == 0){ stream >> simulation_cutoff_time; cutoff_flag = true;}
 		if (n == 1) stream >> time_update_gap;
 
-	}
+	}	
+
+	for (size_t n = 0; n < FileContent["#DEBUG"].size(); n++) {
+		stringstream stream(FileContent["#DEBUG"][n]);
+
+		if (n == 0) stream >> simulation_resume_time_max;
+		if (n == 1){stream >> load_folder;
+			load_folder = "output/__Molecular/" + load_folder + "/";
+		}
 
 	// for (size_t n = 0; n < FileContent["#GRID"].size(); n++) {
 	// 	stringstream stream(FileContent["#GRID"][n]);

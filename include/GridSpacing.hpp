@@ -55,8 +55,9 @@ struct GridBoundaries {
     // Should also replace num_elec_points, min_elec_e, max_elec_e
     // Note this current implementation includes the energy/index of last grid point.
     std::vector<int> start ={-1};
-    bool start_parsed = false;
     std::vector<double> E_min ={-1.};  // In eV
+    std::vector<double> powers ={1.};
+    int parsed_count = 0; 
 };
 
 namespace {
@@ -165,17 +166,18 @@ namespace {
             target_vector.push_back(stod(tmp));
         }
 
-        if(!gb.start_parsed){
+        if(gb.parsed_count == 0){
             gb.start.resize(target_vector.size());
             for(int i = 0; i < target_vector.size(); i++){
                 target_vector[i] += 0.5;
                 gb.start[i] = (int)target_vector[i];
-                gb.start_parsed = true;
             }
         }
+        else if (gb.parsed_count == 1) gb.E_min = target_vector;
+        else if (gb.parsed_count == 2) gb.powers = target_vector;
         else{
-            gb.E_min = target_vector;
-        }
+            std::cerr << "Too many grid region variables parsed.";}
+        gb.parsed_count++;
         return is;
     }    
 }

@@ -78,12 +78,6 @@ public:
     void save(const std::string& folder);
     /// Sets up the rate equations, which requires computing the atomic cross-sections/avg. transition rates to get the coefficients.
     void compute_cross_sections(std::ofstream& _log, bool recalc=true);
-    // Simulation loading parameters 
-    void set_load_params(string free, string bound, double time){
-        load_free_fname = free;
-        load_bound_fname = bound;
-        loaded_data_time_boundary = time/Constant::fs_per_au;
-    }
     void tokenise(std::string str, std::vector<double> &out, const char delim = ' ');
 
     /// Number of secs taken for simulation to run
@@ -128,17 +122,13 @@ private:
     void loadFreeRaw_and_times();
     void loadBound();
     /// saves a table of bound-electron dynamics , split by atom, to folder dir.
-    void saveBound(const std::string& folder);
+    void saveBound(const std::string& folder, bool save_all_times = false);
     /// Log final details pertaining to the simulation's execution to file fname (e.g. total runtime)
     void log_extra_details(ofstream & _log);
 
     state_type get_starting_state();
     state_type load_state();
     state_type get_ground_state();
-
-    string load_free_fname = "";  // Raw free distribution file path. If "" don't load anything. 
-    string load_bound_fname = ""; // Bound file path.
-    double loaded_data_time_boundary;  // [Au] Basically the resume point of the simulation. Specifically, all data points before this time are loaded
 };
 
 

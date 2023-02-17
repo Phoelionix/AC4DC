@@ -1,3 +1,5 @@
+# WARNING seems like this isn't working.
+
 import sys
 import os
 import numpy as np
@@ -13,7 +15,7 @@ input_argument = parser.parse_args()
 
 def main():
   if len(sys.argv) < 3:
-    print('Usage: converter path/to/pdb_files/protein.pdb path/to/mol_files/')
+    print('Usage: converter path/to/pdb_files/protein.pdb path/to/mol_files/ path/to/outdir')
     return 1
   
   if sys.argv[1].partition('.')[-1] != 'pdb':
@@ -56,7 +58,7 @@ def main():
     'atoms' : atoms
   }
 
-  make_plasma_input(outfile_path,**feedin_dict)
+  make_plasma_input(os.path.splitext(infile_path)[0] + ".pdb", outfile_path,**feedin_dict)
   if input_argument.MD:
     make_MD_input(out_MD_path,**feedin_dict)
 
@@ -111,7 +113,7 @@ def read_pdb(infile):
   return atoms
 
 # (Arguably should be called make_mol_file)
-def make_plasma_input(outfile, **kwargs):
+def make_plasma_input(fname, outfile, **kwargs):
   extra_text = ''
   if input_argument.fast:
     extra_text += ', using atoms w/ shell approximations for orbitals'
@@ -121,7 +123,7 @@ def make_plasma_input(outfile, **kwargs):
 
   # Creare plasma input file template from pdb.
   plasma_file = open(outfile, 'w')
-  plasma_file.write("""// Template AC4DC input file created from file.pdb\n\n""")
+  plasma_file.write("""// Template AC4DC input file created from """ + fname + """\n\n""")
   plasma_file.write("""#ATOMS\n""")
   for k, v in atoms.items():
     if input_argument.fast:

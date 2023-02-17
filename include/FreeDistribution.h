@@ -226,7 +226,7 @@ public:
      * @param max_e max elec energy
      * @param grid_style 
      */
-    static void set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style,vector<int> region_bndry_index, vector<double> region_bndry_energy);
+    static void set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style, GridBoundaries elec_grid_regions);
     static std::string output_knots_eV();
 
 

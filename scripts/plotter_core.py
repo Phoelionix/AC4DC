@@ -69,7 +69,7 @@ class Plotter:
 
         # Outputs
         self.outDir = self.p + "/output/__Molecular/" + mol
-        self.freeFile = self.outDir+"/freeDist.csv"
+        self.freeFile = self.outDir +"/freeDist.csv"
         self.intFile = self.outDir + "/intensity.csv"
 
         self.boundData={}
@@ -193,7 +193,7 @@ class Plotter:
                         self.atomdict[a]={
                             'infile': file,
                             'mtime': path.getmtime(file),
-                            'outfile': self.outDir+"/dist_%s.csv"%a}
+                            'outfile': self.outDir+"/dist_%s_Raw.csv"%a}
 
     def update_inputs(self):
         self.get_atoms()
@@ -368,12 +368,12 @@ class Plotter:
         #Get R for each q_length
         cumulative_R_num = 0
         cumulative_R_den = 0
-        for i,k in enumerate(k_points): 
-            cumulative_R_num += get_R_num_term(i)
-            cumulative_R_den += get_R_den_term(i)
-            R_factor.append(cumulative_R_num/cumulative_R_den)  
         # for i,k in enumerate(k_points): 
-        #     R_factor.append(get_R_num_term(i)/get_R_den_term(i))    
+        #     cumulative_R_num += get_R_num_term(i)
+        #     cumulative_R_den += get_R_den_term(i)
+        #     R_factor.append(cumulative_R_num/cumulative_R_den)  
+        for i,k in enumerate(k_points): 
+            R_factor.append(get_R_num_term(i)/get_R_den_term(i))    
 
         F_i = []
         F_r = []
@@ -405,6 +405,8 @@ class Plotter:
         ax.set_xscale("log")
         ax.set_xlim(dual_axis[0][0],dual_axis[-1][0])
         ax.set_ylim(0,1) 
+        #ax.set_xlim(0.8,0.2)
+        #ax.set_ylim(0.5,0.7) 
         ax.set_ylabel("R")
         ax.plot(q_points,R_factor)
 

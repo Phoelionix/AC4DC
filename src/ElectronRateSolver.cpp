@@ -38,7 +38,7 @@ This file is part of AC4DC.
 
 
 state_type ElectronRateSolver::get_starting_state() {
-    if (load_free_fname != "" && load_bound_fname != ""){ 
+    if (input_params.Input_Free_File() != "" && input_params.Input_Bound_File() != ""){ 
         // Spooky setup inception - setup everything then bootstrap on the stuff we want to change.
         this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
         cout << "[ Plasma ] loading sim state from specified files." << endl;
@@ -47,7 +47,7 @@ state_type ElectronRateSolver::get_starting_state() {
         simulation_resume_time = t.back();
         return y.back();
     }
-    else if (load_free_fname != "" || load_bound_fname != ""){
+    else if (input_params.Input_Free_File() != "" || input_params.Input_Bound_File() != ""){
             cout << "[ Plasma - Load sim error ], only had one file name specified." << endl;
             exit(EXIT_FAILURE); // Chuck a hissy fit and quit
     }
@@ -93,7 +93,7 @@ void ElectronRateSolver::compute_cross_sections(std::ofstream& _log, bool recalc
     hasRates = true;
 
     // Set up the container class to have the correct size
-    Distribution::set_elec_points(input_params.Num_Elec_Points(), input_params.Min_Elec_E(), input_params.Max_Elec_E(), input_params.elec_grid_type, input_params.elec_grid_regions.start, input_params.elec_grid_regions.E_min);
+    Distribution::set_elec_points(input_params.Num_Elec_Points(), input_params.Min_Elec_E(), input_params.Max_Elec_E(), input_params.elec_grid_type, input_params.elec_grid_regions);
     state_type::set_P_shape(input_params.Store);
     // Set up the rate equations (setup called from parent Adams_BM)
     this->setup(get_starting_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
