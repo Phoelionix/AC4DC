@@ -239,7 +239,7 @@ void Distribution::add_maxwellian(double T, double N) {
 // }
 
 // Assumes new basis has same B spline order.
-void Distribution::transform_to_new_basis(std::vector<double> new_knots){
+void Distribution::transform_basis(std::vector<double> new_knots){
     int new_basis_order = basis.BSPLINE_ORDER;
     //// Get knots that have densities
     int num_new_splines = get_trimmed_knots(new_knots).size();   // TODO replace get_trimmed_knots with get_num_funcs?. 
