@@ -142,15 +142,12 @@ void BasisSet::set_knot(const GridSpacing& gt){
     // We want to have higher density in the mid and high energy regions, and low in the low, transition, and surplus regions.
     // Form of E = An^p + B
 
-    bool ORIGINAL_BOUNDARY = false;
-    if (ORIGINAL_BOUNDARY){
-        // Force first point to be 0
-        _region_bndry_index.insert(_region_bndry_index.begin(), 0);
-        _region_bndry_energy.insert(_region_bndry_energy.begin(), 0);
-        _region_powers.insert(_region_powers.begin(), 0);
-        assert(_region_bndry_energy.size() == _region_bndry_index.size());
-        assert(_region_powers.size() == _region_bndry_index.size() - 1);
-    }
+    // Force first point to be 0
+    _region_bndry_index.insert(_region_bndry_index.begin(), 0);
+    _region_bndry_energy.insert(_region_bndry_energy.begin(), 0);
+    _region_powers.insert(_region_powers.begin(), 0);
+    assert(_region_bndry_energy.size() == _region_bndry_index.size());
+    assert(_region_powers.size() == _region_bndry_index.size() - 1);
 
     std::vector<double> hyb_powlaw_factor (_region_bndry_index.size() - 1,0.);
     // Params that define region boundaries:
@@ -158,7 +155,7 @@ void BasisSet::set_knot(const GridSpacing& gt){
     double E_M, E_N; // Corresponding energies.
     double p;        // power law that sparseness of grid points in each region follows.
     // R region boundaries and 1 power law for each region --> R - 1 power laws.
-    for (size_t rgn=0; rgn< _region_powers.size(); rgn++){
+    for (size_t rgn=1; rgn< _region_powers.size(); rgn++){
         n_M = _region_bndry_index[rgn];
         E_M = _region_bndry_energy[rgn];
         n_N = _region_bndry_index[rgn+1];

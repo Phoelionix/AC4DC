@@ -2,7 +2,7 @@
 terminal_mode = True
 xmin, xmax = 1, 1e4
 
-END_T = -8.5 #0.0
+END_T = 0 #0.0
 POINTS = 70
 #####
 
