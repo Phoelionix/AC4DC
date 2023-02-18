@@ -155,7 +155,7 @@ void BasisSet::set_knot(const GridSpacing& gt){
     double E_M, E_N; // Corresponding energies.
     double p;        // power law that sparseness of grid points in each region follows.
     // R region boundaries and 1 power law for each region --> R - 1 power laws.
-    for (size_t rgn=1; rgn< _region_powers.size(); rgn++){
+    for (size_t rgn=0; rgn< _region_powers.size(); rgn++){
         n_M = _region_bndry_index[rgn];
         E_M = _region_bndry_energy[rgn];
         n_N = _region_bndry_index[rgn+1];
