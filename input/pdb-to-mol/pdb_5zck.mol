@@ -1,13 +1,12 @@
-// Template AC4DC input file created from 4et8.pdb
+// Template AC4DC input file created from 5zck.pdb
 
 #ATOMS
-N 187
-C 611
-O 271
-S 10
+N 5
+C 17
+O 8
 
 #VOLUME
-55961.80      // Volume per molecule in Angstrom^3.
+515.69      // Volume per molecule in Angstrom^3.
 2000      // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
 none      // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
 

@@ -210,8 +210,9 @@ public:
      * @brief Switch grid points to the knot_energies provided, and replace densities with the ones interpolated to by the splines. 
      * 
      * @param all_knot_energies All knots including basis._max and basis._min. (Currently does not support replacing boundaries). 
+     * @note if this is to be used for more than sim loading, need to incorporate running compute_cross_sections again
      */
-    void transform_to_new_basis(std::vector<double> new_knots);
+    void transform_basis(std::vector<double> new_knots);
 
     /// This does electron-electron because it is CURSED
     void from_backwards_Euler(double dt, const Distribution& prev_step, double tolerance, unsigned maxiter);

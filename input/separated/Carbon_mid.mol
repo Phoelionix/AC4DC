@@ -13,17 +13,17 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 square       // Pulse shape
 
 #NUMERICAL
-600000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
-1            // Number of threads in OpenMP.
+1200000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+18            // Number of threads in OpenMP.
 0             // [only for nonthermal] minimum free-electron energy in eV
 10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
 150           // total number of free-electron grid points
 wiggledestruction        // electron grid type
 50              // Number of "low-energy" grid points (hybrid & powerlaw grids only, not for hybrid_power grids though!!!)
 2000          // transition energy in eV (used for grid point boundary, unless hybrid_power grid.)
-1|2|45|70|90|130|135                 // boundary indices, with point at 0 excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
-5|10|200|500|4500|6500|10000        // boundary energies, with point at 0 excluded. No spaces.
-1|2.718|1|2.718|1|2.718             // Region powers.
+1|10|35|45|70|90|130|135                 // boundary indices, with point at 0 excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
+4|10|60|200|500|4500|6500|10000        // boundary energies, with point at 0 excluded. No spaces.
+1|1|1|1|1|1|1             // Region powers.  |min|MB|Auger|Trans.ition|Photo|Tail|
 
 
 #OUTPUT
@@ -34,12 +34,12 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #LOAD
-Carbon_custom_grid_35
--9.7
+Carbon_early_1 // Output folder name
+-9.5    // Point to load time from 
 
 
 #DEBUG
--9.5      // Simulation cutoff time in fs
+-9.48      // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 

@@ -135,8 +135,8 @@ void ElectronRateSolver::tokenise(std::string str, std::vector<double> &out, con
  * @brief Loads all times and free e densities from previous simulation's raw output, and uses that to populate y[i].F, the free distribution.
  * @details This code loads the spline scale factors and associated times from the *raw* distribution output file. 
  * The code parasitically overrides the distribution object with the original spline basis coefficients, 
- * after which it transforms to the grid point basis submitted for *this* run via transform_to_new_basis().
- * It should be noted that transform_to_new_basis() is an *approximation*, albeit it is very good due to using 
+ * after which it transforms to the grid point basis submitted for *this* run via transform_basis().
+ * It should be noted that transform_basis() is an *approximation*, albeit it is very good due to using 
  * order 64 gaussian quadrature.
  * 
  * @todo this should probably be moved to a new methods file.
@@ -168,7 +168,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         ++num_steps;
 
     int step_skip_size = 1;
-    int max_num_loaded_steps = 50;
+    int max_num_loaded_steps = 500;
     while(num_steps/step_skip_size > max_num_loaded_steps){
         step_skip_size*=2;
     }            
@@ -236,7 +236,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
                 << "(" << new_knots[j] << " , " << y.back().F[j] << ")" 
                 << clrline << "------------------" << clrline;
             }
-                cout << endl;
+            cout << endl;
             break;
         }
         // SPLINE FACTORS
@@ -251,7 +251,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         y[i].F.set_distribution(saved_knots,saved_f);
         // To ensure compatibility, "translate" old distribution to new grid points.    
 
-        y[i].F.transform_to_new_basis(new_knots);         
+        y[i].F.transform_basis(new_knots);         
         t[i] = saved_time[i];
         i++;
     }
