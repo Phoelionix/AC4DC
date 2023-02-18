@@ -69,7 +69,7 @@ public:
 	int Plasma_Threads(){return omp_threads;}
 
 	string Load_Folder(){return load_folder;}
-	double Load_Time_Max(){return simulation_resume_time_max;}
+	double Load_Time_Max(){return simulation_resume_time_max/Constant::fs_per_au;}
 
 	string name = "";
 

@@ -142,25 +142,26 @@ void BasisSet::set_knot(const GridSpacing& gt){
     // We want to have higher density in the mid and high energy regions, and low in the low, transition, and surplus regions.
     // Form of E = An^p + B
 
-    //std::vector<double> hyb_powlaw_power (_region_bndry_index.size() - 1,0.);
+   
+   // Force first point to be 0
+    _region_bndry_index.insert(_region_bndry_index.begin(), 0);
+    _region_bndry_energy.insert(_region_bndry_energy.begin(), 0);
+    _region_powers.insert(_region_powers.begin(), 0);
+
     std::vector<double> hyb_powlaw_factor (_region_bndry_index.size() - 1,0.);
-    std::vector<double> hyb_powlaw_constant (_region_bndry_index.size() - 1,0.);
     // Params that define region boundaries:
     int n_M, n_N; //Index of first point in region/next region.  
     double E_M, E_N; // Corresponding energies.
     double p;        // power law that sparseness of grid points in each region follows.
     // R region boundaries and 1 power law for each region --> R - 1 power laws.
-    for (size_t i=0; i< _region_powers.size(); i++){
-        n_M = _region_bndry_index[i];
-        E_M = _region_bndry_energy[i];
-        n_N = _region_bndry_index[i+1];
-        E_N = _region_bndry_energy[i+1];
-        p = _region_powers[i];
+    for (size_t rgn=1; rgn< _region_powers.size(); rgn++){
+        n_M = _region_bndry_index[rgn];
+        E_M = _region_bndry_energy[rgn];
+        n_N = _region_bndry_index[rgn+1];
+        E_N = _region_bndry_energy[rgn+1];
+        p = _region_powers[rgn];
         
-        //hyb_powlaw_power[i] = (log(E_N - _min) - log(E_M - _min))/(log(1.*n_N) - log(1.*n_M));
-        double z = pow(n_M/n_N,p);
-        hyb_powlaw_constant[i] = (E_N*z - E_M)/(z-1);
-        hyb_powlaw_factor[i] = (E_N - hyb_powlaw_constant[i])/pow(n_N, p);
+        hyb_powlaw_factor[rgn] = (E_N - E_M)/pow(n_N-n_M, p);
     }
 
     std::cout<<"[ Knot ] Using splines of "<<BSPLINE_ORDER<<"th order "<<std::endl;
@@ -177,7 +178,7 @@ void BasisSet::set_knot(const GridSpacing& gt){
         std::cout<<"[ Knot ] Using power-law factors: ";
         for (int j = 0; j < hyb_powlaw_factor.size(); j++){
             cout << hyb_powlaw_factor[j] << ", ";
-        }
+        }       
         std::cout << std::endl;         
     }
 
@@ -232,14 +233,16 @@ void BasisSet::set_knot(const GridSpacing& gt){
             //  Get the index of the region (rgn) that this point is part of.
             size_t rgn = 0;
             for( ; rgn < _region_powers.size(); rgn++){
-                if(rgn == _region_powers.size() - 1
-                 ||i - start < _region_bndry_index[rgn+1]){
+                if( i - start < _region_bndry_index[rgn+1]
+                 || rgn == _region_powers.size() - 1){
                     break;
                  }
             }
+            n_M = _region_bndry_index[rgn];
+            E_M = _region_bndry_energy[rgn];
+            p = _region_powers[rgn];            
             // Calculate the knot energy
-            knot[i] = hyb_powlaw_factor[rgn] * pow(i - start, _region_powers[rgn]) + hyb_powlaw_constant[rgn];
-            //cout << knot[i] * Constant::eV_per_Ha  << "," << rgn << ", i: " << i << endl;  //DEBUG
+            knot[i] = hyb_powlaw_factor[rgn] * pow(i - n_M - start, p) + E_M;
             break;
         }
         default:

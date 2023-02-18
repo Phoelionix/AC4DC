@@ -37,8 +37,8 @@ This file is part of AC4DC.
 
 
 
-state_type ElectronRateSolver::get_starting_state() {
-    if (input_params.Input_Free_File() != "" && input_params.Input_Bound_File() != ""){ 
+state_type ElectronRateSolver::get_starting_state(){
+    if (input_params.Load_Folder() != ""){ 
         // Spooky setup inception - setup everything then bootstrap on the stuff we want to change.
         this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
         cout << "[ Plasma ] loading sim state from specified files." << endl;
@@ -46,10 +46,6 @@ state_type ElectronRateSolver::get_starting_state() {
         loadBound();
         simulation_resume_time = t.back();
         return y.back();
-    }
-    else if (input_params.Input_Free_File() != "" || input_params.Input_Bound_File() != ""){
-            cout << "[ Plasma - Load sim error ], only had one file name specified." << endl;
-            exit(EXIT_FAILURE); // Chuck a hissy fit and quit
     }
     else{
         cout << "[ Plasma ] Creating ground state" << endl;

@@ -145,21 +145,25 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 11) stream >> elec_grid_type.min_coulomb_density; //elec_grid_regions.powers
 	}
 
+
 	for (size_t n = 0; n < FileContent["#LOAD"].size(); n++) {
 		stringstream stream(FileContent["#LOAD"][n]);
+
+		if (n == 0){stream >> load_folder;
+			load_folder = "output/__Molecular/" + load_folder + "/";
+		}
+		if (n == 1) stream >> simulation_resume_time_max;
+	}
+
+	for (size_t n = 0; n < FileContent["#DEBUG"].size(); n++) {
+		stringstream stream(FileContent["#DEBUG"][n]);
 
 		if (n == 0){ stream >> simulation_cutoff_time; cutoff_flag = true;}
 		if (n == 1) stream >> time_update_gap;
 
 	}	
 
-	for (size_t n = 0; n < FileContent["#DEBUG"].size(); n++) {
-		stringstream stream(FileContent["#DEBUG"][n]);
 
-		if (n == 0) stream >> simulation_resume_time_max;
-		if (n == 1){stream >> load_folder;
-			load_folder = "output/__Molecular/" + load_folder + "/";
-		}
 
 	// for (size_t n = 0; n < FileContent["#GRID"].size(); n++) {
 	// 	stringstream stream(FileContent["#GRID"][n]);

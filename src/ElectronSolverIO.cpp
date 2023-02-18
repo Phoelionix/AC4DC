@@ -53,13 +53,13 @@ void ElectronRateSolver::save(const std::string& _dir) {
     }
     pf.save(fake_t,dir+"intensity.csv");
 
-    std::vector<double> fake_t;
-    size_t num_t_points = num_t_points = t.size();
-    size_t t_idx_step = t.size() / num_t_points;
-    for (size_t i=0; i<num_t_points; i++) {
-        fake_t.push_back(t[i*t_idx_step]);
-    }
-    pf.save(fake_t,dir+"intensityRaw.csv");    
+    // fake_t.resize(0);
+    // num_t_points = num_t_points = t.size();
+    // t_idx_step = t.size() / num_t_points;
+    // for (size_t i=0; i<num_t_points; i++) {
+    //     fake_t.push_back(t[i*t_idx_step]);
+    // }
+    // pf.save(fake_t,dir+"intensityRaw.csv");    
 
 }
 
@@ -168,7 +168,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         ++num_steps;
 
     int step_skip_size = 1;
-    int max_num_loaded_steps = 5000;
+    int max_num_loaded_steps = 50;
     while(num_steps/step_skip_size > max_num_loaded_steps){
         step_skip_size*=2;
     }            
@@ -199,7 +199,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             continue;
         }
         if (!line.compare(0, 1, "")) continue;
-        if ((count-1)%(step_skip_size) != 0 || count < 0) continue;
+        if ((count)%(step_skip_size) != 0 || count < 0) continue;
         time_and_BS_factors.push_back(line);
     }
 
