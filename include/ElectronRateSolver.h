@@ -126,7 +126,7 @@ private:
     /// Log final details pertaining to the simulation's execution to file fname (e.g. total runtime)
     void log_extra_details(ofstream & _log);
 
-    state_type get_starting_state();
+    void set_starting_state();
     state_type load_state();
     state_type get_ground_state();
 };

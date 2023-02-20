@@ -37,19 +37,16 @@ This file is part of AC4DC.
 
 
 
-state_type ElectronRateSolver::get_starting_state(){
+void ElectronRateSolver::set_starting_state(){
+    this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
     if (input_params.Load_Folder() != ""){ 
-        // Spooky setup inception - setup everything then bootstrap on the stuff we want to change.
-        this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
         cout << "[ Plasma ] loading sim state from specified files." << endl;
         loadFreeRaw_and_times();
         loadBound();
         simulation_resume_time = t.back();
-        return y.back();
     }
     else{
         cout << "[ Plasma ] Creating ground state" << endl;
-        return get_ground_state();
     }
 }
 
@@ -92,7 +89,7 @@ void ElectronRateSolver::compute_cross_sections(std::ofstream& _log, bool recalc
     Distribution::set_elec_points(input_params.Num_Elec_Points(), input_params.Min_Elec_E(), input_params.Max_Elec_E(), input_params.elec_grid_type, input_params.elec_grid_regions);
     state_type::set_P_shape(input_params.Store);
     // Set up the rate equations (setup called from parent Adams_BM)
-    this->setup(get_starting_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
+    set_starting_state();
 
 
     // create the tensor of coefficients
@@ -160,7 +157,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
             time = timestep_reached;
         }
         retries--;
-        this->setup(get_starting_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
+        set_starting_state();
         this->iterate(simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
     }
     

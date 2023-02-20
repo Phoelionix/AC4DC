@@ -110,9 +110,12 @@ void Hybrid<T>::run_steps(const double t_resume, const int steps_per_time_update
     assert(this->y.size() == this->t.size());
     assert(this->t.size() >= this->order);
 
-    // initialise enough points for multistepping to get going
-    for (size_t n = 0; n < this->order; n++) {
-        this->step_rk4(n);
+
+    if (t_resume < this->t[this->order]){
+        // initialise enough points for multistepping to get going
+        for (size_t n = 0; n < this->order; n++) {
+            this->step_rk4(n);
+        }
     }
     // Run those steps
     std::cout << "[ sim ] Implicit solver uses relative tolerance "<<stiff_rtol<<", max iterations "<<stiff_max_iter<<std::endl;

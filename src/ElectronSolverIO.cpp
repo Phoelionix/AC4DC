@@ -307,7 +307,6 @@ void ElectronRateSolver::loadBound() {
     cout << "[ Caution ] Ensure same atoms and corresponding .inp files are used!"<<endl; 
 
 
-    
     for (size_t a=0; a<input_params.Store.size(); a++) {
         // (unimplemented) select atom's bound file  
         const std::string& fname = input_params.Load_Folder() + "dist_" + input_params.Store[a].name + "_Raw.csv";
@@ -340,10 +339,8 @@ void ElectronRateSolver::loadBound() {
             this->y[count].atomP[a] = this->y[0].atomP[a];
         }
         
-        std::vector<double> last_occ_density;
-        // Iterate backwards until reach a time that matches.
-        reverse(saved_occupancies.begin(),saved_occupancies.end());      
-        int matching_idx;
+        
+        // Iterate backwards until reach a time that matches. 
         for(string elem : saved_occupancies){
             // TIME
             std::stringstream s(elem);
@@ -354,29 +351,29 @@ void ElectronRateSolver::loadBound() {
             // Convert to right units (based on saveFreeRaw)
             elem_time /= Constant::fs_per_au;
             if(elem_time > t.back()){
-                continue;
+                break;
             }            
-            matching_idx = find(t.begin(),t.end(),elem_time) - t.begin(); 
+            int matching_idx = find(t.begin(),t.end(),elem_time) - t.begin(); 
             if (matching_idx >= t.size()){
                 continue;
             }
             else{
-                last_occ_density.resize(0);
-                tokenise(elem,last_occ_density);
-                last_occ_density.erase(last_occ_density.begin()); // remove time element
-                break;
+                std::vector<double> occ_density;
+                tokenise(elem,occ_density);
+                occ_density.erase(occ_density.begin()); // remove time element
+                // Convert to correct units
+                const double units = 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au;  
+                for(size_t k = 0; k < occ_density.size();k++){
+                    occ_density[k] /= units;
+                }                 
+                y[matching_idx].atomP[a] = occ_density;
             }
         }
-        // Convert to correct units
-        const double units = 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au;  
-        for(size_t k = 0; k < last_occ_density.size();k++){
-            last_occ_density[k] /= units;
-        }        
-        // Shave time and state containers to the time that matches with the bound state.
-        y.resize(matching_idx + 1);
-        t.resize(matching_idx + 1);
+        // // Shave time and state containers to the time that matches with the bound state.
+        // y.resize(matching_idx + 1);
+        // t.resize(matching_idx + 1);
               
-        this->y.back().atomP[a] = last_occ_density;
+        // this->y.back().atomP[a] = last_occ_density;
 
     }
 }
