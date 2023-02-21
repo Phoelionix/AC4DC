@@ -245,8 +245,9 @@ test.set_atomic_species(pl_t,"/home/speno/AC4DC/scripts/pdb_parser/4et8.pdb",["N
 print(test.generate_ring(queue).I[0])
 
 #%%
-experiment = XFEL(6000,100,q_max=2.4, pixels_per_ring = 1000, num_rings = 200,t_fineness=100)
+experiment = XFEL(6000,100,q_max=2.4, pixels_per_ring = 2000, num_rings = 250,t_fineness=100)
 #%%
+# Nitrogen + Sulfur
 allowed_atoms_1 = ["N_fast","S_fast"]
 end_time_1 = -9.95
 output_handle = "Naive_Lys_C_7"
@@ -254,7 +255,7 @@ pdb_path = "/home/speno/AC4DC/scripts/pdb_parser/4et8.pdb"
 result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,pdb_path,allowed_atoms_1,CNO_to_N=True)
 experiment.plot_pattern(result1)
 #%%
-allowed_atoms_2 = ["N_fast"]
+allowed_atoms_2 = ["S_fast"]
 end_time_2 = -9.95
 output_handle = "Naive_Lys_C_7"
 pdb_path = "/home/speno/AC4DC/scripts/pdb_parser/4et8.pdb"
