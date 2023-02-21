@@ -22,7 +22,7 @@ class Results():
     pass
 
 class XFEL():
-    def __init__(self, photon_energy, detector_distance, crystal_y_axis_rotations = 1, q_min=0.5,q_max=2.4, pixels_per_ring = 400, num_rings = 50,t_fineness=100):
+    def __init__(self, photon_energy, detector_distance,  x_orientations = 1, y_orientations = 1, q_min=0.5,q_max=2.4, pixels_per_ring = 400, num_rings = 50,t_fineness=100):
         """ #### Initialise the imaging experiment's controlled parameters
         photon_energy [eV]:
             Should be the same as that given in the original input file!
@@ -43,12 +43,16 @@ class XFEL():
         self.q_max = q_max
         self.pixels_per_ring = pixels_per_ring
         self.num_rings = num_rings
-        self.crystal_y_axis_rotations = crystal_y_axis_rotations
-        
+        self.y_orientations = y_orientations
+        self.x_orientations = x_orientations
+
         self.t_fineness = t_fineness
 
         self.alpha_array = np.linspace(0,2*np.pi,self.pixels_per_ring,endpoint=False)
-        self.rotation_size = 0 # Current rotation of crystal (y axis currently)
+        self.y_rotation = 0 # Current rotation of crystal (y axis currently)
+        self.x_rotation = 0 # Current rotation of crystal (y axis currently)
+        self.y_rot_matrix = rotaxis2m(self.y_rotation,bio_vect(0, 1, 0))     
+        self.x_rot_matrix = rotaxis2m(self.x_rotation,bio_vect(1, 0, 0))     
 
     def set_atomic_species(self, pl, pdb_fpath, allowed_atoms, CNO_to_N = False, orbitals_as_shells = True):
         parser=PDBParser(PERMISSIVE=1)
@@ -113,7 +117,7 @@ class XFEL():
         end_time: The end time of the photon capture in femtoseconds. Not a real thing experimentally, but useful for choosing 
         a level of damage. Explicitly, it is used to determine the upper time limit for the integration of the form factor.
         pdb_fpath: The pdb file's path. Changes the variable self.atoms.
-        crystal_y_axis_rotations: 
+        y_orientations: 
             Number of unique y axis rotations to sample crystal. x_axis_rotations not implemented (yet?). 
         """
         pl = self.get_pl(start_time,end_time,output_handle) #TODO rename pl, maybe move method to different class.      
@@ -124,30 +128,37 @@ class XFEL():
         q_samples = np.linspace(self.q_min,self.q_max,self.num_rings)
 
         result = Results()
-        for rot in range(self.crystal_y_axis_rotations):
-            for i, q in enumerate(q_samples):
-                ring[i] = self.generate_ring(q)
-                #ring[i].I = (ring[i].I+1)
-                #print("q:",q, "x:",ring[i].R,"I[alph=0]",ring[i].I[0])
+        for rot_x in range(self.x_orientations):
+            self.x_rot_matrix = rotaxis2m(self.x_rotation,bio_vect(1, 0, 0))      
+            self.y_rotation = 0                 
+            for rot_y in range(self.y_orientations):
+                print("Imaging at x, y, rotations:",self.x_rotation,self.y_rotation)
+                self.y_rot_matrix = rotaxis2m(self.y_rotation,bio_vect(0, 1, 0))      
+                self.y_rotation += 2*np.pi/self.y_orientations              
+                for i, q in enumerate(q_samples):
+                    ring[i] = self.generate_ring(q)
+                    #ring[i].I = (ring[i].I+1)
+                    #print("q:",q, "x:",ring[i].R,"I[alph=0]",ring[i].I[0])
 
 
-            # Initialise stuff that is constant between images 
-            if rot  == 0:
-                azm = self.alpha_array
-                result.z = 0     
-                radii = np.zeros(self.num_rings)
-                for i in range(len(ring)):
-                    radii[i] = ring[i].R           
-                r, alph = np.meshgrid(radii, azm)     
+                # Initialise stuff that is constant between images 
+                if rot_y  == 0 and rot_x == 0:
+                    azm = self.alpha_array
+                    result.z = 0     
+                    radii = np.zeros(self.num_rings)
+                    for i in range(len(ring)):
+                        radii[i] = ring[i].R           
+                    r, alph = np.meshgrid(radii, azm)     
 
-            z = np.zeros(r.shape)  # z is the intensity of the plot colour.
-            for ang in range(len(z)):
-                for pos in range(len(z[ang])):
-                    z[ang][pos] = ring[pos].I[ang]
-                    if log:
-                        z[ang][pos] = np.log(z[ang][pos])                    
+                z = np.zeros(r.shape)  # z is the intensity of the plot colour.
+                for ang in range(len(z)):
+                    for pos in range(len(z[ang])):
+                        z[ang][pos] = ring[pos].I[ang]
+                        if log:
+                            z[ang][pos] = np.log(z[ang][pos])                    
             
-            result.z += z/self.crystal_y_axis_rotations
+                result.z += z/(self.y_orientations*self.x_orientations)
+            self.x_rotation += 2*np.pi/self.x_orientations
         result.r = r
         result.alph = alph
         result.azm = azm
@@ -178,13 +189,14 @@ class XFEL():
     def illuminate(self,ring):
         """Returns the intensity at q. Not crystalline yet."""
         F = np.zeros(self.alpha_array.shape,dtype="complex_")
-        rotation_transform = rotaxis2m(self.rotation_size,bio_vect(0, 1, 0))      
-        self.rotation_size += 2*np.pi/self.crystal_y_axis_rotations  
         for species in self.species_dict.values():
             species.set_scalar_form_factor(ring.q)
             count = False
             for R in species.coords:
-                R = R.left_multiply(rotation_transform)    
+                # Rotate to crystal's current orientation 
+                R = R.left_multiply(self.y_rot_matrix)  
+                R = R.left_multiply(self.x_rot_matrix)   
+                # Get spatial factor T
                 T = np.zeros(self.alpha_array.shape,dtype="complex_")
                 T= self.spatial_factor(self.alpha_array,R,ring)
                 F += species.ff*T
@@ -265,7 +277,7 @@ test.set_atomic_species(pl_t,"/home/speno/AC4DC/scripts/scattering/4et8.pdb",["N
 print(test.generate_ring(queue).I[0])
 
 #%% Lysozyme
-experiment = XFEL(6000,100,crystal_y_axis_rotations=50, q_max=2.4, pixels_per_ring = 500, num_rings = 50,t_fineness=100)
+experiment = XFEL(6000,100,x_orientations=7, y_orientations=7,q_max=2.4, pixels_per_ring = 500, num_rings = 50,t_fineness=100)
 #%%
 # Nitrogen + Sulfur
 allowed_atoms_1 = ["N_fast","S_fast"]
@@ -291,20 +303,20 @@ result3.azm = result1.azm
 experiment.plot_pattern(result3)
 #
 #%% Tetrapeptide 
-experiment = XFEL(6000,100,crystal_y_axis_rotations=50,q_max=2, pixels_per_ring = 2000, num_rings = 250,t_fineness=100)
+experiment = XFEL(6000,100,x_orientations = 10, y_orientations=10,q_max=2, pixels_per_ring = 500, num_rings = 1000,t_fineness=100)
 pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb"
 # 1
 allowed_atoms_1 = ["C_fast","N_fast","O_fast"]
 end_time_1 = -9.99
 output_handle = "B_tetrapeptide_1"
-result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,pdb_path,allowed_atoms_1,CNO_to_N=True,log=True)
+result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,pdb_path,allowed_atoms_1,CNO_to_N=False,log=True)
 experiment.plot_pattern(result1)
 #%% 2
 
 allowed_atoms_2 = ["C_fast","N_fast","O_fast"]
-end_time_2 = -9.7
-output_handle = "B_tetrapeptide_1"
-result2 = experiment.firin_mah_lazer(-10,end_time_2,output_handle,pdb_path,allowed_atoms_2,CNO_to_N=True)
+end_time_2 = -5
+output_handle = "C_tetrapeptide_2"
+result2 = experiment.firin_mah_lazer(-10,end_time_2,output_handle,pdb_path,allowed_atoms_2,CNO_to_N=False)
 experiment.plot_pattern(result2)
 #%% Difference
 result3 = Results()
