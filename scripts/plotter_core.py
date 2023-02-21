@@ -285,7 +285,7 @@ class Plotter:
 
     def initialise_coherence_params(self, start_t,end_t, q_max, photon_energy, q_fineness=50,t_fineness=50,naive=False):
         args = locals()
-        self.__dict__ .update(args)  # Is this a coding sin?
+        self.__dict__ .update(args)  # Is this a coding sin?  - yes unless you like your IDE not being sure about your variables.
         self.k_max = 2*np.pi * self.q_max  # Change to wavenumber.
  
     
@@ -495,7 +495,7 @@ class Plotter:
 
     # f component of I = int{F.F*}dt =int{f^2}dt T.T*, 
     # where F(q)_i = f(q)T(q)_i is the contribution to F by an atom, and f is the time-integrated component, T(q) is the spatial component.
-    def f_average(self,q, atom):
+    def f_average(self,q,atom):
         def integrand(idx):
             # We pass in indices from 0 to fineness-1, transform to time:
             t = self.start_t + idx/self.t_fineness*(self.end_t-self.start_t) 

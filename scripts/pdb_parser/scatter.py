@@ -1,6 +1,7 @@
 #%%
 #TODO make class
 #%%
+%colors nocolor
 import os
 os.getcwd() 
 import sys
@@ -8,395 +9,249 @@ sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
 sys.path.append('/home/speno/AC4DC/scripts/')
 print(sys.path)
 
+#%%
 from Bio.PDB.vectors import Vector as bio_vect
 from Bio.PDB.PDBParser import PDBParser
-import numpy as np
-
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
 from plotter_core import Plotter
 
-# Get what we need
-handle = "Naive_Lys_C_7"
-parser=PDBParser(PERMISSIVE=1)
-structure_id="4et8"
-filename="/home/speno/AC4DC/scripts/pdb_parser/4et8.pdb"
+class XFEL():
+    def __init__(self, photon_energy, detector_distance, q_min=0.5,q_max=2.4, pixels_per_ring = 400, num_rings = 50,t_fineness=100):
+        """ #### Initialise the imaging experiment's controlled parameters
+        photon_energy [eV]:
+            Should be the same as that given in the original input file!
+        detector_distance [bohr];
+            The distance between the target and the centre of the detector 
+        q_max [1/bohr]:
+        pixels_per_ring: 
+            The number of different values for alpha to plot. Alpha is the angle that the incident light makes with 
+            the y axis, (z-axis is firing line. y-axis is any arbitrary axis perpendicular to z-axis.)
+        num_rings: 
+            Determines the number of q to calculate. Note pixels are currently just points
+        t_fineness:
+            Number of time steps to calculate.
+        """
+        self.photon_energy = photon_energy
+        self.detector_distance = detector_distance
+        self.q_min = q_min
+        self.q_max = q_max
+        self.pixels_per_ring = pixels_per_ring
+        self.num_rings = num_rings
 
-pl = Plotter(handle,"y")
-plt.close()
-photon_energy = 6000
-q_max = 2 # In units of bohr^-1. 
-pl.initialise_coherence_params(-10,-9.6,q_max,photon_energy,50,100,True)
+        self.t_fineness = t_fineness
+        self.alpha_array = np.linspace(0,2*np.pi,self.pixels_per_ring,endpoint=False)
 
+    def set_atomic_species(self, pl, pdb_fpath, allowed_atoms, CNO_to_N = False, orbitals_as_shells = True):
+        parser=PDBParser(PERMISSIVE=1)
+        structure_id = os.path.basename(pdb_fpath)
+        structure = parser.get_structure(structure_id, pdb_fpath)
+        model = structure[0]
+        if len(structure) > 1:
+            print("WARNING: Only captured first of",structure.size(),"structures!")
 
-#%%
-do_print = True
-
-def spatial_factor_but_wrong(q,R):
-    global do_print
-    # Spherical averaging
-    sq_sample_size = 100  # 
-    # Scattering angle
-    theta = np.linspace(0,np.pi,sq_sample_size,endpoint=False)
-    # Angle of vector relative to arbitrary angle, pointing from screen centre to point hit. 
-    alpha = np.linspace(0,2*np.pi,sq_sample_size,endpoint=False)
-    
-    q_z = q*np.sin(theta) # not cos because q is hypotenuse - not perpendicular to x-y plane.
-    q_z = np.tile(q_z,(sq_sample_size,1)) # copies of rows containing z factor for each sample. Number of copies corresponds to number of alpha angles we sample
-    y_alph = np.tile(np.sin(alpha),(sq_sample_size,1)).transpose()
-    q_y = np.multiply(q_z,y_alph) 
-    x_alph = np.tile(np.cos(alpha),(sq_sample_size,1)).transpose()
-    q_x = np.multiply(q_z,x_alph)
-
-
-    q_x = q_x.flatten()
-    q_y = q_y.flatten()
-    q_z = q_z.flatten()
-    q_vect = np.column_stack([q_x,q_y,q_z])  
-
-    R = R.get_array() * 1.88973  # convert to bohr
-    
-    neg_i_q_R = -1j*np.dot(q_vect,R)
-    samples = np.exp(neg_i_q_R)
-
-    
-    return np.average(samples)
-    
-    ############ non-vectorised
-    '''
-    # Spherical averaging
-    sq_sample_size = 4
-    # Scattering angle
-    theta = np.linspace(0,np.pi,sq_sample_size,endpoint=False)
-    # Angle of vector relative to arbitrary angle, pointing from screen centre to point hit. 
-    alpha = np.linspace(0,2*np.pi,sq_sample_size,endpoint=False)
-    
-    samples = np.zeros(sq_sample_size**2,dtype="complex_")
-    for j,t in enumerate(theta):
-        q_z = q*np.sin(t) # not cos because q is hypotenuse - not perpendicular to x-y plane.
-        for i,a in enumerate(alpha):
-            q_y = q_z*np.sin(a)
-            q_x = q_z*np.cos(a)
-            q_vect = bio_vect(q_x,q_y,q_z)
-            samples[i*sq_sample_size+j] = np.exp(-1j*np.dot(q_vect,R))    
-    print(np.average(samples))
-    return np.average(samples)    
-    '''
-
-
-# focused beam --> theta we know, but have range of alpha.
-def spatial_factor(q, theta, R):
-    # theta = scattering angle relative to z-y plane
-    z_comp = q*np.sin(theta) # not cos because q is hypotenuse - not perpendicular to x-y plane.
-    sample_size = 400
-    alpha = np.linspace(0,2*np.pi,sample_size,endpoint=False)
-    # alpha angle of vector relative to x-y plane, pointing from screen centre to point hit. 
-    q_y = z_comp*np.sin(alpha)
-    q_x = z_comp*np.cos(alpha)
-    q_z = np.zeros(sample_size)
-    q_z.fill(z_comp)
-    q_vect = np.column_stack([q_x,q_y,q_z])
-    samples = np.exp(-1j*np.dot(q_vect,R.get_array()))    
-    return np.average(samples)   
-
-# Polarised light
-def spatial_factor_polarised(q, theta, R, alpha):
-    # theta = scattering angle relative to z-y plane
-    q_z = q*np.sin(theta) # not cos because q is hypotenuse - not perpendicular to x-y plane.
-    # alpha angle of vector relative to x-y plane, pointing from screen centre to point hit. 
-    q_y = q_z*np.sin(alpha)
-    q_x = q_z*np.cos(alpha)
-    q_vect = np.column_stack([q_x,q_y,q_z])
-    return np.exp(-1j*np.dot(q_vect,R.get_array()))   
-
-def illuminate_polarised(q, theta, atoms, alpha_array,simple = True):
-    def fast_name(name):
-        allowed_atoms = ["N","S"]
-        if simple:
-            if name == "C" or name == "O":
-                name = "N"
+        def AC4DC_name(name):  
+            """Converts pdb name to names in AC4DC output"""
+            if CNO_to_N:
+                # light atom approximation. 
+                if name == "C" or name == "O":
+                    name = "N"
+            if  orbitals_as_shells and name not in ["H","He"]:
+                name+="_fast"
             if name not in allowed_atoms:
-                return None
-        if name != "H":
-            name+="_fast"
-        return name
-    F = np.zeros(alpha_array.shape,dtype="complex_")
-    for atom in atoms:
-        name = atom.element
-        a = fast_name(name)
-        if a == None:
-            continue
-        # F_i(q) = f(q)*T_i(q), where f is the time-integrated average 
-        f = pl.f_average(q,a)
-        R = atom.get_vector()
-        T = np.zeros(alpha_array.shape,dtype="complex_")
-        for a,alpha in enumerate(alpha_array):  #TODO vectorise
-            T[a]= spatial_factor_polarised(q,theta,R,alpha)
-        F += f*T
-    I = np.square(np.abs(F))
-
-    return I
-
-
-# Crystalline.
-def illuminate_miller(atom):
-    pass
-    #non-zero q: miller indices q_hkl
-
-# Get the contribution to the intensity term  from the atom. Not crystalline.
-def illuminate(q, theta, atoms,simple = True):
-    def fast_name(name):
-        allowed_atoms = ["N","S"]
-        if simple:
-            if name == "C" or name == "O":
-                name = "N"
-            if name not in allowed_atoms:
-                return None
-        if name != "H":
-            name+="_fast"
-        return name
-    F = 0
-    for atom in atoms:
-        name = atom.element
-        a = fast_name(name)
-        if a == None:
-            continue
-        # F_i(q) = f(q)*T_i(q), where f is the time-integrated average 
-        f = pl.f_average(q,a)
-        R = atom.get_vector()
-        T= spatial_factor(q,theta,R)
-        F += f*T
-    I = np.abs(F)**2
-
-    return I
-
-    # Determine bragg peaks location for q = 4*pi*sin(theta)/lambda. 
-    # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. (ideal) resolution.
-    
-    # q_max = 10
-    # peaks = [0]
-    # n = 0
-    # while peaks[-1] < q_max:
-    #     n += 1
-    #     peaks.append(4*)
-
-
-    # for q in peaks:
-    #     q = 4*np.pi 
+                return None                
+            return name
         
+        species_dict = {}
+        for chain in model.get_list():
+            atoms_gen = chain.get_atoms()
+            for atom in atoms_gen:
+                # Get ze data
+                R = atom.get_vector()
+                name = AC4DC_name(atom.element)
+                # Pop into our desired format
+                if name == None:
+                    continue
+                if name not in species_dict.keys():
+                    species_dict[name] = self.Atomic_Species(name,pl) 
+                species_dict[name].add_atom(R)
+        for str in allowed_atoms:
+            if str not in species_dict.keys():
+                print("Warning: no",str,"atoms found.")
+        self.species_dict = species_dict 
 
-    # return intensity
 
-# Returns the intensity at q
-def intensity(q,theta,alpha_array):
-    atoms = []
-    structure=parser.get_structure(structure_id, filename)
-    model=structure[0]
-    for chain in model.get_list():
-        atoms_gen = chain.get_atoms()
-        for atom in atoms_gen:
-            atoms.append(atom)
-    if alpha_array is not None:
-        return illuminate_polarised(q,theta,atoms,alpha_array)
-    return illuminate(q, theta, atoms)
+            
+    class Atomic_Species():
+        def __init__(self,name,pl):
+            self.name = name 
+            self.pl = pl 
+            self.ff = 0 # form_factor
+            self.coords = []  # coord of each atom in species
+        def add_atom(self,vector):
+            self.coords.append(vector)
+        def set_scalar_form_factor(self,q):
+            # F_i(q) = f(q)*T_i(q), where f = self.ff is the time-integrated average 
+            self.ff = self.pl.f_average(q,self.name)  
+                      
+    def get_pl(self,start_time,end_time,output_handle):
+        pl = Plotter(output_handle,"y")
+        plt.close()
+        pl.initialise_coherence_params(start_time,end_time,self.q_max,self.photon_energy,t_fineness=self.t_fineness) # q_fineness isn't used for our purposes.   
+        return pl
+    
+    def firin_mah_lazer(self, start_time, end_time, output_handle, pdb_fpath, allowed_atoms="All", CNO_to_N = False):
+        """ 
+        end_time: The end time of the photon capture in femtoseconds. Not a real thing experimentally, but useful for choosing 
+        a level of damage. Explicitly, it is used to determine the upper time limit for the integration of the form factor.
+        pdb_fpath: The pdb file's path. Changes the variable self.atoms.
+        """
+        pl = self.get_pl(start_time,end_time,output_handle) #TODO rename pl, maybe move method to different class.      
+        self.set_atomic_species(pl,pdb_fpath,allowed_atoms,CNO_to_N)
+
+        ring = np.empty(self.num_rings,dtype="object")
+
+        q_samples = np.linspace(self.q_min,self.q_max,self.num_rings)
+        for i, q in enumerate(q_samples):
+            ring[i] = self.generate_ring(q)
+            #ring[i].I = (ring[i].I+1)
+            #print("q:",q, "x:",ring[i].R,"I[alph=0]",ring[i].I[0])
+
+        azm = self.alpha_array
+        radii = np.zeros(self.num_rings)
+        for i in range(len(ring)):
+            radii[i] = ring[i].R
+        r, alph = np.meshgrid(radii, azm)
+        z = np.zeros(r.shape)  # z is the intensity of the plot colour.
+        for ang in range(len(z)):
+            for pos in range(len(z[ang])):
+                z[ang][pos] = np.log(ring[pos].I[ang]) 
+        
+        class Results():
+            pass
+        result = Results() 
+        result.r = r
+        result.z = z
+        result.alph = alph
+        result.azm = azm
+        return result
+    
+    def plot_pattern(self,result):
+        # https://stackoverflow.com/questions/36513312/polar-heatmaps-in-python
+        fig = plt.figure()
+        ax = Axes3D(fig)        
+        plt.subplot(projection="polar")
+        plt.pcolormesh(result.alph, result.r, result.z)
+        plt.plot(result.azm, result.r , color='k', ls='none') 
+        plt.grid()  # Make the grid lines represent one unit cell (when implemented).         
+    
+    class Ring:
+        def __init__(self,q,theta):
+            self.q = q
+            self.theta = theta
+    def generate_ring(self,q):
+        '''Returns the intensity(alpha) array and the radius for given q.'''
+        print("q=",q)
+        ring = self.Ring(q,self.q_to_theta(q))
+        ring.R = self.q_to_x(q)
+        ring.I = self.illuminate(ring)
+        return ring 
+
+    # Not crystalline yet
+    def illuminate(self,ring):
+        """Returns the intensity at q. Not crystalline yet."""
+        F = np.zeros(self.alpha_array.shape,dtype="complex_")
+        for species in self.species_dict.values():
+            species.set_scalar_form_factor(ring.q)
+            for R in species.coords:
+                T = np.zeros(self.alpha_array.shape,dtype="complex_")
+                #TODO  test whether rotating using bio vector functions faster.
+                T= self.spatial_factor(self.alpha_array,R,ring)
+                F += species.ff*T
+        I = np.square(np.abs(F))
+
+        return I            
+
+    def spatial_factor(self,alpha_array,R,ring):
+        """ theta = scattering angle relative to z-y plane """ 
+        q_z = ring.q*np.sin(ring.theta) # not cos because q is hypotenuse - not perpendicular to x-y plane.
+        q_z = np.tile(q_z,len(alpha_array))
+        # alpha angle of vector relative to x-y plane, pointing from screen centre to point hit. 
+        q_y = q_z*np.sin(alpha_array)
+        q_x = q_z*np.cos(alpha_array)
+        q_vect = np.column_stack([q_x,q_y,q_z])
+        return np.exp(-1j*np.dot(q_vect,R.get_array()))   
+                
+    # E = photon energy in eV
+    def q_to_theta(self,q_abs):
+        E = self.photon_energy
+        bohr_per_nm = 18.8973; c_nm = 2.99792458e17; h_ev = 6.582119569e-16 *2 *np.pi  #TODO check why angstrom_per_nm is used instead by HR but with bohr units.
+        lamb =  h_ev*c_nm/E
+        lamb *= bohr_per_nm   
+        return np.arcsin(lamb*q_abs/(4*np.pi))    
+
+    def q_to_x(self,q_abs):
+        E = self.photon_energy
+        D = self.detector_distance
+        theta = self.q_to_theta(q_abs)
+        return D*np.tan(theta)    
 
 
-# E = photon energy in eV
-def q_to_theta(q_abs,E):
-    bohr_per_nm = 18.8973; c_nm = 2.99792458e17; h_ev = 6.582119569e-16 *2 *np.pi  #TODO check why angstrom_per_nm is used instead by HR but with bohr units.
-    lamb =  h_ev*c_nm/E
-    lamb *= bohr_per_nm   
-    return np.arcsin(lamb*q_abs/(4*np.pi))    
+    # Crystalline.
+    def illuminate_miller(self, atoms):
+        pass
+        #non-zero q: miller indices q_hkl
 
-def q_to_x(q_abs,E,D):
-    theta = q_to_theta(q_abs,E)
-    return D*np.tan(theta)    
+        # Determine bragg peaks location for q = 4*pi*sin(theta)/lambda. 
+        # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. (ideal) resolution.
+        
+        # q_max = 10
+        # peaks = [0]
+        # n = 0
+        # while peaks[-1] < q_max:
+        #     n += 1
+        #     peaks.append(4*)
 
-# def x_to_q(x,E,D):
-#     # D*np.tan(np.arcsin(lamb*q_abs/(4*np.pi))) = x, q = sin(arctan((x/D)))/lamb*4*np.pi
-#     bohr_per_nm = 18.8973; c_nm = 2.99792458e17; h_ev = 6.582119569e-16 *2 *np.pi  #TODO check why angstrom_per_nm is used instead by HR but with bohr units.
-#     lamb =  h_ev*c_nm/E
-#     lamb *= bohr_per_nm       
-#     q = np.sin(np.arctan((x/D)))/lamb*4*np.pi
-#     return q
 
-# Returns the intensity at a position on the screen and the x value for given q.
-def scattering_pattern(q,E,D,alpha_array=None):
-    x = q_to_x(q,E,D)
-    theta = q_to_theta(q,E)
-    print("q=",q)
-    I = intensity(q,theta,alpha_array) 
-    return x,I
+        # for q in peaks:
+        #     q = 4*np.pi 
+            
 
-'''
-def q_to_theta(q_abs,E):
-    bohr_per_nm = 18.8973; c_nm = 2ww.99792458e17; h_ev = 6.582119569e-16 *2 *np.pi
-    lamb =  h_ev*c_nm/E
-    print(lamb)
-    lamb *= bohr_per_nm    
-    print(lamb)
-    return np.arcsin(lamb*q_abs/(4*np.pi))*180/np.pi
-'''
+        # return intensity
+    # def x_to_q(x,E,D):
+    #     # D*np.tan(np.arcsin(lamb*q_abs/(4*np.pi))) = x, q = sin(arctan((x/D)))/lamb*4*np.pi
+    #     bohr_per_nm = 18.8973; c_nm = 2.99792458e17; h_ev = 6.582119569e-16 *2 *np.pi  #TODO check why angstrom_per_nm is used instead by HR but with bohr units.
+    #     lamb =  h_ev*c_nm/E
+    #     lamb *= bohr_per_nm       
+    #     q = np.sin(np.arctan((x/D)))/lamb*4*np.pi
+    #     return q
+
+    '''
+    def q_to_theta(q_abs,E):
+        bohr_per_nm = 18.8973; c_nm = 2ww.99792458e17; h_ev = 6.582119569e-16 *2 *np.pi
+        lamb =  h_ev*c_nm/E
+        print(lamb)
+        lamb *= bohr_per_nm    
+        print(lamb)
+        return np.arcsin(lamb*q_abs/(4*np.pi))*180/np.pi
+    '''
 
 queue = 0.4
-print(queue,scattering_pattern(queue,12000,100))
-
+test = XFEL(12000,100)
+pl_t = test.get_pl(-10,-9.95,"Naive_Lys_C_7")
+test.set_atomic_species(pl_t,"/home/speno/AC4DC/scripts/pdb_parser/4et8.pdb",["N_fast","S_fast"],CNO_to_N=True)
+print(test.generate_ring(queue).I[0])
 
 #%%
-handle = "Improved_Lys_early_11"
-parser=PDBParser(PERMISSIVE=1)
-structure_id="4et8"
-filename="/home/speno/AC4DC/scripts/pdb_parser/4et8.pdb"
-
-#%% Polarised EARLIER
-E_TIME = -9.95
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import numpy as np
-from plotter_core import Plotter
-
-pl = Plotter(handle,"y")
-plt.close()
-photon_energy = 6000
-q_max = 2.4 # In units of bohr^-1. 
-pl.initialise_coherence_params(-10,E_TIME,q_max,photon_energy,50,100,True)
-
-q_size = 100
-alpha_size = 400
-y = np.zeros(q_size,dtype="object")
-R = np.zeros(q_size,dtype="float")
-alpha_array = np.linspace(0,2*np.pi,alpha_size,endpoint=False)
-q_samples = np.linspace(0.5,2.4,q_size)
-for i, q in enumerate(q_samples):
-    R[i], y[i] = scattering_pattern(q,12000,100,alpha_array)
-    y[i] = (y[i]+1)
-    print("q:",q, "x:",R[i],"I[alph=0]",y[i][0])
-
-fig = plt.figure()
-ax = Axes3D(fig)
-
-azm = alpha_array
-r, alph = np.meshgrid(R, azm)
-z = np.zeros(r.shape)  # z is the intensity of the plot colour.
-for pos in range(len(z)):
-    for ang in range(len(z[pos])):
-        z[pos][ang] = np.log(y[ang][pos]) 
-
-print(r)
-print(z)
-
-plt.subplot(projection="polar")
-plt.pcolormesh(alph, r, z)
-plt.plot(azm, r , color='k', ls='none') 
-plt.grid()  # Make the grid lines represent one unit cell when we do that. 
-plt.show()
-
-#%% LATER
-L_TIME = -9.7
-pl = Plotter(handle,"y")
-plt.close()
-q_max = 2.4 # In units of bohr^-1. 
-pl.initialise_coherence_params(-10,L_TIME,q_max,photon_energy,50,100,True)
-
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import numpy as np
-q_size = 100
-alpha_size = 400
-y2 = np.zeros(q_size,dtype="object")
-R2 = np.zeros(q_size,dtype="float")
-alpha_array2 = np.linspace(0,2*np.pi,alpha_size,endpoint=False)
-q_samples2 = np.linspace(0.5,q_max,q_size) 
-for i, q in enumerate(q_samples2):
-    R2[i], y2[i] = scattering_pattern(q,12000,100,alpha_array2)
-    y2[i] = (y2[i]+1)
-    print("q:",q, "x:",R2[i],"I[alph=0]",y2[i][0])
-
-fig2 = plt.figure()
-ax2 = Axes3D(fig2)
-
-azm2 = alpha_array2
-r2, alph2 = np.meshgrid(R2, azm2)
-z2 = np.zeros(r2.shape)  # z is the intensity of the plot colour.
-for pos in range(len(z2)):
-    for ang in range(len(z2[pos])):
-        z2[pos][ang] = np.log(y2[ang][pos]) 
-
-print(r2)
-print(z2)
-
-plt.subplot(projection="polar")
-plt.pcolormesh(alph2, r2, z2)
-plt.plot(azm2, r2 , color='k', ls='none') 
-plt.grid()
-plt.show()
-
-
-
-#%% COMPARE
-z_diff = z-z2
-alph3 = alph
-r3 = r
-
-print(z_diff)
-fig3 = plt.figure()
-ax3 = Axes3D(fig2)
-
-plt.subplot(projection="polar")
-plt.pcolormesh(alph3, r3, z_diff)
-plt.plot(alph3, r3 , color='k', ls='none') 
-
-
-
-# %% Not polarised
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import numpy as np
-size = 50
-y = np.zeros(size)
-R = np.zeros(size)
-alpha = 0
-q_samples = np.linspace(0.5,2.4,size)
-for i, q in enumerate(q_samples):
-    R[i], y[i] = scattering_pattern(q,12000,100)
-    y[i] = (y[i]+1)
-    print("q:",q, "x:",R[i],"I",y[i])
-
-fig = plt.figure()
-ax = Axes3D(fig)
-
-azm = np.linspace(0, 2*np.pi, size)
-r, th = np.meshgrid(R, azm)
-z = (r ** 2.0) / 4.0
-for i in range(len(z)):
-    for j in range(len(z[i])):
-        z[i][j] = np.log(y[j])
-
-print(r)
-print(z)
-
-plt.subplot(projection="polar")
-plt.pcolormesh(th, r, z)
-plt.plot(azm, r , color='k', ls='none') 
-plt.grid()
-plt.show()
-# %%
-
-
-fig = plt.figure()
-ax = Axes3D(fig)
-
-rad = x
-azm = np.linspace(0, 2 * np.pi, 100)
-r, th = np.meshgrid(rad, azm)
-z = (r ** 2.0) / 4.0
-
-plt.subplot(projection="polar")
-
-plt.pcolormesh(th, r, z)
-#plt.pcolormesh(th, z, r)
-
-plt.plot(azm, r, color='k', ls='none') 
-plt.grid()
-
-plt.show()
-# %%
+experiment = XFEL(12000,100,q_max=2.4, pixels_per_ring = 400, num_rings = 100,t_fineness=100)
+#%%
+output_handle = "Naive_Lys_C_7"
+pdb_path = "/home/speno/AC4DC/scripts/pdb_parser/4et8.pdb"
+result1 = experiment.firin_mah_lazer(-10,-9.95,output_handle,pdb_path,["N_fast","S_fast"],CNO_to_N=True)
+experiment.plot_pattern(result1)
+#%%
+output_handle = "Naive_Lys_C_7"
+pdb_path = "/home/speno/AC4DC/scripts/pdb_parser/4et8.pdb"
+result2 = experiment.firin_mah_lazer(-10,-9.95,output_handle,pdb_path,["N_fast","S_fast"],CNO_to_N=True)
+experiment.plot_pattern(result2)
