@@ -149,6 +149,7 @@ class XFEL():
                     for i in range(len(ring)):
                         radii[i] = ring[i].R           
                     r, alph = np.meshgrid(radii, azm)     
+                    q_for_plot, alph = np.meshgrid(q_samples,azm)
 
                 z = np.zeros(r.shape)  # z is the intensity of the plot colour.
                 for ang in range(len(z)):
@@ -162,15 +163,22 @@ class XFEL():
         result.r = r
         result.alph = alph
         result.azm = azm
+        result.q = q_for_plot
+        self.x_rotation = 0
         return result
     
-    def plot_pattern(self,result):
+    def plot_pattern(self,result,plot_against_q=False,log=False):
         # https://stackoverflow.com/questions/36513312/polar-heatmaps-in-python
         fig = plt.figure()
         ax = Axes3D(fig)        
+        radial_axis = result.r
+        if plot_against_q:
+            radial_axis =  result.q
         plt.subplot(projection="polar")
-        plt.pcolormesh(result.alph, result.r, result.z)
-        plt.plot(result.azm, result.r , color='k', ls='none') 
+        plt.pcolormesh(result.alph, radial_axis, result.z)
+        plt.plot(result.azm, radial_axis , color='k', ls='none')
+        if log:
+            plt.yscale("log") 
         plt.grid()  # Make the grid lines represent one unit cell (when implemented).         
     
     class Ring:
@@ -277,7 +285,7 @@ test.set_atomic_species(pl_t,"/home/speno/AC4DC/scripts/scattering/4et8.pdb",["N
 print(test.generate_ring(queue).I[0])
 
 #%% Lysozyme
-experiment = XFEL(6000,100,x_orientations=7, y_orientations=7,q_max=2.4, pixels_per_ring = 500, num_rings = 50,t_fineness=100)
+experiment = XFEL(6000,100,x_orientations=1, y_orientations=1,q_max=2.4, pixels_per_ring = 400, num_rings = 750,t_fineness=100)
 #%%
 # Nitrogen + Sulfur
 allowed_atoms_1 = ["N_fast","S_fast"]
@@ -287,8 +295,8 @@ pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb"
 result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,pdb_path,allowed_atoms_1,CNO_to_N=True)
 experiment.plot_pattern(result1)
 #%%
-allowed_atoms_2 = ["S_fast"]
-end_time_2 = -9.95
+allowed_atoms_2 = ["N_fast","S_fast"]
+end_time_2 = -9.76
 output_handle = "Naive_Lys_C_7"
 pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb"
 result2 = experiment.firin_mah_lazer(-10,end_time_2,output_handle,pdb_path,allowed_atoms_2,CNO_to_N=True)
@@ -297,33 +305,40 @@ experiment.plot_pattern(result2)
 #%% Difference
 result3 = Results()
 result3.r = result1.r
+result3.q = result1.q
 result3.z = result1.z-result2.z
 result3.alph = result1.alph
 result3.azm = result1.azm
 experiment.plot_pattern(result3)
 #
 #%% Tetrapeptide 
-experiment = XFEL(6000,100,x_orientations = 10, y_orientations=10,q_max=2, pixels_per_ring = 500, num_rings = 1000,t_fineness=100)
+experiment = XFEL(6000,100,x_orientations = 1, y_orientations=1,q_min=0.2,q_max=2.4, pixels_per_ring = 200, num_rings = 250,t_fineness=100)
+use_q = True
+use_log = False
 pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb"
+
 # 1
-allowed_atoms_1 = ["C_fast","N_fast","O_fast"]
+allowed_atoms_1 = ["C_fast"]
 end_time_1 = -9.99
 output_handle = "B_tetrapeptide_1"
-result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,pdb_path,allowed_atoms_1,CNO_to_N=False,log=True)
-experiment.plot_pattern(result1)
+result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,pdb_path,allowed_atoms_1,CNO_to_N=False)
+experiment.plot_pattern(result1,plot_against_q = use_q,log=use_log)
 #%% 2
-
-allowed_atoms_2 = ["C_fast","N_fast","O_fast"]
+allowed_atoms_2 = ["C_fast"]
 end_time_2 = -5
 output_handle = "C_tetrapeptide_2"
 result2 = experiment.firin_mah_lazer(-10,end_time_2,output_handle,pdb_path,allowed_atoms_2,CNO_to_N=False)
-experiment.plot_pattern(result2)
+experiment.plot_pattern(result2,plot_against_q = use_q,log=use_log)
 #%% Difference
 result3 = Results()
 result3.r = result1.r
-result3.z = result1.z-result2.z
+result3.q = result1.q
+result3.z = np.abs(np.sqrt(np.exp(result1.z))-np.sqrt(np.exp(result2.z)))/np.sqrt(np.exp(result1.z))
 result3.alph = result1.alph
 result3.azm = result1.azm
-experiment.plot_pattern(result3)
+experiment.plot_pattern(result3,plot_against_q = use_q,log=use_log)
 
+
+#TODO 
+# log doesnt work when atm.
 # %%
