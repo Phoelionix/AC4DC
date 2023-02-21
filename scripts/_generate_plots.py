@@ -72,7 +72,7 @@ pl.fig.set_size_inches(3,2.5)
 pl.fig.subplots_adjust(left=0.2,bottom=0.18,top=0.95)
 plt.savefig(dname_Figures + label + fname_bound_dynamics + figures_ext)
 
-pl.print_bound_slice()
+#pl.print_bound_slice()
 #plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_bound.pgf')
 
 plt.close()
@@ -118,7 +118,7 @@ colrs = [cmap(i) for i in range(4)]
 
 ### shape, %, time,
 #slices = [-9.5,-8.5,-7.5]      # square 10%, 10 fs,
-slices = [-7.5]#[-9.8,-9.5] 
+slices = [-7.51]#[-9.8,-9.5] 
 #slices = [-9.99,-9.98,-9.97]      # square << 1%, 10 fs, 
 
 energies = [200,500,500,500,500,500]     # Cutoff energies for fitting MB curves. 

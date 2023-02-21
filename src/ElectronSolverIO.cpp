@@ -132,14 +132,13 @@ void ElectronRateSolver::tokenise(std::string str, std::vector<double> &out, con
 }
 
 /**
- * @brief Loads all times and free e densities from previous simulation's raw output, and uses that to populate y[i].F, the free distribution.
+ * @brief Loads the times and corresponding spline factors from a simulation's raw output into this simulation's y[i].F. 
+ * The final time step is made as close to the load_time specified by input_params, without being over it or obviously divergent.   
  * @details This code loads the spline scale factors and associated times from the *raw* distribution output file. 
  * The code parasitically overrides the distribution object with the original spline basis coefficients, 
  * after which it transforms to the grid point basis submitted for *this* run via transform_basis().
- * It should be noted that transform_basis() is an *approximation*, albeit it is very good due to using 
+ * It should be noted that transform_basis() is an *approximation* of the non-polynomial behaviourpyt, albeit it is very good due to using 
  * order 64 gaussian quadrature.
- * 
- * @todo this should probably be moved to a new methods file.
  */
 void ElectronRateSolver::loadFreeRaw_and_times() {
     vector<string> time_and_BS_factors;
@@ -222,21 +221,6 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             // time is past the maximum
             y.resize(i); // (Resized later by integrator for full sim.)
             t.resize(i);
-            vector<double> new_knots = y.back().F.get_knot_energies();
-            string col = "\033[95m"; string clrline = "\033[0m\n";
-            cout <<  col + "Loaded simulation. Param comparisons are as follows:" << clrline
-            << "Gird points at simulation resume time (" + col << t.back()*Constant::fs_per_au <<"\033[0m):" << clrline
-            << "gp i        | (energy , spline factor)  " << clrline;
-            vector<size_t> out_idxs = {0,1, 10,100};
-            for(size_t j : out_idxs){
-                if (j >= y.size()) continue;  //use setw
-                cout << "Source gp "<<j <<" | " + col
-                << "(" << saved_knots[j] << " , " << saved_f[j] << ")" << clrline
-                << "New gp "<<j <<"   | " + col                                              
-                << "(" << new_knots[j] << " , " << y.back().F[j] << ")" 
-                << clrline << "------------------" << clrline;
-            }
-            cout << endl;
             break;
         }
         // SPLINE FACTORS
@@ -262,7 +246,37 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             t[i] += simulation_start_time - saved_time[0];
         }
     }
-}
+    // Shave off end until get a non-obviously-divergent starting point.
+    auto too_large = [](vector<state_type>& y){return y.end()[-1].F(0) > y.end()[-2].F(0);};
+    auto too_small = [](vector<state_type>& y){return y.end()[-1].F(0) > 0;};
+    while (too_large(y) || too_small(y)){
+            y.resize(y.size()-1);
+            t.resize(t.size()-1);
+    }
+    // Clear obviously divergent F
+    for(size_t i = 0;i++;i < y.size()){
+        if (too_large(y) || too_small(y)){
+            y[i].F = 0;
+        }
+    }  
+    vector<double> new_knots = y.back().F.get_knot_energies();
+    string col = "\033[95m"; string clrline = "\033[0m\n";
+    cout <<  col + "Loaded simulation. Param comparisons are as follows:" << clrline
+    << "Grid points at simulation resume time (" + col << t.back()*Constant::fs_per_au <<"\033[0m):" << clrline
+    << "gp i        | (energy , spline factor)  " << clrline;
+    vector<size_t> out_idxs = {0,1, 10,100};
+    for(size_t j : out_idxs){
+        if (j >= y.size()) continue;  //use setw
+        cout << "Source gp "<<j <<" | " + col
+        << "(" << saved_knots[j] << " , " << saved_f[j] << ")" << clrline
+        << "New gp "<<j <<"   | " + col                                              
+        << "(" << new_knots[j] << " , " << y.back().F[j] << ")" 
+        << clrline << "------------------" << clrline;
+    }
+    cout << endl;
+}   
+
+
 
 void ElectronRateSolver::saveBound(const std::string& dir, bool save_all_times) {
     // saves a table of bound-electron dynamics , split by atom, to folder dir.
@@ -340,7 +354,8 @@ void ElectronRateSolver::loadBound() {
         }
         
         
-        // Iterate backwards until reach a time that matches. 
+        // Iterate through and each time that matches. 
+        int matching_idx;
         for(string elem : saved_occupancies){
             // TIME
             std::stringstream s(elem);
@@ -353,7 +368,7 @@ void ElectronRateSolver::loadBound() {
             if(elem_time > t.back()){
                 break;
             }            
-            int matching_idx = find(t.begin(),t.end(),elem_time) - t.begin(); 
+            matching_idx = find(t.begin(),t.end(),elem_time) - t.begin(); 
             if (matching_idx >= t.size()){
                 continue;
             }
@@ -369,11 +384,11 @@ void ElectronRateSolver::loadBound() {
                 y[matching_idx].atomP[a] = occ_density;
             }
         }
-        // // Shave time and state containers to the time that matches with the bound state.
-        // y.resize(matching_idx + 1);
-        // t.resize(matching_idx + 1);
-              
-        // this->y.back().atomP[a] = last_occ_density;
-
+        // // Shave time and state containers to last matching state.
+        //y.resize(matching_idx + 1);
+        //t.resize(matching_idx + 1);
+        if(t.size() != matching_idx + 1){
+            throw std::runtime_error("No bound state found for the final loaded step (assuming program laoded free distribution)."); 
+        }
     }
 }

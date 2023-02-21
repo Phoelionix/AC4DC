@@ -102,7 +102,7 @@ void Hybrid<T>::iterate(double t_initial, double t_final, const double t_resume,
 // Overrides the underlying Adams method, adding a more refined but computationally expensive treatment for the stiff Q^{ee} contribution to deltaf.
 /**
  * @brief  Iterates through the (t_final-t_initial = simulation_timespan)/dt timesteps.
- * 
+ * .s
  * @tparam T 
  */
 template<typename T>

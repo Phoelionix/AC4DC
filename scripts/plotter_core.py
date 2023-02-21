@@ -193,7 +193,7 @@ class Plotter:
                         self.atomdict[a]={
                             'infile': file,
                             'mtime': path.getmtime(file),
-                            'outfile': self.outDir+"/dist_%s_Raw.csv"%a}
+                            'outfile': self.outDir+"/dist_%s.csv"%a}
 
     def update_inputs(self):
         self.get_atoms()
@@ -493,7 +493,40 @@ class Plotter:
         A_bar = np.trapz(form_factor_product,time)/(time[-1]-time[0])
         return A_bar        
 
-    def plot_form_factor(self,times = [-7.5],k_max = None, atoms=None):  # k = 4*np.pi = 2*q. c.f. Sanders plot.
+    # f component of I = int{F.F*}dt =int{f^2}dt T.T*, 
+    # where F(q)_i = f(q)T(q)_i is the contribution to F by an atom, and f is the time-integrated component, T(q) is the spatial component.
+    def f_average(self,q, atom):
+        def integrand(idx):
+            # We pass in indices from 0 to fineness-1, transform to time:
+            t = self.start_t + idx/self.t_fineness*(self.end_t-self.start_t) 
+            val = self.get_form_factor(q,[atom],t)
+            return val
+        form_factor_product = np.fromfunction(integrand,(self.t_fineness,))   # (Need to double check working as expected - not using np.vectorise)
+        time = np.linspace(self.start_t,self.end_t,self.t_fineness)
+        #Approximate integral with composite trapezoidal rule.
+        f_avg = np.trapz(form_factor_product,time)/(time[-1]-time[0])    
+        return f_avg   
+
+    # Coherence stuff, relevant for when have different atomic species (Martin A. Quiney H.M. 2016).  Assuming I haven't misunderstood notation.
+    # Useful under the assumption of the nuclei being static. (i.e. the spatial component T(q) is not time dependent)
+    def get_A_bar(self, start_t, end_t, q1, q2, atom1, atom2, t_fineness = 50):
+        # f_1 = scattering factor of atomic species 1.
+        #Integrand = <(f_1)(f_2)*> = (f_Z1)(f_Z2) since real scatt. factors   TODO check where imaginary f may be relevant
+        
+        def integrand(idx):
+            # We pass in indices from 0 to fineness-1, transform to time:
+            t = start_t + idx/t_fineness*(end_t-start_t) 
+            val = self.get_form_factor(q1,[atom1],t)*self.get_form_factor(q2,[atom2],t)
+            return val
+        form_factor_product = np.fromfunction(integrand,(t_fineness,))   # Happily it works without using np.vectorise, which is far more costly.
+        time = np.linspace(start_t,end_t,t_fineness)
+        #Approximate integral with composite trapezoidal rule.
+        A_bar = np.trapz(form_factor_product,time)/(time[-1]-time[0])    
+        return A_bar        
+
+    def plot_form_factor(self,num_plots = 8,k_max = None, atoms=None):  # k = 4*np.pi = 2*q. c.f. Sanders plot.
+        
+        times = np.linspace(self.start_t,self.end_t,num_plots)
         if k_max == None:  #TODO check if can remove argument entirely.
             k_max = self.k_max
         if atoms == None:
@@ -536,14 +569,21 @@ class Plotter:
         #core_f = [self.get_form_factor(x,atomic_numbers,time=time,n=1) for x in k]
         #ax.plot(k,core_f)
     
+    # Note this combines form factors when supplied multiple species, which is not necessarily interesting.
     def get_form_factor(self,k,atoms,time=-7.5,n=None):
         idx = np.searchsorted(self.timeData,time)
          
+
+        # Get relevant prevalence of each species
+        tot_density = 0
+        for a in atoms:   
+            tot_density += self.boundData[a][0, 0]
         # Iterate through each a passed. 
+        ff = 0
         for a in atoms:
-            ff = 0
             states = self.statedict[a]   
             atomic_density = self.boundData[a][0, 0]
+            atomic_prop = atomic_density/tot_density
             for i in range(len(states)):
                 if n != None:
                     if n != i+1:
@@ -559,7 +599,7 @@ class Plotter:
                     occ_list[l] += occ
                 occ_list = occ_list[:len(occ_list)-occ_list.count(-99)]
                 shielding = SlaterShielding(self.atomic_numbers[a],occ_list)              
-                ff += shielding.get_atomic_ff(k,state_density,atomic_density)
+                ff += atomic_prop * shielding.get_atomic_ff(k,state_density,atomic_density)
         return ff
                 # Get the average atomic form factor
 

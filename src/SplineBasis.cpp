@@ -204,7 +204,7 @@ void BasisSet::set_knot(const GridSpacing& gt){
     // TODO:
     // - Move this grid-construction code to GridSpacing.hpp
     // - Refactor to incorporate boundaries max and min into the GridSpacing object
-    // - Unfuck the boundary conditions (seems to break for BSPLINE_ORDER=3?)
+    // - Consider better method to deal with MB divergence at low T.
 
     // Keep in mind: At i=0, the value of knot will still be _min
     for(size_t i=start; i<=num_funcs + Z_inf; i++) {
@@ -251,7 +251,6 @@ void BasisSet::set_knot(const GridSpacing& gt){
             throw std::runtime_error("Grid spacing has not been defined.");
             break;
         }
-        
     }
 
     // t_{n+1+z_infinity} has been set now. Repeat it until the end.
@@ -358,7 +357,8 @@ void BasisSet::set_parameters(size_t num_of_funcs, double min, double max, const
  */
 Eigen::VectorXd BasisSet::Sinv(const Eigen::VectorXd& deltaf) {
     // Solves the linear system S fdot = deltaf   (returning f dot -S.P.)
-    return linsolver.solve(deltaf);
+    auto tmp = linsolver.solve(deltaf);
+    return tmp;
 }
 
 /**
