@@ -40,7 +40,7 @@ Naive_Lys_early_2 // Output folder name
 
 
 #DEBUG
--9.709//-8.75      // Simulation cutoff time in fs
+-8.75      // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 

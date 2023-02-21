@@ -1,6 +1,11 @@
 #ATOMS
-N_fast 991
+//H 1000 // An APPROXIMATION. Unsure on exact number right now.
+C_fast 613
+N_fast 193
+O_fast 272
 S_fast 10
+Chloride 1
+Sodion 1
 
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.
@@ -35,15 +40,15 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #LOAD
-Naive_Lys_early_2 // Output folder name
--9.71    // Point to load time from 
+Improved_Lys_early_11 // Output folder name
+-9.73    // Point to load time from 
 
 
 #DEBUG
--9.709//-8.75      // Simulation cutoff time in fs
+-8.75      // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 
 Notes:
 From https://files.rcsb.org/pub/pdb/validation_reports/et/4et8/4et8_full_validation.pdf
-Lysozyme making nitrogen assumption (e.g. used by Chapman 2010) and ignoring salt water atoms.
+Lysozyme with less assumptions but still ignoring background source of photoelectrons. Looking for effect on R factor.

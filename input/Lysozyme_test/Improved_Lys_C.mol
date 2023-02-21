@@ -1,9 +1,14 @@
 #ATOMS
-C_fast 1
+C_fast 613
+N_fast 193
+O_fast 272
+S_fast 10
+Chloride 1
+Sodion 1
 
 #VOLUME
-18.11        // Volume per molecule in Angstrom^3.
-2000         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
+20000        // Volume per molecule in Angstrom^3.
+300         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
@@ -13,7 +18,7 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 square       // Pulse shape
 
 #NUMERICAL
-1500000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+1200000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 18            // Number of threads in OpenMP.
 0             // [only for nonthermal] minimum free-electron energy in eV
 10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
@@ -21,9 +26,9 @@ square       // Pulse shape
 wiggledestruction        // electron grid type
 50              // Number of "low-energy" grid points (hybrid & powerlaw grids only, not for hybrid_power grids though!!!)
 2000          // transition energy in eV (used for grid point boundary, unless hybrid_power grid.)
-1|2|35|60|100|125|185|190                // boundary indices, with first point excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
-5|10|50|200|500|4500|6500|10000        // boundary energies, with first point excluded. No spaces.
-
+1|2|40|70|95|165|170                 // boundary indices, with first point excluded. No spaces.
+5|10|200|500|4500|6500|10000        // boundary energies, with first point excluded. No spaces.
+1|1|1|1|1|1
 
 
 #OUTPUT
@@ -33,21 +38,15 @@ N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
+#LOAD
+Improved_Lys_mid_6 // Output folder name
+-9.68    // Point to load time from 
+
+
 #DEBUG
--6.38      // Simulation cutoff time in fs
+-7.5      // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
-
 Notes:
-
----
-
-Grid point regions:
-eV|
-0-5 | empty, apart from point(s) at 0. 
-5   | Lowest non-zero gp.
-10-50   | sharp MB peak 
-50-200  | MB peak later times
-200-500 | auger peaks 
-500-4500| transition region
-4500-6500| photoelectron delta-like peak 
+From https://files.rcsb.org/pub/pdb/validation_reports/et/4et8/4et8_full_validation.pdf
+Lysozyme with less assumptions but still ignoring background source of photoelectrons. Looking for effect on R factor.

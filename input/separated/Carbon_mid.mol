@@ -39,7 +39,7 @@ Carbon_early_1 // Output folder name
 
 
 #DEBUG
--9.48      // Simulation cutoff time in fs
+-7.5      // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 
