@@ -17,6 +17,9 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from plotter_core import Plotter
 
+class Results():
+    pass
+
 class XFEL():
     def __init__(self, photon_energy, detector_distance, q_min=0.5,q_max=2.4, pixels_per_ring = 400, num_rings = 50,t_fineness=100):
         """ #### Initialise the imaging experiment's controlled parameters
@@ -116,7 +119,7 @@ class XFEL():
         for i, q in enumerate(q_samples):
             ring[i] = self.generate_ring(q)
             #ring[i].I = (ring[i].I+1)
-            #print("q:",q, "x:",ring[i].R,"I[alph=0]",ring[i].I[0])
+            print("q:",q, "x:",ring[i].R,"I[alph=0]",ring[i].I[0])
 
         azm = self.alpha_array
         radii = np.zeros(self.num_rings)
@@ -128,8 +131,6 @@ class XFEL():
             for pos in range(len(z[ang])):
                 z[ang][pos] = np.log(ring[pos].I[ang]) 
         
-        class Results():
-            pass
         result = Results() 
         result.r = r
         result.z = z
@@ -152,7 +153,7 @@ class XFEL():
             self.theta = theta
     def generate_ring(self,q):
         '''Returns the intensity(alpha) array and the radius for given q.'''
-        print("q=",q)
+        #print("q=",q)
         ring = self.Ring(q,self.q_to_theta(q))
         ring.R = self.q_to_x(q)
         ring.I = self.illuminate(ring)
@@ -244,14 +245,27 @@ test.set_atomic_species(pl_t,"/home/speno/AC4DC/scripts/pdb_parser/4et8.pdb",["N
 print(test.generate_ring(queue).I[0])
 
 #%%
-experiment = XFEL(12000,100,q_max=2.4, pixels_per_ring = 400, num_rings = 100,t_fineness=100)
+experiment = XFEL(6000,100,q_max=2.4, pixels_per_ring = 1000, num_rings = 200,t_fineness=100)
 #%%
+allowed_atoms_1 = ["N_fast","S_fast"]
+end_time_1 = -9.95
 output_handle = "Naive_Lys_C_7"
 pdb_path = "/home/speno/AC4DC/scripts/pdb_parser/4et8.pdb"
-result1 = experiment.firin_mah_lazer(-10,-9.95,output_handle,pdb_path,["N_fast","S_fast"],CNO_to_N=True)
+result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,pdb_path,allowed_atoms_1,CNO_to_N=True)
 experiment.plot_pattern(result1)
 #%%
+allowed_atoms_2 = ["N_fast"]
+end_time_2 = -9.95
 output_handle = "Naive_Lys_C_7"
 pdb_path = "/home/speno/AC4DC/scripts/pdb_parser/4et8.pdb"
-result2 = experiment.firin_mah_lazer(-10,-9.95,output_handle,pdb_path,["N_fast","S_fast"],CNO_to_N=True)
+result2 = experiment.firin_mah_lazer(-10,end_time_2,output_handle,pdb_path,allowed_atoms_2,CNO_to_N=True)
 experiment.plot_pattern(result2)
+
+#%%
+result3 = Results()
+result3.r = result1.r
+result3.z = result1.z-result2.z
+result3.alph = result1.alph
+result3.azm = result1.azm
+experiment.plot_pattern(result3)
+# %%
