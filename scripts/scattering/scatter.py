@@ -139,10 +139,10 @@ class XFEL():
         self.target = target
 
         ring = np.empty(self.num_rings,dtype="object")
-
-        q_samples = np.linspace(self.q_min,self.q_max,self.num_rings)
+        
         result = Results()
         if SPI:
+            q_samples = np.linspace(self.q_min,self.q_max,self.num_rings)
             for rot_x in range(self.x_orientations):
                 self.x_rot_matrix = rotaxis2m(self.x_rotation,bio_vect(1, 0, 0))      
                 self.y_rotation = 0                 
@@ -180,23 +180,33 @@ class XFEL():
         else:
             # Doing support for single orientation only first. Will need to calculate with new unit cell vectors for each rotation of crystal
             bragg_points = self.bragg_points(target)
-            spot = np.empty(len(bragg_points),dtype="object")
+            point = np.empty(len(bragg_points),dtype="object")
             radii = np.zeros(len(bragg_points))
             azm = np.zeros(len(bragg_points))
-            result.z = np.zeros(len(bragg_points))
+            z = np.zeros(len(bragg_points))
+            q_samples = np.zeros(len(bragg_points))
             # Get the q vectors where non-zero
-            for i, G in enumerate(bragg_points):   # (Assume pixel adjacent to bragg spot does not capture remnants of sinc function)
+            for i, G in enumerate(bragg_points):   # (Assume pixel adjacent to bragg point does not capture remnants of sinc function)
                 if G[0] == G[1] and G[1] == G[2]:
                     print("Imaging",G)
                 print("Imaging",G)
-                # Calculate the alpha angle from G
-                spot[i] = self.generate_spot(G)
-                radii[i] = spot[i].R
-                azm[i] = spot[i].alpha
-                result.z[i] = spot[i].I
+                point[i] = self.generate_point(G)
+                radii[i] = point[i].R
+                azm[i] = point[i].alpha
+                q_samples[i] = point[i].q
+                z[i] = point[i].I
             
             r, alph = np.meshgrid(radii, azm) 
             q_for_plot, alph = np.meshgrid(q_samples,azm)  
+
+            z = np.diag(z)
+            # z = np.zeros(r.shape)   # [alpha angle, radius]
+            # for i in range(len(point)):
+            #     z = point[i].I
+
+            
+            
+            result.z = z
 
                 # Get the closest angle
 
@@ -209,48 +219,25 @@ class XFEL():
         self.x_rotation = 0
         return result
     
-    def plot_pattern(self,result,radial_lim = None, plot_against_q=False,log=False,**cmesh_kwargs):
-        # https://stackoverflow.com/questions/36513312/polar-heatmaps-in-python
-        kw = cmesh_kwargs
-        # if "color" not in cmesh_kwargs: 
-        #     kw["color"] = 'k'
-        # if "ls" not in cmesh_kwargs.keys():
-        #     kw["ls"] = 'none'
-        fig = plt.figure()
-        ax = Axes3D(fig)        
-        radial_axis = result.r
-
-        if plot_against_q:
-            radial_axis =  result.q
-        plt.subplot(projection="polar")
-        plt.pcolormesh(result.alph, radial_axis, result.z,**kw)
-        plt.plot(result.azm, radial_axis, color = 'k',ls='none')
-        if log:
-            plt.yscale("log") 
-        plt.grid()  # Make the grid lines represent one unit cell (when implemented).         
-        if radial_lim:
-            bottom,top = plt.ylim()
-            plt.ylim(bottom,radial_lim)
     class Ring:
-        def __init__(self,q,theta):
+        def __init__(self,q,R,theta):
             self.q = q
+            self.R = R
             self.theta = theta
     class Spot:
-        def __init__(self,q,theta):
+        def __init__(self,q,R,theta):
             self.q = q
+            self.R = R
             self.theta = theta
     def generate_ring(self,q):
         '''Returns the intensity(alpha) array and the radius for given q.'''
         #print("q=",q)
-        ring = self.Ring(q,self.q_to_theta(q))
-        ring.R = self.q_to_x(q)
+        ring = self.Ring(q,self.q_to_x(q),self.q_to_theta(q))
         ring.I = self.illuminate(ring)
         return ring 
-    def generate_spot(self,G): # G = vector
+    def generate_point(self,G): # G = vector
         q = np.sqrt(G[0]**2+G[1]**2+G[2]**2)
-        R = self.q_to_x(q)
-        point = self.Spot(q,self.q_to_theta(q))
-        point.R = R
+        point = self.Spot(q,self.q_to_x(q),self.q_to_theta(q))
         if G[0] == 0:
             point.alpha = np.pi/2
         else:
@@ -399,6 +386,29 @@ class XFEL():
         return np.arcsin(lamb*q_abs/(4*np.pi))*180/np.pi
     '''
 
+
+def plot_pattern(result,radial_lim = None, plot_against_q=False,log=False,**cmesh_kwargs):
+    # https://stackoverflow.com/questions/36513312/polar-heatmaps-in-python
+    kw = cmesh_kwargs
+    # if "color" not in cmesh_kwargs: 
+    #     kw["color"] = 'k'
+    # if "ls" not in cmesh_kwargs.keys():
+    #     kw["ls"] = 'none'
+    fig = plt.figure()
+    ax = Axes3D(fig)        
+    radial_axis = result.r
+
+    if plot_against_q:
+        radial_axis =  result.q
+    plt.subplot(projection="polar")
+    plt.pcolormesh(result.alph, radial_axis, result.z,**kw)
+    plt.plot(result.azm, radial_axis, color = 'k',ls='none')
+    if log:
+        plt.yscale("log") 
+    plt.grid()  # Make the grid lines represent one unit cell (when implemented).         
+    if radial_lim:
+        bottom,top = plt.ylim()
+        plt.ylim(bottom,radial_lim)
 # queue = 0.4
 # test = XFEL(12000,100)
 # pl_t = test.get_ff_calculator(-10,-9.95,"Naive_Lys_C_7")
@@ -480,7 +490,7 @@ result_mod.azm = result1.azm
 #^#
 result_mod.z = result_mod.z #**0.01 hack to remove neg nums (due to taking log).
 
-experiment.plot_pattern(result_mod,radial_lim=radial_lim,plot_against_q = use_q,log=use_log,cmap=cmap)
+plot_pattern(result_mod,radial_lim=radial_lim,plot_against_q = use_q,log=use_log,cmap=cmap)
 #TEMPORARY
 if radial_lim:
     bottom,top = plt.ylim()
