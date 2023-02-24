@@ -169,7 +169,6 @@ class XFEL():
                         q_for_plot, alph = np.meshgrid(q_samples,azm)
 
                     z = np.zeros(r.shape)  # z is the intensity of the plot colour.
-                    cutoff_log_intensity = -1
                     for ang in range(len(z)):
                         for pos in range(len(z[ang])):
                             z[ang][pos] = ring[pos].I[ang]                                         
@@ -432,6 +431,11 @@ def plot_pattern(result,radial_lim = None, plot_against_q=False,log_I = True, lo
         colours = z
         ax.scatter(result.azm,radial_axis[0],c=colours,**kw)
     else:
+        if log_I:
+            cutoff_log_intensity = -1
+            z -= cutoff_log_intensity
+            z[z<0] = 0
+
         ax.pcolormesh(result.alph, radial_axis, z,**kw)
         ax.plot(result.azm, radial_axis, color = 'k',ls='none')
         plt.grid()  # Make the grid lines represent one unit cell (when implemented).
@@ -482,6 +486,7 @@ energy =17445   #crambin  #q_min=0.11,q_max = 3.9,pixels_per_ring = 400, num_rin
 experiment = XFEL(energy,100,x_orientations = 1, y_orientations=1,q_min=0.0175,q_max=3.0, pixels_per_ring = 400, num_rings = 200,t_fineness=100)
 
 
+
 sym_translations = [np.array([0,0,0])]
 cell_dim = [np.array([1,1,1])]  
 
@@ -500,13 +505,14 @@ crystal = Crystal(pdb_path,allowed_atoms_1,CNO_to_N=False)
 crystal.set_cell_dim(22.795, 18.826, 41.042)
 crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))
 
+SPI = True
 
-result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,crystal)
+result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,crystal, SPI=SPI)
 
 #%%
 # stylin' 
 from copy import deepcopy
-use_q = True
+use_q = False
 log_radial = False
 log_I = True
 cmap = 'Greys'#'binary'
@@ -521,7 +527,7 @@ if use_q:
     radial_lim = experiment.x_to_q(radial_lim)
 
 result_mod = deepcopy(result1)
-result_mod.z = result_mod.z #**0.01 hack to remove neg nums (due to taking log).
+result_mod.z = result_mod.z #hack to remove neg nums (due to taking log).
 
 plot_pattern(result_mod,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I)
 #%% 2
