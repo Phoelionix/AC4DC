@@ -13,6 +13,8 @@ print(sys.path)
 from Bio.PDB.vectors import Vector as bio_vect
 from Bio.PDB.vectors import rotaxis2m
 from Bio.PDB.PDBParser import PDBParser
+#from sympy.utilities.iterables import multiset_permutations
+import itertools
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
@@ -126,7 +128,7 @@ class XFEL():
         ff_calculator.initialise_coherence_params(start_time,end_time,self.q_max,self.photon_energy,t_fineness=self.t_fineness) # q_fineness isn't used for our purposes.   
         return ff_calculator
     
-    def firin_mah_lazer(self, start_time, end_time, damage_output_handle, target, SPI=False,log=True):
+    def firin_mah_lazer(self, start_time, end_time, damage_output_handle, target, SPI=False):
         """ 
         end_time: The end time of the photon capture in femtoseconds. Not a real thing experimentally, but useful for choosing 
         a level of damage. Explicitly, it is used to determine the upper time limit for the integration of the form factor.
@@ -170,9 +172,7 @@ class XFEL():
                     cutoff_log_intensity = -1
                     for ang in range(len(z)):
                         for pos in range(len(z[ang])):
-                            z[ang][pos] = ring[pos].I[ang]
-                            if log:
-                                z[ang][pos] = max(0,np.log(z[ang][pos]) - cutoff_log_intensity)                                          
+                            z[ang][pos] = ring[pos].I[ang]                                         
                 
                     result.z += z/(self.y_orientations*self.x_orientations)
                 self.x_rotation += 2*np.pi/self.x_orientations
@@ -180,26 +180,31 @@ class XFEL():
         else:
             # Doing support for single orientation only first. Will need to calculate with new unit cell vectors for each rotation of crystal
             bragg_points = self.bragg_points(target)
-            point = np.empty(len(bragg_points),dtype="object")
-            radii = np.zeros(len(bragg_points))
-            azm = np.zeros(len(bragg_points))
-            z = np.zeros(len(bragg_points))
-            q_samples = np.zeros(len(bragg_points))
+            point = np.empty(int(len(bragg_points)/2),dtype="object") # divide by 2 as half dont hit screen. 
+            radii = np.zeros(len(point))
+            azm = np.zeros(len(point))
+            z = np.zeros(len(point))
+            q_samples = np.zeros(len(point))
             # Get the q vectors where non-zero
-            for i, G in enumerate(bragg_points):   # (Assume pixel adjacent to bragg point does not capture remnants of sinc function)
-                if G[0] == G[1] and G[1] == G[2]:
-                    print("Imaging",G)
-                print("Imaging",G)
+            i = 0
+            largest_x = -99999
+            for G in bragg_points:   # (Assume pixel adjacent to bragg point does not capture remnants of sinc function)
+                if G[2] <= 0:
+                    continue
+                if G[0] > largest_x:
+                    largest_x = G[0]
+                    print("Imaging all G with G[0]",G[0])
                 point[i] = self.generate_point(G)
                 radii[i] = point[i].R
                 azm[i] = point[i].alpha
                 q_samples[i] = point[i].q
                 z[i] = point[i].I
+                i+=1
             
             r, alph = np.meshgrid(radii, azm) 
             q_for_plot, alph = np.meshgrid(q_samples,azm)  
 
-            z = np.diag(z)
+            #z = np.diag(z)
             # z = np.zeros(r.shape)   # [alpha angle, radius]
             # for i in range(len(point)):
             #     z = point[i].I
@@ -238,16 +243,14 @@ class XFEL():
     def generate_point(self,G): # G = vector
         q = np.sqrt(G[0]**2+G[1]**2+G[2]**2)
         point = self.Spot(q,self.q_to_x(q),self.q_to_theta(q))
-        if G[0] == 0:
-            point.alpha = np.pi/2
-        else:
-            point.alpha = np.arctan(G[1]/G[0])
+        point.alpha = np.arctan2(G[0],G[1])
         alphas = np.array([point.alpha])
         point.I = self.illuminate(point,alphas)     
         return point   
     
 
-    # Not crystalline yet
+    # Returns the relative intensity at point q for the target's unit cell, i.e. ignoring crystalline effects.
+    # If the feature is a bragg spot, this gives its relative intensity, but due to photon conservation won't be the same as the intensity without crystallinity.
     def illuminate(self,feature,alphas = None):  # Feature = ring or spot.
         """Returns the intensity at q. Not crystalline yet."""
         if alphas == None:
@@ -294,12 +297,15 @@ class XFEL():
             lattice_vectors = crystal.cell_dim
         h = 0; k=0; l=0
         b = 2*np.pi/(lattice_vectors)
-        miller_indices = []
+        # Generate the positive permutations.
+        pos_indices = []
         while np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2))<= self.q_max:
             while np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2))<= self.q_max:
                 while np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2))<= self.q_max:
                     l0 = l
                     l+=1 
+                    if np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2)) <= self.q_min:
+                        continue                    
                     # Apply Selection conditions. TODO make function.
                     if cell_packing == "SC":  
                         pass
@@ -307,31 +313,45 @@ class XFEL():
                         continue
                     if cell_packing == "FCC" and (h%2+k%2+l0%2) not in [0,3]:
                         continue
-                    miller_indices.append(np.array([h,k,l0]))
+                    pos_indices.append(np.array([h,k,l0]))
                     
                 l=0
                 k+=1
             k=0
             h+=1     
         h=0       
-        # Use lattice vector,
-        valid_q = np.multiply(b,miller_indices)
-        print(valid_q)
-        return valid_q
+        # Generate the other permutations(or whatever this is called) (TODO vectorise):
+        miller_indices = []
+        for h,k,l in pos_indices: 
+            sets = [[-h,h],[-k,k],[-l,l]]
+            #permutations = np.array(np.meshgrid(h_set,k_set,l_set)).T.reshape(-1, 3)
+            #permutations = np.stack(np.meshgrid(h_set,k_set,l_set)).T.reshape(-1, 3)
+            permutations = list(itertools.product(*sets))
+            permutations = [*set(permutations)]
+            miller_indices += permutations
+        
+        print("Number of points (2pi sr/infinite screen):", len(miller_indices)/2)        
+        
+        G = np.multiply(b,miller_indices)
+        self.rotate_G_to_orientation(G,crystal)
+        print(G)
+        return G
 
-
+    def rotate_G_to_orientation(self,G,crystal):
+        # TODO not implemented
+        return G
                 
-    # E = photon energy in eV
+    # q_abs [1/bohr]
     def q_to_theta(self,q_abs):
-        E = self.photon_energy
+        E = self.photon_energy #eV
         bohr_per_nm = 18.8973; c_nm = 2.99792458e17; h_ev = 6.582119569e-16 *2 *np.pi  #TODO check why angstrom_per_nm is used instead by HR but with bohr units.
         lamb =  h_ev*c_nm/E
         lamb *= bohr_per_nm   
         return np.arcsin(lamb*q_abs/(4*np.pi))    
 
     def q_to_x(self,q_abs):
-        E = self.photon_energy
-        D = self.detector_distance
+        E = self.photon_energy #eV
+        D = self.detector_distance #bohr
         theta = self.q_to_theta(q_abs)
         return D*np.tan(theta)    
 
@@ -367,12 +387,12 @@ class XFEL():
 
         # return intensity
     def x_to_q(self,x):
-        E = self.photon_energy
-        D = self.detector_distance
+        E = self.photon_energy  # eV
+        D = self.detector_distance # bohr
         # D*np.tan(np.arcsin(lamb*q_abs/(4*np.pi))) = x, q = sin(arctan((x/D)))/lamb*4*np.pi
         bohr_per_nm = 18.8973; c_nm = 2.99792458e17; h_ev = 6.582119569e-16 *2 *np.pi  #TODO check why angstrom_per_nm is used instead by HR but with bohr units.
         lamb =  h_ev*c_nm/E
-        lamb *= bohr_per_nm       
+        lamb *= bohr_per_nm  #bohr
         q = np.sin(np.arctan((x/D)))/lamb*4*np.pi
         return q
 
@@ -387,7 +407,7 @@ class XFEL():
     '''
 
 
-def plot_pattern(result,radial_lim = None, plot_against_q=False,log=False,**cmesh_kwargs):
+def plot_pattern(result,radial_lim = None, plot_against_q=False,log_I = True, log_radial=False,**cmesh_kwargs):
     # https://stackoverflow.com/questions/36513312/polar-heatmaps-in-python
     kw = cmesh_kwargs
     # if "color" not in cmesh_kwargs: 
@@ -395,20 +415,32 @@ def plot_pattern(result,radial_lim = None, plot_against_q=False,log=False,**cmes
     # if "ls" not in cmesh_kwargs.keys():
     #     kw["ls"] = 'none'
     fig = plt.figure()
-    ax = Axes3D(fig)        
+    ax = Axes3D(fig)   
+
     radial_axis = result.r
+    if log_I: 
+        z = np.log(result.z)
+    else:
+        z = result.z
+    
 
     if plot_against_q:
         radial_axis =  result.q
-    plt.subplot(projection="polar")
-    plt.pcolormesh(result.alph, radial_axis, result.z,**kw)
-    plt.plot(result.azm, radial_axis, color = 'k',ls='none')
-    if log:
-        plt.yscale("log") 
-    plt.grid()  # Make the grid lines represent one unit cell (when implemented).         
+    ax = fig.add_subplot(projection="polar")
+    if len(result.z.shape) == 1:
+        #Point-like
+        colours = z
+        ax.scatter(result.azm,radial_axis[0],c=colours,**kw)
+    else:
+        ax.pcolormesh(result.alph, radial_axis, z,**kw)
+        ax.plot(result.azm, radial_axis, color = 'k',ls='none')
+        plt.grid()  # Make the grid lines represent one unit cell (when implemented).
+             
     if radial_lim:
         bottom,top = plt.ylim()
         plt.ylim(bottom,radial_lim)
+    if log_radial:
+        plt.yscale("log")        
 # queue = 0.4
 # test = XFEL(12000,100)
 # pl_t = test.get_ff_calculator(-10,-9.95,"Naive_Lys_C_7")
@@ -443,11 +475,11 @@ result3.azm = result1.azm
 experiment.plot_pattern(result3)
 #
 #%% 
-# Tetrapeptide 
+# CNO only.
 
-#energy = 6000
-energy =17445   #crambin  #pixels_per_ring = 400, num_rings = 200
-experiment = XFEL(energy,100,x_orientations = 1, y_orientations=1,q_min=0.0175,q_max=1.1, pixels_per_ring = 400, num_rings = 200,t_fineness=100)
+#energy = 6000 # Tetrapeptide 
+energy =17445   #crambin  #q_min=0.11,q_max = 3.9,pixels_per_ring = 400, num_rings = 200
+experiment = XFEL(energy,100,x_orientations = 1, y_orientations=1,q_min=0.0175,q_max=3.0, pixels_per_ring = 400, num_rings = 200,t_fineness=100)
 
 
 sym_translations = [np.array([0,0,0])]
@@ -469,32 +501,29 @@ crystal.set_cell_dim(22.795, 18.826, 41.042)
 crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))
 
 
-result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,crystal,log=True)
+result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,crystal)
 
 #%%
-# stylin' n' plottin'
-use_q = False
-use_log = False
+# stylin' 
+from copy import deepcopy
+use_q = True
+log_radial = False
+log_I = True
 cmap = 'Greys'#'binary'
-radial_lim = 100
+screen_radius = 100
+zoom_to_fit = True
+####### n'
+# plottin'
+
+if zoom_to_fit:
+    radial_lim = min(experiment.q_to_x(experiment.q_max),screen_radius)
 if use_q:
-    radial_lim = 7
-#TODO use deepcopy function#v#
-result_mod = Results()
-result_mod.z = result1.z 
-result_mod.z = result_mod.z
-result_mod.r = result1.r
-result_mod.q = result1.q
-result_mod.alph = result1.alph
-result_mod.azm = result1.azm
-#^#
+    radial_lim = experiment.x_to_q(radial_lim)
+
+result_mod = deepcopy(result1)
 result_mod.z = result_mod.z #**0.01 hack to remove neg nums (due to taking log).
 
-plot_pattern(result_mod,radial_lim=radial_lim,plot_against_q = use_q,log=use_log,cmap=cmap)
-#TEMPORARY
-if radial_lim:
-    bottom,top = plt.ylim()
-    plt.ylim(bottom,radial_lim)
+plot_pattern(result_mod,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I)
 #%% 2
 allowed_atoms_2 = ["C_fast","N_fast","O_fast"]
 end_time_2 = -5
