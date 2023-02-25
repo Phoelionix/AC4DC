@@ -20,6 +20,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from plotter_core import Plotter
 
+c_au = 137.036; eV_per_Ha = 27.211385 
+
 class Results():
     pass
 
@@ -143,6 +145,7 @@ class XFEL():
         ring = np.empty(self.num_rings,dtype="object")
         
         result = Results()
+        result.z = 0
         if SPI:
             q_samples = np.linspace(self.q_min,self.q_max,self.num_rings)
             for rot_x in range(self.x_orientations):
@@ -158,13 +161,12 @@ class XFEL():
                         #print("q:",q, "x:",ring[i].R,"I[alph=0]",ring[i].I[0])
 
 
-                    # Initialise stuff that is constant between images 
+                    # Initialise stuff that is constant between images (done here to access ring radii.)
                     if rot_y  == 0 and rot_x == 0:
                         azm = self.alpha_array
-                        result.z = 0     
                         radii = np.zeros(self.num_rings)
                         for i in range(len(ring)):
-                            radii[i] = ring[i].R           
+                            radii[i] = ring[i].r           
                         r, alph = np.meshgrid(radii, azm)     
                         q_for_plot, alph = np.meshgrid(q_samples,azm)
 
@@ -194,11 +196,13 @@ class XFEL():
                     largest_x = G[0]
                     print("Imaging all G with G[0]",G[0])
                 point[i] = self.generate_point(G)
-                radii[i] = point[i].R
+                radii[i] = point[i].r
                 azm[i] = point[i].alpha
-                q_samples[i] = point[i].q
+                q_samples[i] = point[i].q_parr
                 z[i] = point[i].I
+                print("G",G,"q",q_samples[i],"z",z[i])
                 i+=1
+                
             
             r, alph = np.meshgrid(radii, azm) 
             q_for_plot, alph = np.meshgrid(q_samples,azm)  
@@ -219,32 +223,48 @@ class XFEL():
         result.r = r
         result.alph = alph
         result.azm = azm
-        result.q = q_for_plot
+        result.q_parr = q_for_plot
         self.x_rotation = 0
         return result
     
-    class Ring:
-        def __init__(self,q,R,theta):
+    class Feature:
+        def __init__(self,q,q_parr,r,theta):
             self.q = q
-            self.R = R
-            self.theta = theta
-    class Spot:
-        def __init__(self,q,R,theta):
-            self.q = q
-            self.R = R
-            self.theta = theta
+            self.q_parr = q_parr # magnitude of q parallel to screen
+            self.r = r
+            self.theta = theta          
+    class Ring(Feature):
+        def __init__(self,*args):
+            super().__init__(*args)
+    class Spot(Feature):
+        def __init__(self,*args):
+            super().__init__(*args)
     def generate_ring(self,q):
         '''Returns the intensity(alpha) array and the radius for given q.'''
         #print("q=",q)
-        ring = self.Ring(q,self.q_to_x(q),self.q_to_theta(q))
+        r = self.q_to_r(q)
+        q_parr =self.r_to_q_parr(r)
+        theta = self.q_to_theta(q)
+        ring = self.Ring(q,q_parr,r,theta)
         ring.I = self.illuminate(ring)
         return ring 
     def generate_point(self,G): # G = vector
         q = np.sqrt(G[0]**2+G[1]**2+G[2]**2)
-        point = self.Spot(q,self.q_to_x(q),self.q_to_theta(q))
+        r = self.q_to_r(q)
+        q_parr = self.r_to_q_parr(r)
+        theta = self.q_to_theta(q)
+        point = self.Spot(q,q_parr,r,theta)
         point.alpha = np.arctan2(G[0],G[1])
+        
         alphas = np.array([point.alpha])
-        point.I = self.illuminate(point,alphas)     
+        point.I = self.illuminate(point,alphas)
+        # Trig check
+        D = self.detector_distance # bohr
+        q0 = self.photon_energy/eV_per_Ha         
+        q_perp =   q0*np.cos(2*theta)   
+        print("HOI",q0,2*theta)     
+        if r != (D/q_perp)*np.sqrt(G[0]**2+G[1]**2):
+            print("Error, r =",r,"but expected",(D/q_perp)*np.sqrt(G[0]**2+G[1]**2))      
         return point   
     
 
@@ -257,7 +277,6 @@ class XFEL():
         F = np.zeros(alphas.shape,dtype="complex_")
         for species in self.target.species_dict.values():
             species.set_scalar_form_factor(feature.q)
-            count = False
             for R in species.coords:
                     # Rotate to crystal's current orientation 
                     R = R.left_multiply(self.y_rot_matrix)  
@@ -272,9 +291,9 @@ class XFEL():
 
         return I 
 
-    def spatial_factor(self,alpha_array,R,ring):
+    def spatial_factor(self,alpha_array,R,feature):
         """ theta = scattering angle relative to z-y plane """ 
-        q_z = ring.q*np.sin(ring.theta) # not cos because q is hypotenuse - not perpendicular to x-y plane.
+        q_z = feature.q_parr*np.sin(feature.theta) # not cos because q is hypotenuse - not perpendicular to x-y plane.
         q_z = np.tile(q_z,len(alpha_array))
         # alpha angle of vector relative to x-y plane, pointing from screen centre to point hit. 
         q_y = q_z*np.sin(alpha_array)
@@ -303,7 +322,7 @@ class XFEL():
                 while np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2))<= self.q_max:
                     l0 = l
                     l+=1 
-                    if np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2)) <= self.q_min:
+                    if np.sqrt(((h*b[0])**2+(k*b[1])**2)) <= self.q_min:
                         continue                    
                     # Apply Selection conditions. TODO make function.
                     if cell_packing == "SC":  
@@ -342,68 +361,40 @@ class XFEL():
                 
     # q_abs [1/bohr]
     def q_to_theta(self,q_abs):
-        E = self.photon_energy #eV
-        bohr_per_nm = 18.8973; c_nm = 2.99792458e17; h_ev = 6.582119569e-16 *2 *np.pi  #TODO check why angstrom_per_nm is used instead by HR but with bohr units.
-        lamb =  h_ev*c_nm/E
-        lamb *= bohr_per_nm   
+        lamb = E_to_lamb(self.photon_energy)
         return np.arcsin(lamb*q_abs/(4*np.pi))    
 
-    def q_to_x(self,q_abs):
-        E = self.photon_energy #eV
+    def q_to_r(self, q_abs):
+        '''Returns the distance from centre of screen that is struck by photon which transferred q'''
         D = self.detector_distance #bohr
+        q0 = self.photon_energy/eV_per_Ha # initial photon momentum = E/c, directed towards centre of screen.   
         theta = self.q_to_theta(q_abs)
-        return D*np.tan(theta)    
+        q_perp =   q0*np.cos(2*theta) # component of the FINAL momentum along beam axis.
+        r = (D/q_perp)*q_abs/np.cos(2*theta)    # -> 0 for q -> 0, -> infinity for 2*theta -> pi/2    # D/q_perp is just similar triangle factor.
+        return r
 
+    def r_to_q(self,r):
+        '''Returns the momentum transfer q.'''
+        D = self.detector_distance # bohr
+        q0 = self.photon_energy/eV_per_Ha
+        theta = (1/2)*np.arctan(r/D)
+        q_perp =   q0*np.cos(2*theta)                      # -> q_0 for 2*theta-> pi/2
+        q = (q_perp/D)*r*np.cos(2*theta)  # -> 0 for r -> 0, -> q_0 for 2*theta-> pi/2      # q_perp/D is just similar triangle factor.
+        return q
+    def r_to_q_parr(self,q_abs):
+        theta = self.q_to_theta(q_abs)     
+        q_parr = q_abs*np.cos(2*theta)
+        return q_parr
 
+def E_to_lamb(photon_energy):
+    '''Energy to wavelength in A.U.'''
+    E = photon_energy  # eV
+    return 2*np.pi*c_au/(E/eV_per_Ha)
+    
     # Crystalline.
 
-    def crystal_spatial_factor(self, spatial_structure_factor):
-        """
-        spatial_structure_factor:
-            spatial component (T) of crystalline structure factor (form factor of unit cell), not the intensity measure.
-        """
-        num_unit_cells = 1000
-        return spatial_structure_factor*num_unit_cells
-
-
-        return total_factor
-        #non-zero q: miller indices q_hkl
-
-        # Determine bragg peaks location for q = 4*pi*sin(theta)/lambda. 
-        # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. (ideal) resolution.
-        
-        # q_max = 10
-        # peaks = [0]
-        # n = 0
-        # while peaks[-1] < q_max:
-        #     n += 1
-        #     peaks.append(4*)
-
-
-        # for q in peaks:
-        #     q = 4*np.pi 
-            
-
-        # return intensity
-    def x_to_q(self,x):
-        E = self.photon_energy  # eV
-        D = self.detector_distance # bohr
-        # D*np.tan(np.arcsin(lamb*q_abs/(4*np.pi))) = x, q = sin(arctan((x/D)))/lamb*4*np.pi
-        bohr_per_nm = 18.8973; c_nm = 2.99792458e17; h_ev = 6.582119569e-16 *2 *np.pi  #TODO check why angstrom_per_nm is used instead by HR but with bohr units.
-        lamb =  h_ev*c_nm/E
-        lamb *= bohr_per_nm  #bohr
-        q = np.sin(np.arctan((x/D)))/lamb*4*np.pi
-        return q
-
-    '''
-    def q_to_theta(q_abs,E):
-        bohr_per_nm = 18.8973; c_nm = 2ww.99792458e17; h_ev = 6.582119569e-16 *2 *np.pi
-        lamb =  h_ev*c_nm/E
-        print(lamb)
-        lamb *= bohr_per_nm    
-        print(lamb)
-        return np.arcsin(lamb*q_abs/(4*np.pi))*180/np.pi
-    '''
+        # q = 4*pi*sin(theta)/lambda = 2pi*u, where q is the momentum in AU (a_0^-1), u is the spatial frequency.
+        # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
 
 def plot_pattern(result,radial_lim = None, plot_against_q=False,log_I = True, log_radial=False,**cmesh_kwargs):
@@ -416,15 +407,15 @@ def plot_pattern(result,radial_lim = None, plot_against_q=False,log_I = True, lo
     fig = plt.figure()
     ax = Axes3D(fig)   
 
-    radial_axis = result.r
+    
     if log_I: 
         z = np.log(result.z)
     else:
         z = result.z
     
-
+    radial_axis = result.r
     if plot_against_q:
-        radial_axis =  result.q
+        radial_axis =  result.q_parr
     ax = fig.add_subplot(projection="polar")
     if len(result.z.shape) == 1:
         #Point-like
@@ -483,7 +474,7 @@ experiment.plot_pattern(result3)
 
 #energy = 6000 # Tetrapeptide 
 energy =17445   #crambin  #q_min=0.11,q_max = 3.9,pixels_per_ring = 400, num_rings = 200
-experiment = XFEL(energy,100,x_orientations = 1, y_orientations=1,q_min=0.0175,q_max=3.0, pixels_per_ring = 400, num_rings = 200,t_fineness=100)
+experiment = XFEL(energy,100,x_orientations = 1, y_orientations=1,q_min=0.0175,q_max=9, pixels_per_ring = 400, num_rings = 200,t_fineness=100)
 
 
 
@@ -502,29 +493,32 @@ end_time_1 = -5
 output_handle = "C_tetrapeptide_2"
 
 crystal = Crystal(pdb_path,allowed_atoms_1,CNO_to_N=False)
-crystal.set_cell_dim(22.795, 18.826, 41.042)
+#crystal.set_cell_dim(22.795, 18.826, 41.042)
+crystal.set_cell_dim(1, 1, 1)
 crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))
 
-SPI = True
+SPI = False
 
 result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,crystal, SPI=SPI)
 
 #%%
 # stylin' 
 from copy import deepcopy
-use_q = False
+use_q = True
 log_radial = False
 log_I = True
 cmap = 'Greys'#'binary'
-screen_radius = 100
+screen_radius = 1000
 zoom_to_fit = True
 ####### n'
 # plottin'
 
 if zoom_to_fit:
-    radial_lim = min(experiment.q_to_x(experiment.q_max),screen_radius)
+    radial_lim = min(experiment.q_to_r(experiment.q_max),screen_radius)
+    print(radial_lim)
 if use_q:
-    radial_lim = experiment.x_to_q(radial_lim)
+    radial_lim = experiment.r_to_q(radial_lim)
+    print(radial_lim)
 
 result_mod = deepcopy(result1)
 result_mod.z = result_mod.z #hack to remove neg nums (due to taking log).
@@ -550,7 +544,7 @@ experiment.plot_pattern(result3,plot_against_q = use_q,log=use_log)
 #%% Tetra experimental conditions kinda 
 detector_dist = 100
 experiment = XFEL(12562,detector_dist,x_orientations = 1, y_orientations=1, pixels_per_ring = 200, num_rings = 250,t_fineness=100)
-#experiment.q_max = experiment.x_to_q(detector_dist*1.99) 
+#experiment.q_max = experiment.r_to_q(detector_dist*1.99) 
 experiment.q_max = 1/(1.27*1.8897) 
 experiment.q_min = 1/(14.83*1.8897)  
 use_q = False
