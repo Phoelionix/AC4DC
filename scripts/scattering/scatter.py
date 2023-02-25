@@ -181,7 +181,7 @@ class XFEL():
         else:
             # Doing support for single orientation only first. Will need to calculate with new unit cell vectors for each rotation of crystal
             bragg_points = self.bragg_points(target)
-            point = np.empty(int(len(bragg_points)/2),dtype="object") # divide by 2 as half dont hit screen. 
+            point = np.empty(int(len(bragg_points)),dtype="object")
             radii = np.zeros(len(point))
             azm = np.zeros(len(point))
             z = np.zeros(len(point))
@@ -190,17 +190,15 @@ class XFEL():
             i = 0
             largest_x = -99999
             for G in bragg_points:   # (Assume pixel adjacent to bragg point does not capture remnants of sinc function)
-                if G[2] <= 0:
-                    continue
                 if G[0] > largest_x:
                     largest_x = G[0]
                     print("Imaging all G with G[0]",G[0])
                 point[i] = self.generate_point(G)
                 radii[i] = point[i].r
                 azm[i] = point[i].alpha
-                q_samples[i] = point[i].q_parr
+                q_samples[i] = point[i].q_scr
                 z[i] = point[i].I
-                print("G",G,"q",q_samples[i],"z",z[i])
+                #print("G",G,"q",q_samples[i],"z",z[i])
                 i+=1
                 
             
@@ -223,14 +221,14 @@ class XFEL():
         result.r = r
         result.alph = alph
         result.azm = azm
-        result.q_parr = q_for_plot
+        result.q_scr = q_for_plot
         self.x_rotation = 0
         return result
     
     class Feature:
-        def __init__(self,q,q_parr,r,theta):
+        def __init__(self,q,q_scr,r,theta):
             self.q = q
-            self.q_parr = q_parr # magnitude of q parallel to screen
+            self.q_scr = q_scr # magnitude of q parallel to screen
             self.r = r
             self.theta = theta          
     class Ring(Feature):
@@ -243,28 +241,25 @@ class XFEL():
         '''Returns the intensity(alpha) array and the radius for given q.'''
         #print("q=",q)
         r = self.q_to_r(q)
-        q_parr =self.r_to_q_parr(r)
+        q_scr =self.q_to_q_scr(q)
         theta = self.q_to_theta(q)
-        ring = self.Ring(q,q_parr,r,theta)
+        ring = self.Ring(q,q_scr,r,theta)
         ring.I = self.illuminate(ring)
         return ring 
     def generate_point(self,G): # G = vector
         q = np.sqrt(G[0]**2+G[1]**2+G[2]**2)
         r = self.q_to_r(q)
-        q_parr = self.r_to_q_parr(r)
+        q_scr = self.q_to_q_scr(q)
         theta = self.q_to_theta(q)
-        point = self.Spot(q,q_parr,r,theta)
+        point = self.Spot(q,q_scr,r,theta)
         point.alpha = np.arctan2(G[0],G[1])
         
         alphas = np.array([point.alpha])
         point.I = self.illuminate(point,alphas)
-        # Trig check
-        D = self.detector_distance # bohr
-        q0 = self.photon_energy/eV_per_Ha         
-        q_perp =   q0*np.cos(2*theta)   
-        print("HOI",q0,2*theta)     
-        if r != (D/q_perp)*np.sqrt(G[0]**2+G[1]**2):
-            print("Error, r =",r,"but expected",(D/q_perp)*np.sqrt(G[0]**2+G[1]**2))      
+        # # Trig check      
+        # check = smth  # check = np.sqrt(G[0]**2+G[1]**2)
+        # if q_scr != check:
+        #     print("Error, q_scr =",q_scr,"but expected",check)  
         return point   
     
 
@@ -293,7 +288,7 @@ class XFEL():
 
     def spatial_factor(self,alpha_array,R,feature):
         """ theta = scattering angle relative to z-y plane """ 
-        q_z = feature.q_parr*np.sin(feature.theta) # not cos because q is hypotenuse - not perpendicular to x-y plane.
+        q_z = feature.q_scr*np.sin(feature.theta) # not cos because q is hypotenuse - not perpendicular to x-y plane.
         q_z = np.tile(q_z,len(alpha_array))
         # alpha angle of vector relative to x-y plane, pointing from screen centre to point hit. 
         q_y = q_z*np.sin(alpha_array)
@@ -348,7 +343,7 @@ class XFEL():
             permutations = [*set(permutations)]
             miller_indices += permutations
         
-        print("Number of points (2pi sr/infinite screen):", len(miller_indices)/2)        
+        print("Number of points:", len(miller_indices))        
         
         G = np.multiply(b,miller_indices)
         self.rotate_G_to_orientation(G,crystal)
@@ -360,34 +355,65 @@ class XFEL():
         return G
                 
     # q_abs [1/bohr]
-    def q_to_theta(self,q_abs):
+    def q_to_theta(self,q):
         lamb = E_to_lamb(self.photon_energy)
-        return np.arcsin(lamb*q_abs/(4*np.pi))    
+        return np.arcsin(lamb*q/(4*np.pi))   
 
-    def q_to_r(self, q_abs):
-        '''Returns the distance from centre of screen that is struck by photon which transferred q'''
+
+    def q_to_r(self, q):
+        """Returns the distance from centre of screen that is struck by photon which transferred q (magnitude)"""
         D = self.detector_distance #bohr
-        q0 = self.photon_energy/eV_per_Ha # initial photon momentum = E/c, directed towards centre of screen.   
-        theta = self.q_to_theta(q_abs)
-        q_perp =   q0*np.cos(2*theta) # component of the FINAL momentum along beam axis.
-        r = (D/q_perp)*q_abs/np.cos(2*theta)    # -> 0 for q -> 0, -> infinity for 2*theta -> pi/2    # D/q_perp is just similar triangle factor.
-        return r
+        theta = self.q_to_theta(q)
+        return D*np.tan(2*theta)
 
+    def q_to_q_scr(self,q):
+        """ Returns the screen-parallel component of q (or equivalently the final momentum)."""
+        theta = self.q_to_theta(q)
+        return q*np.cos(2*theta)
+    
     def r_to_q(self,r):
-        '''Returns the momentum transfer q.'''
-        D = self.detector_distance # bohr
-        q0 = self.photon_energy/eV_per_Ha
-        theta = (1/2)*np.arctan(r/D)
-        q_perp =   q0*np.cos(2*theta)                      # -> q_0 for 2*theta-> pi/2
-        q = (q_perp/D)*r*np.cos(2*theta)  # -> 0 for r -> 0, -> q_0 for 2*theta-> pi/2      # q_perp/D is just similar triangle factor.
-        return q
-    def r_to_q_parr(self,q_abs):
-        theta = self.q_to_theta(q_abs)     
-        q_parr = q_abs*np.cos(2*theta)
-        return q_parr
+        D = self.detector_distance
+        lamb = E_to_lamb(self.photon_energy) 
+        theta = np.arctan(r/D)/2
+        q = 4*np.pi/lamb*np.sin(theta)
+        return q 
+    def r_to_q_scr(self,r):
+        q = self.r_to_q(r)
+        return self.q_to_q_scr(q)
+
+    # def q_to_r(self, q_abs):
+    #     """Returns the distance from centre of screen that is struck by photon which transferred q"""
+    #     D = self.detector_distance #bohr
+    #     q0 = self.photon_energy/eV_per_Ha/c_au # initial photon momentum = E/c, directed towards centre of screen.   
+    #     theta = self.q_to_theta(q_abs)
+    #     qfin_perp = (q0-q_abs)*np.cos(2*theta) # component of the FINAL momentum along beam axis.
+    #     r = (D/qfin_perp)*q_abs/np.cos(2*theta)    # -> 0 for q -> 0, -> infinity for 2*theta -> pi/2    # D/qfin_perp is just similar triangle factor.
+    #     return r
+
+    # def q_to_q_scr(self,q_abs):
+    #     """ Returns the component of the FINAL momentum parallel to the SCREEN."""
+    #     theta = self.q_to_theta(q_abs)
+    #     q0 = self.photon_energy/eV_per_Ha/c_au
+    #     qfin = q0 - q_abs     
+    #     print("qfin",qfin)
+    #     print("theta",theta)
+    #     q_scr = qfin*np.sin(2*theta)
+    #     return q_scr
+    
+    # def r_to_q_scr(self,r):
+    #     D = self.detector_distance 
+    #     theta = np.arctan(r/D)/2
+    #     lamb = E_to_lamb(self.photon_energy)
+    #     q_abs = 4*np.pi*np.sin(theta)/lamb
+    #     hyp = np.sqrt(D**2+r**2)     
+    #     q_scr = (q_abs/hyp)*D               # hyp/D = q/q_scr
+    #     # trig check
+    #     if q_scr != self.q_to_q_scr(q_abs):
+    #         print("error, q_scr:",q_scr,"didn't match what was expected,",self.q_to_q_scr(q_abs)) 
+    #     return q_scr  
 
 def E_to_lamb(photon_energy):
-    '''Energy to wavelength in A.U.'''
+    """Energy to wavelength in A.U."""
     E = photon_energy  # eV
     return 2*np.pi*c_au/(E/eV_per_Ha)
     
@@ -415,7 +441,7 @@ def plot_pattern(result,radial_lim = None, plot_against_q=False,log_I = True, lo
     
     radial_axis = result.r
     if plot_against_q:
-        radial_axis =  result.q_parr
+        radial_axis =  result.q_scr
     ax = fig.add_subplot(projection="polar")
     if len(result.z.shape) == 1:
         #Point-like
@@ -474,7 +500,7 @@ experiment.plot_pattern(result3)
 
 #energy = 6000 # Tetrapeptide 
 energy =17445   #crambin  #q_min=0.11,q_max = 3.9,pixels_per_ring = 400, num_rings = 200
-experiment = XFEL(energy,100,x_orientations = 1, y_orientations=1,q_min=0.0175,q_max=9, pixels_per_ring = 400, num_rings = 200,t_fineness=100)
+experiment = XFEL(energy,100,x_orientations = 1, y_orientations=1,q_min=0.0175,q_max=3.9, pixels_per_ring = 400, num_rings = 200,t_fineness=100)
 
 
 
@@ -493,8 +519,8 @@ end_time_1 = -5
 output_handle = "C_tetrapeptide_2"
 
 crystal = Crystal(pdb_path,allowed_atoms_1,CNO_to_N=False)
-#crystal.set_cell_dim(22.795, 18.826, 41.042)
-crystal.set_cell_dim(1, 1, 1)
+crystal.set_cell_dim(22.795, 18.826, 41.042)
+#crystal.set_cell_dim(10, 10, 10)
 crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))
 
 SPI = False
@@ -504,11 +530,11 @@ result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,crystal, SPI=S
 #%%
 # stylin' 
 from copy import deepcopy
-use_q = True
+use_q = False
 log_radial = False
 log_I = True
 cmap = 'Greys'#'binary'
-screen_radius = 1000
+screen_radius = 500
 zoom_to_fit = True
 ####### n'
 # plottin'
@@ -517,7 +543,7 @@ if zoom_to_fit:
     radial_lim = min(experiment.q_to_r(experiment.q_max),screen_radius)
     print(radial_lim)
 if use_q:
-    radial_lim = experiment.r_to_q(radial_lim)
+    radial_lim = experiment.q_to_q_scr(experiment.q_max)
     print(radial_lim)
 
 result_mod = deepcopy(result1)
