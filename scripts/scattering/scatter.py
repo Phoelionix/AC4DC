@@ -27,7 +27,9 @@ class Results():
 
 
 class Crystal():
-    def __init__(self, pdb_fpath, allowed_atoms, CNO_to_N = False, orbitals_as_shells = True):
+    def __init__(self, pdb_fpath, allowed_atoms, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True):
+        self.cell_packing = cell_packing
+        
         self.sym_factors=[np.array([1,1,1],dtype="float")]
         self.sym_translations = [np.array([0,0,0],dtype="float")]
         self.cell_dim = np.array([1,1,1],dtype="float")              
@@ -180,7 +182,7 @@ class XFEL():
 
         else:
             # Doing support for single orientation only first. Will need to calculate with new unit cell vectors for each rotation of crystal
-            bragg_points = self.bragg_points(target)
+            bragg_points = self.bragg_points(target,cell_packing =target.cell_packing)
             point = np.empty(int(len(bragg_points)),dtype="object")
             radii = np.zeros(len(point))
             azm = np.zeros(len(point))
@@ -264,7 +266,7 @@ class XFEL():
     
 
     # Returns the relative intensity at point q for the target's unit cell, i.e. ignoring crystalline effects.
-    # If the feature is a bragg spot, this gives its relative intensity, but due to photon conservation won't be the same as the intensity without crystallinity.
+    # If the feature is a bragg spot, this gives its relative intensity, but due to photon conservation won't be the same as the intensity without crystallinity - additionally different factors for non-zero form factors occur across different crystal patterns.
     def illuminate(self,feature,alphas = None):  # Feature = ring or spot.
         """Returns the intensity at q. Not crystalline yet."""
         if alphas == None:
@@ -299,25 +301,54 @@ class XFEL():
             coord = np.multiply(R.get_array(),self.target.sym_factors[i]) + np.multiply(self.target.cell_dim,self.target.sym_translations[i])
             spatial_structure_factor = np.exp(-1j*np.dot(q_vect,coord))   
         return spatial_structure_factor
-    def bragg_points(self,crystal, cell_packing = "SC"):
+    def bragg_points(self,crystal, cell_packing):
         ''' Using the unit cell structure, find non-zero values of q for which bragg 
         points appear.
         lattice_vectors e.g. = [a,b,c] - length of each spatial vector in orthogonal basis.
         '''
         
         # (h,k,l) is G (subject to selection condition) in lattice vector basis (lattice vector length = 1 in each dimension):
-        if cell_packing == "SC":
+        if cell_packing == "SC" or cell_packing == "FCC" or cell_packing == "BCC":
             lattice_vectors = crystal.cell_dim
         h = 0; k=0; l=0
         b = 2*np.pi/(lattice_vectors)
         # Generate the positive permutations.
         pos_indices = []
-        while np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2))<= self.q_max:
+        q_component_max = np.sqrt(self.q_to_q_scr(self.q_max)**2/3)
+        # while h*b[0]<= q_component_max:
+        #     while k*b[1]<= q_component_max:
+        #         while l*b[2]<= q_component_max:        
+        
+        # while np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2))<= self.q_max:
+        #     while np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2))<= self.q_max:
+        #         while np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2))<= self.q_max:
+        q_x_max = self.q_to_q_scr(self.q_to_q_scr)
+        q_y_max = q_x_max
+        q_z_max = np.sqrt(self.q_max**2 - q_x_max**2) 
+        x_index_max = 0
+        h = 0
+        while h*b[0] <= self.q_x_max:
+            x_index_max += 1
+            i += 1
+        k = 0
+        while k*b[1] <= self.q_y_max:
+            y_index_max += 1
+            i += 1      
+        l = 0
+        while l*b[2] <= self.q_z_max:
+            z_index_max += 1
+            i += 1                     
+        h = 0;k = 0;l = 0;
+
+            for k in range(x_index_max):
+                if 
+
+
             while np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2))<= self.q_max:
-                while np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2))<= self.q_max:
+                while np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2))<= self.q_max:        
                     l0 = l
                     l+=1 
-                    if np.sqrt(((h*b[0])**2+(k*b[1])**2)) <= self.q_min:
+                    if np.sqrt(((h*b[0])**2+(k*b[1])**2)) < self.q_min:
                         continue                    
                     # Apply Selection conditions. TODO make function.
                     if cell_packing == "SC":  
@@ -342,8 +373,9 @@ class XFEL():
             permutations = list(itertools.product(*sets))
             permutations = [*set(permutations)]
             miller_indices += permutations
-        
-        print("Number of points:", len(miller_indices))        
+
+        print("Number of points:", len(miller_indices))   
+        print(miller_indices)     
         
         G = np.multiply(b,miller_indices)
         self.rotate_G_to_orientation(G,crystal)
@@ -392,7 +424,8 @@ def E_to_lamb(photon_energy):
         # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
 
-def scatter_plot(result,radial_lim = None, plot_against_q=False,log_I = True, log_radial=False,**cmesh_kwargs):
+def scatter_plot(result,radial_lim = None, plot_against_q=False,log_I = True, dot_size = 1, log_radial=False,cutoff_log_intensity = None, **cmesh_kwargs):
+    '''When crystalline, dot size is proprtional to intensity, while colour is proportional to natural log of intensity.'''
     # https://stackoverflow.com/questions/36513312/polar-heatmaps-in-python
     kw = cmesh_kwargs
     # if "color" not in cmesh_kwargs: 
@@ -402,24 +435,44 @@ def scatter_plot(result,radial_lim = None, plot_against_q=False,log_I = True, lo
     fig = plt.figure()
     ax = Axes3D(fig)   
 
-    
-    if log_I: 
-        z = np.log(result.z)
-    else:
-        z = result.z
-    
+       
     radial_axis = result.r
     if plot_against_q:
         radial_axis =  result.q_scr
     ax = fig.add_subplot(projection="polar")
     if len(result.z.shape) == 1:
         #Point-like
+
+        identical_count = np.zeros(result.z.shape)
+        tmp_z = np.zeros(result.z.shape)
+        for i in range(len(result.z)):
+            matching_rad_idx = np.where(radial_axis[0] == radial_axis[0][i])
+            matching_alph_idx = np.where(result.azm == result.azm[i])
+            for elem in matching_rad_idx[0]:
+                if elem in matching_alph_idx[0]:
+                    identical_count[i] += 1
+                    tmp_z[i] += result.z[i]
+        
+    
+        z = np.multiply(tmp_z,identical_count)
+
+        if log_I: 
+            z = np.log(z)
+        else:
+            z = z  
+
         colours = z
-        ax.scatter(result.azm,radial_axis[0],c=colours,**kw,alpha=0.5)
+        norm = 3**identical_count[0] # should be about largest  # AFTER DEBUG change identical_count to z
+        s = [10*dot_size*np.e**x/norm for x in identical_count]
+        ax.scatter(result.azm,radial_axis[0],c=colours,s=s,alpha=1,**kw)
         plt.grid() 
     else:
-        if log_I:
-            cutoff_log_intensity = -1
+        if log_I: 
+            z = np.log(result.z)
+        else:
+            z = result.z        
+        if log_I and cutoff_log_intensity != None:
+            #cutoff_log_intensity = -1
             z -= cutoff_log_intensity
             z[z<0] = 0
             pass
@@ -470,13 +523,12 @@ experiment.scatter_plot(result3)
 
 #energy = 6000 # Tetrapeptide 
 energy =17445   #crambin  #q_min=0.11,q_max = 3.9,pixels_per_ring = 400, num_rings = 200
-experiment = XFEL(energy,100,x_orientations = 1, y_orientations=1,q_min=0.0175,q_max=6, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+experiment = XFEL(energy,100,x_orientations = 1, y_orientations=1,q_min=0,q_max=3.9, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
 
 experiment.x_rotation = 0#np.pi/2#0#np.pi/2
 
 sym_translations = [np.array([0,0,0])]
 cell_dim = [np.array([1,1,1])]  
-
 
 pdb_path = "/home/speno/AC4DC/scripts/scattering/3u7t.pdb" #Crambin
 #pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb"
@@ -491,7 +543,7 @@ allowed_atoms_1 = ["C_fast","N_fast","O_fast","S_fast"]
 end_time_1 = -9.8
 output_handle = "Improved_Lys_mid_6"
 
-crystal = Crystal(pdb_path,allowed_atoms_1,CNO_to_N=False)
+crystal = Crystal(pdb_path,allowed_atoms_1,CNO_to_N=False,cell_packing = "FCC")
 #crystal.set_cell_dim(22.795*1.88973, 18.826*1.88973, 41.042*1.88973)
 crystal.set_cell_dim(20, 20, 20)
 crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))
@@ -506,9 +558,10 @@ from copy import deepcopy
 use_q = True
 log_radial = False
 log_I = True
+cutoff_log_intensity = -1#-1
 cmap = 'Greys'#'binary'
 #screen_radius = 1400
-screen_radius = 165
+screen_radius = 165#55#165    #
 q_scr_lim = experiment.r_to_q_scr(screen_radius)#3.9
 zoom_to_fit = True
 ####### n'
@@ -525,12 +578,22 @@ else:
     radial_lim = None
 
 result_mod = deepcopy(result1)
-result_mod.z = result_mod.z #hack to remove neg nums (due to taking log).
+print(result_mod.z)
+result_mod.z = result1.z
+print(np.log(result_mod.z))
 
-scatter_plot(result_mod,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I)
+scatter_plot(result_mod,dot_size=5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+
+fig = plt.gcf()
+fig.set_figwidth(20)
+fig.set_figheight(20)
+
+#NEED TO CHECK. We have a 1:1 mapping from q to q_parr, but with our miller indices we are generating multiple q_parr with diff q.
+# So we SHOULD get the same q_parr with different q_z. Which makes sense since we are just doing cosine. But still icky maybe?
+# Need to double check we get different intensities for same q_parr. Pretty sure that's implemented.
 #%% DEBUG 
 print(experiment.q_to_theta(9.3)*180/np.pi)
-print(experiment.q_to_q_scr(9.3))
+print(experiment.q_to_q_scr(4.426))
 #%% 2
 allowed_atoms_2 = ["C_fast","N_fast","O_fast"]
 end_time_2 = -5
