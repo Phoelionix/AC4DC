@@ -198,7 +198,7 @@ class XFEL():
                 azm[i] = point[i].alpha
                 q_samples[i] = point[i].q_scr
                 z[i] = point[i].I
-                #print("G",G,"q",q_samples[i],"z",z[i])
+                print("G",G,"q",q_samples[i],"z",z[i])
                 i+=1
                 
             
@@ -369,7 +369,7 @@ class XFEL():
     def q_to_q_scr(self,q):
         """ Returns the screen-parallel component of q (or equivalently the final momentum)."""
         theta = self.q_to_theta(q)
-        return q*np.cos(2*theta)
+        return q*np.cos(theta)
     
     def r_to_q(self,r):
         D = self.detector_distance
@@ -380,37 +380,6 @@ class XFEL():
     def r_to_q_scr(self,r):
         q = self.r_to_q(r)
         return self.q_to_q_scr(q)
-
-    # def q_to_r(self, q_abs):
-    #     """Returns the distance from centre of screen that is struck by photon which transferred q"""
-    #     D = self.detector_distance #bohr
-    #     q0 = self.photon_energy/eV_per_Ha/c_au # initial photon momentum = E/c, directed towards centre of screen.   
-    #     theta = self.q_to_theta(q_abs)
-    #     qfin_perp = (q0-q_abs)*np.cos(2*theta) # component of the FINAL momentum along beam axis.
-    #     r = (D/qfin_perp)*q_abs/np.cos(2*theta)    # -> 0 for q -> 0, -> infinity for 2*theta -> pi/2    # D/qfin_perp is just similar triangle factor.
-    #     return r
-
-    # def q_to_q_scr(self,q_abs):
-    #     """ Returns the component of the FINAL momentum parallel to the SCREEN."""
-    #     theta = self.q_to_theta(q_abs)
-    #     q0 = self.photon_energy/eV_per_Ha/c_au
-    #     qfin = q0 - q_abs     
-    #     print("qfin",qfin)
-    #     print("theta",theta)
-    #     q_scr = qfin*np.sin(2*theta)
-    #     return q_scr
-    
-    # def r_to_q_scr(self,r):
-    #     D = self.detector_distance 
-    #     theta = np.arctan(r/D)/2
-    #     lamb = E_to_lamb(self.photon_energy)
-    #     q_abs = 4*np.pi*np.sin(theta)/lamb
-    #     hyp = np.sqrt(D**2+r**2)     
-    #     q_scr = (q_abs/hyp)*D               # hyp/D = q/q_scr
-    #     # trig check
-    #     if q_scr != self.q_to_q_scr(q_abs):
-    #         print("error, q_scr:",q_scr,"didn't match what was expected,",self.q_to_q_scr(q_abs)) 
-    #     return q_scr  
 
 def E_to_lamb(photon_energy):
     """Energy to wavelength in A.U."""
@@ -423,7 +392,7 @@ def E_to_lamb(photon_energy):
         # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
 
-def plot_pattern(result,radial_lim = None, plot_against_q=False,log_I = True, log_radial=False,**cmesh_kwargs):
+def scatter_plot(result,radial_lim = None, plot_against_q=False,log_I = True, log_radial=False,**cmesh_kwargs):
     # https://stackoverflow.com/questions/36513312/polar-heatmaps-in-python
     kw = cmesh_kwargs
     # if "color" not in cmesh_kwargs: 
@@ -446,13 +415,14 @@ def plot_pattern(result,radial_lim = None, plot_against_q=False,log_I = True, lo
     if len(result.z.shape) == 1:
         #Point-like
         colours = z
-        ax.scatter(result.azm,radial_axis[0],c=colours,**kw)
+        ax.scatter(result.azm,radial_axis[0],c=colours,**kw,alpha=0.5)
+        plt.grid() 
     else:
         if log_I:
             cutoff_log_intensity = -1
             z -= cutoff_log_intensity
             z[z<0] = 0
-
+            pass
         ax.pcolormesh(result.alph, radial_axis, z,**kw)
         ax.plot(result.azm, radial_axis, color = 'k',ls='none')
         plt.grid()  # Make the grid lines represent one unit cell (when implemented).
@@ -477,14 +447,14 @@ end_time_1 = -9.95
 output_handle = "Naive_Lys_C_7"
 pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb"
 result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,pdb_path,allowed_atoms_1,CNO_to_N=True)
-experiment.plot_pattern(result1)
+experiment.scatter_plot(result1)
 #%%
 allowed_atoms_2 = ["N_fast","S_fast"]
 end_time_2 = -9.76
 output_handle = "Naive_Lys_C_7"
 pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb"
 result2 = experiment.firin_mah_lazer(-10,end_time_2,output_handle,pdb_path,allowed_atoms_2,CNO_to_N=True)
-experiment.plot_pattern(result2)
+experiment.scatter_plot(result2)
 
 #%% Difference
 result3 = Results()
@@ -493,34 +463,37 @@ result3.q = result1.q
 result3.z = result1.z-result2.z
 result3.alph = result1.alph
 result3.azm = result1.azm
-experiment.plot_pattern(result3)
+experiment.scatter_plot(result3)
 #
 #%% 
 # CNO only.
 
 #energy = 6000 # Tetrapeptide 
 energy =17445   #crambin  #q_min=0.11,q_max = 3.9,pixels_per_ring = 400, num_rings = 200
-experiment = XFEL(energy,100,x_orientations = 1, y_orientations=1,q_min=0.0175,q_max=3.9, pixels_per_ring = 400, num_rings = 200,t_fineness=100)
+experiment = XFEL(energy,100,x_orientations = 1, y_orientations=1,q_min=0.0175,q_max=6, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
 
-
+experiment.x_rotation = 0#np.pi/2#0#np.pi/2
 
 sym_translations = [np.array([0,0,0])]
 cell_dim = [np.array([1,1,1])]  
 
-experiment.x_rotation = np.pi/2
+
 pdb_path = "/home/speno/AC4DC/scripts/scattering/3u7t.pdb" #Crambin
 #pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb"
 
 
 
 # 1
-allowed_atoms_1 = ["C_fast","N_fast","O_fast"]
-end_time_1 = -5
-output_handle = "C_tetrapeptide_2"
+#allowed_atoms_1 = ["C_fast","N_fast","O_fast"]
+allowed_atoms_1 = ["C_fast","N_fast","O_fast","S_fast"]
+#end_time_1 = -5
+#output_handle = "C_tetrapeptide_2"
+end_time_1 = -9.8
+output_handle = "Improved_Lys_mid_6"
 
 crystal = Crystal(pdb_path,allowed_atoms_1,CNO_to_N=False)
-crystal.set_cell_dim(22.795, 18.826, 41.042)
-#crystal.set_cell_dim(10, 10, 10)
+#crystal.set_cell_dim(22.795*1.88973, 18.826*1.88973, 41.042*1.88973)
+crystal.set_cell_dim(20, 20, 20)
 crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))
 
 SPI = False
@@ -530,32 +503,40 @@ result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,crystal, SPI=S
 #%%
 # stylin' 
 from copy import deepcopy
-use_q = False
+use_q = True
 log_radial = False
 log_I = True
 cmap = 'Greys'#'binary'
-screen_radius = 500
+#screen_radius = 1400
+screen_radius = 165
+q_scr_lim = experiment.r_to_q_scr(screen_radius)#3.9
 zoom_to_fit = True
 ####### n'
 # plottin'
 
 if zoom_to_fit:
-    radial_lim = min(experiment.q_to_r(experiment.q_max),screen_radius)
+    radial_lim = min(screen_radius,experiment.q_to_r(experiment.q_max))
     print(radial_lim)
-if use_q:
-    radial_lim = experiment.q_to_q_scr(experiment.q_max)
-    print(radial_lim)
+    if use_q:
+        #radial_lim = experiment.r_to_q_scr(radial_lim)
+        radial_lim = min(q_scr_lim,experiment.q_to_q_scr(experiment.q_max))
+        print(radial_lim)
+else:
+    radial_lim = None
 
 result_mod = deepcopy(result1)
 result_mod.z = result_mod.z #hack to remove neg nums (due to taking log).
 
-plot_pattern(result_mod,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I)
+scatter_plot(result_mod,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I)
+#%% DEBUG 
+print(experiment.q_to_theta(9.3)*180/np.pi)
+print(experiment.q_to_q_scr(9.3))
 #%% 2
 allowed_atoms_2 = ["C_fast","N_fast","O_fast"]
 end_time_2 = -5
 output_handle = "C_tetrapeptide_2"
 result2 = experiment.firin_mah_lazer(-10,end_time_2,output_handle,pdb_path,allowed_atoms_2,CNO_to_N=False)
-experiment.plot_pattern(result2,plot_against_q = use_q,log=use_log)
+experiment.scatter_plot(result2,plot_against_q = use_q,log=use_log)
 #%% Difference
 result3 = Results()
 result3.r = result1.r
@@ -565,7 +546,7 @@ print(result3.z[0][0])
 print(np.abs(np.sqrt(np.exp(result1.z[0][0]))-np.sqrt(np.exp(result2.z[0][0])))/np.sqrt(np.exp(result1.z[0][0])))
 result3.alph = result1.alph
 result3.azm = result1.azm
-experiment.plot_pattern(result3,plot_against_q = use_q,log=use_log)
+experiment.scatter_plot(result3,plot_against_q = use_q,log=use_log)
 
 #%% Tetra experimental conditions kinda 
 detector_dist = 100
@@ -585,7 +566,7 @@ dmg_output = "C_tetrapeptide_2"
 result1 = experiment.firin_mah_lazer(-10,end_time_1,dmg_output,pdb_path,allowed_atoms_1,CNO_to_N=False)
 #%%
 
-experiment.plot_pattern(result1,plot_against_q = use_q,log=use_log)
+experiment.scatter_plot(result1,plot_against_q = use_q,log=use_log)
 plt.yscale("symlog")
 
 #TODO 
