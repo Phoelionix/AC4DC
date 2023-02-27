@@ -94,7 +94,7 @@ class Atomic_Species():
         # e.g. (-1,1,-1),(0,0.5,0) -> -X,Y+1/2,-Z  
 
 class XFEL():
-    def __init__(self, photon_energy, detector_distance,  x_orientations = 1, y_orientations = 1, q_min=0.5,q_max=2.4, pixels_per_ring = 400, num_rings = 50,t_fineness=100):
+    def __init__(self, photon_energy, detector_distance,  x_orientations = 1, y_orientations = 1,q_max=2.4, pixels_per_ring = 400, num_rings = 50,t_fineness=100):
         """ #### Initialise the imaging experiment's controlled parameters
         photon_energy [eV]:
             Should be the same as that given in the original input file!
@@ -111,7 +111,6 @@ class XFEL():
         """
         self.photon_energy = photon_energy
         self.detector_distance = detector_distance
-        self.q_min = q_min
         self.q_max = q_max
         self.pixels_per_ring = pixels_per_ring
         self.num_rings = num_rings
@@ -149,7 +148,7 @@ class XFEL():
         result = Results()
         result.z = 0
         if SPI:
-            q_samples = np.linspace(self.q_min,self.q_max,self.num_rings)
+            q_samples = np.linspace(0,self.q_max,self.num_rings)
             for rot_x in range(self.x_orientations):
                 self.x_rot_matrix = rotaxis2m(self.x_rotation,bio_vect(1, 0, 0))      
                 self.y_rotation = 0                 
@@ -200,7 +199,7 @@ class XFEL():
                 azm[i] = point[i].alpha
                 q_samples[i] = point[i].q_scr
                 z[i] = point[i].I
-                print("G",G,"q",q_samples[i],"z",z[i])
+                #print("G",G,"q",q_samples[i],"z",z[i])
                 i+=1
                 
             
@@ -255,6 +254,13 @@ class XFEL():
         theta = self.q_to_theta(q)
         point = self.Spot(q,q_scr,r,theta)
         point.alpha = np.arctan2(G[0],G[1])
+
+                
+
+        #print("q_scr",q_scr,"alpha",point.alpha,"G",G[0],G[1],G[2])
+
+
+        #print("alpha",point.alpha,"q_scr",point.q_scr)
         
         alphas = np.array([point.alpha])
         point.I = self.illuminate(point,alphas)
@@ -312,72 +318,55 @@ class XFEL():
             lattice_vectors = crystal.cell_dim
         h = 0; k=0; l=0
         b = 2*np.pi/(lattice_vectors)
-        # Generate the positive permutations.
-        pos_indices = []
-        q_component_max = np.sqrt(self.q_to_q_scr(self.q_max)**2/3)
-        # while h*b[0]<= q_component_max:
-        #     while k*b[1]<= q_component_max:
-        #         while l*b[2]<= q_component_max:        
         
-        # while np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2))<= self.q_max:
-        #     while np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2))<= self.q_max:
-        #         while np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2))<= self.q_max:
-        q_x_max = self.q_to_q_scr(self.q_to_q_scr)
+        # Cast a wide net, catching all possible permutations of miller indices.
+        q_x_max = self.q_to_q_scr(self.q_max)   # Max length of any vector parallel to screen.
         q_y_max = q_x_max
-        q_z_max = np.sqrt(self.q_max**2 - q_x_max**2) 
-        x_index_max = 0
+        q_z_max = self.q_max        # q = (0,0,l) case.
+        h_max = 0
+        k_max = 0
+        l_max = 0
         h = 0
-        while h*b[0] <= self.q_x_max:
-            x_index_max += 1
-            i += 1
+        while h*b[0] <= q_x_max:
+            h_max += 1
+            h += 1
         k = 0
-        while k*b[1] <= self.q_y_max:
-            y_index_max += 1
-            i += 1      
+        while k*b[1] <= q_y_max:
+            k_max += 1
+            k += 1      
         l = 0
-        while l*b[2] <= self.q_z_max:
-            z_index_max += 1
-            i += 1                     
-        h = 0;k = 0;l = 0;
+        while l*b[2] <= q_z_max:
+            l_max += 1
+            l += 1                     
+        h = 0; k = 0;l = 0
 
-            for k in range(x_index_max):
-                if 
-
-
-            while np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2))<= self.q_max:
-                while np.sqrt(((h*b[0])**2+(k*b[1])**2+(l*b[2])**2))<= self.q_max:        
-                    l0 = l
-                    l+=1 
-                    if np.sqrt(((h*b[0])**2+(k*b[1])**2)) < self.q_min:
-                        continue                    
-                    # Apply Selection conditions. TODO make function.
-                    if cell_packing == "SC":  
-                        pass
-                    if cell_packing == "BCC" and (h+k+l0)%2!=0:
-                        continue
-                    if cell_packing == "FCC" and (h%2+k%2+l0%2) not in [0,3]:
-                        continue
-                    pos_indices.append(np.array([h,k,l0]))
-                    
-                l=0
-                k+=1
-            k=0
-            h+=1     
-        h=0       
-        # Generate the other permutations(or whatever this is called) (TODO vectorise):
-        miller_indices = []
-        for h,k,l in pos_indices: 
-            sets = [[-h,h],[-k,k],[-l,l]]
-            #permutations = np.array(np.meshgrid(h_set,k_set,l_set)).T.reshape(-1, 3)
-            #permutations = np.stack(np.meshgrid(h_set,k_set,l_set)).T.reshape(-1, 3)
-            permutations = list(itertools.product(*sets))
-            permutations = [*set(permutations)]
-            miller_indices += permutations
-
-        print("Number of points:", len(miller_indices))   
-        print(miller_indices)     
+        h_set = np.arange(-h_max,h_max+1,1)
+        k_set = np.arange(-k_max,k_max+1,1)
+        l_set = np.arange(-l_max,l_max+1,1)
+        indices = list(itertools.product(h_set,k_set,l_set))
+        indices = np.array([*set(indices)])   # * expands the set into the list. Faster than using List() apparently.
+    
+        # Selection rules/Fish bait
+        if cell_packing == "SC":
+            selection_rule = lambda f: True
+        if cell_packing == "BCC":
+            selection_rule = lambda f: (f[0]+f[1]+f[2])%2==0  # All even
+        if cell_packing == "FCC":
+            selection_rule = lambda f: (np.abs(f[0])%2+np.abs(f[1])%2+np.abs(f[2])%2) in [0,3]   # All odd or all even.
+        # Purely a matter of truncation
+        q_max_rule = lambda f: np.sqrt(((f[0]*b[0])**2+(f[1]*b[1])**2+(f[2]*b[2])**2))<= self.q_max
+        # Since our screen is perpendicular to the incoming beam, we have an additional constraint from elasticity:
+        elasticity_constraint = lambda f: ((f[2] > 0 and (f[0] != 0 or f[1] != 0)) or (f[2] == 0 and f[0] == 0 and f[1] == 0))
         
-        G = np.multiply(b,miller_indices)
+        # Catch the miller indices *cough cou-gh-ish* with a boolean mask
+        mask = np.apply_along_axis(selection_rule,1,indices)*np.apply_along_axis(q_max_rule,1,indices)*np.apply_along_axis(elasticity_constraint,1,indices)
+        indices = indices[mask]
+
+        print("Number of points:", len(indices))   
+        # for elem in indices:
+        #     print(elem)
+        
+        G = np.multiply(b,indices)
         self.rotate_G_to_orientation(G,crystal)
         print(G)
         return G
@@ -424,7 +413,7 @@ def E_to_lamb(photon_energy):
         # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
 
-def scatter_plot(result,radial_lim = None, plot_against_q=False,log_I = True, dot_size = 1, log_radial=False,cutoff_log_intensity = None, **cmesh_kwargs):
+def scatter_plot(result,radial_lim = None, plot_against_q=False,log_I = True, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None, **cmesh_kwargs):
     '''When crystalline, dot size is proprtional to intensity, while colour is proportional to natural log of intensity.'''
     # https://stackoverflow.com/questions/36513312/polar-heatmaps-in-python
     kw = cmesh_kwargs
@@ -441,19 +430,19 @@ def scatter_plot(result,radial_lim = None, plot_against_q=False,log_I = True, do
         radial_axis =  result.q_scr
     ax = fig.add_subplot(projection="polar")
     if len(result.z.shape) == 1:
-        #Point-like
-
+        ## Point-like (Crystalline)
+        # get points at same position on screen.
         identical_count = np.zeros(result.z.shape)
         tmp_z = np.zeros(result.z.shape)
         for i in range(len(result.z)):
-            matching_rad_idx = np.where(radial_axis[0] == radial_axis[0][i])
-            matching_alph_idx = np.where(result.azm == result.azm[i])
+            # Boolean masks
+            matching_rad_idx = np.nonzero(radial_axis[0] == radial_axis[0][i])  # numpy note: equiv. to np.where(condition). Non-zero part irrelevant.
+            matching_alph_idx = np.nonzero(result.azm == result.azm[i])
             for elem in matching_rad_idx[0]:
                 if elem in matching_alph_idx[0]:
                     identical_count[i] += 1
                     tmp_z[i] += result.z[i]
         
-    
         z = np.multiply(tmp_z,identical_count)
 
         if log_I: 
@@ -461,12 +450,23 @@ def scatter_plot(result,radial_lim = None, plot_against_q=False,log_I = True, do
         else:
             z = z  
 
+        debug_mask = (0.5 < radial_axis[0])*(radial_axis[0] < 1)
+        print(identical_count[debug_mask])
+        print(radial_axis[0][debug_mask])
+        print(result.azm[debug_mask ]*180/np.pi)
+
         colours = z
-        norm = 3**identical_count[0] # should be about largest  # AFTER DEBUG change identical_count to z
-        s = [10*dot_size*np.e**x/norm for x in identical_count]
+        # Dot size
+        dot_param = z
+        if crystal_pattern_only:
+            dot_param = identical_count   
+        norm = np.e**np.max(dot_param)
+        s = [100*dot_size*np.e**x/norm for x in dot_param]
+
         ax.scatter(result.azm,radial_axis[0],c=colours,s=s,alpha=1,**kw)
         plt.grid() 
     else:
+        ## Continuous (SPI)
         if log_I: 
             z = np.log(result.z)
         else:
@@ -522,8 +522,8 @@ experiment.scatter_plot(result3)
 # CNO only.
 
 #energy = 6000 # Tetrapeptide 
-energy =17445   #crambin  #q_min=0.11,q_max = 3.9,pixels_per_ring = 400, num_rings = 200
-experiment = XFEL(energy,100,x_orientations = 1, y_orientations=1,q_min=0,q_max=3.9, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+energy =17445   #crambin - from resolutions. in pdb file, need to double check calcs: #q_min=0.11,q_max = 3.9,  my defaults: pixels_per_ring = 400, num_rings = 200
+experiment = XFEL(energy,100,x_orientations = 1, y_orientations=1,q_max=3.9, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
 
 experiment.x_rotation = 0#np.pi/2#0#np.pi/2
 
@@ -554,6 +554,13 @@ result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,crystal, SPI=S
 
 #%%
 # stylin' 
+
+font = {'family' : 'monospace',
+        'weight' : 'bold',
+        'size'   : 24}
+
+plt.rc('font', **font)
+
 from copy import deepcopy
 use_q = True
 log_radial = False
@@ -561,7 +568,7 @@ log_I = True
 cutoff_log_intensity = -1#-1
 cmap = 'Greys'#'binary'
 #screen_radius = 1400
-screen_radius = 165#55#165    #
+screen_radius = 40#55#165    #
 q_scr_lim = experiment.r_to_q_scr(screen_radius)#3.9
 zoom_to_fit = True
 ####### n'
@@ -582,7 +589,7 @@ print(result_mod.z)
 result_mod.z = result1.z
 print(np.log(result_mod.z))
 
-scatter_plot(result_mod,dot_size=5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+scatter_plot(result_mod,crystal_pattern_only = False,dot_size=50,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
 
 fig = plt.gcf()
 fig.set_figwidth(20)
@@ -616,7 +623,6 @@ detector_dist = 100
 experiment = XFEL(12562,detector_dist,x_orientations = 1, y_orientations=1, pixels_per_ring = 200, num_rings = 250,t_fineness=100)
 #experiment.q_max = experiment.r_to_q(detector_dist*1.99) 
 experiment.q_max = 1/(1.27*1.8897) 
-experiment.q_min = 1/(14.83*1.8897)  
 use_q = False
 use_log = False
 pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb"
