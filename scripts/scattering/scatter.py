@@ -223,7 +223,8 @@ class XFEL():
         result.alph = alph
         result.azm = azm
         result.q_scr = q_for_plot
-        result.txt = miller_indices
+        if not SPI:
+            result.txt = miller_indices
         self.x_rotation = 0
         return result
     
@@ -479,7 +480,9 @@ def scatter_plot(result,show_labels = False, radial_lim = None, plot_against_q=F
             for elem in matching_rad_idx[0]:
                 if elem in matching_alph_idx[0]:
                     identical_count[i] += 1
-                    tmp_z[i] += result.z[i]
+                    matching = result.z[(radial_axis == radial_axis[i])*(result.azm == result.azm[i])]
+                    for value in matching:
+                        tmp_z[i] += value
             processed_copies.append((radial_axis[i],result.azm[i]))
         
         identical_count = identical_count[unique_values_mask]
@@ -592,7 +595,7 @@ allowed_atoms_1 = ["C_fast","N_fast","O_fast","S_fast"]
 end_time_1 = -9.8
 output_handle = "Improved_Lys_mid_6"
 
-crystal = Crystal(pdb_path,allowed_atoms_1,CNO_to_N=False,cell_packing = "SC")
+crystal = Crystal(pdb_path,allowed_atoms_1,CNO_to_N=False,cell_packing = "BCC")
 #crystal.set_cell_dim(22.795*1.88973, 18.826*1.88973, 41.042*1.88973)
 crystal.set_cell_dim(20, 20, 20)
 crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))
