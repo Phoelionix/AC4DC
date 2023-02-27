@@ -249,11 +249,15 @@ class XFEL():
         return ring 
     def generate_point(self,G): # G = vector
         q = np.sqrt(G[0]**2+G[1]**2+G[2]**2)
+        print(" ")
+        print(np.sqrt(G[0]**2+G[1]**2))
+        print(self.q_to_q_scr(q))
         r = self.q_to_r(q)
-        q_scr = self.q_to_q_scr(q)
+        q_scr = self.q_to_q_scr(q)  # not np.sqrt(G[0]**2+G[1]**2)
         theta = self.q_to_theta(q)
         point = self.Spot(q,q_scr,r,theta)
-        point.alpha = np.arctan2(G[0],G[1])
+        point.alpha = np.arctan2(G[1],G[0])
+        print(point.alpha)
 
                 
 
@@ -314,11 +318,20 @@ class XFEL():
         '''
         
         # (h,k,l) is G (subject to selection condition) in lattice vector basis (lattice vector length = 1 in each dimension):
-        if cell_packing == "SC" or cell_packing == "FCC" or cell_packing == "BCC":
-            lattice_vectors = crystal.cell_dim
-        h = 0; k=0; l=0
-        b = 2*np.pi/(lattice_vectors)
-        
+        # a = lattice vectors, b = reciprocal lattice vector
+        if cell_packing == "SC" or cell_packing == "FCC" or cell_packing == "BCC" or cell_packing == "FCC-D":
+            if cell_packing == "SC":
+                a = np.array([[1,0,0],[0,1,0],[0,0,1]])
+            if cell_packing == "BCC":
+                a = 0.5*np.array([[-1,1,1],[1,-1,1],[1,1,-1]])
+            if cell_packing == "FCC":
+                a = 0.5*np.array([[0,1,1],[1,0,1],[1,1,0]])                
+            a = np.multiply(a,crystal.cell_dim) # idk if this is correct for rhomboids TODO
+        b1 = 2*np.pi * np.cross(a[1],a[2])
+        b2 = 2*np.pi * np.cross(a[2],a[0])
+        b3 = 2*np.pi * np.cross(a[0],a[1])
+        b = 2*np.pi*np.array([b1,b2,b3])/(np.dot(a[0],np.cross(a[1],a[2])))
+
         # Cast a wide net, catching all possible permutations of miller indices.
         q_x_max = self.q_to_q_scr(self.q_max)   # Max length of any vector parallel to screen.
         q_y_max = q_x_max
@@ -353,6 +366,8 @@ class XFEL():
             selection_rule = lambda f: (f[0]+f[1]+f[2])%2==0  # All even
         if cell_packing == "FCC":
             selection_rule = lambda f: (np.abs(f[0])%2+np.abs(f[1])%2+np.abs(f[2])%2) in [0,3]   # All odd or all even.
+        if cell_packing == "FCC-D":
+            selection_rule = lambda f: (np.abs(f[0])%2+np.abs(f[1])%2+np.abs(f[2])%2) == 3 or ((np.abs(f[0])%2+np.abs(f[1])%2+np.abs(f[2])%2) == 0 and (f[0] + f[1] + f[2])%4 == 0)  # All odd or all even.            
         # Purely a matter of truncation
         q_max_rule = lambda f: np.sqrt(((f[0]*b[0])**2+(f[1]*b[1])**2+(f[2]*b[2])**2))<= self.q_max
         # Since our screen is perpendicular to the incoming beam, we have an additional constraint from elasticity:
@@ -363,8 +378,8 @@ class XFEL():
         indices = indices[mask]
 
         print("Number of points:", len(indices))   
-        # for elem in indices:
-        #     print(elem)
+        for elem in indices:
+            print(elem)
         
         G = np.multiply(b,indices)
         self.rotate_G_to_orientation(G,crystal)
@@ -523,7 +538,7 @@ experiment.scatter_plot(result3)
 
 #energy = 6000 # Tetrapeptide 
 energy =17445   #crambin - from resolutions. in pdb file, need to double check calcs: #q_min=0.11,q_max = 3.9,  my defaults: pixels_per_ring = 400, num_rings = 200
-experiment = XFEL(energy,100,x_orientations = 1, y_orientations=1,q_max=3.9, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+experiment = XFEL(energy,100,x_orientations = 1, y_orientations=1,q_max=1.4, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
 
 experiment.x_rotation = 0#np.pi/2#0#np.pi/2
 
@@ -599,8 +614,9 @@ fig.set_figheight(20)
 # So we SHOULD get the same q_parr with different q_z. Which makes sense since we are just doing cosine. But still icky maybe?
 # Need to double check we get different intensities for same q_parr. Pretty sure that's implemented.
 #%% DEBUG 
-print(experiment.q_to_theta(9.3)*180/np.pi)
-print(experiment.q_to_q_scr(4.426))
+print(np.arctan2(3,-1))
+print(experiment.q_to_theta(np.sqrt(11)))
+print(experiment.q_to_q_scr(np.sqrt(11)))
 #%% 2
 allowed_atoms_2 = ["C_fast","N_fast","O_fast"]
 end_time_2 = -5
