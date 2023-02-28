@@ -595,7 +595,7 @@ allowed_atoms_1 = ["C_fast","N_fast","O_fast","S_fast"]
 end_time_1 = -9.8
 output_handle = "Improved_Lys_mid_6"
 
-crystal = Crystal(pdb_path,allowed_atoms_1,CNO_to_N=False,cell_packing = "BCC")
+crystal = Crystal(pdb_path,allowed_atoms_1,CNO_to_N=False,cell_packing = "FCC")
 #crystal.set_cell_dim(22.795*1.88973, 18.826*1.88973, 41.042*1.88973)
 crystal.set_cell_dim(20, 20, 20)
 crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))
@@ -641,7 +641,7 @@ print(result_mod.z)
 result_mod.z = result1.z
 print(np.log(result_mod.z))
 
-radial_lim = 10
+radial_lim = 10 #TODO fix above then remove this
 scatter_plot(result_mod,crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
 
 fig = plt.gcf()
