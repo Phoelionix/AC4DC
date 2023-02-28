@@ -336,7 +336,7 @@ class XFEL():
         b = 2*np.pi*np.array([b1,b2,b3])/(np.dot(a[0],np.cross(a[1],a[2])))
         
         # Cast a wide net, catching all possible permutations of miller indices.
-        q_x_max = self.q_to_q_scr(self.q_max)   # Max length of any vector parallel to screen.
+        q_x_max = self.q_max#self.q_to_q_scr(self.q_max)   # Max length of any vector parallel to screen.
         q_y_max = q_x_max
         q_z_max = self.q_max        # q = (0,0,l) case.
         h_max = 0
@@ -641,7 +641,8 @@ print(result_mod.z)
 result_mod.z = result1.z
 print(np.log(result_mod.z))
 
-scatter_plot(result_mod,crystal_pattern_only = False,show_labels=False,log_dot=False,dot_size=50,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+radial_lim = 10
+scatter_plot(result_mod,crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
 
 fig = plt.gcf()
 fig.set_figwidth(20)
