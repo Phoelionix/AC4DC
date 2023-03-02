@@ -278,6 +278,9 @@ class XFEL():
         q = np.sqrt(G[0]**2+G[1]**2+G[2]**2)
         #r = self.q_to_r(q)
         placeholder_1 = self.q_to_q_scr(q)# TODO make this r
+        self.screen = "curved"
+        if self.screen == "curved":
+            placeholder_1 = self.q_to_q_scr_curved(G)
         theta = self.q_to_theta(q)
         point = self.Spot(q,placeholder_1,theta)
         point.phi = np.arctan2(G[1],G[0])
@@ -528,7 +531,7 @@ def E_to_lamb(photon_energy):
         # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
 
-def scatter_plot(result,show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None, **cmesh_kwargs):
+def scatter_plot(result, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None, **cmesh_kwargs):
     '''When crystalline, dot size is proprtional to intensity, while colour is proportional to natural log of intensity.'''
     # https://stackoverflow.com/questions/36513312/polar-heatmaps-in-python
     kw = cmesh_kwargs
@@ -537,9 +540,9 @@ def scatter_plot(result,show_labels = False, radial_lim = None, plot_against_q=F
     # if "ls" not in cmesh_kwargs.keys():
     #     kw["ls"] = 'none'
     fig = plt.figure()
-    ax = Axes3D(fig)   
-
-       
+      
+    #ax = Axes3D(fig) 
+    
     radial_axis = result.r
     if plot_against_q:
         radial_axis =  result.placeholder_1
@@ -581,14 +584,45 @@ def scatter_plot(result,show_labels = False, radial_lim = None, plot_against_q=F
         if log_I: 
             z = np.log(z)
         else:
-            z = z  
+            z = z           
 
         debug_mask = (0.01 < radial_axis[0])*(radial_axis[0] < 100)
         print(identical_count[debug_mask])
         print(radial_axis[0][debug_mask])
         print(azm[debug_mask ]*180/np.pi)
 
-        colours = z
+        import matplotlib as mpl
+        from matplotlib import cm
+
+        #https://stackoverflow.com/questions/26108436/how-can-i-get-the-matplotlib-rgb-color-given-the-colormap-name-boundrynorm-an
+        
+        from matplotlib.colors import to_rgb
+        if cmap != None:
+            class MplColorHelper:
+
+                def __init__(self, cmap_name, start_val, stop_val):
+                    self.cmap_name = cmap_name
+                    self.cmap = plt.get_cmap(cmap_name)
+                    self.norm = mpl.colors.Normalize(vmin=start_val, vmax=stop_val)
+                    self.scalarMap = cm.ScalarMappable(norm=self.norm, cmap=self.cmap)
+
+                def get_rgb(self, val):
+                    val = ((val-np.min(z))/(np.max(z)-np.min(z)))**cmap_power
+                    if val < 0 or val > 1:
+                        print("error in val!")
+                    return self.scalarMap.to_rgba(val)
+            COL = MplColorHelper(cmap, 0, 1) 
+            thing = np.array([[COL.get_rgb(K)[0], COL.get_rgb(K)[1],COL.get_rgb(K)[2],np.clip((K*(max_alpha-min_alpha))/(np.max(z)) + min_alpha,min_alpha,None)] for K in z])
+            print("THING",thing)
+            colours = [(r,g,b,a) for r,g,b,a in thing] 
+            print(colours)
+            print(np.max(z))
+            print(((10-np.min(z))/(np.max(z)-np.min(z)))**cmap_power)
+        else:
+            r,g,b = to_rgb(solid_colour)
+            colours = [(r,g,b,a) for a in np.clip(z/np.max(z),min_alpha,max_alpha)]
+        alpha = None
+
         # Dot size
         dot_param = z
         if crystal_pattern_only:
@@ -598,7 +632,7 @@ def scatter_plot(result,show_labels = False, radial_lim = None, plot_against_q=F
         norm = np.max(dot_param)
         s = [100*dot_size*x/norm for x in dot_param]
 
-        ax.scatter(azm,radial_axis,c=colours,s=s,alpha=1,**kw)
+        ax.scatter(azm,radial_axis,c=colours,s=s,alpha=alpha,**kw)
         plt.grid() 
         #TODO only show first index or something. or have option to switch between image indexes. oof coding.
         if show_labels:
@@ -618,12 +652,13 @@ def scatter_plot(result,show_labels = False, radial_lim = None, plot_against_q=F
         ax.pcolormesh(result.alph, radial_axis, z,**kw)
         ax.plot(result.azm, radial_axis, color = 'k',ls='none')
         plt.grid()  # Make the grid lines represent one unit cell (when implemented).
-             
+
     if radial_lim:
         bottom,top = plt.ylim()
         plt.ylim(bottom,radial_lim)
     if log_radial:
-        plt.yscale("log")        
+        plt.yscale("log")  
+    ax.set_facecolor("black")
 # queue = 0.4
 # test = XFEL(12000,100)
 # pl_t = test.get_ff_calculator(-10,-9.95,"Naive_Lys_C_7")
@@ -635,7 +670,7 @@ def scatter_plot(result,show_labels = False, radial_lim = None, plot_against_q=F
 DEBUG = True
 #energy = 6000 # Tetrapeptide 
 energy =17445   #crambin - from resolutions. in pdb file, need to double check calcs: #q_min=0.11,q_cutoff = 3.9,  my defaults: pixels_per_ring = 400, num_rings = 200
-experiment = XFEL(energy,100,orientation_set = [[0,0,0]], q_cutoff=10, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+experiment = XFEL(energy,100,orientation_set = [[0,0,0],[np.pi/4,0,0]], q_cutoff=10, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
 
 experiment.x_rotation = 0#np.pi/2#0#np.pi/2
 
@@ -665,7 +700,79 @@ SPI = False
 result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,crystal, SPI=SPI)
 
 #%%
+allowed_atoms_2 = ["C_fast","N_fast","O_fast"]
+#end_time_1 = -5
+#output_handle = "C_tetrapeptide_2"
+end_time_2 = -9.8#-9.95
+output_handle = "Improved_Lys_mid_6"
+
+crystal = Crystal(pdb_path,allowed_atoms_2,CNO_to_N=False,cell_packing = "SC")
+#crystal.set_cell_dim(22.795*1.88973, 18.826*1.88973, 41.042*1.88973)
+crystal.set_cell_dim(20, 20, 20)
+crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))
+
+SPI = False
+
+result2 = experiment.firin_mah_lazer(-10,end_time_2,output_handle,crystal, SPI=SPI)
+
+#%%
 # stylin' 
+
+import colorcet as cc
+import cmasher as cmr
+
+font = {'family' : 'monospace',
+        'weight' : 'bold',
+        'size'   : 24}
+
+plt.rc('font', **font)
+
+from copy import deepcopy
+use_q = True
+log_radial = False
+log_I = True
+cutoff_log_intensity = -1#-1
+cmap = "plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
+cmap_power = 1.6
+min_alpha = 0.35
+max_alpha = 1
+colour = "y"
+#screen_radius = 1400
+screen_radius = 120#55#165    #
+q_scr_lim = experiment.r_to_q(screen_radius) #experiment.r_to_q_scr(screen_radius)#3.9  #NOTE this won't be the actual max placeholder_1 but ah well.
+zoom_to_fit = True
+####### n'
+# plottin'
+
+if zoom_to_fit:
+    radial_lim = screen_radius#min(screen_radius,experiment.q_to_r(experiment.q_cutoff))
+    print(radial_lim)
+    if use_q:
+        #radial_lim = experiment.r_to_q_scr(radial_lim)
+        radial_lim = q_scr_lim #radial_lim = min(q_scr_lim,experiment.q_to_q_scr(experiment.q_cutoff))
+        print(radial_lim)
+else:
+    radial_lim = None
+
+result_mod = deepcopy(result1)
+print("A")
+print(result_mod.z)
+result_mod.z = result1.z
+print(np.log(result_mod.z))
+
+radial_lim = 10#10 #TODO fix above then remove this
+
+scatter_plot(result_mod, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+fig = plt.gcf()
+fig.set_figwidth(20)
+fig.set_figheight(20)
+
+#NEED TO CHECK. We have a 1:1 mapping from q to q_parr, but with our miller indices we are generating multiple q_parr with diff q.
+# So we SHOULD get the same q_parr with different q_z. Which makes sense since we are just doing cosine. But still icky maybe?
+# Need to double check we get different intensities for same q_parr. Pretty sure that's implemented.
+
+#%%
+# stylin' intensity difference map
 
 font = {'family' : 'monospace',
         'weight' : 'bold',
@@ -699,19 +806,17 @@ else:
 result_mod = deepcopy(result1)
 print("A")
 print(result_mod.z)
-result_mod.z = result1.z
-print(np.log(result_mod.z))
+result_mod.z = np.abs(np.sqrt(result1.z)-np.sqrt(result2.z))/np.sqrt(result1.z)
+# result_mod.z = np.abs((result1.z-result2.z)/result1.z)
+print(result_mod.z)
 
-radial_lim = 5#10 #TODO fix above then remove this
+radial_lim = 10#10 #TODO fix above then remove this
 scatter_plot(result_mod,crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
 
 fig = plt.gcf()
 fig.set_figwidth(20)
 fig.set_figheight(20)
 
-#NEED TO CHECK. We have a 1:1 mapping from q to q_parr, but with our miller indices we are generating multiple q_parr with diff q.
-# So we SHOULD get the same q_parr with different q_z. Which makes sense since we are just doing cosine. But still icky maybe?
-# Need to double check we get different intensities for same q_parr. Pretty sure that's implemented.
 #%% DEBUG 
 #print(np.arctan2(3,-1))
 #print(experiment.q_to_theta(np.sqrt(11)))
