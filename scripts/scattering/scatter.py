@@ -22,11 +22,25 @@ from numpy import cos
 from numpy import sin
 from plotter_core import Plotter
 from scipy.spatial.transform import Rotation as Rotation
+import pickle
 
 DEBUG = False 
 c_au = 137.036; eV_per_Ha = 27.211385 
 
 class Results():
+    def __init__(self,num_points):
+        self.azm = np.zeros(num_points)
+        self.z = np.zeros(num_points)
+        self.q = np.zeros(num_points)
+        self.r = np.zeros(num_points)
+        self.image_index = np.zeros(num_points)    
+
+    def package_up(self,miller_indices):
+        self.q, self.alph = np.meshgrid(self.q,self.azm)  
+        self.r, self.alph = np.meshgrid(self.r, self.azm) 
+        self.txt = miller_indices 
+    def subtract(self,other):
+        self.z -= other.z       
     pass
 
 class Crystal():
@@ -98,8 +112,10 @@ class Atomic_Species():
         # e.g. (-1,1,-1),(0,0.5,0) -> -X,Y+1/2,-Z  
 
 class XFEL():
-    def __init__(self, photon_energy, detector_distance, orientation_set = [[0,0,0],], x_orientations = 1, y_orientations = 1,q_cutoff=2.4, pixels_per_ring = 400, num_rings = 50,t_fineness=100):
+    def __init__(self, experiment_name, photon_energy, detector_distance, hemisphere_screen = True, orientation_set = [[0,0,0],], x_orientations = 1, y_orientations = 1,q_cutoff=2.4, pixels_per_ring = 400, num_rings = 50,t_fineness=100):
         """ #### Initialise the imaging experiment's controlled parameters
+        experiment_name:
+            String that the output folder will be named.        
         photon_energy [eV]:
             Should be the same as that given in the original input file!
         detector_distance [bohr];
@@ -118,6 +134,8 @@ class XFEL():
         orientation_set:
             contains each set of cardan angles for each orientation to images. Crystal only. TODO replace x_orientations and y_orientations with this.
         """
+        self.experiment_name = experiment_name
+        self.hemisphere_screen = hemisphere_screen
         self.photon_momentum = 2*np.pi/E_to_lamb(photon_energy)
         self.photon_energy = photon_energy
         self.detector_distance = detector_distance
@@ -143,13 +161,14 @@ class XFEL():
         ff_calculator.initialise_coherence_params(start_time,end_time,self.q_cutoff,self.photon_energy,t_fineness=self.t_fineness) # q_fineness isn't used for our purposes.   
         return ff_calculator
     
-    def firin_mah_lazer(self, start_time, end_time, damage_output_handle, target, SPI=False):
+    def spooky_laser(self, start_time, end_time, damage_output_handle, target, clear_output = False, random_orientation = False, SPI=False):
         """ 
         end_time: The end time of the photon capture in femtoseconds. Not a real thing experimentally, but useful for choosing 
         a level of damage. Explicitly, it is used to determine the upper time limit for the integration of the form factor.
         pdb_fpath: The pdb file's path. Changes the variable self.atoms.
         y_orientations: 
-            Number of unique y axis rotations to sample crystal. x_axis_rotations not implemented (yet?). 
+            Number of unique y axis rotations to sample crystal. x_axis_rotations not implemented (yet?).
+        random_orientation overrides the XFEL class's orientation_set, replacing each with a random orientation. (get same number of orientations though at present TODO.) 
         """
         ff_calculator = self.get_ff_calculator(start_time,end_time,damage_output_handle)     
         target.set_ff_calculator(ff_calculator)
@@ -157,9 +176,23 @@ class XFEL():
 
         ring = np.empty(self.num_rings,dtype="object")
         
-        result = Results()
-        result.z = 0
+        # Create output folder for results
+        directory = "results/" + self.experiment_name + "/"
+        print("creating folder:",directory)
+        if (os.path.exists(directory)):
+            exist_ok = True
+            if clear_output:
+                exist_ok = False
+                for filename in os.listdir(directory):
+                    fpath = os.path.join(directory, filename)
+                    if os.path.isfile(fpath): 
+                        os.remove(fpath)
+                os.rmdir(directory)          
+        os.makedirs(directory, exist_ok=exist_ok)      
+
         if SPI:
+            result = Results()
+            result.z = 0            
             q_samples = np.linspace(0,self.q_cutoff,self.num_rings)
             for rot_x in range(self.x_orientations):
                 self.x_rot_matrix = rotaxis2m(self.x_rotation,bio_vect(1, 0, 0))      
@@ -192,68 +225,31 @@ class XFEL():
                 self.x_rotation += 2*np.pi/self.x_orientations
 
         else:
-            radii = np.zeros(0)
-            azm = np.zeros(0)
-            q = np.zeros(0)
-            z = np.zeros(0)
-            image_index = np.zeros(0)
-            txt = np.zeros((0,3))
             # Iterate through each orientation of crystal
-            for j, cardan_angles in enumerate(self.orientation_set):
-                bragg_points, miller_indices = self.bragg_points(target,cell_packing = target.cell_packing, cardan_angles = cardan_angles)
+            for j, cardan_angles in enumerate(self.orientation_set):               
+                print("Imaging orientation",j)
+                bragg_points, miller_indices = self.bragg_points(target,cell_packing = target.cell_packing, cardan_angles = cardan_angles,random_orientation=random_orientation)
                 num_points = int(len(bragg_points))
-                #tmp_radii = np.zeros(num_points)
-                tmp_azm = np.zeros(num_points)
-                tmp_z = np.zeros(num_points)
-                tmp_q = np.zeros(num_points)
-                tmp_image_index = np.zeros(num_points)
+                result = Results(num_points)
                 # Get the q vectors where non-zero
                 i = 0
                 largest_x = -99999
                 for i, G in enumerate(bragg_points):   # (Assume pixel adjacent to bragg point does not capture remnants of sinc function)
                     if G[0] > largest_x:
                         largest_x = G[0]
-                        print("Imaging all G with G[0]",G[0])
+                        print("New high G[0]!",G[0])
                     point = self.generate_point(G)
                     #tmp_radii[i] = point.r
-                    tmp_azm[i] = point.phi
-                    tmp_q[i] = point.placeholder_1
-                    tmp_z[i] = point.I
-                    tmp_image_index[i] = j
-                    #print("G",G,"q",q_samples[i],"z",z[i])
-                #radii = np.append(radii,tmp_radii)
-                azm = np.append(azm,tmp_azm)
-                q = np.append(q,tmp_q)
-                z = np.append(z,tmp_z)
-                image_index = np.append(image_index,tmp_image_index)
-                txt = np.append(txt,miller_indices,axis=0)
+                    result.azm[i] = point.phi
+                    result.q[i] = point.placeholder_1
+                    result.z[i] = point.I
+                    result.image_index[i] = j
+                result.package_up(miller_indices)
+                #Save the result object into its own file within the output folder for the experiment
+                fpath = directory + str(cardan_angles)
+                pickle_out = open(fpath,"wb")
+                pickle.dump(result,pickle_out)
 
-            r, alph = np.meshgrid(radii, azm) 
-            q_for_plot, alph = np.meshgrid(q,azm)  
-
-            #z = np.diag(z)
-            # z = np.zeros(r.shape)   # [phi angle, radius]
-            # for i in range(len(point)):
-            #     z = point[i].I
-
-            
-            
-            result.z = z
-
-                # Get the closest angle
-
-                # calculate the 
-        
-        result.r = r
-        result.alph = alph
-        result.azm = azm
-        result.placeholder_1 = q_for_plot
-        result.image_index = image_index
-        if not SPI:
-            result.txt = txt
-        self.x_rotation = 0
-        return result
-    
     class Feature:
         def __init__(self,q,placeholder_1,theta):
             self.q = q
@@ -278,8 +274,7 @@ class XFEL():
         q = np.sqrt(G[0]**2+G[1]**2+G[2]**2)
         #r = self.q_to_r(q)
         placeholder_1 = self.q_to_q_scr(q)# TODO make this r
-        self.screen = "curved"
-        if self.screen == "curved":
+        if self.hemisphere_screen:
             placeholder_1 = self.q_to_q_scr_curved(G)
         theta = self.q_to_theta(q)
         point = self.Spot(q,placeholder_1,theta)
@@ -338,14 +333,14 @@ class XFEL():
             coord = np.multiply(R.get_array(),self.target.sym_factors[i]) + np.multiply(self.target.cell_dim,self.target.sym_translations[i])
             spatial_structure_factor = np.exp(-1j*np.dot(q_vect,coord))   
         return spatial_structure_factor
-    def bragg_points(self,crystal, cell_packing, cardan_angles):
+    def bragg_points(self,crystal, cell_packing, cardan_angles,random_orientation=False):
         ''' 
         Using the unit cell structure, find non-zero values of q for which bragg 
         points appear.
         lattice_vectors e.g. = [a,b,c] - length of each spatial vector in orthogonal basis.
         '''
 
-        def get_G(miller_indices,cardan_angles = [0,0,0], random_orientation = False,cartesian=True):
+        def get_G(miller_indices,cartesian=True):
             '''
             Get G in global cartesian coordinates (crystal axes not implemented),
             where G = G[0]x + G[1]y + G[2]z
@@ -359,10 +354,10 @@ class XFEL():
                         print(b)
                         print(miller_indices[i],G[i])
                 #G = G.reshape(3,)
-                G = self.rotate_G_to_orientation(G,*cardan_angles,random = random_orientation) 
+                G, used_angles = self.rotate_G_to_orientation(G,*cardan_angles,random = random_orientation) 
             else: 
                 G = "non-cartesian Unimplemented"
-            return G        
+            return G, used_angles
         
         # (h,k,l) is G (subject to selection condition) in lattice vector basis (lattice vector length = 1 in each dimension):
         # a = lattice vectors, b = reciprocal lattice vector
@@ -410,7 +405,8 @@ class XFEL():
         if cell_packing == "FCC-D":
             selection_rule = lambda f: (np.abs(f[0])%2+np.abs(f[1])%2+np.abs(f[2])%2) == 3 or ((np.abs(f[0])%2+np.abs(f[1])%2+np.abs(f[2])%2) == 0 and (f[0] + f[1] + f[2])%4 == 0)  # All odd or all even.    
 
-        G_temp = get_G(indices,cardan_angles)
+        # Set G, and retrieve the cardan angles used (in case of random orientations)
+        G_temp, cardan_angles = get_G(indices) 
 
         # Purely a matter of truncation
         q_cutoff_rule = lambda g: np.sqrt(((g[0])**2+(g[1])**2+(g[2])**2))<= self.q_cutoff
@@ -428,7 +424,7 @@ class XFEL():
                 print(elem)
         
 
-        G = get_G(indices,cardan_angles)
+        G, cardan_angles = get_G(indices,cardan_angles)
         if DEBUG:
             print(G)
         return G, indices
@@ -458,7 +454,7 @@ class XFEL():
 
         if transposed:
             G = G.T
-        return G
+        return G, [alpha,beta,gamma]
                 
     # q_abs [1/bohr]
     def q_to_theta(self,q):
@@ -530,10 +526,22 @@ def E_to_lamb(photon_energy):
         # q = 4*pi*sin(theta)/lambda = 2pi*u, where q is the momentum in AU (a_0^-1), u is the spatial frequency.
         # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
+def load_results(directory):
+    for filename in os.listdir(directory):
+        fpath = os.path.join(directory, filename)
+        if os.path.isfile(fpath):
+            pickle.load(fpath)
 
-def scatter_plot(result, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None, **cmesh_kwargs):
-    '''When crystalline, dot size is proprtional to intensity, while colour is proportional to natural log of intensity.'''
-    # https://stackoverflow.com/questions/36513312/polar-heatmaps-in-python
+def scatter_plot(result_handle, compare_to_dir = None, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None, **cmesh_kwargs):
+    '''
+    Plots the simulated scattering image.
+    results_dir:
+
+    compare_to_dir:
+        Directory of results that will be subtracted from those in the results directory.
+        Must have same orientations.
+    '''
+    results_dir = "results/"+result_handle+"/"
     kw = cmesh_kwargs
     # if "color" not in cmesh_kwargs: 
     #     kw["color"] = 'k'
@@ -543,134 +551,146 @@ def scatter_plot(result, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alph
       
     #ax = Axes3D(fig) 
     
-    radial_axis = result.r
-    if plot_against_q:
-        radial_axis =  result.placeholder_1
-    ax = fig.add_subplot(projection="polar")
-    if len(result.z.shape) == 1:
-        radial_axis = radial_axis[0]
-        ## Point-like (Crystalline)
-        # get points at same position on screen.
-        identical_count = np.zeros(result.z.shape)
-        tmp_z = np.zeros(result.z.shape)
-        processed_copies = []
-        unique_values_mask = np.zeros(result.z.shape,dtype="bool")
-        for i in range(len(result.z)):
-            if (radial_axis[i], result.azm[i],result.image_index[i])  in processed_copies:
-                unique_values_mask[i] = False
-                continue
+    # Iterate through each orientation (one for each file) 
+    for filename in os.listdir(results_dir):
+        fpath = os.path.join(results_dir, filename)
+        if os.path.isfile(fpath):
+            result = pickle.load(open(fpath,'rb'))
+        if compare_to_dir != None:
+            if filename in os.listdir(compare_to_dir):
+                result2 = pickle.load(fpath)
+                result.subtract(result2)
             else:
-                unique_values_mask[i] = True
-                
-            # Boolean masks
-            matching_rad_idx = np.nonzero(radial_axis == radial_axis[i])  # numpy note: equiv. to np.where(condition). Non-zero part irrelevant.
-            matching_alph_idx = np.nonzero(result.azm == result.azm[i])
-            for elem in matching_rad_idx[0]:
-                if elem in matching_alph_idx[0]:
-                    identical_count[i] += 1
-                    matching = result.z[(radial_axis == radial_axis[i])*(result.azm == result.azm[i])]
-                    for value in matching:
-                        tmp_z[i] += value
-            #processed_copies.append((radial_axis[i],result.azm[i],result.image_index[i]))
-        #print("processed copies:",processed_copies)
-        
-        identical_count = identical_count[unique_values_mask]
-        tmp_z = tmp_z[unique_values_mask]
-        radial_axis = radial_axis[unique_values_mask]
-        azm = result.azm[unique_values_mask]
-        
-        z = tmp_z
+                # Not bothering to check if all orientations of result2 is in result 1 
+                print("ERROR, missing matching orientation in second results directory")
+                break
 
-        if log_I: 
-            z = np.log(z)
+        radial_axis = result.r
+        if plot_against_q:
+            radial_axis =  result.q
+                        
+        ax = fig.add_subplot(projection="polar")
+        if len(result.z.shape) == 1:
+            radial_axis = radial_axis[0]
+            ## Point-like (Crystalline)
+            # get points at same position on screen.
+            identical_count = np.zeros(result.z.shape)
+            tmp_z = np.zeros(result.z.shape)
+            processed_copies = []
+            unique_values_mask = np.zeros(result.z.shape,dtype="bool")
+            for i in range(len(result.z)):
+                if (radial_axis[i], result.azm[i],result.image_index[i])  in processed_copies:
+                    unique_values_mask[i] = False
+                    continue
+                else:
+                    unique_values_mask[i] = True
+                    
+                # Boolean masks
+                matching_rad_idx = np.nonzero(radial_axis == radial_axis[i])  # numpy note: equiv. to np.where(condition). Non-zero part irrelevant.
+                matching_alph_idx = np.nonzero(result.azm == result.azm[i])
+                for elem in matching_rad_idx[0]:
+                    if elem in matching_alph_idx[0]:
+                        identical_count[i] += 1
+                        matching = result.z[(radial_axis == radial_axis[i])*(result.azm == result.azm[i])]
+                        for value in matching:
+                            tmp_z[i] += value
+                #processed_copies.append((radial_axis[i],result.azm[i],result.image_index[i]))
+            #print("processed copies:",processed_copies)
+            
+            identical_count = identical_count[unique_values_mask]
+            tmp_z = tmp_z[unique_values_mask]
+            radial_axis = radial_axis[unique_values_mask]
+            azm = result.azm[unique_values_mask]
+            
+            z = tmp_z
+
+            if log_I: 
+                z = np.log(z)
+            else:
+                z = z           
+
+            #debug_mask = (0.01 < radial_axis[0])*(radial_axis[0] < 100)
+            #print(identical_count[debug_mask])
+            #print(radial_axis[0][debug_mask])
+            #print(azm[debug_mask ]*180/np.pi)
+
+            import matplotlib as mpl
+            from matplotlib import cm
+
+            #https://stackoverflow.com/questions/26108436/how-can-i-get-the-matplotlib-rgb-color-given-the-colormap-name-boundrynorm-an
+            
+            from matplotlib.colors import to_rgb
+            if cmap != None:
+                class MplColorHelper:
+
+                    def __init__(self, cmap_name, start_val, stop_val):
+                        self.cmap_name = cmap_name
+                        self.cmap = plt.get_cmap(cmap_name)
+                        self.norm = mpl.colors.Normalize(vmin=start_val, vmax=stop_val)
+                        self.scalarMap = cm.ScalarMappable(norm=self.norm, cmap=self.cmap)
+
+                    def get_rgb(self, val):
+                        val = ((val-np.min(z))/(np.max(z)-np.min(z)))**cmap_power
+                        if val < 0 or val > 1:
+                            print("error in val!")
+                        return self.scalarMap.to_rgba(val)
+                COL = MplColorHelper(cmap, 0, 1) 
+                thing = np.array([[COL.get_rgb(K)[0], COL.get_rgb(K)[1],COL.get_rgb(K)[2],np.clip((K*(max_alpha-min_alpha))/(np.max(z)) + min_alpha,min_alpha,None)] for K in z])
+                #print("THING",thing)
+                colours = [(r,g,b,a) for r,g,b,a in thing] 
+                #print(colours)
+                #print(np.max(z))
+                #print(((10-np.min(z))/(np.max(z)-np.min(z)))**cmap_power)
+            else:
+                r,g,b = to_rgb(solid_colour)
+                colours = [(r,g,b,a) for a in np.clip(z/np.max(z),min_alpha,max_alpha)]
+            alpha = None
+
+            # Dot size
+            dot_param = z
+            if crystal_pattern_only:
+                dot_param = identical_count
+            if not log_dot:
+                dot_param = np.e**(dot_param)     
+            norm = np.max(dot_param)
+            s = [100*dot_size*x/norm for x in dot_param]
+
+            ax.scatter(azm,radial_axis,c=colours,s=s,alpha=alpha,**kw)
+            plt.grid() 
+            #TODO only show first index or something. or have option to switch between image indexes. oof coding.
+            if show_labels:
+                for i, txt in enumerate(result.txt[unique_values_mask]):
+                    ax.annotate("%.0f" % txt[0]+","+"%.0f" % txt[1]+","+"%.0f" % txt[2]+",", (azm[i], radial_axis[i]),ha='center')        
         else:
-            z = z           
+            ## Continuous (SPI)
+            if log_I: 
+                z = np.log(result.z)
+            else:
+                z = result.z        
+            if log_I and cutoff_log_intensity != None:
+                #cutoff_log_intensity = -1
+                z -= cutoff_log_intensity
+                z[z<0] = 0
+                pass
+            ax.pcolormesh(result.alph, radial_axis, z,**kw)
+            ax.plot(result.azm, radial_axis, color = 'k',ls='none')
+            plt.grid()  # Make the grid lines represent one unit cell (when implemented).
 
-        debug_mask = (0.01 < radial_axis[0])*(radial_axis[0] < 100)
-        print(identical_count[debug_mask])
-        print(radial_axis[0][debug_mask])
-        print(azm[debug_mask ]*180/np.pi)
-
-        import matplotlib as mpl
-        from matplotlib import cm
-
-        #https://stackoverflow.com/questions/26108436/how-can-i-get-the-matplotlib-rgb-color-given-the-colormap-name-boundrynorm-an
-        
-        from matplotlib.colors import to_rgb
-        if cmap != None:
-            class MplColorHelper:
-
-                def __init__(self, cmap_name, start_val, stop_val):
-                    self.cmap_name = cmap_name
-                    self.cmap = plt.get_cmap(cmap_name)
-                    self.norm = mpl.colors.Normalize(vmin=start_val, vmax=stop_val)
-                    self.scalarMap = cm.ScalarMappable(norm=self.norm, cmap=self.cmap)
-
-                def get_rgb(self, val):
-                    val = ((val-np.min(z))/(np.max(z)-np.min(z)))**cmap_power
-                    if val < 0 or val > 1:
-                        print("error in val!")
-                    return self.scalarMap.to_rgba(val)
-            COL = MplColorHelper(cmap, 0, 1) 
-            thing = np.array([[COL.get_rgb(K)[0], COL.get_rgb(K)[1],COL.get_rgb(K)[2],np.clip((K*(max_alpha-min_alpha))/(np.max(z)) + min_alpha,min_alpha,None)] for K in z])
-            print("THING",thing)
-            colours = [(r,g,b,a) for r,g,b,a in thing] 
-            print(colours)
-            print(np.max(z))
-            print(((10-np.min(z))/(np.max(z)-np.min(z)))**cmap_power)
-        else:
-            r,g,b = to_rgb(solid_colour)
-            colours = [(r,g,b,a) for a in np.clip(z/np.max(z),min_alpha,max_alpha)]
-        alpha = None
-
-        # Dot size
-        dot_param = z
-        if crystal_pattern_only:
-            dot_param = identical_count
-        if not log_dot:
-            dot_param = np.e**(dot_param)     
-        norm = np.max(dot_param)
-        s = [100*dot_size*x/norm for x in dot_param]
-
-        ax.scatter(azm,radial_axis,c=colours,s=s,alpha=alpha,**kw)
-        plt.grid() 
-        #TODO only show first index or something. or have option to switch between image indexes. oof coding.
-        if show_labels:
-            for i, txt in enumerate(result.txt[unique_values_mask]):
-                ax.annotate("%.0f" % txt[0]+","+"%.0f" % txt[1]+","+"%.0f" % txt[2]+",", (azm[i], radial_axis[i]),ha='center')        
-    else:
-        ## Continuous (SPI)
-        if log_I: 
-            z = np.log(result.z)
-        else:
-            z = result.z        
-        if log_I and cutoff_log_intensity != None:
-            #cutoff_log_intensity = -1
-            z -= cutoff_log_intensity
-            z[z<0] = 0
-            pass
-        ax.pcolormesh(result.alph, radial_axis, z,**kw)
-        ax.plot(result.azm, radial_axis, color = 'k',ls='none')
-        plt.grid()  # Make the grid lines represent one unit cell (when implemented).
-
-    if radial_lim:
-        bottom,top = plt.ylim()
-        plt.ylim(bottom,radial_lim)
-    if log_radial:
-        plt.yscale("log")  
-    ax.set_facecolor("black")
-# queue = 0.4
-# test = XFEL(12000,100)
-# pl_t = test.get_ff_calculator(-10,-9.95,"Naive_Lys_C_7")
-# test.set_atomic_species(pl_t,"/home/speno/AC4DC/scripts/scattering/4et8.pdb",["N_fast","S_fast"],CNO_to_N=True)
-# print(test.generate_ring(queue).I[0])
+        if radial_lim:
+            bottom,top = plt.ylim()
+            plt.ylim(bottom,radial_lim)
+        if log_radial:
+            plt.yscale("log")  
+        ax.set_facecolor("black")
 
 #%% 
 # 
-DEBUG = True
+DEBUG = False
 #energy = 6000 # Tetrapeptide 
 energy =17445   #crambin - from resolutions. in pdb file, need to double check calcs: #q_min=0.11,q_cutoff = 3.9,  my defaults: pixels_per_ring = 400, num_rings = 200
-experiment = XFEL(energy,100,orientation_set = [[0,0,0],[np.pi/4,0,0]], q_cutoff=10, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+orientation_set = [[0,0,0]]
+#orientation_set = [[0,0,z_angle] for z_angle in np.linspace(0,2*np.pi,20,endpoint=False)]
+experiment = XFEL("test",energy,100, hemisphere_screen = False, orientation_set = orientation_set, q_cutoff=10, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
 
 experiment.x_rotation = 0#np.pi/2#0#np.pi/2
 
@@ -696,15 +716,14 @@ crystal.set_cell_dim(20, 20, 20)
 crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))
 
 SPI = False
+random_orientation = False
 
-result1 = experiment.firin_mah_lazer(-10,end_time_1,output_handle,crystal, SPI=SPI)
+experiment.spooky_laser(-10,end_time_1,output_handle,crystal, random_orientation = random_orientation, SPI=SPI)
 
 #%%
-allowed_atoms_2 = ["C_fast","N_fast","O_fast"]
-#end_time_1 = -5
-#output_handle = "C_tetrapeptide_2"
-end_time_2 = -9.8#-9.95
-output_handle = "Improved_Lys_mid_6"
+allowed_atoms_2 = allowed_atoms_1#["C_fast","N_fast","O_fast"]
+end_time_2 = -9.95
+output_handle = "Improved_Lys_mid_6" #"C_tetrapeptide_2"
 
 crystal = Crystal(pdb_path,allowed_atoms_2,CNO_to_N=False,cell_packing = "SC")
 #crystal.set_cell_dim(22.795*1.88973, 18.826*1.88973, 41.042*1.88973)
@@ -713,13 +732,14 @@ crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))
 
 SPI = False
 
-result2 = experiment.firin_mah_lazer(-10,end_time_2,output_handle,crystal, SPI=SPI)
+experiment.spooky_laser(-10,end_time_2,output_handle,crystal, SPI=SPI)
 
 #%%
 # stylin' 
+experiment_name = "test"
 
-import colorcet as cc
-import cmasher as cmr
+#####
+
 
 font = {'family' : 'monospace',
         'weight' : 'bold',
@@ -727,18 +747,18 @@ font = {'family' : 'monospace',
 
 plt.rc('font', **font)
 
-from copy import deepcopy
 use_q = True
 log_radial = False
 log_I = True
 cutoff_log_intensity = -1#-1
+import colorcet as cc; import cmasher as cmr
 cmap = "plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
 cmap_power = 1.6
-min_alpha = 0.35
+min_alpha = 0.1
 max_alpha = 1
 colour = "y"
-#screen_radius = 1400
-screen_radius = 120#55#165    #
+
+screen_radius = 150#55#165    #
 q_scr_lim = experiment.r_to_q(screen_radius) #experiment.r_to_q_scr(screen_radius)#3.9  #NOTE this won't be the actual max placeholder_1 but ah well.
 zoom_to_fit = True
 ####### n'
@@ -754,15 +774,9 @@ if zoom_to_fit:
 else:
     radial_lim = None
 
-result_mod = deepcopy(result1)
-print("A")
-print(result_mod.z)
-result_mod.z = result1.z
-print(np.log(result_mod.z))
+radial_lim = 5#10 #TODO fix above then remove this
 
-radial_lim = 10#10 #TODO fix above then remove this
-
-scatter_plot(result_mod, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+scatter_plot(experiment_name, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
 fig = plt.gcf()
 fig.set_figwidth(20)
 fig.set_figheight(20)
@@ -803,12 +817,8 @@ if zoom_to_fit:
 else:
     radial_lim = None
 
-result_mod = deepcopy(result1)
-print("A")
-print(result_mod.z)
+
 result_mod.z = np.abs(np.sqrt(result1.z)-np.sqrt(result2.z))/np.sqrt(result1.z)
-# result_mod.z = np.abs((result1.z-result2.z)/result1.z)
-print(result_mod.z)
 
 radial_lim = 10#10 #TODO fix above then remove this
 scatter_plot(result_mod,crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
@@ -817,49 +827,6 @@ fig = plt.gcf()
 fig.set_figwidth(20)
 fig.set_figheight(20)
 
-#%% DEBUG 
-#print(np.arctan2(3,-1))
-#print(experiment.q_to_theta(np.sqrt(11)))
-#print(experiment.q_to_q_scr(np.sqrt(11)))
-print(result_mod.z)
-print(result_mod.r[0])
-print(result_mod.placeholder_1[0])
-#%% 2
-allowed_atoms_2 = ["C_fast","N_fast","O_fast"]
-end_time_2 = -5
-output_handle = "C_tetrapeptide_2"
-result2 = experiment.firin_mah_lazer(-10,end_time_2,output_handle,pdb_path,allowed_atoms_2,CNO_to_N=False)
-experiment.scatter_plot(result2,plot_against_q = use_q,log=use_log)
-#%% Difference
-result3 = Results()
-result3.r = result1.r
-result3.q = result1.q
-result3.z = np.abs(np.sqrt(np.exp(result1.z))-np.sqrt(np.exp(result2.z)))/np.sqrt(np.exp(result1.z))
-print(result3.z[0][0])
-print(np.abs(np.sqrt(np.exp(result1.z[0][0]))-np.sqrt(np.exp(result2.z[0][0])))/np.sqrt(np.exp(result1.z[0][0])))
-result3.alph = result1.alph
-result3.azm = result1.azm
-experiment.scatter_plot(result3,plot_against_q = use_q,log=use_log)
-
-#%% Tetra experimental conditions kinda 
-detector_dist = 100
-experiment = XFEL(12562,detector_dist,x_orientations = 1, y_orientations=1, pixels_per_ring = 200, num_rings = 250,t_fineness=100)
-#experiment.q_cutoff = experiment.r_to_q(detector_dist*1.99) 
-experiment.q_cutoff = 1/(1.27*1.8897) 
-use_q = False
-use_log = False
-pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb"
-
-# 1
-
-allowed_atoms_1 = ["C_fast"]
-end_time_1 = -9.99
-dmg_output = "C_tetrapeptide_2"
-result1 = experiment.firin_mah_lazer(-10,end_time_1,dmg_output,pdb_path,allowed_atoms_1,CNO_to_N=False)
-#%%
-
-experiment.scatter_plot(result1,plot_against_q = use_q,log=use_log)
-plt.yscale("symlog")
 
 #TODO 
 # log doesnt work atm.
