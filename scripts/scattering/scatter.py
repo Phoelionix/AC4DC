@@ -44,7 +44,8 @@ class Results():
             subtracted = False
             for j in range(len(other.q)):
                 if self.azm[i] == other.azm[j] and self.q[0][i] == other.q[0][j]:
-                    self.z[i] = np.abs(self.z[i]- other.z[j])/self.z[i]
+                    #self.z[i] = np.abs(self.z[i]- other.z[j])/self.z[i] # Intensity
+                    self.z[i] = np.abs(np.sqrt(self.z[i])- np.sqrt(other.z[j]))/np.sqrt(max(self.z[i],other.z[j]))# form factor  # TODO not sure why later times is sometimes larger but probs interference thing. Hopefully will disappear when we use large time gaps... or at least when we average over to get R factor.
                     subtracted = True
             if subtracted == False:
                 self.z[i] = -1 
@@ -243,6 +244,7 @@ class XFEL():
                 # Get the q vectors where non-zero
                 i = 0
                 largest_x = -99999
+                #TODO vectorise
                 for i, G in enumerate(bragg_points):   # (Assume pixel adjacent to bragg point does not capture remnants of sinc function)
                     if G[0] > largest_x:
                         largest_x = G[0]
@@ -564,7 +566,11 @@ def scatter_plot(result_handle, compare_handle = None, cmap_power = 1, cmap = No
     # if "ls" not in cmesh_kwargs.keys():
     #     kw["ls"] = 'none'
     fig = plt.figure()
-      
+    
+
+    if compare_handle != None:
+        log_I = False  #TODO refactor this sucks
+
     #ax = Axes3D(fig) 
     ax = fig.add_subplot(projection="polar")
     # Iterate through each file to get normalisation values
@@ -583,9 +589,12 @@ def scatter_plot(result_handle, compare_handle = None, cmap_power = 1, cmap = No
                 break
         max_z = max(max_z,np.max(result.z))
         min_z = min(min_z,np.min(result.z))
+        if max_z > 1 and compare_dir != None:
+            print("error, max_z =",max_z)
     if log_I:
         max_z = np.log(max_z)
         min_z = np.log(min_z)
+    print("max,min",max_z,min_z)
     # Iterate through each orientation (one for each file) 
     for filename in os.listdir(results_dir):
         fpath = os.path.join(results_dir, filename)
@@ -595,7 +604,7 @@ def scatter_plot(result_handle, compare_handle = None, cmap_power = 1, cmap = No
             if filename in os.listdir(compare_dir):
                 fpath2 = os.path.join(compare_dir, filename)
                 result2 = pickle.load(open(fpath2,'rb'))
-                result.diff(result2)
+                result.diff(result2)               
             else:
                 # Not bothering to check if all orientations of result2 is in result 1 
                 print("ERROR, missing matching orientation in second results directory")
@@ -672,6 +681,7 @@ def scatter_plot(result_handle, compare_handle = None, cmap_power = 1, cmap = No
                 thing = np.array([[COL.get_rgb(K)[0], COL.get_rgb(K)[1],COL.get_rgb(K)[2],np.clip((K*(max_alpha-min_alpha))/(max_z) + min_alpha,min_alpha,None)] for K in z])
                 #print("THING",thing)
                 colours = [(r,g,b,a) for r,g,b,a in thing] 
+                colours = np.around(colours,10)               
             else:
                 r,g,b = to_rgb(solid_colour)
                 colours = [(r,g,b,a) for a in np.clip(z/max_z,min_alpha,max_alpha)]
@@ -721,11 +731,11 @@ DEBUG = False
 #energy = 6000 # Tetrapeptide 
 energy =17445   #crambin - from resolutions. in pdb file, need to double check calcs: #q_min=0.11,q_cutoff = 3.9,  my defaults: pixels_per_ring = 400, num_rings = 200
 
-exp_name1 = "Lys_9.95_random"
-exp_name2 = "lys_9.80_random"
+exp_name1 = "Lys_9.95_randomtest"
+exp_name2 = "lys_9.80_randomtest"
 #orientation_set = [[np.pi/4,0,0],[0,0,0],[0,np.pi/4,0]]
 #orientation_set = [[0,0,z_angle] for z_angle in np.linspace(0,2*np.pi,20,endpoint=False)]
-orientation_set = [[0,0,0] for g in range(25)]
+orientation_set = [[0,0,0] for g in range(1)]
 #orientation_set = [[6.153223907916695, 3.9691232140013524, 2.2006805479640956]]
 experiment1 = XFEL(exp_name1,energy,100, hemisphere_screen = False, orientation_set = orientation_set, q_cutoff=10, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
 experiment2 = XFEL(exp_name2,energy,100, hemisphere_screen = False, orientation_set = orientation_set, q_cutoff=10, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
@@ -757,8 +767,8 @@ experiment2.spooky_laser(-10,end_time_2,output_handle,crystal, random_orientatio
 
 #%%
 # stylin' 
-experiment1_name = exp_name1
-experiment2_name = exp_name2 
+experiment1_name = "Lys_9.95_random"#exp_name1
+experiment2_name = "lys_9.80_random"#exp_name2 
 #experiment2_name = None
 
 #####
