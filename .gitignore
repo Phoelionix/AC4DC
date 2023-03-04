@@ -25,3 +25,4 @@ slurm*
 load_modules.sh
 *.slurm
 Makefile_S
+scripts/scattering/results*

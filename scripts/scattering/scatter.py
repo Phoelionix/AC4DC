@@ -39,8 +39,15 @@ class Results():
         self.q, self.alph = np.meshgrid(self.q,self.azm)  
         self.r, self.alph = np.meshgrid(self.r, self.azm) 
         self.txt = miller_indices 
-    def subtract(self,other):
-        self.z -= other.z       
+    def diff(self,other):
+        for i in range(len(self.q)):
+            subtracted = False
+            for j in range(len(other.q)):
+                if self.azm[i] == other.azm[j] and self.q[0][i] == other.q[0][j]:
+                    self.z[i] = np.abs(self.z[i]- other.z[j])/self.z[i]
+                    subtracted = True
+            if subtracted == False:
+                self.z[i] = -1 
     pass
 
 class Crystal():
@@ -179,8 +186,8 @@ class XFEL():
         # Create output folder for results
         directory = "results/" + self.experiment_name + "/"
         print("creating folder:",directory)
+        exist_ok = True
         if (os.path.exists(directory)):
-            exist_ok = True
             if clear_output:
                 exist_ok = False
                 for filename in os.listdir(directory):
@@ -226,9 +233,11 @@ class XFEL():
 
         else:
             # Iterate through each orientation of crystal
+            used_orientations = []
             for j, cardan_angles in enumerate(self.orientation_set):               
                 print("Imaging orientation",j)
-                bragg_points, miller_indices = self.bragg_points(target,cell_packing = target.cell_packing, cardan_angles = cardan_angles,random_orientation=random_orientation)
+                bragg_points, miller_indices,cardan_angles = self.bragg_points(target,cell_packing = target.cell_packing, cardan_angles = cardan_angles,random_orientation=random_orientation)
+                used_orientations.append(cardan_angles)
                 num_points = int(len(bragg_points))
                 result = Results(num_points)
                 # Get the q vectors where non-zero
@@ -246,9 +255,10 @@ class XFEL():
                     result.image_index[i] = j
                 result.package_up(miller_indices)
                 #Save the result object into its own file within the output folder for the experiment
-                fpath = directory + str(cardan_angles)
+                fpath = directory + str(cardan_angles) +".pickle"
                 pickle_out = open(fpath,"wb")
                 pickle.dump(result,pickle_out)
+            return used_orientations
 
     class Feature:
         def __init__(self,q,placeholder_1,theta):
@@ -407,6 +417,7 @@ class XFEL():
 
         # Set G, and retrieve the cardan angles used (in case of random orientations)
         G_temp, cardan_angles = get_G(indices) 
+        random_orientation = False # Only do random orientations once
 
         # Purely a matter of truncation
         q_cutoff_rule = lambda g: np.sqrt(((g[0])**2+(g[1])**2+(g[2])**2))<= self.q_cutoff
@@ -418,7 +429,8 @@ class XFEL():
         mask = np.apply_along_axis(selection_rule,1,indices)*np.apply_along_axis(q_cutoff_rule,1,G_temp)*np.apply_along_axis(self.mosaicity,1,G_temp)
         indices = indices[mask]
 
-        print("Cardan angles:",cardan_angles,"Number of points:", len(indices))   
+        print("Cardan angles:",cardan_angles)
+        print("Number of points:", len(indices))   
         for elem in indices:
             if DEBUG:
                 print(elem)
@@ -427,7 +439,7 @@ class XFEL():
         G, cardan_angles = get_G(indices,cardan_angles)
         if DEBUG:
             print(G)
-        return G, indices
+        return G, indices, cardan_angles
 
     def rotate_G_to_orientation(self,G,alpha=0,beta=0,gamma=0,random=False):
         '''
@@ -449,6 +461,7 @@ class XFEL():
 
         R = Rotation.from_euler('xyz',[alpha,beta,gamma])
         # Apply rotation
+        print("Rotation matrix:")
         print(R.as_matrix())
         G = np.matmul(np.around(R.as_matrix(),decimals=10),G)
 
@@ -532,16 +545,19 @@ def load_results(directory):
         if os.path.isfile(fpath):
             pickle.load(fpath)
 
-def scatter_plot(result_handle, compare_to_dir = None, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None, **cmesh_kwargs):
+def scatter_plot(result_handle, compare_handle = None, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None, **cmesh_kwargs):
     '''
     Plots the simulated scattering image.
-    results_dir:
+    result_handle:
 
-    compare_to_dir:
-        Directory of results that will be subtracted from those in the results directory.
+    compare_handle:
+        results/compare_handle/ is the directory of results that will be subtracted from those in the results directory.
         Must have same orientations.
     '''
     results_dir = "results/"+result_handle+"/"
+    compare_dir = None
+    if compare_handle!= None:
+        compare_dir = "results/"+compare_handle+"/"
     kw = cmesh_kwargs
     # if "color" not in cmesh_kwargs: 
     #     kw["color"] = 'k'
@@ -550,26 +566,44 @@ def scatter_plot(result_handle, compare_to_dir = None, cmap_power = 1, cmap = No
     fig = plt.figure()
       
     #ax = Axes3D(fig) 
-    
+    ax = fig.add_subplot(projection="polar")
+    # Iterate through each file to get normalisation values
+    max_z = -np.inf
+    min_z = np.inf
+    for filename in os.listdir(results_dir):
+        fpath = os.path.join(results_dir, filename)
+        if os.path.isfile(fpath):
+            result = pickle.load(open(fpath,'rb'))
+        if compare_dir != None:
+            if filename in os.listdir(compare_dir):
+                fpath2 = os.path.join(compare_dir, filename)
+                result2 = pickle.load(open(fpath2,'rb'))
+                result.diff(result2)
+            else:
+                break
+        max_z = max(max_z,np.max(result.z))
+        min_z = min(min_z,np.min(result.z))
+    if log_I:
+        max_z = np.log(max_z)
+        min_z = np.log(min_z)
     # Iterate through each orientation (one for each file) 
     for filename in os.listdir(results_dir):
         fpath = os.path.join(results_dir, filename)
         if os.path.isfile(fpath):
             result = pickle.load(open(fpath,'rb'))
-        if compare_to_dir != None:
-            if filename in os.listdir(compare_to_dir):
-                result2 = pickle.load(fpath)
-                result.subtract(result2)
+        if compare_dir != None:
+            if filename in os.listdir(compare_dir):
+                fpath2 = os.path.join(compare_dir, filename)
+                result2 = pickle.load(open(fpath2,'rb'))
+                result.diff(result2)
             else:
                 # Not bothering to check if all orientations of result2 is in result 1 
                 print("ERROR, missing matching orientation in second results directory")
-                break
+                break            
 
         radial_axis = result.r
         if plot_against_q:
             radial_axis =  result.q
-                        
-        ax = fig.add_subplot(projection="polar")
         if len(result.z.shape) == 1:
             radial_axis = radial_axis[0]
             ## Point-like (Crystalline)
@@ -630,20 +664,17 @@ def scatter_plot(result_handle, compare_to_dir = None, cmap_power = 1, cmap = No
                         self.scalarMap = cm.ScalarMappable(norm=self.norm, cmap=self.cmap)
 
                     def get_rgb(self, val):
-                        val = ((val-np.min(z))/(np.max(z)-np.min(z)))**cmap_power
+                        val = ((val-min_z)/(max_z-min_z))**cmap_power
                         if val < 0 or val > 1:
                             print("error in val!")
                         return self.scalarMap.to_rgba(val)
                 COL = MplColorHelper(cmap, 0, 1) 
-                thing = np.array([[COL.get_rgb(K)[0], COL.get_rgb(K)[1],COL.get_rgb(K)[2],np.clip((K*(max_alpha-min_alpha))/(np.max(z)) + min_alpha,min_alpha,None)] for K in z])
+                thing = np.array([[COL.get_rgb(K)[0], COL.get_rgb(K)[1],COL.get_rgb(K)[2],np.clip((K*(max_alpha-min_alpha))/(max_z) + min_alpha,min_alpha,None)] for K in z])
                 #print("THING",thing)
                 colours = [(r,g,b,a) for r,g,b,a in thing] 
-                #print(colours)
-                #print(np.max(z))
-                #print(((10-np.min(z))/(np.max(z)-np.min(z)))**cmap_power)
             else:
                 r,g,b = to_rgb(solid_colour)
-                colours = [(r,g,b,a) for a in np.clip(z/np.max(z),min_alpha,max_alpha)]
+                colours = [(r,g,b,a) for a in np.clip(z/max_z,min_alpha,max_alpha)]
             alpha = None
 
             # Dot size
@@ -654,9 +685,10 @@ def scatter_plot(result_handle, compare_to_dir = None, cmap_power = 1, cmap = No
                 dot_param = np.e**(dot_param)     
             norm = np.max(dot_param)
             s = [100*dot_size*x/norm for x in dot_param]
-
+            if fixed_dot_size:
+                s = [100*dot_size for x in dot_param]
             ax.scatter(azm,radial_axis,c=colours,s=s,alpha=alpha,**kw)
-            plt.grid() 
+            plt.grid(False) 
             #TODO only show first index or something. or have option to switch between image indexes. oof coding.
             if show_labels:
                 for i, txt in enumerate(result.txt[unique_values_mask]):
@@ -684,59 +716,50 @@ def scatter_plot(result_handle, compare_to_dir = None, cmap_power = 1, cmap = No
         ax.set_facecolor("black")
 
 #%% 
-# 
+#  #TODO make this nicer and pop in a function 
 DEBUG = False
 #energy = 6000 # Tetrapeptide 
 energy =17445   #crambin - from resolutions. in pdb file, need to double check calcs: #q_min=0.11,q_cutoff = 3.9,  my defaults: pixels_per_ring = 400, num_rings = 200
-orientation_set = [[0,0,0]]
-#orientation_set = [[0,0,z_angle] for z_angle in np.linspace(0,2*np.pi,20,endpoint=False)]
-experiment = XFEL("test",energy,100, hemisphere_screen = False, orientation_set = orientation_set, q_cutoff=10, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
 
-experiment.x_rotation = 0#np.pi/2#0#np.pi/2
+exp_name1 = "Lys_9.95_random"
+exp_name2 = "lys_9.80_random"
+#orientation_set = [[np.pi/4,0,0],[0,0,0],[0,np.pi/4,0]]
+#orientation_set = [[0,0,z_angle] for z_angle in np.linspace(0,2*np.pi,20,endpoint=False)]
+orientation_set = [[0,0,0] for g in range(25)]
+#orientation_set = [[6.153223907916695, 3.9691232140013524, 2.2006805479640956]]
+experiment1 = XFEL(exp_name1,energy,100, hemisphere_screen = False, orientation_set = orientation_set, q_cutoff=10, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+experiment2 = XFEL(exp_name2,energy,100, hemisphere_screen = False, orientation_set = orientation_set, q_cutoff=10, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+
+random_orientation = True
+
 
 sym_translations = [np.array([0,0,0])]
 cell_dim = [np.array([1,1,1])]  
 
 pdb_path = "/home/speno/AC4DC/scripts/scattering/3u7t.pdb" #Crambin
-#pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb"
 
-
-
-# 1
-#allowed_atoms_1 = ["C_fast","N_fast","O_fast"]
 allowed_atoms_1 = ["C_fast","N_fast","O_fast","S_fast"]
-#end_time_1 = -5
-#output_handle = "C_tetrapeptide_2"
-end_time_1 = -9.8
+allowed_atoms_2 = ["C_fast","N_fast","O_fast","S_fast"]
+end_time_1 = -9.95
+end_time_2 = -9.80
 output_handle = "Improved_Lys_mid_6"
 
 crystal = Crystal(pdb_path,allowed_atoms_1,CNO_to_N=False,cell_packing = "SC")
-#crystal.set_cell_dim(22.795*1.88973, 18.826*1.88973, 41.042*1.88973)
-crystal.set_cell_dim(20, 20, 20)
-crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))
-
-SPI = False
-random_orientation = False
-
-experiment.spooky_laser(-10,end_time_1,output_handle,crystal, random_orientation = random_orientation, SPI=SPI)
-
-#%%
-allowed_atoms_2 = allowed_atoms_1#["C_fast","N_fast","O_fast"]
-end_time_2 = -9.95
-output_handle = "Improved_Lys_mid_6" #"C_tetrapeptide_2"
-
-crystal = Crystal(pdb_path,allowed_atoms_2,CNO_to_N=False,cell_packing = "SC")
-#crystal.set_cell_dim(22.795*1.88973, 18.826*1.88973, 41.042*1.88973)
 crystal.set_cell_dim(20, 20, 20)
 crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))
 
 SPI = False
 
-experiment.spooky_laser(-10,end_time_2,output_handle,crystal, SPI=SPI)
+exp1_orientations = experiment1.spooky_laser(-10,end_time_1,output_handle,crystal, random_orientation = random_orientation, SPI=SPI)
+
+experiment2.orientation_set = exp1_orientations
+experiment2.spooky_laser(-10,end_time_2,output_handle,crystal, random_orientation = False, SPI=SPI)
 
 #%%
 # stylin' 
-experiment_name = "test"
+experiment1_name = exp_name1
+experiment2_name = exp_name2 
+#experiment2_name = None
 
 #####
 
@@ -758,25 +781,25 @@ min_alpha = 0.1
 max_alpha = 1
 colour = "y"
 
-screen_radius = 150#55#165    #
-q_scr_lim = experiment.r_to_q(screen_radius) #experiment.r_to_q_scr(screen_radius)#3.9  #NOTE this won't be the actual max placeholder_1 but ah well.
-zoom_to_fit = True
-####### n'
-# plottin'
+# screen_radius = 150#55#165    #
+# q_scr_lim = experiment.r_to_q(screen_radius) #experiment.r_to_q_scr(screen_radius)#3.9  #NOTE this won't be the actual max placeholder_1 but ah well.
+# zoom_to_fit = True
+# ####### n'
+# # plottin'
 
-if zoom_to_fit:
-    radial_lim = screen_radius#min(screen_radius,experiment.q_to_r(experiment.q_cutoff))
-    print(radial_lim)
-    if use_q:
-        #radial_lim = experiment.r_to_q_scr(radial_lim)
-        radial_lim = q_scr_lim #radial_lim = min(q_scr_lim,experiment.q_to_q_scr(experiment.q_cutoff))
-        print(radial_lim)
-else:
-    radial_lim = None
+# if zoom_to_fit:
+#     radial_lim = screen_radius#min(screen_radius,experiment.q_to_r(experiment.q_cutoff))
+#     print(radial_lim)
+#     if use_q:
+#         #radial_lim = experiment.r_to_q_scr(radial_lim)
+#         radial_lim = q_scr_lim #radial_lim = min(q_scr_lim,experiment.q_to_q_scr(experiment.q_cutoff))
+#         print(radial_lim)
+# else:
+#     radial_lim = None
 
 radial_lim = 5#10 #TODO fix above then remove this
 
-scatter_plot(experiment_name, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+scatter_plot(experiment1_name, experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
 fig = plt.gcf()
 fig.set_figwidth(20)
 fig.set_figheight(20)
@@ -784,48 +807,6 @@ fig.set_figheight(20)
 #NEED TO CHECK. We have a 1:1 mapping from q to q_parr, but with our miller indices we are generating multiple q_parr with diff q.
 # So we SHOULD get the same q_parr with different q_z. Which makes sense since we are just doing cosine. But still icky maybe?
 # Need to double check we get different intensities for same q_parr. Pretty sure that's implemented.
-
-#%%
-# stylin' intensity difference map
-
-font = {'family' : 'monospace',
-        'weight' : 'bold',
-        'size'   : 24}
-
-plt.rc('font', **font)
-
-from copy import deepcopy
-use_q = True
-log_radial = False
-log_I = True
-cutoff_log_intensity = -1#-1
-cmap = 'Greys'#'binary'
-#screen_radius = 1400
-screen_radius = 120#55#165    #
-q_scr_lim = experiment.r_to_q(screen_radius) #experiment.r_to_q_scr(screen_radius)#3.9  #NOTE this won't be the actual max placeholder_1 but ah well.
-zoom_to_fit = True
-####### n'
-# plottin'
-
-if zoom_to_fit:
-    radial_lim = screen_radius#min(screen_radius,experiment.q_to_r(experiment.q_cutoff))
-    print(radial_lim)
-    if use_q:
-        #radial_lim = experiment.r_to_q_scr(radial_lim)
-        radial_lim = q_scr_lim #radial_lim = min(q_scr_lim,experiment.q_to_q_scr(experiment.q_cutoff))
-        print(radial_lim)
-else:
-    radial_lim = None
-
-
-result_mod.z = np.abs(np.sqrt(result1.z)-np.sqrt(result2.z))/np.sqrt(result1.z)
-
-radial_lim = 10#10 #TODO fix above then remove this
-scatter_plot(result_mod,crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-
-fig = plt.gcf()
-fig.set_figwidth(20)
-fig.set_figheight(20)
 
 
 #TODO 
