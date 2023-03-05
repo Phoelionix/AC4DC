@@ -22,6 +22,10 @@ from numpy import cos
 from numpy import sin
 from plotter_core import Plotter
 from scipy.spatial.transform import Rotation as Rotation
+from matplotlib.colors import to_rgb
+import matplotlib as mpl
+from matplotlib import cm
+
 import pickle
 
 DEBUG = False 
@@ -36,8 +40,8 @@ class Results():
         self.image_index = np.zeros(num_points)    
 
     def package_up(self,miller_indices):
-        self.q, self.alph = np.meshgrid(self.q,self.azm)  
-        self.r, self.alph = np.meshgrid(self.r, self.azm) 
+        self.q, self.phi = np.meshgrid(self.q,self.azm)  
+        self.r, self.phi = np.meshgrid(self.r, self.azm) 
         self.txt = miller_indices 
     def diff(self,other):
         for i in range(len(self.q)):
@@ -198,6 +202,7 @@ class XFEL():
                 os.rmdir(directory)          
         os.makedirs(directory, exist_ok=exist_ok)      
 
+        #TODO SPI needs to be fixed after being demolished by crystal-necessitated refactoring
         if SPI:
             result = Results()
             result.z = 0            
@@ -258,8 +263,8 @@ class XFEL():
                 result.package_up(miller_indices)
                 #Save the result object into its own file within the output folder for the experiment
                 fpath = directory + str(cardan_angles) +".pickle"
-                pickle_out = open(fpath,"wb")
-                pickle.dump(result,pickle_out)
+                with open(fpath,"wb") as pickle_out:
+                    pickle.dump(result,pickle_out)
             return used_orientations
 
     class Feature:
@@ -535,92 +540,159 @@ def E_to_lamb(photon_energy):
     """Energy to wavelength in A.U."""
     E = photon_energy  # eV
     return 2*np.pi*c_au/(E/eV_per_Ha)
-    
-    # Crystalline.
-
+        #
         # q = 4*pi*sin(theta)/lambda = 2pi*u, where q is the momentum in AU (a_0^-1), u is the spatial frequency.
         # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
-def load_results(directory):
-    for filename in os.listdir(directory):
-        fpath = os.path.join(directory, filename)
-        if os.path.isfile(fpath):
-            pickle.load(fpath)
-
-def scatter_plot(result_handle, compare_handle = None, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None, **cmesh_kwargs):
-    '''
+def scatter_plot(SPI_result = None,result_handle = None, compare_handle = None, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None, **cmesh_kwargs):
+    ''' (Complete spaghetti at this point.)
     Plots the simulated scattering image.
     result_handle:
 
     compare_handle:
         results/compare_handle/ is the directory of results that will be subtracted from those in the results directory.
         Must have same orientations.
-    '''
-    results_dir = "results/"+result_handle+"/"
-    compare_dir = None
-    if compare_handle!= None:
-        compare_dir = "results/"+compare_handle+"/"
-    kw = cmesh_kwargs
-    # if "color" not in cmesh_kwargs: 
-    #     kw["color"] = 'k'
-    # if "ls" not in cmesh_kwargs.keys():
-    #     kw["ls"] = 'none'
-    fig = plt.figure()
     
+    '''
+    #https://stackoverflow.com/questions/26108436/how-can-i-get-the-matplotlib-rgb-color-given-the-colormap-name-boundrynorm-an
+    if cmap != None:
+        class MplColorHelper:
 
-    if compare_handle != None:
-        log_I = False  #TODO refactor this sucks
+            def __init__(self, cmap_name, start_val, stop_val):
+                self.cmap_name = cmap_name
+                self.cmap = plt.get_cmap(cmap_name)
+                self.norm = mpl.colors.Normalize(vmin=start_val, vmax=stop_val)
+                self.scalarMap = cm.ScalarMappable(norm=self.norm, cmap=self.cmap)
 
-    #ax = Axes3D(fig) 
-    ax = fig.add_subplot(projection="polar")
-    # Iterate through each file to get normalisation values
-    max_z = -np.inf
-    min_z = np.inf
-    for filename in os.listdir(results_dir):
+            def get_rgb(self, val):
+                val = ((val-min_z)/(max_z-min_z))**cmap_power
+                if val < 0 or val > 1:
+                    print("error in val!")
+                return self.scalarMap.to_rgba(val)            
+    else:
+        r,g,b = to_rgb(solid_colour)
+        colours = [(r,g,b,a) for a in np.clip(z/max_z,min_alpha,max_alpha)]
+    
+    def add_screen_properties():
+        if radial_lim:
+            bottom,top = plt.ylim()
+            plt.ylim(bottom,radial_lim)
+        if log_radial:
+            plt.yscale("log")  
+        plt.gca().set_facecolor("black") 
+        plt.gcf().set_figwidth(20)
+        plt.gcf().set_figheight(20)        
+
+    def get_result(filename):
+        #Requires all orientations of result_handle in compare_handle, but not vice versa.
         fpath = os.path.join(results_dir, filename)
         if os.path.isfile(fpath):
-            result = pickle.load(open(fpath,'rb'))
+            with open(fpath,'rb') as f:
+                result = pickle.load(f)
+        else: 
+            return "__PASS__" 
         if compare_dir != None:
             if filename in os.listdir(compare_dir):
                 fpath2 = os.path.join(compare_dir, filename)
-                result2 = pickle.load(open(fpath2,'rb'))
-                result.diff(result2)
+                with open(fpath2,'rb') as f:
+                    result2 = pickle.load(f)
+                result.diff(result2)                    
             else:
-                break
-        max_z = max(max_z,np.max(result.z))
-        min_z = min(min_z,np.min(result.z))
-        if max_z > 1 and compare_dir != None:
-            print("error, max_z =",max_z)
-    if log_I:
-        max_z = np.log(max_z)
-        min_z = np.log(min_z)
-    print("max,min",max_z,min_z)
-    # Iterate through each orientation (one for each file) 
-    for filename in os.listdir(results_dir):
-        fpath = os.path.join(results_dir, filename)
-        if os.path.isfile(fpath):
-            result = pickle.load(open(fpath,'rb'))
-        if compare_dir != None:
-            if filename in os.listdir(compare_dir):
-                fpath2 = os.path.join(compare_dir, filename)
-                result2 = pickle.load(open(fpath2,'rb'))
-                result.diff(result2)               
-            else:
-                # Not bothering to check if all orientations of result2 is in result 1 
-                print("ERROR, missing matching orientation in second results directory")
-                break            
+                print("ERROR, missing matching orientation in comparison directory")
+                return None # No corresponding file found.
+        return result    
+    
+    if result_handle != None:
+        results_dir = "results/"+result_handle+"/"
+        compare_dir = None
+        if compare_handle!= None:
+            compare_dir = "results/"+compare_handle+"/"        
+        ## Point-like (Crystalline)
+        # Initialise R factor sector comparison plot.
+        num_arcs = 50
+        num_subdivisions = 40      
+        sector_histogram = np.zeros((num_arcs,num_subdivisions)).T
+        # Bin edges
+        phi_edges = np.linspace(-np.pi,np.pi,num_arcs+1)
+        radial_edges = np.linspace(0,radial_lim,num_subdivisions+1)        
+        sector_phi,sector_radial = np.meshgrid(phi_edges,radial_edges)
+        print("Shape1",sector_phi.shape)
+        num_orientations = 0
+        def get_histogram_contribution(z,phi,radial_axis):
+                # We don't set density = True, because we don't want to normalise the weights.
+                num_samples = np.histogram2d(phi, radial_axis, bins=(phi_edges, radial_edges))[0]
+                num_samples[num_samples == 0] = 1 # avoid division by zero
+                H = np.histogram2d(phi, radial_axis, weights=z, bins=(phi_edges, radial_edges))[0]
+                H = H.T
+                H = np.divide(H, num_samples.T)
+                return H/num_orientations   
 
-        radial_axis = result.r
-        if plot_against_q:
-            radial_axis =  result.q
-        if len(result.z.shape) == 1:
-            radial_axis = radial_axis[0]
-            ## Point-like (Crystalline)
+        def plot_sectors(sector_histogram):            
+            plt.close()
+            fig = plt.figure()
+            ax2 = fig.add_subplot(projection="polar",aspect="equal")
+            sector_histogram
+            pcolour = ax2.pcolormesh(sector_phi,sector_radial,sector_histogram,cmap=cmap)
+            fig.colorbar(pcolour)
+            print(sector_phi)
+            print()
+            print(sector_radial)
+            print()
+            print(sector_histogram)
+            add_screen_properties()       
+            plt.show()        
+
+
+
+        kw = cmesh_kwargs
+        # if "color" not in cmesh_kwargs: 
+        #     kw["color"] = 'k'
+        # if "ls" not in cmesh_kwargs.keys():
+        #     kw["ls"] = 'none'
+        fig = plt.figure()
+        ax = fig.add_subplot(projection="polar")
+
+        if compare_handle != None:
+            if log_I:
+                print("Not plotting logarithmic I, not supported for comparisons.")
+                log_I = False  
+        
+        # Iterate through each orientation (file) to get minimum/maximum for normalisation.
+        max_z = -np.inf
+        min_z = np.inf
+        for filename in os.listdir(results_dir):
+            result = get_result(filename)
+            if result == "__PASS__":
+                continue            
+            if result == None:
+                break  
+            num_orientations += 1
+            max_z = max(max_z,np.max(result.z))
+            min_z = min(min_z,np.min(result.z))
+            if max_z > 1 and compare_dir != None:
+                print("error, max_z =",max_z)
+        if log_I:
+            max_z = np.log(max_z)
+            min_z = np.log(min_z)
+        print("max,min",max_z,min_z)
+        # Plot each orientation's scattering pattern 
+        for filename in os.listdir(results_dir):
+            result = get_result(filename)
+            if result == "__PASS__":
+                continue
+            if result == None:
+                break         
             # get points at same position on screen.
+            radial_axis = result.r
+            if plot_against_q:
+                radial_axis =  result.q        
+            radial_axis = radial_axis[0]              
             identical_count = np.zeros(result.z.shape)
             tmp_z = np.zeros(result.z.shape)
             processed_copies = []
             unique_values_mask = np.zeros(result.z.shape,dtype="bool")
+            # Catch for multiple overlapping points (within same orientation only!!!) (does work, but would be unlikely.)
+            # TODO need to do something about fact that overlapping points with many plots will hide points. Not critical rn thanks to sectors. 
             for i in range(len(result.z)):
                 if (radial_axis[i], result.azm[i],result.image_index[i])  in processed_copies:
                     unique_values_mask[i] = False
@@ -630,9 +702,9 @@ def scatter_plot(result_handle, compare_handle = None, cmap_power = 1, cmap = No
                     
                 # Boolean masks
                 matching_rad_idx = np.nonzero(radial_axis == radial_axis[i])  # numpy note: equiv. to np.where(condition). Non-zero part irrelevant.
-                matching_alph_idx = np.nonzero(result.azm == result.azm[i])
+                matching_phi_idx = np.nonzero(result.azm == result.azm[i])
                 for elem in matching_rad_idx[0]:
-                    if elem in matching_alph_idx[0]:
+                    if elem in matching_phi_idx[0]:
                         identical_count[i] += 1
                         matching = result.z[(radial_axis == radial_axis[i])*(result.azm == result.azm[i])]
                         for value in matching:
@@ -646,6 +718,7 @@ def scatter_plot(result_handle, compare_handle = None, cmap_power = 1, cmap = No
             azm = result.azm[unique_values_mask]
             
             z = tmp_z
+            sector_histogram += get_histogram_contribution(z,result.azm,radial_axis)
 
             if log_I: 
                 z = np.log(z)
@@ -656,37 +729,6 @@ def scatter_plot(result_handle, compare_handle = None, cmap_power = 1, cmap = No
             #print(identical_count[debug_mask])
             #print(radial_axis[0][debug_mask])
             #print(azm[debug_mask ]*180/np.pi)
-
-            import matplotlib as mpl
-            from matplotlib import cm
-
-            #https://stackoverflow.com/questions/26108436/how-can-i-get-the-matplotlib-rgb-color-given-the-colormap-name-boundrynorm-an
-            
-            from matplotlib.colors import to_rgb
-            if cmap != None:
-                class MplColorHelper:
-
-                    def __init__(self, cmap_name, start_val, stop_val):
-                        self.cmap_name = cmap_name
-                        self.cmap = plt.get_cmap(cmap_name)
-                        self.norm = mpl.colors.Normalize(vmin=start_val, vmax=stop_val)
-                        self.scalarMap = cm.ScalarMappable(norm=self.norm, cmap=self.cmap)
-
-                    def get_rgb(self, val):
-                        val = ((val-min_z)/(max_z-min_z))**cmap_power
-                        if val < 0 or val > 1:
-                            print("error in val!")
-                        return self.scalarMap.to_rgba(val)
-                COL = MplColorHelper(cmap, 0, 1) 
-                thing = np.array([[COL.get_rgb(K)[0], COL.get_rgb(K)[1],COL.get_rgb(K)[2],np.clip((K*(max_alpha-min_alpha))/(max_z) + min_alpha,min_alpha,None)] for K in z])
-                #print("THING",thing)
-                colours = [(r,g,b,a) for r,g,b,a in thing] 
-                colours = np.around(colours,10)               
-            else:
-                r,g,b = to_rgb(solid_colour)
-                colours = [(r,g,b,a) for a in np.clip(z/max_z,min_alpha,max_alpha)]
-            alpha = None
-
             # Dot size
             dot_param = z
             if crystal_pattern_only:
@@ -697,33 +739,49 @@ def scatter_plot(result_handle, compare_handle = None, cmap_power = 1, cmap = No
             s = [100*dot_size*x/norm for x in dot_param]
             if fixed_dot_size:
                 s = [100*dot_size for x in dot_param]
-            ax.scatter(azm,radial_axis,c=colours,s=s,alpha=alpha,**kw)
+
+            COL = MplColorHelper(cmap, 0, 1) 
+            thing = np.array([[COL.get_rgb(K)[0], COL.get_rgb(K)[1],COL.get_rgb(K)[2],np.clip((K*(max_alpha-min_alpha))/(max_z) + min_alpha,min_alpha,None)] for K in z])
+            #print("THING",thing)
+            colours = [(r,g,b,a) for r,g,b,a in thing] 
+            colours = np.around(colours,10)   
+
+            sc = ax.scatter(azm,radial_axis,c=colours,s=s,**kw) #TODO try using alpha = 0.7 or something to guarantee overlapped points not hidden
+            fig.colorbar(sc)
             plt.grid(False) 
             #TODO only show first index or something. or have option to switch between image indexes. oof coding.
             if show_labels:
                 for i, txt in enumerate(result.txt[unique_values_mask]):
-                    ax.annotate("%.0f" % txt[0]+","+"%.0f" % txt[1]+","+"%.0f" % txt[2]+",", (azm[i], radial_axis[i]),ha='center')        
+                    ax.annotate("%.0f" % txt[0]+","+"%.0f" % txt[1]+","+"%.0f" % txt[2]+",", (azm[i], radial_axis[i]),ha='center')  
+        add_screen_properties()
+        plt.show()  
+        plot_sectors(sector_histogram=sector_histogram)
+       
+       
+       
+       
+       
+    else:
+        result = SPI_result
+        ## Continuous (SPI)
+        if log_I: 
+            z = np.log(result.z)
         else:
-            ## Continuous (SPI)
-            if log_I: 
-                z = np.log(result.z)
-            else:
-                z = result.z        
-            if log_I and cutoff_log_intensity != None:
-                #cutoff_log_intensity = -1
-                z -= cutoff_log_intensity
-                z[z<0] = 0
-                pass
-            ax.pcolormesh(result.alph, radial_axis, z,**kw)
-            ax.plot(result.azm, radial_axis, color = 'k',ls='none')
-            plt.grid()  # Make the grid lines represent one unit cell (when implemented).
+            z = result.z        
+        if log_I and cutoff_log_intensity != None:
+            #cutoff_log_intensity = -1
+            z -= cutoff_log_intensity
+            z[z<0] = 0
+            pass
+        ax.pcolormesh(result.phi, radial_axis, z,**kw)
+        ax.plot(result.azm, radial_axis, color = 'k',ls='none')
+        plt.grid()  # Make the grid lines represent one unit cell (when implemented).
 
         if radial_lim:
             bottom,top = plt.ylim()
             plt.ylim(bottom,radial_lim)
         if log_radial:
-            plt.yscale("log")  
-        ax.set_facecolor("black")
+            plt.yscale("log")
 
 #%% 
 #  #TODO make this nicer and pop in a function 
@@ -767,8 +825,8 @@ experiment2.spooky_laser(-10,end_time_2,output_handle,crystal, random_orientatio
 
 #%%
 # stylin' 
-experiment1_name = "Lys_9.95_random"#exp_name1
-experiment2_name = "lys_9.80_random"#exp_name2 
+experiment1_name = "Lys_9.95_randomtest"#exp_name1
+experiment2_name = "lys_9.80_randomtest"#exp_name2 
 #experiment2_name = None
 
 #####
@@ -809,10 +867,7 @@ colour = "y"
 
 radial_lim = 5#10 #TODO fix above then remove this
 
-scatter_plot(experiment1_name, experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-fig = plt.gcf()
-fig.set_figwidth(20)
-fig.set_figheight(20)
+scatter_plot(result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
 
 #NEED TO CHECK. We have a 1:1 mapping from q to q_parr, but with our miller indices we are generating multiple q_parr with diff q.
 # So we SHOULD get the same q_parr with different q_z. Which makes sense since we are just doing cosine. But still icky maybe?
