@@ -44,12 +44,19 @@ void ElectronRateSolver::save(const std::string& _dir) {
     saveBound(dir);
     saveBound(dir,true);
 
-    std::vector<double> fake_t;
-    size_t num_t_points = input_params.Out_T_size();
-    if ( num_t_points >  t.size() ) num_t_points = t.size();
-    size_t t_idx_step = t.size() / num_t_points;
-    for (size_t i=0; i<num_t_points; i++) {
-        fake_t.push_back(t[i*t_idx_step]);
+    std::vector<double> fake_t; // TODO double check why I called this fake_t, probably doesn't make sense now. -S.P.
+    int num_t_points = input_params.Out_T_size();
+    if ( num_t_points >  t.size() ) num_t_points = t.size(); // Fineness of output is only limited by num time steps.
+    float t_fineness = t.size() / num_t_points;
+    float previous_t = t[0];
+    int i = -1;
+    while (i <  static_cast<int>(t.size())-1){  //TODO make this some constructed function or something -S.P. 
+        i++;
+        if(t[i] < previous_t + t_fineness){
+            continue;
+        }        
+        fake_t.push_back(t[i]);
+        previous_t = t[i];
     }
     pf.save(fake_t,dir+"intensity.csv");
 
@@ -87,7 +94,7 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
     float t_fineness = t.size() / num_t_points;
     float previous_t = t[0];
     int i = -1;
-    while (i < t.size()){
+    while (i <  static_cast<int>(t.size())-1){
         i++;
         if(t[i] < previous_t + t_fineness){
             continue;
@@ -144,7 +151,7 @@ void ElectronRateSolver::saveBound(const std::string& dir, bool save_all_times) 
         float t_fineness = t.size() / num_t_points;    
         float previous_t = t[0];
         int i = -1;
-        while (i < t.size()){
+        while (i <  static_cast<int>(t.size())-1){
             i++;
             if(t[i] < previous_t + t_fineness){
                 continue;

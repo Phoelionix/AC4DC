@@ -57,7 +57,7 @@ for symbol in ATOMS:
 #     return C(idx)
 
 class PlotData:
-    def __init__(self,target_path, mol_name,output_mol_query, plot_final_t, max_points):
+    def __init__(self,target_path, mol_name,output_mol_query, max_final_t, max_points):
         self.p = target_path
         molfile = self.get_mol_file(mol_name,output_mol_query) 
 
@@ -77,7 +77,7 @@ class PlotData:
         self.energyKnot=None
         self.timeData=None
 
-        self.plot_final_t = plot_final_t 
+        self.max_final_t = max_final_t 
         self.max_points = max_points 
         
         self.title_colour = "#4d50b3"
@@ -115,7 +115,9 @@ class PlotData:
     def update_outputs(self):
         raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
         # Get samples of steps separated by the same times. TODO need to fix AC4DC saving points to the nonraw file when loading sim so that the loaded part isnt empty.
-        indices = np.unique(np.searchsorted(raw[:,0],np.linspace(raw[0,0],min(np.searchsorted(raw[:,0],self.plot_final_t),raw[-1,0]),self.max_points)))
+        last_t = min(self.max_final_t,raw[-1,0]) 
+        indices = np.unique(np.searchsorted(raw[:,0],np.linspace(raw[0,0],min(np.searchsorted(raw[:,0],self.max_final_t),raw[-1,0]),self.max_points)))  # cursed
+
         print(indices)
         raw = raw[indices]
         
@@ -271,14 +273,14 @@ class PlotData:
 class InteractivePlotter:
     # Example initialisation: Plotter(water)
     # --> expects there to be a control file named water.mol within AC4DC/input/ or a subdirectory.
-    # plot_final_t, float, end time in femtoseconds. Not equivalent to time duration
+    # max_final_t, float, end time in femtoseconds. Not equivalent to time duration
     # max_points, int, number of points (within the timespan) for the interactive to have at maximum.
-    def __init__(self, target_names, output_mol_query, plot_final_t = 30, max_points = 70):
+    def __init__(self, target_names, output_mol_query, max_final_t = 30, max_points = 70):
         target_path = path.abspath(path.join(__file__ ,"../../")) + "/"
         self.num_plots = len(target_names)
         self.target_data = []
         for mol_name in target_names:    
-            self.target_data.append(PlotData(target_path,mol_name,output_mol_query,plot_final_t=plot_final_t,max_points=max_points))
+            self.target_data.append(PlotData(target_path,mol_name,output_mol_query,max_final_t=max_final_t,max_points=max_points))
 
         #self.autorun=False  
 
@@ -360,7 +362,7 @@ class InteractivePlotter:
             # Add traces, one for each slider step
             X = target.energyKnot
             for j, t in enumerate(target.timeData):
-                if t > target.plot_final_t:
+                if t > target.max_final_t:
                     break
 
                 if j == 0: continue  # Skip empty plot
@@ -458,7 +460,7 @@ class InteractivePlotter:
             if g == 0:
                 self.fig.update_layout({"title": subplot_title})
             for i in range(len(target.timeData) - 1): # -1 as don't have trace for zeroth time step.
-                if target.timeData[i+1] > target.plot_final_t:
+                if target.timeData[i+1] > target.max_final_t:
                     break                
                 step = dict(
                     method="update",
