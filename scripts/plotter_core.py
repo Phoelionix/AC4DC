@@ -496,15 +496,18 @@ class Plotter:
     # f component of I = int{F.F*}dt =int{f^2}dt T.T*, 
     # where F(q)_i = f(q)T(q)_i is the contribution to F by an atom, and f is the time-integrated component, T(q) is the spatial component.
     def f_average(self,q,atom):
+        if self.end_t == self.start_t:
+            return self.get_form_factor(q,[atom],self.end_t)[0]
+
         def integrand(idx):
             # We pass in indices from 0 to fineness-1, transform to time:
             t = self.start_t + idx/self.t_fineness*(self.end_t-self.start_t) 
-            val = self.get_form_factor(q,[atom],t)
-            return val
-        form_factor_product = np.fromfunction(integrand,(self.t_fineness,))   # (Need to double check working as expected - not using np.vectorise)
+            val,times_used = self.get_form_factor(q,[atom],t)
+            return val,times_used
+        form_factor,times_used = np.fromfunction(integrand,(self.t_fineness,))   # (Need to double check working as expected - not using np.vectorise)
         time = np.linspace(self.start_t,self.end_t,self.t_fineness)
         #Approximate integral with composite trapezoidal rule.
-        f_avg = np.trapz(form_factor_product,time)/(time[-1]-time[0])    
+        f_avg = np.trapz(form_factor,time)/(times_used[-1]-times_used[0])    
         return f_avg   
 
     # Coherence stuff, relevant for when have different atomic species (Martin A. Quiney H.M. 2016).  Assuming I haven't misunderstood notation.
@@ -516,7 +519,7 @@ class Plotter:
         def integrand(idx):
             # We pass in indices from 0 to fineness-1, transform to time:
             t = start_t + idx/t_fineness*(end_t-start_t) 
-            val = self.get_form_factor(q1,[atom1],t)*self.get_form_factor(q2,[atom2],t)
+            val = self.get_form_factor(q1,[atom1],t)[0]*self.get_form_factor(q2,[atom2],t)[0]
             return val
         form_factor_product = np.fromfunction(integrand,(t_fineness,))   # Happily it works without using np.vectorise, which is far more costly.
         time = np.linspace(start_t,end_t,t_fineness)
@@ -552,8 +555,9 @@ class Plotter:
             max_time = max(max_time,time) 
 
         f_avg =[]
+        print(times)
         for time in times:
-            f = [self.get_form_factor(x,atoms,time=time) for x in k]
+            f = [self.get_form_factor(x,atoms,time=time)[0] for x in k]
             f_avg.append(f)
             ax.plot(q, f,label="t = " + str(time)+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))     
         f_avg = np.average(f_avg,axis=0)
@@ -571,8 +575,11 @@ class Plotter:
     
     # Note this combines form factors when supplied multiple species, which is not necessarily interesting.
     def get_form_factor(self,k,atoms,time=-7.5,n=None):
-        idx = np.searchsorted(self.timeData,time)
-         
+        '''
+        Returns the form factor(s), and time(s) used.
+        '''        
+        idx = np.searchsorted(self.timeData,time)      
+        times_used = self.timeData[idx]  # The actual times used
 
         # Get relevant prevalence of each species
         tot_density = 0
@@ -600,7 +607,7 @@ class Plotter:
                 occ_list = occ_list[:len(occ_list)-occ_list.count(-99)]
                 shielding = SlaterShielding(self.atomic_numbers[a],occ_list)              
                 ff += atomic_prop * shielding.get_atomic_ff(k,state_density,atomic_density)
-        return ff
+        return ff,times_used
                 # Get the average atomic form factor
 
 

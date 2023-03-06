@@ -1,5 +1,15 @@
 #%%
 %matplotlib widget
+
+
+import os
+os.getcwd() 
+import sys
+sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
+sys.path.append('/home/speno/AC4DC/scripts/')
+print(sys.path)
+
+
 import matplotlib
 #matplotlib.use("pgf")
 matplotlib.rcParams.update({
@@ -29,7 +39,7 @@ fname_free = "free"
 fname_HR_style = "HR_style"
 fname_bound_dynamics = "bound_dynamics"  #Was called both _bound and dynamics so I assume it's bound dynamics or something.
 
-handle =  "Naive_Lys_mid_21"#"Carbon_294"#"Carbon_Wiggleless_2500_Fluence"#"Carbon_Sanders"""
+handle =  "C_tetrapeptide_4"#"Naive_Lys_mid_21"#"Carbon_294"#"Carbon_Wiggleless_2500_Fluence"#"Carbon_Sanders"""
 #######
 
 label = handle +'_' 
@@ -40,7 +50,7 @@ pl = Plotter(handle,"y")
 plt.close()
 photon_energy = 6000
 q_max = 2#pl.theta_to_q(22,photon_energy) # In units of bohr^-1. 
-pl.initialise_coherence_params(-10,-9.6,q_max,photon_energy,50,100,True)
+pl.initialise_coherence_params(-10,0,q_max,photon_energy,50,100,True)
 
 
 

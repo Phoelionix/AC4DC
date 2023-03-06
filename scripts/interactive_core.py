@@ -114,16 +114,17 @@ class PlotData:
                         
     def update_outputs(self):
         raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
-        # Remove every other point until we have less than the max number of points in our to-be-plotted time range.
-        while self.max_points < np.searchsorted(raw[:,0],self.plot_final_t):
-            raw = np.delete(raw, list(range(0, raw.shape[0], 2)),axis=0)       
+        # Get samples of steps separated by the same times. TODO need to fix AC4DC saving points to the nonraw file when loading sim so that the loaded part isnt empty.
+        indices = np.unique(np.searchsorted(raw[:,0],np.linspace(raw[0,0],min(self.plot_final_t,raw[-1,0],self.max_points))))
+        print(indices)
+        raw = raw[indices]
+        
         self.intensityData = raw[:,1]
         self.timeData = raw[:, 0]       
         self.energyKnot = np.array(self.get_free_energy_spec(), dtype=np.float64)
         
         raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
-        while len(self.timeData) < len(raw[:,1]):
-            raw = np.delete(raw, list(range(0, raw.shape[0], 2)),axis=0)
+        raw = raw[indices]
         if  len(self.timeData) != len(raw[:,1]):
             raise Exception("time and free lengths don't match")
         self.freeData = raw[:,1:]   
