@@ -125,8 +125,8 @@ void ElectronRateSolver::tokenise(std::string str, std::vector<double> &out, con
 
     std::string s;
     while (std::getline(ss, s, delim)) {
-        if (s.size() == 0){continue;}
-        double d = stod(s);
+        if (s.size() == 0 || (s.size() == 1 && s[0] == '\r')){continue;}  // This or part is just to deal with excel being a pain.
+        double d = stod(s); 
         out.push_back(d);
     }
 }
@@ -160,26 +160,35 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
     string comment = "#";
     string grid_point_flag = "# Energy Knot:";
         
-     // Count num lines
-    int num_steps = -3;
+     // Get indices of lines to load
     std::string line;
-    while (std::getline(infile, line))
-        ++num_steps;
-
-    int step_skip_size = 1;
-    int max_num_loaded_steps = 500;
-    while(num_steps/step_skip_size > max_num_loaded_steps){
-        step_skip_size*=2;
-    }            
-    num_steps = num_steps/step_skip_size;           
+    float previous_t;
+    float t_fineness = 0.01;
+    vector<int> step_indices;
+    int i = -4;
+    while (std::getline(infile, line)){
+        i++;
+        if(i >= 0){
+            std::istringstream s(line);
+            string str_time;
+            s >> str_time;    
+            float t = stod(str_time);          
+            if(i >= 1 && t < previous_t + t_fineness){
+                continue;
+            }        
+            step_indices.push_back(i);
+            previous_t =  t;
+        }
+    }     
+    int num_steps = step_indices.size();    
     // get each raw line
     infile.clear();  
     infile.seekg(0, std::ios::beg);
-    int count = -4;
+    i = -4;
     std::vector<double> saved_knots;
 	while (!infile.eof())
 	{    
-        count++;
+        i++;
         string line;
         getline(infile, line);
          // KNOTS
@@ -198,7 +207,8 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             continue;
         }
         if (!line.compare(0, 1, "")) continue;
-        if ((count)%(step_skip_size) != 0 || count < 0) continue;
+        // continue if i not in step_indices
+        if (std::find(step_indices.begin(), step_indices.end(), i) == step_indices.end()) continue;
         time_and_BS_factors.push_back(line);
     }
 
@@ -206,7 +216,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
     t.resize(num_steps,0);  
     y.resize(num_steps,y[0]);    
     bound_t saved_time(num_steps,0);  // this is a mere stand-in for t at best.
-    int i = 0;
+    i = 0;
     std::vector<double> saved_f;  // Defined outside of scope so that saved_f will be from the last time step)
     for(const string elem : time_and_BS_factors){
         // TIME
@@ -348,13 +358,13 @@ void ElectronRateSolver::loadBound() {
             cout << "[[Dev warning]] It seems loadBound was run before loadFreeRaw_and_times, but this means loadBound won't know what times to use." << endl;
         }
         
-        // Until saving raw files, fill with initial state and just make last element correct.
+        //  initialise - fill with initial state
         for(size_t count = 1; count < num_steps; count++){
             this->y[count].atomP[a] = this->y[0].atomP[a];
         }
         
         
-        // Iterate through and each time that matches. 
+        // Iterate through and find each time that matches. 
         int matching_idx;
         for(string elem : saved_occupancies){
             // TIME
@@ -388,7 +398,7 @@ void ElectronRateSolver::loadBound() {
         //y.resize(matching_idx + 1);
         //t.resize(matching_idx + 1);
         if(t.size() != matching_idx + 1){
-            throw std::runtime_error("No bound state found for the final loaded step (assuming program laoded free distribution)."); 
+            throw std::runtime_error("No bound state found for the final loaded step (assuming program lded free distribution)."); 
         }
     }
 }
