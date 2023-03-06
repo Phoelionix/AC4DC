@@ -505,6 +505,10 @@ class Plotter:
             val,times_used = self.get_form_factor(q,[atom],t)
             return val,times_used
         form_factor,times_used = np.fromfunction(integrand,(self.t_fineness,))   # (Need to double check working as expected - not using np.vectorise)
+        if len(times_used) != len(np.unique(times_used)):
+            print("times used:", times_used)
+            print("Error, used same times! Choose a different fineness or a larger range.")
+            return None
         time = np.linspace(self.start_t,self.end_t,self.t_fineness)
         #Approximate integral with composite trapezoidal rule.
         f_avg = np.trapz(form_factor,time)/(times_used[-1]-times_used[0])    

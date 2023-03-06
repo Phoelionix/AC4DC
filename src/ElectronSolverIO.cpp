@@ -82,11 +82,18 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
     f << "#           | "<<Distribution::output_energies_eV(this->input_params.Out_F_size())<<endl;
 
     assert(y.size() == t.size());
-    size_t num_t_points = input_params.Out_T_size();
+    int num_t_points = input_params.Out_T_size();
     if ( num_t_points >  t.size() ) num_t_points = t.size(); // Fineness of output is only limited by num time steps.
-    size_t t_idx_step = t.size() / num_t_points;
-    for (size_t i=0; i<num_t_points; i++) {
-        f<<t[i*t_idx_step]*Constant::fs_per_au<<" "<<y[i*t_idx_step].F.output_densities(this->input_params.Out_F_size())<<endl;
+    float t_fineness = t.size() / num_t_points;
+    float previous_t = t[0];
+    int i = -1;
+    while (i < t.size()){
+        i++;
+        if(t[i] < previous_t + t_fineness){
+            continue;
+        }
+        f<<t[i]*Constant::fs_per_au<<" "<<y[i].F.output_densities(this->input_params.Out_F_size())<<endl;
+        previous_t = t[i];
     }
     f.close();
 }
@@ -111,6 +118,47 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     }
     f.close();
 }
+
+
+void ElectronRateSolver::saveBound(const std::string& dir, bool save_all_times) {
+    // saves a table of bound-electron dynamics , split by atom, to folder dir.
+    assert(y.size() == t.size());
+    // Iterate over atom types
+    for (size_t a=0; a<input_params.Store.size(); a++) {
+        ofstream f;
+        string fname = dir+"dist_"+input_params.Store[a].name+".csv";
+        if (save_all_times) {fname = dir+"dist_"+input_params.Store[a].name+"_Raw.csv";}
+        cout << "[ Atom ] Saving to file "<<fname<<"..."<<endl;
+        f.open(fname);
+        f << "# Ionic electron dynamics"<<endl;
+        f << "# Time (fs) | State occupancy (Probability times number of atoms)" <<endl;
+        f << "#           | ";
+        // Index, Max_occ inherited from MolInp
+        for (auto& cfgname : input_params.Store[a].index_names) {
+            f << cfgname << " ";
+        }
+        f<<endl;
+        // Iterate over time.
+        int num_t_points = input_params.Out_T_size();
+        if ( num_t_points >  t.size() || save_all_times) num_t_points = t.size();
+        float t_fineness = t.size() / num_t_points;    
+        float previous_t = t[0];
+        int i = -1;
+        while (i < t.size()){
+            i++;
+            if(t[i] < previous_t + t_fineness){
+                continue;
+            }            
+            // Make sure all "natom-dimensioned" objects are the size expected
+            assert(input_params.Store.size() == y[i].atomP.size());
+            
+            f<<t[i]*Constant::fs_per_au << ' ' << y[i].atomP[a]<<endl;   // prob. multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au
+            previous_t = t[i];
+        }
+        f.close();
+    }
+}
+
 
 /**
  * @brief 
@@ -163,7 +211,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
      // Get indices of lines to load
     std::string line;
     float previous_t;
-    float t_fineness = 0.01;
+    float t_fineness = 0.01;  // Fineness should be kept to at least this, so that raw can be kept fine throughout loadings. 
     vector<int> step_indices;
     int i = -4;
     while (std::getline(infile, line)){
@@ -285,41 +333,6 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
     }
     cout << endl;
 }   
-
-
-
-void ElectronRateSolver::saveBound(const std::string& dir, bool save_all_times) {
-    // saves a table of bound-electron dynamics , split by atom, to folder dir.
-    assert(y.size() == t.size());
-    // Iterate over atom types
-    for (size_t a=0; a<input_params.Store.size(); a++) {
-        ofstream f;
-        string fname = dir+"dist_"+input_params.Store[a].name+".csv";
-        if (save_all_times) {fname = dir+"dist_"+input_params.Store[a].name+"_Raw.csv";}
-        cout << "[ Atom ] Saving to file "<<fname<<"..."<<endl;
-        f.open(fname);
-        f << "# Ionic electron dynamics"<<endl;
-        f << "# Time (fs) | State occupancy (Probability times number of atoms)" <<endl;
-        f << "#           | ";
-        // Index, Max_occ inherited from MolInp
-        for (auto& cfgname : input_params.Store[a].index_names) {
-            f << cfgname << " ";
-        }
-        f<<endl;
-        // Iterate over time.
-        size_t num_t_points = input_params.Out_T_size();
-        if ( num_t_points >  t.size() || save_all_times) num_t_points = t.size();
-        size_t t_idx_step = t.size() / num_t_points;        
-        for (size_t i=0; i<num_t_points; i++) {
-            // Make sure all "natom-dimensioned" objects are the size expected
-            assert(input_params.Store.size() == y[i].atomP.size());
-            
-            f<<t[i*t_idx_step]*Constant::fs_per_au << ' ' << y[i*t_idx_step].atomP[a]<<endl;   // prob. multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au
-        }
-        f.close();
-    }
-
-}
 
 /**
  * @brief Loads all times and free e densities from previous simulation's raw output, and uses that to populate y[i].F, the free distribution.
