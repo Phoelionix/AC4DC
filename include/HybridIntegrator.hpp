@@ -201,9 +201,10 @@ template<typename T>
 void Hybrid<T>::backward_Euler(unsigned n){
     // Assumes that y_n+1 contains a guess based on sys, and estimates a solution to y_n
     unsigned idx = 0;
+    //old = y[n+1] - y[n] 
     T old = this->y[n];
     old *= -1.;
-    old += this->y[n+1];
+    old += this->y[n+1];  // 
     //old caches the step from the regular part
 
     // Guess. (Naive Euler)
@@ -211,8 +212,9 @@ void Hybrid<T>::backward_Euler(unsigned n){
     this->y[n+1] *= this->dt;
     this->y[n+1] += this->y[n]; 
 
+    // Picard iteration TODO seek better way to do this - reduce modularisation - reduce to solving linear system?
     double diff = stiff_rtol*2;
-    while (diff > stiff_rtol && idx < stiff_max_iter){
+    while (diff > stiff_rtol && idx < stiff_max_iter){ // TODO more efficient mapping to use by considering known form of equation  c.f. ELENDIF
         T tmp = this->y[n+1];
         sys_ee(tmp, this->y[n+1], this->t[n+1]);
         this->y[n+1] *= this->dt;
