@@ -160,7 +160,7 @@ class XFEL():
         self.y_orientations = y_orientations
 
         if q_cutoff == "max":
-            q_cutoff = self.photon_momentum*(1/np.sqrt(2))  - 0.00000001 # as q = ksin(theta).  non-inclusive upper bound is 45 degrees(theoretically).
+            q_cutoff = 2*self.photon_momentum  - 0.00000001# :sphere -  hemisphere: self.photon_momentum*(1/np.sqrt(2))  - 0.00000001 # as q = 2ksin(theta).  non-inclusive upper bound is 45 degrees(theoretically).
         self.q_cutoff = q_cutoff
 
         self.t_fineness = t_fineness
@@ -458,10 +458,9 @@ class XFEL():
         q_cutoff_rule = lambda g: np.sqrt(((g[0])**2+(g[1])**2+(g[2])**2))<= self.q_cutoff
         #q_cutoff_rule = lambda f: np.sqrt(((f[0]*np.average(cell_dim))**2+(f[1]*np.average(cell_dim))**2+(f[2]*np.average(cell_dim))**2))<= self.q_cutoff
         q0 = self.photon_momentum
-        # Mosaicity:
         
         # Catch the miller indices with a boolean mask
-        mask = np.apply_along_axis(selection_rule,1,indices)*np.apply_along_axis(q_cutoff_rule,1,G_temp)*np.apply_along_axis(self.mosaicity,1,G_temp)
+        mask = np.apply_along_axis(selection_rule,1,indices)*np.apply_along_axis(q_cutoff_rule,1,G_temp)*np.apply_along_axis(self.mosaic_elastic_condition,1,G_temp)
         indices = indices[mask]
 
         print("Cardan angles:",cardan_angles)
@@ -508,8 +507,8 @@ class XFEL():
     def q_to_theta(self,q):
         lamb = E_to_lamb(self.photon_energy)
         theta = np.arcsin(lamb*q/(4*np.pi)) 
-        if not (theta >= 0 and theta < 45):
-            print("warning, theta out of bounds")        
+        #if not (theta >= 0 and theta < 45):
+            #print("warning, theta out of bounds")        
         return theta
 
 
@@ -538,10 +537,12 @@ class XFEL():
     def q_to_q_scr_curved(self,G):
         return np.sqrt(G[0]**2+G[1]**2)
     
-    def mosaicity(self,q_vect):
+    def mosaic_elastic_condition(self,q_vect):
         ''' determines whether vector q is allowed.'''
         # Rocking angle version
         q = np.sqrt(q_vect[0]**2 + q_vect[1]**2 + q_vect[2]**2)
+        if q > self.q_cutoff:
+            return False
         theta = self.q_to_theta(q)
         k = self.photon_momentum
         #Assuming theta > 0:
@@ -993,8 +994,6 @@ def create_reflection_file(result_handle):
             break          
         miller_indices = result.miller_indices
         intensity = np.array([result.I]).T
-        print(miller_indices)
-        print(intensity)
         data = np.concatenate((miller_indices,intensity),axis=1)
         # Put in data frame
         columns = ["h","k","l","I"]
@@ -1017,7 +1016,7 @@ def create_reflection_file(result_handle):
 #create_reflection_file(exp_name1)
 
 #%% 
-root = "b"
+root = "e"
 tag = 0
 #%%
 ### Simulate tetrapeptide
@@ -1103,7 +1102,7 @@ allowed_atoms_1 = ["C_fast","N_fast","O_fast","S_fast"]
 allowed_atoms_2 = ["C_fast","N_fast","O_fast","S_fast"]
 
 end_time_1 = -10#-9.95
-end_time_2 = -9.8#-9.80  
+end_time_2 = -10#-9.80  
 
 #orientation_set = [[5.532278012665244, 1.6378991611963682, 1.3552062099726534]] # Spooky spider orientation
 num_orients = 1
@@ -1111,14 +1110,18 @@ num_orients = 1
 ax_x = 0
 ax_y = 0
 ax_z = 1
-random_orientation = True  # if true, overrides orientation_set
+random_orientation = False  # if true, overrides orientation_set
 
 rock_angle = 0.3 # degrees
+hemisphere_screen = True
 
 pdb_path = "/home/speno/AC4DC/scripts/scattering/3u7t.pdb" #Crambin
 
 output_handle = "Improved_Lys_mid_6"
 
+q_cutoff = "max"
+
+test_the_onion = False  # <- a test case I'm familiar with, I'm using it to check if anything breaks.
 #---------------------------------#
 
 
@@ -1128,12 +1131,18 @@ orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0
 orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
 print(orientation_set)
 
-experiment1 = XFEL(exp_name1,energy,100, hemisphere_screen = False, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
-experiment2 = XFEL(exp_name2,energy,100, hemisphere_screen = False, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+if test_the_onion:
+    orientation_set = [[0,0,0],[np.pi/4,0,0]]
+    #q_cutoff = 10
+
+experiment1 = XFEL(exp_name1,energy,100, q_cutoff = q_cutoff,hemisphere_screen = hemisphere_screen, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+experiment2 = XFEL(exp_name2,energy,100, q_cutoff = q_cutoff,hemisphere_screen = hemisphere_screen, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
 
 
 crystal = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=False,cell_packing = "SC")
 crystal.set_cell_dim(22.795 ,  18.826 ,  41.042)
+if test_the_onion:
+   crystal.set_cell_dim(20,20,20)
 crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))   #2555
 
 
@@ -1171,13 +1180,13 @@ import colorcet as cc; import cmasher as cmr
 cmap = shiftedColorMap(matplotlib.cm.RdYlGn_r,midpoint=0.2)#"plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
 cmap.set_bad(color='black')
 cmap_power = 1.6
-min_alpha = 0.1
+min_alpha = 0.3
 max_alpha = 1
 colour = "y"
 radial_lim = 5
 full_crange_sectors = False
 
-cmap_intensity = "plasma"
+cmap_intensity = "inferno"
 
 
 # screen_radius = 150#55#165    #
@@ -1187,13 +1196,13 @@ cmap_intensity = "plasma"
 # # plottin'
 
  # as q = ksin(theta).  
-q_scr_max = experiment1.q_cutoff*(1/np.sqrt(2)) # as q_scr = qcos(theta). (q_z = qsin(theta) =ksin^2(theta)), max theta is 45. (Though experimentally ~ 22 as of HR paper)
+q_scr_max = experiment1.q_cutoff#experiment1.q_cutoff*(1/np.sqrt(2)) # for flat screen. as q_scr = qcos(theta). (q_z = qsin(theta) =ksin^2(theta)), max theta is 45. (Though experimentally ~ 22 as of HR paper)
 
 zoom_to_fit = False
 if not zoom_to_fit:
     if use_q:
-        radial_lim = q_scr_max
-    #else:
+        radial_lim = q_scr_max+0.2
+    #els:
 #else:
 #     radial_lim = screen_radius#min(screen_radius,experiment.q_to_r(experiment.q_cutoff))
 #     print(radial_lim)
@@ -1206,8 +1215,10 @@ if not zoom_to_fit:
 
  #TODO fix above to work with distance
 
-scatter_plot(num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-scatter_plot(full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+# Sectors
+#scatter_plot(full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+# Intensity of experiment 1. 
+scatter_plot(num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
 
 #NEED TO CHECK. We have a 1:1 mapping from q to q_parr, but with our miller indices we are generating multiple q_parr with diff q.
 # So we SHOULD get the same q_parr with different q_z. Which makes sense since we are just doing cosine. But still icky maybe?
@@ -1263,4 +1274,13 @@ scatter_plot(SPI_result,radial_lim=radial_lim,plot_against_q = use_q,log_radial=
 
 # get sinc functions with non-infinite crystal
 # 
+# %%
+import numpy as np
+theta = np.arcsin(10/(4*np.pi))
+#Assuming theta > 0:
+delt = 1
+min_err = 5*np.sin(theta - delt/2)
+max_err = 5*np.sin(theta+delt/2)
+err = np.sqrt(5)**2
+min_err <= err <= max_err
 # %%
