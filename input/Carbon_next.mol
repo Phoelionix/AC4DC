@@ -34,7 +34,7 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-0      // Simulation cutoff time in fs
+-9.9      // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 

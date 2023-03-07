@@ -44,7 +44,7 @@ Improved_Lys_mid_6 // Output folder name
 
 
 #DEBUG
--7.5      // Simulation cutoff time in fs
+0      // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 Notes:

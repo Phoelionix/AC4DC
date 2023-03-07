@@ -25,10 +25,9 @@ square       // Pulse shape.
 wiggledestruction        // electron grid type
 50              // Number of "low-energy" grid points (hybrid & powerlaw grids only, not for hybrid_power grids though!!!)
 2000          // transition energy in eV (used for grid point boundary, unless hybrid_power grid.)
-1|2|40|70|95|165|170                 // boundary indices, with first point excluded. No spaces.
-5|10|200|500|4500|6500|10000        // boundary energies, with first point excluded. No spaces.
-1|1|1|1|1|1
-
+1|30|55|65|85|105|145|150                 // boundary indices, with point at 0 excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
+1|10|50|200|500|4500|6500|6800       // boundary energies, with point at 0 excluded. No spaces.
+1|1|1|1|1|1|1             // Region powers.  MB|mid_MB|late_MB|Auger|Trans|Photo|Tail
 
 #OUTPUT
 800         // Number of time steps in the output files.
@@ -38,14 +37,8 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #LOAD
-full_tetrapeptide_12 // Output folder name
-0    // Point to load time from 
 
 #DEBUG
-0.001      // Simulation cutoff time in fs
+-9.9      // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
-
-Notes:
-From https://files.rcsb.org/pub/pdb/validation_reports/et/4et8/4et8_full_validation.pdf
-Lysozyme making nitrogen assumption (e.g. used by Chapman 2010) and ignoring salt water atoms.

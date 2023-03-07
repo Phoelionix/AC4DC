@@ -1,20 +1,17 @@
-// Template AC4DC input file created from  5zck.pdb
-// Ignores salt water
 #ATOMS
-C_fast 17
-N_fast 5
-O_fast 8
+N_fast 991
+S_fast 10
 
 #VOLUME
-515.69      // Volume per molecule in Angstrom^3.
-2000      // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
-none      // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
+20000        // Volume per molecule in Angstrom^3.
+300         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
+none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
 6000         // Photon energy in eV.
-10           // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
-2500         // Pulse fluence in 10^4 * J/cm^2.
-square       // Pulse shape.
+10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+2500         // Pulse fluence in 10^4 * J/cm^2. This is to 2 S.Fs the fluence for 2mJ on a 100 nm spot. 1.28 mJ corresponds to Neutze for 6keV photons.
+square       // Pulse shape
 
 #NUMERICAL
 1200000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
@@ -38,11 +35,12 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #LOAD
-full_tetrapeptide_12 // Output folder name
-0    // Point to load time from 
+Naive_Lys_mid_21 // Output folder name
+-9.61    // Point to load time from 
+
 
 #DEBUG
-0.001      // Simulation cutoff time in fs
+-7.5      // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 

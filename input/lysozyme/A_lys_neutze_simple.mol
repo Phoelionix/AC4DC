@@ -1,23 +1,23 @@
-// Template AC4DC input file created from  5zck.pdb
-// Ignores salt water
+//Neutze
+//also need to try using just lys_c settings later, since it's gaussian could possibly work?
+
 #ATOMS
-C_fast 17
-N_fast 5
-O_fast 8
+N_fast 991
+S_fast 10
 
 #VOLUME
-515.69      // Volume per molecule in Angstrom^3.
-2000      // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
-none      // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
+20000        // Volume per molecule in Angstrom^3.
+300         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
+none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
 6000         // Photon energy in eV.
-10           // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
-2500         // Pulse fluence in 10^4 * J/cm^2.
-square       // Pulse shape.
+5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+1677         // Pulse fluence in 10^4 * J/cm^2. 
+gaussian       // Pulse shape
 
 #NUMERICAL
-1200000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+50000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 18            // Number of threads in OpenMP.
 0             // [only for nonthermal] minimum free-electron energy in eV
 10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
@@ -25,9 +25,9 @@ square       // Pulse shape.
 wiggledestruction        // electron grid type
 50              // Number of "low-energy" grid points (hybrid & powerlaw grids only, not for hybrid_power grids though!!!)
 2000          // transition energy in eV (used for grid point boundary, unless hybrid_power grid.)
-1|2|40|70|95|165|170                 // boundary indices, with first point excluded. No spaces.
-5|10|200|500|4500|6500|10000        // boundary energies, with first point excluded. No spaces.
-1|1|1|1|1|1
+1|30|55|65|85|105|145|150                 // boundary indices, with point at 0 excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
+4|10|50|200|500|4500|6500|10000       // boundary energies, with point at 0 excluded. No spaces.
+1|1|1|1|1|1|1 
 
 
 #OUTPUT
@@ -38,11 +38,10 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #LOAD
-full_tetrapeptide_12 // Output folder name
-0    // Point to load time from 
+
 
 #DEBUG
-0.001      // Simulation cutoff time in fs
+-9      // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 
