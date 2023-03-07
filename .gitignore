@@ -26,3 +26,4 @@ load_modules.sh
 *.slurm
 Makefile_S
 scripts/scattering/results*
+scripts/scattering/reflections*

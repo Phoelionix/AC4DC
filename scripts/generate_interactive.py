@@ -77,7 +77,7 @@ def main():
     y_log_args = {'title': {"text": ylabel + " - log scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
     #
     # Initialises plotter object with data from files.
-    ipl = InteractivePlotter(target_handles,"y",plot_final_t=END_T,max_points=POINTS)  
+    ipl = InteractivePlotter(target_handles,"y",max_final_t=END_T,max_points=POINTS)  
     # Initialises graph object.
     ipl.initialise_interactive(plot_title, x_log_args,y_log_args) 
     # The meat of the plotting. Plot line for each point in time

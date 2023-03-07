@@ -10,7 +10,7 @@ sys.path.append('/home/speno/AC4DC/scripts/')
 print(sys.path)
 
 #%%
-from Bio.PDB.vectors import Vector as bio_vect
+from Bio.PDB.vectors import Vector as Bio_Vect
 from Bio.PDB.vectors import rotaxis2m
 from Bio.PDB.PDBParser import PDBParser
 #from sympy.utilities.iterables import multiset_permutations
@@ -34,7 +34,7 @@ c_au = 137.036; eV_per_Ha = 27.211385
 class Results():
     def __init__(self,num_points):
         self.azm = np.zeros(num_points)
-        self.z = np.zeros(num_points)
+        self.I = np.zeros(num_points)
         self.q = np.zeros(num_points)
         self.r = np.zeros(num_points)
         self.image_index = np.zeros(num_points)    
@@ -42,18 +42,20 @@ class Results():
     def package_up(self,miller_indices):
         self.q, self.phi = np.meshgrid(self.q,self.azm)  
         self.r, self.phi = np.meshgrid(self.r, self.azm) 
-        self.txt = miller_indices 
+        self.miller_indices = miller_indices 
     def diff(self,other):
         for i in range(len(self.q)):
             subtracted = False
             for j in range(len(other.q)):
                 if self.azm[i] == other.azm[j] and self.q[0][i] == other.q[0][j]:
-                    #self.z[i] = np.abs(self.z[i]- other.z[j])/self.z[i] # Intensity
-                    self.z[i] = np.abs(np.sqrt(self.z[i])- np.sqrt(other.z[j]))/np.sqrt(max(self.z[i],other.z[j]))# form factor  # TODO not sure why later times is sometimes larger but probs interference thing. Hopefully will disappear when we use large time gaps... or at least when we average over to get R factor.
+                    #self.I[i] = np.abs(self.I[i]- other.I[j])/self.I[i] # Intensity
+                    self.I[i] = np.abs(np.sqrt(self.I[i])- np.sqrt(other.I[j]))/np.sqrt(max(self.I[i],other.I[j]))# form factor  # TODO not sure why later times is sometimes larger but probs interference thing. Hopefully will disappear when we use large time gaps... or at least when we average over to get R factor.
                     subtracted = True
             if subtracted == False:
-                self.z[i] = -1 
+                self.I[i] = -1 
     pass
+class Results_SPI():
+        pass
 
 class Crystal():
     def __init__(self, pdb_fpath, allowed_atoms, rocking_angle = 0.3*np.pi/180, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True):
@@ -144,7 +146,8 @@ class XFEL():
         alpha,beta,gamma:
             Angle of rotation about the x, y, and z axis.
         orientation_set:
-            contains each set of cardan angles for each orientation to images. Crystal only. TODO replace x_orientations and y_orientations with this.
+            contains each set of cardan angles for each orientation to images. Crystal only. 
+            Overriden for imagings with random orientations. TODO replace x_orientations and y_orientations with this.
         """
         self.experiment_name = experiment_name
         self.hemisphere_screen = hemisphere_screen
@@ -165,8 +168,8 @@ class XFEL():
         self.phi_array = np.linspace(0,2*np.pi,self.pixels_per_ring,endpoint=False)
         self.y_rotation = 0 # Current rotation of crystal (y axis currently)
         self.x_rotation = 0 # Current rotation of crystal (y axis currently)
-        self.y_rot_matrix = rotaxis2m(self.y_rotation,bio_vect(0, 1, 0))     
-        self.x_rot_matrix = rotaxis2m(self.x_rotation,bio_vect(1, 0, 0))        
+        self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))     
+        self.x_rot_matrix = rotaxis2m(self.x_rotation,Bio_Vect(1, 0, 0))        
         self.orientation_set = orientation_set 
                       
     def get_ff_calculator(self,start_time,end_time,damage_output_handle):
@@ -206,15 +209,15 @@ class XFEL():
 
         #TODO SPI needs to be fixed after being demolished by crystal-necessitated refactoring
         if SPI:
-            result = Results()
-            result.z = 0            
+            result = Results_SPI()
+            result.I = 0            
             q_samples = np.linspace(0,self.q_cutoff,self.num_rings)
             for rot_x in range(self.x_orientations):
-                self.x_rot_matrix = rotaxis2m(self.x_rotation,bio_vect(1, 0, 0))      
+                self.x_rot_matrix = rotaxis2m(self.x_rotation,Bio_Vect(1, 0, 0))      
                 self.y_rotation = 0                 
                 for rot_y in range(self.y_orientations):
                     print("Imaging at x, y, rotations:",self.x_rotation,self.y_rotation)
-                    self.y_rot_matrix = rotaxis2m(self.y_rotation,bio_vect(0, 1, 0))      
+                    self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))      
                     self.y_rotation += 2*np.pi/self.y_orientations              
                     for i, q in enumerate(q_samples):
                         ring[i] = self.generate_ring(q)
@@ -225,19 +228,22 @@ class XFEL():
                     # Initialise stuff that is constant between images (done here to access ring radii.)
                     if rot_y  == 0 and rot_x == 0:
                         azm = self.phi_array
-                        radii = np.zeros(self.num_rings)
-                        for i in range(len(ring)):
-                            radii[i] = ring[i].r           
-                        r, alph = np.meshgrid(radii, azm)     
-                        q_for_plot, alph = np.meshgrid(q_samples,azm)
+                        #radii = np.zeros(self.num_rings)
+                        #for i in range(len(ring)):
+                            #radii[i] = ring[i].r           
+                        #r, phi = np.meshgrid(radii, azm)     
+                        q, phi = np.meshgrid(q_samples,azm)
 
-                    z = np.zeros(r.shape)  # z is the intensity of the plot colour.
-                    for ang in range(len(z)):
-                        for pos in range(len(z[ang])):
-                            z[ang][pos] = ring[pos].I[ang]                                         
+                    I = np.zeros(q.shape)  # I is the intensity of the plot colour.
+                    for ang in range(len(I)):
+                        for pos in range(len(I[ang])):
+                            I[ang][pos] = ring[pos].I[ang]                                         
                 
-                    result.z += z/(self.y_orientations*self.x_orientations)
+                    result.I += I/(self.y_orientations*self.x_orientations)
                 self.x_rotation += 2*np.pi/self.x_orientations
+                result.phi = phi
+                result.q = q
+            return result
 
         else:
             # Iterate through each orientation of crystal
@@ -259,8 +265,8 @@ class XFEL():
                     point = self.generate_point(G)
                     #tmp_radii[i] = point.r
                     result.azm[i] = point.phi
-                    result.q[i] = point.placeholder_1
-                    result.z[i] = point.I
+                    result.q[i] = point.q_parr_screen
+                    result.I[i] = point.I
                     result.image_index[i] = j
                 result.package_up(miller_indices)
                 #Save the result object into its own file within the output folder for the experiment
@@ -270,9 +276,9 @@ class XFEL():
             return used_orientations
 
     class Feature:
-        def __init__(self,q,placeholder_1,theta):
+        def __init__(self,q,q_parr_screen,theta):
             self.q = q
-            self.placeholder_1 = placeholder_1 # magnitude of q parallel to screen
+            self.q_parr_screen = q_parr_screen # magnitude of q parallel to screen
             self.theta = theta          
     class Ring(Feature):
         def __init__(self,*args):
@@ -283,36 +289,38 @@ class XFEL():
     def generate_ring(self,q):
         '''Returns the intensity(phi) array and the radius for given q.'''
         #print("q=",q)
-        #r = self.q_to_r(q)
-        #placeholder_1 =self.q_to_q_scr(q)
+        #r = self.q_to_r(q)# TODO
         theta = self.q_to_theta(q)
-        ring = self.Ring(q,placeholder_1,theta)
+        q_parr_screen = self.q_to_q_scr(q)
+        if self.hemisphere_screen:
+            print("hemisphere screen not supported for SPI yet.")
+        ring = self.Ring(q,q_parr_screen,theta)
         ring.I = self.illuminate(ring)
         return ring 
     def generate_point(self,G): # G = vector
         q = np.sqrt(G[0]**2+G[1]**2+G[2]**2)
-        #r = self.q_to_r(q)
-        placeholder_1 = self.q_to_q_scr(q)# TODO make this r
+        #r = self.q_to_r(q) # TODO
+        q_parr_screen = self.q_to_q_scr(q)
         if self.hemisphere_screen:
-            placeholder_1 = self.q_to_q_scr_curved(G)
+            q_parr_screen = self.q_to_q_scr_curved(G)
         theta = self.q_to_theta(q)
-        point = self.Spot(q,placeholder_1,theta)
+        point = self.Spot(q,q_parr_screen,theta)
         point.phi = np.arctan2(G[1],G[0])
         point.G = G
 
                 
         if DEBUG:
-            print("placeholder_1",placeholder_1,"phi",point.phi,"G",G[0],G[1],G[2])
+            print("q_parr_screen",q_parr_screen,"phi",point.phi,"G",G[0],G[1],G[2])
 
 
-        #print("phi",point.phi,"placeholder_1",point.placeholder_1)
+        #print("phi",point.phi,"q_parr_screen",point.q_parr_screen)
         
         phis = np.array([point.phi])
         point.I = self.illuminate(point,phis)
         # # Trig check      
         # check = smth  # check = np.sqrt(G[0]**2+G[1]**2)
-        # if placeholder_1 != check:
-        #     print("Error, placeholder_1 =",placeholder_1,"but expected",check)  
+        # if q_parr_screen != check:
+        #     print("Error, q_parr_screen =",q_parr_screen,"but expected",check)  
         return point   
     
 
@@ -331,7 +339,10 @@ class XFEL():
                     R = R.left_multiply(self.x_rot_matrix)   
                     # Get spatial factor T
                     T = np.zeros(phis.shape,dtype="complex_")
-                    T= self.spatial_factor(phis,R,feature)
+                    if SPI:
+                        T = self.SPI_spatial_factor(phis,R,feature)
+                    else:
+                        T= self.spatial_factor(phis,R,feature)
                     F += species.ff*T
                     # Rotate atom for next sample            
         I = np.square(np.abs(F))
@@ -341,7 +352,7 @@ class XFEL():
 
     def spatial_factor(self,phi_array,R,feature):
         """ theta = scattering angle relative to z-y plane """ 
-        q_z = feature.G[2]#feature.placeholder_1*np.sin(feature.theta) TODO replace with functional method
+        q_z = feature.G[2]#feature.q_parr_screen*np.sin(feature.theta) TODO replace with functional method
         q_z = np.tile(q_z,len(phi_array))
         # phi angle of vector relative to x-y plane, pointing from screen centre to point hit. 
         q_y = feature.G[1]#q_z*np.sin(phi_array)
@@ -352,6 +363,20 @@ class XFEL():
             coord = np.multiply(R.get_array(),self.target.sym_factors[i]) + np.multiply(self.target.cell_dim,self.target.sym_translations[i])
             spatial_structure_factor = np.exp(-1j*np.dot(q_vect,coord))   
         return spatial_structure_factor
+
+    def SPI_spatial_factor(self,phi_array,R,feature):
+        """ theta = scattering angle relative to z-y plane """ 
+        q_z = feature.q*np.sin(feature.theta)
+        q_z = np.tile(q_z,len(phi_array))
+        # phi angle of vector relative to x-y plane, pointing from screen centre to point hit. 
+        q_y = feature.q_parr_screen*np.sin(phi_array)
+        q_x = feature.q_parr_screen*np.cos(phi_array)
+        q_vect = np.column_stack([q_x,q_y,q_z])
+        for i in range(len(self.target.sym_factors)):
+            coord = R.get_array()
+            coord = np.multiply(R.get_array(),self.target.sym_factors[i]) + np.multiply(self.target.cell_dim,self.target.sym_translations[i])
+            spatial_structure_factor = np.exp(-1j*np.dot(q_vect,coord))   
+        return spatial_structure_factor    
     def bragg_points(self,crystal, cell_packing, cardan_angles,random_orientation=False):
         ''' 
         Using the unit cell structure, find non-zero values of q for which bragg 
@@ -414,9 +439,9 @@ class XFEL():
         k_set = np.arange(-k_max,k_max+1,1)
         l_set = np.arange(-l_max,l_max+1,1)
         indices = list(itertools.product(h_set,k_set,l_set))
-        indices = np.array([*set(indices)])   # * expands the set into the list. Faster than using List() apparently.
+        indices = np.array([*set(indices)])   
     
-        # Selection rules/Fish bait
+        # Selection rules
         if cell_packing == "SC":
             selection_rule = lambda f: True
         if cell_packing == "BCC":
@@ -483,7 +508,7 @@ class XFEL():
     def q_to_theta(self,q):
         lamb = E_to_lamb(self.photon_energy)
         theta = np.arcsin(lamb*q/(4*np.pi)) 
-        if theta < 0 or theta > 45:
+        if not (theta >= 0 and theta < 45):
             print("warning, theta out of bounds")        
         return theta
 
@@ -509,7 +534,7 @@ class XFEL():
             """ Returns the screen-parallel component of q (or equivalently the final momentum).
             """
             theta = self.q_to_theta(q)
-            return q*np.cos(theta)
+            return q/(sin(np.pi/2-theta))#q*np.cos(theta)
     def q_to_q_scr_curved(self,G):
         return np.sqrt(G[0]**2+G[1]**2)
     
@@ -547,7 +572,7 @@ def E_to_lamb(photon_energy):
         # q = 4*pi*sin(theta)/lambda = 2pi*u, where q is the momentum in AU (a_0^-1), u is the spatial frequency.
         # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
-def scatter_plot(SPI_result = None,num_arcs = 50,num_subdivisions = 40, result_handle = None, compare_handle = None, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None, **cmesh_kwargs):
+def scatter_plot(SPI_result = None,full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, compare_handle = None, normalise_intensity_map = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None):
     ''' (Complete spaghetti at this point.)
     Plots the simulated scattering image.
     result_handle:
@@ -568,11 +593,14 @@ def scatter_plot(SPI_result = None,num_arcs = 50,num_subdivisions = 40, result_h
                 self.scalarMap = cm.ScalarMappable(norm=self.norm, cmap=self.cmap)
 
             def get_rgb(self, val):
-                val = ((val-min_z)/(max_z-min_z))**cmap_power
+                if compare_handle == None:
+                    # Plot actual image!
+                    val = ((val-min_z)/(max_z-min_z))**cmap_power
                 if val < 0 or val > 1:
                     print("error in val!")
                 return self.scalarMap.to_rgba(val)            
     else:
+        # Broken TODO
         r,g,b = to_rgb(solid_colour)
         colours = [(r,g,b,a) for a in np.clip(z/max_z,min_alpha,max_alpha)]
     
@@ -584,30 +612,7 @@ def scatter_plot(SPI_result = None,num_arcs = 50,num_subdivisions = 40, result_h
             plt.yscale("log")  
         plt.gca().set_facecolor("black") 
         plt.gcf().set_figwidth(20)
-        plt.gcf().set_figheight(20)        
-
-    def get_result(filename):
-        #Requires all orientations of result_handle in compare_handle, but not vice versa.
-        fpath = os.path.join(results_dir, filename)
-        if os.path.isfile(fpath):
-            with open(fpath,'rb') as f:
-                result = pickle.load(f)
-        else: 
-            return "__PASS__" 
-        if compare_dir != None:
-            if filename in os.listdir(compare_dir):
-                fpath2 = os.path.join(compare_dir, filename)
-                with open(fpath2,'rb') as f:
-                    result2 = pickle.load(f)
-                result.diff(result2)                    
-            else:
-                print("ERROR, missing matching orientation in comparison directory")
-                return None # No corresponding file found.
-        if result2 == None:
-            result1 = None
-        else:
-            result1 = copy.deepcopy(result)
-        return result, result1, result2        
+        plt.gcf().set_figheight(20)             
     
     if result_handle != None:
         results_dir = "results/"+result_handle+"/"
@@ -627,11 +632,11 @@ def scatter_plot(SPI_result = None,num_arcs = 50,num_subdivisions = 40, result_h
         radial_edges = np.linspace(0,radial_lim,num_subdivisions+1)        
         sector_phi,sector_radial = np.meshgrid(phi_edges,radial_edges)
         num_orientations = 0
-        def get_old_histogram_contribution(z,phi,radial_axis):
+        def get_old_histogram_contribution(I,phi,radial_axis):
                 # We don't set density = True, because we don't want to normalise the weights.
                 num_samples = np.histogram2d(phi, radial_axis, bins=(phi_edges, radial_edges))[0]
                 num_samples[num_samples == 0] = 1 # avoid division by zero
-                H = np.histogram2d(phi, radial_axis, weights=z, bins=(phi_edges, radial_edges))[0]
+                H = np.histogram2d(phi, radial_axis, weights=I, bins=(phi_edges, radial_edges))[0]
                 H = H.T
                 H = np.divide(H, num_samples.T)
                 return H/num_orientations   
@@ -642,7 +647,7 @@ def scatter_plot(SPI_result = None,num_arcs = 50,num_subdivisions = 40, result_h
             '''
             # R = Σ|sqrt(I_ideal) - sqrt(I_real|) / (Σ sqrt(I_ideal))  |   me -> ( ._.)ヽ(￣┏＿┓￣ R)  "thousands of lines of code just for you Señor R factor".
             N = np.abs(np.sqrt(I_ideal) - np.sqrt(I_real))
-            D = np.sqrt(I_real)
+            D = np.sqrt(I_ideal)
             numerators = np.histogram2d(phi, radial_axis, weights=N, bins=(phi_edges, radial_edges))[0]
             denominators  = np.histogram2d(phi, radial_axis, weights=D, bins=(phi_edges, radial_edges))[0]
             numerators = numerators.T; denominators = denominators.T
@@ -652,8 +657,10 @@ def scatter_plot(SPI_result = None,num_arcs = 50,num_subdivisions = 40, result_h
             plt.close()
             fig = plt.figure()
             ax2 = fig.add_subplot(projection="polar",aspect="equal")
-            sector_histogram
-            pcolour = ax2.pcolormesh(sector_phi,sector_radial,sector_histogram,cmap=cmap)
+            sector_histogram = np.ma.masked_where(sector_histogram ==0, sector_histogram)  # masking for colour (replace with black)
+            if full_range:
+                pcolour = ax2.pcolormesh(sector_phi,sector_radial,sector_histogram,cmap=cmap,vmin=0,vmax=1)
+            else: pcolour = ax2.pcolormesh(sector_phi,sector_radial,sector_histogram,cmap=cmap)
             fig.colorbar(pcolour)
             # print(sector_phi)
             # print()
@@ -663,13 +670,6 @@ def scatter_plot(SPI_result = None,num_arcs = 50,num_subdivisions = 40, result_h
             add_screen_properties()       
             plt.show()        
 
-
-
-        kw = cmesh_kwargs
-        # if "color" not in cmesh_kwargs: 
-        #     kw["color"] = 'k'
-        # if "ls" not in cmesh_kwargs.keys():
-        #     kw["ls"] = 'none'
         fig = plt.figure()
         ax = fig.add_subplot(projection="polar")
 
@@ -683,14 +683,14 @@ def scatter_plot(SPI_result = None,num_arcs = 50,num_subdivisions = 40, result_h
         min_z = np.inf
         for filename in os.listdir(results_dir):
             #result = get_result(filename)
-            result,result1,result2 = get_result(filename)
+            result,result1,result2 = get_result(filename,results_dir,compare_dir)
             if result == "__PASS__":
                 continue            
             if result == None:
                 break  
             num_orientations += 1
-            max_z = max(max_z,np.max(result.z))
-            min_z = min(min_z,np.min(result.z))
+            max_z = max(max_z,np.max(result.I))
+            min_z = min(min_z,np.min(result.I))
             if max_z > 1 and compare_dir != None:
                 print("error, max_z =",max_z)
         if log_I:
@@ -698,8 +698,9 @@ def scatter_plot(SPI_result = None,num_arcs = 50,num_subdivisions = 40, result_h
             min_z = np.log(min_z)
         print("max,min",max_z,min_z)
         # Plot each orientation's scattering pattern 
+        added_colorbar = False
         for filename in os.listdir(results_dir):
-            result,result1,result2 = get_result(filename)
+            result,result1,result2 = get_result(filename,results_dir,compare_dir)
             if result == "__PASS__":
                 continue
             if result == None:
@@ -709,15 +710,15 @@ def scatter_plot(SPI_result = None,num_arcs = 50,num_subdivisions = 40, result_h
             if plot_against_q:
                 radial_axis =  result.q        
             radial_axis = radial_axis[0]              
-            identical_count = np.zeros(result.z.shape)
-            tmp_z = np.zeros(result.z.shape)
-            tmp_z1 = np.zeros(tmp_z.shape)
-            tmp_z2 = np.zeros(tmp_z.shape)
+            identical_count = np.zeros(result.I.shape)
+            tmp_z = np.zeros(result.I.shape)
+            tmp_I1 = np.zeros(tmp_z.shape)
+            tmp_I2 = np.zeros(tmp_z.shape)
             processed_copies = []
-            unique_values_mask = np.zeros(result.z.shape,dtype="bool")
+            unique_values_mask = np.zeros(result.I.shape,dtype="bool")
             # Catch for multiple overlapping points (within same orientation only!!!) (does work, but would be unlikely.)
             # TODO need to do something about fact that overlapping points with many plots will hide points. Not critical rn thanks to sectors. 
-            for i in range(len(result.z)):
+            for i in range(len(result.I)):
                 if (radial_axis[i], result.azm[i],result.image_index[i])  in processed_copies:
                     unique_values_mask[i] = False
                     continue
@@ -730,57 +731,55 @@ def scatter_plot(SPI_result = None,num_arcs = 50,num_subdivisions = 40, result_h
                 for elem in matching_rad_idx[0]:
                     if elem in matching_phi_idx[0]:
                         identical_count[i] += 1
-                        matching = result.z[(radial_axis == radial_axis[i])*(result.azm == result.azm[i])]
+                        matching = result.I[(radial_axis == radial_axis[i])*(result.azm == result.azm[i])]
                         for value in matching:
                             tmp_z[i] += value
                         if result2 != None:
-                            matching1 = result1.z[(radial_axis == radial_axis[i])*(result.azm == result.azm[i])]
+                            matching1 = result1.I[(radial_axis == radial_axis[i])*(result.azm == result.azm[i])]
                             for value in matching1:
-                                tmp_z1[i] += value           
-                            matching2 = result2.z[(radial_axis == radial_axis[i])*(result.azm == result.azm[i])]
+                                tmp_I1[i] += value           
+                            matching2 = result2.I[(radial_axis == radial_axis[i])*(result.azm == result.azm[i])]
                             for value in matching2:
-                                tmp_z2[i] += value                                                      
+                                tmp_I2[i] += value                                                      
 
                 #processed_copies.append((radial_axis[i],result.azm[i],result.image_index[i]))
             #print("processed copies:",processed_copies)
             
             identical_count = identical_count[unique_values_mask]
             tmp_z = tmp_z[unique_values_mask]
-            tmp_z1 = tmp_z1[unique_values_mask]
-            tmp_z2 = tmp_z2[unique_values_mask]
+            tmp_I1 = tmp_I1[unique_values_mask]
+            tmp_I2 = tmp_I2[unique_values_mask]
             radial_axis = radial_axis[unique_values_mask]
             azm = result.azm[unique_values_mask]
             
             z = tmp_z
-            z1 = tmp_z1
-            z2 = tmp_z2
-
+            I1 = tmp_I1
+            I2 = tmp_I2
             #sector_histogram += get_histogram_contribution(z,result.azm,radial_axis)
             if result2 != None:
-                numerators,denominators = get_sector_histogram_contribution(z1,z2,azm,radial_axis)
-                # Average over orientations' sector R factors: 
-                non_zero_denon = denominators.copy()
-                non_zero_denon[non_zero_denon == 0] = 1
-                sector_histogram += np.divide(numerators,non_zero_denon)/num_orientations
+                ## Sectors/Fragmented rings ##
+                numerators,denominators = get_sector_histogram_contribution(I1,I2,azm,radial_axis)
+                # # Average over orientations' sector R factors:  # Doesn't work because when sector is empty it reduces the average.
+                # non_zero_denon = denominators.copy()
+                # non_zero_denon[non_zero_denon == 0] = 1
+                # sector_histogram += np.divide(numerators,non_zero_denon)/num_orientations
                 # Alternative: Not averaging:
-                sector_num_histogram += np.divide(numerators,num_orientations)
-                sector_den_histogram += np.divide(denominators,num_orientations)                
+                sector_num_histogram += numerators
+                sector_den_histogram += denominators                
 
-                # Average over entire rings
-                numerators,denominators = get_sector_histogram_contribution(z1,z2,azm,radial_axis,phi_edges = np.array([-np.pi,np.pi]))
-                numerators = np.tile(numerators,(1,num_arcs))
-                denominators = np.tile(denominators,(1,num_arcs))
-                non_zero_denon = denominators.copy()
-                non_zero_denon[non_zero_denon == 0] = 1                
-                R_histogram += np.divide(numerators,non_zero_denon)/num_orientations
+                ## Full rings ## Note: we are filling 2d arrays with same-valued arcs for each radius so that pcolormesh can plot circles. 
+                # The numerators/denominators are effectively tiled, e.g.: numerators = np.tile(numerators,(1,num_arcs))
+                # Average over entire rings.
+                numerators,denominators = get_sector_histogram_contribution(I1,I2,azm,radial_axis,phi_edges = np.array([-np.pi,np.pi]))
+                # non_zero_denon = denominators.copy()
+                # non_zero_denon[non_zero_denon == 0] = 1                
+                # R_histogram += np.divide(numerators,non_zero_denon)/num_orientations # Doesn't work because when sector is empty it reduces the average.
                 # Alternative: Not averaging:
-                R_num_histogram += np.divide(numerators,num_orientations)
-                R_den_histogram += np.divide(denominators,num_orientations)                  
+                R_num_histogram += numerators
+                R_den_histogram += denominators                 
 
             if log_I: 
-                z = np.log(z)
-                z1 = np.log(z1)
-                z2 = np.log(z2)         
+                z = np.log(z)      
 
             #debug_mask = (0.01 < radial_axis[0])*(radial_axis[0] < 100)
             #print(identical_count[debug_mask])
@@ -797,37 +796,63 @@ def scatter_plot(SPI_result = None,num_arcs = 50,num_subdivisions = 40, result_h
             if fixed_dot_size:
                 s = [100*dot_size for x in dot_param]
 
+            # use cmap to get colours but with alpha following a specific rule
             COL = MplColorHelper(cmap, 0, 1) 
-            thing = np.array([[COL.get_rgb(K)[0], COL.get_rgb(K)[1],COL.get_rgb(K)[2],np.clip((K*(max_alpha-min_alpha))/(max_z) + min_alpha,min_alpha,None)] for K in z])
+            alpha_modified_cmap_colours = np.array([[COL.get_rgb(K)[0], COL.get_rgb(K)[1],COL.get_rgb(K)[2],np.clip((K*(max_alpha-min_alpha))/(max_z) + min_alpha,min_alpha,None)] for K in z])
             #print("THING",thing)
-            colours = [(r,g,b,a) for r,g,b,a in thing] 
+            colours = [(r,g,b,a) for r,g,b,a in alpha_modified_cmap_colours] 
             colours = np.around(colours,10)   
 
-            sc = ax.scatter(azm,radial_axis,c=colours,s=s,**kw) #TODO try using alpha = 0.7 or something to guarantee overlapped points not hidden
+            if not added_colorbar:
+                if compare_dir == None: 
+                    print("Warning, colorbar not working with color power at present. Need to create cmap from COL")
+                    if not normalise_intensity_map:
+                        # Good for debugging
+                        fig.colorbar(cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=np.min(z),vmax=np.max(z)),cmap=cmap),ax=ax)
+                        print("Attention: Not normalising intensities, but still arbitrary units")
+                        print("Warning: not yet taking into account combined dots!! Scale is off!")
+                    else:
+                        fig.colorbar(cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=0,vmax=1),cmap=cmap),ax=ax) 
+                else:
+                    #TODO get this truncation of bar working https://stackoverflow.com/questions/40982050/matplotlib-how-to-cut-the-unwanted-part-of-a-colorbar
+                    # from matplotlib import colorbar
+                    # colors = cmap(np.linspace(1.-(0.5-0.3)/float(0.5), 1, cmap.N))
+                    # cbar_cmap = matplotlib.colors.LinearSegmentedColormap.from_list(cmap, colors)
+                    # cax,_ = colorbar.make_axes(ax)
+                    # norm= mpl.colors.Normalize(vmin=0,vmax=1)
+                    # cbar = colorbar.ColorbarBase(cax, cmap=cbar_cmap, norm=norm)
+                    # cbar.set_ticks([0.3,0.4,0.5])
+                    # cbar.set_ticklabels([0.3,0.4,0.5])
+                    fig.colorbar(cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=0,vmax=1),cmap=cmap),ax=ax) 
+                         
+                print(z)
+                added_colorbar = True
+
+            sc = ax.scatter(azm,radial_axis,c=colours,s=s) #TODO try using alpha = 0.7 or something to guarantee overlapped points not hidden
             plt.grid(False) 
             #TODO only show first index or something. or have option to switch between image indexes. oof coding.
             if show_labels:
-                for i, txt in enumerate(result.txt[unique_values_mask]):
-                    ax.annotate("%.0f" % txt[0]+","+"%.0f" % txt[1]+","+"%.0f" % txt[2]+",", (azm[i], radial_axis[i]),ha='center') 
-        fig.colorbar(sc)
+                for i, miller_indices in enumerate(result.miller_indices[unique_values_mask]):
+                    ax.annotate("%.0f" % miller_indices[0]+","+"%.0f" % miller_indices[1]+","+"%.0f" % miller_indices[2]+",", (azm[i], radial_axis[i]),ha='center') 
         add_screen_properties()
         plt.show()  
-        print("Plotting orientation-averaged R factor")
-        plot_sectors(sector_histogram = sector_histogram)
-        non_zero_denon_histogram = sector_den_histogram.copy()
-        non_zero_denon_histogram[non_zero_denon_histogram== 0] = 1        
-        sector_histogram = np.divide(sector_num_histogram,non_zero_denon_histogram)
-        print("Plotting total R factor")
-        plot_sectors(sector_histogram = sector_histogram)
+        if compare_handle != None:
+            #print("Plotting orientation-averaged R factor") # Doesn't work because when sector is empty it reduces the average.
+            #plot_sectors(sector_histogram = sector_histogram)
+            non_zero_denon_histogram = sector_den_histogram.copy()
+            non_zero_denon_histogram[non_zero_denon_histogram== 0] = 1        
+            sector_histogram = np.divide(sector_num_histogram,non_zero_denon_histogram)
+            print("Plotting total R factor")
+            plot_sectors(sector_histogram = sector_histogram)
 
-        print("plotting full ring orientation-averaged R factor")
-        plot_sectors(R_histogram)
+            #print("plotting full ring orientation-averaged R factor") # Doesn't work because when sector is empty it reduces the average.
+            #plot_sectors(R_histogram)
 
-        non_zero_denon_histogram = R_den_histogram.copy()
-        non_zero_denon_histogram[non_zero_denon_histogram== 0] = 1        
-        R_histogram = np.divide(R_num_histogram,non_zero_denon_histogram)       
-        print("plotting full ring total R factor ")
-        plot_sectors(R_histogram) 
+            non_zero_denon_histogram = R_den_histogram.copy()
+            non_zero_denon_histogram[non_zero_denon_histogram== 0] = 1        
+            R_histogram = np.divide(R_num_histogram,non_zero_denon_histogram)       
+            print("plotting full ring total R factor ") 
+            plot_sectors(R_histogram) 
 
         
 
@@ -840,17 +865,22 @@ def scatter_plot(SPI_result = None,num_arcs = 50,num_subdivisions = 40, result_h
         result = SPI_result
         ## Continuous (SPI)
         if log_I: 
-            z = np.log(result.z)
+            z = np.log(result.I)
         else:
-            z = result.z        
+            z = result.I        
         if log_I and cutoff_log_intensity != None:
             #cutoff_log_intensity = -1
             z -= cutoff_log_intensity
             z[z<0] = 0
             pass
-        ax.pcolormesh(result.phi, radial_axis, z,**kw)
-        ax.plot(result.azm, radial_axis, color = 'k',ls='none')
-        plt.grid()  # Make the grid lines represent one unit cell (when implemented).
+        #radial_axis = result.r
+        if plot_against_q:
+            radial_axis =  result.q         
+        fig = plt.figure()
+        ax = fig.add_subplot(projection="polar")        
+        ax.pcolormesh(result.phi, radial_axis, z,cmap=cmap)
+        ax.plot(result.phi, radial_axis, color = 'k',ls='none')
+        plt.grid(False) 
 
         if radial_lim:
             bottom,top = plt.ylim()
@@ -860,20 +890,177 @@ def scatter_plot(SPI_result = None,num_arcs = 50,num_subdivisions = 40, result_h
 
     def get_orientation_set_of_folder():
         '''Returns a list of orientations present in results subfolder'''
+
+
+
+# https://stackoverflow.com/questions/7404116/defining-the-midpoint-of-a-colormap-in-matplotlib
+from mpl_toolkits.axes_grid1 import AxesGrid
+import matplotlib
+
+def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
+    '''
+    Function to offset the "center" of a colormap. Useful for
+    data with a negative min and positive max and you want the
+    middle of the colormap's dynamic range to be at zero.
+
+    Input
+    -----
+      cmap : The matplotlib colormap to be altered
+      start : Offset from lowest point in the colormap's range.
+          Defaults to 0.0 (no lower offset). Should be between
+          0.0 and `midpoint`.
+      midpoint : The new center of the colormap. Defaults to 
+          0.5 (no shift). Should be between 0.0 and 1.0. In
+          general, this should be  1 - vmax / (vmax + abs(vmin))
+          For example if your data range from -15.0 to +5.0 and
+          you want the center of the colormap at 0.0, `midpoint`
+          should be set to  1 - 5/(5 + 15)) or 0.75
+      stop : Offset from highest point in the colormap's range.
+          Defaults to 1.0 (no upper offset). Should be between
+          `midpoint` and 1.0.
+    '''
+    cdict = {
+        'red': [],
+        'green': [],
+        'blue': [],
+        'alpha': []
+    }
+
+    # regular index to compute the colors
+    reg_index = np.linspace(start, stop, 257)
+
+    # shifted index to match the data
+    shift_index = np.hstack([
+        np.linspace(0.0, midpoint, 128, endpoint=False), 
+        np.linspace(midpoint, 1.0, 129, endpoint=True)
+    ])
+
+    for ri, si in zip(reg_index, shift_index):
+        r, g, b, a = cmap(ri)
+
+        cdict['red'].append((si, r, r))
+        cdict['green'].append((si, g, g))
+        cdict['blue'].append((si, b, b))
+        cdict['alpha'].append((si, a, a))
+
+    newcmap = matplotlib.colors.LinearSegmentedColormap(name, cdict)
+    plt.register_cmap(cmap=newcmap)
+
+    return newcmap
+
+def get_result(filename,results_dir,compare_dir = None):
+    #Requires all orientations of result_handle in compare_handle, but not vice versa.
+    fpath = os.path.join(results_dir, filename)
+    if os.path.isfile(fpath):
+        with open(fpath,'rb') as f:
+            result = pickle.load(f)
+            result1 = copy.deepcopy(result)
+    else: 
+        return "__PASS__" 
+    result2 = None
+    if compare_dir != None:
+        if filename in os.listdir(compare_dir):
+            fpath2 = os.path.join(compare_dir, filename)
+            with open(fpath2,'rb') as f:
+                result2 = pickle.load(f)
+            result.diff(result2)                    
+        else:
+            print("ERROR, missing matching orientation in comparison directory")
+            return None # No corresponding file found.
+    if result2 == None:
+        result1 = None            
+    return result, result1, result2
+
+
+
+
+#%% https://scripts.iucr.org/cgi-bin/paper?S0021889807029238, http://superflip.fzu.cz/
+
+import pandas as pd
+import csv
+def create_reflection_file(result_handle):
+    print("Creating reflection file for",result_handle)
+    directory = "reflections/"    
+    results_dir = "results/"+ result_handle+"/"
+    os.makedirs(directory, exist_ok=True) 
+    results_dir = "results/"+result_handle+"/"
+    init = False
+    for filename in os.listdir(results_dir):
+        result,result1,result2 = get_result(filename,results_dir)
+        if result == "__PASS__":
+            continue            
+        if result == None:
+            break          
+        miller_indices = result.miller_indices
+        intensity = np.array([result.I]).T
+        print(miller_indices)
+        print(intensity)
+        data = np.concatenate((miller_indices,intensity),axis=1)
+        # Put in data frame
+        columns = ["h","k","l","I"]
+        new_df = pd.DataFrame(data=data, columns=columns)
+        if init == False:
+            df = new_df
+            init = True
+        else:
+            df = pd.concat((df,new_df))
+    # Save as file
+    out_path = directory + result_handle + ".rfl"
+    if os.path.isfile(out_path): 
+        os.remove(out_path)
+    columns.reverse()
+    df = df.sort_values(by=["l","h","k"],axis=0)
+    for i in ("hkl"):
+        df[i] = df[i].astype('int')
+    df.to_csv(out_path,header=False,index=False,float_format='%10f', sep=" ", quoting=csv.QUOTE_NONE, escapechar=" ")
+
+#create_reflection_file(exp_name1)
+
 #%% 
+root = "b"
+tag = 0
+#%%
+### Simulate tetrapeptide
+tag += 1
 #  #TODO make this nicer and pop in a function 
 DEBUG = False
-#energy = 6000 # Tetrapeptide 
-energy =17445   #crambin - from resolutions. in pdb file, need to double check calcs: #q_min=0.11,q_cutoff = 3.9,  my defaults: pixels_per_ring = 400, num_rings = 200
+energy = 12561 # Tetrapeptide (though AC4DCsimulation was 6000 eV oops) 
+#energy =17445   #crambin - from resolutions. in pdb file, need to double check calcs: #q_min=0.11,q_cutoff = 3.9,  my defaults: pixels_per_ring = 400, num_rings = 200
 
-exp_name1 = "1temp8"
-exp_name2 = "2temp8"
-#orientation_set = [[np.pi/4,0,0],[0,0,0],[0,np.pi/4,0]]
+
+exp_name1 = str(root) + "1_" + str(tag)
+exp_name2 = str(root) + "2_" + str(tag)
+
+
+
+allowed_atoms_1 = ["C_fast","N_fast","O_fast"]#,"S_fast"]
+allowed_atoms_2 = ["C_fast","N_fast","O_fast"]#,"S_fast"]
+
+end_time_1 = -10#-9.95
+end_time_2 = -5#-9.80  
+
 #orientation_set = [[5.532278012665244, 1.6378991611963682, 1.3552062099726534]] # Spooky spider orientation
-#orientation_set = [[6.153223907916695, 3.9691232140013524, 2.2006805479640956]]
-#orientation_set = [[0,0,0] for g in range(19)]
-orientation_set = [[0,0,z_angle] for z_angle in np.linspace(0,2*np.pi,20,endpoint=False)]
-random_orientation = False
+num_orients = 50
+# [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
+ax_x = 0
+ax_y = 1
+ax_z = 1
+random_orientation = True  # if true, overrides orientation_set
+
+rock_angle = 0.3 # degrees
+
+pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb" #tetrapeptide
+
+output_handle = "Full_Tetrapeptide"#"C_tetrapeptide_4"#"Improved_Lys_mid_6"
+
+#---------------------------------#
+
+
+# if not random:
+orientation_axis = Bio_Vect(ax_x,ax_y,ax_z)
+orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0,2*np.pi,num_orients,endpoint=False)]
+orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
+print(orientation_set)
 
 experiment1 = XFEL(exp_name1,energy,100, hemisphere_screen = False, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
 experiment2 = XFEL(exp_name2,energy,100, hemisphere_screen = False, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
@@ -884,17 +1071,11 @@ experiment2 = XFEL(exp_name2,energy,100, hemisphere_screen = False, orientation_
 # sym_translations = [np.array([0,0,0])]
 # cell_dim = [np.array([1,1,1])]  
 
-pdb_path = "/home/speno/AC4DC/scripts/scattering/3u7t.pdb" #Crambin
-
-allowed_atoms_1 = ["C_fast","N_fast","O_fast"]#,"S_fast"]
-allowed_atoms_2 = ["C_fast","N_fast","O_fast"]#,"S_fast"]
-end_time_1 = -10#-9.95
-end_time_2 = -9.92#-9.80
-output_handle = "A_tetrapeptide_5"#"C_tetrapeptide_4"#"Improved_Lys_mid_6"
-
-crystal = Crystal(pdb_path,allowed_atoms_1,CNO_to_N=False,cell_packing = "SC")
-crystal.set_cell_dim(20, 20, 20)
-crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))
+crystal = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=False,cell_packing = "SC")
+crystal.set_cell_dim(10.3630,12.8300,19.6660)
+crystal.add_symmetry(np.array([-1, -1,1]),np.array([0.5,0,0.5]))  #2555
+crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))  #3555
+crystal.add_symmetry(np.array([1, -1,-1]),np.array([0.5,0.5,0]))  #4555
 
 SPI = False
 
@@ -903,11 +1084,75 @@ exp1_orientations = experiment1.spooky_laser(-10,end_time_1,output_handle,crysta
 experiment2.orientation_set = exp1_orientations
 experiment2.spooky_laser(-10,end_time_2,output_handle,crystal, random_orientation = False, SPI=SPI)
 
+create_reflection_file(exp_name1)
+
+#%%
+### Simulate crambin
+tag += 1
+#  #TODO make this nicer and pop in a function 
+DEBUG = False
+energy =17445   #crambin - from resolutions. in pdb file, need to double check calcs: #q_min=0.11,q_cutoff = 3.9,  my defaults: pixels_per_ring = 400, num_rings = 200
+
+
+exp_name1 = str(root) + "1_" + str(tag)
+exp_name2 = str(root) + "2_" + str(tag)
+
+
+
+allowed_atoms_1 = ["C_fast","N_fast","O_fast","S_fast"]
+allowed_atoms_2 = ["C_fast","N_fast","O_fast","S_fast"]
+
+end_time_1 = -10#-9.95
+end_time_2 = -9.8#-9.80  
+
+#orientation_set = [[5.532278012665244, 1.6378991611963682, 1.3552062099726534]] # Spooky spider orientation
+num_orients = 1
+# [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
+ax_x = 0
+ax_y = 0
+ax_z = 1
+random_orientation = True  # if true, overrides orientation_set
+
+rock_angle = 0.3 # degrees
+
+pdb_path = "/home/speno/AC4DC/scripts/scattering/3u7t.pdb" #Crambin
+
+output_handle = "Improved_Lys_mid_6"
+
+#---------------------------------#
+
+
+# if not random:
+orientation_axis = Bio_Vect(ax_x,ax_y,ax_z)
+orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0,2*np.pi,num_orients,endpoint=False)]
+orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
+print(orientation_set)
+
+experiment1 = XFEL(exp_name1,energy,100, hemisphere_screen = False, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+experiment2 = XFEL(exp_name2,energy,100, hemisphere_screen = False, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+
+
+crystal = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=False,cell_packing = "SC")
+crystal.set_cell_dim(22.795 ,  18.826 ,  41.042)
+crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))   #2555
+
+
+SPI = False
+
+exp1_orientations = experiment1.spooky_laser(-10,end_time_1,output_handle,crystal, random_orientation = random_orientation, SPI=SPI)
+create_reflection_file(exp_name1)
+experiment2.orientation_set = exp1_orientations
+experiment2.spooky_laser(-10,end_time_2,output_handle,crystal, random_orientation = False, SPI=SPI)
+
+
+#
+
+ 
 #%%
 # stylin' 
+
 experiment1_name = exp_name1#"Lys_9.95_random"#exp_name1
 experiment2_name = exp_name2#"lys_9.80_random"#exp_name2 
-#experiment2_name = None
 
 #####
 
@@ -923,16 +1168,20 @@ log_radial = False
 log_I = True
 cutoff_log_intensity = -1#-1
 import colorcet as cc; import cmasher as cmr
-cmap = "plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
+cmap = shiftedColorMap(matplotlib.cm.RdYlGn_r,midpoint=0.2)#"plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
+cmap.set_bad(color='black')
 cmap_power = 1.6
 min_alpha = 0.1
 max_alpha = 1
 colour = "y"
 radial_lim = 5
+full_crange_sectors = False
+
+cmap_intensity = "plasma"
 
 
 # screen_radius = 150#55#165    #
-# q_scr_lim = experiment.r_to_q(screen_radius) #experiment.r_to_q_scr(screen_radius)#3.9  #NOTE this won't be the actual max placeholder_1 but ah well.
+# q_scr_lim = experiment.r_to_q(screen_radius) #experiment.r_to_q_scr(screen_radius)#3.9  #NOTE this won't be the actual max q_parr_screen but ah well.
 # zoom_to_fit = True
 # ####### n'
 # # plottin'
@@ -957,7 +1206,8 @@ if not zoom_to_fit:
 
  #TODO fix above to work with distance
 
-scatter_plot(num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+scatter_plot(num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+scatter_plot(full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
 
 #NEED TO CHECK. We have a 1:1 mapping from q to q_parr, but with our miller indices we are generating multiple q_parr with diff q.
 # So we SHOULD get the same q_parr with different q_z. Which makes sense since we are just doing cosine. But still icky maybe?
@@ -968,7 +1218,49 @@ scatter_plot(num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_na
 # log doesnt work atm.
 # Get the rings to correspond to actual rings
 # %%
+#%%
+### Get undamaged lysozyme SPI
+tag += 1
+#  #TODO make this nicer and pop in a function 
+DEBUG = False
+energy = 12000 
 
+allowed_atoms= ["C_fast","N_fast","O_fast","S_fast"]
+
+end_time = -10#-9.95
+
+rock_angle = 0.3 # degrees
+
+pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb" #Lysozyme
+
+output_handle = "Improved_Lys_mid_6"
+
+#---------------------------------#
+
+
+# if not random:
+orientation_axis = Bio_Vect(ax_x,ax_y,ax_z)
+orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0,2*np.pi,num_orients,endpoint=False)]
+orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
+print(orientation_set)
+
+experiment = XFEL("SPI",energy,100, hemisphere_screen = False, pixels_per_ring = 500, num_rings = 500,t_fineness=100)
+crystal = Crystal(pdb_path,allowed_atoms,CNO_to_N=False,cell_packing = "SC")
+
+SPI = True
+
+SPI_result = experiment.spooky_laser(-10,end_time,output_handle,crystal, SPI=SPI)
+
+#%%
+#TODO Get the colors to match neutze.
+use_q = True
+log_radial = False
+log_I = True
+cutoff_log_intensity = None 
+cmap = "PiYG_r"# "plasma"
+radial_lim = 2
+scatter_plot(SPI_result,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
 
 # get sinc functions with non-infinite crystal
 # 
+# %%
