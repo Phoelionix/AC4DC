@@ -33,27 +33,32 @@ c_au = 137.036; eV_per_Ha = 27.211385
 
 class Results():
     def __init__(self,num_points):
-        self.azm = np.zeros(num_points)
+        self.phi = np.zeros(num_points)
+        self.phi_aligned = np.zeros(num_points)
         self.I = np.zeros(num_points)
         self.q = np.zeros(num_points)
         self.r = np.zeros(num_points)
         self.image_index = np.zeros(num_points)    
 
     def package_up(self,miller_indices):
-        self.q, self.phi = np.meshgrid(self.q,self.azm)  
-        self.r, self.phi = np.meshgrid(self.r, self.azm) 
+        _, self.phi_mesh = np.meshgrid(self.q,self.phi)  
+        self.r, self.phi_mesh = np.meshgrid(self.r, self.phi)
+        self.q, self.phi_aligned_mesh = np.meshgrid(self.q,self.phi_aligned) 
         self.miller_indices = miller_indices 
     def diff(self,other):
+        '''
+        Get single-point R factors between two images
+        '''
+        self.R = np.zeros(self.I.shape)
         for i in range(len(self.q)):
             subtracted = False
             for j in range(len(other.q)):
-                if self.azm[i] == other.azm[j] and self.q[0][i] == other.q[0][j]:
+                if self.phi[i] == other.phi[j] and self.q[0][i] == other.q[0][j]:   # Using phi is equivalent to using phi_aligned, as this function is only used for same-orientation comparisons.
                     #self.I[i] = np.abs(self.I[i]- other.I[j])/self.I[i] # Intensity
-                    self.I[i] = np.abs(np.sqrt(self.I[i])- np.sqrt(other.I[j]))/np.sqrt(max(self.I[i],other.I[j]))# form factor  # TODO not sure why later times is sometimes larger but probs interference thing. Hopefully will disappear when we use large time gaps... or at least when we average over to get R factor.
+                    self.R[i] = np.abs(np.sqrt(self.I[i])- np.sqrt(other.I[j]))/np.sqrt(max(self.I[i],other.I[j]))# form factor  # TODO not sure why later times is sometimes larger but probs interference thing. Hopefully will disappear when we use large time gaps... or at least when we average over to get R factor.
                     subtracted = True
             if subtracted == False:
-                self.I[i] = -1 
-    pass
+                self.R[i] = -1 
 class Results_SPI():
         pass
 
@@ -231,12 +236,12 @@ class XFEL():
 
                     # Initialise stuff that is constant between images (done here to access ring radii.)
                     if rot_y  == 0 and rot_x == 0:
-                        azm = self.phi_array
+                        phi = self.phi_array
                         #radii = np.zeros(self.num_rings)
                         #for i in range(len(ring)):
                             #radii[i] = ring[i].r           
-                        #r, phi = np.meshgrid(radii, azm)     
-                        q, phi = np.meshgrid(q_samples,azm)
+                        #r, phi = np.meshgrid(radii, phi)     
+                        q, phi = np.meshgrid(q_samples,phi)
 
                     I = np.zeros(q.shape)  # I is the intensity of the plot colour.
                     for ang in range(len(I)):
@@ -268,7 +273,8 @@ class XFEL():
                     #     print("New high G[0]!",G[0])
                     point = self.generate_point(G,cardan_angles)
                     #tmp_radii[i] = point.r
-                    result.azm[i] = point.phi
+                    result.phi[i] = point.phi
+                    result.phi_aligned[i] = point.phi_crystal_aligned
                     result.q[i] = point.q_parr_screen
                     result.I[i] = point.I
                     result.image_index[i] = j
@@ -311,7 +317,9 @@ class XFEL():
         point = self.Spot(q,q_parr_screen,theta)
         point.phi = np.arctan2(G[1],G[0])
         point.G = G
-
+        #Crystal-aligned phi. i.e. we realign all the images to be in the 0 0 0 orientation.
+        G = self.rotate_G_to_orientation(G,*cardan_angles,inverse=True)[0]
+        point.phi_crystal_aligned = np.arctan2(G[1],G[0])
                 
         if DEBUG:
             print("q_parr_screen",q_parr_screen,"phi",point.phi,"G",G[0],G[1],G[2])
@@ -588,7 +596,7 @@ def E_to_lamb(photon_energy):
         # q = 4*pi*sin(theta)/lambda = 2pi*u, where q is the momentum in AU (a_0^-1), u is the spatial frequency.
         # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
-def scatter_plot(SPI_result = None,full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, bg_colour = "black",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None):
+def scatter_scatter_plot(crystal_aligned_frame = False ,SPI_result = None,full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, bg_colour = "black",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None):
     ''' (Complete spaghetti at this point.)
     Plots the simulated scattering image.
     result_handle:
@@ -698,48 +706,60 @@ def scatter_plot(SPI_result = None,full_range = True,num_arcs = 50,num_subdivisi
                 print("Not plotting logarithmic I, not supported for comparisons.")
                 log_I = False  
         
-        # Iterate through each orientation (file) to get minimum/maximum for normalisation.
+        # Iterate through each orientation (file) to get minimum/maximum for normalisation of plot of scattering image (not difference image).
         max_z = -np.inf
         min_z = np.inf
         for filename in os.listdir(results_dir):
             #result = get_result(filename)
-            result,result1,result2 = get_result(filename,results_dir,compare_dir)
-            if result == "__PASS__":
+            result1,result2 = get_result(filename,results_dir,compare_dir)
+            if result1 == "__PASS__":
                 continue            
-            if result == None:
+            if result1 == None:
                 break  
             num_orientations += 1
-            max_z = max(max_z,np.max(result.I))
-            min_z = min(min_z,np.min(result.I))
-            if max_z > 1 and compare_dir != None:
-                print("error, max_z =",max_z)
+            if compare_dir != None:
+                max_z = max(max_z,np.max(result1.R))
+                min_z = min(min_z,np.min(result1.R))
+                if max_z > 1:
+                    print("error, max_R =",max_z)
+                if min_z < 0:
+                    print("error, min_R =",min_z)
+            else:
+                max_z = max(max_z,np.max(result1.I))
+                min_z = min(min_z,np.min(result1.I))
+        # Apply log (to non-diff image)
         if log_I:
             max_z = np.log(max_z)
             min_z = np.log(min_z)
         print("max,min",max_z,min_z)
-        # Plot each orientation's scattering pattern 
+        # Plot each orientation's scattering pattern/add each to sector histogram
         added_colorbar = False
         for filename in os.listdir(results_dir):
-            result,result1,result2 = get_result(filename,results_dir,compare_dir)
-            if result == "__PASS__":
+            result1,result2 = get_result(filename,results_dir,compare_dir)
+            if result1 == "__PASS__":
                 continue
-            if result == None:
+            if result1 == None:
                 break         
             # get points at same position on screen.
-            radial_axis = result.r
+            radial_axis = result1.r
             if plot_against_q:
-                radial_axis =  result.q        
-            radial_axis = radial_axis[0]              
-            identical_count = np.zeros(result.I.shape)
-            tmp_z = np.zeros(result.I.shape)
-            tmp_I1 = np.zeros(tmp_z.shape)
-            tmp_I2 = np.zeros(tmp_z.shape)
+                radial_axis =  result1.q        
+            radial_axis = radial_axis[0]    
+            identical_count = np.zeros(result1.I.shape)
+            
+            
+            if crystal_aligned_frame:
+                phi = result1.phi_aligned
+            else:
+                phi  = result1.phi
+            tmp_I1 = np.zeros(result1.I.shape)
+            tmp_I2 = np.zeros(tmp_I1.shape)
             processed_copies = []
-            unique_values_mask = np.zeros(result.I.shape,dtype="bool")
+            unique_values_mask = np.zeros(result1.I.shape,dtype="bool")
             # Catch for multiple overlapping points (within same orientation only!!!) (does work, but would be unlikely.)
             # TODO need to do something about fact that overlapping points with many plots will hide points. Not critical rn thanks to sectors. 
-            for i in range(len(result.I)):
-                if (radial_axis[i], result.azm[i],result.image_index[i])  in processed_copies:
+            for i in range(len(result1.I)):
+                if (radial_axis[i], phi[i],result1.image_index[i])  in processed_copies:
                     unique_values_mask[i] = False
                     continue
                 else:
@@ -747,38 +767,43 @@ def scatter_plot(SPI_result = None,full_range = True,num_arcs = 50,num_subdivisi
                     
                 # Boolean masks
                 matching_rad_idx = np.nonzero(radial_axis == radial_axis[i])  # numpy note: equiv. to np.where(condition). Non-zero part irrelevant.
-                matching_phi_idx = np.nonzero(result.azm == result.azm[i])
+                matching_phi_idx = np.nonzero(phi == phi[i])
                 for elem in matching_rad_idx[0]:
                     if elem in matching_phi_idx[0]:
                         identical_count[i] += 1
-                        matching = result.I[(radial_axis == radial_axis[i])*(result.azm == result.azm[i])]
-                        for value in matching:
-                            tmp_z[i] += value
+                        matching1 = result1.I[(radial_axis == radial_axis[i])*(phi == phi[i])]
+                        for value in matching1:
+                            tmp_I1[i] += value    
                         if result2 != None:
-                            matching1 = result1.I[(radial_axis == radial_axis[i])*(result.azm == result.azm[i])]
-                            for value in matching1:
-                                tmp_I1[i] += value           
-                            matching2 = result2.I[(radial_axis == radial_axis[i])*(result.azm == result.azm[i])]
+                            matching2 = result2.I[(radial_axis == radial_axis[i])*(phi == phi[i])]
                             for value in matching2:
                                 tmp_I2[i] += value                                                      
 
-                #processed_copies.append((radial_axis[i],result.azm[i],result.image_index[i]))
+                #processed_copies.append((radial_axis[i],phi[i],result.image_index[i]))
             #print("processed copies:",processed_copies)
-            
+
+
+            result = copy.deepcopy(result1)
+            result.I = tmp_I1 
+            # get z used for colour of scatter plot.
+            if compare_dir != None:
+                result2.I = tmp_I2                    
+                result.diff(result2)
+                z = result.R[unique_values_mask]
+            else:
+                z = result.I[unique_values_mask]
+
             identical_count = identical_count[unique_values_mask]
-            tmp_z = tmp_z[unique_values_mask]
-            tmp_I1 = tmp_I1[unique_values_mask]
-            tmp_I2 = tmp_I2[unique_values_mask]
+            # Intensities used for histogram 
+            I1 = tmp_I1[unique_values_mask]
+            I2 = tmp_I2[unique_values_mask]
             radial_axis = radial_axis[unique_values_mask]
-            azm = result.azm[unique_values_mask]
-            
-            z = tmp_z
-            I1 = tmp_I1
-            I2 = tmp_I2
-            #sector_histogram += get_histogram_contribution(z,result.azm,radial_axis)
+            phi = phi[unique_values_mask]
+
+            #sector_histogram += get_histogram_contribution(z,result.phi,radial_axis)
             if result2 != None:
                 ## Sectors/Fragmented rings ##
-                numerators,denominators = get_sector_histogram_contribution(I1,I2,azm,radial_axis)
+                numerators,denominators = get_sector_histogram_contribution(I1,I2,phi,radial_axis)
                 # # Average over orientations' sector R factors:  # Doesn't work because when sector is empty it reduces the average.
                 # non_zero_denon = denominators.copy()
                 # non_zero_denon[non_zero_denon == 0] = 1
@@ -790,7 +815,7 @@ def scatter_plot(SPI_result = None,full_range = True,num_arcs = 50,num_subdivisi
                 ## Full rings ## Note: we are filling 2d arrays with same-valued arcs for each radius so that pcolormesh can plot circles. 
                 # The numerators/denominators are effectively tiled, e.g.: numerators = np.tile(numerators,(1,num_arcs))
                 # Average over entire rings.
-                numerators,denominators = get_sector_histogram_contribution(I1,I2,azm,radial_axis,phi_edges = np.array([-np.pi,np.pi]))
+                numerators,denominators = get_sector_histogram_contribution(I1,I2,phi,radial_axis,phi_edges = np.array([-np.pi,np.pi]))
                 # non_zero_denon = denominators.copy()
                 # non_zero_denon[non_zero_denon == 0] = 1                
                 # R_histogram += np.divide(numerators,non_zero_denon)/num_orientations # Doesn't work because when sector is empty it reduces the average.
@@ -804,7 +829,7 @@ def scatter_plot(SPI_result = None,full_range = True,num_arcs = 50,num_subdivisi
             #debug_mask = (0.01 < radial_axis[0])*(radial_axis[0] < 100)
             #print(identical_count[debug_mask])
             #print(radial_axis[0][debug_mask])
-            #print(azm[debug_mask ]*180/np.pi)
+            #print(phi[debug_mask ]*180/np.pi)
             # Dot size
             dot_param = z
             if crystal_pattern_only:
@@ -845,15 +870,15 @@ def scatter_plot(SPI_result = None,full_range = True,num_arcs = 50,num_subdivisi
                     # cbar.set_ticklabels([0.3,0.4,0.5])
                     fig.colorbar(cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=0,vmax=1),cmap=cmap),ax=ax) 
                          
-                print(z)
+                #print(z)
                 added_colorbar = True
 
-            sc = ax.scatter(azm,radial_axis,c=colours,s=s) #TODO try using alpha = 0.7 or something to guarantee overlapped points not hidden
+            sc = ax.scatter(phi,radial_axis,c=colours,s=s) #TODO try using alpha = 0.7 or something to guarantee overlapped points not hidden
             plt.grid(alpha = min(show_grid,0.6),dashes=(5,10)) 
             #TODO only show first index or something. or have option to switch between image indexes. oof coding.
             if show_labels:
                 for i, miller_indices in enumerate(result.miller_indices[unique_values_mask]):
-                    ax.annotate("%.0f" % miller_indices[0]+","+"%.0f" % miller_indices[1]+","+"%.0f" % miller_indices[2]+",", (azm[i], radial_axis[i]),ha='center') 
+                    ax.annotate("%.0f" % miller_indices[0]+","+"%.0f" % miller_indices[1]+","+"%.0f" % miller_indices[2]+",", (phi[i], radial_axis[i]),ha='center') 
         add_screen_properties()
         plt.show()  
         if compare_handle != None:
@@ -897,8 +922,11 @@ def scatter_plot(SPI_result = None,full_range = True,num_arcs = 50,num_subdivisi
         if plot_against_q:
             radial_axis =  result.q         
         fig = plt.figure()
-        ax = fig.add_subplot(projection="polar")        
-        ax.pcolormesh(result.phi, radial_axis, z,cmap=cmap)
+        ax = fig.add_subplot(projection="polar")
+        phi_mesh = result.phi_mesh
+        if crystal_aligned_frame:
+            phi_mesh = result.phi_aligned_mesh        
+        ax.pcolormesh(phi_mesh, radial_axis, z,cmap=cmap)
         ax.plot(result.phi, radial_axis, color = 'k',ls='none')
         plt.grid(alpha=min(show_grid,0.6),dashes=(5,10)) 
 
@@ -973,23 +1001,20 @@ def get_result(filename,results_dir,compare_dir = None):
     fpath = os.path.join(results_dir, filename)
     if os.path.isfile(fpath):
         with open(fpath,'rb') as f:
-            result = pickle.load(f)
-            result1 = copy.deepcopy(result)
+            result1 = pickle.load(f)
     else: 
-        return "__PASS__" 
+        return "__PASS__" "__PASS__"
     result2 = None
     if compare_dir != None:
         if filename in os.listdir(compare_dir):
             fpath2 = os.path.join(compare_dir, filename)
             with open(fpath2,'rb') as f:
-                result2 = pickle.load(f)
-            result.diff(result2)                    
+                result2 = pickle.load(f)     
+                result1.diff(result2)             
         else:
             print("ERROR, missing matching orientation in comparison directory")
-            return None # No corresponding file found.
-    if result2 == None:
-        result1 = None            
-    return result, result1, result2
+            return None, None # No corresponding file found.          
+    return result1, result2
 
 
 
@@ -1006,7 +1031,7 @@ def create_reflection_file(result_handle,overwrite=False):
     results_dir = "results/"+result_handle+"/"
     init = False
     for filename in os.listdir(results_dir):
-        result,result1,result2 = get_result(filename,results_dir)
+        result = get_result(filename,results_dir)[0]
         if result == "__PASS__":
             continue            
         if result == None:
@@ -1030,15 +1055,18 @@ def create_reflection_file(result_handle,overwrite=False):
             return
         os.remove(out_path)
     columns.reverse()
-    df = df.sort_values(by=["l","h","k"],axis=0)
+    df = df.sort_values(by=["l","k","h"],axis=0)
     for i in ("hkl"):
         df[i] = df[i].astype('int')
+    df["I"] = df["I"].astype('float')
+    df = df.round(6)
+    df.drop_duplicates(inplace=True) 
     df.to_csv(out_path,header=False,index=False,float_format='%10f', sep=" ", quoting=csv.QUOTE_NONE, escapechar=" ")
 
-#create_reflection_file(exp_name1)
+#create_reflection_file("f1_11",True)
 
 #%% 
-root = "e"
+root = "f"
 tag = 0
 #%%
 ### Simulate tetrapeptide
@@ -1061,12 +1089,12 @@ end_time_1 = -10#-9.95
 end_time_2 = 0#-9.80  
 
 #orientation_set = [[5.532278012665244, 1.6378991611963682, 1.3552062099726534]] # Spooky spider orientation
-num_orients = 100#50
+num_orients = 40#50
 # [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
 ax_x = 0
 ax_y = 0
-ax_z = 1
-random_orientation = False # if true, overrides orientation_set
+ax_z = 0
+random_orientation = True # if true, overrides orientation_set
 
 rock_angle = 0.3 # degrees
 
@@ -1094,9 +1122,9 @@ experiment2 = XFEL(exp_name2,energy,100, hemisphere_screen = False, orientation_
 
 crystal = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=False,cell_packing = "SC")
 crystal.set_cell_dim(4.813 ,  17.151 ,  29.564)
-#crystal.add_symmetry(np.array([-1, -1,1]),np.array([0.5,0,0.5]))  #2555
-#crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0.5]))  #3555
-#crystal.add_symmetry(np.array([1, -1,-1]),np.array([0.5,0.5,0]))  #4555
+crystal.add_symmetry(np.array([-1, -1,1]),np.array([0.5,0,0.5]))  #2555
+crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0.5]))  #3555
+crystal.add_symmetry(np.array([1, -1,-1]),np.array([0.5,0.5,0]))  #4555
 
 SPI = False
 
@@ -1109,16 +1137,26 @@ create_reflection_file(exp_name1)
 stylin()
 
 # %%
-
-df = pd.read_csv('plot_points.pl',delim_whitespace=True)
+# Plot atoms retrieved from Superflip/EDMA
+df = pd.read_csv('tet_plot_points.pl',delim_whitespace=True)
 x = df['x']
 y = df['y']
 z = df['z']
 
-fig =plt.figure()
-ax = Axes3D(fig)
-ax.scatter(x,y,z)
 
+xscale = 4.813 
+yscale = 17.151
+zscale = 29.564
+fig =plt.figure(figsize =(zscale,yscale))
+#ax = Axes3D(fig)
+#ax.scatter(x,y,z)
+
+
+x*= xscale
+y*= yscale
+plt.scatter(z,y,c=-x,cmap="Blues",s=200)
+plt.xlabel("z (Ang)")
+plt.ylabel("y (Ang)")
 
 #%%
 ### Simulate crambin
@@ -1251,14 +1289,18 @@ def stylin():
     #TODO fix above to work with distance
 
     # Sectors
-    scatter_plot(full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+    scatter_scatter_plot(crystal_aligned_frame = False,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
     # Intensity of experiment 1. 
-    scatter_plot(show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+    scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+    # Sectors
+    scatter_scatter_plot(crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+    # Intensity of experiment 1. 
+    scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
 
     #NEED TO CHECK. We have a 1:1 mapping from q to q_parr, but with our miller indices we are generating multiple q_parr with diff q.
     # So we SHOULD get the same q_parr with different q_z. Which makes sense since we are just doing cosine. But still icky maybe?
     # Need to double check we get different intensities for same q_parr. Pretty sure that's implemented.
-
+stylin()
 
 #TODO 
 # log doesnt work atm.
@@ -1305,7 +1347,7 @@ log_I = True
 cutoff_log_intensity = None 
 cmap = "PiYG_r"# "plasma"
 radial_lim = 2
-scatter_plot(SPI_result,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+scatter_scatter_plot(SPI_result,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
 
 # get sinc functions with non-infinite crystal
 # 
