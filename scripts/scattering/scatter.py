@@ -126,7 +126,7 @@ class Atomic_Species():
         # e.g. (-1,1,-1),(0,0.5,0) -> -X,Y+1/2,-Z  
 
 class XFEL():
-    def __init__(self, experiment_name, photon_energy, detector_distance, hemisphere_screen = True, orientation_set = [[0,0,0],], x_orientations = 1, y_orientations = 1,q_cutoff="max", pixels_per_ring = 400, num_rings = 50,t_fineness=100):
+    def __init__(self, experiment_name, photon_energy, detector_distance, hemisphere_screen = True, orientation_set = [[0,0,0],], x_orientations = 1, y_orientations = 1,q_cutoff="hemisphere", pixels_per_ring = 400, num_rings = 50,t_fineness=100):
         """ #### Initialise the imaging experiment's controlled parameters
         experiment_name:
             String that the output folder will be named.        
@@ -159,8 +159,12 @@ class XFEL():
         self.x_orientations = x_orientations
         self.y_orientations = y_orientations
 
-        if q_cutoff == "max":
-            q_cutoff = 2*self.photon_momentum  - 0.00000001# :sphere -  hemisphere: self.photon_momentum*(1/np.sqrt(2))  - 0.00000001 # as q = 2ksin(theta).  non-inclusive upper bound is 45 degrees(theoretically).
+ 
+        if q_cutoff == "hemisphere":
+            # as q = 2ksin(theta), non-inclusive upper bound is 45 degrees(theoretically).  
+            q_cutoff = 2*self.photon_momentum/np.sqrt(2)  - 0.00000001       
+        if q_cutoff == "sphere":
+            q_cutoff = 2*self.photon_momentum  - 0.00000001
         self.q_cutoff = q_cutoff
 
         self.t_fineness = t_fineness
@@ -262,7 +266,7 @@ class XFEL():
                     # if G[0] > largest_x:
                     #     largest_x = G[0]
                     #     print("New high G[0]!",G[0])
-                    point = self.generate_point(G)
+                    point = self.generate_point(G,cardan_angles)
                     #tmp_radii[i] = point.r
                     result.azm[i] = point.phi
                     result.q[i] = point.q_parr_screen
@@ -297,7 +301,7 @@ class XFEL():
         ring = self.Ring(q,q_parr_screen,theta)
         ring.I = self.illuminate(ring)
         return ring 
-    def generate_point(self,G): # G = vector
+    def generate_point(self,G,cardan_angles): # G = vector
         q = np.sqrt(G[0]**2+G[1]**2+G[2]**2)
         #r = self.q_to_r(q) # TODO
         q_parr_screen = self.q_to_q_scr(q)
@@ -316,7 +320,7 @@ class XFEL():
         #print("phi",point.phi,"q_parr_screen",point.q_parr_screen)
         
         phis = np.array([point.phi])
-        point.I = self.illuminate(point,phis)
+        point.I = self.illuminate(point,phis,cardan_angles)
         # # Trig check      
         # check = smth  # check = np.sqrt(G[0]**2+G[1]**2)
         # if q_parr_screen != check:
@@ -326,31 +330,37 @@ class XFEL():
 
     # Returns the relative intensity at point q for the target's unit cell, i.e. ignoring crystalline effects.
     # If the feature is a bragg spot, this gives its relative intensity, but due to photon conservation won't be the same as the intensity without crystallinity - additionally different factors for non-zero form factors occur across different crystal patterns.
-    def illuminate(self,feature,phis = None):  # Feature = ring or spot.
+    def illuminate(self,feature,phis = None,cardan_angles = None):  # Feature = ring or spot.
         """Returns the intensity at q. Not crystalline yet."""
         if phis == None:
             phis = self.phi_array
         F = np.zeros(phis.shape,dtype="complex_")
+        count = 0
         for species in self.target.species_dict.values():
             species.set_scalar_form_factor(feature.q)
-            for R in species.coords:
-                    # Rotate to crystal's current orientation 
-                    R = R.left_multiply(self.y_rot_matrix)  
-                    R = R.left_multiply(self.x_rot_matrix)   
-                    # Get spatial factor T
-                    T = np.zeros(phis.shape,dtype="complex_")
-                    if SPI:
-                        T = self.SPI_spatial_factor(phis,R,feature)
-                    else:
-                        T= self.spatial_factor(phis,R,feature)
-                    F += species.ff*T
-                    # Rotate atom for next sample            
+            # iterate through each symmetry of unit cell (each asymmetric unit)
+            for s in range(len(self.target.sym_factors)):
+                for R in species.coords:
+                        count += 1
+                        # Rotate to crystal's current orientation 
+                        R = R.left_multiply(self.y_rot_matrix)  
+                        R = R.left_multiply(self.x_rot_matrix)   
+                        coord = np.multiply(R.get_array(),self.target.sym_factors[s]) + np.multiply(self.target.cell_dim,self.target.sym_translations[s])
+                        # Get spatial factor T
+                        T = np.zeros(phis.shape,dtype="complex_")
+                        if SPI:
+                            T = self.SPI_spatial_factor(phis,coord,feature)
+                        else:
+                            T= self.spatial_factor(phis,coord,feature,cardan_angles)
+                        F += species.ff*T
+                        # Rotate atom for next sample            
+        #print("iterated through",count,"atoms")
         I = np.square(np.abs(F))
         
 
         return I 
 
-    def spatial_factor(self,phi_array,R,feature):
+    def spatial_factor(self,phi_array,coord,feature,cardan_angles):
         """ theta = scattering angle relative to z-y plane """ 
         q_z = feature.G[2]#feature.q_parr_screen*np.sin(feature.theta) TODO replace with functional method
         q_z = np.tile(q_z,len(phi_array))
@@ -358,10 +368,9 @@ class XFEL():
         q_y = feature.G[1]#q_z*np.sin(phi_array)
         q_x = feature.G[0]#q_z*np.cos(phi_array)
         q_vect = np.column_stack([q_x,q_y,q_z])
-        for i in range(len(self.target.sym_factors)):
-            coord = R.get_array()
-            coord = np.multiply(R.get_array(),self.target.sym_factors[i]) + np.multiply(self.target.cell_dim,self.target.sym_translations[i])
-            spatial_structure_factor = np.exp(-1j*np.dot(q_vect,coord))   
+        # Rotate our q vector BACK to the 0 0 0 orientation of the crystal.
+        q_vect = self.rotate_G_to_orientation(q_vect,*cardan_angles,inverse=True)[0]            
+        spatial_structure_factor = np.exp(-1j*np.dot(q_vect,coord))   
         return spatial_structure_factor
 
     def SPI_spatial_factor(self,phi_array,R,feature):
@@ -475,12 +484,15 @@ class XFEL():
             print(G)
         return G, indices, cardan_angles
 
-    def rotate_G_to_orientation(self,G,alpha=0,beta=0,gamma=0,random=False):
+    def rotate_G_to_orientation(self,G,alpha=0,beta=0,gamma=0,random=False,inverse = False):
         '''
         Rotates the G vectors to correspond to the crystal when oriented to the given cardan angles. 
         alpha: x-axis angle [radians].
         beta:  y-axis angle [radians].
         gamma: z-axis angle [radians].
+        ## Returns:
+        G: transformed G
+        list: [alpha,beta,gamma] (the angles used)
         '''
         # Handle case of shape = (N,3)
         transposed = False
@@ -494,10 +506,13 @@ class XFEL():
             gamma = np.random.random_sample()*2*np.pi
 
         R = Rotation.from_euler('xyz',[alpha,beta,gamma])
+        rot_matrix = R.as_matrix()
+        if inverse: 
+            rot_matrix = rot_matrix.T # transpose == inverse
         # Apply rotation
-        print("Rotation matrix:")
-        print(R.as_matrix())
-        G = np.matmul(np.around(R.as_matrix(),decimals=10),G)
+        #print("Rotation matrix:")
+        #print(R.as_matrix())
+        G = np.matmul(np.around(rot_matrix,decimals=10),G)
 
         if transposed:
             G = G.T
@@ -573,7 +588,7 @@ def E_to_lamb(photon_energy):
         # q = 4*pi*sin(theta)/lambda = 2pi*u, where q is the momentum in AU (a_0^-1), u is the spatial frequency.
         # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
-def scatter_plot(SPI_result = None,full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, compare_handle = None, normalise_intensity_map = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None):
+def scatter_plot(SPI_result = None,full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, bg_colour = "black",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None):
     ''' (Complete spaghetti at this point.)
     Plots the simulated scattering image.
     result_handle:
@@ -583,6 +598,10 @@ def scatter_plot(SPI_result = None,full_range = True,num_arcs = 50,num_subdivisi
         Must have same orientations.
     
     '''
+    mpl.rcParams['text.color'] = "blue"
+    mpl.rcParams['axes.labelcolor'] = "blue"
+    mpl.rcParams['xtick.color'] = "black"
+    mpl.rcParams['ytick.color'] = "blue"    
     #https://stackoverflow.com/questions/26108436/how-can-i-get-the-matplotlib-rgb-color-given-the-colormap-name-boundrynorm-an
     if cmap != None:
         class MplColorHelper:
@@ -611,7 +630,7 @@ def scatter_plot(SPI_result = None,full_range = True,num_arcs = 50,num_subdivisi
             plt.ylim(bottom,radial_lim)
         if log_radial:
             plt.yscale("log")  
-        plt.gca().set_facecolor("black") 
+        plt.gca().set_facecolor(bg_colour) 
         plt.gcf().set_figwidth(20)
         plt.gcf().set_figheight(20)             
     
@@ -830,7 +849,7 @@ def scatter_plot(SPI_result = None,full_range = True,num_arcs = 50,num_subdivisi
                 added_colorbar = True
 
             sc = ax.scatter(azm,radial_axis,c=colours,s=s) #TODO try using alpha = 0.7 or something to guarantee overlapped points not hidden
-            plt.grid(False) 
+            plt.grid(alpha = min(show_grid,0.6),dashes=(5,10)) 
             #TODO only show first index or something. or have option to switch between image indexes. oof coding.
             if show_labels:
                 for i, miller_indices in enumerate(result.miller_indices[unique_values_mask]):
@@ -881,7 +900,7 @@ def scatter_plot(SPI_result = None,full_range = True,num_arcs = 50,num_subdivisi
         ax = fig.add_subplot(projection="polar")        
         ax.pcolormesh(result.phi, radial_axis, z,cmap=cmap)
         ax.plot(result.phi, radial_axis, color = 'k',ls='none')
-        plt.grid(False) 
+        plt.grid(alpha=min(show_grid,0.6),dashes=(5,10)) 
 
         if radial_lim:
             bottom,top = plt.ylim()
@@ -979,7 +998,7 @@ def get_result(filename,results_dir,compare_dir = None):
 
 import pandas as pd
 import csv
-def create_reflection_file(result_handle):
+def create_reflection_file(result_handle,overwrite=False):
     print("Creating reflection file for",result_handle)
     directory = "reflections/"    
     results_dir = "results/"+ result_handle+"/"
@@ -1006,6 +1025,9 @@ def create_reflection_file(result_handle):
     # Save as file
     out_path = directory + result_handle + ".rfl"
     if os.path.isfile(out_path): 
+        if not overwrite:
+            print("Cannot write, file already present at",out_path)
+            return
         os.remove(out_path)
     columns.reverse()
     df = df.sort_values(by=["l","h","k"],axis=0)
@@ -1024,7 +1046,7 @@ tag += 1
 #  #TODO make this nicer and pop in a function 
 DEBUG = False
 energy = 12561 # Tetrapeptide (though AC4DCsimulation was 6000 eV oops) 
-#energy =17445   #crambin - from resolutions. in pdb file, need to double check calcs: #q_min=0.11,q_cutoff = 3.9,  my defaults: pixels_per_ring = 400, num_rings = 200
+#energy =17445   #crambin - from resolutions. in pdb file, need to double check calcs: #q_min=0.11,q_maxres = 3.9,  my defaults: pixels_per_ring = 400, num_rings = 200
 
 
 exp_name1 = str(root) + "1_" + str(tag)
@@ -1036,15 +1058,15 @@ allowed_atoms_1 = ["C_fast","N_fast","O_fast"]#,"S_fast"]
 allowed_atoms_2 = ["C_fast","N_fast","O_fast"]#,"S_fast"]
 
 end_time_1 = -10#-9.95
-end_time_2 = -5#-9.80  
+end_time_2 = 0#-9.80  
 
 #orientation_set = [[5.532278012665244, 1.6378991611963682, 1.3552062099726534]] # Spooky spider orientation
-num_orients = 50
+num_orients = 100#50
 # [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
 ax_x = 0
-ax_y = 1
+ax_y = 0
 ax_z = 1
-random_orientation = True  # if true, overrides orientation_set
+random_orientation = False # if true, overrides orientation_set
 
 rock_angle = 0.3 # degrees
 
@@ -1071,10 +1093,10 @@ experiment2 = XFEL(exp_name2,energy,100, hemisphere_screen = False, orientation_
 # cell_dim = [np.array([1,1,1])]  
 
 crystal = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=False,cell_packing = "SC")
-crystal.set_cell_dim(10.3630,12.8300,19.6660)
-crystal.add_symmetry(np.array([-1, -1,1]),np.array([0.5,0,0.5]))  #2555
-crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))  #3555
-crystal.add_symmetry(np.array([1, -1,-1]),np.array([0.5,0.5,0]))  #4555
+crystal.set_cell_dim(4.813 ,  17.151 ,  29.564)
+#crystal.add_symmetry(np.array([-1, -1,1]),np.array([0.5,0,0.5]))  #2555
+#crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0.5]))  #3555
+#crystal.add_symmetry(np.array([1, -1,-1]),np.array([0.5,0.5,0]))  #4555
 
 SPI = False
 
@@ -1084,13 +1106,26 @@ experiment2.orientation_set = exp1_orientations
 experiment2.spooky_laser(-10,end_time_2,output_handle,crystal, random_orientation = False, SPI=SPI)
 
 create_reflection_file(exp_name1)
+stylin()
+
+# %%
+
+df = pd.read_csv('plot_points.pl',delim_whitespace=True)
+x = df['x']
+y = df['y']
+z = df['z']
+
+fig =plt.figure()
+ax = Axes3D(fig)
+ax.scatter(x,y,z)
+
 
 #%%
 ### Simulate crambin
 tag += 1
 #  #TODO make this nicer and pop in a function 
 DEBUG = False
-energy =17445   #crambin - from resolutions. in pdb file, need to double check calcs: #q_min=0.11,q_cutoff = 3.9,  my defaults: pixels_per_ring = 400, num_rings = 200
+energy =17445   #crambin - from resolutions. in pdb file, need to double check calcs: #q_min=0.11,q_cmaxres = 3.9,  my defaults: pixels_per_ring = 400, num_rings = 200
 
 
 exp_name1 = str(root) + "1_" + str(tag)
@@ -1119,7 +1154,7 @@ pdb_path = "/home/speno/AC4DC/scripts/scattering/3u7t.pdb" #Crambin
 
 output_handle = "Improved_Lys_mid_6"
 
-q_cutoff = "max"
+q_cutoff = "hemisphere" #"max"
 
 test_the_onion = False  # <- a test case I'm familiar with, I'm using it to check if anything breaks.
 #---------------------------------#
@@ -1153,76 +1188,76 @@ create_reflection_file(exp_name1)
 experiment2.orientation_set = exp1_orientations
 experiment2.spooky_laser(-10,end_time_2,output_handle,crystal, random_orientation = False, SPI=SPI)
 
-
+stylin()
 #
 
  
 #%%
 # stylin' 
+def stylin():
+    experiment1_name = exp_name1#"Lys_9.95_random"#exp_name1
+    experiment2_name = exp_name2#"lys_9.80_random"#exp_name2 
 
-experiment1_name = exp_name1#"Lys_9.95_random"#exp_name1
-experiment2_name = exp_name2#"lys_9.80_random"#exp_name2 
-
-#####
-
-
-font = {'family' : 'monospace',
-        'weight' : 'bold',
-        'size'   : 24}
-
-plt.rc('font', **font)
-
-use_q = True
-log_radial = False
-log_I = True
-cutoff_log_intensity = -1#-1
-import colorcet as cc; import cmasher as cmr
-cmap = shiftedColorMap(matplotlib.cm.RdYlGn_r,midpoint=0.2)#"plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
-cmap.set_bad(color='black')
-cmap_power = 1.6
-min_alpha = 0.3
-max_alpha = 1
-colour = "y"
-radial_lim = 5
-full_crange_sectors = False
-
-cmap_intensity = "inferno"
+    #####
 
 
-# screen_radius = 150#55#165    #
-# q_scr_lim = experiment.r_to_q(screen_radius) #experiment.r_to_q_scr(screen_radius)#3.9  #NOTE this won't be the actual max q_parr_screen but ah well.
-# zoom_to_fit = True
-# ####### n'
-# # plottin'
+    font = {'family' : 'monospace',
+            'weight' : 'bold',
+            'size'   : 24}
 
- # as q = ksin(theta).  
-q_scr_max = experiment1.q_cutoff#experiment1.q_cutoff*(1/np.sqrt(2)) # for flat screen. as q_scr = qcos(theta). (q_z = qsin(theta) =ksin^2(theta)), max theta is 45. (Though experimentally ~ 22 as of HR paper)
+    plt.rc('font', **font)
 
-zoom_to_fit = False
-if not zoom_to_fit:
-    if use_q:
-        radial_lim = q_scr_max+0.2
-    #els:
-#else:
-#     radial_lim = screen_radius#min(screen_radius,experiment.q_to_r(experiment.q_cutoff))
-#     print(radial_lim)
-#     if use_q:
-#         #radial_lim = experiment.r_to_q_scr(radial_lim)
-#         radial_lim = q_scr_lim #radial_lim = min(q_scr_lim,experiment.q_to_q_scr(experiment.q_cutoff))
-#         print(radial_lim)
-# else:
-#     radial_lim = None
+    use_q = True
+    log_radial = False
+    log_I = True
+    cutoff_log_intensity = -1#-1
+    import colorcet as cc; import cmasher as cmr
+    cmap = shiftedColorMap(matplotlib.cm.RdYlGn_r,midpoint=0.2)#"plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
+    cmap.set_bad(color='black')
+    cmap_power = 1.6
+    min_alpha = 0.3
+    max_alpha = 1
+    colour = "y"
+    radial_lim = 5
+    full_crange_sectors = False
 
- #TODO fix above to work with distance
+    cmap_intensity = "inferno"
 
-# Sectors
-#scatter_plot(full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-# Intensity of experiment 1. 
-scatter_plot(num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
 
-#NEED TO CHECK. We have a 1:1 mapping from q to q_parr, but with our miller indices we are generating multiple q_parr with diff q.
-# So we SHOULD get the same q_parr with different q_z. Which makes sense since we are just doing cosine. But still icky maybe?
-# Need to double check we get different intensities for same q_parr. Pretty sure that's implemented.
+    # screen_radius = 150#55#165    #
+    # q_scr_lim = experiment.r_to_q(screen_radius) #experiment.r_to_q_scr(screen_radius)#3.9  #NOTE this won't be the actual max q_parr_screen but ah well.
+    # zoom_to_fit = True
+    # ####### n'
+    # # plottin'
+
+    # as q = ksin(theta).  
+    q_scr_max = experiment1.q_cutoff#experiment1.q_cutoff*(1/np.sqrt(2)) # for flat screen. as q_scr = qcos(theta). (q_z = qsin(theta) =ksin^2(theta)), max theta is 45. (Though experimentally ~ 22 as of HR paper)
+
+    zoom_to_fit = False
+    if not zoom_to_fit:
+        if use_q:
+            radial_lim = q_scr_max+0.2
+        #els:
+    #else:
+    #     radial_lim = screen_radius#min(screen_radius,experiment.q_to_r(experiment.q_cutoff))
+    #     print(radial_lim)
+    #     if use_q:
+    #         #radial_lim = experiment.r_to_q_scr(radial_lim)
+    #         radial_lim = q_scr_lim #radial_lim = min(q_scr_lim,experiment.q_to_q_scr(experiment.q_cutoff))
+    #         print(radial_lim)
+    # else:
+    #     radial_lim = None
+
+    #TODO fix above to work with distance
+
+    # Sectors
+    scatter_plot(full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+    # Intensity of experiment 1. 
+    scatter_plot(show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+
+    #NEED TO CHECK. We have a 1:1 mapping from q to q_parr, but with our miller indices we are generating multiple q_parr with diff q.
+    # So we SHOULD get the same q_parr with different q_z. Which makes sense since we are just doing cosine. But still icky maybe?
+    # Need to double check we get different intensities for same q_parr. Pretty sure that's implemented.
 
 
 #TODO 
