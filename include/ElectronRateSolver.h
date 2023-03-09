@@ -122,7 +122,8 @@ private:
     void loadFreeRaw_and_times();
     void loadBound();
     /// saves a table of bound-electron dynamics , split by atom, to folder dir.
-    void saveBound(const std::string& folder, bool save_all_times = false);
+    void saveBound(const std::string& folder);
+    void saveBoundRaw(const std::string& folder);
     /// Log final details pertaining to the simulation's execution to file fname (e.g. total runtime)
     void log_extra_details(ofstream & _log);
 
