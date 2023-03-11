@@ -47,7 +47,7 @@ void ElectronRateSolver::save(const std::string& _dir) {
     std::vector<double> fake_t; // TODO double check why I called this fake_t, probably doesn't make sense now. -S.P.
     int num_t_points = input_params.Out_T_size();
     if ( num_t_points >  t.size() ) num_t_points = t.size(); // Fineness of output is only limited by num time steps.
-    float t_fineness = (simulation_start_time - simulation_end_time) / num_t_points;
+    float t_fineness = (simulation_end_time - simulation_start_time) / num_t_points;
     float previous_t = t[0];
     int i = -1;
     while (i <  static_cast<int>(t.size())-1){  //TODO make this some constructed function or something -S.P. 
@@ -91,7 +91,7 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
     assert(y.size() == t.size());
     int num_t_points = input_params.Out_T_size();
     if ( num_t_points >  t.size() ) num_t_points = t.size(); // Fineness of output is only limited by num time steps.
-    float t_fineness = (simulation_start_time - simulation_end_time)  / num_t_points;
+    float t_fineness = (simulation_end_time - simulation_start_time)  / num_t_points;
     float previous_t = t[0];
     int i = -1;
     while (i <  static_cast<int>(t.size())-1){
@@ -147,7 +147,8 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         // Iterate over time.
         int num_t_points = input_params.Out_T_size();
         if ( num_t_points >  t.size() ) num_t_points = t.size();
-        float t_fineness = (simulation_start_time - simulation_end_time)  / num_t_points;    
+        float t_fineness = (simulation_end_time - simulation_start_time)  / num_t_points; 
+        cout << "DEBUG: " << t_fineness << " " << t.size() << " " << simulation_start_time << " " << simulation_end_time << " " << num_t_points << endl;  
         float previous_t = t[0];
         int i = -1;
         while (i <  static_cast<int>(t.size())-1){
