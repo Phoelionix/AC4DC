@@ -61,10 +61,10 @@ public:
         
         if (input_params.pulse_shape ==  PulseShape::square){  //-FWHM <= t <= 3FWHM
             simulation_start_time = -input_params.Width();
-            simulation_end_time =  -input_params.Width(); 
+            simulation_end_time =  input_params.Width(); 
         } else { //-2FWHM <= t <= 2FWHM
             simulation_start_time = -timespan_au/2;
-            simulation_end_time = -timespan_au/2; 
+            simulation_end_time = timespan_au/2; 
         }
         if (input_params.Cutoff_Inputted()){
             simulation_end_time = input_params.Simulation_Cutoff();
