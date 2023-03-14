@@ -54,8 +54,8 @@ struct GridBoundaries {
     // transition_e so it can be split off (as the coulomb log cutoff) along with the coulomb density.
     // Should also replace num_elec_points, min_elec_e, max_elec_e
     // Note this current implementation includes the energy/index of last grid point.
-    std::vector<int> start ={-1};
-    std::vector<double> E_min ={-1.};  // In eV
+    std::vector<int> start ={-1};  // TODO rename, but this is the starting index of the region. But it's also uised for upper bound...
+    std::vector<double> E_min ={-1.};  // In eV. Again need to rename, as it's used for upper bound too.
     std::vector<double> powers ={1.};
     int parsed_count = 0; 
 };

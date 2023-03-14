@@ -135,6 +135,13 @@ void Hybrid<T>::run_steps(const double t_resume, const int steps_per_time_update
         
         // this->y[n+1].from_backwards_Euler(this->dt, this->y[n], stiff_rtol, stiff_max_iter);
         this->step_stiff_part(n);
+
+        // if ((n-this->order)%stability_check_period == 0){
+        //     this->high_energy_stability_check()
+        // }
+        if ((n-this->order)%grid_update_period == 0){
+            this->grid_update()
+        }        
     }
     std::cout<<std::endl;
 }

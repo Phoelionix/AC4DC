@@ -25,8 +25,8 @@ gaussian       // Pulse shape
 wiggledestruction        // electron grid type
 50              // Number of "low-energy" grid points (hybrid & powerlaw grids only, not for hybrid_power grids though!!!)
 2000          // transition energy in eV (used for grid point boundary, unless hybrid_power grid.)
-1|2|55|80|115|120                 // boundary indices, with first point excluded. No spaces.
-5|10|600|4500|10000|12000        // boundary energies, with first point excluded. No spaces.  
+1|7|40|55|90|95                 // boundary indices, with first point excluded. No spaces.
+5|70|1000|3000|10000|12000        // boundary energies, with first point excluded. No spaces.  
 1|1|1|1|1
 
 #OUTPUT
@@ -37,12 +37,11 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #LOAD
-C_lys_neutze_simple_52 // Output folder name
-0    // Point to load time from 
+C_lys_neutze_simple_56 // Output folder name
+2.5    // Point to load time from 
 
 #DEBUG
-2.5      // Simulation cutoff time in fs
-0    // Interval to cout current timestep [fs].
+
 ####END#####
 
 Notes:

@@ -73,33 +73,52 @@ class Crystal():
         parser=PDBParser(PERMISSIVE=1)
         structure_id = os.path.basename(pdb_fpath)
         structure = parser.get_structure(structure_id, pdb_fpath)
-
-        def AC4DC_name(name):  
-            """Converts pdb name to names in AC4DC output"""
-            if CNO_to_N:
-                # light atom approximation. 
-                if name == "C" or name == "O":
-                    name = "N"
-            if  orbitals_as_shells and name not in ["H","He"]:
-                name+="_fast"
-            if name not in allowed_atoms:
-                return None                
-            return name
         
+        ## Dictionary for going from pdb to ac4dc names.
+        # different names
+        PDB_to_AC4DC_dict = dict(
+            NA = "Sodion", Cl = "Chloride",
+        )
+        # Same names
+        for elem in ["H","He","C","N","O","P","S"]:
+            PDB_to_AC4DC_dict[elem] = elem
+        # Modify the dictionary according to arguments.
+        for k,v in PDB_to_AC4DC_dict.items():
+            # Light atom approximation. 
+            if CNO_to_N:
+                if v in ["C","O"]: 
+                    PDB_to_AC4DC_dict[k] = "N"
+            # Orbital approximation.
+            if orbitals_as_shells:
+                if v not in ["H","He","Sodion","Chloride"]:
+                    PDB_to_AC4DC_dict[k] = v+"_fast"        
         species_dict = {}
+        pdb_atoms = []
+        pdb_atoms_ignored = ""
         for atom in structure.get_atoms():
             # Get ze data
             R = atom.get_vector()
-            name = AC4DC_name(atom.element)
+            name = PDB_to_AC4DC_dict.get(atom.element)
             # Pop into our desired format
             if name == None:
+                pdb_atoms_ignored += atom.element + " "
                 continue
             if name not in species_dict.keys():
                 species_dict[name] = Atomic_Species(name,self) 
+                pdb_atoms.append(atom.element)
             species_dict[name].add_atom(R)
-        for str in allowed_atoms:
-            if str not in species_dict.keys():
-                print("Warning: no",str,"atoms found.")
+        ac4dc_atoms_ignored = ""
+        for string in allowed_atoms:
+            if string not in species_dict.keys():
+                ac4dc_atoms_ignored += string + " "
+                continue
+        print("The following atoms will be considered (AC4DC names ; pdb names):")
+        for p,a in zip(pdb_atoms,[PDB_to_AC4DC_dict[x] for x in pdb_atoms]): 
+            print("%-10s %10s" % (p, a))
+        if ac4dc_atoms_ignored != "":
+            print("The following pdb atoms were found but ignored:",pdb_atoms_ignored)
+        if ac4dc_atoms_ignored != "":
+            print("The following atoms were allowed but not found:",ac4dc_atoms_ignored)
         self.species_dict = species_dict 
 
     def set_ff_calculator(self,ff_calculator):
@@ -1066,7 +1085,7 @@ def create_reflection_file(result_handle,overwrite=False):
 #create_reflection_file("f1_11",True)
 
 #%% 
-root = "f"
+root = "g"
 tag = 0
 #%%
 ### Simulate tetrapeptide
@@ -1082,14 +1101,14 @@ exp_name2 = str(root) + "2_" + str(tag)
 
 
 
-allowed_atoms_1 = ["C_fast","N_fast","O_fast"]#,"S_fast"]
+allowed_atoms_1 = ["C_fast","N_fast","O_fast","Sodion"]#,"S_fast"]
 allowed_atoms_2 = ["C_fast","N_fast","O_fast"]#,"S_fast"]
 
 end_time_1 = -10#-9.95
-end_time_2 = 0#-9.80  
+end_time_2 = -10#0#-9.80  
 
 #orientation_set = [[5.532278012665244, 1.6378991611963682, 1.3552062099726534]] # Spooky spider orientation
-num_orients = 40#50
+num_orients = 100#50
 # [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
 ax_x = 0
 ax_y = 0
@@ -1100,7 +1119,9 @@ rock_angle = 0.3 # degrees
 
 pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb" #tetrapeptide
 
-output_handle = "Full_Tetrapeptide"#"C_tetrapeptide_4"#"Improved_Lys_mid_6"
+output_handle = "sodion_tetrapeptide_2"
+
+hemisphere_screen = True
 
 #---------------------------------#
 
@@ -1111,8 +1132,8 @@ orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0
 orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
 print(orientation_set)
 
-experiment1 = XFEL(exp_name1,energy,100, hemisphere_screen = False, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
-experiment2 = XFEL(exp_name2,energy,100, hemisphere_screen = False, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+experiment1 = XFEL(exp_name1,energy,100, hemisphere_screen = hemisphere_screen, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+experiment2 = XFEL(exp_name2,energy,100, hemisphere_screen = hemisphere_screen, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
 
 
 #0.85  - 0.88 angstrom resolution - >  
@@ -1129,13 +1150,11 @@ crystal.add_symmetry(np.array([1, -1,-1]),np.array([0.5,0.5,0]))  #4555
 SPI = False
 
 exp1_orientations = experiment1.spooky_laser(-10,end_time_1,output_handle,crystal, random_orientation = random_orientation, SPI=SPI)
-
+create_reflection_file(exp_name1)
 experiment2.orientation_set = exp1_orientations
 experiment2.spooky_laser(-10,end_time_2,output_handle,crystal, random_orientation = False, SPI=SPI)
 
-create_reflection_file(exp_name1)
 stylin()
-
 # %%
 # Plot atoms retrieved from Superflip/EDMA
 df = pd.read_csv('tet_plot_points.pl',delim_whitespace=True)
@@ -1178,14 +1197,14 @@ end_time_1 = -10#-9.95
 end_time_2 = -10#-9.80  
 
 #orientation_set = [[5.532278012665244, 1.6378991611963682, 1.3552062099726534]] # Spooky spider orientation
-num_orients = 1
+num_orients = 30
 # [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
 ax_x = 0
 ax_y = 0
 ax_z = 1
-random_orientation = False  # if true, overrides orientation_set
+random_orientation = True  # if true, overrides orientation_set
 
-rock_angle = 0.3 # degrees
+rock_angle = 0.15 # degrees
 hemisphere_screen = True
 
 pdb_path = "/home/speno/AC4DC/scripts/scattering/3u7t.pdb" #Crambin
@@ -1332,7 +1351,7 @@ orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0
 orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
 print(orientation_set)
 
-experiment = XFEL("SPI",energy,100, hemisphere_screen = False, pixels_per_ring = 500, num_rings = 500,t_fineness=100)
+experiment = XFEL("SPI",energy,100, hemisphere_screen = True, pixels_per_ring = 500, num_rings = 500,t_fineness=100)
 crystal = Crystal(pdb_path,allowed_atoms,CNO_to_N=False,cell_packing = "SC")
 
 SPI = True

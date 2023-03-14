@@ -2,7 +2,7 @@
 terminal_mode = True
 xmin, xmax = 1, 1e4
 
-END_T = 0 #0.0
+END_T = 10 #0.0
 POINTS = 70
 #####
 
@@ -67,7 +67,7 @@ def main():
     lin_ymin = -0.005
     log_ymax = 1
     log_ymin = 1e-4      
-    normalise = True  # TODO make True default, and False an option for cmdline arg.
+    normalise = False  # TODO make True default, and False an option for cmdline arg.
     # Axis params
     xlabel = 'Energy (eV)'
     ylabel = '$f(\\epsilon) \\Delta \\epsilon$'   #TODO: Get this working on offline file saves somehow.

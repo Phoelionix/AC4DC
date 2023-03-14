@@ -70,6 +70,7 @@ public:
             simulation_end_time = input_params.Simulation_Cutoff();
         }
         simulation_resume_time = simulation_start_time;
+        set_grid_regions(input_params.elec_grid_regions);
 
         
     }
@@ -91,6 +92,7 @@ public:
     std::chrono::duration<double, std::milli> misc_time;
 private:
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)
+    GridBoundaries elec_grid_regions;
     Pulse pf;
     double timespan_au; // Atomic units
     double simulation_start_time;  // [Au]
@@ -127,9 +129,12 @@ private:
     /// Log final details pertaining to the simulation's execution to file fname (e.g. total runtime)
     void log_extra_details(ofstream & _log);
 
+    void set_grid_regions(GridBoundaries gb);
     void set_starting_state();
     state_type load_state();
     state_type get_ground_state();
+
+    //void high_energy_stability_check();
 };
 
 

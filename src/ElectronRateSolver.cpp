@@ -26,6 +26,7 @@ This file is part of AC4DC.
 #include "HartreeFock.h"
 #include "ComputeRateParam.h"
 #include "SplineIntegral.h"
+#include "GridRegions.h"
 #include <fstream>
 #include <algorithm>
 #include <Eigen/SparseCore>
@@ -80,13 +81,17 @@ void ElectronRateSolver::get_energy_bounds(double& max, double& min) {
     }
 }
 
+void ElectronRateSolver::set_grid_regions(GridBoundaries gb){
+    elec_grid_regions = gb;
+}
+
 
 void ElectronRateSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
     input_params.calc_rates(_log, recalc);
     hasRates = true;
-
+    
     // Set up the container class to have the correct size
-    Distribution::set_elec_points(input_params.Num_Elec_Points(), input_params.Min_Elec_E(), input_params.Max_Elec_E(), input_params.elec_grid_type, input_params.elec_grid_regions);
+    Distribution::set_elec_points(input_params.Num_Elec_Points(), input_params.Min_Elec_E(), input_params.Max_Elec_E(), input_params.elec_grid_type, elec_grid_regions);
     state_type::set_P_shape(input_params.Store);
     // Set up the rate equations (setup called from parent Adams_BM)
     set_starting_state();
