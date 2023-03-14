@@ -76,15 +76,16 @@ void Hybrid<T>::iterate(double t_initial, double t_final, const double t_resume,
     bool resume_sim = (t_resume == t_initial) ? false : true;
 
     if (resume_sim){
+        // The time step size does not depend on previous run's time step size. i.e. step size is same as if there was no loading.
         // TODO implement assertion that density isn't empty.
         npoints -= ((t_resume-t_initial)/this->dt + 1);
-        npoints += this->t.size();
+        npoints += this->t.size(); // 
     }
 
     npoints = (npoints >= this->order) ? npoints : this->order;
 
     // Set up the containers
-    this->t.resize(npoints);
+    this->t.resize(npoints,INFINITY);
     this->y.resize(npoints);
 
     // Set up the t grid       

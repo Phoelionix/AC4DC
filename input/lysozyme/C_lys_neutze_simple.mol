@@ -47,4 +47,5 @@ C_lys_neutze_simple_35 // Output folder name
 ####END#####
 
 Notes:
-Paste your problematic files here and run your debug.
+From https://files.rcsb.org/pub/pdb/validation_reports/et/4et8/4et8_full_validation.pdf
+Lysozyme making nitrogen assumption (e.g. used by Chapman 2010) and ignoring salt water atoms.

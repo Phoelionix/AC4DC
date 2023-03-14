@@ -278,7 +278,7 @@ void Distribution::add_density_distribution(vector<vector<double>> densities){
         // Thus v[i] would correspond to the total num electrons contributed by spline i. -S.P.
         for (size_t j=0; j<64; j++) {
             double e = (b-a)/2 *gaussX_64[j] + (a+b)/2;    // e = element E_i of gaussian quadrature sum
-            v[i] += gaussW_64[j]*basis.raw_bspline(i, e)*densities[i][j];  // Don't ask me why this works I just copied add_maxwellian and moved everything around like a crazy person -S.P.
+            v[i] += gaussW_64[j]*basis.raw_bspline(i, e)*densities[i][j]; 
         }
         v[i] *= (b-a)/2;//*=densities[i]*(b-a)/2;
     }

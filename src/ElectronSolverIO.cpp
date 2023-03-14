@@ -3,6 +3,7 @@
  * @author Alaric Sanders 
  * @brief @copybrief ElectronRateSolver.h
  * @details @copydetail ElectronRateSolver.h
+ * @note may want to change to have the raw files save with not much more fineness than the load ones.
  */
 /*===========================================================================
 This file is part of AC4DC.
@@ -148,7 +149,6 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         int num_t_points = input_params.Out_T_size();
         if ( num_t_points >  t.size() ) num_t_points = t.size();
         float t_fineness = (simulation_end_time - simulation_start_time)  / num_t_points; 
-        cout << "DEBUG: " << t_fineness << " " << t.size() << " " << simulation_start_time << " " << simulation_end_time << " " << num_t_points << endl;  
         float previous_t = t[0];
         int i = -1;
         while (i <  static_cast<int>(t.size())-1){
