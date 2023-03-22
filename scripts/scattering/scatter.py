@@ -77,7 +77,7 @@ class Crystal():
         ## Dictionary for going from pdb to ac4dc names.
         # different names
         PDB_to_AC4DC_dict = dict(
-            NA = "Sodion", Cl = "Chloride",
+            NA = "Sodion", CL = "Chloride",
         )
         # Same names
         for elem in ["H","He","C","N","O","P","S"]:
@@ -87,11 +87,12 @@ class Crystal():
             # Light atom approximation. 
             if CNO_to_N:
                 if v in ["C","O"]: 
-                    PDB_to_AC4DC_dict[k] = "N"
+                    v = "N"                    
             # Orbital approximation.
             if orbitals_as_shells:
                 if v not in ["H","He","Sodion","Chloride"]:
-                    PDB_to_AC4DC_dict[k] = v+"_fast"        
+                    v = v+"_fast"      
+            PDB_to_AC4DC_dict[k] = v  
         species_dict = {}
         pdb_atoms = []
         pdb_atoms_ignored = ""
@@ -100,7 +101,7 @@ class Crystal():
             R = atom.get_vector()
             name = PDB_to_AC4DC_dict.get(atom.element)
             # Pop into our desired format
-            if name == None:
+            if name == None or name not in allowed_atoms:
                 pdb_atoms_ignored += atom.element + " "
                 continue
             if name not in species_dict.keys():
@@ -115,7 +116,7 @@ class Crystal():
         print("The following atoms will be considered (AC4DC names ; pdb names):")
         for p,a in zip(pdb_atoms,[PDB_to_AC4DC_dict[x] for x in pdb_atoms]): 
             print("%-10s %10s" % (p, a))
-        if ac4dc_atoms_ignored != "":
+        if pdb_atoms_ignored != "":
             print("The following pdb atoms were found but ignored:",pdb_atoms_ignored)
         if ac4dc_atoms_ignored != "":
             print("The following atoms were allowed but not found:",ac4dc_atoms_ignored)
@@ -615,7 +616,7 @@ def E_to_lamb(photon_energy):
         # q = 4*pi*sin(theta)/lambda = 2pi*u, where q is the momentum in AU (a_0^-1), u is the spatial frequency.
         # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
-def scatter_scatter_plot(crystal_aligned_frame = False ,SPI_result = None,full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, bg_colour = "black",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None):
+def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_result = None,full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, bg_colour = "black",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None):
     ''' (Complete spaghetti at this point.)
     Plots the simulated scattering image.
     result_handle:
@@ -691,7 +692,7 @@ def scatter_scatter_plot(crystal_aligned_frame = False ,SPI_result = None,full_r
         def get_sector_histogram_contribution(I_ideal,I_real,phi,radial_axis,phi_edges = phi_edges):
             '''I_ideal = Intensities of undamaged target
                I_real = Intensities of damaged target
-            '''
+            '''#                                                                            _|-|_
             # R = Σ|sqrt(I_ideal) - sqrt(I_real|) / (Σ sqrt(I_ideal))  |   me -> ( ._.)ヽ(￣┏＿┓￣ R)  "thousands of lines of code just for you Señor R factor".
             N = np.abs(np.sqrt(I_ideal) - np.sqrt(I_real))
             D = np.sqrt(I_ideal)
@@ -699,6 +700,7 @@ def scatter_scatter_plot(crystal_aligned_frame = False ,SPI_result = None,full_r
             denominators  = np.histogram2d(phi, radial_axis, weights=D, bins=(phi_edges, radial_edges))[0]
             numerators = numerators.T; denominators = denominators.T
             return numerators,denominators
+
 
         def plot_sectors(sector_histogram):            
             plt.close()
@@ -724,6 +726,9 @@ def scatter_scatter_plot(crystal_aligned_frame = False ,SPI_result = None,full_r
             if log_I:
                 print("Not plotting logarithmic I, not supported for comparisons.")
                 log_I = False  
+            
+            all_I_ideal = []
+            all_I_real = []
         
         # Iterate through each orientation (file) to get minimum/maximum for normalisation of plot of scattering image (not difference image).
         max_z = -np.inf
@@ -840,7 +845,12 @@ def scatter_scatter_plot(crystal_aligned_frame = False ,SPI_result = None,full_r
                 # R_histogram += np.divide(numerators,non_zero_denon)/num_orientations # Doesn't work because when sector is empty it reduces the average.
                 # Alternative: Not averaging:
                 R_num_histogram += numerators
-                R_den_histogram += denominators                 
+                R_den_histogram += denominators            
+
+                if neutze_R:
+                    all_I_ideal.extend(I1)
+                    all_I_real.extend(I2)
+
 
             if log_I: 
                 z = np.log(z)      
@@ -912,11 +922,22 @@ def scatter_scatter_plot(crystal_aligned_frame = False ,SPI_result = None,full_r
             #print("plotting full ring orientation-averaged R factor") # Doesn't work because when sector is empty it reduces the average.
             #plot_sectors(R_histogram)
 
+            
             non_zero_denon_histogram = R_den_histogram.copy()
             non_zero_denon_histogram[non_zero_denon_histogram== 0] = 1        
             R_histogram = np.divide(R_num_histogram,non_zero_denon_histogram)       
             print("plotting full ring total R factor ") 
             plot_sectors(R_histogram) 
+
+            if neutze_R:
+                print("Neutze R: ")
+                sqrt_ideal = np.sqrt(all_I_ideal)
+                sqrt_real = np.sqrt(all_I_real)
+                inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real) 
+                R = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))
+                print(R)
+                #neutze_histogram = np.histogram2d(phi, radial_axis, weights=R, bins=(np.array([-np.pi,np.pi]), radial_edges))[0]             
+                #plot_sectors(neutze_histogram)
 
         
 
@@ -1085,7 +1106,7 @@ def create_reflection_file(result_handle,overwrite=False):
 #create_reflection_file("f1_11",True)
 
 #%% 
-root = "g"
+root = "lys"
 tag = 0
 #%%
 ### Simulate tetrapeptide
@@ -1176,6 +1197,77 @@ y*= yscale
 plt.scatter(z,y,c=-x,cmap="Blues",s=200)
 plt.xlabel("z (Ang)")
 plt.ylabel("y (Ang)")
+
+#%%
+#%%
+### Simulate lysozyme
+root = "lys"
+tag = "v1"
+#  #TODO make this nicer and pop in a function 
+DEBUG = False
+energy = 6000 #
+
+
+exp_name1 = str(root) + "1_" + str(tag)
+exp_name2 = str(root) + "2_" + str(tag)
+
+CNO_to_N = True
+
+allowed_atoms_1 = ["N_fast","S_fast"]
+allowed_atoms_2 = ["N_fast","S_fast"]
+
+end_time_1 = -10#-9.95
+end_time_2 = 10#0#-9.80  
+
+num_orients = 50
+# [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
+ax_x = 1
+ax_y = 1
+ax_z = 0
+random_orientation = True # if true, overrides orientation_set
+
+rock_angle = 0.3 # degrees
+
+pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb" #tetrapeptide
+
+output_handle = "D_lys_neutze_simple_7"
+
+hemisphere_screen = True
+
+#---------------------------------#
+
+
+# if not random:
+if ax_x == ax_y == ax_z and ax_z == 0 and random_orientation == False:
+    throw
+orientation_axis = Bio_Vect(ax_x,ax_y,ax_z)
+orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0,2*np.pi,num_orients,endpoint=False)]
+orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
+print(orientation_set)
+
+experiment1 = XFEL(exp_name1,energy,100, hemisphere_screen = hemisphere_screen, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+experiment2 = XFEL(exp_name2,energy,100, hemisphere_screen = hemisphere_screen, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+
+
+#0.85  - 0.88 angstrom resolution - >  
+
+# sym_translations = [np.array([0,0,0])]
+# cell_dim = [np.array([1,1,1])]  
+
+crystal = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=CNO_to_N,cell_packing = "SC")
+crystal.set_cell_dim(79.000  , 79.000  , 38.000)
+crystal.add_symmetry(np.array([-1, -1,1]),np.array([0.5,0,0.5]))  #2555
+crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0.5]))  #3555
+crystal.add_symmetry(np.array([1, -1,-1]),np.array([0.5,0.5,0]))  #4555
+
+SPI = False
+
+exp1_orientations = experiment1.spooky_laser(-10,end_time_1,output_handle,crystal, random_orientation = random_orientation, SPI=SPI)
+create_reflection_file(exp_name1)
+experiment2.orientation_set = exp1_orientations
+experiment2.spooky_laser(-10,end_time_2,output_handle,crystal, random_orientation = False, SPI=SPI)
+
+stylin()
 
 #%%
 ### Simulate crambin
