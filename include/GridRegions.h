@@ -3,27 +3,12 @@
  * @brief Handles dynamic grid mechanics
  */
 
+#include "Constant.h"
+#include "GridSpacing.hpp"
 #include <vector>
 #include <iostream>
 
-
 using namespace std;
-
-class GridRegions
-{
-public:
-    GridRegions(){};
-    void update_regions(double mb_peak, double mb_width, double dirac_peak, double dirac_width);
-
-protected:
-    void set_static_energies(vector<double> energy_boundaries);
-    std::vector<Region> regions;
-
-
-private:
-    int NUM_STATIC_REGIONS = 3;
-    int NUM_DYNAMIC_REGIONS = 2;
-};
 
 class Region
 {
@@ -34,14 +19,14 @@ public:
      * @brief Construct a new Region object
      * 
      * @param num_points 
-     * @param E_min 
-     * @param E_max 
+     * @param E_min in eV!
+     * @param E_max in eV!
      * @param type one of: "static", "dirac", "mb"
      */
     Region(int num_points, double E_min, double E_max, const string type) :
     num_points{num_points},
-    E_min{E_min},
-    E_max{E_max},
+    E_min{E_min/Constant::eV_per_Ha},
+    E_max{E_max/Constant::eV_per_Ha},
     type{type},
     power{1}   
     {
@@ -56,7 +41,7 @@ public:
         return E_max  < (other.get_E_min());
     }    
     double get_next_knot(double previous_knot);
-    void update_region(double new_centre,double new_width);
+    void update_region(double new_centre,double new_min, double new_max);
 
 private:
     int num_points;
@@ -69,3 +54,20 @@ private:
     double dirac_peak();
     double mb_peak();
 };
+
+class GridRegions
+{
+public:
+    GridRegions();
+    void update_regions(FeatureRegimes rgm);
+
+protected:
+    void set_static_energies(vector<double> energy_boundaries);
+    std::vector<Region> regions;
+
+
+private:
+    int NUM_STATIC_REGIONS = 3;
+    int NUM_DYNAMIC_REGIONS = 2;
+};
+

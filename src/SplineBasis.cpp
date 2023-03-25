@@ -98,7 +98,7 @@ int BasisSet::lower_i_from_e(double e) {
  */
 
 void BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rgm){
-    update_regions(rgm.mb_peak,rgm.mb_width,rgm.dirac_peak,rgm.dirac_width);
+    update_regions(rgm);
     int Z_0 = gt.zero_degree_0;
     int Z_inf = gt.zero_degree_inf;
     if( BSPLINE_ORDER - Z_0 < 0){
@@ -111,7 +111,6 @@ void BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rgm){
     } 
 
     size_t start = BSPLINE_ORDER-Z_0-1;
-    size_t num_int = num_funcs + Z_inf - start;
 
     std::sort(regions.begin(),regions.end()); // Sort by min energy.
     // Set first energy to minimum of all grids present.
@@ -121,15 +120,17 @@ void BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rgm){
     std::cout<<"[ Dynamic Knot ] (i.e. piecewise polynomial has leading order x^"<<BSPLINE_ORDER-1<<")"<<std::endl;
 
     std::vector<double> new_knots;
-    new_knots.resize(num_funcs+BSPLINE_ORDER+1);
+    new_knots.reserve(170+BSPLINE_ORDER+1);
 
     // Set the k - zero_deg repeated knots
     for (size_t i=0; i<start; i++) {
-        new_knots[i] = _min;
+        new_knots.push_back(_min);
     }
 
-     // Dynamically choose next grid point. Idea: We move to next point based on whichever region's rule gives the closest one. 
-    for(size_t i=start; i<=num_funcs + Z_inf; i++) {
+    size_t i=start;
+    // Dynamically choose next grid point. Idea: We move to next point based on whichever region's rule gives the closest one. 
+    while(true){
+        i++;
         // Find the smallest grid point that regions that the point is within want.
         double next_point = INFINITY;
         for (size_t r = 0; r < regions.size(); r ++){
@@ -138,13 +139,18 @@ void BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rgm){
                 next_point = min(next_point,point);
             }
         }
+        if(next_point == INFINITY){
+            // We are outside the max
+            break;
+        }
         assert(next_point > new_knots[i-1]);
-        new_knots[i] = next_point;
+        assert(i < 999);
+        new_knots.push_back(next_point);
     }
-
-   // t_{n+1+z_infinity} has been set now. Repeat it until the end.
-   for (size_t i= num_funcs + 1 + Z_inf; i< num_funcs+BSPLINE_ORDER; i++) {
-        new_knots[i] = new_knots[num_funcs + Z_inf];
+    num_funcs = new_knots.size()-(start+1);
+    // t_{n+1+z_infinity} has been set now. Repeat it until the end.
+    for (size_t i= num_funcs + 1 + Z_inf; i< num_funcs+BSPLINE_ORDER; i++) {
+        new_knots.push_back(new_knots[num_funcs + Z_inf]);
     }
     
     knot = new_knots;
@@ -277,17 +283,10 @@ void BasisSet::manual_set_knot(const GridSpacing& gt){
  * @param  
  */
 void BasisSet::set_parameters(const GridSpacing& gt, GridBoundaries& elec_grid_regions, FeatureRegimes& regimes) {
-    this->_min = min;
-    this->_max = max;
     this->_region_bndry_index = elec_grid_regions.bndry_idx;   // TODO: refactor, can replace min and max with array of region start and region ends. -S.P.
     this -> _region_bndry_energy = elec_grid_regions.bndry_E;   
     this -> _region_powers = elec_grid_regions.powers;   
 
-    // Override params
-    if(gt.mode == GridSpacing::manual){
-        num_funcs = _region_bndry_index[_region_bndry_index.size()-1];
-        this->_max = _region_bndry_energy[_region_bndry_energy.size()-1];
-    }
     // Idea: Want num_funcs usable B-splines
     // If grid has num_funcs+k+1 points, num_funcs of these are usable splines (num_int = num_funcs + Z_inf - start)
     // grid layout for open boundary:
@@ -298,7 +297,15 @@ void BasisSet::set_parameters(const GridSpacing& gt, GridBoundaries& elec_grid_r
     // t0=t1=...=tk-3, tn+3=...=tn+k
     
     // boundary at minimm energy enforces energy conservation 
-    set_knot(gt,regimes); //TODO see if this allows for turning off fixed origin boundary.
+    if(gt.mode == GridSpacing::manual){    
+        this->_min = elec_grid_regions.bndry_E.front();
+        this->_max = elec_grid_regions.bndry_E.back();
+        num_funcs = elec_grid_regions.bndry_idx.back();
+        manual_set_knot(gt);
+    }    
+    else{
+        set_knot(gt,regimes);
+    }
     
 
     

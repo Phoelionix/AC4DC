@@ -116,15 +116,36 @@ double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,
     // Return the midpoint as the boundary.
     return (local_min + start_energy)/2;
 }
+
+double ElectronRateSolver::approx_regime_peak(size_t step, double lower_bound, double upper_bound, double del_energy){
+    del_energy = abs(del_energy);
+    assert(del_energy > 0);
+    double e = lower_bound;
+    double peak_density = 0;
+    double peak_e = -1;
+    // Seek local minimum.
+    while (e < upper_bound){
+        double density = y[step].F(e);
+        if (density > peak_density){
+            peak_density = density;
+            peak_e = e;
+        }
+        e += del_energy; 
+    }
+    return peak_e;
+}
+
+
 /**
- * @brief Get the range we want to cover for dirac.
- * @details.
+ * @brief Finds the energy bounds of the photoelectron region
+ * @details Since it isn't obvious what function approximates the peak at a given time, 
+ * we define a range that was found to experimentally give good results. 
  */
 void ElectronRateSolver::dirac_energy_bounds(size_t step, double& max, double& min, double& peak) {
     max = 0;
     min = 1e9;
     double peak_density = -1e9;
-    double e_step_size = 20;
+    double e_step_size = 20/Constant::eV_per_Ha;
     //about halfway between the peak and the neighbouring local minima is sufficient for their mins and maxes
     for(auto& atom : input_params.Store) {
         for(auto& r : atom.Photo) {
@@ -135,16 +156,36 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, double& max, double& m
                 peak_density = density; 
             }
             // Get bounds
-            double lower_bound = r.energy- approx_regime_bound(step,r.energy,-e_step_size,3);
-            double upper_bound = approx_regime_bound(step,r.energy,+e_step_size,3) - r.energy;
+            double lower_bound = r.energy- approx_regime_bound(step,r.energy, -e_step_size, 3);
+            double upper_bound = approx_regime_bound(step,r.energy, +e_step_size, 3) - r.energy;
             if (upper_bound > max) max=upper_bound;
             if (lower_bound < min) min=lower_bound;
         }
     }
 }
 
-void ElectronRateSolver(size_t step, double& max, double& min, double& peak) {
-
+/**
+ * @brief Finds the energy bounds of the MB within 2 deviations of the average energy.
+ * @details 
+ * @param step 
+ * @param max 
+ * @param min 
+ * @param peak 
+ */
+void ElectronRateSolver::mb_energy_bounds(size_t step, double& max, double& min, double& peak) {
+    // Find e_peak = kT/2
+    double divergent_energy = 4/Constant::eV_per_Ha;
+    double min_energy = 0;
+    double max_energy = 1000/Constant::eV_per_Ha;
+    double e_step_size = 2/Constant::eV_per_Ha;
+    peak = approx_regime_peak(step,min_energy,max_energy,e_step_size);
+    double kT = 2*peak;
+    // CDF = Γ(3/2)γ(3/2,E/kT)
+    min = 0.2922*kT;  // 10%
+    if(min < divergent_energy){
+        min = divergent_energy;
+    }
+    max = 2.3208*kT; // 80% (lower since not as sharp)
 }
 
 void ElectronRateSolver::set_grid_regions(GridBoundaries gb){
@@ -163,20 +204,11 @@ void ElectronRateSolver::set_up_grid_with_computed_cross_sections(std::ofstream&
     input_params.calc_rates(_log, recalc);
     hasRates = true;
     
-
-    double max_dir, min_dir, peak_dir;
-    double min_mb, max_mb, peak_mb;
-    dirac_energy_bounds(step,max_dir,min_dir,peak_dir);
-    mb_energy_bounds(step,max_mb,min_mb,peak_mb);
+    dirac_energy_bounds(step,regimes.dirac_max,regimes.dirac_min,regimes.dirac_peak);
+    mb_energy_bounds(step,regimes.mb_max,regimes.mb_min,regimes.mb_peak);
     
 
     if(init){
-        regimes.dirac_peak = peak_dir;
-        regimes.dirac_min = max_dir;
-        regimes.dirac_max = min_dir;
-        regimes.mb_peak =
-        regimes.mb_min = 
-        regimes.mb_max = 
     }
     
     // Set up the container class to have the correct size
@@ -194,7 +226,7 @@ void ElectronRateSolver::set_up_grid_with_computed_cross_sections(std::ofstream&
     RATE_EII.resize(input_params.Store.size());
     RATE_TBR.resize(input_params.Store.size());
     for (size_t a=0; a<input_params.Store.size(); a++) {
-        size_t N = basis.num_funcs;
+        size_t N = y[step].F.num_basis_funcs();
         RATE_EII[a].resize(N);
         RATE_TBR[a].resize(N*(N+1)/2);
     }
@@ -224,7 +256,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
     cout<<banner<<endl;
     
     
-    this->iterate(simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
+    this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
 
 
     cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<std::endl;
@@ -256,7 +288,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
         }
         retries--;
         set_starting_state();
-        this->iterate(simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
+        this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
     }
     
     

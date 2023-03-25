@@ -45,8 +45,8 @@ class Hybrid : public Adams_BM<T>{
      
 
 
-    void run_steps(const double t_resume, const int steps_per_time_update);  // TODO probably should make t_resume and steps_per_time_update member variables, this is some real bootstrappin'. -S.P.
-    void iterate(double t_initial, double t_final, const double t_resume, const int steps_per_time_update);
+    void run_steps(ofstream& _log, const double t_resume, const int steps_per_time_update);  // TODO probably should make t_resume and steps_per_time_update member variables, this is some real bootstrappin'. -S.P.
+    void iterate(ofstream& _log, double t_initial, double t_final, const double t_resume, const int steps_per_time_update);
     /// Unused
     void backward_Euler(unsigned n); 
     void step_stiff_part(unsigned n);
@@ -63,7 +63,8 @@ class Hybrid : public Adams_BM<T>{
 
 template<typename T>
 // t_resume = the time to resume simulation from if loading a sim. -S.P.
-void Hybrid<T>::iterate(double t_initial, double t_final, const double t_resume, const int steps_per_time_update) {
+// _log only used for cross-section recalcs atm.
+void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const double t_resume, const int steps_per_time_update) {
 
     if (this->dt < 1E-16) {
         std::cerr<<"WARN: step size "<<this->dt<<"is smaller than machine precision"<<std::endl;
@@ -97,7 +98,7 @@ void Hybrid<T>::iterate(double t_initial, double t_final, const double t_resume,
         }
         this->t[n] = this->t[n-1] + this->dt;
     }
-    this->run_steps(t_resume, steps_per_time_update);
+    this->run_steps(_log,t_resume, steps_per_time_update);
 }
 
 // Overrides the underlying Adams method, adding a more refined but computationally expensive treatment for the stiff Q^{ee} contribution to deltaf.
@@ -107,7 +108,7 @@ void Hybrid<T>::iterate(double t_initial, double t_final, const double t_resume,
  * @tparam T 
  */
 template<typename T>
-void Hybrid<T>::run_steps(const double t_resume, const int steps_per_time_update){
+void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps_per_time_update){
     assert(this->y.size() == this->t.size());
     assert(this->t.size() >= this->order);
 
@@ -139,6 +140,7 @@ void Hybrid<T>::run_steps(const double t_resume, const int steps_per_time_update
         // if ((n-this->order)%stability_check_period == 0){
         //     this->high_energy_stability_check()
         // }
+        size_t grid_update_period = 100;
         if ((n-this->order)%grid_update_period == 0){
             this->set_up_grid_with_computed_cross_sections(_log,false,n+1);
         }        

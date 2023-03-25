@@ -21,11 +21,10 @@
 
 GridRegions::GridRegions(){
     // Initialise regions
-    float e = 1/Constant::eV_per_Ha;
     regions = {
-        Region(1,5*e,10*e,"static"),  // low divergent
-        Region(20,10*e,600*e,"static"), // auger
-        Region(10,600*e,12000*e,"static"), // high tail
+        Region(1,5,10,"static"),  // low divergent
+        Region(20,10,600,"static"), // auger
+        Region(10,600,12000,"static"), // high tail
         Region(35,4,10,"dirac"), // Maxwell-boltzmann distribution
         Region(40,4500,6500,"mb") // Photoelectron peak
     };
@@ -51,17 +50,17 @@ GridRegions::GridRegions(){
  * @brief Update dynamic regions' energy bounds. (Using linear regions).
  * @details currently places centre of region on peak.
  */
-void GridRegions::update_regions(double mb_peak, double mb_width, double dirac_peak, double dirac_width){
+void GridRegions::update_regions(FeatureRegimes rgm){
      for (size_t r = 0; r < regions.size(); r ++){
         switch(regions[r].get_type()[0]){
             case 's': // static
                 return;
             break; 
             case 'd':
-                regions[r].update_region(dirac_peak,dirac_width);
+                regions[r].update_region(rgm.dirac_peak,rgm.dirac_min,rgm.dirac_max);
             break;
             case 'm':
-                regions[r].update_region(mb_peak,mb_width);
+                regions[r].update_region(rgm.mb_peak,rgm.mb_min,rgm.mb_max);
             break;
             default:
                 std::cout <<"Error, unrecognised region type" <<regions[r].get_type() << std::endl;
@@ -74,10 +73,10 @@ void GridRegions::set_static_energies(vector<double> energy_boundaries){
 
 }
 
-void Region::update_region(double new_centre, double new_width){
-    if (type == "static") return;    
-    E_min = new_centre - new_width/2;
-    E_max = new_centre + new_width/2;
+void Region::update_region(double new_centre, double new_min, double new_max){
+    assert(type != "static");    
+    E_min = new_min;
+    E_max = new_max;
 }
 
 // powers not implemented yet since doesn't seem necessary

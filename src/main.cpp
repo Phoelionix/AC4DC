@@ -270,7 +270,7 @@ int main(int argc, const char *argv[]) {
     const char* const_path = input_file_path.c_str();
     ElectronRateSolver S(const_path, log); // Contains all of the collision parameters.
     cout << "\033[1;32mComputing cross sections... \033[0m" <<endl;
-    S.initialise_grid_with_computed_cross_sections(log, runsettings.recalc);
+    S.set_up_grid_with_computed_cross_sections(log, runsettings.recalc);
     if (runsettings.solve_rate_eq) {
         cout << "\033[1;32mSolving rate equations..." << "\033[35m\033[1mTarget: " << name << "\033[0m" <<endl;
         S.solve(log);

@@ -110,7 +110,8 @@ private:
     void get_energy_bounds(double& max, double& min); // unused
     void dirac_energy_bounds(size_t step, double& max, double& min, double& peak_density);
     void mb_energy_bounds(size_t step, double& max, double& min, double& peak_density);
-    double approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = 0, double max =1e7);    
+    double approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = 0, double max =1e7);  
+    double approx_regime_peak(size_t step, double lower_bound, double upper_bound, double del_energy);  
     void precompute_gamma_coeffs(); // populates above two tensors
     void set_initial_conditions();
 

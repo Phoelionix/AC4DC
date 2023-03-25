@@ -118,7 +118,8 @@ public:
     }
 
     vector<double> get_knot_energies(){return basis.get_knot();}
-    
+    double num_basis_funcs(){return basis.num_funcs;}
+
     /**
      * @brief Returns an order-preserved copy of knots with points that overlap with the basis's boundary removed.
      * 

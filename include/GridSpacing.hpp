@@ -39,8 +39,8 @@ struct Cutoffs{
 };
 
 struct FeatureRegimes{
-    double mb_peak=0, mb_width=0;
-    double dirac_peak=0, dirac_width=0;    
+    double mb_peak=0, mb_min=0, mb_max=0;
+    double dirac_peak=0, dirac_min=0,dirac_max=0;    
 };
 
 // For manual grid mode.
