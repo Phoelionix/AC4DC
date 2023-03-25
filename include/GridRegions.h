@@ -1,76 +1,71 @@
+/**
+ * @file GridRegions.h
+ * @brief Handles dynamic grid mechanics
+ */
 
 #include <vector>
 #include <iostream>
+
 
 using namespace std;
 
 class GridRegions
 {
 public:
-    GridRegions();
-    StaticRegion static_low_divergent;
-    StaticRegion static_auger;
-    StaticRegion static_high_tail; 
-    MBRegion dyn_mb;
-    DiracRegion dyn_photo;
-    void update_regions();
+    GridRegions(){};
+    void update_regions(double mb_peak, double mb_width, double dirac_peak, double dirac_width);
 
 protected:
-    void set_static_energies(vector<float> energy_boundaries);
-    void grid_update(ofstream& _log);
+    void set_static_energies(vector<double> energy_boundaries);
+    std::vector<Region> regions;
 
 
 private:
     int NUM_STATIC_REGIONS = 3;
     int NUM_DYNAMIC_REGIONS = 2;
-
 };
 
 class Region
 {
 public:
-    Region(int num_points, float E_min, float E_max) :
+    // // Dummy region
+    // Region(): type{"blank"},power{1}{};
+    /**
+     * @brief Construct a new Region object
+     * 
+     * @param num_points 
+     * @param E_min 
+     * @param E_max 
+     * @param type one of: "static", "dirac", "mb"
+     */
+    Region(int num_points, double E_min, double E_max, const string type) :
     num_points{num_points},
     E_min{E_min},
-    E_max{E_max}
+    E_max{E_max},
+    type{type},
+    power{1}   
     {
         num_points_left = num_points;
     }  
-    float get_point_density(){return (E_max-E_min)/num_points;};
-    float get_E_min(){return E_min;}
-    float get_E_max(){return E_max;}
-    int get_active_points(){return num_points_left;}
+    double get_point_density(){return (E_max-E_min)/num_points;};
+    double get_E_min(){return E_min;}
+    double get_E_max(){return E_max;}
+    const string get_type(){return type;}
+    // (just used for sorting)
+    bool operator < (Region& other){
+        return E_max  < (other.get_E_min());
+    }    
+    double get_next_knot(double previous_knot);
+    void update_region(double new_centre,double new_width);
 
 private:
     int num_points;
     int num_points_left;
-    float E_min;
-    float E_max;
-};
-
-class StaticRegion : public Region
-{
-public:
-    StaticRegion(int num_points, float E_min, float E_max) : Region(num_points,E_min,E_max)
-    {}
-};
-
-class MBRegion : public Region
-{
-public:
-    MBRegion(int num_points, float E_min, float E_max) : Region(num_points,E_min,E_max)
-    {}
-
-private:
-    float get_peak();
-
-};
-
-class DiracRegion : public Region
-{
-public:
-    DiracRegion(int num_points, float E_min, float E_max) : Region(num_points,E_min,E_max)
-    {}
-private:
-    float get_peak();
+    double E_min;
+    double E_max;
+    const string type;
+    const int power;
+    double get_peak();
+    double dirac_peak();
+    double mb_peak();
 };

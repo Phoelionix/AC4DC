@@ -217,6 +217,7 @@ void ElectronRateSolver::tokenise(std::string str, std::vector<double> &out, con
  * after which it transforms to the grid point basis submitted for *this* run via transform_basis().
  * It should be noted that transform_basis() is an *approximation* of the non-polynomial behaviourpyt, albeit it is very good due to using 
  * order 64 gaussian quadrature.
+ * @todo there's no need to convert the basis of old lines, if we associate distribution at each time step to a basis.
  */
 void ElectronRateSolver::loadFreeRaw_and_times() {
     vector<string> time_and_BS_factors;
@@ -318,11 +319,11 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         for(size_t j = 0; j < saved_f.size();j++){
             saved_f[j] *= Constant::eV_per_Ha;
         }
-        // FREE DISTRIBUTION
+        // FREE DISTRIBUTION   
         std::vector<double> new_knots =  y[0].F.get_knot_energies();      
         y[i].F.set_distribution(saved_knots,saved_f);
         // To ensure compatibility, "translate" old distribution to new grid points.    
-
+        // TODO should remove transforming basis unless last step (and check still works)
         y[i].F.transform_basis(new_knots);         
         t[i] = saved_time[i];
         i++;

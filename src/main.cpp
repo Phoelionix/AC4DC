@@ -27,7 +27,7 @@ This file is part of AC4DC.
 
 using namespace std;
 
-////// The below paragraph isn't currently implemented; for now, the rates are calculated here (compute_cross_sections()).
+////// The below paragraph isn't currently implemented; for now, the rates are calculated here (initialise_grid_with_computed_cross_sections()).
 ////// Note the computationally expensive part of the code is the solving of equations, not the rates, so 
 ////// that should be taken into account when considering the priority of refactoring.   - S.P.
     // Rate system solver.
@@ -270,7 +270,7 @@ int main(int argc, const char *argv[]) {
     const char* const_path = input_file_path.c_str();
     ElectronRateSolver S(const_path, log); // Contains all of the collision parameters.
     cout << "\033[1;32mComputing cross sections... \033[0m" <<endl;
-    S.compute_cross_sections(log, runsettings.recalc);
+    S.initialise_grid_with_computed_cross_sections(log, runsettings.recalc);
     if (runsettings.solve_rate_eq) {
         cout << "\033[1;32mSolving rate equations..." << "\033[35m\033[1mTarget: " << name << "\033[0m" <<endl;
         S.solve(log);

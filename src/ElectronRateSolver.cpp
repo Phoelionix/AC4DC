@@ -26,7 +26,6 @@ This file is part of AC4DC.
 #include "HartreeFock.h"
 #include "ComputeRateParam.h"
 #include "SplineIntegral.h"
-#include "GridRegions.h"
 #include <fstream>
 #include <algorithm>
 #include <Eigen/SparseCore>
@@ -34,8 +33,6 @@ This file is part of AC4DC.
 #include <math.h>
 #include <omp.h>
 #include "config.h"
-
-
 
 
 void ElectronRateSolver::set_starting_state(){
@@ -66,6 +63,9 @@ state_type ElectronRateSolver::get_ground_state() {
     return initial_condition;
 }
 
+/**
+ * @brief unused
+ */
 void ElectronRateSolver::get_energy_bounds(double& max, double& min) {
     max = 0;
     min = 1e9;
@@ -81,27 +81,120 @@ void ElectronRateSolver::get_energy_bounds(double& max, double& min) {
     }
 }
 
+
+/**
+ * @brief Approximates midpoint between peak and local density minimum.
+ * @details  Finds density minimum by checking energies separated by del_energy until the energy increases for more than min_higher steps.
+ * @param start_energy 
+ * @param del_energy 
+ */
+double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = 0, double max =1e7){
+    assert(del_energy != 0);
+    double e = start_energy;
+    double local_min = -1;
+    double last_density = y[step].F[start_energy];
+    size_t num_sequential = 0;
+    // Seek local minimum.
+    while (num_sequential < min_sequential){
+        e += del_energy;
+        if (e < min){
+            local_min = min; break;}
+        if (e > max){
+            local_min = max; break;}
+
+        double density = y[step].F(e);
+        if(density > last_density){
+            local_min = e;
+            num_sequential++;
+        }
+        else{
+            local_min = -1;
+            num_sequential = 0;
+        }
+        last_density = density; 
+    }
+    // Return the midpoint as the boundary.
+    return (local_min + start_energy)/2;
+}
+/**
+ * @brief Get the range we want to cover for dirac.
+ * @details.
+ */
+void ElectronRateSolver::dirac_energy_bounds(size_t step, double& max, double& min, double& peak) {
+    max = 0;
+    min = 1e9;
+    double peak_density = -1e9;
+    double e_step_size = 20;
+    //about halfway between the peak and the neighbouring local minima is sufficient for their mins and maxes
+    for(auto& atom : input_params.Store) {
+        for(auto& r : atom.Photo) {
+            // Check if peak density
+            double density = y[step].F(r.energy);
+            if (density >= peak_density){
+                peak = r.energy;
+                peak_density = density; 
+            }
+            // Get bounds
+            double lower_bound = r.energy- approx_regime_bound(step,r.energy,-e_step_size,3);
+            double upper_bound = approx_regime_bound(step,r.energy,+e_step_size,3) - r.energy;
+            if (upper_bound > max) max=upper_bound;
+            if (lower_bound < min) min=lower_bound;
+        }
+    }
+}
+
+void ElectronRateSolver(size_t step, double& max, double& min, double& peak) {
+
+}
+
 void ElectronRateSolver::set_grid_regions(GridBoundaries gb){
     elec_grid_regions = gb;
 }
 
-
-void ElectronRateSolver::compute_cross_sections(std::ofstream& _log, bool recalc) {
+/**
+ * @brief 
+ *
+ * @param _log 
+ * @param init whether this is the start of the simulation and starting state must be initialised.  
+ */
+ 
+void ElectronRateSolver::set_up_grid_with_computed_cross_sections(std::ofstream& _log, bool init,size_t step = 0) {//, bool recalc) {
+    bool recalc = true;
     input_params.calc_rates(_log, recalc);
     hasRates = true;
     
+
+    double max_dir, min_dir, peak_dir;
+    double min_mb, max_mb, peak_mb;
+    dirac_energy_bounds(step,max_dir,min_dir,peak_dir);
+    mb_energy_bounds(step,max_mb,min_mb,peak_mb);
+    
+
+    if(init){
+        regimes.dirac_peak = peak_dir;
+        regimes.dirac_min = max_dir;
+        regimes.dirac_max = min_dir;
+        regimes.mb_peak =
+        regimes.mb_min = 
+        regimes.mb_max = 
+    }
+    
     // Set up the container class to have the correct size
-    Distribution::set_elec_points(input_params.Num_Elec_Points(), input_params.Min_Elec_E(), input_params.Max_Elec_E(), input_params.elec_grid_type, elec_grid_regions);
+    Distribution::set_basis(step, input_params.elec_grid_type, input_params.param_cutoffs, regimes, elec_grid_regions);
     state_type::set_P_shape(input_params.Store);
-    // Set up the rate equations (setup called from parent Adams_BM)
-    set_starting_state();
 
+    if (init){
+        // Set up the rate equations (setup called from parent Adams_B  M)
+        set_starting_state();
+    }
+    else{
 
+    }
     // create the tensor of coefficients
     RATE_EII.resize(input_params.Store.size());
     RATE_TBR.resize(input_params.Store.size());
     for (size_t a=0; a<input_params.Store.size(); a++) {
-        size_t N = input_params.Num_Elec_Points();
+        size_t N = basis.num_funcs;
         RATE_EII[a].resize(N);
         RATE_TBR[a].resize(N*(N+1)/2);
     }
@@ -110,7 +203,7 @@ void ElectronRateSolver::compute_cross_sections(std::ofstream& _log, bool recalc
 }
 
 void ElectronRateSolver::solve(ofstream & _log) {
-    assert (hasRates || "No rates found! Use ElectronRateSolver::compute_cross_sections(log)\n");
+    assert (hasRates || "No rates found! Use ElectronRateSolver::initialise_grid_with_computed_cross_sections(log)\n");
     auto start = std::chrono::system_clock::now();
 
     if (simulation_resume_time > simulation_end_time){cout << "\033[91m[ Error ]\033[0m Simulation is attempting to resume from loaded data with a time after that which it is set to end at." << endl;}

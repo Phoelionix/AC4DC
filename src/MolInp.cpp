@@ -127,22 +127,18 @@ MolInp::MolInp(const char* filename, ofstream & log)
 
 		if (n == 0) stream >> num_time_steps;
 		if (n == 1) stream >> omp_threads;
-		if (n == 2) stream >> min_elec_e;
-		if (n == 3) stream >> max_elec_e;
-		if (n == 4) stream >> num_elec_points;
-		if (n == 5) stream >> elec_grid_type; 
-		if (n == 6) stream >> elec_grid_type.num_low;   // This number excludes the "transition point" - S.P.
-		if (n == 7) stream >> elec_grid_type.transition_e;
-		
+		if (n == 2) stream >> param_cutoffs.transition_e;
+		if (n== 3) stream >> param_cutoffs.min_coulomb_density;
+
+	}
+	for (size_t n = 0; n < FileContent["#MANUAL_GRID"].size(); n++) {
+		stringstream stream(FileContent["#MANUAL_GRID"][n]);
+		if (n == 0) stream >> elec_grid_type; // "true" for manual.		
 		//#GRID ,
-		if (n == 8) stream >> elec_grid_regions; 
-		if (n == 9){
-			stream >> elec_grid_regions;   // elec_grid_regions.start        
-			// Temp fix until split off. TODO
-			num_elec_points = elec_grid_regions.start[elec_grid_regions.start.size()-1];
-		}
-		if (n == 10) stream >> elec_grid_regions; //elec_grid_regions.E_min
-		if (n == 11) stream >> elec_grid_type.min_coulomb_density; //elec_grid_regions.powers
+		if (n == 1) stream >> elec_grid_regions; 
+		if (n == 2) stream >> elec_grid_regions;  //elec_grid_regions.bndry_idx
+		if (n == 3) stream >> elec_grid_regions; //elec_grid_regions.bndry_E
+		if (n == 4) stream >> param_cutoffs.min_coulomb_density; //elec_grid_regions.powers
 	}
 
 
@@ -163,18 +159,6 @@ MolInp::MolInp(const char* filename, ofstream & log)
 
 	}	
 
-
-
-	// for (size_t n = 0; n < FileContent["#GRID"].size(); n++) {
-	// 	stringstream stream(FileContent["#GRID"][n]);
-	// 	if (n == 0) stream >> min_elec_e;
-	// 	if (n == 1) stream >> max_elec_e;
-	// 	if (n == 2) stream >> num_elec_points;
-	// 	if (n == 3) stream >> elec_grid_type;
-	// 	if (n == 4) stream >> elec_grid_type.num_low;
-	// 	if (n == 5) stream >> elec_grid_type.transition_e;
-	// }
-
 	// Hardcode the boundary conditions
 	elec_grid_type.zero_degree_inf = 3;
 	elec_grid_type.zero_degree_0 = 0;
@@ -193,11 +177,11 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	cout<<bc<<"Pulse FWHM:     "<<clr<<width<<" fs"<<endl;
 	cout<<bc<<"Pulse shape:    "<<clr<<pulse_shape<<endl<<endl;
 
-	cout<<bc<<"Electron grid:  "<<clr<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
-	cout<<    "                "<<num_elec_points<<" points"<<endl;
+	// cout<<bc<<"Electron grid:  "<<clr<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
+	// cout<<    "                "<<num_elec_points<<" points"<<endl;
 	cout<<bc<<"Grid type:      "<<clr<<elec_grid_type<<endl;
-	cout<<bc<<"Low energy cutoff for Coulomb logarithm estimation: "<<clr<<elec_grid_type.transition_e<<"eV"<<endl;
-	cout<<bc<<"Minimum num electrons per unit cell for Coulomb logarithm to be considered: "<<clr<<elec_grid_type.min_coulomb_density<<endl;
+	cout<<bc<<"Low energy cutoff for Coulomb logarithm estimation: "<<clr<<param_cutoffs.transition_e<<"eV"<<endl;
+	cout<<bc<<"Minimum num electrons per unit cell for Coulomb logarithm to be considered: "<<clr<<param_cutoffs.min_coulomb_density<<endl;
 	cout<<endl;
 
 	cout<<bc<<"ODE Iteration:  "<<clr<<num_time_steps<<" timesteps"<<endl;
@@ -223,14 +207,11 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	loss_geometry.L0 /= Constant::Angs_per_au;
 	unit_V /= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
 
-	elec_grid_type.min_coulomb_density /= unit_V;
+	param_cutoffs.min_coulomb_density /= unit_V;
 
-	min_elec_e /= Constant::eV_per_Ha;
-	max_elec_e /= Constant::eV_per_Ha;
-
-	elec_grid_type.transition_e /= Constant::eV_per_Ha;
-	for (size_t i = 0; i < elec_grid_regions.E_min.size(); i++){
-		elec_grid_regions.E_min[i] /= Constant::eV_per_Ha;
+	param_cutoffs.transition_e /= Constant::eV_per_Ha;
+	for (size_t i = 0; i < elec_grid_regions.bndry_E.size(); i++){
+		elec_grid_regions.bndry_E[i] /= Constant::eV_per_Ha;
 	}
 
 	// Reads the very top of the file, expecting input of the form
@@ -269,7 +250,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	}
 }
 
-bool MolInp::validate_inputs() {
+bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P.
 	bool is_valid=true;
 	cerr<<"\033[31;1m";
 	if (omega <= 0 ) { cerr<<"ERROR: pulse omega must be positive"; is_valid=false; }
@@ -281,28 +262,34 @@ bool MolInp::validate_inputs() {
 	if (loss_geometry.L0 <= 0) { cerr<<"ERROR: radius must be positive"; is_valid=false; }
 	if (omp_threads <= 0) { omp_threads = 4; cerr<<"Defaulting number of OMP threads to 4"; }
 
+	// if (elec_grid_type.mode == GridSpacing::unknown) {
+	// 	cerr<<"ERROR: Grid spacing not recognised - must start with (l)inear, (q)uadratic,";
+	// 	cerr<<" (e)xponential, (h)ybrid or (p)owerlaw"; is_valid=false;
+	// }
+	// if (elec_grid_type.mode == GridSpacing::hybrid || elec_grid_type.mode == GridSpacing::powerlaw) {
+	// 	if (elec_grid_type.num_low <= 0 || elec_grid_type.num_low >= num_elec_points) { 
+	// 		cerr<<"Defaulting number of dense (low-energy) points to "<<num_elec_points/2;
+	// 		elec_grid_type.num_low = num_elec_points/2;
+	// 	}
+	// }
 	if (elec_grid_type.mode == GridSpacing::unknown) {
-		cerr<<"ERROR: Grid spacing not recognised - must start with (l)inear, (q)uadratic,";
-		cerr<<" (e)xponential, (h)ybrid or (p)owerlaw"; is_valid=false;
+	cerr<<"ERROR: Grid type not recognised - param corresponding to use of manual must start with (t)rue or (f)alse,";
+	is_valid=false;
 	}
-	if (elec_grid_type.mode == GridSpacing::hybrid || elec_grid_type.mode == GridSpacing::powerlaw) {
-		if (elec_grid_type.num_low <= 0 || elec_grid_type.num_low >= num_elec_points) { 
-			cerr<<"Defaulting number of dense (low-energy) points to "<<num_elec_points/2;
-			elec_grid_type.num_low = num_elec_points/2;
+	if (elec_grid_type.mode == GridSpacing::manual){
+		// transition e.
+		if (param_cutoffs.transition_e <= elec_grid_regions.bndry_E.front() || param_cutoffs.transition_e >= elec_grid_regions.bndry_E.back()) {
+			cerr<<"Defaulting low-energy cutoff for coulomb log calculations to "<<elec_grid_regions.bndry_E.back()/4; 
+			param_cutoffs.transition_e = elec_grid_regions.bndry_E.back()/4;
 		}
+		// Electron grid style
+		if(elec_grid_regions.bndry_E.front() < 0 || elec_grid_regions.bndry_E.back() < 0 || elec_grid_regions.bndry_E.back() <= elec_grid_regions.bndry_E.front()) { cerr<<"ERROR: Electron grid specification invalid"; is_valid=false; }
+		if (num_time_steps <= 0 ) { cerr<<"ERROR: got negative number of energy steps"; is_valid=false; }	
 	}
-	if (elec_grid_type.transition_e <= min_elec_e || elec_grid_type.transition_e >= max_elec_e) {
-		cerr<<"Defaulting low-energy cutoff to "<<max_elec_e/4;
-		elec_grid_type.transition_e = max_elec_e/4;
-	}
-	
 
 	// unit cell volume.
 	if (unit_V <= 0) { cerr<<"ERROR: unit xell volume must be positive"; is_valid=false; }
 
-	// Electron grid style
-	if(min_elec_e < 0 || max_elec_e < 0 || max_elec_e <= min_elec_e) { cerr<<"ERROR: Electron grid specification invalid"; is_valid=false; }
-	if (num_time_steps <= 0 ) { cerr<<"ERROR: got negative number of energy steps"; is_valid=false; }
 	cerr<<"\033[0m";
 	return is_valid;
 }

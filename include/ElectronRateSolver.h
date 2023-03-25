@@ -78,7 +78,7 @@ public:
     void solve(ofstream & _log);
     void save(const std::string& folder);
     /// Sets up the rate equations, which requires computing the atomic cross-sections/avg. transition rates to get the coefficients.
-    void compute_cross_sections(std::ofstream& _log, bool recalc=true);
+    void set_up_grid_with_computed_cross_sections(std::ofstream& _log, bool init,size_t step = 0); //bool recalc=true);
     void tokenise(std::string str, std::vector<double> &out, const char delim = ' ');
 
     /// Number of secs taken for simulation to run
@@ -93,6 +93,7 @@ public:
 private:
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)
     GridBoundaries elec_grid_regions;
+    FeatureRegimes regimes;
     Pulse pf;
     double timespan_au; // Atomic units
     double simulation_start_time;  // [Au]
@@ -106,7 +107,10 @@ private:
     vector<vector<eiiGraph> > RATE_EII;
     vector<vector<eiiGraph> > RATE_TBR;
 
-    void get_energy_bounds(double& max, double& min);
+    void get_energy_bounds(double& max, double& min); // unused
+    void dirac_energy_bounds(size_t step, double& max, double& min, double& peak_density);
+    void mb_energy_bounds(size_t step, double& max, double& min, double& peak_density);
+    double approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = 0, double max =1e7);    
     void precompute_gamma_coeffs(); // populates above two tensors
     void set_initial_conditions();
 
@@ -131,7 +135,6 @@ private:
 
     void set_grid_regions(GridBoundaries gb);
     void set_starting_state();
-    state_type load_state();
     state_type get_ground_state();
 
     //void high_energy_stability_check();

@@ -1,9 +1,11 @@
 #include "GridRegions.h"
 #include "Constant.h"
+#include <iostream>
 #include <vector>
 #include <variant>
 #include <math.h>
 #include <execution>
+
 
 /**
  * @brief 
@@ -20,12 +22,14 @@
 GridRegions::GridRegions(){
     // Initialise regions
     float e = 1/Constant::eV_per_Ha;
-    Region static_low_divergent(1,5*e,10*e,"static");
-    Region static_auger(20,10*e,600*e,"static");
-    Region static_high_tail(10,600*e,12000*e,"static"); 
-    Region dyn_mb(35,4,10,"dirac");
-    Region dyn_photo(40,4500,6500,"mb");
-}
+    regions = {
+        Region(1,5*e,10*e,"static"),  // low divergent
+        Region(20,10*e,600*e,"static"), // auger
+        Region(10,600*e,12000*e,"static"), // high tail
+        Region(35,4,10,"dirac"), // Maxwell-boltzmann distribution
+        Region(40,4500,6500,"mb") // Photoelectron peak
+    };
+} 
 
 /**
  * @brief Updates the regions, then transforms the grid based on the regions' updated properties.
@@ -37,74 +41,57 @@ GridRegions::GridRegions(){
  * Dynamic regions:
  * - MB region
  * - Photoelectron region
+ * @param _log  
  */
-void GridRegions::grid_update(ofstream& _log){
-    update_regions();
-    
 
-    std::vector<Region*> stat_regions = {&static_low_divergent,&static_auger,&static_high_tail};  
-    std::vector<Region*> dyn_regions = {&dyn_mb,&dyn_photo};  
-    Region* finer_region;
-    Region* coarser_region;
-    // Get each static grid's energies
-    for (size_t i = 0; i < stat_regions.size(); i++){
-        for(size_t j = 0; j < dyn_regions.size(); j++){
-            if(stat_regions[i]->get_point_density() < dyn_regions[j]->get_point_density()){
-                // If the dynamic grid is denser, consider points "filled" 
-                finer_region = dyn_regions[j];
-                coarser_region = stat_regions[i];
-            }
-            else{
-                finer_region = stat_regions[i];
-                coarser_region = dyn_regions[j];
-            }
-        }
-        // Coarser region has its number of active points removed
-        float prop_filled = (coarser_region->get_E_max()-coarser_region->get_E_min())/(min(finer_region->get_E_max(),coarser_region->get_E_max()) - max(finer_region.get_E_min(),coarser_region.get_E_min()));
-        finer_region->set_num_points_left(finer_region->get_num_points());
-        coarser_region->set_num_points_left(round(
-            coarser_region->get_active_points() - prop_filled*stat_regions[i]->get_num_points()
-            ));       
-    }
 
-    // Insert dynamic regions into appropriate places. We are assuming that the dynamic grids 
-    std::vector<Region*> sorted_regions = stat_regions;
-    sorted_regions.insert( sorted_regions.end(), dyn_regions.begin(), dyn_regions.end() );
-    std::sort(sorted_regions.begin(),sorted_regions.end()); 
 
-    // Set first index.
-    std::vector<double> boundary_i = {1};
-    // Set first energy to minimum of all grids present ().
-    std::vector<double> boundary_E = {sorted_regions[0]->get_E_min()};
-    std::vector<double> powers = {};    
-    for(size_t i = 0; i < sorted_regions.size(),i++){
-        powers.push(1)
-        boundary_i.push(boundary_i[i]+sorted_regions[i]->get_active_points());
-        if i != sorted_regions.size()-1{
-            boundary_E.push(sorted_regions[i+1]->get_E_min());
-        }
-        else boundary_E.push(sorted_regions[i]->get_E_max());
-    }
-
-    GridBoundaries new_region = {boundary_i,boundary_E,powers}
-    this->set_grid_regions(new_region);
-
-    this->compute_cross_sections(_log,True);
-
-}
 
 /**
- * @brief Update individual region energy bounds. Using linear regions.
- * 
+ * @brief Update dynamic regions' energy bounds. (Using linear regions).
+ * @details currently places centre of region on peak.
  */
-void GridRegions::update_regions(){
-
-
-    E_max = ;
-    E_min = ;
+void GridRegions::update_regions(double mb_peak, double mb_width, double dirac_peak, double dirac_width){
+     for (size_t r = 0; r < regions.size(); r ++){
+        switch(regions[r].get_type()[0]){
+            case 's': // static
+                return;
+            break; 
+            case 'd':
+                regions[r].update_region(dirac_peak,dirac_width);
+            break;
+            case 'm':
+                regions[r].update_region(mb_peak,mb_width);
+            break;
+            default:
+                std::cout <<"Error, unrecognised region type" <<regions[r].get_type() << std::endl;
+                return;
+        }
+    }
 }
 
-void GridRegions::set_static_energies(vector<float> energy_boundaries){
+void GridRegions::set_static_energies(vector<double> energy_boundaries){
 
 }
 
+void Region::update_region(double new_centre, double new_width){
+    if (type == "static") return;    
+    E_min = new_centre - new_width/2;
+    E_max = new_centre + new_width/2;
+}
+
+// powers not implemented yet since doesn't seem necessary
+/**
+ * @brief Returns next knot, or -1 if it's outside the region's (energy) range. 
+ * 
+ * @param previous_knot 
+ * @return double 
+ */
+double Region::get_next_knot(double previous_knot){
+    if(power != 1){std::cout << "WARNING powers not implemented for dynamic grid" <<std::endl;}
+    double next_knot = previous_knot + get_point_density();
+    if ((E_min <= next_knot && next_knot <= E_max)){
+        return next_knot;
+    }
+    return -1;
+}

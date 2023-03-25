@@ -32,21 +32,26 @@ This file is part of AC4DC.
 // to remove asserts
 
 // Initialise static things
+
 size_t Distribution::size=0;  // modified by set_distribution now - S.P.
 size_t Distribution::CoulombLog_cutoff=0;
 double Distribution::CoulombDens_min=0;
-SplineIntegral Distribution::basis;
 
-// Psuedo-constructor thing
-void Distribution::set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style, GridBoundaries elec_grid_regions){
-    // Defines a grid of n points (the total number of free-electron grid points specified in the .mol file.)
-    // Note: In reality we are defining the number of grid points as the number of "usable" splines/knots -S.P. TODO double check
-    basis.set_parameters(n, min_e, max_e, grid_style, elec_grid_regions);
-    Distribution::size=n;
-    Distribution::CoulombLog_cutoff = basis.i_from_e(grid_style.transition_e);
-    Distribution::CoulombDens_min = grid_style.min_coulomb_density;
-    cout<<"[ Free ] Estimating lnLambda based on first ";
-    cout<<CoulombLog_cutoff<<" points, up to "<<grid_style.transition_e<<" Ha"<<endl;
+// Psuedo-constructor thing (Maybe not anymore... -S.P.)
+void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, GridBoundaries elec_grid_regions){
+    // Defines a grid of num_funcs points (if manual, thsi is the total number of free-electron grid points specified in the .mol file.)
+    // where num_funcs is the number of non-boundary (i.e. "usable") splines/knots.
+    //basis_history.push_back(SplineIntegral());
+    SplineIntegral basis;
+    basis.set_parameters(grid_style, elec_grid_regions,regimes);
+    basis_history.push_back(make_pair(step,basis));
+    Distribution::size=basis.num_funcs;
+    Distribution::CoulombLog_cutoff = basis.i_from_e(param_cutoffs.transition_e);
+    Distribution::CoulombDens_min = param_cutoffs.min_coulomb_density;
+    // cout<<"[ Free ] Estimating lnLambda based on first ";
+    // cout<<CoulombLog_cutoff<<" points, up to "<<grid_style.transition_e<<" Ha"<<endl;    
+    cout<<"[ Free ] Estimating lnLambda for energies below ";
+    cout<<param_cutoffs.transition_e<<" Ha"<<endl;
     cout<<"[ Free ] Neglecting electron-electron below density of n = "<<CoulombDens_min<<"au^-3"<<endl;
 }
 

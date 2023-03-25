@@ -140,7 +140,7 @@ void Hybrid<T>::run_steps(const double t_resume, const int steps_per_time_update
         //     this->high_energy_stability_check()
         // }
         if ((n-this->order)%grid_update_period == 0){
-            this->grid_update()
+            this->set_up_grid_with_computed_cross_sections(_log,false,n+1);
         }        
     }
     std::cout<<std::endl;

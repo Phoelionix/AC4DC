@@ -62,10 +62,6 @@ public:
 	int Out_T_size() {return out_T_size; }
 	int Out_F_size() {return out_F_size; }
 
-	double Max_Elec_E() {return max_elec_e;}
-	double Min_Elec_E() {return min_elec_e;}
-	size_t Num_Elec_Points() {return num_elec_points;}
-
 	int Plasma_Threads(){return omp_threads;}
 
 	string Load_Folder(){return load_folder;}
@@ -79,6 +75,7 @@ public:
     void calc_rates(ofstream &_log, bool recalc=true);
 
 	GridSpacing elec_grid_type;
+	Cutoffs param_cutoffs;
 	GridBoundaries elec_grid_regions;
 	LossGeometry loss_geometry;
 	PulseShape pulse_shape = PulseShape::none;
@@ -111,11 +108,6 @@ protected:
 
 	// unit volume.
 	double unit_V = -1.;
-
-	// Electron grid style
-	double min_elec_e = -1;
-	double max_elec_e = -1;
-	size_t num_elec_points = -1; // Number of cells in the free-electron distribution expansion
 
 	// Simulation loading parameters
 	double simulation_resume_time_max; // will attempt to load closest to this time but not after.
