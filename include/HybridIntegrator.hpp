@@ -23,6 +23,8 @@ This file is part of AC4DC.
 
 #include "AdamsIntegrator.hpp"
 #include "Constant.h"
+#include "FreeDistribution.h"
+#include "RateSystem.h"
 #include <Eigen/Dense>
 
 namespace ode {
@@ -50,7 +52,9 @@ class Hybrid : public Adams_BM<T>{
     /// Unused
     void backward_Euler(unsigned n); 
     void step_stiff_part(unsigned n);
-    virtual void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0){std::cout << "Error, attempted to set up grid with virtual function set_up_grid_and_compute_cross_sections." <<std::endl;} // Defined by ElectronRateSolver
+    // More virtual funcs defined by ElectronRateSolver:
+    virtual void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0){std::cout << "Error, attempted to set up grid with virtual function set_up_grid_and_compute_cross_sections." <<std::endl;} 
+    virtual state_type get_ground_state(){};
 };
 
 // template <typename T>
@@ -122,17 +126,18 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     }
     // Run those steps
     std::cout << "[ sim ] Implicit solver uses relative tolerance "<<stiff_rtol<<", max iterations "<<stiff_max_iter<<std::endl;
-    std::cout << "[ sim ]                       ";
 
+    int num_updates = 2;
+    size_t grid_update_period = round(this->t.size()/(num_updates+1));//2000;
+    std::cout << "[ sim ] grid update period (if dynamic): " << (this->t[grid_update_period]-this->t[0])* Constant::fs_per_au << std::endl;
     for (size_t n = this->order; n < this->t.size()-1; n++) {
         if ((n-this->order)%steps_per_time_update == 0){
             std::cout << "\r[ sim ] t="
                     << std::left<<std::setfill(' ')<<std::setw(6)
-                    << this->t[n] * Constant::fs_per_au << std::flush;  //TODO check if this multiplication is taxing.
+                    << this->t[n] * Constant::fs_per_au << std::flush;
         }
         
         if (this->t[n+1] <= t_resume) continue; // Start with n = last step.
-
         this->step_nonstiff_part(n); 
         
         // this->y[n+1].from_backwards_Euler(this->dt, this->y[n], stiff_rtol, stiff_max_iter);
@@ -141,9 +146,25 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         // if ((n-this->order)%stability_check_period == 0){
         //     this->high_energy_stability_check()
         // }
-        size_t grid_update_period = 100;
-        if ((n-this->order)%grid_update_period == 0){
+        if ((n-this->order+1)%grid_update_period == 0){
+            // The latest step is n + 1, so we decide our new grid based on that step, then transform N = "order" of the prior points to the new basis.
             this->set_up_grid_and_compute_cross_sections(_log,false,n+1); // overridden by ElectronRateSolver
+            // Transform enough previous points needed to get going to new basis
+            
+            std::vector<double> new_energies = Distribution::get_knot_energies();
+            // zero_y is used as empty starting state for new step, so we need to reset it so it has the right knots.
+            this->zero_y = this->get_ground_state();
+            cout << endl;            
+            for (size_t m = n+2 - this->order; m < n+2; m++) {
+                // reload back to the old energies so we can use transform_basis(). yes it's goofy :/
+                Distribution::load_knots_from_history(n);
+                this->y[m].F.transform_basis(new_energies);
+            }  
+            // We don't need to do this, as the next containters are made to have the correct size via s=tmp=y_zero and sdot = 0.
+            // // Reinitialise all future containers so that y.F matches the new size, 
+            // as the static variable size has been changed.
+            // this->y.resize(n+2);
+            // this->y.resize(this->t.size());            
         }        
     }
     std::cout<<std::endl;

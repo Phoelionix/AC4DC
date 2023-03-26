@@ -27,7 +27,7 @@ This file is part of AC4DC.
 // #include <Eigen/LU>
 #include <iostream>
 #include "GridSpacing.hpp"
-#include "GridRegions.h"
+#include "DynamicRegions.h"
 
 static constexpr bool USING_SQRTE_PREFACTOR = true;
 

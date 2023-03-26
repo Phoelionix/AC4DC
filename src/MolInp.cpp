@@ -50,13 +50,14 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	string curr_key = "";
 	string end_file = "####END####";  // Do not parse text past a line beginning with this string 
 
-	// Store the parameter-holding file content
+	// Store the parameter-holding file content.
+	// Note that end-line comments aren't actually ignored, just we only stream first term of each line.
 	while (!infile.eof())
 	{
 		string line;
 		getline(infile, line);
-		// Non-information
-		if (!line.compare(0, 2, comment)) continue;
+		// Skip lines with no information.
+		if (!line.compare(0, 2, comment)) continue;   
 		if (!line.compare(0, 1, "")) continue;
 		if (!line.compare(0,end_file.length(),end_file)) break; 
 		// A category of inputs
@@ -128,17 +129,16 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 0) stream >> num_time_steps;
 		if (n == 1) stream >> omp_threads;
 		if (n == 2) stream >> param_cutoffs.transition_e;
-		if (n== 3) stream >> param_cutoffs.min_coulomb_density;
+		if (n == 3) stream >> param_cutoffs.min_coulomb_density;
 
 	}
 	for (size_t n = 0; n < FileContent["#MANUAL_GRID"].size(); n++) {
 		stringstream stream(FileContent["#MANUAL_GRID"][n]);
 		if (n == 0) stream >> elec_grid_type; // "true" for manual.		
 		//#GRID ,
-		if (n == 1) stream >> elec_grid_regions; 
-		if (n == 2) stream >> elec_grid_regions;  //elec_grid_regions.bndry_idx
-		if (n == 3) stream >> elec_grid_regions; //elec_grid_regions.bndry_E
-		if (n == 4) stream >> param_cutoffs.min_coulomb_density; //elec_grid_regions.powers
+		if (n == 1) stream >> elec_grid_regions; //elec_grid_regions.bndry_idx
+		if (n == 2) stream >> elec_grid_regions; //elec_grid_regions.bndry_E
+		if (n == 3) stream >> elec_grid_regions; //elec_grid_regions.powers
 	}
 
 
@@ -279,8 +279,10 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P.
 	if (elec_grid_type.mode == GridSpacing::manual){
 		// transition e.
 		if (param_cutoffs.transition_e <= elec_grid_regions.bndry_E.front() || param_cutoffs.transition_e >= elec_grid_regions.bndry_E.back()) {
-			cerr<<"Defaulting low-energy cutoff for coulomb log calculations to "<<elec_grid_regions.bndry_E.back()/4; 
+			std::cout <<"Transition energy "<<param_cutoffs.transition_e*Constant::eV_per_Ha<<" outside range: "
+			<< elec_grid_regions.bndry_E.front()*Constant::eV_per_Ha<<" "<<param_cutoffs.transition_e*Constant::eV_per_Ha << " " << elec_grid_regions.bndry_E.back()*Constant::eV_per_Ha << std::endl;
 			param_cutoffs.transition_e = elec_grid_regions.bndry_E.back()/4;
+			cerr<<"Defaulting low-energy cutoff for coulomb log calculations to "<<param_cutoffs.transition_e*Constant::eV_per_Ha; 
 		}
 		// Electron grid style
 		if(elec_grid_regions.bndry_E.front() < 0 || elec_grid_regions.bndry_E.back() < 0 || elec_grid_regions.bndry_E.back() <= elec_grid_regions.bndry_E.front()) { cerr<<"ERROR: Electron grid specification invalid"; is_valid=false; }

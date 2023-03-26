@@ -81,19 +81,31 @@ void ElectronRateSolver::get_energy_bounds(double& max, double& min) {
     }
 }
 
+/// Finding regime boundaries. This is very rough, a gradient descent algorithm should be implemented.
+// Should be cautious using in early times when wiggles are present.
 
 /**
- * @brief Approximates midpoint between peak and local density minimum.
+ * @brief Approximates midpoint between start_energy (e.g. a peak) and local density minimum.
  * @details  Finds density minimum by checking energies separated by del_energy until the energy increases for more than min_higher steps.
  * @param start_energy 
  * @param del_energy 
+ * @param min don't seek past this point
+ * @param max don't seek past this point
  */
-double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min, double max){
+double ElectronRateSolver::approx_nearest_min(size_t step, double start_energy,double del_energy, size_t min_sequential, double min, double max){
     assert(del_energy != 0);
+    // Default values
+    if (min < 0)
+        min = 0;
+    if(max < 0 || max > elec_grid_regions.bndry_E.back())
+        max = elec_grid_regions.bndry_E.back();
+    // Initialise
     double e = start_energy;
     double local_min = -1;
-    double last_density = y[step].F[start_energy];
-    size_t num_sequential = 0;
+    double min_density = -1;
+    double last_density = y[step].F(start_energy);
+    size_t num_sequential = -1;
+    if(min_sequential < 1) min_sequential = 1;
     // Seek local minimum.
     while (num_sequential < min_sequential){
         e += del_energy;
@@ -105,14 +117,24 @@ double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,
         double density = y[step].F(e);
         if(density > last_density){
             local_min = e;
+            min_density = density;
             num_sequential++;
         }
         else{
             local_min = -1;
-            num_sequential = 0;
+            num_sequential = -1;
+            min_density = -1;
         }
         last_density = density; 
     }
+    if (min_density < 0){
+        return -1;
+    }
+    
+    return local_min;
+}
+double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min, double max){
+    double local_min = approx_nearest_min(step,start_energy,del_energy,min_sequential,min,max);
     // Return the midpoint as the boundary.
     return (local_min + start_energy)/2;
 }
@@ -136,19 +158,22 @@ double ElectronRateSolver::approx_regime_peak(size_t step, double lower_bound, d
 }
 
 
+
+
 /**
  * @brief Finds the energy bounds of the photoelectron region
  * @details Since it isn't obvious what function approximates the peak at a given time, 
  * we define a range that was found to experimentally give good results. 
+ * @todo It may be better to have a couple of these regimes for the tallest few peaks. Wouldn't be too hard to implement.
  */
 void ElectronRateSolver::dirac_energy_bounds(size_t step, double& max, double& min, double& peak) {
-    max = 0;
-    min = 1e9;
     double peak_density = -1e9;
-    double e_step_size = 20/Constant::eV_per_Ha;
+    double e_step_size = 50/Constant::eV_per_Ha;
+    double min_photo_peak_considered = 3000/Constant::eV_per_Ha; // TODO instead ignore peaks that have negligible rates?
     //about halfway between the peak and the neighbouring local minima is sufficient for their mins and maxes
     for(auto& atom : input_params.Store) {
         for(auto& r : atom.Photo) {
+            if (r.energy <  min_photo_peak_considered) continue;
             // Check if peak density
             double density = y[step].F(r.energy);
             if (density >= peak_density){
@@ -156,8 +181,8 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, double& max, double& m
                 peak_density = density; 
             }
             // Get bounds
-            double lower_bound = r.energy- approx_regime_bound(step,r.energy, -e_step_size, 3);
-            double upper_bound = approx_regime_bound(step,r.energy, +e_step_size, 3) - r.energy;
+            double lower_bound = approx_regime_bound(step,r.energy, -e_step_size, 10);
+            double upper_bound = peak + 0.912*(peak - lower_bound);  // s.t. if lower_bound is 3/4 peak, upper_bound is 1.1*peak.
             if (upper_bound > max) max=upper_bound;
             if (lower_bound < min) min=lower_bound;
         }
@@ -172,24 +197,21 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, double& max, double& m
  * @param min 
  * @param peak 
  */
-void ElectronRateSolver::mb_energy_bounds(size_t step, double& max, double& min, double& peak) {
+void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _min, double& peak) {
     // Find e_peak = kT/2
-    double divergent_energy = 4/Constant::eV_per_Ha;
     double min_energy = 0;
     double max_energy = 1000/Constant::eV_per_Ha;
     double e_step_size = 2/Constant::eV_per_Ha;
     peak = approx_regime_peak(step,min_energy,max_energy,e_step_size);
     double kT = 2*peak;
     // CDF = Γ(3/2)γ(3/2,E/kT)
-    min = 0.2922*kT;  // 10%
-    if(min < divergent_energy){
-        min = divergent_energy;
+    double new_min = 0.2922*kT;  // 90% of electrons above this point
+    if(_min < new_min){
+        _min = new_min;
     }
-    max = 2.3208*kT; // 80% (lower since not as sharp)
-}
-
-void ElectronRateSolver::set_grid_regions(GridBoundaries gb){
-    elec_grid_regions = gb;
+    double new_max = 2.3208*kT; // 80% of electrons below this point (lower since not as sharp)
+    if(_max < new_max)
+        _max = std::min(new_max,elec_grid_regions.bndry_E.back());
 }
 
 /**
@@ -198,19 +220,71 @@ void ElectronRateSolver::set_grid_regions(GridBoundaries gb){
  * @param _log 
  * @param init whether this is the start of the simulation and starting state must be initialised.  
  */
+
+/**
+ * @brief A basic quantifier of the ill-defined transition region
+ * @details While this is a terrible approximation at later times,(it's unclear how to define the transition region as the peaks merge),
+ * a) the dln(Λ)/dT < 1 as ln(Λ) propto ln(T_e^(3/2)), i.e. an accurate measure at low T is most important (kind of, at very low T transport coefficients dominate).
+ * b) The coulomb logarithm is capped to 23.5 for ee collisions, which is where it is used. [and get_Q_ee limits it to approx. half of this cap though I need to determine why)
+ * See https://www.nrl.navy.mil/ppd/content/nrl-plasma-formulary.
+ * @param step 
+ * @param g_min 
+ */
+void ElectronRateSolver::transition_energy(size_t step, double& g_min){
+    // We have instability in high energies at early times, so only consider high energies when there is no minimum 
+    // at low energies. (This is very hacky.)
+    double early_max = 1000;
+    double early_min = approx_nearest_min(step,0,5,20,0,early_max);
+    double new_min;
+    if(early_min >= early_max){
+        new_min = approx_nearest_min(step,0,10, 10);
+    }
+    else{
+        new_min = early_min;
+    }
+    // if the previous transition energy was higher, use that (good way to wait out instability). 
+    g_min = max(g_min,new_min);
+}
  
 void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step) {//, bool recalc) {
+    if (!init && input_params.elec_grid_type.mode != GridSpacing::dynamic){
+        return; 
+    }
+    //
+    
     bool recalc = true;
     input_params.calc_rates(_log, recalc);
     hasRates = true;
     
 
-    // Set up the grid
-    dirac_energy_bounds(step,regimes.dirac_max,regimes.dirac_min,regimes.dirac_peak);
-    mb_energy_bounds(step,regimes.mb_max,regimes.mb_min,regimes.mb_peak);
-    
+    /// Set up the grid
 
-    Distribution::set_basis(step, input_params.elec_grid_type, input_params.param_cutoffs, regimes, elec_grid_regions);
+    if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
+        if(init){
+            // Empirically-based guesses for good starts.
+            std::cout << "[ Dynamic Grid ] Starting with initial grid" << std::endl;
+            double e = 1/Constant::eV_per_Ha;
+            param_cutoffs.transition_e = 250*e;
+            regimes.mb_peak=0; regimes.mb_min=4*e; regimes.mb_max=10*e;  
+            regimes.dirac_peak = 0;
+            for(auto& atom : input_params.Store) {
+                for(auto& r : atom.Photo) {     
+                    if(r.energy > regimes.dirac_peak) 
+                        regimes.dirac_peak = r.energy;
+                }
+            }
+            regimes.dirac_min=regimes.dirac_peak*3/4,
+            regimes.dirac_max=regimes.dirac_peak*1.14; //
+        }
+        else{
+            dirac_energy_bounds(step,regimes.dirac_max,regimes.dirac_min,regimes.dirac_peak);
+            mb_energy_bounds(step,regimes.mb_max,regimes.mb_min,regimes.mb_peak);
+            transition_energy(step, param_cutoffs.transition_e);
+        }
+    }
+
+
+    Distribution::set_basis(step, input_params.elec_grid_type, param_cutoffs, regimes, elec_grid_regions);
     // Set up the container class to have the correct size
     state_type::set_P_shape(input_params.Store);
 
@@ -218,9 +292,6 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
     if (init){
         // Set up the rate equations (setup called from parent Adams_B  M)
         set_starting_state();
-    }
-    else{
-        
     }
     // create the tensor of coefficients TODO these aren't constant now - change to lowercase.
     RATE_EII.resize(input_params.Store.size());
@@ -232,6 +303,10 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
     }
     precompute_gamma_coeffs();
     Distribution::precompute_Q_coeffs(input_params.Store);
+}
+
+void ElectronRateSolver::set_grid_regions(GridBoundaries gb){
+    elec_grid_regions = gb;
 }
 
 void ElectronRateSolver::solve(ofstream & _log) {

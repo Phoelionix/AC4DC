@@ -94,6 +94,7 @@ private:
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)
     GridBoundaries elec_grid_regions;
     FeatureRegimes regimes;
+    Cutoffs param_cutoffs; 
     Pulse pf;
     double timespan_au; // Atomic units
     double simulation_start_time;  // [Au]
@@ -110,8 +111,11 @@ private:
     void get_energy_bounds(double& max, double& min); // unused
     void dirac_energy_bounds(size_t step, double& max, double& min, double& peak_density);
     void mb_energy_bounds(size_t step, double& max, double& min, double& peak_density);
-    double approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = 0, double max =1e7);  
+    void transition_energy(size_t step, double& g_min);
+    double approx_nearest_min(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
+    double approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
     double approx_regime_peak(size_t step, double lower_bound, double upper_bound, double del_energy);  
+    double approx_regime_trough(size_t step, double lower_bound, double upper_bound, double del_energy,size_t min_sequential);
     void precompute_gamma_coeffs(); // populates above two tensors
     void set_initial_conditions();
 

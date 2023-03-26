@@ -126,6 +126,8 @@ void BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rgm){
     for (size_t i=0; i<start; i++) {
         new_knots.push_back(_min);
     }
+    // minimum (0)
+    new_knots.push_back(_min);
 
     size_t i=start;
     // Dynamically choose next grid point. Idea: We move to next point based on whichever region's rule gives the closest one. 
@@ -134,13 +136,15 @@ void BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rgm){
         // Find the smallest grid point that regions that the point is within want.
         double next_point = INFINITY;
         for (size_t r = 0; r < regions.size(); r ++){
-            double point =  regions[r].get_next_knot(new_knots[i-start]);
+            double point =  regions[r].get_next_knot(new_knots[i-1]);
             if (point > new_knots[i-1]){
                 next_point = min(next_point,point);
             }
         }
         if(next_point == INFINITY){
-            // We are outside the max
+            // We are outside the max, add max point + boundary thing and finish.
+            new_knots.push_back(_max);
+            new_knots.push_back(_max+500/Constant::eV_per_Ha);
             break;
         }
         assert(next_point > new_knots[i-1]);
@@ -297,17 +301,28 @@ void BasisSet::set_parameters(const GridSpacing& gt, GridBoundaries& elec_grid_r
     // t0=t1=...=tk-3, tn+3=...=tn+k
     
     // boundary at minimm energy enforces energy conservation 
+    this->_min = 0;
+
+    
     if(gt.mode == GridSpacing::manual){    
-        this->_min = elec_grid_regions.bndry_E.front();
         this->_max = elec_grid_regions.bndry_E.back();
         num_funcs = elec_grid_regions.bndry_idx.back();
         manual_set_knot(gt);
     }    
     else{
+        this->_max = -1;
+        for (size_t r = 0; r < regions.size(); r ++){
+            double point =  regions[r].get_E_max();
+            if (point > this->_max){
+                this->_max = point;
+            }   
+        }        
         set_knot(gt,regimes);
     }
-    
-
+    std::cout << "Knots set to:";
+    for (double e: knot)
+        std::cout << e*Constant::eV_per_Ha << ' ';
+    cout << std::endl;
     
     std::vector<Eigen::Triplet<double>> tripletList;
     tripletList.reserve(BSPLINE_ORDER*2*num_funcs);

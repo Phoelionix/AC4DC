@@ -65,6 +65,11 @@ void Distribution::set_distribution(vector<double> new_knot, vector<double> new_
     size = new_knot.size();
     basis = new_knot;
 }
+void Distribution::load_knot(vector<double> loaded_knot) {
+    loaded_knot = get_trimmed_knots(loaded_knot);
+    size = loaded_knot.size();
+    basis = loaded_knot;    
+}
 
 // Adds Q_eii to the parent Distribution
 void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P, const int threads) const {
@@ -134,23 +139,7 @@ void Distribution::get_Q_ee(Eigen::VectorXd& v, const int threads) const {
     v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
 }
 
-void Distribution::get_Jac_ee(Eigen::MatrixXd& M) const{   // Unused currently -S.P.
-    // Returns Q^p_qjc^q + Q^p_jrc^r
-    assert(basis.has_Qee());
-    M = Eigen::MatrixXd::Zero(size,size);
-    double CoulombLog=3;
-    // double CoulombLog = CoulombLogarithm(size/3);
-    if (isnan(CoulombLog) || CoulombLog <= 0) return;
-    for (size_t P=0; P<size; P++) {
-        for (size_t Q=0; Q<size; Q++) {
-            for (auto& q : basis.Q_EE[P][Q]) {
-                // q.idx is  L
-                M(P,q.idx) += q.val * f[Q] * CoulombLog;
-                M(P, Q) += q.val * f[q.idx] * CoulombLog;
-            }
-        }
-    }
-}
+
 
 
 // ============================
@@ -251,7 +240,7 @@ void Distribution::load_knots_from_history(size_t step_idx){
         if (elem.first > step_idx) break;
         loaded_knot = elem.second;
     }
-    vector<double> trimmed_knots = get_trimmed_knots(loaded_knot);
+    vector<double> trimmed_knots = get_trimmed_knots(loaded_knot);   
     size = trimmed_knots.size();
     basis = trimmed_knots;    
 }
@@ -382,7 +371,10 @@ void Distribution::addDeltaLike(Eigen::VectorXd& v, double e, double height) {
 }
 
 double Distribution::norm() const{
-    assert(f.size() == Distribution::size);  // A very blessed check, lord thank you Sanders -S.P.
+    // cout << "Space" << endl;
+    // cout << f.size() <<endl;
+    // cout << Distribution::size <<endl;
+    assert(f.size() == Distribution::size);  // A very blessed check -S.P.
     double x=0;
     for (auto&fi : f) {
         x+= fabs(fi);
@@ -513,4 +505,22 @@ void Distribution::from_backwards_Euler(double dt, const Distribution& prev_step
 //     double alpha = 2*Constant::Pi*sqrt(2)/3*CoulombLog;
 
 
+// }
+
+// void Distribution::get_Jac_ee(Eigen::MatrixXd& M) const{   // Unused currently -S.P.
+//     // Returns Q^p_qjc^q + Q^p_jrc^r
+//     assert(basis.has_Qee());
+//     M = Eigen::MatrixXd::Zero(size,size);
+//     double CoulombLog=3;
+//     // double CoulombLog = CoulombLogarithm(size/3);
+//     if (isnan(CoulombLog) || CoulombLog <= 0) return;
+//     for (size_t P=0; P<size; P++) {
+//         for (size_t Q=0; Q<size; Q++) {
+//             for (auto& q : basis.Q_EE[P][Q]) {
+//                 // q.idx is  L
+//                 M(P,q.idx) += q.val * f[Q] * CoulombLog;
+//                 M(P, Q) += q.val * f[q.idx] * CoulombLog;
+//             }
+//         }
+//     }
 // }

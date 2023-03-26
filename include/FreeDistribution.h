@@ -111,6 +111,7 @@ public:
      */
     Distribution& operator=(double y) {
         // total = y;
+        f.resize(size);
         for (size_t i=0; i<size; i++) {
             f[i] = y;
         }
@@ -136,6 +137,7 @@ public:
      * @return Distribution& 
      */
     void set_distribution(vector<double> new_knot, vector<double> new_f);
+    static void load_knot(vector<double> loaded_knot);
 
     double norm() const;
     double integral() const; //unused
@@ -232,10 +234,10 @@ public:
     static std::string output_knots_eV();
     
     static size_t size;
-
+    double my_size(){return f.size();}
     static void load_knots_from_history(size_t step_idx);
 private:
-    std::vector<double> f;  // Spline expansion factor? TODO I called a lot of things densities that were the factor... S.P.
+    std::vector<double> f;  // Spline expansion factors
     static SplineIntegral basis;
     // Used for saving
     static std::vector<pair<size_t, std::vector<double>>> knots_history;

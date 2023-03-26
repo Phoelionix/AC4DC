@@ -1,6 +1,6 @@
 /**
- * @file GridRegions.h
- * @brief Handles dynamic grid mechanics
+ * @file DynamicRegions.h
+ * @brief Defines the classes that handle the dynamic grid mechanics
  */
 
 #include "Constant.h"

@@ -40,8 +40,8 @@ struct Cutoffs{
 };
 
 struct FeatureRegimes{
-    double mb_peak=0, mb_min=0, mb_max=0;
-    double dirac_peak=0, dirac_min=0,dirac_max=0;    
+    double mb_peak=0, mb_min=0, mb_max=0;  
+    double dirac_peak=0, dirac_min=0,dirac_max=0; //
 };
 
 // For manual grid mode.
@@ -84,16 +84,16 @@ namespace {
         }
         switch ((char) tmp[0])
         {
-        case 'F':
-            gs.mode = GridSpacing::manual;
-            break;
-        case 'f':
-            gs.mode = GridSpacing::manual;
-            break;
         case 'T':
-            gs.mode = GridSpacing::dynamic;
+            gs.mode = GridSpacing::manual;
             break;
         case 't':
+            gs.mode = GridSpacing::manual;
+            break;
+        case 'F':
+            gs.mode = GridSpacing::dynamic;
+            break;
+        case 'f':
             gs.mode = GridSpacing::dynamic;
             break;          
         default:
