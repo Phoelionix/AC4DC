@@ -127,8 +127,8 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     // Run those steps
     std::cout << "[ sim ] Implicit solver uses relative tolerance "<<stiff_rtol<<", max iterations "<<stiff_max_iter<<std::endl;
 
-    int num_updates = 2;
-    size_t grid_update_period = round(this->t.size()/(num_updates+1));//2000;
+    int num_updates = 20;
+    size_t grid_update_period = 500;//round(this->t.size()/(num_updates+1));//2000;
     std::cout << "[ sim ] grid update period (if dynamic): " << (this->t[grid_update_period]-this->t[0])* Constant::fs_per_au << std::endl;
     for (size_t n = this->order; n < this->t.size()-1; n++) {
         if ((n-this->order)%steps_per_time_update == 0){
@@ -160,7 +160,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
                 Distribution::load_knots_from_history(n);
                 this->y[m].F.transform_basis(new_energies);
             }  
-            // We don't need to do this, as the next containters are made to have the correct size via s=tmp=y_zero and sdot = 0.
+            // We don't need to do this, as the next containters are made to have the correct size via s=tmp=zero_y and sdot = 0.
             // // Reinitialise all future containers so that y.F matches the new size, 
             // as the static variable size has been changed.
             // this->y.resize(n+2);

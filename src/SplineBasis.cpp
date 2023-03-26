@@ -151,7 +151,7 @@ void BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rgm){
         assert(i < 999);
         new_knots.push_back(next_point);
     }
-    num_funcs = new_knots.size()-(start+1);
+    num_funcs = new_knots.size()-(start+1)-1;
     // t_{n+1+z_infinity} has been set now. Repeat it until the end.
     for (size_t i= num_funcs + 1 + Z_inf; i< num_funcs+BSPLINE_ORDER; i++) {
         new_knots.push_back(new_knots[num_funcs + Z_inf]);
