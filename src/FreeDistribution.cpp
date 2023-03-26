@@ -33,10 +33,13 @@ This file is part of AC4DC.
 
 // Initialise static things
 
-size_t Distribution::size=0;  // modified by set_distribution now - S.P.
+
 size_t Distribution::CoulombLog_cutoff=0;
 double Distribution::CoulombDens_min=0;
-SplineIntegral basis;
+std::vector<pair<size_t, std::vector<double>>> Distribution::knots_history;
+// These variables are modified by set_distribution and by dynamic grid updates when set_basis is called.
+SplineIntegral Distribution::basis; 
+size_t Distribution::size=0;  
 
 // Psuedo-constructor thing (Maybe not anymore... -S.P.)
 void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, GridBoundaries elec_grid_regions){
@@ -44,7 +47,7 @@ void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_
     // where num_funcs is the number of non-boundary (i.e. "usable") splines/knots.
     //basis_history.push_back(SplineIntegral());
     basis.set_parameters(grid_style, elec_grid_regions,regimes);
-    //basis_history.push_back(make_pair(step,basis));
+    knots_history.push_back(make_pair(step,get_knot_energies()));
     Distribution::size=basis.num_funcs;
     Distribution::CoulombLog_cutoff = basis.i_from_e(param_cutoffs.transition_e);
     Distribution::CoulombDens_min = param_cutoffs.min_coulomb_density;
@@ -149,57 +152,6 @@ void Distribution::get_Jac_ee(Eigen::MatrixXd& M) const{   // Unused currently -
     }
 }
 
-/*
-// Sets f_n+1 based on using a Newton-Rhapson-Euler stiff solver
-// Not currently used
-void Distribution::from_backwards_Euler(double dt, const Distribution& prev_step_dist, double tolerance, unsigned maxiter){
-
-    Eigen::MatrixXd M(size, size);
-    Eigen::MatrixXd A(size, size);
-    Eigen::VectorXd v(size);
-    Eigen::VectorXd old_curr_step(size);
-    
-    unsigned idx = 0;
-    const unsigned MAX_ITER = 200;
-
-    bool converged = false;
-
-    Eigen::Map<const Eigen::VectorXd > prev_step (prev_step_dist.f.data(), size);
-    Eigen::Map<Eigen::VectorXd > curr_step(f.data(), size);
-
-    while (!converged && idx < MAX_ITER){
-        
-        old_curr_step = curr_step;
-        v = Eigen::VectorXd::Zero(size);
-        this->get_Q_ee(v, size/3); // calculates v based on curr_step
-        
-        // Newton iterator
-        get_Jac_ee(M);
-        A = dt * basis.Sinv(M) - Eigen::MatrixXd::Identity(size,size);
-        
-        curr_step = -A.fullPivLu().solve(dt*v + prev_step - curr_step);
-        curr_step += prev_step;
-        
-        // Picard iterator
-        // curr_step = prev_step + dt*v;
-
-        double delta = fabs((curr_step-old_curr_step).sum());
-
-        if (delta/curr_step.sum() < tolerance) converged = true;
-        idx++;
-    }
-    if (idx == MAX_ITER) std::cerr<<"Max stiff-solver iterations exceeded"<<std::endl;
-}
-*/
-
-// // Taken verbatim from Rockwood as quoted by Morgan and Penetrante in ELENDIF
-// void Distribution::add_Q_ee(const Distribution& d, double kT) {
-//     double density=0;
-//     double CoulombLog = log(kT/(4*Constant::Pi*density));
-//     double alpha = 2*Constant::Pi*sqrt(2)/3*CoulombLog;
-
-
-// }
 
 // ============================
 // utility
@@ -224,24 +176,6 @@ void Distribution::add_maxwellian(double T, double N) {
         this->f[i] += u[i];
     }
 }
-
-
-// void Distribution::add_density_distribution(vector<double> densities){
-//     assert(densities.size() == size);
-//     Eigen::VectorXd v(size);
-//     std::vector<double> energies = get_trimmed_knots(get_knot_energies());//basis.avg_e;//get_trimmed_knots(get_knot_energies());
-//     for (size_t i=0; i<size; i++) {
-//         v[i] = 0;
-//         double a = basis.supp_min(i);
-//         double b = basis.supp_max(i);
-//         v[i] += densities[i];//*basis(i, energies[i]);
-//         v[i] *= basis.areas[i];//*=(b-a)/2;
-//     }
-//     Eigen::VectorXd u = this->basis.Sinv(v);
-//     for (size_t i=0; i<size; i++) {
-//         this->f[i] += u[i];
-//     }
-// }
 
 // Assumes new basis has same B spline order.
 void Distribution::transform_basis(std::vector<double> new_knots){
@@ -305,6 +239,22 @@ std::vector<double> Distribution::get_trimmed_knots(std::vector<double> knots){
     return knots;
 }
 
+
+/**
+ * @brief Loads the static variables relating to the basis that are changed by grid updates.
+ * @param step_idx Step to load.
+ */
+void Distribution::load_knots_from_history(size_t step_idx){
+    vector<double> loaded_knot;
+    // Find the most recent knot update as of step_idx.
+    for(auto elem: knots_history){
+        if (elem.first > step_idx) break;
+        loaded_knot = elem.second;
+    }
+    vector<double> trimmed_knots = get_trimmed_knots(loaded_knot);
+    size = trimmed_knots.size();
+    basis = trimmed_knots;    
+}
 // ==========================
 // IO
 
@@ -512,3 +462,55 @@ ostream& operator<<(ostream& os, const Distribution& dist) {
     return os;
 }
 
+
+/*
+// Sets f_n+1 based on using a Newton-Rhapson-Euler stiff solver
+// Not currently used
+void Distribution::from_backwards_Euler(double dt, const Distribution& prev_step_dist, double tolerance, unsigned maxiter){
+
+    Eigen::MatrixXd M(size, size);
+    Eigen::MatrixXd A(size, size);
+    Eigen::VectorXd v(size);
+    Eigen::VectorXd old_curr_step(size);
+    
+    unsigned idx = 0;
+    const unsigned MAX_ITER = 200;
+
+    bool converged = false;
+
+    Eigen::Map<const Eigen::VectorXd > prev_step (prev_step_dist.f.data(), size);
+    Eigen::Map<Eigen::VectorXd > curr_step(f.data(), size);
+
+    while (!converged && idx < MAX_ITER){
+        
+        old_curr_step = curr_step;
+        v = Eigen::VectorXd::Zero(size);
+        this->get_Q_ee(v, size/3); // calculates v based on curr_step
+        
+        // Newton iterator
+        get_Jac_ee(M);
+        A = dt * basis.Sinv(M) - Eigen::MatrixXd::Identity(size,size);
+        
+        curr_step = -A.fullPivLu().solve(dt*v + prev_step - curr_step);
+        curr_step += prev_step;
+        
+        // Picard iterator
+        // curr_step = prev_step + dt*v;
+
+        double delta = fabs((curr_step-old_curr_step).sum());
+
+        if (delta/curr_step.sum() < tolerance) converged = true;
+        idx++;
+    }
+    if (idx == MAX_ITER) std::cerr<<"Max stiff-solver iterations exceeded"<<std::endl;
+}
+*/
+
+// // Taken verbatim from Rockwood as quoted by Morgan and Penetrante in ELENDIF
+// void Distribution::add_Q_ee(const Distribution& d, double kT) {
+//     double density=0;
+//     double CoulombLog = log(kT/(4*Constant::Pi*density));
+//     double alpha = 2*Constant::Pi*sqrt(2)/3*CoulombLog;
+
+
+// }

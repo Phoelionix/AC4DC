@@ -123,7 +123,7 @@ public:
      * @brief // Replaces inner knots with the ones provided, using the current boundaries to determine which are inner. 
      * @details Note that knot[i] is just an energy. Intended for use in loading prev. simulation states.
      * 
-     * @param inner_knots Inner knot energies in Hartrees [Ha]. The new (non-boundary) knot vector, in case you knew not.
+     * @param inner_knots Inner knot energies in Hartrees [Ha]. The new (boundary-absent) knot vector, in case you knew not.
      * @return SplineIntegral& 
      */
     SplineIntegral& operator=(vector<double> inner_knots){

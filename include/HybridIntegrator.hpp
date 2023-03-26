@@ -50,7 +50,7 @@ class Hybrid : public Adams_BM<T>{
     /// Unused
     void backward_Euler(unsigned n); 
     void step_stiff_part(unsigned n);
-    void set_up_grid_with_computed_cross_sections(std::ofstream& _log, bool init,size_t step); // Defined by ElectronRateSolver
+    virtual void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0){std::cout << "Error, attempted to set up grid with virtual function set_up_grid_and_compute_cross_sections." <<std::endl;} // Defined by ElectronRateSolver
 };
 
 // template <typename T>
@@ -143,7 +143,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         // }
         size_t grid_update_period = 100;
         if ((n-this->order)%grid_update_period == 0){
-            this->set_up_grid_with_computed_cross_sections(_log,false,n+1);
+            this->set_up_grid_and_compute_cross_sections(_log,false,n+1); // overridden by ElectronRateSolver
         }        
     }
     std::cout<<std::endl;

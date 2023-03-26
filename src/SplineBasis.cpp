@@ -178,7 +178,7 @@ void BasisSet::manual_set_knot(const GridSpacing& gt){
     } 
 
     size_t start = BSPLINE_ORDER-Z_0-1;
-    size_t num_int = num_funcs + Z_inf - start;
+    //size_t num_int = num_funcs + Z_inf - start;
 
     /// Wiggle destroyer.  Continuous piecewise.
     // e.g. 6k eV photon beam. Have delta-like stuff in MB and dirac.
@@ -214,12 +214,12 @@ void BasisSet::manual_set_knot(const GridSpacing& gt){
     std::cout<<"[ Manual Knot ] (i.e. piecewise polynomial has leading order x^"<<BSPLINE_ORDER-1<<")"<<std::endl;
 
     std::cout<<"[ Manual Knot ] Using power-law exponents: "; 
-    for (int j = 0; j < _region_powers.size(); j++){
+    for (size_t j = 0; j < _region_powers.size(); j++){
         cout << _region_powers[j] << ", ";
     }
     std::cout << std::endl; 
     std::cout<<"[ Manual Knot ] Using power-law factors: ";
-    for (int j = 0; j < hyb_powlaw_factor.size(); j++){
+    for (size_t j = 0; j < hyb_powlaw_factor.size(); j++){
         cout << hyb_powlaw_factor[j] << ", ";
     }       
     std::cout << std::endl;         

@@ -78,7 +78,7 @@ public:
     void solve(ofstream & _log);
     void save(const std::string& folder);
     /// Sets up the rate equations, which requires computing the atomic cross-sections/avg. transition rates to get the coefficients.
-    void set_up_grid_with_computed_cross_sections(std::ofstream& _log, bool init,size_t step = 0); //bool recalc=true);
+    void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0); //bool recalc=true);
     void tokenise(std::string str, std::vector<double> &out, const char delim = ' ');
 
     /// Number of secs taken for simulation to run

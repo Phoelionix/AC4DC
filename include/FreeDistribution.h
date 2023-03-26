@@ -117,8 +117,8 @@ public:
         return *this;
     }
 
-    vector<double> get_knot_energies(){return basis.get_knot();}
-    double num_basis_funcs(){return basis.num_funcs;}
+    static vector<double> get_knot_energies(){return basis.get_knot();}
+    static double num_basis_funcs(){return basis.num_funcs;}
 
     /**
      * @brief Returns an order-preserved copy of knots with points that overlap with the basis's boundary removed.
@@ -126,7 +126,7 @@ public:
      * @param knots Knot energies ordered from lowest to highest.
      * @return std::vector<double> 
     */
-    std::vector<double> get_trimmed_knots(std::vector<double> knots);
+    static std::vector<double> get_trimmed_knots(std::vector<double> knots);
 
     /**
      * @brief Replaces non-boundary grid points and their associated density spline basis expansion factors with the ones provided. 
@@ -138,7 +138,7 @@ public:
     void set_distribution(vector<double> new_knot, vector<double> new_f);
 
     double norm() const;
-    double integral() const;
+    double integral() const; //unused
     // modifiers
 
     /**
@@ -232,15 +232,16 @@ public:
     static std::string output_knots_eV();
     
     static size_t size;
+
+    static void load_knots_from_history(size_t step_idx);
 private:
     std::vector<double> f;  // Spline expansion factor? TODO I called a lot of things densities that were the factor... S.P.
     static SplineIntegral basis;
-    static std::vector<pair<size_t, SplineIntegral>> basis_history;
-    //SplineIntegral* basis(){return &basis_history.back()}
+    // Used for saving
+    static std::vector<pair<size_t, std::vector<double>>> knots_history;
     static size_t CoulombLog_cutoff;
-    /// Coulomb repulsion is ignored if (d)ensity is below this threshold
+    /// Coulomb repulsion is ignored if density is below this threshold
     static double CoulombDens_min;
-
 };
 
 ostream& operator<<(ostream& os, const Distribution& dist);

@@ -122,6 +122,7 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     assert(y.size() == t.size());
     
     for (size_t i=0; i<t.size(); i++) {
+        Distribution::load_knots_from_history(i);
         f<<t[i]*Constant::fs_per_au<<" "<<y[i].F<<endl;  // Note that the << operator divides the factors by Constant::eV_per_Ha. -S.P.
     }
     f.close();
@@ -153,6 +154,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         int i = -1;
         while (i <  static_cast<int>(t.size())-1){
             i++;
+            Distribution::load_knots_from_history(i);
             if(t[i] < previous_t + t_fineness){
                 continue;
             }            

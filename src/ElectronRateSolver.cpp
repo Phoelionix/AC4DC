@@ -199,30 +199,30 @@ void ElectronRateSolver::set_grid_regions(GridBoundaries gb){
  * @param init whether this is the start of the simulation and starting state must be initialised.  
  */
  
-void ElectronRateSolver::set_up_grid_with_computed_cross_sections(std::ofstream& _log, bool init,size_t step) {//, bool recalc) {
+void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step) {//, bool recalc) {
     bool recalc = true;
     input_params.calc_rates(_log, recalc);
     hasRates = true;
     
+
+    // Set up the grid
     dirac_energy_bounds(step,regimes.dirac_max,regimes.dirac_min,regimes.dirac_peak);
     mb_energy_bounds(step,regimes.mb_max,regimes.mb_min,regimes.mb_peak);
     
 
-    if(init){
-    }
-    
-    // Set up the container class to have the correct size
     Distribution::set_basis(step, input_params.elec_grid_type, input_params.param_cutoffs, regimes, elec_grid_regions);
+    // Set up the container class to have the correct size
     state_type::set_P_shape(input_params.Store);
+
 
     if (init){
         // Set up the rate equations (setup called from parent Adams_B  M)
         set_starting_state();
     }
     else{
-
+        
     }
-    // create the tensor of coefficients
+    // create the tensor of coefficients TODO these aren't constant now - change to lowercase.
     RATE_EII.resize(input_params.Store.size());
     RATE_TBR.resize(input_params.Store.size());
     for (size_t a=0; a<input_params.Store.size(); a++) {
