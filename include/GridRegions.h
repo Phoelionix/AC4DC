@@ -48,8 +48,8 @@ private:
     int num_points_left;
     double E_min;
     double E_max;
-    const string type;
-    const int power;
+    string type;
+    int power;
     double get_peak();
     double dirac_peak();
     double mb_peak();

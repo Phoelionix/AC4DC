@@ -50,6 +50,7 @@ class Hybrid : public Adams_BM<T>{
     /// Unused
     void backward_Euler(unsigned n); 
     void step_stiff_part(unsigned n);
+    void set_up_grid_with_computed_cross_sections(std::ofstream& _log, bool init,size_t step); // Defined by ElectronRateSolver
 };
 
 // template <typename T>

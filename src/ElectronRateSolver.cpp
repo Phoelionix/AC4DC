@@ -88,7 +88,7 @@ void ElectronRateSolver::get_energy_bounds(double& max, double& min) {
  * @param start_energy 
  * @param del_energy 
  */
-double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = 0, double max =1e7){
+double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min, double max){
     assert(del_energy != 0);
     double e = start_energy;
     double local_min = -1;
@@ -199,7 +199,7 @@ void ElectronRateSolver::set_grid_regions(GridBoundaries gb){
  * @param init whether this is the start of the simulation and starting state must be initialised.  
  */
  
-void ElectronRateSolver::set_up_grid_with_computed_cross_sections(std::ofstream& _log, bool init,size_t step = 0) {//, bool recalc) {
+void ElectronRateSolver::set_up_grid_with_computed_cross_sections(std::ofstream& _log, bool init,size_t step) {//, bool recalc) {
     bool recalc = true;
     input_params.calc_rates(_log, recalc);
     hasRates = true;

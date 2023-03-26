@@ -21,6 +21,7 @@ This file is part of AC4DC.
 
 #include <vector>
 #include <iostream>
+#include <algorithm>
 #ifndef GRIDSPACING_CXX_H
 #define GRIDSPACING_CXX_H
 
@@ -141,7 +142,7 @@ namespace {
 
         if(gb.parsed_count == 0){
             gb.bndry_idx.resize(target_vector.size());
-            for(int i = 0; i < target_vector.size(); i++){
+            for(size_t i = 0; i < target_vector.size(); i++){
                 target_vector[i] += 0.5;
                 gb.bndry_idx[i] = (int)target_vector[i];
             }

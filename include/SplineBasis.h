@@ -31,9 +31,10 @@ This file is part of AC4DC.
 
 static constexpr bool USING_SQRTE_PREFACTOR = true;
 
-class BasisSet  : private GridRegions{
+class BasisSet  : private GridRegions
+{
 public:
-    BasisSet() : GridRegions(){};
+    BasisSet() : GridRegions::GridRegions() {} 
     void set_parameters(const GridSpacing& gt, GridBoundaries& elec_grid_regions, FeatureRegimes& regimes);
     /// Returns S_inverse(deltaf) 
     Eigen::VectorXd Sinv(const Eigen::VectorXd& deltaf);

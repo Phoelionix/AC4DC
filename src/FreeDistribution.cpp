@@ -36,15 +36,15 @@ This file is part of AC4DC.
 size_t Distribution::size=0;  // modified by set_distribution now - S.P.
 size_t Distribution::CoulombLog_cutoff=0;
 double Distribution::CoulombDens_min=0;
+SplineIntegral basis;
 
 // Psuedo-constructor thing (Maybe not anymore... -S.P.)
 void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, GridBoundaries elec_grid_regions){
     // Defines a grid of num_funcs points (if manual, thsi is the total number of free-electron grid points specified in the .mol file.)
     // where num_funcs is the number of non-boundary (i.e. "usable") splines/knots.
     //basis_history.push_back(SplineIntegral());
-    SplineIntegral basis;
     basis.set_parameters(grid_style, elec_grid_regions,regimes);
-    basis_history.push_back(make_pair(step,basis));
+    //basis_history.push_back(make_pair(step,basis));
     Distribution::size=basis.num_funcs;
     Distribution::CoulombLog_cutoff = basis.i_from_e(param_cutoffs.transition_e);
     Distribution::CoulombDens_min = param_cutoffs.min_coulomb_density;
