@@ -60,7 +60,7 @@ double Pulse::operator()(double t) {
         return this->I0/norm*pow(2,-t*t*4/this->fwhm/this->fwhm);
         break;
     case PulseShape::square:
-        if (t< -this->fwhm || t >0) {
+        if (t < -this->fwhm || t >0) {
             return 0;
         } else {
             return I0;

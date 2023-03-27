@@ -104,10 +104,10 @@ double ElectronRateSolver::approx_nearest_min(size_t step, double start_energy,d
     double local_min = -1;
     double min_density = -1;
     double last_density = y[step].F(start_energy);
-    size_t num_sequential = -1;
+    size_t num_sequential = 0;
     if(min_sequential < 1) min_sequential = 1;
     // Seek local minimum.
-    while (num_sequential < min_sequential){
+    while (num_sequential < min_sequential+1){
         e += del_energy;
         if (e < min){
             local_min = min; break;}
@@ -116,27 +116,77 @@ double ElectronRateSolver::approx_nearest_min(size_t step, double start_energy,d
 
         double density = y[step].F(e);
         if(density > last_density){
-            local_min = e;
-            min_density = density;
+            if (num_sequential == 0){
+                local_min = e - del_energy;
+                min_density = density;
+            }
             num_sequential++;
         }
-        else{
+        if (density <= last_density || min_density <0){
             local_min = -1;
-            num_sequential = -1;
+            num_sequential = 0;
             min_density = -1;
         }
         last_density = density; 
     }
-    if (min_density < 0){
-        return -1;
-    }
-    
     return local_min;
 }
-double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min, double max){
-    double local_min = approx_nearest_min(step,start_energy,del_energy,min_sequential,min,max);
-    // Return the midpoint as the boundary.
-    return (local_min + start_energy)/2;
+
+// num_sequential is num times the check passed.
+double ElectronRateSolver::nearest_inflection(size_t step, double start_energy,double del_energy, size_t min_sequential, double min, double max){
+    assert(del_energy != 0);
+    // Default values
+    if (min < 0)
+        min = 0;
+    if(max < 0 || max > elec_grid_regions.bndry_E.back())
+        max = elec_grid_regions.bndry_E.back();
+    // Initialise
+    double e = start_energy;
+    double inflection = -1;
+    double min_density = -1;
+    double last_density = y[step].F(start_energy);
+    double last_grad = 0;
+    size_t num_sequential = 0;    
+    if(min_sequential < 1) min_sequential = 1;
+    // Seek inflection.
+    while (num_sequential < min_sequential+1){
+        e += del_energy;
+        if (e < min){
+            inflection = min; break;}
+        if (e > max){
+            inflection = max; break;}
+        double density = y[step].F(e);
+        double mag_grad = abs((density - last_density)/del_energy);  // Should be fine unless we have extremely bad behaviour.
+        if(mag_grad <= last_grad){
+            if (num_sequential == 0){
+                inflection = e - del_energy;
+            }
+            num_sequential++;
+        }
+        if (mag_grad >last_grad){
+            inflection = -1;
+            num_sequential = 0;
+        }
+        last_density = density; 
+        last_grad = mag_grad;
+    }
+    return inflection;    
+}
+
+double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min_distance, double _min, double _max){
+    min_distance /= Constant::eV_per_Ha;
+    // Find 0 of second derivative
+    double inflection = nearest_inflection(step,start_energy,del_energy,min_sequential,_min,_max);
+    // At min_distance, go double as 
+    double min_inflection_width = 1./4.;
+    double A = 1/min_inflection_width;
+    double D = min_distance;
+    int sign = (0 < del_energy) - (del_energy < 0);
+    return sign*max(A*sqrt(abs(start_energy - inflection))*sqrt(D/A),D) + start_energy;
+
+    // double local_min = approx_nearest_min(step,start_energy,del_energy,min_sequential,_min,_max);
+    // // Return the midpoint as the boundary.
+    // return (local_min + start_energy)/2;
 }
 
 double ElectronRateSolver::approx_regime_peak(size_t step, double lower_bound, double upper_bound, double del_energy){
@@ -166,9 +216,16 @@ double ElectronRateSolver::approx_regime_peak(size_t step, double lower_bound, d
  * we define a range that was found to experimentally give good results. 
  * @todo It may be better to have a couple of these regimes for the tallest few peaks. Wouldn't be too hard to implement.
  */
-void ElectronRateSolver::dirac_energy_bounds(size_t step, double& max, double& min, double& peak) {
-    double peak_density = -1e9;
+void ElectronRateSolver::dirac_energy_bounds(size_t step, double& max, double& min, double& peak, bool allow_shrinkage) {
+    if(allow_shrinkage){
+        max = -1;
+        min = INFINITY;
+    }
+
     double e_step_size = 50/Constant::eV_per_Ha;
+    double num_sequential_needed = 3;
+
+    double peak_density = -1e9;
     double min_photo_peak_considered = 3000/Constant::eV_per_Ha; // TODO instead ignore peaks that have negligible rates?
     //about halfway between the peak and the neighbouring local minima is sufficient for their mins and maxes
     for(auto& atom : input_params.Store) {
@@ -181,8 +238,8 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, double& max, double& m
                 peak_density = density; 
             }
             // Get bounds
-            double lower_bound = approx_regime_bound(step,r.energy, -e_step_size, 10);
-            double upper_bound = peak + 0.912*(peak - lower_bound);  // s.t. if lower_bound is 3/4 peak, upper_bound is 1.1*peak.
+            double lower_bound = approx_regime_bound(step,r.energy, -e_step_size, num_sequential_needed,1000);
+            double upper_bound = approx_regime_bound(step,r.energy, +e_step_size, num_sequential_needed,500);//peak + 0.912*(peak - lower_bound);  // s.t. if lower_bound is 3/4 peak, upper_bound is 1.1*peak.
             if (upper_bound > max) max=upper_bound;
             if (lower_bound < min) min=lower_bound;
         }
@@ -197,7 +254,7 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, double& max, double& m
  * @param min 
  * @param peak 
  */
-void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _min, double& peak) {
+void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _min, double& peak, bool allow_shrinkage) {
     // Find e_peak = kT/2
     double min_energy = 0;
     double max_energy = 1000/Constant::eV_per_Ha;
@@ -206,11 +263,11 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
     double kT = 2*peak;
     // CDF = Γ(3/2)γ(3/2,E/kT)
     double new_min = 0.2922*kT;  // 90% of electrons above this point
-    if(_min < new_min){
+    if(_min < new_min || allow_shrinkage){
         _min = new_min;
     }
     double new_max = 2.3208*kT; // 80% of electrons below this point (lower since not as sharp)
-    if(_max < new_max)
+    if(_max < new_max || allow_shrinkage)
         _max = std::min(new_max,elec_grid_regions.bndry_E.back());
 }
 
@@ -230,20 +287,22 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
  * @param step 
  * @param g_min 
  */
-void ElectronRateSolver::transition_energy(size_t step, double& g_min){
+void ElectronRateSolver::transition_energy(size_t step, double& g_min, bool allow_decrease){
     // We have instability in high energies at early times, so only consider high energies when there is no minimum 
     // at low energies. (This is very hacky.)
     double early_max = 1000;
     double early_min = approx_nearest_min(step,0,5,20,0,early_max);
     double new_min;
     if(early_min >= early_max){
-        new_min = approx_nearest_min(step,0,10, 10);
+        new_min = approx_nearest_min(step,0,10,10);
     }
     else{
         new_min = early_min;
     }
-    // if the previous transition energy was higher, use that (good way to wait out instability). 
-    g_min = max(g_min,new_min);
+    if(allow_decrease) 
+        g_min = new_min;
+    else               
+        g_min = max(g_min,new_min); // if the previous transition energy was higher, use that (good way to wait out instability).
 }
  
 void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step) {//, bool recalc) {
@@ -258,8 +317,9 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
     
 
     /// Set up the grid
-
+    
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
+        double old_trans_e = param_cutoffs.transition_e;
         if(init){
             // Empirically-based guesses for good starts.
             std::cout << "[ Dynamic Grid ] Starting with initial grid" << std::endl;
@@ -277,10 +337,17 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             regimes.dirac_max=regimes.dirac_peak*1.14; //
         }
         else{
-            dirac_energy_bounds(step,regimes.dirac_max,regimes.dirac_min,regimes.dirac_peak);
+            dirac_energy_bounds(step,regimes.dirac_max,regimes.dirac_min,regimes.dirac_peak,true);
             mb_energy_bounds(step,regimes.mb_max,regimes.mb_min,regimes.mb_peak);
             transition_energy(step, param_cutoffs.transition_e);
+        } 
+        if (old_trans_e != param_cutoffs.transition_e){
+            std::cout <<"thermal cutoff energy updated from:\n"
+            <<old_trans_e*Constant::eV_per_Ha
+            << "\nto:\n"
+            << param_cutoffs.transition_e*Constant::eV_per_Ha<< std::endl;
         }
+        else std::cout<<"Thermal cutoff energy had NO update." <<std::endl;        
     }
 
 
@@ -330,8 +397,13 @@ void ElectronRateSolver::solve(ofstream & _log) {
     cout<<"\033[33m"<<"Final time step:  "<<"\033[0m"<<(simulation_end_time)*Constant::fs_per_au<<" fs"<<endl;
     cout<<banner<<endl;
     
-    
-    this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
+    if (input_params.elec_grid_type.mode == GridSpacing::dynamic)
+        std::cout <<"[ sim ] Grid update period: "<<grid_update_period * Constant::fs_per_au<<" fs"<<std::endl;
+    else 
+        std::cout << "[ sim ] Using static grid" << std::endl;
+    size_t steps_per_grid_transform =  round(input_params.Num_Time_Steps()*(this->grid_update_period/this->timespan_au));
+
+    this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update,steps_per_grid_transform); // Inherited from ABM
 
 
     cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<std::endl;
@@ -363,7 +435,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
         }
         retries--;
         set_starting_state();
-        this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
+        this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update,steps_per_grid_transform); // Inherited from ABM
     }
     
     

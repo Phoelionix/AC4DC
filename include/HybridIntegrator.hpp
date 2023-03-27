@@ -47,8 +47,8 @@ class Hybrid : public Adams_BM<T>{
      
 
 
-    void run_steps(ofstream& _log, const double t_resume, const int steps_per_time_update);  // TODO probably should make t_resume and steps_per_time_update member variables, this is some real bootstrappin'. -S.P.
-    void iterate(ofstream& _log, double t_initial, double t_final, const double t_resume, const int steps_per_time_update);
+    void run_steps(ofstream& _log, const double t_resume, const int steps_per_time_update,const int steps_per_grid_transform);  // TODO clean up bootstrapping. -S.P.
+    void iterate(ofstream& _log, double t_initial, double t_final, const double t_resume, const int steps_per_time_update,const int steps_per_grid_transform);
     /// Unused
     void backward_Euler(unsigned n); 
     void step_stiff_part(unsigned n);
@@ -69,7 +69,7 @@ class Hybrid : public Adams_BM<T>{
 template<typename T>
 // t_resume = the time to resume simulation from if loading a sim. -S.P.
 // _log only used for cross-section recalcs atm.
-void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const double t_resume, const int steps_per_time_update) {
+void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const double t_resume, const int steps_per_time_update, const int steps_per_grid_transform) {
 
     if (this->dt < 1E-16) {
         std::cerr<<"WARN: step size "<<this->dt<<"is smaller than machine precision"<<std::endl;
@@ -103,7 +103,7 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const 
         }
         this->t[n] = this->t[n-1] + this->dt;
     }
-    this->run_steps(_log,t_resume, steps_per_time_update);
+    this->run_steps(_log,t_resume, steps_per_time_update,steps_per_grid_transform);
 }
 
 // Overrides the underlying Adams method, adding a more refined but computationally expensive treatment for the stiff Q^{ee} contribution to deltaf.
@@ -113,7 +113,7 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const 
  * @tparam T 
  */
 template<typename T>
-void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps_per_time_update){
+void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps_per_time_update,const int steps_per_grid_transform){
     assert(this->y.size() == this->t.size());
     assert(this->t.size() >= this->order);
 
@@ -126,10 +126,6 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     }
     // Run those steps
     std::cout << "[ sim ] Implicit solver uses relative tolerance "<<stiff_rtol<<", max iterations "<<stiff_max_iter<<std::endl;
-
-    int num_updates = 20;
-    size_t grid_update_period = 500;//round(this->t.size()/(num_updates+1));//2000;
-    std::cout << "[ sim ] grid update period (if dynamic): " << (this->t[grid_update_period]-this->t[0])* Constant::fs_per_au << std::endl;
     for (size_t n = this->order; n < this->t.size()-1; n++) {
         if ((n-this->order)%steps_per_time_update == 0){
             std::cout << "\r[ sim ] t="
@@ -143,10 +139,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         // this->y[n+1].from_backwards_Euler(this->dt, this->y[n], stiff_rtol, stiff_max_iter);
         this->step_stiff_part(n);
 
-        // if ((n-this->order)%stability_check_period == 0){
-        //     this->high_energy_stability_check()
-        // }
-        if ((n-this->order+1)%grid_update_period == 0){
+        if ((n-this->order+1)%steps_per_grid_transform == 0){
             // The latest step is n + 1, so we decide our new grid based on that step, then transform N = "order" of the prior points to the new basis.
             this->set_up_grid_and_compute_cross_sections(_log,false,n+1); // overridden by ElectronRateSolver
             // Transform enough previous points needed to get going to new basis

@@ -22,10 +22,11 @@ GridRegions::GridRegions(){
     // Initialise regions
     regions = {
         Region(1,5,10,"static"),  // low divergent
-        Region(20,10,600,"static"), // auger
-        Region(10,600,12000,"static"), // high tail
-        Region(35,4,10,"dirac"), // Maxwell-boltzmann distribution
-        Region(70,4500,6500,"mb") // Photoelectron peak
+        Region(50,10,600,"static"), // auger
+        Region(50,600,6000,"static"),
+        Region(10,6000,12000,"static"), // high tail
+        Region(35,-1,-1,"mb"), // Maxwell-boltzmann distribution
+        Region(70,-1,-1,"dirac") // Photoelectron peak
     };
 
 } 
@@ -73,10 +74,15 @@ void GridRegions::set_static_energies(vector<double> energy_boundaries){
 
 void Region::update_region(double new_centre, double new_min, double new_max){
     assert(type != "static");    
-    E_min = new_min;
-    E_max = new_max;
-    std::cout <<"energy range of region of type "<<type<<" updated to " 
-    <<E_min*Constant::eV_per_Ha<<" - "<<E_max*Constant::eV_per_Ha << std::endl;
+    if (E_min != new_min || E_max != new_max){
+        std::cout <<"energy range of region of type '"<<type<<"' updated from:\n" 
+        <<E_min*Constant::eV_per_Ha<<" - "<<E_max*Constant::eV_per_Ha << std::endl;    
+        E_min = new_min;
+        E_max = new_max;
+        std::cout << "to:\n" 
+        <<E_min*Constant::eV_per_Ha<<" - "<<E_max*Constant::eV_per_Ha << std::endl;
+    }
+    else std::cout<<"Energy range of region of type '"<<type<<"' had NO update." <<std::endl;
 }
 
 // powers not implemented yet since doesn't seem necessary

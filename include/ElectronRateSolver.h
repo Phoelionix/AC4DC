@@ -60,14 +60,14 @@ public:
         timespan_au = input_params.Width()*4;   // 4*FWHM, capturing effectively entire pulse.
         
         if (input_params.pulse_shape ==  PulseShape::square){  //-FWHM <= t <= 3FWHM
-            simulation_start_time = -input_params.Width();
-            simulation_end_time =  input_params.Width(); 
+            simulation_start_time = -timespan_au/4;
+            simulation_end_time =  3*timespan_au/4; 
         } else { //-2FWHM <= t <= 2FWHM
             simulation_start_time = -timespan_au/2;
             simulation_end_time = timespan_au/2; 
         }
         if (input_params.Cutoff_Inputted()){
-            simulation_end_time = input_params.Simulation_Cutoff();
+            simulation_end_time = input_params.Simulation_Cutoff(); // This does affect the fineness of the output
         }
         simulation_resume_time = simulation_start_time;
         set_grid_regions(input_params.elec_grid_regions);
@@ -101,19 +101,20 @@ private:
     double simulation_resume_time; // [Au] same as simulation_start_time unless loading simulation state.
     double simulation_end_time;  // [Au]    
     double fraction_of_pulse_simulated;
+    double grid_update_period = 0.08 / Constant::fs_per_au; // time period between dynamic grid updates.
     // Model parameters
-    
 
     // arrays computed at class initialisation
     vector<vector<eiiGraph> > RATE_EII;
     vector<vector<eiiGraph> > RATE_TBR;
 
     void get_energy_bounds(double& max, double& min); // unused
-    void dirac_energy_bounds(size_t step, double& max, double& min, double& peak_density);
-    void mb_energy_bounds(size_t step, double& max, double& min, double& peak_density);
-    void transition_energy(size_t step, double& g_min);
+    void dirac_energy_bounds(size_t step, double& max, double& min, double& peak_density, bool allow_shrinkage = false);
+    void mb_energy_bounds(size_t step, double& max, double& min, double& peak_density, bool allow_shrinkage = false);
+    void transition_energy(size_t step, double& g_min, bool allow_decrease = false);
     double approx_nearest_min(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
-    double approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
+    double nearest_inflection(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
+    double approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min_distance = 40, double min = -1, double max=-1);  
     double approx_regime_peak(size_t step, double lower_bound, double upper_bound, double del_energy);  
     double approx_regime_trough(size_t step, double lower_bound, double upper_bound, double del_energy,size_t min_sequential);
     void precompute_gamma_coeffs(); // populates above two tensors

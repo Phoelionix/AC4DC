@@ -39,6 +39,12 @@ This file is part of AC4DC.
 #include "config.h"
 
 
+struct indexed_knot
+{
+    size_t step; // Step that this grid of knots was set
+    std::vector<double> energy; // knots
+};
+
 /**
  * @brief Electron distribution class.
  * @details Represents a statistical distribution of electron density. Internal units are atomic units.
@@ -206,8 +212,15 @@ public:
     double k_temperature(size_t cutoff = size) const;
     double CoulombLogarithm() const;
 
+
     static std::string output_energies_eV(size_t num_pts);
-    std::string output_densities(size_t num_pts) const;
+    /**
+     * @brief Returns approx. num_pts densities by outputting the same number of points per knot. For a dynamic grid, the energies are determined based on the final energy grid used.
+     * @details Always outputs minimum of 1 point per knot.
+     * @param num_pts 
+     * @return 
+     */
+    std::string output_densities(size_t num_pts, std::vector<double> reference_knots) const;
     // 
     /**
      * @brief Switch grid points to the knot_energies provided, and replace densities with the ones interpolated to by the splines. 
@@ -235,17 +248,17 @@ public:
     
     static size_t size;
     double my_size(){return f.size();}
-    static void load_knots_from_history(size_t step_idx);
+    static std::vector<double> load_knots_from_history(size_t step_idx);
+    static std::vector<double> Knots_History(size_t step_idx);
 private:
     std::vector<double> f;  // Spline expansion factors
     static SplineIntegral basis;
-    // Used for saving
-    static std::vector<pair<size_t, std::vector<double>>> knots_history;
+    // history of grid points (for dynamic grid)
+    static std::vector<indexed_knot> knots_history;
     static size_t CoulombLog_cutoff;
     /// Coulomb repulsion is ignored if density is below this threshold
     static double CoulombDens_min;
 };
-
 ostream& operator<<(ostream& os, const Distribution& dist);
 
 #endif /* end of include guard: RATESYSTEM_CXX_H */

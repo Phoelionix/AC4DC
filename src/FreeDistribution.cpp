@@ -36,7 +36,7 @@ This file is part of AC4DC.
 
 size_t Distribution::CoulombLog_cutoff=0;
 double Distribution::CoulombDens_min=0;
-std::vector<pair<size_t, std::vector<double>>> Distribution::knots_history;
+std::vector<indexed_knot> Distribution::knots_history;
 // These variables are modified by set_distribution and by dynamic grid updates when set_basis is called.
 SplineIntegral Distribution::basis; 
 size_t Distribution::size=0;  
@@ -47,7 +47,7 @@ void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_
     // where num_funcs is the number of non-boundary (i.e. "usable") splines/knots.
     //basis_history.push_back(SplineIntegral());
     basis.set_parameters(grid_style, elec_grid_regions,regimes);
-    knots_history.push_back(make_pair(step,get_knot_energies()));
+    knots_history.push_back(indexed_knot{step,get_knot_energies()});
     Distribution::size=basis.num_funcs;
     Distribution::CoulombLog_cutoff = basis.i_from_e(param_cutoffs.transition_e);
     Distribution::CoulombDens_min = param_cutoffs.min_coulomb_density;
@@ -232,17 +232,22 @@ std::vector<double> Distribution::get_trimmed_knots(std::vector<double> knots){
 /**
  * @brief Loads the static variables relating to the basis that are changed by grid updates.
  * @param step_idx Step to load.
+ * @return returns the knot that was loaded.
  */
-void Distribution::load_knots_from_history(size_t step_idx){
+std::vector<double> Distribution::load_knots_from_history(size_t step_idx){
+    std::vector<double> loaded_knot = Knots_History(step_idx);
+    load_knot(loaded_knot);
+    return loaded_knot;
+}
+
+std::vector<double> Distribution::Knots_History(size_t step_idx){
     vector<double> loaded_knot;
     // Find the most recent knot update as of step_idx.
     for(auto elem: knots_history){
-        if (elem.first > step_idx) break;
-        loaded_knot = elem.second;
+        if (elem.step > step_idx) break;
+        loaded_knot = elem.energy;
     }
-    vector<double> trimmed_knots = get_trimmed_knots(loaded_knot);   
-    size = trimmed_knots.size();
-    basis = trimmed_knots;    
+    return loaded_knot;
 }
 // ==========================
 // IO
@@ -276,17 +281,25 @@ std::string Distribution::output_energies_eV(size_t num_pts) {
     return ss.str();
 }
 
-std::string Distribution::output_densities(size_t num_pts) const {
-    std::stringstream ss;
-    const double units = 1./Constant::eV_per_Ha/Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au;
-    size_t pts_per_knot = num_pts / basis.gridlen();
+/**
+ * @brief 
+ * @param num_pts 
+ * @param reference_knots knots to base the outputted energies off.
+ * @return 
+ */
+std::string Distribution::output_densities(size_t num_pts,std::vector<double> reference_knots) const {    
+    size_t pts_per_knot = num_pts / reference_knots.size();
     if (pts_per_knot == 0){
         pts_per_knot = 1;
         cerr<<"[ warn ] Outputting a small number of points per knot."<<endl;
     }
-    for (size_t i=0; i<basis.gridlen()-1; i++){
-        double e = basis.grid(i);
-        double de = (basis.grid(i+1) - e)/(pts_per_knot-1);
+    // Iterate through each knot
+    std::stringstream ss;
+    const double units = 1./Constant::eV_per_Ha/Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au;
+    for (size_t i=0; i<reference_knots.size()-1; i++){
+        // output pts_per_knot points between this knot to the next.
+        double e = reference_knots[i];
+        double de = (reference_knots[i+1] - reference_knots[i])/(pts_per_knot-1);
         for (size_t j=0; j<pts_per_knot; j++) {
             ss << (*this)(e)*units<<" ";
         e += de;
@@ -294,6 +307,8 @@ std::string Distribution::output_densities(size_t num_pts) const {
     }
     return ss.str();
 }
+
+
 
 
 /**
