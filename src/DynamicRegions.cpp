@@ -20,13 +20,18 @@
 
 GridRegions::GridRegions(){
     // Initialise regions
+    // Carbon (v. divergent example) good grid:
+    // indices  1|30|55|65|85|105|145|150 
+    // energies 4|10|50|200|500|4500|6500|10000   
     regions = {
         Region(1,5,10,"static"),  // low divergent
-        Region(50,10,600,"static"), // auger
-        Region(50,600,6000,"static"),
-        Region(10,6000,12000,"static"), // high tail
+        Region(25,10,50, "static"), // low support (MB is very fine early on, grid doesn't let us make it suddenly become super fine.)
+        Region(10,50,200,"static"), 
+        Region(35,200,600,"static"), // auger
+        Region(40,600,6500,"static"),  //TODO change 6500 to be the xray energy.
+        Region(10,6500,15000,"static"), // high tail
         Region(35,-1,-1,"mb"), // Maxwell-boltzmann distribution
-        Region(70,-1,-1,"dirac") // Photoelectron peak
+        Region(60,-1,-1,"dirac") // Photoelectron peak
     };
 
 } 
