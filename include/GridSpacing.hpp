@@ -21,41 +21,37 @@ This file is part of AC4DC.
 
 #include <vector>
 #include <iostream>
+#include <algorithm>
 #ifndef GRIDSPACING_CXX_H
 #define GRIDSPACING_CXX_H
 
 struct GridSpacing {
-    // GridSpacing(){
-    //     mode= linear;
-    // }
-    // GridSpacing(char c){
-    //     mode= c;
-    // }
-    const static char linear = 0;
-    const static char quadratic = 1;
-    const static char exponential = 2;
-    const static char hybrid = 3;
-    const static char powerlaw = 4;
-    const static char test = 5;
-    const static char hybrid_power = 6;
+    const static char manual = 0;
+    const static char dynamic = 1;
     const static char unknown = 101;
-    char mode = unknown;
-    size_t num_low = 0; // Used for hybrid spec only
-    double transition_e = 0; // Also used to estimate Coulomb logarithm. THis should be split into a separate class TODO
+    char mode = dynamic;
     unsigned zero_degree_0 = 0; // Number of derivatives to set to zero at the origin
     unsigned zero_degree_inf = 0; // Number of derivatives to set to zero at infinity
-    double min_coulomb_density=0; // Density below which to ignotre Coulomb interactions 
-    // (NOTE: This should have its own class, along with coulomb estimation cutoff)
 };
 
-// currently for hybrid_power only.
+struct Cutoffs{
+    double transition_e = 0; //used to estimate Coulomb logarithm. 
+    double min_coulomb_density=0; // Density below which to ignore Coulomb interactions 
+};
+
+struct FeatureRegimes{
+    double mb_peak=0, mb_min=0, mb_max=0;  
+    double dirac_peak=0, dirac_min=0,dirac_max=0; //
+};
+
+// For manual grid mode.
 struct GridBoundaries {
     // Quick and dirty attachment parameters TODO this should replace num_low, and should fill the role of 
     // transition_e so it can be split off (as the coulomb log cutoff) along with the coulomb density.
     // Should also replace num_elec_points, min_elec_e, max_elec_e
     // Note this current implementation includes the energy/index of last grid point.
-    std::vector<int> start ={-1};  // TODO rename, but this is the starting index of the region. But it's also uised for upper bound...
-    std::vector<double> E_min ={-1.};  // In eV. Again need to rename, as it's used for upper bound too.
+    std::vector<int> bndry_idx ={-1};  // TODO rename, but this is the starting index of the region. But it's also uised for upper bound...
+    std::vector<double> bndry_E ={-1.};  // In eV. Again need to rename, as it's used for upper bound too.
     std::vector<double> powers ={1.};
     int parsed_count = 0; 
 };
@@ -64,23 +60,11 @@ namespace {
     [[maybe_unused]] std::ostream& operator<<(std::ostream& os, GridSpacing gs) {
         switch (gs.mode)
         {
-        case GridSpacing::linear:
-            os << "linear";
+        case GridSpacing::manual:
+            os << "manual";
             break;
-        case GridSpacing::quadratic:
-            os << "quadratic";
-            break;
-        case GridSpacing::exponential:
-            os << "exponential";
-            break;
-        case GridSpacing::hybrid:
-            os << "hybrid linear-linear grid, transition at M="<<gs.num_low<<", e="<<gs.transition_e;
-            break;
-        case GridSpacing::powerlaw:
-            os << "power-law grid going through M="<<gs.num_low<<", e="<<gs.transition_e;
-            break;
-        case GridSpacing::test:
-            os << "experimental grid going through M="<<gs.num_low<<", e="<<gs.transition_e;
+        case GridSpacing::dynamic:
+            os << "dynamic";
             break;
         default:
             os << "Unknown grid type";
@@ -89,46 +73,36 @@ namespace {
         return os;
     }
 
-    /// Sets mode of the grid style aka grid type
+    /// Sets grid style/type to dynamic or manual
     [[maybe_unused]] std::istream& operator>>(std::istream& is, GridSpacing& gs) {
         std::string tmp;
         is >> tmp;
         if (tmp.length() == 0) {
-            std::cerr<<"No grid type provided, defaulting to linear..."<<std::endl;
-            gs.mode = GridSpacing::linear;
+            std::cerr<<"No grid mode provided, defaulting to dynamic mode..."<<std::endl;
+            gs.mode = GridSpacing::dynamic;
             return is;
         }
         switch ((char) tmp[0])
         {
-        case 'l':
-            gs.mode = GridSpacing::linear;
-            break;
-        case 'q':
-            gs.mode = GridSpacing::quadratic;
-            break;
-        case 'e':
-            gs.mode = GridSpacing::exponential;
-            break;
-        case 'h':
-            gs.mode = GridSpacing::hybrid;
-            break;
-        case 'p':
-            gs.mode = GridSpacing::powerlaw;
+        case 'T':
+            gs.mode = GridSpacing::manual;
             break;
         case 't':
-            gs.mode = GridSpacing::test;
+            gs.mode = GridSpacing::manual;
             break;
-        case 'w':
-            gs.mode = GridSpacing::hybrid_power;
+        case 'F':
+            gs.mode = GridSpacing::dynamic;
             break;
+        case 'f':
+            gs.mode = GridSpacing::dynamic;
+            break;          
         default:
-            std::cerr<<"Unrecognised grid type \""<<tmp<<"\""<<std::endl;
-            gs.mode = GridSpacing::linear;
+            std::cerr<<"Unrecognised grid mode \""<<tmp<<"\", defaulting to dynamic mode..."<<std::endl;
+            gs.mode = GridSpacing::dynamic;
             break;
         }
         return is;
     }
-
     /// Sets region boundaries
     [[maybe_unused]] std::istream& operator>>(std::istream& is, GridBoundaries& gb) {
         std::string tmp;
@@ -167,13 +141,13 @@ namespace {
         }
 
         if(gb.parsed_count == 0){
-            gb.start.resize(target_vector.size());
-            for(int i = 0; i < target_vector.size(); i++){
+            gb.bndry_idx.resize(target_vector.size());
+            for(size_t i = 0; i < target_vector.size(); i++){
                 target_vector[i] += 0.5;
-                gb.start[i] = (int)target_vector[i];
+                gb.bndry_idx[i] = (int)target_vector[i];
             }
         }
-        else if (gb.parsed_count == 1) gb.E_min = target_vector;
+        else if (gb.parsed_count == 1) gb.bndry_E = target_vector;
         else if (gb.parsed_count == 2) gb.powers = target_vector;
         else{
             std::cerr << "Too many grid region variables parsed.";}

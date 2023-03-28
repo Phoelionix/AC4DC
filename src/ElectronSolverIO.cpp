@@ -48,7 +48,8 @@ void ElectronRateSolver::save(const std::string& _dir) {
     std::vector<double> fake_t; // TODO double check why I called this fake_t, probably doesn't make sense now. -S.P.
     int num_t_points = input_params.Out_T_size();
     if ( num_t_points >  t.size() ) num_t_points = t.size(); // Fineness of output is only limited by num time steps.
-    float t_fineness = (simulation_end_time - simulation_start_time) / num_t_points;
+    //float t_fineness = (simulation_end_time - simulation_start_time) / num_t_points; //  Consistent num points.
+    float t_fineness = timespan_au / num_t_points; //  consistent fineness.
     float previous_t = t[0];
     int i = -1;
     while (i <  static_cast<int>(t.size())-1){  //TODO make this some constructed function or something -S.P. 
@@ -75,7 +76,7 @@ void ElectronRateSolver::log_extra_details(ofstream & _log){
     // Saves details pertaining to the simulation's execution to file fname
     if(_log.is_open()){
         cout << "[ Details ] Logging run-specific details..."<<endl;
-        _log << endl << "[ Rate Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << endl;
+        _log << "\n[ Rate Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << endl;
         _log.flush();
     }
 }
@@ -87,28 +88,34 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
     f.open(fname);
     f << "# Free electron dynamics"<<endl;
     f << "# Time (fs) | Density @ energy (eV):" <<endl;
+    std::vector<double> reference_knots = Distribution::load_knots_from_history(t.size());
     f << "#           | "<<Distribution::output_energies_eV(this->input_params.Out_F_size())<<endl;
+    cout << "[ Dynamic Grid ], writing densities to reference knot energies: \n";
+    for (double elem : reference_knots) cout << elem *Constant::eV_per_Ha<< ' ';
+    cout << endl;  
 
     assert(y.size() == t.size());
     int num_t_points = input_params.Out_T_size();
     if ( num_t_points >  t.size() ) num_t_points = t.size(); // Fineness of output is only limited by num time steps.
-    float t_fineness = (simulation_end_time - simulation_start_time)  / num_t_points;
+    //float t_fineness = (simulation_end_time - simulation_start_time)  / num_t_points;
+    float t_fineness = timespan_au  / num_t_points;
     float previous_t = t[0];
-    int i = -1;
+    int i = -1; 
     while (i <  static_cast<int>(t.size())-1){
         i++;
+        Distribution::load_knots_from_history(i);
         if(t[i] < previous_t + t_fineness){
             continue;
         }
-        f<<t[i]*Constant::fs_per_au<<" "<<y[i].F.output_densities(this->input_params.Out_F_size())<<endl;
+        f<<t[i]*Constant::fs_per_au<<" "<<y[i].F.output_densities(this->input_params.Out_F_size(),reference_knots)<<endl;
         previous_t = t[i];
     }
     f.close();
 }
 
 /**
- * @brief Saves each time and corresponding B-spline coefficients.
- * 
+ * @brief Saves each time and corresponding B-spline coefficients. 
+ * @todo This doesn't work with dynamic grid yet,only the last points will be correct, as the prior knot layouts won't match the header.
  * @param fname 
  */
 void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
@@ -122,6 +129,7 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     assert(y.size() == t.size());
     
     for (size_t i=0; i<t.size(); i++) {
+        Distribution::load_knots_from_history(i);
         f<<t[i]*Constant::fs_per_au<<" "<<y[i].F<<endl;  // Note that the << operator divides the factors by Constant::eV_per_Ha. -S.P.
     }
     f.close();
@@ -148,7 +156,8 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         // Iterate over time.
         int num_t_points = input_params.Out_T_size();
         if ( num_t_points >  t.size() ) num_t_points = t.size();
-        float t_fineness = (simulation_end_time - simulation_start_time)  / num_t_points; 
+        //float t_fineness = (simulation_end_time - simulation_start_time)  / num_t_points; 
+        float t_fineness = timespan_au  / num_t_points; 
         float previous_t = t[0];
         int i = -1;
         while (i <  static_cast<int>(t.size())-1){
@@ -217,6 +226,7 @@ void ElectronRateSolver::tokenise(std::string str, std::vector<double> &out, con
  * after which it transforms to the grid point basis submitted for *this* run via transform_basis().
  * It should be noted that transform_basis() is an *approximation* of the non-polynomial behaviourpyt, albeit it is very good due to using 
  * order 64 gaussian quadrature.
+ * @todo there's no need to convert the basis of old lines, if we associate distribution at each time step to a basis.
  */
 void ElectronRateSolver::loadFreeRaw_and_times() {
     vector<string> time_and_BS_factors;
@@ -318,11 +328,11 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         for(size_t j = 0; j < saved_f.size();j++){
             saved_f[j] *= Constant::eV_per_Ha;
         }
-        // FREE DISTRIBUTION
+        // FREE DISTRIBUTION   
         std::vector<double> new_knots =  y[0].F.get_knot_energies();      
         y[i].F.set_distribution(saved_knots,saved_f);
         // To ensure compatibility, "translate" old distribution to new grid points.    
-
+        // TODO should remove transforming basis unless last step (and check still works)
         y[i].F.transform_basis(new_knots);         
         t[i] = saved_time[i];
         i++;

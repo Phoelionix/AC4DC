@@ -32,7 +32,7 @@ false        // use manual grid? If false, dynamic grid is used.
 1|1|1|1|1|1|1 
 
 #DEBUG
--9.25      // Simulation cutoff time in fs
+0      // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 

@@ -94,9 +94,11 @@ int BasisSet::lower_i_from_e(double e) {
  *     
  *  boundary at minimm energy enforces energy conservation
  * 
- * @param gt grid type, also referred to as grid_style.
+ * @param gt grid type, also referred to as grid_style. Only used for zero_degree_0 and zero_degree_inf. TODO really need to refactor around how we are using gt.
  */
-void BasisSet::set_knot(const GridSpacing& gt){
+
+void BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rgm){
+    update_regions(rgm);
     int Z_0 = gt.zero_degree_0;
     int Z_inf = gt.zero_degree_inf;
     if( BSPLINE_ORDER - Z_0 < 0){
@@ -109,32 +111,78 @@ void BasisSet::set_knot(const GridSpacing& gt){
     } 
 
     size_t start = BSPLINE_ORDER-Z_0-1;
-    size_t num_int = num_funcs + Z_inf - start;
-    
- 
-    double A_lin = (_max - _min)/(num_int-1);
-    double A_sqrt = (_max - _min)/(num_int-1)/(num_int-1);
-    // exponential grid
-    if ( (gt.mode == GridSpacing::exponential) && _min <= 0) {
-        throw runtime_error("Cannot construct an exponential grid with zero minimum energy.");
+
+    std::sort(regions.begin(),regions.end()); // Sort by min energy.
+    // Set first energy to minimum of all grids present.
+    std::vector<double> boundary_E = {regions[0].get_E_min()};        
+
+    std::cout<<"[ Dynamic Knot ] Using splines of "<<BSPLINE_ORDER<<"th order "<<std::endl;
+    std::cout<<"[ Dynamic Knot ] (i.e. piecewise polynomial has leading order x^"<<BSPLINE_ORDER-1<<")"<<std::endl;
+
+    std::vector<double> new_knots;
+    new_knots.reserve(170+BSPLINE_ORDER+1);
+
+    // Set the k - zero_deg repeated knots
+    for (size_t i=0; i<start; i++) {
+        new_knots.push_back(_min);
     }
-    double A_exp = _min;
-    double lambda_exp = (log(_max) - log(_min))/(num_int-1);
-    // hybrid linear-linear grid
-    size_t M = gt.num_low + 1;
+    // minimum (0)
+    new_knots.push_back(_min);
 
-
-    assert(num_funcs > M); // TODO should only give a warning if not relevant to grid type. -S.P.
-    assert(_max > gt.transition_e);
-
-    double B_hyb = (gt.transition_e - _min)/M;
-    double C_hyb = (_max - gt.transition_e)/(num_funcs - M);
+    size_t i=start;
+    // Dynamically choose next grid point. Idea: We move to next point based on whichever region's rule gives the closest one. 
+    while(true){
+        i++;
+        // Find the smallest grid point that regions that the point is within want.
+        double next_point = INFINITY;
+        for (size_t r = 0; r < regions.size(); r ++){
+            double point =  regions[r].get_next_knot(new_knots[i-1]);
+            if (point > new_knots[i-1]){
+                next_point = min(next_point,point);
+            }
+        }
+        if(next_point == INFINITY){
+            // We are outside the max, add max point + boundary thing and finish.
+            new_knots.push_back(_max);
+            new_knots.push_back(_max+500/Constant::eV_per_Ha);
+            break;
+        }
+        assert(next_point > new_knots[i-1]);
+        assert(i < 999);
+        new_knots.push_back(next_point);
+    }
+    num_funcs = new_knots.size()-(start+1)-1;
+    // t_{n+1+z_infinity} has been set now. Repeat it until the end.
+    for (size_t i= num_funcs + 1 + Z_inf; i< num_funcs+BSPLINE_ORDER; i++) {
+        new_knots.push_back(new_knots[num_funcs + Z_inf]);
+    }
     
-    double p_powlaw = (log(_max-_min) - log(gt.transition_e - _min))/(log(1.*num_funcs/M));
-    double A_powlaw = (_max - _min)/pow(num_funcs, p_powlaw);
-    
-    double p_powlaw_test = (log(_max-_min) - log(2.51 - _min))/(log(1.*num_funcs/M));   // transition e is in Ha, which are ~27 * larger than eV.
-    double A_powlaw_test = (_max - _min)/pow(num_funcs, p_powlaw_test);
+    knot = new_knots;
+    #ifdef DEBUG
+    std::cerr<<"Knot: [ ";
+    for (auto& ki : knot) {
+        std::cerr<<ki<<" ";
+    }
+    std::cerr<<"]\n";
+    #endif    
+}
+
+
+
+void BasisSet::manual_set_knot(const GridSpacing& gt){
+    int Z_0 = gt.zero_degree_0;
+    int Z_inf = gt.zero_degree_inf;
+    if( BSPLINE_ORDER - Z_0 < 0){
+        std::cerr <<"Failed to set boundary condition at 0, defaulting to "<<0<<std::endl;
+        Z_0 = 0;
+    }
+    if (BSPLINE_ORDER - Z_inf < 0){
+        std::cerr <<"Failed to set boundary condition at infinity, defaulting to "<<BSPLINE_ORDER<<std::endl;
+        Z_inf = BSPLINE_ORDER;
+    } 
+
+    size_t start = BSPLINE_ORDER-Z_0-1;
+    //size_t num_int = num_funcs + Z_inf - start;
 
     /// Wiggle destroyer.  Continuous piecewise.
     // e.g. 6k eV photon beam. Have delta-like stuff in MB and dirac.
@@ -166,37 +214,25 @@ void BasisSet::set_knot(const GridSpacing& gt){
         hyb_powlaw_factor[rgn] = (E_N - E_M)/pow(n_N-n_M, p);
     }
 
-    std::cout<<"[ Knot ] Using splines of "<<BSPLINE_ORDER<<"th order "<<std::endl;
-    std::cout<<"[ Knot ] (i.e. piecewise polynomial has leading order x^"<<BSPLINE_ORDER-1<<")"<<std::endl;
-    if ( gt.mode == GridSpacing::powerlaw) {
-        std::cout<<"[ Knot ] Using power-law exponent "<<p_powlaw<<std::endl;
-    }
-    if ( gt.mode == GridSpacing::hybrid_power){
-        std::cout<<"[ Knot ] Using power-law exponents: "; 
-        for (int j = 0; j < _region_powers.size(); j++){
-            cout << _region_powers[j] << ", ";
-        }
-        std::cout << std::endl; 
-        std::cout<<"[ Knot ] Using power-law factors: ";
-        for (int j = 0; j < hyb_powlaw_factor.size(); j++){
-            cout << hyb_powlaw_factor[j] << ", ";
-        }       
-        std::cout << std::endl;         
-    }
+    std::cout<<"[ Manual Knot ] Using splines of "<<BSPLINE_ORDER<<"th order "<<std::endl;
+    std::cout<<"[ Manual Knot ] (i.e. piecewise polynomial has leading order x^"<<BSPLINE_ORDER-1<<")"<<std::endl;
 
+    std::cout<<"[ Manual Knot ] Using power-law exponents: "; 
+    for (size_t j = 0; j < _region_powers.size(); j++){
+        cout << _region_powers[j] << ", ";
+    }
+    std::cout << std::endl; 
+    std::cout<<"[ Manual Knot ] Using power-law factors: ";
+    for (size_t j = 0; j < hyb_powlaw_factor.size(); j++){
+        cout << hyb_powlaw_factor[j] << ", ";
+    }       
+    std::cout << std::endl;         
 
-    // std::function<double(double)> f = [=](double B) {return _min*exp(B*M/(_max - B*(num_funcs-M))) + B*(num_funcs-M) - _max;};
-    // double B_hyb = 0;
-    // if (gt.mode == GridSpacing::hybrid){
-    //     B_hyb = find_root(f, 0, _max/(num_funcs-M + 1));
-    // }
-    // double C_hyb = _max - B_hyb * num_funcs;
-    // double lambda_hyb = (log(B_hyb*M+C_hyb) - log(_min))/M;
 
     knot.resize(num_funcs+BSPLINE_ORDER+1); // num_funcs == n + 1
 
-    // Set the k - zero_deg repeated knots
     
+    // Set the k - zero_deg repeated knots
     for (size_t i=0; i<start; i++) {
         knot[i] = _min;
     }
@@ -207,52 +243,24 @@ void BasisSet::set_knot(const GridSpacing& gt){
     // - Consider better method to deal with MB divergence at low T.
 
     // Keep in mind: At i=0, the value of knot will still be _min
+    bool used_good_grid = false;
     for(size_t i=start; i<=num_funcs + Z_inf; i++) {
-        switch (gt.mode)
-        {
-        case GridSpacing::linear:
-            knot[i] = _min + A_lin*(i-start); // linear spacing
-            break;
-        case GridSpacing::quadratic:
-            knot[i] = _min + A_sqrt*(i-start)*(i-start); // square root spacing
-            break;
-        case GridSpacing::exponential:
-            knot[i] = A_exp*exp(lambda_exp*(i-start));
-            break;
-        case GridSpacing::hybrid:
-            // knot[i] = (i >=M ) ? B_hyb*(i-start) + C_hyb : A_exp * exp(lambda_hyb*(i-start));
-            knot[i] = (i-start < M) ? B_hyb*(i-start) + _min : C_hyb*(i-start-M) + gt.transition_e;
-            break;
-        case GridSpacing::powerlaw:
-            knot[i] = A_powlaw * pow(i-start, p_powlaw) + _min;
-            break;
-        case GridSpacing::test:
-            knot[i] = A_powlaw_test * pow(i - start, p_powlaw_test) + _min;
-            break;
-        // Completely arbitrary custom spacing
-        case GridSpacing::hybrid_power:
-        {
-            //  Get the index of the region (rgn) that this point is part of.
-            size_t rgn = 0;
-            for( ; rgn < _region_powers.size(); rgn++){
-                if( i - start < _region_bndry_index[rgn+1]
-                 || rgn == _region_powers.size() - 1){
-                    break;
-                 }
-            }
-            n_M = _region_bndry_index[rgn];
-            E_M = _region_bndry_energy[rgn];
-            p = _region_powers[rgn];            
-            // Calculate the knot energy
-            knot[i] = hyb_powlaw_factor[rgn] * pow(i - n_M - start, p) + E_M;
-            break;
+        // Generalised custom spacing
+        //  Get the index of the region (rgn) that this point is part of.
+        size_t rgn = 0;
+        for( ; rgn < _region_powers.size(); rgn++){
+            if( i - start < _region_bndry_index[rgn+1]
+                || rgn == _region_powers.size() - 1){
+                break;
+                }
         }
-        default:
-            throw std::runtime_error("Grid spacing has not been defined.");
-            break;
-        }
+        n_M = _region_bndry_index[rgn];
+        E_M = _region_bndry_energy[rgn];
+        p = _region_powers[rgn];            
+        // Calculate the knot energy
+        knot[i] = hyb_powlaw_factor[rgn] * pow(i - n_M - start, p) + E_M;
     }
-
+    if(!used_good_grid) std::cout << "WARNING, this grid type is obsolete, if a dynamic grid is not possible, using a targeted grid is favourable. See README." <<std::endl; 
     // t_{n+1+z_infinity} has been set now. Repeat it until the end.
     for (size_t i= num_funcs + 1 + Z_inf; i< num_funcs+BSPLINE_ORDER; i++) {
         knot[i] = knot[num_funcs + Z_inf];
@@ -278,19 +286,11 @@ void BasisSet::set_knot(const GridSpacing& gt){
  * @param gt gt.zero_degree_0: The number of derivatives to set to zero: 0 = open conditions, 1=impose f(0)=0, 2=impose f(0)=f'(0) =0
  * @param  
  */
-void BasisSet::set_parameters(size_t num_of_funcs, double min, double max, const GridSpacing& gt, GridBoundaries& elec_grid_regions) {
-    this->_min = min;
-    this->_max = max;
-    this->_region_bndry_index = elec_grid_regions.start;   // TODO: refactor, can replace min and max with array of region start and region ends. -S.P.
-    this -> _region_bndry_energy = elec_grid_regions.E_min;   
+void BasisSet::set_parameters(const GridSpacing& gt, GridBoundaries& elec_grid_regions, FeatureRegimes& regimes) {
+    this->_region_bndry_index = elec_grid_regions.bndry_idx;   // TODO: refactor, can replace min and max with array of region start and region ends. -S.P.
+    this -> _region_bndry_energy = elec_grid_regions.bndry_E;   
     this -> _region_powers = elec_grid_regions.powers;   
 
-    num_funcs = num_of_funcs;
-    // Override params
-    if(gt.mode == GridSpacing::hybrid_power){
-        num_funcs = _region_bndry_index[_region_bndry_index.size()-1];
-        this->_max = _region_bndry_energy[_region_bndry_energy.size()-1];
-    }
     // Idea: Want num_funcs usable B-splines
     // If grid has num_funcs+k+1 points, num_funcs of these are usable splines (num_int = num_funcs + Z_inf - start)
     // grid layout for open boundary:
@@ -301,9 +301,28 @@ void BasisSet::set_parameters(size_t num_of_funcs, double min, double max, const
     // t0=t1=...=tk-3, tn+3=...=tn+k
     
     // boundary at minimm energy enforces energy conservation 
-    set_knot(gt); //TODO see if this allows for turning off fixed origin boundary.
-    
+    this->_min = 0;
 
+    
+    if(gt.mode == GridSpacing::manual){    
+        this->_max = elec_grid_regions.bndry_E.back();
+        num_funcs = elec_grid_regions.bndry_idx.back();
+        manual_set_knot(gt);
+    }    
+    else{
+        this->_max = -1;
+        for (size_t r = 0; r < regions.size(); r ++){
+            double point =  regions[r].get_E_max();
+            if (point > this->_max){
+                this->_max = point;
+            }   
+        }        
+        set_knot(gt,regimes);
+    }
+    std::cout << "Knots set to:";
+    for (double e: knot)
+        std::cout << e*Constant::eV_per_Ha << ' ';
+    cout << std::endl;
     
     std::vector<Eigen::Triplet<double>> tripletList;
     tripletList.reserve(BSPLINE_ORDER*2*num_funcs);

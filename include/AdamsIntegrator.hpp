@@ -62,7 +62,7 @@ IVPSolver<T>::IVPSolver() {
 }
 
 template<typename T>
-void IVPSolver<T>::setup(const T& initial_state, double _dt, double _step_tolerance ) {
+void IVPSolver<T>:: setup(const T& initial_state, double _dt, double _step_tolerance ) {
     step_tolerance = _step_tolerance;
     this->y[0] = initial_state;
     // Makes a zero std::vector in a mildly spooky way

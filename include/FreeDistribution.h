@@ -39,6 +39,12 @@ This file is part of AC4DC.
 #include "config.h"
 
 
+struct indexed_knot
+{
+    size_t step; // Step that this grid of knots was set
+    std::vector<double> energy; // knots
+};
+
 /**
  * @brief Electron distribution class.
  * @details Represents a statistical distribution of electron density. Internal units are atomic units.
@@ -111,33 +117,36 @@ public:
      */
     Distribution& operator=(double y) {
         // total = y;
+        f.resize(size);
         for (size_t i=0; i<size; i++) {
             f[i] = y;
         }
         return *this;
     }
 
-    vector<double> get_knot_energies(){return basis.get_knot();}
-    
+    static vector<double> get_knot_energies(){return basis.get_knot();}
+    static double num_basis_funcs(){return basis.num_funcs;}
+
     /**
      * @brief Returns an order-preserved copy of knots with points that overlap with the basis's boundary removed.
      * 
      * @param knots Knot energies ordered from lowest to highest.
      * @return std::vector<double> 
     */
-    std::vector<double> get_trimmed_knots(std::vector<double> knots);
+    static std::vector<double> get_trimmed_knots(std::vector<double> knots);
 
     /**
      * @brief Replaces non-boundary grid points and their associated density spline basis expansion factors with the ones provided. 
-     * @details An alternative to set_elec_points() that allows for a specific distribution state to be set.
+     * @details An alternative to set_basis() that allows for a specific distribution state to be set.
      * @param new_knot new knots (Attention: all knots that are at or below basis._min, or above basis._max, are ignored)
      * @param new_f new density
      * @return Distribution& 
      */
     void set_distribution(vector<double> new_knot, vector<double> new_f);
+    static void load_knot(vector<double> loaded_knot);
 
     double norm() const;
-    double integral() const;
+    double integral() const; //unused
     // modifiers
 
     /**
@@ -203,14 +212,21 @@ public:
     double k_temperature(size_t cutoff = size) const;
     double CoulombLogarithm() const;
 
+
     static std::string output_energies_eV(size_t num_pts);
-    std::string output_densities(size_t num_pts) const;
+    /**
+     * @brief Returns approx. num_pts densities by outputting the same number of points per knot. For a dynamic grid, the energies are determined based on the final energy grid used.
+     * @details Always outputs minimum of 1 point per knot.
+     * @param num_pts 
+     * @return 
+     */
+    std::string output_densities(size_t num_pts, std::vector<double> reference_knots) const;
     // 
     /**
      * @brief Switch grid points to the knot_energies provided, and replace densities with the ones interpolated to by the splines. 
      * 
      * @param all_knot_energies All knots including basis._max and basis._min. (Currently does not support replacing boundaries). 
-     * @note if this is to be used for more than sim loading, need to incorporate running compute_cross_sections again
+     * @note if this is to be used for more than sim loading, need to incorporate running initialise_grid_with_computed_cross_sections again
      */
     void transform_basis(std::vector<double> new_knots);
 
@@ -227,21 +243,22 @@ public:
      * @param max_e max elec energy
      * @param grid_style 
      */
-    static void set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style, GridBoundaries elec_grid_regions);
+    static void set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, GridBoundaries elec_grid_regions);
     static std::string output_knots_eV();
-
-
+    
     static size_t size;
+    double my_size(){return f.size();}
+    static std::vector<double> load_knots_from_history(size_t step_idx);
+    static std::vector<double> Knots_History(size_t step_idx);
 private:
-    // double total;
-    std::vector<double> f;  // Spline expansion factor? TODO I called a lot of things densities that were the factor... S.P.
+    std::vector<double> f;  // Spline expansion factors
     static SplineIntegral basis;
+    // history of grid points (for dynamic grid)
+    static std::vector<indexed_knot> knots_history;
     static size_t CoulombLog_cutoff;
-    /// Coulomb repulsion is ignored if (d)ensity is below this threshold
+    /// Coulomb repulsion is ignored if density is below this threshold
     static double CoulombDens_min;
-
 };
-
 ostream& operator<<(ostream& os, const Distribution& dist);
 
 #endif /* end of include guard: RATESYSTEM_CXX_H */

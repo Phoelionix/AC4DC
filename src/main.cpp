@@ -27,7 +27,7 @@ This file is part of AC4DC.
 
 using namespace std;
 
-////// The below paragraph isn't currently implemented; for now, the rates are calculated here (compute_cross_sections()).
+////// The below paragraph isn't currently implemented; for now, the rates are calculated here (initialise_grid_with_computed_cross_sections()).
 ////// Note the computationally expensive part of the code is the solving of equations, not the rates, so 
 ////// that should be taken into account when considering the priority of refactoring.   - S.P.
     // Rate system solver.
@@ -64,7 +64,7 @@ void try_mkdir(const std::string& fname) {
 /// Copies .mol file (e.g. to log directory).
 void save_mol_file(const std::string& path_to_file,const std::string& out_path) {
     
-    cout << "Storing input in directory "<<out_path<<"..."<<endl;
+    cout << "[ Input ] Storing input in directory "<<out_path<<"..."<<endl;
     std::filesystem::path infile_path = string(path_to_file);
     std::filesystem::path outfile_path = out_path; // infile_path.filename() Returns "MoleculeName.mol"
 
@@ -76,14 +76,41 @@ void save_mol_file(const std::string& path_to_file,const std::string& out_path) 
         std::cout << e.what();
     }
 }
-/// Moves .mol file (e.g. from log to output directory). EDIT: Just copies now, leaving the "log" mol file intact. 
+/// Moves .mol file (e.g. from log to output directory).
 string move_mol_file(const string& path_to_file,const string& out_dir, const string& tag) {
-    cout << "[ Input ] Copying input to directory "<<out_dir<<"..."<<endl;
+    cout << "[ Input ] Copying " << std::filesystem::path(path_to_file).filename() << " to directory "<<out_dir<<"..."<<endl;
     std::filesystem::path infile_path = string(path_to_file);
-    std::filesystem::path outfile_path = out_dir + tag + ".mol"; // infile_path.filename() Returns "MoleculeName.mol"
+    std::filesystem::path outfile_path = out_dir + tag + ".mol";
     try{
         std::filesystem::copy_file(infile_path,outfile_path);
-        //std::filesystem::remove(infile_path);
+        std::filesystem::remove(infile_path);
+    }
+    catch (std::exception& e)
+    {
+        std::cout << e.what();
+    }
+    try{
+        std::filesystem::remove(infile_path);
+    }
+    catch (std::exception& e)
+    {
+        std::cout << e.what();
+    }    
+    return outfile_path;
+}
+string move_log_file(const string& path_to_file,const string& out_dir, const string& tag) {
+    cout << "[ Log ] Copying " << std::filesystem::path(path_to_file).filename() << " to directory "<<out_dir<<"..."<<endl;
+    std::filesystem::path infile_path = string(path_to_file);
+    std::filesystem::path outfile_path = out_dir + tag + ".log";
+    try{
+        std::filesystem::copy_file(infile_path,outfile_path);
+    }
+    catch (std::exception& e)
+    {
+        std::cout << e.what();
+    }    
+    try{
+        std::filesystem::remove(infile_path);
     }
     catch (std::exception& e)
     {
@@ -140,7 +167,7 @@ int reserve_output_name(string &outdir,string &tag){
     return 0;
 }
 
-int get_file_names(string &infile_, string &tag, string &logfname, string &tmp_molfile, string&outdir) {
+int get_file_names(string &infile_, string &tag, string &tmp_logfile, string &tmp_molfile, string&outdir) {
     // Takes infile of the form "DIR/Lysozyme.mol"
     // Stores "Lysozyme" in tag, "output/log/run_Lysozyme" in logfile, and "output/log/Lysozyme_[timestamp].mol" in tmp_molfile
     
@@ -168,7 +195,7 @@ int get_file_names(string &infile_, string &tag, string &logfname, string &tmp_m
     try_mkdir("output");
     try_mkdir("output/log");
     try_mkdir("output/__Molecular");
-    logfname = "output/log/run_" + tag + "_" + time_tag.str() + ".log";
+    tmp_logfile = "output/log/run_" + tag + "_" + time_tag.str() + ".log";
     tmp_molfile = "output/log/mol_" + tag + "_" + time_tag.str() + ".mol"; 
     if (reserve_output_name(outdir,tag) == 1){return 1;}
     // check correct format
@@ -249,7 +276,7 @@ int main(int argc, const char *argv[]) {
     print_banner("config/version.txt");
     cout<<"\033[0m"<<endl<<endl;
 
-    string name, logname, tmp_molfile, outdir;
+    string name, logpath, tmp_molfile, outdir;
 
     cout<<"Copyright (C) 2020  Alaric Sanders and Alexander Kozlov"<<endl;
     cout<<"This program comes with ABSOLUTELY NO WARRANTY; for details run `ac4dc -w'."<<endl;
@@ -258,19 +285,19 @@ int main(int argc, const char *argv[]) {
 
     // Temporarily convert to string, so we can add .mol for ease of use.
     string input_file_path = string(argv[1]); 
-    if (get_file_names(input_file_path, name, logname, tmp_molfile, outdir) == 1)
+    if (get_file_names(input_file_path, name, logpath, tmp_molfile, outdir) == 1)
         return 1;
 
     save_mol_file(input_file_path,tmp_molfile);
 
     cout<<"Running simulation for target "<<name<<endl;
-    cout << "logfile name: " << logname <<endl;
-    ofstream log(logname); 
+    cout << "logfile name: " << logpath <<endl;
+    ofstream log(logpath); 
     cout << "\033[1;32mInitialising... \033[0m" <<endl;
     const char* const_path = input_file_path.c_str();
     ElectronRateSolver S(const_path, log); // Contains all of the collision parameters.
     cout << "\033[1;32mComputing cross sections... \033[0m" <<endl;
-    S.compute_cross_sections(log, runsettings.recalc);
+    S.set_up_grid_and_compute_cross_sections(log, runsettings.recalc);
     if (runsettings.solve_rate_eq) {
         cout << "\033[1;32mSolving rate equations..." << "\033[35m\033[1mTarget: " << name << "\033[0m" <<endl;
         S.solve(log);
@@ -280,7 +307,8 @@ int main(int argc, const char *argv[]) {
     } else {
         cout << "\033[1;32mDone! \033[0m" <<endl;
     }
-    move_mol_file(tmp_molfile,outdir, name);
+    move_mol_file(tmp_molfile,outdir,name);
+    move_log_file(logpath,outdir,name);
     
     return 0;
     

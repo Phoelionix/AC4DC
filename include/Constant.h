@@ -1,6 +1,7 @@
 /**
  * @file Constant.h
  * @brief This header contains some Physical constants,
+ * @details note
 functions for calculations of Wigner 3j, 6j symbols, and Clebsh-Gordan coefficients,
 and some data containers used throughout the code. 
  */
@@ -35,8 +36,9 @@ namespace Constant
 	const double Alpha2 = Constant::Alpha * Constant::Alpha;
 	const double Fm = 1.8897261246 / 100000;
 
-	// Conversions
-	// Read these as "One au is 0.024 fs"
+	//**// Conversions
+	// Read these as "One au is 0.024 fs".
+	// Note unit conversion direction is consistent, i.e. always divide to convert to atomic units.
 	const double fs_per_au = 0.024188843265857;//femtosecond in au
 	const double eV_per_Ha = 27.211385;//electron volts in atomic units
 	const double J_per_eV = 1.60217662e-19;
@@ -47,6 +49,7 @@ namespace Constant
 	const double RiemannZeta3 = 1.202056903159594;
 	const double Angs_per_au = 0.52917721067; // Bohr radius = 1 atomic unit in Angstrom.
 	const double cm_per_au = Angs_per_au*1e-8;
+	//**//
 	const double kb_eV = 8.617333262145e-5; // Boltzmann constant, electronvolt per Kelvin
 	const double kb_Ha = 8.617333262145e-5/eV_per_Ha; // Boltzmann constant, Ha per Kelvin
 

@@ -27,13 +27,15 @@ This file is part of AC4DC.
 // #include <Eigen/LU>
 #include <iostream>
 #include "GridSpacing.hpp"
+#include "DynamicRegions.h"
 
 static constexpr bool USING_SQRTE_PREFACTOR = true;
 
-class BasisSet{
+class BasisSet  : private GridRegions
+{
 public:
-    BasisSet() {};
-    void set_parameters(size_t nfuncs, double min, double max, const GridSpacing& gt, GridBoundaries& elec_grid_regions);
+    BasisSet() : GridRegions::GridRegions() {} 
+    void set_parameters(const GridSpacing& gt, GridBoundaries& elec_grid_regions, FeatureRegimes& regimes);
     /// Returns S_inverse(deltaf) 
     Eigen::VectorXd Sinv(const Eigen::VectorXd& deltaf);
     /// Returns S_inverse(J)
@@ -74,7 +76,8 @@ protected:
     Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int> >  linsolver;
     std::vector<double> knot;
     double overlap(size_t j, size_t k) const;
-    void set_knot(const GridSpacing& gt);
+    void set_knot(const GridSpacing& gt,FeatureRegimes& regimes); 
+    void manual_set_knot(const GridSpacing& gt); 
     
     double _min;
     double _max;

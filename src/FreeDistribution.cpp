@@ -32,21 +32,29 @@ This file is part of AC4DC.
 // to remove asserts
 
 // Initialise static things
-size_t Distribution::size=0;  // modified by set_distribution now - S.P.
+
+
 size_t Distribution::CoulombLog_cutoff=0;
 double Distribution::CoulombDens_min=0;
-SplineIntegral Distribution::basis;
+std::vector<indexed_knot> Distribution::knots_history;
+// These variables are modified by set_distribution and by dynamic grid updates when set_basis is called.
+SplineIntegral Distribution::basis; 
+size_t Distribution::size=0;  
 
-// Psuedo-constructor thing
-void Distribution::set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style, GridBoundaries elec_grid_regions){
-    // Defines a grid of n points (the total number of free-electron grid points specified in the .mol file.)
-    // Note: In reality we are defining the number of grid points as the number of "usable" splines/knots -S.P. TODO double check
-    basis.set_parameters(n, min_e, max_e, grid_style, elec_grid_regions);
-    Distribution::size=n;
-    Distribution::CoulombLog_cutoff = basis.i_from_e(grid_style.transition_e);
-    Distribution::CoulombDens_min = grid_style.min_coulomb_density;
-    cout<<"[ Free ] Estimating lnLambda based on first ";
-    cout<<CoulombLog_cutoff<<" points, up to "<<grid_style.transition_e<<" Ha"<<endl;
+// Psuedo-constructor thing (Maybe not anymore... -S.P.)
+void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, GridBoundaries elec_grid_regions){
+    // Defines a grid of num_funcs points (if manual, thsi is the total number of free-electron grid points specified in the .mol file.)
+    // where num_funcs is the number of non-boundary (i.e. "usable") splines/knots.
+    //basis_history.push_back(SplineIntegral());
+    basis.set_parameters(grid_style, elec_grid_regions,regimes);
+    knots_history.push_back(indexed_knot{step,get_knot_energies()});
+    Distribution::size=basis.num_funcs;
+    Distribution::CoulombLog_cutoff = basis.i_from_e(param_cutoffs.transition_e);
+    Distribution::CoulombDens_min = param_cutoffs.min_coulomb_density;
+    // cout<<"[ Free ] Estimating lnLambda based on first ";
+    // cout<<CoulombLog_cutoff<<" points, up to "<<grid_style.transition_e<<" Ha"<<endl;    
+    cout<<"[ Free ] Estimating lnLambda for energies below ";
+    cout<<param_cutoffs.transition_e<<" Ha"<<endl;
     cout<<"[ Free ] Neglecting electron-electron below density of n = "<<CoulombDens_min<<"au^-3"<<endl;
 }
 
@@ -56,6 +64,11 @@ void Distribution::set_distribution(vector<double> new_knot, vector<double> new_
     new_knot = get_trimmed_knots(new_knot);
     size = new_knot.size();
     basis = new_knot;
+}
+void Distribution::load_knot(vector<double> loaded_knot) {
+    loaded_knot = get_trimmed_knots(loaded_knot);
+    size = loaded_knot.size();
+    basis = loaded_knot;    
 }
 
 // Adds Q_eii to the parent Distribution
@@ -126,75 +139,8 @@ void Distribution::get_Q_ee(Eigen::VectorXd& v, const int threads) const {
     v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
 }
 
-void Distribution::get_Jac_ee(Eigen::MatrixXd& M) const{   // Unused currently -S.P.
-    // Returns Q^p_qjc^q + Q^p_jrc^r
-    assert(basis.has_Qee());
-    M = Eigen::MatrixXd::Zero(size,size);
-    double CoulombLog=3;
-    // double CoulombLog = CoulombLogarithm(size/3);
-    if (isnan(CoulombLog) || CoulombLog <= 0) return;
-    for (size_t P=0; P<size; P++) {
-        for (size_t Q=0; Q<size; Q++) {
-            for (auto& q : basis.Q_EE[P][Q]) {
-                // q.idx is  L
-                M(P,q.idx) += q.val * f[Q] * CoulombLog;
-                M(P, Q) += q.val * f[q.idx] * CoulombLog;
-            }
-        }
-    }
-}
-
-/*
-// Sets f_n+1 based on using a Newton-Rhapson-Euler stiff solver
-// Not currently used
-void Distribution::from_backwards_Euler(double dt, const Distribution& prev_step_dist, double tolerance, unsigned maxiter){
-
-    Eigen::MatrixXd M(size, size);
-    Eigen::MatrixXd A(size, size);
-    Eigen::VectorXd v(size);
-    Eigen::VectorXd old_curr_step(size);
-    
-    unsigned idx = 0;
-    const unsigned MAX_ITER = 200;
-
-    bool converged = false;
-
-    Eigen::Map<const Eigen::VectorXd > prev_step (prev_step_dist.f.data(), size);
-    Eigen::Map<Eigen::VectorXd > curr_step(f.data(), size);
-
-    while (!converged && idx < MAX_ITER){
-        
-        old_curr_step = curr_step;
-        v = Eigen::VectorXd::Zero(size);
-        this->get_Q_ee(v, size/3); // calculates v based on curr_step
-        
-        // Newton iterator
-        get_Jac_ee(M);
-        A = dt * basis.Sinv(M) - Eigen::MatrixXd::Identity(size,size);
-        
-        curr_step = -A.fullPivLu().solve(dt*v + prev_step - curr_step);
-        curr_step += prev_step;
-        
-        // Picard iterator
-        // curr_step = prev_step + dt*v;
-
-        double delta = fabs((curr_step-old_curr_step).sum());
-
-        if (delta/curr_step.sum() < tolerance) converged = true;
-        idx++;
-    }
-    if (idx == MAX_ITER) std::cerr<<"Max stiff-solver iterations exceeded"<<std::endl;
-}
-*/
-
-// // Taken verbatim from Rockwood as quoted by Morgan and Penetrante in ELENDIF
-// void Distribution::add_Q_ee(const Distribution& d, double kT) {
-//     double density=0;
-//     double CoulombLog = log(kT/(4*Constant::Pi*density));
-//     double alpha = 2*Constant::Pi*sqrt(2)/3*CoulombLog;
 
 
-// }
 
 // ============================
 // utility
@@ -219,24 +165,6 @@ void Distribution::add_maxwellian(double T, double N) {
         this->f[i] += u[i];
     }
 }
-
-
-// void Distribution::add_density_distribution(vector<double> densities){
-//     assert(densities.size() == size);
-//     Eigen::VectorXd v(size);
-//     std::vector<double> energies = get_trimmed_knots(get_knot_energies());//basis.avg_e;//get_trimmed_knots(get_knot_energies());
-//     for (size_t i=0; i<size; i++) {
-//         v[i] = 0;
-//         double a = basis.supp_min(i);
-//         double b = basis.supp_max(i);
-//         v[i] += densities[i];//*basis(i, energies[i]);
-//         v[i] *= basis.areas[i];//*=(b-a)/2;
-//     }
-//     Eigen::VectorXd u = this->basis.Sinv(v);
-//     for (size_t i=0; i<size; i++) {
-//         this->f[i] += u[i];
-//     }
-// }
 
 // Assumes new basis has same B spline order.
 void Distribution::transform_basis(std::vector<double> new_knots){
@@ -300,6 +228,27 @@ std::vector<double> Distribution::get_trimmed_knots(std::vector<double> knots){
     return knots;
 }
 
+
+/**
+ * @brief Loads the static variables relating to the basis that are changed by grid updates.
+ * @param step_idx Step to load.
+ * @return returns the knot that was loaded.
+ */
+std::vector<double> Distribution::load_knots_from_history(size_t step_idx){
+    std::vector<double> loaded_knot = Knots_History(step_idx);
+    load_knot(loaded_knot);
+    return loaded_knot;
+}
+
+std::vector<double> Distribution::Knots_History(size_t step_idx){
+    vector<double> loaded_knot;
+    // Find the most recent knot update as of step_idx.
+    for(auto elem: knots_history){
+        if (elem.step > step_idx) break;
+        loaded_knot = elem.energy;
+    }
+    return loaded_knot;
+}
 // ==========================
 // IO
 
@@ -332,17 +281,25 @@ std::string Distribution::output_energies_eV(size_t num_pts) {
     return ss.str();
 }
 
-std::string Distribution::output_densities(size_t num_pts) const {
-    std::stringstream ss;
-    const double units = 1./Constant::eV_per_Ha/Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au;
-    size_t pts_per_knot = num_pts / basis.gridlen();
+/**
+ * @brief 
+ * @param num_pts 
+ * @param reference_knots knots to base the outputted energies off.
+ * @return 
+ */
+std::string Distribution::output_densities(size_t num_pts,std::vector<double> reference_knots) const {    
+    size_t pts_per_knot = num_pts / reference_knots.size();
     if (pts_per_knot == 0){
         pts_per_knot = 1;
         cerr<<"[ warn ] Outputting a small number of points per knot."<<endl;
     }
-    for (size_t i=0; i<basis.gridlen()-1; i++){
-        double e = basis.grid(i);
-        double de = (basis.grid(i+1) - e)/(pts_per_knot-1);
+    // Iterate through each knot
+    std::stringstream ss;
+    const double units = 1./Constant::eV_per_Ha/Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au;
+    for (size_t i=0; i<reference_knots.size()-1; i++){
+        // output pts_per_knot points between this knot to the next.
+        double e = reference_knots[i];
+        double de = (reference_knots[i+1] - reference_knots[i])/(pts_per_knot-1);
         for (size_t j=0; j<pts_per_knot; j++) {
             ss << (*this)(e)*units<<" ";
         e += de;
@@ -350,6 +307,8 @@ std::string Distribution::output_densities(size_t num_pts) const {
     }
     return ss.str();
 }
+
+
 
 
 /**
@@ -427,7 +386,10 @@ void Distribution::addDeltaLike(Eigen::VectorXd& v, double e, double height) {
 }
 
 double Distribution::norm() const{
-    assert(f.size() == Distribution::size);  // A very blessed check, lord thank you Sanders -S.P.
+    // cout << "Space" << endl;
+    // cout << f.size() <<endl;
+    // cout << Distribution::size <<endl;
+    assert(f.size() == Distribution::size);  // A very blessed check -S.P.
     double x=0;
     for (auto&fi : f) {
         x+= fabs(fi);
@@ -507,3 +469,73 @@ ostream& operator<<(ostream& os, const Distribution& dist) {
     return os;
 }
 
+
+/*
+// Sets f_n+1 based on using a Newton-Rhapson-Euler stiff solver
+// Not currently used
+void Distribution::from_backwards_Euler(double dt, const Distribution& prev_step_dist, double tolerance, unsigned maxiter){
+
+    Eigen::MatrixXd M(size, size);
+    Eigen::MatrixXd A(size, size);
+    Eigen::VectorXd v(size);
+    Eigen::VectorXd old_curr_step(size);
+    
+    unsigned idx = 0;
+    const unsigned MAX_ITER = 200;
+
+    bool converged = false;
+
+    Eigen::Map<const Eigen::VectorXd > prev_step (prev_step_dist.f.data(), size);
+    Eigen::Map<Eigen::VectorXd > curr_step(f.data(), size);
+
+    while (!converged && idx < MAX_ITER){
+        
+        old_curr_step = curr_step;
+        v = Eigen::VectorXd::Zero(size);
+        this->get_Q_ee(v, size/3); // calculates v based on curr_step
+        
+        // Newton iterator
+        get_Jac_ee(M);
+        A = dt * basis.Sinv(M) - Eigen::MatrixXd::Identity(size,size);
+        
+        curr_step = -A.fullPivLu().solve(dt*v + prev_step - curr_step);
+        curr_step += prev_step;
+        
+        // Picard iterator
+        // curr_step = prev_step + dt*v;
+
+        double delta = fabs((curr_step-old_curr_step).sum());
+
+        if (delta/curr_step.sum() < tolerance) converged = true;
+        idx++;
+    }
+    if (idx == MAX_ITER) std::cerr<<"Max stiff-solver iterations exceeded"<<std::endl;
+}
+*/
+
+// // Taken verbatim from Rockwood as quoted by Morgan and Penetrante in ELENDIF
+// void Distribution::add_Q_ee(const Distribution& d, double kT) {
+//     double density=0;
+//     double CoulombLog = log(kT/(4*Constant::Pi*density));
+//     double alpha = 2*Constant::Pi*sqrt(2)/3*CoulombLog;
+
+
+// }
+
+// void Distribution::get_Jac_ee(Eigen::MatrixXd& M) const{   // Unused currently -S.P.
+//     // Returns Q^p_qjc^q + Q^p_jrc^r
+//     assert(basis.has_Qee());
+//     M = Eigen::MatrixXd::Zero(size,size);
+//     double CoulombLog=3;
+//     // double CoulombLog = CoulombLogarithm(size/3);
+//     if (isnan(CoulombLog) || CoulombLog <= 0) return;
+//     for (size_t P=0; P<size; P++) {
+//         for (size_t Q=0; Q<size; Q++) {
+//             for (auto& q : basis.Q_EE[P][Q]) {
+//                 // q.idx is  L
+//                 M(P,q.idx) += q.val * f[Q] * CoulombLog;
+//                 M(P, Q) += q.val * f[q.idx] * CoulombLog;
+//             }
+//         }
+//     }
+// }

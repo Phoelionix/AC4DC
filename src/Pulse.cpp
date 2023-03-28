@@ -47,7 +47,7 @@ void Pulse::set_pulse(double fluence, double fwhm_param) {
 
 /**
  * @brief Returns pulse's flux at time t
- * @details If pulse shape is gaussian, t = 0 is defined as peak of pulse. If it's square, it's defined as the end of the pulse.
+ * @details If pulse shape is gaussian, t = 0 is defined as the time of peak flux. If it's square, it's defined as the end of the pulse.
  * 
  * @param t time, in same units as the time-integrated flux (fluence)
  * @return double 
@@ -60,7 +60,7 @@ double Pulse::operator()(double t) {
         return this->I0/norm*pow(2,-t*t*4/this->fwhm/this->fwhm);
         break;
     case PulseShape::square:
-        if (t< -this->fwhm || t >0) {
+        if (t < -this->fwhm || t >0) {
             return 0;
         } else {
             return I0;
