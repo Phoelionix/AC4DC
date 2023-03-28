@@ -9,6 +9,7 @@ matplotlib.rcParams.update({
 import matplotlib.pyplot as plt
 from plotter_core import Plotter
 import sys, traceback
+import os.path as path
 from QoL import set_highlighted_excepthook
 
 set_highlighted_excepthook()
@@ -24,7 +25,7 @@ if  len(sys.argv) < 2:
 ############
 # File/directory names
 #######  
-dname_Figures = "../../AC4DC_Figures/"
+dname_Figures = "../../../AC4DC_Figures/"
 figures_ext = "" #.png
 dname_Box_Sync = "~/Box Sync/" 
 fname_charge_conservation = "charge_conservation"
@@ -32,9 +33,14 @@ fname_free = "free"
 fname_HR_style = "HR_style"
 fname_bound_dynamics = "bound_dynamics"  #Was called both _bound and dynamics so I assume it's bound dynamics or something.
 
-one_fs_wiggle_testing = True
+# Plots to show
+tot_charge = True
+all_charge = True
+free = True
 #######
 
+dname_Figures = path.abspath(path.join(__file__ ,dname_Figures)) + "/"
+print(dname_Figures)
 label = sys.argv[1] +'_' 
 
 #TODO make user inputs less big
@@ -50,14 +56,14 @@ if len(sys.argv) > 2:
      output_mol_query = sys.argv[2]
 pl = Plotter(sys.argv[1],output_mol_query)
 
-#if not one_fs_wiggle_testing: 
-pl.plot_tot_charge(every=10)
-pl.fig.set_size_inches(3,2.5)
-plt.savefig(dname_Figures + label + fname_charge_conservation + figures_ext)
-#plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_qcons.pgf')
-plt.close()
+if tot_charge: 
+    pl.plot_tot_charge(every=10)
+    pl.fig.set_size_inches(3,2.5)
+    plt.savefig(dname_Figures + label + fname_charge_conservation + figures_ext)
+    #plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_qcons.pgf')
+    plt.close()
 
-if not one_fs_wiggle_testing:  # Free graph breaks. 
+if free:  # Free graph breaks. 
     pl.fig.set_size_inches(3,2.5)
     pl.plot_free(log=True, min=1e-7, every=5)
     pl.fig_free.subplots_adjust(left=0.15)
@@ -66,16 +72,18 @@ if not one_fs_wiggle_testing:  # Free graph breaks.
     #plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_free.pgf')
 
 
+if all_charge:
+    pl.plot_all_charges()
+    pl.fig.set_size_inches(3,2.5)
+    pl.fig.subplots_adjust(left=0.2,bottom=0.18,top=0.95)
+    plt.savefig(dname_Figures + label + fname_bound_dynamics + figures_ext)
+    plt.close()
 
-pl.plot_all_charges()
-pl.fig.set_size_inches(3,2.5)
-pl.fig.subplots_adjust(left=0.2,bottom=0.18,top=0.95)
-plt.savefig(dname_Figures + label + fname_bound_dynamics + figures_ext)
+    #pl.print_bound_slice()
+    #plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_bound.pgf')
+    #plt.close()
 
-#pl.print_bound_slice()
-#plt.savefig('/Users/alaric-mba/Box Sync/Thesis/Figures/'+label+'_bound.pgf')
-
-plt.close()
+    
 
 
 

@@ -115,10 +115,12 @@ class PlotData:
     def update_outputs(self):
         raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
         # Get samples of steps separated by the same times. TODO need to fix AC4DC saving points to the nonraw file when loading sim so that the loaded part isnt empty.
-        last_t = min(self.max_final_t,raw[-1,0]) 
-        indices = np.unique(np.searchsorted(raw[:,0],np.linspace(raw[0,0],min(np.searchsorted(raw[:,0],self.max_final_t),raw[-1,0]),self.max_points)))  # cursed
+        last_t = min(self.max_final_t,raw[-1,0])
+        times = np.linspace(raw[0,0],last_t,self.max_points)
+        indices = np.searchsorted(raw[:,0],times) 
 
-        print(indices)
+        np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
+        print("Times plotted:\n",raw[indices,0])
         raw = raw[indices]
         
         self.intensityData = raw[:,1]
