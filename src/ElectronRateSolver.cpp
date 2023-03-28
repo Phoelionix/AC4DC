@@ -267,7 +267,7 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
         _min = new_min;
     }
     size_t num_sequential_needed = 10; 
-    double new_max = approx_regime_bound(peak, +e_step_size, num_sequential_needed,20);
+    double new_max = approx_regime_bound(peak, +e_step_size, num_sequential_needed,5);
     //double new_max = 2.3208*kT; // 80% of electrons below this point (lower since not as sharp)
     if(_max < new_max || allow_shrinkage)
         _max = std::min(new_max,elec_grid_regions.bndry_E.back());
