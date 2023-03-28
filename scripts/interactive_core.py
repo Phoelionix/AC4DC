@@ -88,7 +88,7 @@ class PlotData:
 
         self.get_atoms()
 
-        self.update_outputs()
+        #self.update_outputs()
 
    # Reads the control file specified by self.mol['infile']
     # and populates the atomdict data structure accordingly
@@ -111,12 +111,15 @@ class PlotData:
                             'infile': file,
                             'mtime': path.getmtime(file),
                             'outfile': self.outDir+"/dist_%s.csv"%a}        
+    def get_max_t(self):
+        raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
+        # Get samples of steps separated by the same times. TODO need to fix AC4DC saving points to the nonraw file when loading sim so that the loaded part isnt empty.   
+        return min(self.max_final_t,raw[-1,0]) 
                         
     def update_outputs(self):
         raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
         # Get samples of steps separated by the same times. TODO need to fix AC4DC saving points to the nonraw file when loading sim so that the loaded part isnt empty.
-        last_t = min(self.max_final_t,raw[-1,0])
-        times = np.linspace(raw[0,0],last_t,self.max_points)
+        times = np.linspace(raw[0,0],self.max_final_t,self.max_points)
         indices = np.searchsorted(raw[:,0],times) 
 
         np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
@@ -281,8 +284,15 @@ class InteractivePlotter:
         target_path = path.abspath(path.join(__file__ ,"../../")) + "/"
         self.num_plots = len(target_names)
         self.target_data = []
-        for mol_name in target_names:    
-            self.target_data.append(PlotData(target_path,mol_name,output_mol_query,max_final_t=max_final_t,max_points=max_points))
+        lowest_max_t = np.inf
+        for mol_name in target_names:
+            dat = PlotData(target_path,mol_name,output_mol_query,max_final_t=max_final_t,max_points=max_points)    
+            lowest_max_t = min(dat.get_max_t(),lowest_max_t)
+            self.target_data.append(dat)
+        for dat in self.target_data:
+            dat.max_final_t = lowest_max_t
+            dat.update_outputs()
+
 
         #self.autorun=False  
 
