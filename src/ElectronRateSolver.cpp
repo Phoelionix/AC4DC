@@ -257,7 +257,8 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
     // Find e_peak = kT/2
     double min_energy = 0;
     double max_energy = 1000/Constant::eV_per_Ha;
-    double e_step_size = 2/Constant::eV_per_Ha; //TODO maybe make this increase with increasing energy of previous peak.
+    // Step size is tenth of the previous peak past a peak of 1 eV.
+    double e_step_size = max(1.,peak)/10/Constant::eV_per_Ha; 
     peak = approx_regime_peak(step,min_energy,max_energy,e_step_size);
     double kT = 2*peak;
     // CDF = Γ(3/2)γ(3/2,E/kT)
@@ -265,7 +266,9 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
     if(_min < new_min || allow_shrinkage){
         _min = new_min;
     }
-    size_t num_sequential_needed = 10; 
+    double min_e_seq_range  = 20/Constant::eV_per_Ha;
+    int min_seq_needed = 4;
+    size_t num_sequential_needed = max(min_seq_needed,(int)(min_e_seq_range/e_step_size+0.5)); 
     double new_max = approx_regime_bound(step,peak, +e_step_size, num_sequential_needed,5,1./1.5); 
     //double new_max = 2.3208*kT; // 80% of electrons below this point (lower since not as sharp)
     if(_max < new_max || allow_shrinkage)
