@@ -72,6 +72,7 @@ public:
         simulation_resume_time = simulation_start_time;
         set_grid_regions(input_params.elec_grid_regions);
 
+        grid_update_period = input_params.Grid_Update_Period();
         
     }
     /// Solve the rate equations
@@ -101,7 +102,7 @@ private:
     double simulation_resume_time; // [Au] same as simulation_start_time unless loading simulation state.
     double simulation_end_time;  // [Au]    
     double fraction_of_pulse_simulated;
-    double grid_update_period = 0.1 / Constant::fs_per_au; // time period between dynamic grid updates.
+    double grid_update_period; // time period between dynamic grid updates.
     // Model parameters
 
     // arrays computed at class initialisation

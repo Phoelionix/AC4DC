@@ -76,7 +76,7 @@ void ElectronRateSolver::log_extra_details(ofstream & _log){
     // Saves details pertaining to the simulation's execution to file fname
     if(_log.is_open()){
         cout << "[ Details ] Logging run-specific details..."<<endl;
-        _log << endl << "[ Rate Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << endl;
+        _log << "\n[ Rate Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << endl;
         _log.flush();
     }
 }

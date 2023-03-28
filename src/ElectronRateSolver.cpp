@@ -267,7 +267,7 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
         _min = new_min;
     }
     size_t num_sequential_needed = 10; 
-    double new_max = approx_regime_bound(peak, +e_step_size, num_sequential_needed,500);
+    double new_max = approx_regime_bound(peak, +e_step_size, num_sequential_needed,20);
     //double new_max = 2.3208*kT; // 80% of electrons below this point (lower since not as sharp)
     if(_max < new_max || allow_shrinkage)
         _max = std::min(new_max,elec_grid_regions.bndry_E.back());
@@ -349,7 +349,18 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             << "\nto:\n"
             << param_cutoffs.transition_e*Constant::eV_per_Ha<< std::endl;
         }
-        else std::cout<<"Thermal cutoff energy had NO update." <<std::endl;        
+        else std::cout<<"Thermal cutoff energy had NO update." <<std::endl;    
+
+        if(_log.is_open()){
+            double e = Constant::eV_per_Ha;
+            _log << "------------------- [ New Knots ] -------------------\n" 
+            "Time: "<<t[step]*Constant::fs_per_au <<" fs\n" 
+            <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n" 
+            <<"Photo [peak; range]: "<<regimes.dirac_peak*e<< "; "<< regimes.dirac_min*e<<" - "<<regimes.dirac_max*e<<"" 
+            << endl;
+        }        
+        else{}
+
     }
 
 
@@ -403,7 +414,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
         std::cout <<"[ sim ] Grid update period: "<<grid_update_period * Constant::fs_per_au<<" fs"<<std::endl;
     else 
         std::cout << "[ sim ] Using static grid" << std::endl;
-    size_t steps_per_grid_transform =  round(input_params.Num_Time_Steps()*(this->grid_update_period/this->timespan_au));
+    size_t steps_per_grid_transform =  round(input_params.Num_Time_Steps()*(grid_update_period/timespan_au));
 
     this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update,steps_per_grid_transform); // Inherited from ABM
 

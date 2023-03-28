@@ -67,6 +67,8 @@ public:
 	string Load_Folder(){return load_folder;}
 	double Load_Time_Max(){return simulation_resume_time_max/Constant::fs_per_au;}
 
+	double Grid_Update_Period(){return grid_update_period;}
+
 	string name = "";
 
 	// Scans for atomic process rates in the folder output/[atom name]/Xsections and recalculates if absent.
@@ -112,6 +114,9 @@ protected:
 	// Simulation loading parameters
 	double simulation_resume_time_max; // will attempt to load closest to this time but not after.
 	string load_folder = ""; // If "" don't load anything. 
+
+	// Dynamic grid
+	double grid_update_period; // time period between dynamic grid updates, fs.
 };
 
 

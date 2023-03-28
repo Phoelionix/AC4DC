@@ -129,7 +129,9 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 0) stream >> num_time_steps;
 		if (n == 1) stream >> omp_threads;
 		if (n == 2) stream >> param_cutoffs.transition_e;
-		if (n == 3) stream >> param_cutoffs.min_coulomb_density;
+		if (n == 3) stream >> grid_update_period;
+		if (n == 4) stream >> param_cutoffs.min_coulomb_density;
+		
 
 	}
 	for (size_t n = 0; n < FileContent["#MANUAL_GRID"].size(); n++) {
@@ -204,6 +206,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	width /= Constant::fs_per_au;
 	simulation_cutoff_time /= Constant::fs_per_au;
 	time_update_gap /= Constant::fs_per_au;
+	grid_update_period /= Constant::fs_per_au;
 	loss_geometry.L0 /= Constant::Angs_per_au;
 	unit_V /= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
 
