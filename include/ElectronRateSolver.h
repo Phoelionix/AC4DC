@@ -115,7 +115,7 @@ private:
     void transition_energy(size_t step, double& g_min, bool allow_decrease = false);
     double approx_nearest_min(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
     double nearest_inflection(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
-    double approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min_distance = 40, double min = -1, double max=-1);  
+    double approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min_distance = 40, double min_inflection_fract = 1./4., double min = -1, double max=-1);  
     double approx_regime_peak(size_t step, double lower_bound, double upper_bound, double del_energy);  
     double approx_regime_trough(size_t step, double lower_bound, double upper_bound, double del_energy,size_t min_sequential);
     void precompute_gamma_coeffs(); // populates above two tensors

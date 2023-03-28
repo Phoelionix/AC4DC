@@ -173,13 +173,12 @@ double ElectronRateSolver::nearest_inflection(size_t step, double start_energy,d
     return inflection;    
 }
 
-double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min_distance, double _min, double _max){
+double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min_distance, double min_inflection_fract, double _min, double _max){
     min_distance /= Constant::eV_per_Ha;
     // Find 0 of second derivative
     double inflection = nearest_inflection(step,start_energy,del_energy,min_sequential,_min,_max);
     // At min_distance, go double as 
-    double min_inflection_width = 1./4.;
-    double A = 1/min_inflection_width;
+    double A = 1/min_inflection_fract; // Inflection take up at least min_inflection_frac
     double D = min_distance;
     int sign = (0 < del_energy) - (del_energy < 0);
     return sign*max(A*sqrt(abs(start_energy - inflection))*sqrt(D/A),D) + start_energy;
@@ -238,8 +237,8 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, double& max, double& m
                 peak_density = density; 
             }
             // Get bounds
-            double lower_bound = approx_regime_bound(step,r.energy, -e_step_size, num_sequential_needed,1000);
-            double upper_bound = approx_regime_bound(step,r.energy, +e_step_size, num_sequential_needed,500);//peak + 0.912*(peak - lower_bound);  // s.t. if lower_bound is 3/4 peak, upper_bound is 1.1*peak.
+            double lower_bound = approx_regime_bound(step,r.energy, -e_step_size, num_sequential_needed,1000,1./4.);
+            double upper_bound = approx_regime_bound(step,r.energy, +e_step_size, num_sequential_needed,500,1./4.);//peak + 0.912*(peak - lower_bound);  // s.t. if lower_bound is 3/4 peak, upper_bound is 1.1*peak.
             if (upper_bound > max) max=upper_bound;
             if (lower_bound < min) min=lower_bound;
         }
@@ -267,7 +266,7 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
         _min = new_min;
     }
     size_t num_sequential_needed = 10; 
-    double new_max = approx_regime_bound(peak, +e_step_size, num_sequential_needed,5);
+    double new_max = approx_regime_bound(step,peak, +e_step_size, num_sequential_needed,5,1./1.5); 
     //double new_max = 2.3208*kT; // 80% of electrons below this point (lower since not as sharp)
     if(_max < new_max || allow_shrinkage)
         _max = std::min(new_max,elec_grid_regions.bndry_E.back());
