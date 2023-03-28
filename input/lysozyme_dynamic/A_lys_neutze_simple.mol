@@ -19,9 +19,7 @@ gaussian       // Pulse shape
 #NUMERICAL
 50000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 18            // Number of threads in OpenMP.
-0             // [only for nonthermal] minimum free-electron energy in eV
-10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
-150           // total number of free-electron grid points
+2000            // starting trans_e but TODO check can probs remove
 
 #MANUAL_GRID
 false        // use manual grid? If false, dynamic grid is used.

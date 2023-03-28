@@ -13,35 +13,29 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 square       // Pulse shape
 
 #NUMERICAL
-100000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+2500000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 18            // Number of threads in OpenMP.
-0             // [only for nonthermal] minimum free-electron energy in eV
-10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
-150           // total number of free-electron grid points
-
+2000             // Transition energy.  The temperature, and thus coulomb logarithm, is approximated by calculating the equilibrium definition of temperature for the energy distribution below this cutoff.  
+0.01           // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
-800         // Number of time steps in the output files.
+10000         // Number of time steps in the output files.
 4000        // number of free-electron grid points in output file.
 N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
+#MANUAL_GRID
+false        // use manual grid? If false, dynamic grid is used.
+1|30|55|65|85|105|145|150                 // manual grid boundary indices, with point at 0 excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
+4|10|50|200|500|4500|6500|10000       // manual grid boundary energies, with point at 0 excluded. No spaces.
+1|1|1|1|1|1|1 
+
 #DEBUG
--9.9      // Simulation cutoff time in fs
+-9      // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 
 Notes:
 
----
-
-Grid point regions:
-eV|
-0-5 | empty, apart from point(s) at 0. 
-5   | Lowest non-zero gp.
-10-50   | sharp MB peak 
-50-200  | MB peak later times
-200-500 | auger peaks 
-500-4500| transition region
-4500-6500| photoelectron delta-like peak 
+Dyn grid testing

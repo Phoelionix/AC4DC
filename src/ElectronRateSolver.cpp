@@ -178,7 +178,7 @@ double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,
     // Find 0 of second derivative
     double inflection = nearest_inflection(step,start_energy,del_energy,min_sequential,_min,_max);
     // At min_distance, go double as 
-    double A = 1/min_inflection_fract; // Inflection take up at least min_inflection_frac
+    double A = 1/min_inflection_fract; // region between peak and inflection take up at least min_inflection_frac after min distance.
     double D = min_distance;
     int sign = (0 < del_energy) - (del_energy < 0);
     return sign*max(A*sqrt(abs(start_energy - inflection))*sqrt(D/A),D) + start_energy;
@@ -313,7 +313,14 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
     //
     
     bool recalc = true;
-    input_params.calc_rates(_log, recalc);
+    if (init ){
+        std::cout << "[ HF ] First computation of rates, logging HF iteration excesses. Future computations will not be logged. " << std::endl;
+        input_params.calc_rates(_log, recalc);
+    }
+    else{
+        ofstream dummy_log;
+        input_params.calc_rates(dummy_log,recalc); 
+    }
     hasRates = true;
     
 
@@ -355,7 +362,8 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             _log << "------------------- [ New Knots ] -------------------\n" 
             "Time: "<<t[step]*Constant::fs_per_au <<" fs\n" 
             <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n" 
-            <<"Photo [peak; range]: "<<regimes.dirac_peak*e<< "; "<< regimes.dirac_min*e<<" - "<<regimes.dirac_max*e<<"" 
+            <<"Photo [peak; range]: "<<regimes.dirac_peak*e<< "; "<< regimes.dirac_min*e<<" - "<<regimes.dirac_max*e<<"\n"
+            <<"Transition energy: "<<param_cutoffs.transition_e*e<<""  
             << endl;
         }        
         else{}
