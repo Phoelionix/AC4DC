@@ -16,7 +16,7 @@ square       // Pulse shape
 2500000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
 18            // Number of threads in OpenMP.
 2000             // Transition energy.  The temperature, and thus coulomb logarithm, is approximated by calculating the equilibrium definition of temperature for the energy distribution below this cutoff.  
-0.005           // Grid update period in fs.
+0.05           // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
 10000         // Number of time steps in the output files.
@@ -32,22 +32,10 @@ false        // use manual grid? If false, dynamic grid is used.
 1|1|1|1|1|1|1 
 
 #DEBUG
--9.99      // Simulation cutoff time in fs
+-9.25      // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 
 Notes:
 
 Dyn grid testing
-
----
-
-Grid point regions:
-eV|
-0-5 | empty, apart from point(s) at 0. 
-5   | Lowest non-zero gp.
-10-50   | sharp MB peak 
-50-200  | MB peak later times
-200-500 | auger peaks 
-500-4500| transition region
-4500-6500| photoelectron delta-like peak 
