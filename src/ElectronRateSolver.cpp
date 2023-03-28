@@ -223,7 +223,7 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, double& max, double& m
     }
 
     double e_step_size = 50/Constant::eV_per_Ha;
-    double num_sequential_needed = 3;
+    size_t num_sequential_needed = 3;
 
     double peak_density = -1e9;
     double min_photo_peak_considered = 3000/Constant::eV_per_Ha; // TODO instead ignore peaks that have negligible rates?
@@ -258,7 +258,7 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
     // Find e_peak = kT/2
     double min_energy = 0;
     double max_energy = 1000/Constant::eV_per_Ha;
-    double e_step_size = 2/Constant::eV_per_Ha;
+    double e_step_size = 2/Constant::eV_per_Ha; //TODO maybe make this increase with increasing energy of previous peak.
     peak = approx_regime_peak(step,min_energy,max_energy,e_step_size);
     double kT = 2*peak;
     // CDF = Γ(3/2)γ(3/2,E/kT)
@@ -266,7 +266,9 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
     if(_min < new_min || allow_shrinkage){
         _min = new_min;
     }
-    double new_max = 2.3208*kT; // 80% of electrons below this point (lower since not as sharp)
+    size_t num_sequential_needed = 10; 
+    double new_max = approx_regime_bound(peak, +e_step_size, num_sequential_needed,500);
+    //double new_max = 2.3208*kT; // 80% of electrons below this point (lower since not as sharp)
     if(_max < new_max || allow_shrinkage)
         _max = std::min(new_max,elec_grid_regions.bndry_E.back());
 }

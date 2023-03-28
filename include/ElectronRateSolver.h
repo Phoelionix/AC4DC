@@ -101,7 +101,7 @@ private:
     double simulation_resume_time; // [Au] same as simulation_start_time unless loading simulation state.
     double simulation_end_time;  // [Au]    
     double fraction_of_pulse_simulated;
-    double grid_update_period = 0.08 / Constant::fs_per_au; // time period between dynamic grid updates.
+    double grid_update_period = 0.1 / Constant::fs_per_au; // time period between dynamic grid updates.
     // Model parameters
 
     // arrays computed at class initialisation
