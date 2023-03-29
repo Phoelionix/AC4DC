@@ -46,14 +46,14 @@ void Distribution::from_backwards_Euler(double dt, const Distribution& prev_step
     if (idx == MAX_ITER) std::cerr<<"Max stiff-solver iterations exceeded"<<std::endl;
 }
 
-// Taken verbatim from Rockwood as quoted by Morgan and Penetrante in ELENDIF
-void Distribution::add_Q_ee(const Distribution& d, double kT) {
-    double density=0;
-    double CoulombLog = log(kT/(4*Constant::Pi*density));
-    double alpha = 2*Constant::Pi*sqrt(2)/3*CoulombLog;
+// // Taken verbatim from Rockwood as quoted by Morgan and Penetrante in ELENDIF
+// void Distribution::add_Q_ee(const Distribution& d, double kT) {
+//     double density=0;
+//     double CoulombLog = log(kT/(4*Constant::Pi*density));
+//     double alpha = 2*Constant::Pi*sqrt(2)/3*CoulombLog;
 
 
-}
+// }
 
 void Distribution::get_Jac_ee(Eigen::MatrixXd& M) const{
     // Returns Q^p_qjc^q + Q^p_jrc^r
