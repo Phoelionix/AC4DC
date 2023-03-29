@@ -54,7 +54,7 @@ class Hybrid : public Adams_BM<T>{
     void step_stiff_part(unsigned n);
     // More virtual funcs defined by ElectronRateSolver:
     virtual void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0){std::cout << "Error, attempted to set up grid with virtual function set_up_grid_and_compute_cross_sections." <<std::endl;} 
-    virtual state_type get_ground_state(){};
+    virtual state_type get_ground_state(){}
 };
 
 // template <typename T>
@@ -130,7 +130,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         if ((n-this->order)%steps_per_time_update == 0){
             std::cout << "\r[ sim ] t="
                     << std::left<<std::setfill(' ')<<std::setw(6)
-                    << this->t[n] * Constant::fs_per_au << std::flush;
+                    << this->t[n] * Constant::fs_per_au << " fs" << std::flush;
         }
         
         if (this->t[n+1] <= t_resume) continue; // Start with n = last step.

@@ -137,8 +137,6 @@ private:
     /// saves a table of bound-electron dynamics , split by atom, to folder dir.
     void saveBound(const std::string& folder);
     void saveBoundRaw(const std::string& folder);
-    /// Log final details pertaining to the simulation's execution to file fname (e.g. total runtime)
-    void log_extra_details(ofstream & _log);
 
     void set_grid_regions(GridBoundaries gb);
     void set_starting_state();

@@ -120,7 +120,7 @@ string move_log_file(const string& path_to_file,const string& out_dir, const str
 }
 
 bool string_in_file(vector<string> FileContent, string outdir){
-    for (int n = 0; n < FileContent.size(); n++){
+    for (size_t n = 0; n < FileContent.size(); n++){
         if (FileContent[n] == outdir){
             return true;
         }
@@ -301,15 +301,12 @@ int main(int argc, const char *argv[]) {
     if (runsettings.solve_rate_eq) {
         cout << "\033[1;32mSolving rate equations..." << "\033[35m\033[1mTarget: " << name << "\033[0m" <<endl;
         S.solve(log);
-        cout << "\033[1;32mDone! \033[0m" <<endl;
         try_mkdir(outdir);
         S.save(outdir);
-    } else {
-        cout << "\033[1;32mDone! \033[0m" <<endl;
     }
     move_mol_file(tmp_molfile,outdir,name);
     move_log_file(logpath,outdir,name);
-    
+    cout << "\033[38;5;47mDone! \033[0m" <<endl;
     return 0;
     
 }

@@ -454,29 +454,33 @@ void ElectronRateSolver::solve(ofstream & _log) {
     }
     
     
-
+    // Times
     auto end = chrono::system_clock::now();
     chrono::duration<double> elapsed_seconds = end-start;
     time_t end_time = std::chrono::system_clock::to_time_t(end);
     cout << "[ Solver ] finished computation at " << ctime(&end_time) << endl;
     secs = elapsed_seconds.count();
+    //mins
     auto eii_m = std::chrono::duration_cast<std::chrono::minutes>(eii_time); 
     auto tbr_m = std::chrono::duration_cast<std::chrono::minutes>(tbr_time);
     auto ee_m = std::chrono::duration_cast<std::chrono::minutes>(ee_time);
     auto apply_delta_m = std::chrono::duration_cast<std::chrono::minutes>(apply_delta_time);
     auto misc_m = std::chrono::duration_cast<std::chrono::minutes>(misc_time);
+    //secs
     auto eii_s = std::chrono::duration_cast<std::chrono::seconds>(eii_time); 
     auto tbr_s = std::chrono::duration_cast<std::chrono::seconds>(tbr_time);
     auto ee_s = std::chrono::duration_cast<std::chrono::seconds>(ee_time);
     auto apply_delta_s = std::chrono::duration_cast<std::chrono::seconds>(apply_delta_time);
     auto misc_s = std::chrono::duration_cast<std::chrono::seconds>(misc_time);
-    cout <<"[ Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << endl;
-    cout <<"[ Solver ] get_Q_ee() took "<< ee_m.count() <<"m " << ee_s.count()%60 << "s" << endl;
-    cout <<"[ Solver ] get_Q_eii() took "<< eii_m.count() <<"m " << eii_s.count()%60 << "s" << endl;
-    cout <<"[ Solver ] get_Q_tbr() took "<< tbr_m.count() <<"m " << tbr_s.count()%60 << "s" << endl;
-    cout <<"[ Solver ] apply_delta() took "<< apply_delta_m.count() <<"m " << apply_delta_s.count()%60 << "s" << endl;
-    cout <<"[ Solver ] some misc processes took "<< misc_m.count() <<"m " << misc_s.count()%60 << "s" << endl;
-    log_extra_details(_log);
+    stringstream solver_times;
+    solver_times <<"[ Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << "\n";
+    solver_times <<"[ Solver ] get_Q_ee() took "<< ee_m.count() <<"m " << ee_s.count()%60 << "s" << "\n";
+    solver_times <<"[ Solver ] get_Q_eii() took "<< eii_m.count() <<"m " << eii_s.count()%60 << "s" << "\n";
+    solver_times <<"[ Solver ] get_Q_tbr() took "<< tbr_m.count() <<"m " << tbr_s.count()%60 << "s" << "\n";
+    solver_times <<"[ Solver ] apply_delta() took "<< apply_delta_m.count() <<"m " << apply_delta_s.count()%60 << "s" << "\n";
+    solver_times <<"[ Solver ] some misc processes took "<< misc_m.count() <<"m " << misc_s.count()%60 << "s";
+    std::cout<<banner<<"\n"<<"\033[1;32m"<<solver_times.str()<<"\033[0m\n"<<endl;
+    _log <<banner<<"\n"<<solver_times.str(); _log.flush();
 
 }
 

@@ -40,10 +40,12 @@ void ElectronRateSolver::save(const std::string& _dir) {
     string dir = _dir; // make a copy of the const value
     dir = (dir.back() == '/') ? dir : dir + "/";
 
+    std::cout << "[ Output ] Saving to output folder \033[94m'"<<dir<<"'\033[95m"<< std::endl;
     saveFree(dir+"freeDist.csv");
     saveFreeRaw(dir+"freeDistRaw.csv");
     saveBound(dir);
     saveBoundRaw(dir);
+    std::cout <<"\033[0m"<<std::endl;
 
     std::vector<double> fake_t; // TODO double check why I called this fake_t, probably doesn't make sense now. -S.P.
     int num_t_points = input_params.Out_T_size();
@@ -72,27 +74,18 @@ void ElectronRateSolver::save(const std::string& _dir) {
 
 }
 
-void ElectronRateSolver::log_extra_details(ofstream & _log){
-    // Saves details pertaining to the simulation's execution to file fname
-    if(_log.is_open()){
-        cout << "[ Details ] Logging run-specific details..."<<endl;
-        _log << "\n[ Rate Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << endl;
-        _log.flush();
-    }
-}
-
 void ElectronRateSolver::saveFree(const std::string& fname) {
     // Saves a table of free-electron dynamics to file fname
     ofstream f;
-    cout << "[ Free ] Saving to file "<<fname<<"..."<<endl;
+    cout << "Free: \033[94m'"<<fname<<"'\033[95m | ";
     f.open(fname);
     f << "# Free electron dynamics"<<endl;
     f << "# Time (fs) | Density @ energy (eV):" <<endl;
     std::vector<double> reference_knots = Distribution::load_knots_from_history(t.size());
     f << "#           | "<<Distribution::output_energies_eV(this->input_params.Out_F_size())<<endl;
-    cout << "[ Dynamic Grid ], writing densities to reference knot energies: \n";
-    for (double elem : reference_knots) cout << elem *Constant::eV_per_Ha<< ' ';
-    cout << endl;  
+    // cout << "[ Dynamic Grid ], writing densities to reference knot energies: \n";
+    // for (double elem : reference_knots) cout << elem *Constant::eV_per_Ha<< ' ';
+    // cout << endl;  
 
     assert(y.size() == t.size());
     int num_t_points = input_params.Out_T_size();
@@ -120,7 +113,7 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
  */
 void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     ofstream f;
-    cout << "[ Free ] Saving to file "<<fname<<"..."<<endl;
+    cout << "FreeRaw: \033[94m'"<<fname<<"'\033[95m | ";
     f.open(fname);
     f << "# Free electron dynamics"<<endl;
     f << "# Energy Knot: "<< Distribution::output_knots_eV() << endl;
@@ -143,7 +136,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
     for (size_t a=0; a<input_params.Store.size(); a++) {
         ofstream f;
         string fname = dir+"dist_"+input_params.Store[a].name+".csv";
-        cout << "[ Atom ] Saving to file "<<fname<<"..."<<endl;
+        cout << "Bound: \033[94m'"<<fname<<"'\033[95m | ";
         f.open(fname);
         f << "# Ionic electron dynamics"<<endl;
         f << "# Time (fs) | State occupancy (Probability times number of atoms)" <<endl;
@@ -181,7 +174,7 @@ void ElectronRateSolver::saveBoundRaw(const std::string& dir) {
     for (size_t a=0; a<input_params.Store.size(); a++) {
         string fname = dir+"dist_"+input_params.Store[a].name+"_Raw.csv";
         ofstream f;
-        cout << "[ Bound ] Saving to file "<<fname<<"..."<<endl;
+        cout << "BoundRaw: \033[94m'"<<fname<<"'\033[95m | ";
         f.open(fname);
         f << "# Ionic electron dynamics"<<endl;
         f << "# Time (fs) | State occupancy (Probability times number of atoms)" <<endl;
