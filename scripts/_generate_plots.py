@@ -34,9 +34,9 @@ fname_HR_style = "HR_style"
 fname_bound_dynamics = "bound_dynamics"  #Was called both _bound and dynamics so I assume it's bound dynamics or something.
 
 # Plots to show
-tot_charge = True
-all_charge = True
-free = True
+tot_charge = False
+all_charge = False
+free = False
 #######
 
 dname_Figures = path.abspath(path.join(__file__ ,dname_Figures)) + "/"

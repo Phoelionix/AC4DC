@@ -75,7 +75,7 @@ int main(int argc, char const *argv[]) {
     Eigen::VectorXd v = Eigen::VectorXd::Zero(Distribution::size);
     F.addDeltaLike(v, T*3, density);
     F.addDeltaSpike(T*2, density);
-    F.applyDelta(v);
+    F.applyDeltaF(v);
     cerr<<"Integral of F: should be "<<3*density<<", is "<<F.integral(one)<<endl;
     
     cout<<"#Distribution shape: "<<endl;

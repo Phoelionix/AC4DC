@@ -1,8 +1,7 @@
 /**
- * @file ElectronRateSolver.cpp
- * @author Alaric Sanders 
- * @brief @copybrief ElectronRateSolver.h
- * @details @copydetail ElectronRateSolver.h
+ * @file ElectronRateSolverIO.cpp
+ * @authors Spencer Passmore & Alaric Sanders 
+ * @brief 
  * @note may want to change to have the raw files save with not much more fineness than the load ones.
  */
 /*===========================================================================
@@ -22,6 +21,7 @@ This file is part of AC4DC.
     along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
 ===========================================================================*/
 // (C) Alaric Sanders 2020
+// (C) Spencer Passmore 2023
 
 #include "ElectronRateSolver.h"
 #include "HartreeFock.h"
@@ -40,7 +40,7 @@ void ElectronRateSolver::save(const std::string& _dir) {
     string dir = _dir; // make a copy of the const value
     dir = (dir.back() == '/') ? dir : dir + "/";
 
-    std::cout << "[ Output ] Saving to output folder \033[94m'"<<dir<<"'\033[95m"<< std::endl;
+    std::cout << "[ Output ] \033[95mSaving to output folder \033[94m'"<<dir<<"'\033[95m..."<< std::endl;
     saveFree(dir+"freeDist.csv");
     saveFreeRaw(dir+"freeDistRaw.csv");
     saveBound(dir);
@@ -63,15 +63,6 @@ void ElectronRateSolver::save(const std::string& _dir) {
         previous_t = t[i];
     }
     pf.save(fake_t,dir+"intensity.csv");
-
-    // fake_t.resize(0);
-    // num_t_points = num_t_points = t.size();
-    // t_idx_step = t.size() / num_t_points;
-    // for (size_t i=0; i<num_t_points; i++) {
-    //     fake_t.push_back(t[i*t_idx_step]);
-    // }
-    // pf.save(fake_t,dir+"intensityRaw.csv");    
-
 }
 
 void ElectronRateSolver::saveFree(const std::string& fname) {
@@ -96,7 +87,7 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
     int i = -1; 
     while (i <  static_cast<int>(t.size())-1){
         i++;
-        Distribution::load_knots_from_history(i);
+        Distribution::load_knots_from_history(i); // TODO CRITICAL this takes ages currently, need to only load knots once for each basis change.  
         if(t[i] < previous_t + t_fineness){
             continue;
         }

@@ -1,4 +1,5 @@
 /** @file HybridIntegrator.hpp
+ * @authors Alaric Sanders & Spencer Passmore
  * @brief Defines the Hybrid class which adds a Moulton step after each step from the inherited method of Adams_BM.
 */
 /*===========================================================================
@@ -139,13 +140,14 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         // this->y[n+1].from_backwards_Euler(this->dt, this->y[n], stiff_rtol, stiff_max_iter);
         this->step_stiff_part(n);
 
-        if ((n-this->order+1)%steps_per_grid_transform == 0){
+        // Dynamic grid updater // TODO pop in function.
+        if ((n-this->order+1)%steps_per_grid_transform == 0){ 
             // The latest step is n + 1, so we decide our new grid based on that step, then transform N = "order" of the prior points to the new basis.
             this->set_up_grid_and_compute_cross_sections(_log,false,n+1); // overridden by ElectronRateSolver
             // Transform enough previous points needed to get going to new basis
             
             std::vector<double> new_energies = Distribution::get_knot_energies();
-            // zero_y is used as empty starting state for new step, so we need to reset it so it has the right knots.
+            // zero_y is used as the starting state for each step and represents the ground state, so we need to reset it so it has the right knots.
             this->zero_y = this->get_ground_state();
             cout << endl;            
             for (size_t m = n+2 - this->order; m < n+2; m++) {
@@ -153,11 +155,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
                 Distribution::load_knots_from_history(n);
                 this->y[m].F.transform_basis(new_energies);
             }  
-            // We don't need to do this, as the next containters are made to have the correct size via s=tmp=zero_y and sdot = 0.
-            // // Reinitialise all future containers so that y.F matches the new size, 
-            // as the static variable size has been changed.
-            // this->y.resize(n+2);
-            // this->y.resize(this->t.size());            
+             // The next containters are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state.       
         }        
     }
     std::cout<<std::endl;

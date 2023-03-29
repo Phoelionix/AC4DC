@@ -1,4 +1,5 @@
 /**
+ * @author Alaric Sanders & Spencer Passmore
  * @file FreeDistribution.h
  * @brief Defines the class Distribution that represents the energy distribution of free electrons.
  * @details Expansion of original plasma code as part of Sanders' continuum plasma extension.
@@ -156,7 +157,7 @@ public:
      * This seems correct, given that dfdt is inputted for the spline basis's Sinv (S_inverse * <VectorXd input>) function, which names the input deltaf.
      * @param v deltaf
      */
-    void applyDelta(const Eigen::VectorXd& dfdt);
+    void applyDeltaF(const Eigen::VectorXd& dfdt);
     
 
     // Q functions
@@ -230,7 +231,7 @@ public:
      */
     void transform_basis(std::vector<double> new_knots);
 
-    /// This does electron-electron because it is CURSED
+    // (Unused) This does electron-electron because it is CURSED
     void from_backwards_Euler(double dt, const Distribution& prev_step, double tolerance, unsigned maxiter);
 
     double operator()(double e) const;

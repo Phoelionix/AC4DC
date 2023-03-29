@@ -114,8 +114,9 @@ class PlotData:
     def get_max_t(self):
         raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
         # Get samples of steps separated by the same times. TODO need to fix AC4DC saving points to the nonraw file when loading sim so that the loaded part isnt empty.   
+        print(self.max_final_t,raw[-1,0])
         return min(self.max_final_t,raw[-1,0]) 
-                        
+
     def update_outputs(self):
         raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
         # Get samples of steps separated by the same times. TODO need to fix AC4DC saving points to the nonraw file when loading sim so that the loaded part isnt empty.

@@ -19,7 +19,7 @@ square       // Pulse shape
 0.05           // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
-10000         // Number of time steps in the output files.
+1500         // Number of time steps in the output files.
 4000        // number of free-electron grid points in output file.
 N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?

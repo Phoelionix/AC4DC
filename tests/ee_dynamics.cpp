@@ -74,7 +74,7 @@ protected:
         qdot=0;
         Eigen::VectorXd v = Eigen::VectorXd::Zero(Distribution::size);
         q.get_Q_ee(v);
-        qdot.applyDelta(v);
+        qdot.applyDeltaF(v);
         if (isnan(qdot.norm())) throw runtime_error("NaN encountered in sdot");
     }
 };
