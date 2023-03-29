@@ -129,9 +129,9 @@ double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,
     min_distance /= Constant::eV_per_Ha;
     // Find 0 of second derivative
     double inflection = nearest_inflection(step,start_energy,del_energy,min_sequential,_min,_max);
-    std::cout << inflection;
+    std::cout << inflection*Constant::eV_per_Ha;
     // At min_distance, go double as 
-    double A = 1/min_inflection_fract; // region between peak and inflection take up (at least if using sqrt thing) min_inflection_frac after min distance.
+    double A = 1/min_inflection_fract; // region between peak and inflection take up min_inflection_frac at min distance.
     double D = min_distance;
     int sign = (0 < del_energy) - (del_energy < 0);
     //return sign*max(A*sqrt(abs(start_energy - inflection))*sqrt(D/A),D) + start_energy;
@@ -171,6 +171,7 @@ double ElectronRateSolver::approx_regime_trough(size_t step, double lower_bound,
         }
         e += del_energy; 
     }
+    if (trough_density < 0) return -1;  // error due to wiggle - minimum is not physical.
     return trough_e;
 }
 
@@ -182,13 +183,14 @@ double ElectronRateSolver::approx_regime_trough(size_t step, double lower_bound,
  * we define a range that was found to experimentally give good results. 
  * @todo It may be better to have a couple of these regimes for the tallest few peaks. Wouldn't be too hard to implement.
  */
-void ElectronRateSolver::dirac_energy_bounds(size_t step, double& max, double& min, double& peak, bool allow_shrinkage) {
+void ElectronRateSolver::dirac_energy_bounds(size_t step, double& _max, double& _min, double& peak, bool allow_shrinkage) {
+    double prev_max = _max;
+    double prev_min = _min;
     if(allow_shrinkage){
-        max = -1;
-        min = INFINITY;
+        _max = -1;
+        _min = INFINITY;
     }
 
-    double e_step_size = 50/Constant::eV_per_Ha;
     size_t num_sequential_needed = 3;
 
     double peak_density = -1e9;
@@ -203,14 +205,16 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, double& max, double& m
                 peak = r.energy;
                 peak_density = density; 
             }
+            double up_e_step =  max((prev_max - r.energy),10/Constant::eV_per_Ha)/200;
+            double down_e_step = min(prev_min - r.energy,-10/Constant::eV_per_Ha)/200;            
             // Get bounds
-            std::cout << "Inflections of peak at" <<r.energy*Constant::eV_per_Ha <<" from "<<atom.name<<" are:";
-            double lower_bound = approx_regime_bound(step,r.energy, -e_step_size, num_sequential_needed,1000,1./4.);
+            std::cout << "Inflections of peak at " <<r.energy*Constant::eV_per_Ha <<" from "<<atom.name<<" are:";
+            double lower_bound = approx_regime_bound(step,r.energy, down_e_step, num_sequential_needed,1000,1./4.);
             std::cout <<", ";
-            double upper_bound = approx_regime_bound(step,r.energy, +e_step_size, num_sequential_needed,600,1./5.);//peak + 0.912*(peak - lower_bound);  // s.t. if lower_bound is 3/4 peak, upper_bound is 1.1*peak.
+            double upper_bound = approx_regime_bound(step,r.energy, up_e_step, num_sequential_needed,500,1./4.);//peak + 0.912*(peak - lower_bound);  // s.t. if lower_bound is 3/4 peak, upper_bound is 1.1*peak.
             std::cout << std::endl;
-            if (upper_bound > max) max=upper_bound;
-            if (lower_bound < min) min=lower_bound;
+            if (upper_bound > _max) _max=upper_bound;
+            if (lower_bound < _min) _min=lower_bound;
         }
     }
 }
@@ -229,7 +233,7 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
     double max_energy = 2000/Constant::eV_per_Ha;
     // Step size is hundredth of the previous peak past a peak of 1 eV. Note gets stuck on hitch at early times, but not a big deal as the minimum size of new_max lets us get through this. 
     // Alternatively could just implement local max detection for early times.
-    double e_step_size = max(1.,peak)/100/Constant::eV_per_Ha; 
+    double e_step_size = max(1./Constant::eV_per_Ha,peak)/200; 
     peak = approx_regime_peak(step,min_energy,max_energy,e_step_size);
     double kT = 2*peak;
     // CDF = Γ(3/2)γ(3/2,E/kT)
@@ -237,9 +241,11 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
     if(_min < new_min || allow_shrinkage){
         _min = new_min;
     }
-    double min_e_seq_range  = 20/Constant::eV_per_Ha;
+    //double min_e_seq_range  = 20/Constant::eV_per_Ha;
     int min_seq_needed = 3; // -> at later times, it seeks min_seq_needed*peak/10 energy to confirm inflection.
-    size_t num_sequential_needed = max(min_seq_needed,(int)(min_e_seq_range/e_step_size+0.5)); 
+    //size_t num_sequential_needed = max(min_seq_needed,(int)(min_e_seq_range/e_step_size+0.5)); 
+    size_t num_sequential_needed = 3; // early times are safeguarded from inflections being too small by disallowing shrinkage
+    allow_shrinkage = false; //TODO
     std::cout << "upper inflection of MB is:";
     double new_max = approx_regime_bound(step,peak, +e_step_size, num_sequential_needed,5,1./2.); 
     std::cout << std::endl;
@@ -266,7 +272,7 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
  */
 void ElectronRateSolver::transition_energy(size_t step, double& g_min){
     //TODO assert that this is called after MB and dirac regimes updated.
-    double new_min = approx_regime_trough(step,regimes.mb_peak,regimes.mb_max,2); 
+    double new_min = approx_regime_trough(step,regimes.mb_peak,0.9*regimes.dirac_peak,2); 
     // if(allow_decrease) 
     //     g_min = new_min;
     // else               
