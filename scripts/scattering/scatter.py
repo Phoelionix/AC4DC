@@ -807,6 +807,8 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                     continue
                 else:
                     unique_values_mask[i] = True
+                # if (radial_axis[i] > radial_lim):
+                #     unique_values_mask[i] = False
                     
                 # Boolean masks
                 matching_rad_idx = np.nonzero(radial_axis == radial_axis[i])  # numpy note: equiv. to np.where(condition). Non-zero part irrelevant.
@@ -957,13 +959,6 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 print(R)
                 #neutze_histogram = np.histogram2d(phi, radial_axis, weights=R, bins=(np.array([-np.pi,np.pi]), radial_edges))[0]             
                 #plot_sectors(neutze_histogram)
-
-        
-
-       
-       
-       
-       
        
     else:
         result = SPI_result
@@ -1220,7 +1215,11 @@ plt.ylabel("y (Ang)")
 #%%
 #%%
 ### Simulate lysozyme
-root = "lys"
+#TODO
+# have max q, that matches neutze
+# implement stochastic stuff
+# implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector
+root = "lysNeutze"
 tag = "v1"
 #  #TODO make this nicer and pop in a function 
 DEBUG = False
@@ -1238,7 +1237,7 @@ allowed_atoms_2 = ["N_fast","S_fast"]
 end_time_1 = -10#-9.95
 end_time_2 = 10#0#-9.80  
 
-num_orients = 50
+num_orients = 1
 # [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
 ax_x = 1
 ax_y = 1
@@ -1247,7 +1246,7 @@ random_orientation = True # if true, overrides orientation_set
 
 rock_angle = 0.3 # degrees
 
-pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb" #tetrapeptide
+pdb_path = "/home/speno/AC4DC/scripts/scattering/2lzm.pdb"#4et8.pdb" #tetrapeptide
 
 output_handle = "D_lys_neutze_simple_7"
 
@@ -1274,10 +1273,11 @@ experiment2 = XFEL(exp_name2,energy,100, hemisphere_screen = hemisphere_screen, 
 # cell_dim = [np.array([1,1,1])]  
 
 crystal = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=CNO_to_N,cell_packing = "SC")
-crystal.set_cell_dim(79.000  , 79.000  , 38.000)
-crystal.add_symmetry(np.array([-1, -1,1]),np.array([0.5,0,0.5]))  #2555
-crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0.5]))  #3555
-crystal.add_symmetry(np.array([1, -1,-1]),np.array([0.5,0.5,0]))  #4555
+crystal.set_cell_dim(61.200 ,  61.200 ,  61.2)
+#crystal.set_cell_dim(79.000  , 79.000  , 38.000)
+#crystal.add_symmetry(np.array([-1, -1,1]),np.array([0.5,0,0.5]))  #2555
+#crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0.5]))  #3555
+#crystal.add_symmetry(np.array([1, -1,-1]),np.array([0.5,0.5,0]))  #4555
 
 SPI = False
 

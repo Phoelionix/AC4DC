@@ -1033,6 +1033,10 @@ class SlaterShielding:
         for i in range(len(self.shell_occs)):
             ff += self.get_shell_ff(k,i+1)*norm*self.shell_occs[i]
         return ff * density
+    #
+    # def get_atomic_ff_but_now_its_spooky(self,k,density,atomic_density):
+    #     # sample the density distribution to get a random
+    
 
 if __name__ == "__main__":
     pl = Plotter(sys.argv[1])

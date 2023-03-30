@@ -114,8 +114,10 @@ class PlotData:
     def get_max_t(self):
         raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
         # Get samples of steps separated by the same times. TODO need to fix AC4DC saving points to the nonraw file when loading sim so that the loaded part isnt empty.   
-        print(self.max_final_t,raw[-1,0])
         return min(self.max_final_t,raw[-1,0]) 
+    def get_num_usable_points(self):
+        raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
+        return min(len(raw), self.max_points)
 
     def update_outputs(self):
         raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
@@ -277,8 +279,6 @@ class PlotData:
         return molfile                                  
 
 class InteractivePlotter:
-    # Example initialisation: Plotter(water)
-    # --> expects there to be a control file named water.mol within AC4DC/input/ or a subdirectory.
     # max_final_t, float, end time in femtoseconds. Not equivalent to time duration
     # max_points, int, number of points (within the timespan) for the interactive to have at maximum.
     def __init__(self, target_names, output_mol_query, max_final_t = 30, max_points = 70):
@@ -286,12 +286,15 @@ class InteractivePlotter:
         self.num_plots = len(target_names)
         self.target_data = []
         lowest_max_t = np.inf
+        lowest_max_points = np.inf
         for mol_name in target_names:
             dat = PlotData(target_path,mol_name,output_mol_query,max_final_t=max_final_t,max_points=max_points)    
             lowest_max_t = min(dat.get_max_t(),lowest_max_t)
+            lowest_max_points = min(lowest_max_points, dat.get_num_usable_points())
             self.target_data.append(dat)
         for dat in self.target_data:
             dat.max_final_t = lowest_max_t
+            dat.max_points = lowest_max_points
             dat.update_outputs()
 
 
