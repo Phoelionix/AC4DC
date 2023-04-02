@@ -40,7 +40,7 @@ lys_neutze_simple_41 // Output folder name
 -6.5    // Point to load time from 
 
 #DEBUG
--6.495 //10     // Simulation cutoff time in fs
+-6.3 //10     // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 

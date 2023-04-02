@@ -1,8 +1,8 @@
-CPP := /home/linuxbrew/.linuxbrew/bin/g++-10#g++-11
+CPP := /home/linuxbrew/.linuxbrew/bin/g++-10 #-L/usr/share/doc -L/usr/lib/x86_64-linux-gnu   #g++-11 
 
-LIB := -fopenmp
+LIB := -L/usr/lib -lncurses -fopenmp  ## /x86_64-linux-gnu # -lncurses#-lncurses  # /usr/share/doc/libncurses5-dev /usr/share/doc/libncursesw5-dev # Link special external libraries here!
 
-INC := -I/opt/homebrew/include/eigen3 -Iinclude
+INC := -I/opt/homebrew/include/eigen3 -Iinclude -I/usr/include   #-I/usr/lib/x86_64-linux-gnu -I/usr/share/doc#-L/home/linuxbrew/.linuxbrew/Cellar/ncurses/6.4/lib 
 
 SRCDIR := src
 BUILDDIR := build
@@ -13,7 +13,7 @@ SRCEXT := cpp
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT) )
 
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
-CXXFLAGS := -std=c++17 -fopenmp -MD -g -Wall
+CXXFLAGS := -std=c++17 -fopenmp -MD -g -Wall  -L/usr/lib/x86_64-linux-gnu -lncurses
 
 debug: CXXFLAGS += -DDEBUG -Wpedantic
 release: CXXFLAGS += -O3 -DNDEBUG
@@ -24,7 +24,7 @@ TINC := $(INC) -I./
 
 $(TARGET): $(OBJECTS)
 	@echo " Linking $(TARGET)... ";
-	@echo " $(CPP) $^ $(LIB) -o $(TARGET) "; $(CPP) $^ $(LIB) -o $(TARGET)
+	@echo " $(CPP) $^ $(LIB) -o $(TARGET) "; $(CPP) $^ $(LIB) -o $(TARGET) 
 
 all: $(TARGET)
 
