@@ -167,7 +167,7 @@ std::vector<double> ElectronRateSolver::approx_regime_peaks(size_t step, double 
     assert(del_energy > 0);
     assert(num_peaks > 0);      
 
-    double min_peak_separation = 400 * Constant::eV_per_Ha; 
+    double min_peak_separation = 400 / Constant::eV_per_Ha; 
     size_t min_sequential = 3;
     std::vector<double> peak_energies;  
     double last_peak_density = INFINITY; // for asserting expected behaviour.
@@ -180,7 +180,7 @@ std::vector<double> ElectronRateSolver::approx_regime_peaks(size_t step, double 
             // search for nearest peak, by looking for the nearest point that a) occurs after the density has been rising and b) is higher than the following min_sequential points separated by del_e
             e = approx_nearest_peak(step,e,del_energy,min_sequential,lower_bound,upper_bound);
             double density = y[step].F(e)*e; // energy density
-            // separate peaks by min_peak_separation
+            // separate peaks by min_peak_separation... doesnt really work since the highest peaks are at the back ah well. TODO
             if (std::find(peak_energies.begin(),peak_energies.end(),e)!= peak_energies.end()){
                 e+= min_peak_separation;
                 continue;
