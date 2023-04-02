@@ -64,6 +64,8 @@ public:
 
 	int Plasma_Threads(){return omp_threads;}
 
+	string Filtration_File(){return filtration_file;}
+
 	string Load_Folder(){return load_folder;}
 	double Load_Time_Max(){return simulation_resume_time_max/Constant::fs_per_au;}
 
@@ -114,6 +116,7 @@ protected:
 	// Simulation loading parameters
 	double simulation_resume_time_max; // will attempt to load closest to this time but not after.
 	string load_folder = ""; // If "" don't load anything. 
+	string filtration_file = ""; // If "" don't load anything.
 
 	// Dynamic grid
 	double grid_update_period; // time period between dynamic grid updates, fs.

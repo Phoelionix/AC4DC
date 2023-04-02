@@ -47,6 +47,7 @@ GridRegions::GridRegions(){
     // Carbon (v. divergent example) good grid:
     // indices  1|30|55|65|85|105|145|150 
     // energies 4|10|50|200|500|4500|6500|10000   
+    int pts_per_dirac = 30; // per region, often will have much less per photopeak.
     regions = {
         Region(1,5,10,"static"),  // low divergent
         Region(25,10,50, "static"), // low support (MB is very fine early on, grid doesn't let us make it suddenly become super fine.)
@@ -55,7 +56,11 @@ GridRegions::GridRegions(){
         Region(40,600,6500,"static"),  //TODO change 6500 to be the xray energy.
         Region(10,6500,15000,"static"), // high tail
         Region(35,-1,-1,"mb"), // Maxwell-boltzmann distribution
-        Region(60,-1,-1,"dirac") // Photoelectron peak
+        // Photoelectron peaks. need to include num regions defined here in FeatureRegimes.
+        Region(pts_per_dirac,-1,-1,"dirac"), 
+        Region(pts_per_dirac,-1,-1,"dirac"), 
+        Region(pts_per_dirac,-1,-1,"dirac"), 
+        Region(pts_per_dirac,-1,-1,"dirac") 
     };
 
 } 
@@ -81,12 +86,14 @@ GridRegions::GridRegions(){
  */
 void GridRegions::update_regions(FeatureRegimes rgm){
     std::cout << "[Dynamic Grid] Updating regions " << std::endl;
+    size_t peak_idx = 0;
     for (size_t r = 0; r < regions.size(); r ++){
         switch(regions[r].get_type()[0]){
             case 's': // static
             break; 
             case 'd':
-                regions[r].update_region(rgm.dirac_peak,rgm.dirac_min,rgm.dirac_max);
+                regions[r].update_region(rgm.dirac_peaks[peak_idx],rgm.dirac_minimums[peak_idx],rgm.dirac_maximums[peak_idx]);
+                peak_idx++;
             break;
             case 'm':
                 regions[r].update_region(rgm.mb_peak,rgm.mb_min,rgm.mb_max);
@@ -95,6 +102,7 @@ void GridRegions::update_regions(FeatureRegimes rgm){
                 std::cout <<"Error, unrecognised region type" <<regions[r].get_type() << std::endl;
         }
     }
+    assert(rgm.dirac_peaks.size() == peak_idx);
 }
 
 void GridRegions::set_static_energies(vector<double> energy_boundaries){

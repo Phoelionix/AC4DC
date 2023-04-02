@@ -34,9 +34,9 @@ fname_HR_style = "HR_style"
 fname_bound_dynamics = "bound_dynamics"  #Was called both _bound and dynamics so I assume it's bound dynamics or something.
 
 # Plots to show
-tot_charge = False
-all_charge = False
-free = False
+tot_charge = True
+all_charge = True
+free = True
 #######
 
 dname_Figures = path.abspath(path.join(__file__ ,dname_Figures)) + "/"
@@ -126,17 +126,23 @@ colrs = [cmap(i) for i in range(4)]
 
 ### shape, %, time,
 #slices = [-9.5,-8.5,-7.5]      # square 10%, 10 fs,
-slices = [-7.51]#[-9.8,-9.5] 
+slices = [-7.5,-5,-2.5,-0.03]#[-7.5,-0.03]#[-9.8,-9.5] 
 #slices = [-9.99,-9.98,-9.97]      # square << 1%, 10 fs, 
 
-energies = [200,500,500,500,500,500]     # Cutoff energies for fitting MB curves. 
+energies = [500,500,500,500]     # Cutoff energies for fitting MB curves. 
 plot_fits = True # Whether to plot MB curves
 
+custom_T = [30.8,75.5,131.8,207.5]
+custom_n = [0.06*3/2,0.06*3/2,0.06*3/2,0.06*3/2]
+plot_custom_fits = False
 
 for (t, e, col ) in zip(slices, energies, colrs):
         lines = pl.plot_step(t, normed=True, color = col, lw=0.5)
         if plot_fits:
-            T = pl.plot_fit(t, e, normed=True, color=col, lw=0.5)  # Seems that e is the fitted cutoff energy for considering fitting. Default settings had it as approx. double the peak of the MB. -S.P.
+            T = pl.plot_fit(t, e, normed=True, color=col, lw=0.5) # Seems that e is the fitted cutoff energy for considering fitting. Default settings had it as approx. double the peak of the MB. -S.P.
+if plot_custom_fits:
+    for (T, n, col ) in zip(custom_T, custom_n, colrs):
+        pl.plot_maxwell(T,n,color = col, lw=0.5)
 
 # pl.fig_steps.set_size_inches(3,2.5)
 pl.fig_steps.set_size_inches(6,5)
@@ -175,7 +181,8 @@ def add_curve(mat, fitE, **kwargs):
 
 #------\testing/-------
 #pl.plot_maxwell(44.1,0.06*3/2)  # ~Sanders -7.5 fs - density of MB assumed to be 50% of total.  
-pl.plot_maxwell(31,0.06*3/2,color = "r") #Hau-Riege
+#pl.plot_maxwell(31,0.06*3/2,color = "r") #Hau-Riege
+#pl.plot_maxwell(195,0.06*3/2,color = "r") #Hau-Riege
 extr_handle,extr_label = pl.ax_steps.get_legend_handles_labels()
 #########
 # 

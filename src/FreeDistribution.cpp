@@ -64,11 +64,12 @@ void Distribution::set_distribution(vector<double> new_knot, vector<double> new_
     new_knot = get_trimmed_knots(new_knot);
     size = new_knot.size();
     basis = new_knot;
+    f.resize(size);
 }
 void Distribution::load_knot(vector<double> loaded_knot) {
     loaded_knot = get_trimmed_knots(loaded_knot);
     size = loaded_knot.size();
-    basis = loaded_knot;    
+    basis = loaded_knot;
 }
 
 // Adds Q_eii to the parent Distribution
@@ -377,6 +378,63 @@ void Distribution::addLoss(const Distribution& d, const LossGeometry &l, double 
     }
 }
 
+// Calculating the filtration rate of photoelectrons
+// The way that the photoelectrons leave will be somewhere between the rate corresponding to the 
+// limit of non-interacting, and the limit of Sanders' implementation, where the velocities of electrons
+// between steps are independent due to a high collision rate/low mean free path .
+// The difference being, one is a flat rate, whereas one is a percentage rate.
+// for a 1000eV temperature *equilibrium* plasma with carbon density and all electrons ionised, 
+// the collision rate is < 0.6785 /fs. Electrons are travelling at ~ 50-100 nm/fs, in a < 10-100 nm crystal...
+// This discussion is all likely very negligible.
+/**
+ * @brief 
+ * 
+ * @param d  distribution on previous step 
+ * @param bg background distribution
+ * @param l 
+ */
+void Distribution :: addFiltration(const Distribution& d, const Distribution& bg,const LossGeometry &l){
+    // first order approximation, valid if step size * vel. much smaller than volume
+    // For crystals our surface is flat, so the issue is 
+    //return 0.5*v;  
+    
+    // For a given particle within some volume and velocity v, the time for it to leave the volume is
+    // equivalent if we consider the volume to have -v instead. Indeed, we can do this with all particles
+    // in the volume with the same v. Assuming homogeneity and a spherical symmetry (which it roughly is for a small crystal anyway), we can
+    // calculate the rate that particles leave the volume by considering an equivalent volume passing over 
+    // an equivalent number of stationary particles. 
+    // slice of sphere:
+    // L0 is the characteristic length scale given in input file.
+    // v = sqrt(2*E) as m_e is 1 in a.u..
+    // dN/dt = V_sphere*v/(2*R) = v*(2/3)pi*R^2 * f[i]  
+    double c = 137.036;
+    double m = 1;       
+    double factor = 2./3*Constant::Pi*pow(l.L0,2);
+    for (size_t i=0; i < size; i++){
+         double v = c*sqrt( 1 - pow((1+basis.avg_e[i]/(m*c*c)), -2) );
+        f[i] += factor*v*(bg[i] - d[i]);
+    }
+}
+
+// Distribution Distribution :: relativistic_loss(const Distribution& d, const LossGeometry &l, double rho) {
+//     std::vector<double> knots = basis.get_knot();
+//     std::vector<std::vector<double>> lost_densities(basis.num_funcs, std::vector<double>(64, 0));
+//     for (size_t i=0; i<basis.num_funcs; i++){
+//         // Generate the density terms for gaussian integration at each basis point.   
+//         double a = knots[i];                  // i.e. <new_basis>.supp_min(i);
+//         double b = knots[i+basis.BSPLINE_ORDER];  
+//          for(size_t j=0; j < 64; j++){
+//             double e = (b-a)/2 *gaussX_64[j] + (a+b)/2;
+//                 // Get the density multiplied by the filtration rate.
+//                 lost_densities[i][j] = (*this)(e) * filtration_rates(e);  
+//         }
+//     }    
+//     Distribution loss_distribution;
+//     loss_distribution = 0; 
+//     loss_distribution.add_density_distribution(lost_densities);    
+//     return loss_distribution;
+// }
+
 void Distribution::addDeltaLike(Eigen::VectorXd& v, double e, double height) {
     assert(e>basis.supp_min(0));
     for (size_t i=0;i<size; i++) {
@@ -414,6 +472,7 @@ double Distribution::density(size_t cutoff) const {
 
 // Returns an estimate of k*T
 // based on kinetic energy density of the plasma below the index given by 'cutoff'
+// unused
 double Distribution::k_temperature(size_t cutoff) const {
     double tmp=0;
     // Dodgy integral of e * f(e) de

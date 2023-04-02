@@ -91,19 +91,24 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             std::cout << "[ Dynamic Grid ] Starting with initial grid" << std::endl;
             double e = 1/Constant::eV_per_Ha;
             param_cutoffs.transition_e = 250*e;
-            regimes.mb_peak=0; regimes.mb_min=4*e; regimes.mb_max=10*e;  
-            regimes.dirac_peak = 0;
+            regimes.mb_peak=0; regimes.mb_min=4*e; regimes.mb_max=10*e;
+            // cast a wide net to ensure we capture all dirac peaks. // TODO there has to be a much better way than this.
+            double photo_peak = -1, photo_min = 1e9, photo_max = -1e9; 
             for(auto& atom : input_params.Store) {
-                for(auto& r : atom.Photo) {     
-                    if(r.energy > regimes.dirac_peak) 
-                        regimes.dirac_peak = r.energy;
+                for(auto& r : atom.Photo) {      
+                    photo_min = min(photo_min,r.energy*5/6);
+                    photo_max = max(photo_max,r.energy*7/6);
                 }
             }
-            regimes.dirac_min=regimes.dirac_peak*3/4,
-            regimes.dirac_max=regimes.dirac_peak*1.14; //
+            for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
+                regimes.dirac_minimums[i] = photo_min + i*(photo_max-photo_min)/regimes.num_dirac_peaks;
+                regimes.dirac_maximums[i] = photo_min + (i+1)*(photo_max-photo_min)/regimes.num_dirac_peaks;
+            }
         }
-        else{
-            dirac_energy_bounds(step,regimes.dirac_max,regimes.dirac_min,regimes.dirac_peak,true);
+        else{ //TODO reset dirac bounds on first one of these calls (since they are initialised to be very wide) IF shrinkage is to be turned off for dirac regions.
+            double last_trans_e = param_cutoffs.transition_e;
+            double dirac_peak_cutoff_density = y[step].F(last_trans_e)*last_trans_e*10;
+            dirac_energy_bounds(step,regimes.dirac_maximums,regimes.dirac_minimums,regimes.dirac_peaks,true,regimes.num_dirac_peaks,dirac_peak_cutoff_density);
             mb_energy_bounds(step,regimes.mb_max,regimes.mb_min,regimes.mb_peak);
             transition_energy(step, param_cutoffs.transition_e);
         } 
@@ -119,9 +124,11 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             double e = Constant::eV_per_Ha;
             _log << "------------------- [ New Knots ] -------------------\n" 
             "Time: "<<t[step]*Constant::fs_per_au <<" fs\n" 
-            <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n" 
-            <<"Photo [peak; range]: "<<regimes.dirac_peak*e<< "; "<< regimes.dirac_min*e<<" - "<<regimes.dirac_max*e<<"\n"
-            <<"Transition energy: "<<param_cutoffs.transition_e*e<<""  
+            <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
+            for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
+                _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
+            }
+            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<""  
             << endl;
         }        
         else{}
@@ -212,7 +219,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
             time = timestep_reached;
         }
         retries--;
-        set_starting_state();
+        set_starting_state(); //TODO this would be broken by dynamic grid
         this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update,steps_per_grid_transform); // Inherited from ABM
     }
     
@@ -294,7 +301,8 @@ void ElectronRateSolver::precompute_gamma_coeffs() {
 // d/dt f = Q_B[f](t)                      = d/dt(electron-energy-distribution)  // TODO what is Q_B? Q_{Bound}? Q_{ee} contributes though. 
 
 // Non-stiff part of the system. Bound-electron dynamics.
-void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, const double t) {
+//void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_type& s_bg ,const double t) {
+void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_type& s_bg ,const double t) {
     const int threads = input_params.Plasma_Threads();
     
     sdot=0;
@@ -414,7 +422,12 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, const 
 
     // Add change to distribution
     sdot.F.applyDeltaF(vec_dqdt);
-    // This is the geometric-dependent loss.
+    // if(input_params.Filtration_File() == "")
+    //     // No background, use geometric-dependent loss.
+    //     sdot.F.addLoss(s.F, input_params.loss_geometry, s.bound_charge);
+    // else
+    //     // background handles loss, apply photoelectron filtration with background
+    //     sdot.F.addFiltration(s.F, s_bg.F,input_params.loss_geometry);
     sdot.F.addLoss(s.F, input_params.loss_geometry, s.bound_charge);
     
     if (isnan(s.norm()) || isnan(sdot.norm())) {

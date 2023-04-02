@@ -175,6 +175,8 @@ public:
     void addDeltaSpike(double N, double e);
     /// Applies the loss term to the distribution 
     void addLoss(const Distribution& d, const LossGeometry& l, double charge_density);
+    void addFiltration(const Distribution& d, const Distribution& bg,const LossGeometry &l);
+    Distribution relativistic_loss(const Distribution& d, const LossGeometry& l, double charge_density);
     
     /// Sets the object to have a MB distribution
     void add_maxwellian(double N, double T);
@@ -251,6 +253,7 @@ public:
     double my_size(){return f.size();}
     static std::vector<double> load_knots_from_history(size_t step_idx);
     static std::vector<double> Knots_History(size_t step_idx);
+    static void set_knot_history(size_t i, std::vector<double> replacement_knot){knots_history[i]={i,replacement_knot};}
 private:
     std::vector<double> f;  // Spline expansion factors
     static SplineIntegral basis;

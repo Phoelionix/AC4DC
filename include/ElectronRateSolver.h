@@ -73,6 +73,10 @@ public:
         set_grid_regions(input_params.elec_grid_regions);
 
         grid_update_period = input_params.Grid_Update_Period();
+
+        if(input_params.Filtration_File() != ""){
+            load_filtration_file();
+        }
         
     }
     /// Solve the rate equations
@@ -103,26 +107,30 @@ private:
     double simulation_end_time;  // [Au]    
     double fraction_of_pulse_simulated;
     double grid_update_period; // time period between dynamic grid updates.
+
+    void load_filtration_file(){};
     // Model parameters
 
     // arrays computed at class initialisation
     vector<vector<eiiGraph> > RATE_EII;
     vector<vector<eiiGraph> > RATE_TBR;
 
-    void dirac_energy_bounds(size_t step, double& max, double& min, double& peak_density, bool allow_shrinkage = false);
+    // Dynamic grid
+    void dirac_energy_bounds(size_t step, std::vector<double>& maximums, std::vector<double>& minimums, std::vector<double>& peaks, bool allow_shrinkage,size_t num_peaks, double peak_min_density);
     void mb_energy_bounds(size_t step, double& max, double& min, double& peak_density, bool allow_shrinkage = false);
     void transition_energy(size_t step, double& g_min);
-    double approx_nearest_min(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
+    double approx_nearest_peak(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
     double approx_regime_trough(size_t step, double lower_bound, double upper_bound, double del_energy);
     double nearest_inflection(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
     double approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min_distance = 40, double min_inflection_fract = 1./4., double min = -1, double max=-1);  
     double approx_regime_peak(size_t step, double lower_bound, double upper_bound, double del_energy);  
+    std::vector<double> approx_regime_peaks(size_t step, double lower_bound, double upper_bound, double del_energy, size_t num_peaks = 1, double min_density = 0);
     double approx_regime_trough(size_t step, double lower_bound, double upper_bound, double del_energy,size_t min_sequential);
     void precompute_gamma_coeffs(); // populates above two tensors
     void set_initial_conditions();
 
     /////// Overrides virtual system state methods
-    void sys_bound(const state_type& s, state_type& sdot, const double t); // general dynamics (uses explicit mehtod)
+    void sys_bound(const state_type& s, state_type& sdot, state_type& s_bg, const double t); // general dynamics (uses explicit mehtod)
     void sys_ee(const state_type& s, state_type& sdot, const double t); // electron-electron (uses implicit method)
     /////// 
 

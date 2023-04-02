@@ -1,29 +1,26 @@
+//Neutze
+//also need to try using just lys_c settings later, since it's gaussian could possibly work?
+
 #ATOMS
-C_fast 1
+N_fast 991
+S_fast 10
 
 #VOLUME
-18.11        // Volume per molecule in Angstrom^3.
-2000         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
+20000        // Volume per molecule in Angstrom^3.
+300         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
 6000         // Photon energy in eV.
-10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-2500         // Pulse fluence in 10^4 * J/cm^2. This is to 2 S.Fs the fluence for 2mJ on a 100 nm spot. 1.28 mJ corresponds to Neutze for 6keV photons.
-square       // Pulse shape
+5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+1677         // Pulse fluence in 10^4 * J/cm^2. 
+gaussian       // Pulse shape
 
 #NUMERICAL
-2500000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+100000          // Initial guess for number of time step points for rate equation.
 18            // Number of threads in OpenMP.
-2000             // Transition energy.  The temperature, and thus coulomb logarithm, is approximated by calculating the equilibrium definition of temperature for the energy distribution below this cutoff.  
-0.05           // Grid update period in fs, (dynamic grid only).
-
-#OUTPUT
-1500         // Number of time steps in the output files.
-4000        // number of free-electron grid points in output file.
-N            // Write atomic charges in a separate file (Y/N)?
-Y            // Write intensity in a separate file (Y/N)?
-Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
+2000            // starting trans_e but TODO check can probs remove
+0.1
 
 #MANUAL_GRID
 false        // use manual grid? If false, dynamic grid is used.
@@ -31,11 +28,25 @@ false        // use manual grid? If false, dynamic grid is used.
 4|10|50|200|500|4500|6500|10000       // manual grid boundary energies, with point at 0 excluded. No spaces.
 1|1|1|1|1|1|1 
 
+#OUTPUT
+800         // Number of time steps in the output files.
+4000        // number of free-electron grid points in output file.
+N            // Write atomic charges in a separate file (Y/N)?
+Y            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
+
+#LOAD
+lys_neutze_simple_41 // Output folder name
+-6.5    // Point to load time from 
+
 #DEBUG
--9.99995      // Simulation cutoff time in fs
+-6.4 //10     // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 
 Notes:
+Using 30 grid points per peak, and still 40 for the high energy region.
+Next try using 20, and using 60 for high eenergy region.
 
-Dyn grid testing
+From https://files.rcsb.org/pub/pdb/validation_reports/et/4et8/4et8_full_validation.pdf
+Lysozyme making nitrogen assumption (e.g. used by Chapman 2010) and ignoring salt water atoms.

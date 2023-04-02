@@ -41,7 +41,10 @@ struct Cutoffs{
 
 struct FeatureRegimes{
     double mb_peak=0, mb_min=0, mb_max=0;  
-    double dirac_peak=0, dirac_min=0,dirac_max=0; //
+    size_t num_dirac_peaks = 4;
+    std::vector<double> dirac_peaks = std::vector<double>(num_dirac_peaks); 
+    std::vector<double> dirac_minimums = std::vector<double>(num_dirac_peaks); 
+    std::vector<double> dirac_maximums = std::vector<double>(num_dirac_peaks); 
 };
 
 // For manual grid mode.

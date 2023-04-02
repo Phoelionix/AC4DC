@@ -50,9 +50,6 @@ private:
     double E_max;
     string type;
     int power;
-    double get_peak();
-    double dirac_peak();
-    double mb_peak();
 };
 
 class GridRegions

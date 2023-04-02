@@ -143,6 +143,15 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 3) stream >> elec_grid_regions; //elec_grid_regions.powers
 	}
 
+	for (size_t n = 0; n < FileContent["#FILTRATION"].size(); n++) {
+		stringstream stream(FileContent["#FILTRATION"][n]);
+		if (n == 0){ stream >> filtration_file;
+			filtration_file = "output/__Molecular/" + filtration_file + "/freeDistRaw.csv";
+		}
+	}
+
+
+
 
 	for (size_t n = 0; n < FileContent["#LOAD"].size(); n++) {
 		stringstream stream(FileContent["#LOAD"][n]);

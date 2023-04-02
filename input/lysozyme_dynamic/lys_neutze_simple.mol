@@ -17,18 +17,16 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 gaussian       // Pulse shape
 
 #NUMERICAL
-1000000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+100000          // Initial guess for number of time step points for rate equation.
 18            // Number of threads in OpenMP.
-0             // [only for nonthermal] minimum free-electron energy in eV
-10000          // [only for nonthermal] maximum free-electron energy in eV // This is important - S.P.
-150           // total number of free-electron grid points
-wiggledestruction        // electron grid type
-50              // Number of "low-energy" grid points (hybrid & powerlaw grids only, not for hybrid_power grids though!!!)
-2000          // transition energy in eV (used for grid point boundary, unless hybrid_power grid.)
-1|10|35|45|70|90|130|135                 // boundary indices, with point at 0 excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
-4|10|60|200|650|4500|6500|10000        // boundary energies, with point at 0 excluded. No spaces.
-1|1|1|1|1|1|1             // Region powers.  MB|mid_MB|late_MB|Auger|Trans|Photo|Tail
+2000            // starting trans_e but TODO check can probs remove
+0.1
 
+#MANUAL_GRID
+false        // use manual grid? If false, dynamic grid is used.
+1|30|55|65|85|105|145|150                 // manual grid boundary indices, with point at 0 excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
+4|10|50|200|500|4500|6500|10000       // manual grid boundary energies, with point at 0 excluded. No spaces.
+1|1|1|1|1|1|1 
 
 #OUTPUT
 800         // Number of time steps in the output files.
@@ -38,14 +36,17 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #LOAD
-B_lys_neutze_simple_7 // Output folder name
--3.9    // Point to load time from 
+lys_neutze_simple_41 // Output folder name
+-6.5    // Point to load time from 
 
 #DEBUG
--1.5      // Simulation cutoff time in fs
+-6.495 //10     // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 
 Notes:
+Using 30 grid points per peak, and still 40 for the high energy region.
+Next try using 20, and using 60 for high eenergy region.
+
 From https://files.rcsb.org/pub/pdb/validation_reports/et/4et8/4et8_full_validation.pdf
 Lysozyme making nitrogen assumption (e.g. used by Chapman 2010) and ignoring salt water atoms.

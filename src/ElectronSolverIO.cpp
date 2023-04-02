@@ -37,6 +37,7 @@ This file is part of AC4DC.
 
 // IO functions
 void ElectronRateSolver::save(const std::string& _dir) {
+    double min_outputted_points = 25;
     string dir = _dir; // make a copy of the const value
     dir = (dir.back() == '/') ? dir : dir + "/";
 
@@ -48,10 +49,8 @@ void ElectronRateSolver::save(const std::string& _dir) {
     std::cout <<"\033[0m"<<std::endl;
 
     std::vector<double> fake_t; // TODO double check why I called this fake_t, probably doesn't make sense now. -S.P.
-    int num_t_points = input_params.Out_T_size();
-    if ( num_t_points >  t.size() ) num_t_points = t.size(); // Fineness of output is only limited by num time steps.
-    //float t_fineness = (simulation_end_time - simulation_start_time) / num_t_points; //  Consistent num points.
-    float t_fineness = timespan_au / num_t_points; //  consistent fineness.
+    int num_t_points = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front()) ));
+    float t_fineness = timespan_au  / num_t_points;
     float previous_t = t[0];
     int i = -1;
     while (i <  static_cast<int>(t.size())-1){  //TODO make this some constructed function or something -S.P. 
@@ -66,6 +65,7 @@ void ElectronRateSolver::save(const std::string& _dir) {
 }
 
 void ElectronRateSolver::saveFree(const std::string& fname) {
+    double min_outputted_points = 25;
     // Saves a table of free-electron dynamics to file fname
     ofstream f;
     cout << "Free: \033[94m'"<<fname<<"'\033[95m | ";
@@ -79,9 +79,8 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
     // cout << endl;  
 
     assert(y.size() == t.size());
-    int num_t_points = input_params.Out_T_size();
-    if ( num_t_points >  t.size() ) num_t_points = t.size(); // Fineness of output is only limited by num time steps.
-    //float t_fineness = (simulation_end_time - simulation_start_time)  / num_t_points;
+    // output at least min_outputted_points, otherwise output with fineness that is consistent regardless of cutoff time.
+    int num_t_points = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front()) ));
     float t_fineness = timespan_au  / num_t_points;
     float previous_t = t[0];
     int i = -1; 
@@ -121,6 +120,7 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
 
 
 void ElectronRateSolver::saveBound(const std::string& dir) {
+    double min_outputted_points = 25;
     // saves a table of bound-electron dynamics , split by atom, to folder dir.
     assert(y.size() == t.size());
     // Iterate over atom types
@@ -138,10 +138,8 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         }
         f<<endl;
         // Iterate over time.
-        int num_t_points = input_params.Out_T_size();
-        if ( num_t_points >  t.size() ) num_t_points = t.size();
-        //float t_fineness = (simulation_end_time - simulation_start_time)  / num_t_points; 
-        float t_fineness = timespan_au  / num_t_points; 
+        int num_t_points = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front()) ));
+        float t_fineness = timespan_au  / num_t_points;
         float previous_t = t[0];
         int i = -1;
         while (i <  static_cast<int>(t.size())-1){
@@ -313,11 +311,23 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             saved_f[j] *= Constant::eV_per_Ha;
         }
         // FREE DISTRIBUTION   
-        std::vector<double> new_knots =  y[0].F.get_knot_energies();      
-        y[i].F.set_distribution(saved_knots,saved_f);
-        // To ensure compatibility, "translate" old distribution to new grid points.    
-        // TODO should remove transforming basis unless last step (and check still works)
-        y[i].F.transform_basis(new_knots);         
+        std::vector<double> new_knots;
+        if (input_params.elec_grid_type.mode != GridSpacing::dynamic){
+           new_knots =  y[0].F.get_knot_energies();  
+        }    
+        y[i].F.set_distribution(saved_knots,saved_f);        
+
+        if (input_params.elec_grid_type.mode != GridSpacing::dynamic){
+            // Set knots manually
+            // To ensure compatibility, transform old distribution to new grid points.    
+            // TODO should remove transforming basis unless last step (and check still works)
+            y[i].F.transform_basis(new_knots);
+        }         
+        else{
+            // Starting state and knots are made to be same as that given in load file. TODO make tolerance consistent with other call.
+            Distribution::set_knot_history(0,saved_knots); // move out of loop
+            this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
+        }
         t[i] = saved_time[i];
         i++;
     }

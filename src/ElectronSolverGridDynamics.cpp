@@ -2,6 +2,7 @@
  * @file ElectronSolverGridDynamics.cpp
  * @author Spencer Passmore
  * @brief 
+ * @note density refers to energy density.
  */
 /*===========================================================================
 This file is part of AC4DC.
@@ -44,7 +45,7 @@ This file is part of AC4DC.
  * @param min don't seek past this point
  * @param max don't seek past this point
  */
-double ElectronRateSolver::approx_nearest_min(size_t step, double start_energy,double del_energy, size_t min_sequential, double min, double max){
+double ElectronRateSolver::approx_nearest_peak(size_t step, double start_energy,double del_energy, size_t min_sequential, double min, double max){
     assert(del_energy != 0);
     // Default values
     if (min < 0)
@@ -53,38 +54,44 @@ double ElectronRateSolver::approx_nearest_min(size_t step, double start_energy,d
         max = elec_grid_regions.bndry_E.back();
     // Initialise
     double e = start_energy;
-    double local_min = -1;
-    double min_density = -1;
+    double local_max = -1;
+    double max_density = -1;
     double last_density = y[step].F(start_energy)*start_energy;
+    size_t ascended_count = 0; // make sure we go up. We require it goes up min_sequential times to give a correlation with this param designed to address instability.
     size_t num_sequential = 0;
     if(min_sequential < 1) min_sequential = 1;
-    // Seek local minimum.
+    // Seek local maximum.
     while (num_sequential < min_sequential+1){
         e += del_energy;
         if (e < min){
-            local_min = min; break;}
+            local_max = min; break;}
         if (e > max){
-            local_min = max; break;}
+            local_max = max; break;}
 
         double density = y[step].F(e)*e;  // energy density. Plot breakage seems to depend on this. TODO check why
-        if(density > last_density){
+        if(density < last_density && ascended_count >= min_sequential){
             if (num_sequential == 0){
-                local_min = e - del_energy;
-                min_density = density;
+                local_max = e - del_energy;
+                max_density = density;
             }
             num_sequential++;
         }
-        if (density <= last_density || min_density <0){
-            local_min = -1;
+        if (density >= last_density || max_density < 0){
+            local_max = -1;
             num_sequential = 0;
-            min_density = -1;
+            max_density = -1;
+        }
+        if (density >= last_density){
+            ascended_count++;        
         }
         last_density = density; 
     }
-    return local_min;
+    return local_max;
 }
 
 // num_sequential is num times the check passed.
+// TODO instead of using min_sequential, smooth out distribution over multiple knots.
+// for checks starting from a peak, could make it skip a fake inflection by checking moving towards min and min is negative, and then skipping the following inflection too.
 double ElectronRateSolver::nearest_inflection(size_t step, double start_energy,double del_energy, size_t min_sequential, double min, double max){
     assert(del_energy != 0);
     // Default values
@@ -130,7 +137,8 @@ double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,
     // Find 0 of second derivative
     double inflection = nearest_inflection(step,start_energy,del_energy,min_sequential,_min,_max);
     std::cout << inflection*Constant::eV_per_Ha;
-    // At min_distance, go double as 
+    // TODO For dirac use a function that has this changed such that, from the inflection above, 
+    // it finds the next minimum OR the next point at the cutoff energy, whichever comes first. 
     double A = 1/min_inflection_fract; // region between peak and inflection take up min_inflection_frac at min distance.
     double D = min_distance;
     int sign = (0 < del_energy) - (del_energy < 0);
@@ -154,6 +162,41 @@ double ElectronRateSolver::approx_regime_peak(size_t step, double lower_bound, d
         e += del_energy; 
     }
     return peak_e;
+}
+std::vector<double> ElectronRateSolver::approx_regime_peaks(size_t step, double lower_bound, double upper_bound, double del_energy, size_t num_peaks, double min_density){
+    assert(del_energy > 0);
+    assert(num_peaks > 0);      
+
+    double min_peak_separation = 400 * Constant::eV_per_Ha; 
+    size_t min_sequential = 3;
+    std::vector<double> peak_energies;  
+    double last_peak_density = INFINITY; // for asserting expected behaviour.
+    for(size_t i = 0; i < num_peaks; i++){
+        // Seek maximum between low and upper bound.
+        double peak_density = -1;
+        double peak_e = -1;
+        double e = lower_bound;
+        while (e < upper_bound){
+            // search for nearest peak, by looking for the nearest point that a) occurs after the density has been rising and b) is higher than the following min_sequential points separated by del_e
+            e = approx_nearest_peak(step,e,del_energy,min_sequential,lower_bound,upper_bound);
+            double density = y[step].F(e)*e; // energy density
+            // separate peaks by min_peak_separation
+            if (std::find(peak_energies.begin(),peak_energies.end(),e)!= peak_energies.end()){
+                e+= min_peak_separation;
+                continue;
+            }
+            if (peak_density < density){
+                assert(density <= last_peak_density);
+                peak_density = density;
+                peak_e = e;
+            }
+        }
+        if (peak_density < min_density) 
+            peak_e = -1;
+        last_peak_density = peak_density;
+        peak_energies.push_back(peak_e);
+    }
+    return peak_energies;
 }
 
 double ElectronRateSolver::approx_regime_trough(size_t step, double lower_bound, double upper_bound, double del_energy){
@@ -179,43 +222,43 @@ double ElectronRateSolver::approx_regime_trough(size_t step, double lower_bound,
 
 /**
  * @brief Finds the energy bounds of the photoelectron region
- * @details Since it isn't obvious what function approximates the peak at a given time, 
- * we define a range that was found to experimentally give good results. 
- * @todo It may be better to have a couple of these regimes for the tallest few peaks. Wouldn't be too hard to implement.
+ * @details Since it isn't obvious what function approximates the peak at a given time we can't analytically 
+ * determine the boundary. Here we determine the inflection point, and choose the region's boundary 
+ * to be some point past this.
  */
-void ElectronRateSolver::dirac_energy_bounds(size_t step, double& _max, double& _min, double& peak, bool allow_shrinkage) {
-    double prev_max = _max;
-    double prev_min = _min;
-    if(allow_shrinkage){
-        _max = -1;
-        _min = INFINITY;
-    }
-
+void ElectronRateSolver::dirac_energy_bounds(size_t step, std::vector<double>& maximums, std::vector<double>& minimums, std::vector<double>& peaks, bool allow_shrinkage,size_t num_peaks, double peak_min_density) {
+    double min_photo_peak_considered = 1500/Constant::eV_per_Ha; // TODO make input variable?
+    double peak_search_step_size = 10/Constant::eV_per_Ha;
+    // Find peaks
     size_t num_sequential_needed = 3;
-
-    double peak_density = -1e9;
-    double min_photo_peak_considered = 3000/Constant::eV_per_Ha; // TODO instead ignore peaks that have negligible rates?
+    peaks = approx_regime_peaks(step,min_photo_peak_considered,elec_grid_regions.bndry_E.back(),peak_search_step_size,num_peaks,peak_min_density);
+    // Set peaks' region boundaries
     //about halfway between the peak and the neighbouring local minima is sufficient for their mins and maxes
-    for(auto& atom : input_params.Store) {
-        for(auto& r : atom.Photo) {
-            if (r.energy <  min_photo_peak_considered) continue;
-            // Check if peak density
-            double density = y[step].F(r.energy)*r.energy; // energy density
-            if (density >= peak_density){
-                peak = r.energy;
-                peak_density = density; 
-            }
-            double up_e_step =  max((prev_max - r.energy),10/Constant::eV_per_Ha)/200;
-            double down_e_step = min(prev_min - r.energy,-10/Constant::eV_per_Ha)/200;            
-            // Get bounds
-            std::cout << "Inflections of peak at " <<r.energy*Constant::eV_per_Ha <<" from "<<atom.name<<" are:";
-            double lower_bound = approx_regime_bound(step,r.energy, down_e_step, num_sequential_needed,1000,1./4.);
-            std::cout <<", ";
-            double upper_bound = approx_regime_bound(step,r.energy, up_e_step, num_sequential_needed,500,1./4.);//peak + 0.912*(peak - lower_bound);  // s.t. if lower_bound is 3/4 peak, upper_bound is 1.1*peak.
-            std::cout << std::endl;
-            if (upper_bound > _max) _max=upper_bound;
-            if (lower_bound < _min) _min=lower_bound;
+    for(size_t i = 0; i < peaks.size(); i++) {
+        double e_peak = peaks[i];
+        if (e_peak < 0){
+            // Found all peaks that suit our restrictions, move outside of grid so that it is ignored. 
+            // If allow_shrinkage == false, this removes the region permanently.
+            minimums[i] = -99/Constant::eV_per_Ha;
+            maximums[i] = -100/Constant::eV_per_Ha;
+            continue;
         }
+
+        assert(e_peak >= min_photo_peak_considered);
+        double up_e_step = max((maximums[i] - e_peak) , 10/Constant::eV_per_Ha)/200;
+        double down_e_step = min(minimums[i] - e_peak , -10/Constant::eV_per_Ha)/200;            
+        // Get bounds
+        std::cout << "Inflections of peak at " <<e_peak*Constant::eV_per_Ha <<" are... Lwr:";
+        double lower_bound = approx_regime_bound(step,e_peak, down_e_step, num_sequential_needed,600,1./4.);
+        std::cout <<", Upr: ";
+        double upper_bound = approx_regime_bound(step,e_peak, up_e_step, num_sequential_needed,600,1./4.);//peak + 0.912*(peak - lower_bound);  // s.t. if lower_bound is 3/4 peak, upper_bound is 1.1*peak.
+        std::cout << std::endl;
+        if(allow_shrinkage){
+            maximums[i] = -1;
+            minimums[i] = INFINITY;
+        }           
+        if (upper_bound > maximums[i]) maximums[i] = upper_bound;
+        if (lower_bound < minimums[i]) minimums[i] = lower_bound;
     }
 }
 
@@ -230,11 +273,15 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, double& _max, double& 
 void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _min, double& peak, bool allow_shrinkage) {
     // Find e_peak = kT/2
     double min_energy = 0;
-    double max_energy = 2000/Constant::eV_per_Ha;
+        // a) Prevent a change if it's too big. At early times, the MB peak may not yet be taller than the auger peak.
+        // b) designed to be below photoeletron peaks, TODO make this input-dependent at least.
+    double max_energy = max(10/Constant::eV_per_Ha,min(10*peak,2000/Constant::eV_per_Ha)); 
     // Step size is hundredth of the previous peak past a peak of 1 eV. Note gets stuck on hitch at early times, but not a big deal as the minimum size of new_max lets us get through this. 
     // Alternatively could just implement local max detection for early times.
     double e_step_size = max(1./Constant::eV_per_Ha,peak)/200; 
-    peak = approx_regime_peak(step,min_energy,max_energy,e_step_size);
+    double new_peak = approx_regime_peak(step,min_energy,max_energy,e_step_size);
+    peak = new_peak;
+
     double kT = 2*peak;
     // CDF = Γ(3/2)γ(3/2,E/kT)
     double new_min = 0.2922*kT;  // 90% of electrons above this point
@@ -272,7 +319,11 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
  */
 void ElectronRateSolver::transition_energy(size_t step, double& g_min){
     //TODO assert that this is called after MB and dirac regimes updated.
-    double new_min = approx_regime_trough(step,regimes.mb_peak,0.9*regimes.dirac_peak,2); 
+    double new_min = INFINITY;
+    for(auto &dirac_peak : regimes.dirac_peaks){
+        new_min = min(new_min,approx_regime_trough(step,regimes.mb_peak,0.9*dirac_peak,2)); 
+    }
+    assert(new_min < INFINITY);
     // if(allow_decrease) 
     //     g_min = new_min;
     // else               

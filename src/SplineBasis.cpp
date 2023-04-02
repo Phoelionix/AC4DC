@@ -303,7 +303,6 @@ void BasisSet::set_parameters(const GridSpacing& gt, GridBoundaries& elec_grid_r
     // boundary at minimm energy enforces energy conservation 
     this->_min = 0;
 
-    
     if(gt.mode == GridSpacing::manual){    
         this->_max = elec_grid_regions.bndry_E.back();
         num_funcs = elec_grid_regions.bndry_idx.back();

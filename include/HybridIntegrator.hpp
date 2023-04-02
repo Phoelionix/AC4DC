@@ -27,6 +27,9 @@ This file is part of AC4DC.
 #include "FreeDistribution.h"
 #include "RateSystem.h"
 #include <Eigen/Dense>
+#include <iostream>
+//#include <conio.h>  <- windows
+#include <curses.h>
 
 namespace ode {
 template<typename T>
@@ -156,7 +159,11 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
                 this->y[m].F.transform_basis(new_energies);
             }  
              // The next containters are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state.       
-        }        
+        }    
+        // if (getch() == 'p'){
+        //     std::cout << "Exiting early" << endl;
+        //     break;
+        // }        
     }
     std::cout<<std::endl;
 }

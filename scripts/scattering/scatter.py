@@ -1220,7 +1220,7 @@ plt.ylabel("y (Ang)")
 # implement stochastic stuff
 # implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector
 root = "lysNeutze"
-tag = "v1"
+tag = "v5"
 #  #TODO make this nicer and pop in a function 
 DEBUG = False
 energy = 6000 #
@@ -1237,7 +1237,7 @@ allowed_atoms_2 = ["N_fast","S_fast"]
 end_time_1 = -10#-9.95
 end_time_2 = 10#0#-9.80  
 
-num_orients = 1
+num_orients = 4
 # [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
 ax_x = 1
 ax_y = 1
@@ -1273,7 +1273,7 @@ experiment2 = XFEL(exp_name2,energy,100, hemisphere_screen = hemisphere_screen, 
 # cell_dim = [np.array([1,1,1])]  
 
 crystal = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=CNO_to_N,cell_packing = "SC")
-crystal.set_cell_dim(61.200 ,  61.200 ,  61.2)
+crystal.set_cell_dim(61.200 ,  61.200 ,  61.2)  #TODO this isn't right we didn't implement rock angle properly
 #crystal.set_cell_dim(79.000  , 79.000  , 38.000)
 #crystal.add_symmetry(np.array([-1, -1,1]),np.array([0.5,0,0.5]))  #2555
 #crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0.5]))  #3555
