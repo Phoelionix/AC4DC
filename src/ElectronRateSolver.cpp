@@ -64,6 +64,17 @@ state_type ElectronRateSolver::get_ground_state() {
     return initial_condition;
 }
 
+// grid initilisation call order as of 3/04/23 TODO make clearer
+// set_up_grid_and_compute_cross_sections(init = true) is called first
+//  if static grid, use given static grid  
+//  if dynamic grid, use default start
+// Then call set_starting_state().
+//  if loading a simulation:   
+//      if static grid, transform loaded data to the given static grid
+//      if dynamic grid, transform grid to the loaded data's grid/basis. 
+//          Detect the transition energy
+// If dynamic grid, call set_up_grid_and_compute_cross_sections(init = false) 
+// after each non-zero integer multiple of the update period. 
 void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step) {//, bool recalc) {
     if (!init && input_params.elec_grid_type.mode != GridSpacing::dynamic){
         return; 

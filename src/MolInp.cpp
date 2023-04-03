@@ -128,9 +128,8 @@ MolInp::MolInp(const char* filename, ofstream & log)
 
 		if (n == 0) stream >> num_time_steps;
 		if (n == 1) stream >> omp_threads;
-		if (n == 2) stream >> param_cutoffs.transition_e;
-		if (n == 3) stream >> grid_update_period;
-		if (n == 4) stream >> param_cutoffs.min_coulomb_density;
+		if (n == 2) stream >> grid_update_period;
+		if (n == 3) stream >> param_cutoffs.min_coulomb_density;
 		
 
 	}
@@ -138,9 +137,10 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		stringstream stream(FileContent["#MANUAL_GRID"][n]);
 		if (n == 0) stream >> elec_grid_type; // "true" for manual.		
 		//#GRID ,
-		if (n == 1) stream >> elec_grid_regions; //elec_grid_regions.bndry_idx
-		if (n == 2) stream >> elec_grid_regions; //elec_grid_regions.bndry_E
-		if (n == 3) stream >> elec_grid_regions; //elec_grid_regions.powers
+		if (n == 1) stream >> param_cutoffs.transition_e;
+		if (n == 2) stream >> elec_grid_regions; //elec_grid_regions.bndry_idx
+		if (n == 3) stream >> elec_grid_regions; //elec_grid_regions.bndry_E
+		if (n == 4) stream >> elec_grid_regions; //elec_grid_regions.powers
 	}
 
 	for (size_t n = 0; n < FileContent["#FILTRATION"].size(); n++) {

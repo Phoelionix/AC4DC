@@ -366,6 +366,11 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         << clrline << "------------------" << clrline;
     }
     cout << endl;
+
+    // Detect transition energy (in lieu of it not currently being in output file)
+    if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
+        transition_energy(y.size()-1, param_cutoffs.transition_e);
+    }
 }   
 
 /**

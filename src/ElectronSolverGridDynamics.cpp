@@ -182,8 +182,9 @@ std::vector<double> ElectronRateSolver::approx_regime_peaks(size_t step, double 
             double density = y[step].F(e)*e; // energy density
             // separate peaks by min_peak_separation... doesnt really work since the highest peaks are at the back ah well. TODO
             if (std::find(peak_energies.begin(),peak_energies.end(),e)!= peak_energies.end()){
-                e+= min_peak_separation;
-                continue;
+                //e+= min_peak_separation; //not working atm
+                // continue;
+                break;
             }
             if (peak_density < density){
                 assert(density <= last_peak_density);
