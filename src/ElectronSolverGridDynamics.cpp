@@ -322,7 +322,8 @@ void ElectronRateSolver::transition_energy(size_t step, double& g_min){
     //TODO assert that this is called after MB and dirac regimes updated.
     double new_min = INFINITY;
     for(auto &dirac_peak : regimes.dirac_peaks){
-        new_min = min(new_min,approx_regime_trough(step,regimes.mb_peak,0.9*dirac_peak,2)); 
+        if (dirac_peak < 0) continue;
+        new_min = min(new_min,approx_regime_trough(step,regimes.mb_peak,0.9*dirac_peak,2/Constant::eV_per_Ha)); 
     }
     assert(new_min < INFINITY);
     // if(allow_decrease) 

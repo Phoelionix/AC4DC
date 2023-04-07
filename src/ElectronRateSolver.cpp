@@ -68,7 +68,7 @@ state_type ElectronRateSolver::get_ground_state() {
 // set_up_grid_and_compute_cross_sections(init = true) is called first
 //  if static grid, use given static grid  
 //  if dynamic grid, use default start
-// Then call set_starting_state().
+// Then call set_starting_state() (calls in set_up_grid_... now).
 //  if loading a simulation:   
 //      if static grid, transform loaded data to the given static grid
 //      if dynamic grid, transform grid to the loaded data's grid/basis. 
@@ -131,19 +131,6 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
         }
         else std::cout<<"Thermal cutoff energy had NO update." <<std::endl;    
 
-        if(_log.is_open()){
-            double e = Constant::eV_per_Ha;
-            _log << "------------------- [ New Knots ] -------------------\n" 
-            "Time: "<<t[step]*Constant::fs_per_au <<" fs\n" 
-            <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
-            for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
-                _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
-            }
-            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<""  
-            << endl;
-        }        
-        else{}
-
     }
 
 
@@ -156,6 +143,22 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
         // Set up the rate equations (setup called from parent Adams_B  M)
         set_starting_state();
     }
+
+    if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
+        if(_log.is_open()){
+            double e = Constant::eV_per_Ha;
+            _log << "------------------- [ New Knots ] -------------------\n" 
+            "Time: "<<t[step]*Constant::fs_per_au <<" fs\n" 
+            <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
+            for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
+                _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
+            }
+            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<""  
+            << endl;
+        }        
+        else{}
+    }
+
     // create the tensor of coefficients TODO these aren't constant now - change to lowercase.
     RATE_EII.resize(input_params.Store.size());
     RATE_TBR.resize(input_params.Store.size());

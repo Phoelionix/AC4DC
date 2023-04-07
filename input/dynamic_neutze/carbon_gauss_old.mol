@@ -8,24 +8,9 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 
 #PULSE
 6000         // Photon energy in eV.
-5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). The total sim time is 4x this. TODO just make total sim time the debug cutoff time. 
+5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+1677         // Pulse fluence in 10^4 * J/cm^2. 
 gaussian       // Pulse shape
-
-
-//---------- Choose true for ONE of the following (or just delete ones you are not using.)
-#USE_COUNT
-false // need to implement!
-1.33    // Number of photons in trillions (10^12).
-
-#USE_INTENSITY
-false // need to check working!
-0.15        // peak intensity in 10^19 W/cm^2
-
-#USE_FLUENCE
-true
-1677         // Pulse fluence in 10^4 * J/cm^2. (== Neutze's I_tot)
-
-//-----------
 
 #NUMERICAL
 500000          // Initial guess for number of time step points for rate equation.
@@ -48,8 +33,8 @@ false        // use manual grid? If false, dynamic grid is used.
 
 
 #LOAD
-//carbon_gauss_3 // Output folder name
-//1000   // Point to load time from 
+carbon_gauss_3 // Output folder name
+10   // Point to load time from   // TODO track dynamic grid so when loading at earlier time it works.
 
 #DEBUG
 10      // Simulation cutoff time in fs

@@ -22,11 +22,12 @@ This file is part of AC4DC.
 #include <iostream>
 #include <stdexcept>
 #include <map>
+#include <cmath>
 #include "HartreeFock.h"
 #include "ComputeRateParam.h"
 
 
-MolInp::MolInp(const char* filename, ofstream & log)
+MolInp::MolInp(const char* filename, ofstream & _log)
 {
 	// Input file for molecular ionization calculation.
 	map<string, vector<string>> FileContent;
@@ -119,9 +120,41 @@ MolInp::MolInp(const char* filename, ofstream & log)
 
 		if (n == 0) stream >> omega;
 		if (n == 1) stream >> width;
-		if (n == 2) stream >> fluence;
-		if (n == 3) stream >> pulse_shape;  // (Note user-defined operators)
+		if (n == 2) stream >> pulse_shape;  // (Note user-defined operators)
 	}
+
+	string tmp = "";
+	for (size_t n = 0; n < FileContent["#USE_COUNT"].size(); n++) {  
+		stringstream stream(FileContent["#USE_COUNT"][n]);
+
+		if (n == 0) stream >> tmp;
+		if (tmp[0] == 't' || tmp[0] == 'T'){
+			use_count = true; 
+			if (n == 1) stream >> photon_count;
+		}	
+	}
+	tmp = "";
+	for (size_t n = 0; n < FileContent["#USE_INTENSITY"].size(); n++) {  
+		stringstream stream(FileContent["#USE_INTENSITY"][n]);
+
+		if (n == 0) stream >> tmp;
+		if (tmp[0] == 't' || tmp[0] == 'T'){
+			use_intensity = true; 
+			if (n == 1) stream >> max_intensity;
+		}		
+		
+	}
+	tmp = "";
+	for (size_t n = 0; n < FileContent["#USE_FLUENCE"].size(); n++) {  
+		stringstream stream(FileContent["#USE_FLUENCE"][n]);
+
+		if (n == 0) stream >> tmp;
+		if (tmp[0] == 't' || tmp[0] == 'T'){
+			use_fluence = true; 
+			if (n == 1) stream >> fluence;
+		}
+	}
+
 
 	for (size_t n = 0; n < FileContent["#NUMERICAL"].size(); n++) {
 		stringstream stream(FileContent["#NUMERICAL"][n]);
@@ -169,6 +202,36 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		if (n == 1) stream >> time_update_gap;
 
 	}	
+
+
+	// Get fluence
+	if (use_count){
+		fluence = -1; // not used
+		throw std::invalid_argument("count not implemented");
+	}
+	if (use_intensity){
+		// fluence = I0 * fwhm. I0 = I_avg*timespan/(fwhm). NB: var width = fwhm
+		// if square: Ipeak = I0.  
+		// if gaussian, I_peak = I0/norm. 
+		double t_units = pow(10,-15);   // Convert to units of input, fluence is 10^4 * J/cm^2.
+		double I_units = pow(10,15);
+		switch (pulse_shape)
+		{
+		case PulseShape::gaussian:{
+			const double norm = sqrt(Constant::Pi/4/log(2)); // from  Pulse::operator() 
+			fluence = max_intensity*I_units*norm*(width*t_units);
+			break;
+			}
+		case PulseShape::square:{
+			fluence = max_intensity*I_units*(width*t_units);
+			break;
+			}
+		default:
+			throw runtime_error("Pulse shape has not been set.");
+			break;
+		}    
+	}
+
 
 	// Hardcode the boundary conditions
 	elec_grid_type.zero_degree_inf = 3;
@@ -246,7 +309,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 
 		at_name = "input/atoms/" + at_name + ".inp";
 
-		Atomic.push_back(Input((char*)at_name.c_str(), Orbits[i], Latts[i], log));
+		Atomic.push_back(Input((char*)at_name.c_str(), Orbits[i], Latts[i], _log));
 		// Overrides pulses found in .inp files
 		Atomic.back().Set_Pulse(omega, fluence, width);
 		Atomic.back().Set_Num_Threads(omp_threads);
@@ -272,6 +335,7 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P.
 	if (out_T_size <= 0) { cerr<<"ERROR: system set to output zero timesteps"; is_valid=false; }
 	if (out_F_size <= 0) { cerr<<"ERROR: system set to output zero energy grid points"; is_valid=false; }
 	if (loss_geometry.L0 <= 0) { cerr<<"ERROR: radius must be positive"; is_valid=false; }
+	if (use_fluence + use_count + use_intensity != 1) {cerr << "ERROR, require exactly one of #USE_FLUENCE, #USE_COUNT, and #USE_INTENSITY to be active ";is_valid = false;}
 	if (omp_threads <= 0) { omp_threads = 4; cerr<<"Defaulting number of OMP threads to 4"; }
 
 	// if (elec_grid_type.mode == GridSpacing::unknown) {
@@ -294,7 +358,7 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P.
 			std::cout <<"Transition energy "<<param_cutoffs.transition_e*Constant::eV_per_Ha<<" outside range: "
 			<< elec_grid_regions.bndry_E.front()*Constant::eV_per_Ha<<" "<<param_cutoffs.transition_e*Constant::eV_per_Ha << " " << elec_grid_regions.bndry_E.back()*Constant::eV_per_Ha << std::endl;
 			param_cutoffs.transition_e = elec_grid_regions.bndry_E.back()/4;
-			cerr<<"Defaulting low-energy cutoff for coulomb log calculations to "<<param_cutoffs.transition_e*Constant::eV_per_Ha; 
+			cerr<<"Defaulting low-energy cutoff for coulomb _log calculations to "<<param_cutoffs.transition_e*Constant::eV_per_Ha; 
 		}
 		// Electron grid style
 		if(elec_grid_regions.bndry_E.front() < 0 || elec_grid_regions.bndry_E.back() < 0 || elec_grid_regions.bndry_E.back() <= elec_grid_regions.bndry_E.front()) { cerr<<"ERROR: Electron grid specification invalid"; is_valid=false; }

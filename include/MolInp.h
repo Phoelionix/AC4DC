@@ -33,7 +33,7 @@ class MolInp
 {
 	// Molecular input for coupled atom/electron plasma calculations.
 public:
-	MolInp(const char* filename, ofstream & log);
+	MolInp(const char* filename, ofstream & _log);
 	~MolInp() {}
 
 	/// Vector of atomic input objects
@@ -93,7 +93,13 @@ protected:
 
 	double omega = -1;// XFEL photon energy, au.
 	double width = -1; // XFEL pulse width in au. Gaussian profile hardcoded.
+
+	bool use_fluence = false;
+	bool use_count = false;
+	bool use_intensity = false;
 	double fluence = -1; // XFEL pulse fluence, au.
+	double photon_count = -1;
+	double max_intensity = -1;
 	
 	// Simulation end time, inputted as fs. Note that simulation (w/ rate equations) temporal width is 4*FWHM.
 	double simulation_cutoff_time = 1; 
