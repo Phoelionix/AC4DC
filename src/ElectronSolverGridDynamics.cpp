@@ -325,7 +325,10 @@ void ElectronRateSolver::transition_energy(size_t step, double& g_min){
         if (dirac_peak < 0) continue;
         new_min = min(new_min,approx_regime_trough(step,regimes.mb_peak,0.9*dirac_peak,2/Constant::eV_per_Ha)); 
     }
-    assert(new_min < INFINITY);
+    // no peaks left, we just look for minimum between mb peak and photon energy. 
+    if (new_min == INFINITY){
+        new_min = min(new_min,approx_regime_trough(step,regimes.mb_peak,input_params.Omega(),2/Constant::eV_per_Ha)); 
+    }
     // if(allow_decrease) 
     //     g_min = new_min;
     // else               
