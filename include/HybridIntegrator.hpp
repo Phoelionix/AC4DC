@@ -26,10 +26,10 @@ This file is part of AC4DC.
 #include "Constant.h"
 #include "FreeDistribution.h"
 #include "RateSystem.h"
+#include "Display.h"
 #include <Eigen/Dense>
 #include <iostream>
-//#include <conio.h>   // key detection for windows 
-#include <curses.h> // key detection linux
+
 
 namespace ode {
 template<typename T>
@@ -111,10 +111,6 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const 
 }
 
 
-#define WIDTH 30
-#define HEIGHT 10 
-
-
 // Overrides the underlying Adams method, adding a more refined but computationally expensive treatment for the stiff Q^{ee} contribution to deltaf.
 /**
  * @brief  Iterates through the (t_final-t_initial = simulation_timespan)/dt timesteps.
@@ -126,6 +122,9 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     assert(this->y.size() == this->t.size());
     assert(this->t.size() >= this->order);
 
+    // activate the display
+    //Display::reactivate();
+
 
     if (t_resume < this->t[this->order]){
         // initialise enough points for multistepping to get going
@@ -134,26 +133,13 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         }
     }
     // Run those steps 
-    //https://tldp.org/HOWTO/NCURSES-Programming-HOWTO/keys.html
-    WINDOW *menu_win;
-    initscr();
-	clear();
-	noecho();    
-    cbreak();
-	int startx = (80 - WIDTH) / 2;
-	int starty = (24 - HEIGHT) / 2;
-	menu_win = newwin(HEIGHT, WIDTH, starty, startx);
-    refresh();
-    keypad(menu_win, TRUE);
-    nodelay(menu_win,TRUE); // don't wait for input
-
     std::cout << "[ sim ] Implicit solver uses relative tolerance "<<stiff_rtol<<", max iterations "<<stiff_max_iter<<std::endl;
     for (size_t n = this->order; n < this->t.size()-1; n++) {
         if ((n-this->order)%steps_per_time_update == 0){
             std::cout << "\r[ sim ] t="
                     << std::left<<std::setfill(' ')<<std::setw(6)
                     << this->t[n] * Constant::fs_per_au << " fs" << std::flush;
-                    refresh();
+                    //refresh();
         }
         
         if (this->t[n+1] <= t_resume) continue; // Start with n = last step.
@@ -180,10 +166,8 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
             }  
              // The next containters are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state.       
         }    
-        if (wgetch(menu_win) == KEY_BACKSPACE){
-            clrtoeol();
-            refresh();
-            endwin();             
+        if (wgetch(Display::win) == KEY_BACKSPACE){
+            Display::close();
             std::cout << "Exiting early" << endl;
             this->y.resize(n);
             this->t.resize(n);           

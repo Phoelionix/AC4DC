@@ -23,10 +23,12 @@ This file is part of AC4DC.
 // (C) Alaric Sanders 2020
 // (C) Spencer Passmore 2023
 
+
 #include "ElectronRateSolver.h"
 #include "HartreeFock.h"
 #include "ComputeRateParam.h"
 #include "SplineIntegral.h"
+#include "Display.h"
 #include <fstream>
 #include <algorithm>
 #include <Eigen/SparseCore>
@@ -183,29 +185,42 @@ void ElectronRateSolver::solve(ofstream & _log) {
     
     int steps_per_time_update = max(1 , (int)(input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
 
+
+    
+
     // Call hybrid integrator to iterate through the time steps (good state)
     good_state = true;
+    std::stringstream plasma_header; 
     const string banner = "================================================================================";
-    cout<<banner<<endl;
+    plasma_header<<banner<<"\n\r";
     if (steps_per_time_update > 1){
-        cout<< "Updating time every " << steps_per_time_update << " steps." <<"\n";
+        plasma_header<< "Updating time every " << steps_per_time_update << " steps." <<"\n\r";
     }
     if (simulation_resume_time != simulation_start_time){
-        cout<<"\033[33m"<<"Loaded simulation at:  "<<"\033[0m"<<(simulation_resume_time)*Constant::fs_per_au<<" fs"<<endl;
+        plasma_header<<"\033[33m"<<"Loaded simulation at:  "<<"\033[0m"<<(simulation_resume_time)*Constant::fs_per_au<<" fs"<<"\n\r";
     }
-    cout<<"\033[33m"<<"Final time step:  "<<"\033[0m"<<(simulation_end_time)*Constant::fs_per_au<<" fs"<<endl;
-    cout<<banner<<endl;
+    plasma_header<<"\033[33m"<<"Final time step:  "<<"\033[0m"<<(simulation_end_time)*Constant::fs_per_au<<" fs"<<"\n\r";
+    plasma_header<<banner<<"\n\r";
     
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic)
-        std::cout <<"[ sim ] Grid update period: "<<grid_update_period * Constant::fs_per_au<<" fs"<<std::endl;
+        plasma_header <<"[ sim ] Grid update period: "<<grid_update_period * Constant::fs_per_au<<" fs"<<"\n\r";
     else 
-        std::cout << "[ sim ] Using static grid" << std::endl;
+        plasma_header << "[ sim ] Using static grid" << "\n\r";
+
+    plasma_header<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<"\n\r";
     size_t steps_per_grid_transform =  round(input_params.Num_Time_Steps()*(grid_update_period/timespan_au));
+
+
+    std::cout << plasma_header.str()<<std::flush;
+
+    Display::create_screen();
+    std::cout << plasma_header.str()<<std::flush;
+    //Display::deactivate();
 
     this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update,steps_per_grid_transform); // Inherited from ABM
 
-
-    cout<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<std::endl;
+    
+    
     
     // Using finer time steps to attempt to resolve NaN encountered in ODE solving. 
     /* Redoes the ENTIRE simulation. As it seems to be intended to, it should be fixed to start from timestep_reached. 
@@ -219,7 +234,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
             _log << endl << "[ Rate Solver ] "<< "Stopped at bad state encountered at t = " << timestep_reached << " fs"  << endl;
             _log.flush();
         }        
-        std::cerr<<"\033[93;1m[ Rate Solver ] Halving timestep...\033[0m"<<std::endl;  // Unsure if this is faster than continuing the simulation with halved timesteps rather than restarting and doing so -S.P.
+        std::cerr<<"\033[93;1m[ Rate Solver ] Halving timestep...\033[0m"<<std::endl;  // Would be ideal to go back e.g. 0.1 fs and increase time steps, except currently a fair few bad states caused by too few time steps get through detection.
         good_state = true;
         input_params.num_time_steps *= 2;           
         if (input_params.num_time_steps > MAX_T_PTS){
