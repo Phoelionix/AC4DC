@@ -1,32 +1,17 @@
-import stringprep
-import matplotlib.rcsetup as rcsetup
-import matplotlib.pyplot as plt
 import numpy as np
 # from scipy.interpolate import BSpline
 from math import log
 import os.path as path
 import os
-import matplotlib.colors as colors
 import sys
 # import glob
 import csv
 import subprocess
 import re
-from matplotlib.ticker import LogFormatter 
 import random
 from scipy.optimize import curve_fit
 import plotly.graph_objects as go
-import plotly.io as pio
 
-plt.rcParams["font.size"] = 9
-
-def get_colors(num, seed):
-    idx = list(np.linspace(0, 1, num))[1:]
-    random.seed(seed)
-    # random.shuffle(idx)
-    idx.insert(0,0)
-    C = plt.get_cmap('nipy_spectral')
-    return C(idx)
 
 class Plotter:
     # Example initialisation: Plotter(water)
@@ -42,7 +27,9 @@ class Plotter:
                 size=1,
                 # color='rgba(0,0,0,0)' # hide tick numbers? Nope.
             ),
-            paper_bgcolor= '#F7CAC9' #'#f7dac9' '#F7CAC9'  '#FFD580' "#92A8D1"  lgrey = '#bbbfbf',
+            paper_bgcolor= '#F7CAC9', #'#f7dac9' '#F7CAC9'  '#FFD580' "#92A8D1"  lgrey = '#bbbfbf',
+            width=1920,
+            height=1080            
         )
         self.fig.update_xaxes(x_args)
         self.fig.update_yaxes(y_args)  

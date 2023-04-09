@@ -40,4 +40,9 @@ struct Display{
     static constexpr double WIDTH = 30;
     static constexpr double HEIGHT = 10;
     static WINDOW* win;      
+
+    // Could just use this rather than do the screen thing (oops)
+    static void signalHandler( int signum );
 };
+
+

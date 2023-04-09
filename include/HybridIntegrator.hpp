@@ -125,6 +125,8 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     // activate the display
     //Display::reactivate();
 
+
+    // Initialise python integrationmv
     Plotting py_plotter;
 
     if (t_resume < this->t[this->order]){
@@ -144,7 +146,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         }
 
         if ((n-this->order+1)%20 == 0){
-            size_t num_pts = 200;
+            size_t num_pts = 2000;
             py_plotter.plot_frame(Distribution::get_energies_eV(num_pts),this->y[n].F.get_densities(num_pts,Distribution::get_knot_energies()));
         }        
         

@@ -48,20 +48,41 @@ GridRegions::GridRegions(){
     // indices  1|30|55|65|85|105|145|150 
     // energies 4|10|50|200|500|4500|6500|10000   
     int pts_per_dirac = 30; // per region, often will have much less per photopeak.
-    regions = {
-        Region(1,5,10,"static"),  // low divergent
-        Region(25,10,50, "static"), // low support (MB is very fine early on, grid doesn't let us make it suddenly become super fine.)
-        Region(10,50,200,"static"), 
-        Region(35,200,600,"static"), // auger
-        Region(40,600,6500,"static"),  //TODO change 6500 to be the xray energy.
-        Region(10,6500,15000,"static"), // high tail
-        Region(35,-1,-1,"mb"), // Maxwell-boltzmann distribution
-        // Photoelectron peaks. need to include num regions defined here in FeatureRegimes.
-        Region(pts_per_dirac,-1,-1,"dirac"), 
-        Region(pts_per_dirac,-1,-1,"dirac"), 
-        Region(pts_per_dirac,-1,-1,"dirac"), 
-        Region(pts_per_dirac,-1,-1,"dirac") 
-    };
+    bool debug = false;
+    if(!debug){    
+        regions = {
+            Region(1,5,10,"static"),  // low divergent
+            Region(25,10,50, "static"), // low support (MB is very fine early on, grid doesn't let us make it suddenly become super fine.)
+            Region(10,50,200,"static"), 
+            Region(35,200,600,"static"), // auger
+            Region(40,600,6500,"static"),  //TODO change 6500 to be the xray energy.
+            Region(10,6500,15000,"static"), // high tail
+            Region(35,-1,-1,"mb"), // Maxwell-boltzmann distribution
+            // Photoelectron peaks. need to include num regions defined here in FeatureRegimes.
+            Region(pts_per_dirac,-1,-1,"dirac"), 
+            Region(pts_per_dirac,-1,-1,"dirac"), 
+            Region(pts_per_dirac,-1,-1,"dirac"), 
+            Region(pts_per_dirac,-1,-1,"dirac") 
+        };
+    }
+    else{
+        pts_per_dirac = 10;
+        regions = {
+            Region(1,5,10,"static"),  // low divergent
+            Region(10,10,50, "static"), // low support (MB is very fine early on, grid doesn't let us make it suddenly become super fine.)
+            Region(10,50,200,"static"), 
+            Region(10,200,600,"static"), // auger
+            Region(10,600,6500,"static"),  //TODO change 6500 to be the xray energy.
+            Region(10,6500,15000,"static"), // high tail
+            Region(10,-1,-1,"mb"), // Maxwell-boltzmann distribution
+            // Photoelectron peaks. need to include num regions defined here in FeatureRegimes.
+            Region(pts_per_dirac,-1,-1,"dirac"), 
+            Region(pts_per_dirac,-1,-1,"dirac"), 
+            Region(pts_per_dirac,-1,-1,"dirac"), 
+            Region(pts_per_dirac,-1,-1,"dirac") 
+        };
+
+    }
 
 } 
 /**

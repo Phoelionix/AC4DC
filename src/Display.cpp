@@ -21,7 +21,8 @@ This file is part of AC4DC.
 ===========================================================================*/
 
 #include <Display.h>
-
+#include <csignal>
+#include <iostream>
 
 WINDOW* Display::win; // The single line that demands a src file.
 
@@ -32,6 +33,7 @@ void Display::create_screen(){
     cbreak();
     int startx = (80 - WIDTH) / 2;
     int starty = (24 - HEIGHT) / 2;
+    signal(SIGINT,Display::signalHandler);  // clean up for interrupt
     win = newwin(HEIGHT, WIDTH, starty, startx);
     refresh();
     keypad(win, TRUE);
@@ -48,3 +50,10 @@ void Display::close(){
     refresh();
     endwin();     
 }  
+
+// cleans up the terminal on interrupt
+void Display::signalHandler( int signum ) {
+    endwin();
+    std::cout << "Window ended successfully after interrupt signal (" << signum << ") received.\n";
+    std::exit(signum);  
+}    

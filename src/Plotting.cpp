@@ -1,0 +1,71 @@
+/**
+ * @file Plotting.cpp
+ * @brief 
+*/
+
+/*===========================================================================
+This file is part of AC4DC.
+
+    AC4DC is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    AC4DC is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
+===========================================================================*/
+
+#include <Plotting.h>
+#include <Display.h>
+#include <filesystem>
+#include <iostream>
+
+Plotting::Plotting(){ 
+    //py::object current_path = PySys_GetObject("path");//std::getenv("PYTHONPATH");  // https://stackoverflow.com/questions/7137412/python-c-api-modify-search-path
+    //string python_path = string(std::filesystem::current_path()) + "/scripts";    
+    //python_path += current_path;   
+    //std::wstring wide_py_path = std::wstring(python_path.begin(), python_path.end());
+    //PySys_SetPath(wide_py_path.c_str());  
+    try {
+        PyRun_SimpleString(
+        "import sys\n"
+        "import os\n"
+        "script_path = os.getcwd() + '/scripts' \n"
+        "print('[ Plotting ] adding scripts directory to python path:', script_path)\n"
+        "sys.path.append(script_path)\n"
+        );
+    }
+    catch (const std::exception& e){
+        Display::close();
+        std::cerr << "Error: " << e.what() << std::endl;
+        py::module_ sys = py::module_::import("sys");
+        py::print("Python path:",sys.attr("path"));
+        throw std::runtime_error("plotting failure1");
+    }
+
+}
+void Plotting::plot_frame(std::vector<double> knot_to_plot, std::vector<double> density){
+    py::list knot_list = py::cast(knot_to_plot);
+    py::list density_list = py::cast(density);     
+    //auto py_path = PySys_GetObject("path");
+    py::module_ sys = py::module_::import("sys");
+    try { 
+        py::module_::import("scipy"); // test importing
+        py::object py_clear_frame = py::module_::import("script_generate_frame").attr("clear_frame_c")();
+        py::object py_plot_frame = py::module_::import("script_generate_frame").attr("plot_frame_from_c")(knot_list,density_list);
+    } 
+    catch (const std::exception& e) {
+        Display::close();
+        std::cerr << "Error: " << e.what() << std::endl;
+        py::print("Python path:",sys.attr("path"));
+        throw std::runtime_error("plotting failure2");
+        //TODO skip plotting if fail 
+    }   
+    //py_clear_frame();
+    //py_plot_frame(knot,density);        
+}

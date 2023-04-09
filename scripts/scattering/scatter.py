@@ -1119,6 +1119,8 @@ def create_reflection_file(result_handle,overwrite=False):
 
 #create_reflection_file("f1_11",True)
 
+#%%
+plt.plot([3,2],[1,2])
 #%% 
 root = "lys"
 tag = 0
