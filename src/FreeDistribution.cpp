@@ -310,6 +310,49 @@ std::string Distribution::output_densities(size_t num_pts,std::vector<double> re
 }
 
 
+// for live plotting 
+////
+std::vector<double> Distribution::get_energies_eV(size_t num_pts) {
+    std::vector<double> energies(num_pts);
+    size_t pts_per_knot = num_pts / basis.gridlen();
+    if (pts_per_knot == 0){
+        pts_per_knot = 1;
+        energies.resize(basis.gridlen());
+        cerr<<"[ warn ] Outputting a small number of points per knot."<<endl;
+    }
+    for (size_t i=0; i<basis.gridlen()-1; i++){
+        double e = basis.grid(i);
+        double de = (basis.grid(i+1) - e)/(pts_per_knot-1);
+        for (size_t j=0; j<pts_per_knot; j++) {
+            energies[i*pts_per_knot + j]=e*Constant::eV_per_Ha;
+            e += de;
+        }
+    }
+    return energies;
+}
+std::vector<double> Distribution::get_densities(size_t num_pts,std::vector<double> reference_knots) const {    
+    std::vector<double> densities(num_pts);
+    size_t pts_per_knot = num_pts / reference_knots.size();
+    if (pts_per_knot == 0){
+        pts_per_knot = 1;
+        densities.resize(basis.gridlen());
+        cerr<<"[ warn ] Outputting a small number of points per knot."<<endl;
+    }
+    // Iterate through each knot
+    const double units = 1./Constant::eV_per_Ha/Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au;
+    for (size_t i=0; i<reference_knots.size()-1; i++){
+        // output pts_per_knot points between this knot to the next.
+        double e = reference_knots[i];
+        double de = (reference_knots[i+1] - reference_knots[i])/(pts_per_knot-1);
+        for (size_t j=0; j<pts_per_knot; j++) {
+            densities[i*pts_per_knot + j] = (*this)(e)*units;
+        e += de;
+        }
+    }
+    return densities;
+}
+///////
+
 
 
 /**

@@ -27,9 +27,9 @@ This file is part of AC4DC.
 #include "FreeDistribution.h"
 #include "RateSystem.h"
 #include "Display.h"
+#include "Plotting.h"
 #include <Eigen/Dense>
 #include <iostream>
-
 
 namespace ode {
 template<typename T>
@@ -125,6 +125,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     // activate the display
     //Display::reactivate();
 
+    Plotting py_plotter;
 
     if (t_resume < this->t[this->order]){
         // initialise enough points for multistepping to get going
@@ -141,6 +142,11 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
                     << this->t[n] * Constant::fs_per_au << " fs" << std::flush;
                     //refresh();
         }
+
+        if ((n-this->order+1)%20 == 0){
+            size_t num_pts = 200;
+            py_plotter.plot_frame(Distribution::get_energies_eV(num_pts),this->y[n].F.get_densities(num_pts,Distribution::get_knot_energies()));
+        }        
         
         if (this->t[n+1] <= t_resume) continue; // Start with n = last step.
         this->step_nonstiff_part(n); 
@@ -166,15 +172,21 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
             }  
              // The next containters are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state.       
         }    
-        if (wgetch(Display::win) == KEY_BACKSPACE){
-            Display::close();
-            std::cout << "Exiting early" << endl;
-            this->y.resize(n);
-            this->t.resize(n);           
-            break;
+        if (wgetch(Display::win) == KEY_BACKSPACE){         
+            std::cout << "Exiting early... press backspace again to confirm or any other key to cancel" << endl;
+            nodelay(Display::win,false);
+            if (wgetch(Display::win) == KEY_BACKSPACE){
+                this->y.resize(n);
+                this->t.resize(n);    
+                break;
+            }
+            nodelay(Display::win,true);
         }        
     }
-    std::cout<<std::endl;
+    Display::close();
+    std::cout<<"\n";
+    std::cout <<"[ sim ] Implicit solver used relative tolerance "<<stiff_rtol<<", max iterations "<<stiff_max_iter<<"\n";
+    std::cout<<"[ sim ] final t = "<<this->t.back() * Constant::fs_per_au<<" fs"<< endl;  
 }
 /**
  * @brief Use a true implicit method to estimate change to bad part of system based solely on its own action.

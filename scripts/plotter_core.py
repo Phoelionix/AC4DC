@@ -876,32 +876,6 @@ class Plotter:
 
         ax2.get_yaxis().set_visible(False)
 
-        
-
-    def plot_free_raw(self, N=100, log=False, min = None, max=None):
-        plt.figure()
-        rawdata = np.genfromtxt(self.outDir+'/freeDistRaw.csv')
-        T = rawdata[:,0]
-        self.rawZ = rawdata[:,1:].T
-        Z = self.rawZ
-
-        if log:
-            Z = np.log(Z)
-        
-        if min is not None:
-            Z = np.ma.masked_where(Z < min, Z)
-
-        if max is not None:
-            Z = np.ma.masked_where(Z > max, Z)
-
-        Yax = np.arange(Z.shape[0])
-        plt.contourf(T, Yax, Z, N, shading='nearest',cmap='magma')
-        plt.title("Free electron energy distribution")
-        plt.ylabel("Energy (eV)")
-        plt.xlabel("Time, fs")
-        plt.show()
-        plt.colorbar()
-
     # Plots a single point in time.
     def plot_step(self, t, normed=True, fitE=None, **kwargs):        
         self.ax_steps.set_xlabel('Energy (eV)')
@@ -952,7 +926,7 @@ class Plotter:
 
     def get_density(self, t):
         t_idx = self.timeData.searchsorted(t)
-        de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])
+        de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2]) 
         de = de [1:] - de[:-1]
         return np.dot(self.freeData[t_idx, :], de)
 
@@ -968,13 +942,6 @@ def maxwell(e, kT, n):
     if kT < 0:
         return 0 # Dirty silencing of fitting error - note we get negative values from unphysical oscillations, so this increases the average value around this point. -S.P.
     return n * np.sqrt(e/(np.pi*kT**3)) * np.exp(-e/kT)
-
-def plot_maxwell(kT, n):
-    e_points = np.logspace(0,4,100)
-    #plt.plot(e_points,maxwell(e_points,kT,n))
-    #pl.ax_steps.plot(e_points,maxwell(e_points,kT,n))
-    pl.ax_steps.plot(e_points,maxwell(e_points,kT,n)*e_points,'--', **kwargs)
-    return
 
 def lnmaxwell(e, kT, n):
     return np.log(n) + 0.5*np.log(e/np.pi*kT**3) - e /kT

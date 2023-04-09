@@ -192,7 +192,7 @@ class PlotData:
     
     def get_density(self, t):
         t_idx = self.timeData.searchsorted(t)
-        de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])
+        de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2]) 
         de = de [1:] - de[:-1]
         return np.dot(self.freeData[t_idx, :], de)    
 
@@ -605,12 +605,6 @@ class InteractivePlotter:
 #         return 0 # Dirty silencing of fitting error - note we get negative values from unphysical oscillations, so this increases the average value around this point. -S.P.
 #     return n * np.sqrt(e/(np.pi*kT**3)) * np.exp(-e/kT)
 
-# def plot_maxwell(kT, n):
-#     e_points = np.logspace(0,4,100)
-#     #plt.plot(e_points,maxwell(e_points,kT,n))
-#     #pl.ax_steps.plot(e_points,maxwell(e_points,kT,n))
-#     pl.ax_steps.plot(e_points,maxwell(e_points,kT,n)*e_points,'--', **kwargs)
-#     return
 
 # def lnmaxwell(e, kT, n):
 #     return np.log(n) + 0.5*np.log(e/np.pi*kT**3) - e /kT

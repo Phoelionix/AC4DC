@@ -216,6 +216,7 @@ public:
 
 
     static std::string output_energies_eV(size_t num_pts);
+    static std::vector<double> get_energies_eV(size_t num_pts);
     /**
      * @brief Returns approx. num_pts densities by outputting the same number of points per knot. For a dynamic grid, the energies are determined based on the final energy grid used.
      * @details Always outputs minimum of 1 point per knot.
@@ -223,6 +224,8 @@ public:
      * @return 
      */
     std::string output_densities(size_t num_pts, std::vector<double> reference_knots) const;
+
+    std::vector<double> get_densities(size_t num_pts, std::vector<double> reference_knots) const;
     // 
     /**
      * @brief Switch grid points to the knot_energies provided, and replace densities with the ones interpolated to by the splines. 

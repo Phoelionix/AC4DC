@@ -1,8 +1,12 @@
-CPP := /home/linuxbrew/.linuxbrew/bin/g++-10 #-L/usr/share/doc -L/usr/lib/x86_64-linux-gnu   #g++-11 
+CPP := /home/linuxbrew/.linuxbrew/bin/g++-10 #g++-11 
 
-LIB := -L/usr/lib -lncurses -fopenmp  ## /x86_64-linux-gnu # -lncurses#-lncurses  # /usr/share/doc/libncurses5-dev /usr/share/doc/libncursesw5-dev # Link special external libraries here!
+PY_CFLAGS  := $(shell python3-config --cflags)
+PY_LDFLAGS := $(shell python3-config --ldflags)
 
-INC := -I/opt/homebrew/include/eigen3 -Iinclude -I/usr/include   #-I/usr/lib/x86_64-linux-gnu -I/usr/share/doc#-L/home/linuxbrew/.linuxbrew/Cellar/ncurses/6.4/lib 
+LIB := -lncurses -fopenmp -lpython3.9 # Link special external libraries here! (-L for directory of libraries) #-L/usr/lib #-lpython3.9
+
+CONDA_PREFIX := /home/speno/anaconda3/
+INC := -Iinclude $(shell python3 -m pybind11 --includes)#-I$(CONDA_PREFIX)/lib/python3.9/site-packages/pybind11/include   -I$(CONDA_PREFIX)/include/python3.9 # $(PY_LDFLAGS)  # $(PY_CFLAGS)  #-I/usr/include   #-I/opt/homebrew/include/eigen3 -   # 
 
 SRCDIR := src
 BUILDDIR := build
@@ -13,7 +17,7 @@ SRCEXT := cpp
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT) )
 
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
-CXXFLAGS := -std=c++17 -fopenmp -MD -g -Wall  -L/usr/lib/x86_64-linux-gnu -lncurses
+CXXFLAGS := -std=c++17 -fopenmp -MD -g -Wall  -L/usr/lib/x86_64-linux-gnu -lncurses 
 
 debug: CXXFLAGS += -DDEBUG -Wpedantic
 release: CXXFLAGS += -O3 -DNDEBUG
@@ -30,7 +34,7 @@ all: $(TARGET)
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
 	@mkdir -p $(BUILDDIR) bin $(BUILDDIR)/Wigner $(BUILDDIR)/$(MAINSUBDIR)
-	@echo " $(CPP) $(CXXFLAGS) $(INC) -c -o $@ $<"; $(CPP) $(CXXFLAGS) $(INC) -c -o $@ $<
+	@echo " $(CPP) $(CXXFLAGS) $(INC) -c -o $@ $<"; $(CPP) $(CXXFLAGS) $(INC) -c -o  $@ $<
 
 test: $(TESTS)
 	@mkdir -p bin/tests tmp testOutput
