@@ -10,7 +10,7 @@ import IPython
 def plot_frame(ipl,energies,densities):
 
     ipl.update_data(energies,densities)   
-    normalise = False  # TODO make True default, and False an option for cmdline arg.
+    normalise = True  # TODO make True default, and False an option for cmdline arg.
     ipl.plot_step(normed=normalise)
     # import matplotlib.pyplot as plt
     # plt.pause(2)
