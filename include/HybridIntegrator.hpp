@@ -144,8 +144,9 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
                     << this->t[n] * Constant::fs_per_au << " fs" << std::flush;
                     //refresh();
         }
-
-        if ((n-this->order+1)%20 == 0){
+        
+        // live plotting
+        if ((n-this->order+1)%100 == 0){
             size_t num_pts = 2000;
             py_plotter.plot_frame(Distribution::get_energies_eV(num_pts),this->y[n].F.get_densities(num_pts,Distribution::get_knot_energies()));
         }        
