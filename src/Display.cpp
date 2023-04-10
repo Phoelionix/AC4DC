@@ -24,7 +24,8 @@ This file is part of AC4DC.
 #include <csignal>
 #include <iostream>
 
-WINDOW* Display::win; // The single line that demands a src file.
+// Initialise static variables.
+WINDOW* Display::win; std::string Display::header;
 
 void Display::create_screen(){
     initscr();
@@ -37,7 +38,7 @@ void Display::create_screen(){
     win = newwin(HEIGHT, WIDTH, starty, startx);
     refresh();
     keypad(win, TRUE);
-    nodelay(win,TRUE); // don't wait for input      
+    nodelay(win,TRUE); // don't wait for input  
 }
 // void Display::deactivate(){
 //     touchwin(stdscr);

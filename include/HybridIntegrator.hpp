@@ -124,9 +124,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
 
     // activate the display
     //Display::reactivate();
-
-
-    // Initialise python integrationmv
+    
     Plotting py_plotter;
 
     if (t_resume < this->t[this->order]){
@@ -136,18 +134,29 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         }
     }
     // Run those steps 
-    std::cout << "[ sim ] Implicit solver uses relative tolerance "<<stiff_rtol<<", max iterations "<<stiff_max_iter<<std::endl;
+    std::stringstream tol;
+    tol << "[ sim ] Implicit solver uses relative tolerance "<<stiff_rtol<<", max iterations "<<stiff_max_iter<<"\n\r";
+    std::cout << tol.str();  // Display in regular terminal even after ncurses screen is gone.
+    Display::header += tol.str(); 
+    Display::create_screen();
+    //TODO Probably cursed implementation of ncurses since I'm using cout.  
     for (size_t n = this->order; n < this->t.size()-1; n++) {
         if ((n-this->order)%steps_per_time_update == 0){
-            std::cout << "\r[ sim ] t="
-                    << std::left<<std::setfill(' ')<<std::setw(6)
-                    << this->t[n] * Constant::fs_per_au << " fs" << std::flush;
-                    //refresh();
-        }
+            wclrtoeol(Display::win);
+            refresh();  // header doesn't change which I guess is why this is needed.
+            std::cout<< "\n\r" << Display::header << "\n\r"
+            << "--- Press BACKSPACE/DEL to end simulation and save the data ---\n\r"      
+            << "[ sim ] t="
+            << std::left<<std::setfill(' ')<<std::setw(6)
+            << this->t[n] * Constant::fs_per_au << " fs\n\r" 
+            << "[ sim ] " <<Distribution::size << " knots currently active\n\r" 
+            << flush; 
+            refresh();
+        }        
         
         // live plotting
         if ((n-this->order+1)%100 == 0){
-            size_t num_pts = 2000;
+            size_t num_pts = 4000;
             py_plotter.plot_frame(Distribution::get_energies_eV(num_pts),this->y[n].F.get_densities(num_pts,Distribution::get_knot_energies()));
         }        
         
@@ -175,15 +184,21 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
             }  
              // The next containters are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state.       
         }    
-        if (wgetch(Display::win) == KEY_BACKSPACE){         
-            std::cout << "Exiting early... press backspace again to confirm or any other key to cancel" << endl;
-            nodelay(Display::win,false);
-            if (wgetch(Display::win) == KEY_BACKSPACE){
+        auto ch = wgetch(Display::win);
+        if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127){   
+            string get_to_the_line_and_clear = "\n\n\n\n\n\r";     // relative to end of header.
+            std::cout <<get_to_the_line_and_clear<<"\033[33mExiting early... press backspace/del again to confirm or any other key to cancel\033[0m"<<flush;
+            refresh();
+            nodelay(Display::win,FALSE);
+             auto ch = wgetch(Display::win);
+            if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127){
                 this->y.resize(n);
                 this->t.resize(n);    
                 break;
             }
-            nodelay(Display::win,true);
+            nodelay(Display::win,TRUE);
+            clear();
+            refresh(); // clear exiting early message.
         }        
     }
     Display::close();

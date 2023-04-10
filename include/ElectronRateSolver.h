@@ -72,7 +72,7 @@ public:
         simulation_resume_time = simulation_start_time;
         set_grid_regions(input_params.elec_grid_regions);
 
-        grid_update_period = input_params.Grid_Update_Period();
+        grid_update_period = input_params.Grid_Update_Period();  // TODO the grid update period should be made to be at least 3x (probably much more) longer with a gaussian pulse, since early times need it to be updated far less often to avoid instability for such a pulse. 
 
         if(input_params.Filtration_File() != ""){
             load_filtration_file();

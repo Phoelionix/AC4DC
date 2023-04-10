@@ -20,9 +20,7 @@ namespace py = pybind11;
 
 
 struct Plotting{    
+    //py::scoped_interpreter guard{};
     Plotting();
     void plot_frame(std::vector<double> knot_to_plot, std::vector<double> density);
-    // Initialize the Python interpreter
-    py::scoped_interpreter guard{};
 };
-

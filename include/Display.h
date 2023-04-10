@@ -23,6 +23,7 @@ This file is part of AC4DC.
 
 #include <curses.h> // key detection linux
 #include <assert.h>
+#include <string>
 //#include <conio.h>   // key detection for windows 
 
 /**
@@ -40,6 +41,8 @@ struct Display{
     static constexpr double WIDTH = 30;
     static constexpr double HEIGHT = 10;
     static WINDOW* win;      
+    
+    static std::string header; // displayed text at start of screen/terminal that doesn't change.
 
     // Could just use this rather than do the screen thing (oops)
     static void signalHandler( int signum );

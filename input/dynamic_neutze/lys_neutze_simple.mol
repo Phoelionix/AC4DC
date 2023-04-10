@@ -13,11 +13,14 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 #PULSE
 6000         // Photon energy in eV.
 5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-1677         // Pulse fluence in 10^4 * J/cm^2. 
 gaussian       // Pulse shape
 
+#USE_FLUENCE
+true
+1677         // Pulse fluence in 10^4 * J/cm^2. (== Neutze's I_tot)
+
 #NUMERICAL
-500000          // Initial guess for number of time step points for rate equation.
+80000        // Initial guess for number of time step points for rate equation.    
 18            // Number of threads in OpenMP.
 0.25            // Grid update period in fs, (dynamic grid only).
 
@@ -36,8 +39,8 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #LOAD
-lys_neutze_simple_64 // Output folder name
--6   // Point to load time from 
+//lys_neutze_simple_64 // Output folder name
+//-6   // Point to load time from 
 
 #DEBUG
 10 //10     // Simulation cutoff time in fs
@@ -45,8 +48,5 @@ lys_neutze_simple_64 // Output folder name
 ####END#####
 
 Notes:
-Using 30 grid points per peak, and still 40 for the high energy region.
-Next try using 20, and using 60 for high eenergy region.
-
-From https://files.rcsb.org/pub/pdb/validation_reports/et/4et8/4et8_full_validation.pdf
-Lysozyme making nitrogen assumption (e.g. used by Chapman 2010) and ignoring salt water atoms.
+1. Start with 80 000 time steps
+2. use 500 000 steps for around peak area when breakage.

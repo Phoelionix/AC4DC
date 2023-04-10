@@ -211,10 +211,9 @@ void ElectronRateSolver::solve(ofstream & _log) {
     size_t steps_per_grid_transform =  round(input_params.Num_Time_Steps()*(grid_update_period/timespan_au));
 
 
-    std::cout << plasma_header.str()<<std::flush;
+    std::cout << plasma_header.str()<<std::flush; // display in regular terminal, so that it is still visible after end of program
 
-    Display::create_screen();
-    std::cout << plasma_header.str()<<std::flush;
+    Display::header += plasma_header.str(); // display this in ncurses screen
     //Display::deactivate();
 
     this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update,steps_per_grid_transform); // Inherited from ABM

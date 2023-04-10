@@ -299,10 +299,12 @@ int main(int argc, const char *argv[]) {
     cout << "\033[1;32mComputing cross sections... \033[0m" <<endl;
     S.set_up_grid_and_compute_cross_sections(log, runsettings.recalc);
     if (runsettings.solve_rate_eq) {
-        cout << "\033[1;32mSolving rate equations..." << "\033[35m\033[1mTarget: " << name << "\033[0m" <<endl;
+        cout << "\033[1;32mSolving rate equations..." << "\033[35m\033[1mTarget: " << name << "\033[0m" <<endl;       
+        pybind11::initialize_interpreter();  
         S.solve(log);
         try_mkdir(outdir);
-        S.save(outdir);
+        S.save(outdir);    
+        //pybind11::finalize_interpreter(); just never call finalize (via this or scoped_interpreter) since it crashes due to a missing pointer for whatever reason.
     }
     move_mol_file(tmp_molfile,outdir,name);
     move_log_file(logpath,outdir,name);
