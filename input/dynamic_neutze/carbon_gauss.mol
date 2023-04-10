@@ -48,8 +48,8 @@ false        // use manual grid? If false, dynamic grid is used.
 
 
 #LOAD
-carbon_gauss_3 // Output folder name
-1000   // Point to load time from 
+//carbon_gauss_3 // Output folder name
+//1000   // Point to load time from 
 
 #DEBUG
 10      // Simulation cutoff time in fs
