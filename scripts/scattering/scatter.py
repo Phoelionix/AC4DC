@@ -46,6 +46,7 @@ import matplotlib as mpl
 from matplotlib import cm
 import copy
 import pickle
+import colorcet as cc; import cmasher as cmr
 
 DEBUG = False 
 c_au = 137.036; eV_per_Ha = 27.211385 
@@ -160,7 +161,13 @@ class Atomic_Species():
         self.coords.append(vector)
     def set_scalar_form_factor(self,q):
         # F_i(q) = f(q)*T_i(q), where f = self.ff is the time-integrated average 
-        self.ff = self.crystal.ff_calculator.f_average(q,self.name) 
+        stochastic = False
+        if not stochastic:
+            self.ff = self.crystal.ff_calculator.f_average(q,self.name)      # note that in taking the integral to get this ff, we included the relative intensity.
+        else:
+            self.ff = self.crystal.ff_calculator.f_stochastic(q,self.name)
+
+        #self.ff = self.crystal.ff_calculator.f_stochastic_snapshots(q,self.name)
     def add_cell_symmetries(self,factor,translation):
         '''Until this is applied, the coords will contain only
         the asymmetric unit. This function adds all symmetries in 
@@ -399,7 +406,7 @@ class XFEL():
                             T = self.SPI_spatial_factor(phis,coord,feature)
                         else:
                             T= self.spatial_factor(phis,coord,feature,cardan_angles)
-                        F += species.ff*T
+                        F += species.ff*T   
                         # Rotate atom for next sample            
         #print("iterated through",count,"atoms")
         I = np.square(np.abs(F))
@@ -1120,7 +1127,83 @@ def create_reflection_file(result_handle,overwrite=False):
 #create_reflection_file("f1_11",True)
 
 #%%
-plt.plot([3,2],[1,2])
+# stylin' 
+def stylin():
+    experiment1_name = exp_name1#"Lys_9.95_random"#exp_name1
+    experiment2_name = exp_name2#"lys_9.80_random"#exp_name2 
+
+    #####
+
+
+    font = {'family' : 'monospace',
+            'weight' : 'bold',
+            'size'   : 24}
+
+    plt.rc('font', **font)
+
+    use_q = True
+    log_radial = False
+    log_I = True
+    cutoff_log_intensity = -1#-1
+    try:
+        cmap = shiftedColorMap(matplotlib.cm.RdYlGn_r,midpoint=0.2)#"plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
+    except: 
+        cmap =  plt.get_cmap("shiftedcmap")
+    cmap.set_bad(color='black')
+    cmap_power = 1.6
+    min_alpha = 0.3
+    max_alpha = 1
+    colour = "y"
+    radial_lim = 5
+    full_crange_sectors = False
+
+    cmap_intensity = "inferno"
+
+
+    # screen_radius = 150#55#165    #
+    # q_scr_lim = experiment.r_to_q(screen_radius) #experiment.r_to_q_scr(screen_radius)#3.9  #NOTE this won't be the actual max q_parr_screen but ah well.
+    # zoom_to_fit = True
+    # ####### n'
+    # # plottin'
+
+    # as q = ksin(theta).  
+    q_scr_max = experiment1.q_cutoff#experiment1.q_cutoff*(1/np.sqrt(2)) # for flat screen. as q_scr = qcos(theta). (q_z = qsin(theta) =ksin^2(theta)), max theta is 45. (Though experimentally ~ 22 as of HR paper)
+
+    zoom_to_fit = False
+    if not zoom_to_fit:
+        if use_q:
+            radial_lim = q_scr_max+0.2
+        #els:
+    #else:
+    #     radial_lim = screen_radius#min(screen_radius,experiment.q_to_r(experiment.q_cutoff))
+    #     print(radial_lim)
+    #     if use_q:
+    #         #radial_lim = experiment.r_to_q_scr(radial_lim)
+    #         radial_lim = q_scr_lim #radial_lim = min(q_scr_lim,experiment.q_to_q_scr(experiment.q_cutoff))
+    #         print(radial_lim)
+    # else:
+    #     radial_lim = None
+
+    #TODO fix above to work with distance
+
+    # Sectors
+    scatter_scatter_plot(crystal_aligned_frame = False,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+    # Intensity of experiment 1. 
+    scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+    # Sectors
+    scatter_scatter_plot(crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+    # Intensity of experiment 1. 
+    scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+
+    #NEED TO CHECK. We have a 1:1 mapping from q to q_parr, but with our miller indices we are generating multiple q_parr with diff q.
+    # So we SHOULD get the same q_parr with different q_z. Which makes sense since we are just doing cosine. But still icky maybe?
+    # Need to double check we get different intensities for same q_parr. Pretty sure that's implemented.
+#stylin()
+
+#TODO 
+# log doesnt work atm.
+# Get the rings to correspond to actual rings
+
 #%% 
 root = "lys"
 tag = 0
@@ -1222,7 +1305,7 @@ plt.ylabel("y (Ang)")
 # implement stochastic stuff
 # implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector
 root = "lysNeutze"
-tag = "v5"
+tag = "v8" # - multi #"v7" 3 - single
 #  #TODO make this nicer and pop in a function 
 DEBUG = False
 energy = 6000 #
@@ -1239,7 +1322,7 @@ allowed_atoms_2 = ["N_fast","S_fast"]
 end_time_1 = -10#-9.95
 end_time_2 = 10#0#-9.80  
 
-num_orients = 4
+num_orients = 5
 # [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
 ax_x = 1
 ax_y = 1
@@ -1248,7 +1331,10 @@ random_orientation = True # if true, overrides orientation_set
 
 rock_angle = 0.3 # degrees
 
-pdb_path = "/home/speno/AC4DC/scripts/scattering/2lzm.pdb"#4et8.pdb" #tetrapeptide
+#neutze
+pdb_path = "/home/speno/AC4DC/scripts/scattering/2lzm.pdb"
+#
+pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb"
 
 output_handle = "D_lys_neutze_simple_7"
 
@@ -1259,7 +1345,7 @@ hemisphere_screen = True
 
 # if not random:
 if ax_x == ax_y == ax_z and ax_z == 0 and random_orientation == False:
-    throw
+    throwabxzd
 orientation_axis = Bio_Vect(ax_x,ax_y,ax_z)
 orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0,2*np.pi,num_orients,endpoint=False)]
 orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
@@ -1275,7 +1361,11 @@ experiment2 = XFEL(exp_name2,energy,100, hemisphere_screen = hemisphere_screen, 
 # cell_dim = [np.array([1,1,1])]  
 
 crystal = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=CNO_to_N,cell_packing = "SC")
+# neutze
 crystal.set_cell_dim(61.200 ,  61.200 ,  61.2)  #TODO this isn't right we didn't implement rock angle properly
+
+
+#
 #crystal.set_cell_dim(79.000  , 79.000  , 38.000)
 #crystal.add_symmetry(np.array([-1, -1,1]),np.array([0.5,0,0.5]))  #2555
 #crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0.5]))  #3555
@@ -1359,84 +1449,10 @@ experiment2.orientation_set = exp1_orientations
 experiment2.spooky_laser(-10,end_time_2,output_handle,crystal, random_orientation = False, SPI=SPI)
 
 stylin()
-#
+
 
  
-#%%
-# stylin' 
-def stylin():
-    experiment1_name = exp_name1#"Lys_9.95_random"#exp_name1
-    experiment2_name = exp_name2#"lys_9.80_random"#exp_name2 
 
-    #####
-
-
-    font = {'family' : 'monospace',
-            'weight' : 'bold',
-            'size'   : 24}
-
-    plt.rc('font', **font)
-
-    use_q = True
-    log_radial = False
-    log_I = True
-    cutoff_log_intensity = -1#-1
-    import colorcet as cc; import cmasher as cmr
-    cmap = shiftedColorMap(matplotlib.cm.RdYlGn_r,midpoint=0.2)#"plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
-    cmap.set_bad(color='black')
-    cmap_power = 1.6
-    min_alpha = 0.3
-    max_alpha = 1
-    colour = "y"
-    radial_lim = 5
-    full_crange_sectors = False
-
-    cmap_intensity = "inferno"
-
-
-    # screen_radius = 150#55#165    #
-    # q_scr_lim = experiment.r_to_q(screen_radius) #experiment.r_to_q_scr(screen_radius)#3.9  #NOTE this won't be the actual max q_parr_screen but ah well.
-    # zoom_to_fit = True
-    # ####### n'
-    # # plottin'
-
-    # as q = ksin(theta).  
-    q_scr_max = experiment1.q_cutoff#experiment1.q_cutoff*(1/np.sqrt(2)) # for flat screen. as q_scr = qcos(theta). (q_z = qsin(theta) =ksin^2(theta)), max theta is 45. (Though experimentally ~ 22 as of HR paper)
-
-    zoom_to_fit = False
-    if not zoom_to_fit:
-        if use_q:
-            radial_lim = q_scr_max+0.2
-        #els:
-    #else:
-    #     radial_lim = screen_radius#min(screen_radius,experiment.q_to_r(experiment.q_cutoff))
-    #     print(radial_lim)
-    #     if use_q:
-    #         #radial_lim = experiment.r_to_q_scr(radial_lim)
-    #         radial_lim = q_scr_lim #radial_lim = min(q_scr_lim,experiment.q_to_q_scr(experiment.q_cutoff))
-    #         print(radial_lim)
-    # else:
-    #     radial_lim = None
-
-    #TODO fix above to work with distance
-
-    # Sectors
-    scatter_scatter_plot(crystal_aligned_frame = False,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-    # Intensity of experiment 1. 
-    scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-    # Sectors
-    scatter_scatter_plot(crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-    # Intensity of experiment 1. 
-    scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-
-    #NEED TO CHECK. We have a 1:1 mapping from q to q_parr, but with our miller indices we are generating multiple q_parr with diff q.
-    # So we SHOULD get the same q_parr with different q_z. Which makes sense since we are just doing cosine. But still icky maybe?
-    # Need to double check we get different intensities for same q_parr. Pretty sure that's implemented.
-stylin()
-
-#TODO 
-# log doesnt work atm.
-# Get the rings to correspond to actual rings
 # %%
 #%%
 ### Get undamaged lysozyme SPI

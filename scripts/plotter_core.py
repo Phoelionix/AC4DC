@@ -285,7 +285,7 @@ class Plotter:
 
     def initialise_coherence_params(self, start_t,end_t, q_max, photon_energy, q_fineness=50,t_fineness=50,naive=False):
         args = locals()
-        self.__dict__ .update(args)  # Is this a coding sin?  - yes unless you like your IDE not being sure about your variables.
+        self.__dict__ .update(args)  # Is this a coding sin?  ...yes.
         self.k_max = 2*np.pi * self.q_max  # Change to wavenumber.
  
     
@@ -493,26 +493,64 @@ class Plotter:
         A_bar = np.trapz(form_factor_product,time)/(time[-1]-time[0])
         return A_bar        
 
-    # f component of I = int{F.F*}dt =int{f^2}dt T.T*, 
-    # where F(q)_i = f(q)T(q)_i is the contribution to F by an atom, and f is the time-integrated component, T(q) is the spatial component.
-    def f_average(self,q,atom):
-        if self.end_t == self.start_t:
-            return self.get_form_factor(q,[atom],self.end_t)[0]
 
-        def integrand(idx):
+    def f_snapshots(self,q,atom):
+        '''
+        Get t_fineness form factors, distributed as evenly between plotter_obj.start_t and plotter_obj.end_t as possible.
+        t_fineness = number of snapshots
+        f is modified from the typical definition is multiplied by the scalar sqrt(I(t)) to deal with gaussian case.
+        '''
+        def snapshot(idx):
             # We pass in indices from 0 to fineness-1, transform to time:
-            t = self.start_t + idx/self.t_fineness*(self.end_t-self.start_t) 
+            t = self.start_t + idx/self.t_fineness*(self.end_t-self.start_t)
             val,times_used = self.get_form_factor(q,[atom],t)
+            idx = np.searchsorted(self.timeData,t)  # SAME AS IN get_form_factor()
+            val *= np.sqrt(self.intensityData[idx])
             return val,times_used
-        form_factor,times_used = np.fromfunction(integrand,(self.t_fineness,))   # (Need to double check working as expected - not using np.vectorise)
+        form_factors_sqrt_I,times_used = np.fromfunction(snapshot,(self.t_fineness,))   # (Need to double check working as expected - not using np.vectorise)
         if len(times_used) != len(np.unique(times_used)):
             print("times used:", times_used)
             print("Error, used same times! Choose a different fineness or a larger range.")
             return None
-        time = np.linspace(self.start_t,self.end_t,self.t_fineness)
+        return form_factors_sqrt_I, times_used
+    
+    def f_average(self,q,atom):
+        ''' arguably should be called f_eff given distinction made by Abdullah et al & Santra (2018).
+        f component of I = int{F.F*}dt = integral(SUM_{i}[f^2 T.T*])dt =  SUM_{i}[integral(f^2dt) T.T*] TODO double check since seems potentially contradictory with neutze?
+        where F(q)_i = f(q)T(q)_i is the contribution to F by an atom, and f is the time-integrated component, T(q) is the spatial component.
+        TODO but we are returning f not the integral of f^2?
+
+        OLD and discussion: idea was that we find f, find T, multiply together, get abs value, square. but we weren't returning sqrt integral f^2?
+        regardless if we actually have integral[|SUM(f*T)|^2 dt], then  we cant just separate out the sum into SUM(f^2*T^2)
+        # f component of I = int{F.F*}dt =int{f^2}dt T.T*, 
+        # where F(q)_i = f(q)T(q)_i is the contribution to F by an atom, and f is the time-integrated component, T(q) is the spatial component.
+        def f_average(self,q,atom):
+            if self.end_t == self.start_t:
+                return self.get_form_factor(q,[atom],self.end_t)[0]
+
+        
+        '''
+        if self.end_t == self.start_t:
+            return self.get_form_factor(q,[atom],self.end_t)[0]
+
+        form_factors_sqrt_I, times_used = self.f_snapshots(q,atom)
         #Approximate integral with composite trapezoidal rule.
-        f_avg = np.trapz(form_factor,time)/(times_used[-1]-times_used[0])    
+        f_avg = np.trapz(form_factors_sqrt_I,times_used)/(times_used[-1]-times_used[0])
         return f_avg   
+
+    def f_stochastic(self,q,atom):
+        '''
+        Only works as the atomic form factor for a single atom, cannot be taken ou-
+        
+        We now include the stochastic contribution by picking atomic state from distribution.
+        
+        ASSUMING we can indeed return
+        '''
+        form_factors_sqrt_I, bock = self.f_snapshots(q,atom)
+        # we now replace f_avg
+
+
+
 
     # Coherence stuff, relevant for when have different atomic species (Martin A. Quiney H.M. 2016).  Assuming I haven't misunderstood notation.
     # Useful under the assumption of the nuclei being static. (i.e. the spatial component T(q) is not time dependent)
@@ -580,7 +618,7 @@ class Plotter:
     # Note this combines form factors when supplied multiple species, which is not necessarily interesting.
     def get_form_factor(self,k,atoms,time=-7.5,n=None):
         '''
-        Returns the form factor(s), and time(s) used.
+        Returns the form factor(s) at 'time' [fs], and time(s) used.
         '''        
         idx = np.searchsorted(self.timeData,time)      
         times_used = self.timeData[idx]  # The actual times used
