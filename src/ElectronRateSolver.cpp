@@ -492,12 +492,11 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot, const dou
 
 void ElectronRateSolver::load_checkpoint_and_increase_steps(ofstream &log, std::tuple<size_t, std::vector<double>,FeatureRegimes>  checkpoint){
     std::cout.setstate(std::ios_base::failbit);  // disable character output
-
     size_t n = std::get<0>(checkpoint);
     std::vector<double> knots = std::get<1>(checkpoint);
     FeatureRegimes checkpoint_regimes = std::get<2>(checkpoint);
     int remaining_steps = t.size() - (n+1);
-    double fact = 1.25; // factor to increase time step density by (past the checkpoint).
+    double fact = 1.25; // factor to increase time step density by (past the checkpoint). TODO need to implement max time steps.
     
     log <<"Euler iterations exceeded beyond tolerable error at t=" << t[n]*Constant::fs_per_au<<". Increasing remaining time steps' density by factor of "<< fact <<endl;
 
