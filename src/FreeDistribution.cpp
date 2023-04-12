@@ -69,7 +69,7 @@ void Distribution::set_distribution(vector<double> new_knot, vector<double> new_
 void Distribution::load_knot(vector<double> loaded_knot) {
     loaded_knot = get_trimmed_knots(loaded_knot);
     size = loaded_knot.size();
-    basis = loaded_knot;
+    basis = loaded_knot; // note the overload!
 }
 
 // Adds Q_eii to the parent Distribution
@@ -236,12 +236,12 @@ std::vector<double> Distribution::get_trimmed_knots(std::vector<double> knots){
  * @return returns the knot that was loaded.
  */
 std::vector<double> Distribution::load_knots_from_history(size_t step_idx){
-    std::vector<double> loaded_knot = Knots_History(step_idx);
+    std::vector<double> loaded_knot = get_knots_from_history(step_idx);
     load_knot(loaded_knot);
     return loaded_knot;
 }
 
-std::vector<double> Distribution::Knots_History(size_t step_idx){
+std::vector<double> Distribution::get_knots_from_history(size_t step_idx){
     vector<double> loaded_knot;
     // Find the most recent knot update as of step_idx.
     for(auto elem: knots_history){

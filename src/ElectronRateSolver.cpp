@@ -207,7 +207,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
     else 
         plasma_header << "[ sim ] Using static grid" << "\n\r";
 
-    plasma_header<<"[ Rate Solver ] Using timestep "<<this->dt*Constant::fs_per_au<<" fs"<<"\n\r";
+    plasma_header<<"[ Rate Solver ] Using initial timestep size of "<<this->dt*Constant::fs_per_au<<" fs"<<"\n\r";
     size_t steps_per_grid_transform =  round(input_params.Num_Time_Steps()*(grid_update_period/timespan_au));
 
 
@@ -490,15 +490,18 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot, const dou
     apply_delta_time += t8 - t7;
 }
 
-size_t ElectronRateSolver::load_checkpoint_and_increase_steps(ofstream &log, std::tuple<size_t, std::vector<double>,FeatureRegimes>  checkpoint){
+size_t ElectronRateSolver::load_checkpoint_and_increase_steps(ofstream &_log, std::tuple<size_t, std::vector<double>,FeatureRegimes>  checkpoint){
     std::cout.setstate(std::ios_base::failbit);  // disable character output
+    
     size_t n = std::get<0>(checkpoint);
     std::vector<double> knots = std::get<1>(checkpoint);
-    FeatureRegimes checkpoint_regimes = std::get<2>(checkpoint);
+    this->regimes = std::get<2>(checkpoint);
+
     int remaining_steps = t.size() - (n+1);
     double fact = 1.25; // factor to increase time step density by (past the checkpoint). TODO need to implement max time steps.
     
-    log <<"Euler iterations exceeded beyond tolerable error at t=" << t[n]*Constant::fs_per_au<<". Increasing remaining time steps' density by factor of "<< fact <<endl;
+    _log <<"Euler iterations exceeded beyond tolerable error at t=" << t[n]*Constant::fs_per_au<<". Decreasing remaining time step size from "
+    <<this->dt*Constant::fs_per_au<<" fs to "<< this->dt/fact*Constant::fs_per_au<<" fs."<<endl;
 
     
     // reduce time step size by factor, then add on extra steps.
@@ -512,20 +515,57 @@ size_t ElectronRateSolver::load_checkpoint_and_increase_steps(ofstream &log, std
         this->t[i] = this->t[i-1] + this->dt;
     }
 
-    /// same as set_up_grid_and_compute_cross_sections but we use the checkpoint's regimes (for consistency's sake). 
+    // clear knot history
+    while(Distribution::knots_history.back().step > n){
+        Distribution::knots_history.pop_back();
+    }    
+
+    /// same as set_up_grid_and_compute_cross_sections but we use the checkpoint's regimes (for consistency's sake).
+    ///////////// 
     // Cross-sections
     bool recalc = true;
     ofstream dummy_log;
     input_params.calc_rates(dummy_log,recalc);  
     //hasRates = true;
 
-    // set basis based off checkpoint's regimes.
-    Distribution::set_basis(n, input_params.elec_grid_type, param_cutoffs, checkpoint_regimes, elec_grid_regions);  // note that elec_grid_regions is the manual grid region thing. (TODO Need to rename)
+    // set basis to the one in use at checkpoint.
+    Distribution::load_knot(knots); 
     // Set up the container class to have the correct size
     state_type::set_P_shape(input_params.Store);
 
-    log << "Loaded checkpoint - resuming." <<endl;
+    if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
+        if(_log.is_open()){
+            double e = Constant::eV_per_Ha;
+            _log << "---|---|---|---|--- [ Checkpoint Knots ] ---|---|---|---|---\n" 
+            "Time: "<<t[n]*Constant::fs_per_au <<" fs\n" 
+            <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
+            for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
+                _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
+            }
+            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<""  
+            << endl;
+        }        
+        else{}
+    }
+
+    // create the tensor of coefficients TODO these aren't constant now - change to lowercase.
+    RATE_EII.resize(input_params.Store.size());
+    RATE_TBR.resize(input_params.Store.size());
+    for (size_t a=0; a<input_params.Store.size(); a++) {
+        size_t N = y[n].F.num_basis_funcs();
+        RATE_EII[a].resize(N);
+        RATE_TBR[a].resize(N*(N+1)/2);
+    }
+    precompute_gamma_coeffs();
+    Distribution::precompute_Q_coeffs(input_params.Store);
+    
+    /////////////
     std::cout.clear();
+    this->zero_y = this->get_ground_state();
+        
+
+    _log << "Loaded checkpoint - resuming." <<endl;
+    
     return n;
 }
 

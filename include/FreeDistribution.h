@@ -144,6 +144,7 @@ public:
      * @return Distribution& 
      */
     void set_distribution(vector<double> new_knot, vector<double> new_f);
+    // loads the knot and appropriately updates params like the overlap matrix as done in set_parameters.
     static void load_knot(vector<double> loaded_knot);
 
     double norm() const;
@@ -254,13 +255,13 @@ public:
     static size_t size;
     double my_size(){return f.size();}
     static std::vector<double> load_knots_from_history(size_t step_idx);
-    static std::vector<double> Knots_History(size_t step_idx);
+    static std::vector<double> get_knots_from_history(size_t step_idx);
     static void set_knot_history(size_t i, std::vector<double> replacement_knot){knots_history[i]={i,replacement_knot};}
+    // history of grid points (for dynamic grid)
+    static std::vector<indexed_knot> knots_history;    
 private:
     std::vector<double> f;  // Spline expansion factors
     static SplineIntegral basis;
-    // history of grid points (for dynamic grid)
-    static std::vector<indexed_knot> knots_history;
     static size_t CoulombLog_cutoff;
     /// Coulomb repulsion is ignored if density is below this threshold
     static double CoulombDens_min;

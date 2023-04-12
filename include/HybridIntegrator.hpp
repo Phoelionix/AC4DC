@@ -146,12 +146,15 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     std::cout << tol.str();  // Display in regular terminal even after ncurses screen is gone.
     Display::header += tol.str(); 
     Display::create_screen();
-    //TODO Probably cursed implementation of ncurses since I'm using cout.  
+    checkpoint = {this->order, Distribution::get_knot_energies(),this->regimes};
+    old_checkpoint = checkpoint;  
     for (size_t n = this->order; n < this->t.size()-1; n++) {
         if ((n-this->order)%steps_per_time_update == 0){
+            // Display info  (TODO Probably cursed implementation of ncurses since I'm using cout).
             wclrtoeol(Display::win);
             refresh();  // header doesn't change which I guess is why this is needed.
             std::cout<< "\n\r" << Display::header << "\n\r"
+            << "[ Rate Solver ] Current timestep size ="<<this->dt*Constant::fs_per_au<<" fs\n\r"
             << "--- Press BACKSPACE/DEL to end simulation and save the data ---\n\r"      
             << "[ sim ] t="
             << std::left<<std::setfill(' ')<<std::setw(6)
@@ -173,8 +176,8 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
             checkpoint = {n, Distribution::get_knot_energies(),this->regimes};
         }
         if (euler_exceeded){
-            // Reload at checkpoint with more time steps
-            n = this->load_checkpoint_and_increase_steps(_log,old_checkpoint);
+            // Reload at checkpoint's n, updating the n step, and decreasing time step length
+            n = this->load_checkpoint_and_increase_steps(_log,old_checkpoint);  // virtual function overridden by ElectronRateSolver
             good_state = true;
             euler_exceeded = false;
         }
@@ -205,7 +208,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         }    
         auto ch = wgetch(Display::win);
         if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127){   
-            string get_to_the_line_and_clear = "\n\n\n\n\n\n\r";     // relative to end of header.
+            string get_to_the_line_and_clear = "\n\n\n\n\n\n\n\r";     // relative to end of header.
             std::cout <<get_to_the_line_and_clear<<"\033[33mExiting early... press backspace/del again to confirm or any other key to cancel\033[0m"<<flush;
             refresh();
             nodelay(Display::win,FALSE);

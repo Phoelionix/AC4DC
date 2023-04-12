@@ -130,7 +130,7 @@ private:
     void set_initial_conditions();
 
     // 
-    size_t load_checkpoint_and_increase_steps(ofstream &log, std::tuple<size_t, std::vector<double>,FeatureRegimes> checkpoint);
+    size_t load_checkpoint_and_increase_steps(ofstream &_log, std::tuple<size_t, std::vector<double>,FeatureRegimes> checkpoint);
 
     /////// Overrides virtual system state methods
     void sys_bound(const state_type& s, state_type& sdot, state_type& s_bg, const double t); // general dynamics (uses explicit mehtod)
