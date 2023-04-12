@@ -64,7 +64,7 @@ class Hybrid : public Adams_BM<T>{
     void step_stiff_part(unsigned n);
     // More virtual funcs defined by ElectronRateSolver:
     virtual void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0){std::cout << "Error, attempted to set up grid with unset virtual function set_up_grid_and_compute_cross_sections." <<std::endl;} 
-    virtual void load_checkpoint_and_increase_steps(ofstream &log, std::tuple<size_t, std::vector<double>,FeatureRegimes> checkpoint){std::cout << "Error, attempted to load checkpoint with unset virtual function load_checkpoint_and_increase_steps" <<std::endl;}
+    virtual size_t load_checkpoint_and_increase_steps(ofstream &log, std::tuple<size_t, std::vector<double>,FeatureRegimes> checkpoint){std::cout << "Error, attempted to load checkpoint with unset virtual function load_checkpoint_and_increase_steps" <<std::endl;}
     virtual state_type get_ground_state(){}
 };
 
@@ -167,7 +167,6 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
             py_plotter.plot_frame(Distribution::get_energies_eV(num_pts),this->y[n].F.get_densities(num_pts,Distribution::get_knot_energies()));
         }        
 
-
         // store checkpoint
         if ((n-this->order+1)%100 == 0){
             old_checkpoint = checkpoint;
@@ -175,9 +174,10 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         }
         if (euler_exceeded){
             // Reload at checkpoint with more time steps
-            this->load_checkpoint_and_increase_steps(_log,old_checkpoint);
+            n = this->load_checkpoint_and_increase_steps(_log,old_checkpoint);
+            good_state = true;
+            euler_exceeded = false;
         }
-
         
         if (this->t[n+1] <= t_resume) continue; // Start with n = last step.
         this->step_nonstiff_part(n); 

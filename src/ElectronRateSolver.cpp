@@ -490,7 +490,7 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot, const dou
     apply_delta_time += t8 - t7;
 }
 
-void ElectronRateSolver::load_checkpoint_and_increase_steps(ofstream &log, std::tuple<size_t, std::vector<double>,FeatureRegimes>  checkpoint){
+size_t ElectronRateSolver::load_checkpoint_and_increase_steps(ofstream &log, std::tuple<size_t, std::vector<double>,FeatureRegimes>  checkpoint){
     std::cout.setstate(std::ios_base::failbit);  // disable character output
     size_t n = std::get<0>(checkpoint);
     std::vector<double> knots = std::get<1>(checkpoint);
@@ -526,6 +526,7 @@ void ElectronRateSolver::load_checkpoint_and_increase_steps(ofstream &log, std::
 
     log << "Loaded checkpoint - resuming." <<endl;
     std::cout.clear();
+    return n;
 }
 
 //IOFunctions found in IOFunctions.cpp
