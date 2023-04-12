@@ -19,6 +19,7 @@ This file is part of AC4DC.
     You should have received a copy of the GNU General Public License
     along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
 ===========================================================================*/
+// (C) Spencer Passmore 2023
 
 #include <Plotting.h>
 #include <Display.h>

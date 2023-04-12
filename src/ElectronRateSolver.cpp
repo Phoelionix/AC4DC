@@ -220,7 +220,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
 
     
     
-    
+    // 12-04 leaving this for now since I'm using it to catch really bad errors, but it now serves no more than this in practice.
     // Using finer time steps to attempt to resolve NaN encountered in ODE solving. 
     /* Redoes the ENTIRE simulation. As it seems to be intended to, it should be fixed to start from timestep_reached. 
     // But really it should start from earlier than timestep_reached since bad states tend start before they appear, in a snowball-like effect. -S.P.
@@ -235,7 +235,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
         }        
         std::cerr<<"\033[93;1m[ Rate Solver ] Halving timestep...\033[0m"<<std::endl;  // Would be ideal to go back e.g. 0.1 fs and increase time steps, except currently a fair few bad states caused by too few time steps get through detection.
         good_state = true;
-        input_params.num_time_steps *= 2;           
+        input_params.num_time_steps *= 2;           // todo separate from input params
         if (input_params.num_time_steps > MAX_T_PTS){
             std::cerr<<"\033[31;1m[ Rate Solver ] Exceeded maximum T size. Skipping remaining iteration."<<std::endl;
             break;
@@ -488,6 +488,42 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot, const dou
     sdot.F.applyDeltaF(vec_dqdt);
     auto t8 = std::chrono::high_resolution_clock::now();
     apply_delta_time += t8 - t7;
+}
+
+void ElectronRateSolver::load_checkpoint_and_increase_steps(ofstream &log, std::tuple<size_t, std::vector<double>,FeatureRegimes>  checkpoint){
+    size_t n = std::get<0>(checkpoint);
+    std::vector<double> knots = std::get<1>(checkpoint);
+    FeatureRegimes checkpoint_regimes = std::get<2>(checkpoint);
+    int remaining_steps = t.size() - (n+1);
+    double fact = 1.25; // factor to increase time step density by (past the checkpoint).
+    
+    log <<"Euler iterations exceeded beyond tolerable error at t=" << t[n]*Constant::fs_per_au<<". Increasing remaining time steps' density by factor of "<< fact <<endl;
+
+
+    // reduce time step size by factor, then add on extra steps.
+    this->dt/=fact;
+    input_params.num_time_steps = input_params.num_time_steps + (1-fact)*remaining_steps; // todo separate from input params
+    t.resize(n+1); t.resize(input_params.num_time_steps);
+    y.resize(n+1); y.resize(input_params.num_time_steps);
+
+    // Set up the t grid       
+    for (size_t i=n+1; i<input_params.num_time_steps; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
+        this->t[i] = this->t[i-1] + this->dt;
+    }
+
+    /// same as set_up_grid_and_compute_cross_sections but we use the checkpoint's regimes (for consistency's sake). 
+    // Cross-sections
+    bool recalc = true;
+    ofstream dummy_log;
+    input_params.calc_rates(dummy_log,recalc);  
+    //hasRates = true;
+
+    // set basis based off checkpoint's regimes.
+    Distribution::set_basis(n, input_params.elec_grid_type, param_cutoffs, checkpoint_regimes, elec_grid_regions);  // note that elec_grid_regions is the manual grid region thing. (TODO Need to rename)
+    // Set up the container class to have the correct size
+    state_type::set_P_shape(input_params.Store);
+
+    log << "Loaded checkpoint - resuming." <<endl;
 }
 
 //IOFunctions found in IOFunctions.cpp

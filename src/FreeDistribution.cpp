@@ -211,7 +211,7 @@ void Distribution::add_density_distribution(vector<vector<double>> densities){
         }
         v[i] *= (b-a)/2;//*=densities[i]*(b-a)/2;
     }
-    // Su = v, where u[i] is the electron density, S is the (sparse) overlap matrix, and v[i] is the num electrons the spline represents. 
+    // Su = v, where u[i] is the electron density (in the grid basis?), S is the (sparse) overlap matrix, and v[i] is the num electrons the spline represents. 
     Eigen::VectorXd u = this->basis.Sinv(v);
     for (size_t i=0; i<size; i++) {
         this->f[i] += u[i];
@@ -356,8 +356,8 @@ std::vector<double> Distribution::get_densities(size_t num_pts,std::vector<doubl
 
 
 /**
- * @brief Returns the spline-interpolated electron density (in atomic units, Ha/a0^-3 [Hartree]/[bohr radius]^3) at any energy.
- * 
+ * @brief Returns the spline-interpolated electron density of states at any energy (In atomic units, i.e. 1/(Ha.a0^3)).
+ * Multiplying by E returns the electron energy density.
  * @details This does a dot product of the "Frobenius-treated" basis with each spline's expansion coefficient.
  * @param e energy to get density from.
  * @return double 

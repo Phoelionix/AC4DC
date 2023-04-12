@@ -39,8 +39,8 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #LOAD
-//lys_neutze_simple_64 // Output folder name
-//-6   // Point to load time from 
+lys_neutze_simple_2 // Output folder name
+10   // Point to load time from 
 
 #DEBUG
 10 //10     // Simulation cutoff time in fs

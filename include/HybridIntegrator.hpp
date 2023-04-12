@@ -28,6 +28,7 @@ This file is part of AC4DC.
 #include "RateSystem.h"
 #include "Display.h"
 #include "Plotting.h"
+#include "GridSpacing.hpp" // for checkpoint
 #include <Eigen/Dense>
 #include <iostream>
 
@@ -39,6 +40,8 @@ class Hybrid : public Adams_BM<T>{
         Adams_BM<T>(order), stiff_rtol(rtol), stiff_max_iter(max_iter){};
     const static unsigned MAX_BEULER_ITER = 50;
     bool good_state = true;
+    bool euler_exceeded = false;  // Whether exceeded the max number of euler iterations (on prev. step)
+    FeatureRegimes regimes;
     double timestep_reached = 0;       
     private:
     virtual void sys_ee(const T& q, T& qdot, double t) =0;
@@ -46,8 +49,11 @@ class Hybrid : public Adams_BM<T>{
     protected:
 
     double stiff_rtol = 1e-4;
-    double intolerable_stiff_err =0.5;
+    double intolerable_stiff_err =0;//0.5;
     unsigned stiff_max_iter = 200;
+
+    std::tuple<size_t, std::vector<double>, FeatureRegimes> old_checkpoint;
+    std::tuple<size_t, std::vector<double>, FeatureRegimes> checkpoint;
      
 
 
@@ -57,7 +63,8 @@ class Hybrid : public Adams_BM<T>{
     void backward_Euler(unsigned n); 
     void step_stiff_part(unsigned n);
     // More virtual funcs defined by ElectronRateSolver:
-    virtual void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0){std::cout << "Error, attempted to set up grid with virtual function set_up_grid_and_compute_cross_sections." <<std::endl;} 
+    virtual void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0){std::cout << "Error, attempted to set up grid with unset virtual function set_up_grid_and_compute_cross_sections." <<std::endl;} 
+    virtual void load_checkpoint_and_increase_steps(ofstream &log, std::tuple<size_t, std::vector<double>,FeatureRegimes> checkpoint){std::cout << "Error, attempted to load checkpoint with unset virtual function load_checkpoint_and_increase_steps" <<std::endl;}
     virtual state_type get_ground_state(){}
 };
 
@@ -159,6 +166,18 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
             size_t num_pts = 4000;
             py_plotter.plot_frame(Distribution::get_energies_eV(num_pts),this->y[n].F.get_densities(num_pts,Distribution::get_knot_energies()));
         }        
+
+
+        // store checkpoint
+        if ((n-this->order+1)%100 == 0){
+            old_checkpoint = checkpoint;
+            checkpoint = {n, Distribution::get_knot_energies(),this->regimes};
+        }
+        if (euler_exceeded){
+            // Reload at checkpoint with more time steps
+            this->load_checkpoint_and_increase_steps(_log,old_checkpoint);
+        }
+
         
         if (this->t[n+1] <= t_resume) continue; // Start with n = last step.
         this->step_nonstiff_part(n); 
@@ -170,9 +189,9 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         if ((n-this->order+1)%steps_per_grid_transform == 0){ 
             std::cout.setstate(std::ios_base::failbit);  // disable character output
             // The latest step is n + 1, so we decide our new grid based on that step, then transform N = "order" of the prior points to the new basis.
-            this->set_up_grid_and_compute_cross_sections(_log,false,n+1); // overridden by ElectronRateSolver
-            // Transform enough previous points needed to get going to new basis
+            this->set_up_grid_and_compute_cross_sections(_log,false,n+1); // virtual function overridden by ElectronRateSolver
             std::cout.clear();
+            // Transform enough previous points needed to get going to new basis
             std::vector<double> new_energies = Distribution::get_knot_energies();
             // zero_y is used as the starting state for each step and represents the ground state, so we need to reset it so it has the right knots.
             this->zero_y = this->get_ground_state();
@@ -182,11 +201,11 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
                 Distribution::load_knots_from_history(n);
                 this->y[m].F.transform_basis(new_energies);
             }  
-             // The next containters are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state.       
+             // The next containers are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state.       
         }    
         auto ch = wgetch(Display::win);
         if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127){   
-            string get_to_the_line_and_clear = "\n\n\n\n\n\r";     // relative to end of header.
+            string get_to_the_line_and_clear = "\n\n\n\n\n\n\r";     // relative to end of header.
             std::cout <<get_to_the_line_and_clear<<"\033[33mExiting early... press backspace/del again to confirm or any other key to cancel\033[0m"<<flush;
             refresh();
             nodelay(Display::win,FALSE);
@@ -203,7 +222,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     }
     Display::close();
     std::cout<<"\n";
-    std::cout <<"[ sim ] Implicit solver used relative tolerance "<<stiff_rtol<<", max iterations "<<stiff_max_iter<<"\n";
+    // std::cout <<"[ sim ] Implicit solver used relative tolerance "<<stiff_rtol<<", max iterations "<<stiff_max_iter<<"\n";
     std::cout<<"[ sim ] final t = "<<this->t.back() * Constant::fs_per_au<<" fs"<< endl;  
 }
 /**
@@ -261,6 +280,7 @@ void Hybrid<T>::step_stiff_part(unsigned n){
             std::cerr << "Max error ("<<intolerable_stiff_err<<") exceeded, ending simulation early." <<std::endl;
             this->good_state = false;
             this->timestep_reached = this->t[n+1]*Constant::fs_per_au; // t[n+1] is equiv. to t in bound !good_state case, where error condition this is modelled off is found.
+            this->euler_exceeded = true;  
         }
     }
     this->y[n+1] += old;
