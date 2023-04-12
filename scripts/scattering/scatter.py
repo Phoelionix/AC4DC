@@ -1,3 +1,4 @@
+#%%
 '''
 /*===========================================================================
 This file is part of AC4DC.
@@ -159,13 +160,20 @@ class Atomic_Species():
         self.coords = []  # coord of each atom in species in asymmetric unit
     def add_atom(self,vector):
         self.coords.append(vector)
+    def get_stochastic_f():
+        raise Exception("Did not set_scalar_form_factor before calling stochastic f")
     def set_scalar_form_factor(self,q):
         # F_i(q) = f(q)*T_i(q), where f = self.ff is the time-integrated average 
-        stochastic = False
+        stochastic = True
         if not stochastic:
             self.ff = self.crystal.ff_calculator.f_average(q,self.name)      # note that in taking the integral to get this ff, we included the relative intensity.
         else:
-            self.ff = self.crystal.ff_calculator.f_stochastic(q,self.name)
+            #self.ff_snapshots, self.times_used = self.crystal.ff_calculator.f_stochastic(q,self.name)
+            self.times_used = self.crystal.ff_calculator.f_stochastic(q,self.name)[1]
+            
+            def stoch_f_placeholder(): return self.crystal.ff_calculator.f_stochastic(q,self.name)[0]
+            self.get_stochastic_f = stoch_f_placeholder
+            #self.get_stochastic_f = get_stochastic_f
 
         #self.ff = self.crystal.ff_calculator.f_stochastic_snapshots(q,self.name)
     def add_cell_symmetries(self,factor,translation):
@@ -322,6 +330,7 @@ class XFEL():
                     result.phi[i] = point.phi
                     result.phi_aligned[i] = point.phi_crystal_aligned
                     result.q[i] = point.q_parr_screen
+                    print(point.I)
                     result.I[i] = point.I
                     result.image_index[i] = j
                 result.package_up(miller_indices)
@@ -388,6 +397,58 @@ class XFEL():
         """Returns the intensity at q. Not crystalline yet."""
         if phis == None:
             phis = self.phi_array
+        
+        times_used = None
+        for species in self.target.species_dict.values():
+            species.set_scalar_form_factor(feature.q)
+            times_used = species.times_used
+
+        F_sum = np.zeros(phis.shape+(self.t_fineness,),dtype="complex_")
+        count = 0
+        for species in self.target.species_dict.values():
+            if not np.array_equal(times_used,species.times_used):
+                raise Exception("Times used don't match between species.")
+            # resets the form factor for each atom
+            species.set_scalar_form_factor(feature.q)            
+            # iterate through each symmetry of unit cell (each asymmetric unit)
+            for s in range(len(self.target.sym_factors)):
+                for R in species.coords:
+                        count += 1
+                        # Rotate to crystal's current orientation 
+                        R = R.left_multiply(self.y_rot_matrix)  
+                        R = R.left_multiply(self.x_rot_matrix)   
+                        coord = np.multiply(R.get_array(),self.target.sym_factors[s]) + np.multiply(self.target.cell_dim,self.target.sym_translations[s])
+                        # Get spatial factor T
+                        T = np.zeros(phis.shape,dtype="complex_")
+                        if SPI:
+                            T = self.SPI_spatial_factor(phis,coord,feature)
+                        else:
+                            T= self.spatial_factor(phis,coord,feature,cardan_angles)
+                        f = species.get_stochastic_f()
+                        F_sum += f*T   
+                        # print("FF")
+                        # print("f shape",f.shape)
+                        # print("f_sum shape",F_sum.shape)
+                        # print("T shape",T.shape)
+                        # Rotate atom for next sample            
+        #print("iterated through",count,"atoms")
+        # Ignoring polarisation, pointwise, I(q) is propto
+        # int{I_beam(t).F.F*}dt,
+        # where F = Σ(f_atom*T) (in this code I_beam(t) is included in f_atom)
+        # We normalise by dividing by the duration.
+        # print("F SUM")
+        # print(F_sum.shape)
+        #print(F_sum)
+        if (times_used[-1] == times_used[0]):   
+            I =  np.square(np.abs(F_sum[0][0]))
+        else:
+            I = np.trapz(np.square(np.abs(F_sum)),times_used,axis=1) / (times_used[-1]-times_used[0]) #TODO trapz 
+        return I
+
+    def illuminate_average(self,feature,phis = None,cardan_angles = None):  # Feature = ring or spot.
+        """Returns the intensity at q. Not crystalline yet."""
+        if phis == None:
+            phis = self.phi_array
         F = np.zeros(phis.shape,dtype="complex_")
         count = 0
         for species in self.target.species_dict.values():
@@ -406,10 +467,10 @@ class XFEL():
                             T = self.SPI_spatial_factor(phis,coord,feature)
                         else:
                             T= self.spatial_factor(phis,coord,feature,cardan_angles)
-                        F += species.ff*T   
+                        F += species.ff_average*T   
                         # Rotate atom for next sample            
         #print("iterated through",count,"atoms")
-        I = np.square(np.abs(F))
+        I = np.square(np.abs(F))        
         
 
         return I 
@@ -1298,14 +1359,14 @@ plt.xlabel("z (Ang)")
 plt.ylabel("y (Ang)")
 
 #%%
-#%%
+#%% vvvvvvvvv
 ### Simulate lysozyme
 #TODO
 # have max q, that matches neutze
 # implement stochastic stuff
 # implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector
 root = "lysNeutze"
-tag = "v8" # - multi #"v7" 3 - single
+tag = "v11" # - multi #"v7" 3 - single
 #  #TODO make this nicer and pop in a function 
 DEBUG = False
 energy = 6000 #
@@ -1322,14 +1383,14 @@ allowed_atoms_2 = ["N_fast","S_fast"]
 end_time_1 = -10#-9.95
 end_time_2 = 10#0#-9.80  
 
-num_orients = 5
+num_orients = 1
 # [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
 ax_x = 1
 ax_y = 1
 ax_z = 0
 random_orientation = True # if true, overrides orientation_set
 
-rock_angle = 0.3 # degrees
+rock_angle = 0.012 #0.3 # degrees
 
 #neutze
 pdb_path = "/home/speno/AC4DC/scripts/scattering/2lzm.pdb"
@@ -1379,7 +1440,7 @@ experiment2.orientation_set = exp1_orientations
 experiment2.spooky_laser(-10,end_time_2,output_handle,crystal, random_orientation = False, SPI=SPI)
 
 stylin()
-
+#^^^^^^^
 #%%
 ### Simulate crambin
 tag += 1
@@ -1508,4 +1569,6 @@ min_err = 5*np.sin(theta - delt/2)
 max_err = 5*np.sin(theta+delt/2)
 err = np.sqrt(5)**2
 min_err <= err <= max_err
+# %%
+stylin()
 # %%
