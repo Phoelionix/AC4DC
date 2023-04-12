@@ -491,6 +491,8 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot, const dou
 }
 
 void ElectronRateSolver::load_checkpoint_and_increase_steps(ofstream &log, std::tuple<size_t, std::vector<double>,FeatureRegimes>  checkpoint){
+    std::cout.setstate(std::ios_base::failbit);  // disable character output
+
     size_t n = std::get<0>(checkpoint);
     std::vector<double> knots = std::get<1>(checkpoint);
     FeatureRegimes checkpoint_regimes = std::get<2>(checkpoint);
@@ -499,7 +501,7 @@ void ElectronRateSolver::load_checkpoint_and_increase_steps(ofstream &log, std::
     
     log <<"Euler iterations exceeded beyond tolerable error at t=" << t[n]*Constant::fs_per_au<<". Increasing remaining time steps' density by factor of "<< fact <<endl;
 
-
+    
     // reduce time step size by factor, then add on extra steps.
     this->dt/=fact;
     input_params.num_time_steps = input_params.num_time_steps + (1-fact)*remaining_steps; // todo separate from input params
@@ -524,6 +526,7 @@ void ElectronRateSolver::load_checkpoint_and_increase_steps(ofstream &log, std::
     state_type::set_P_shape(input_params.Store);
 
     log << "Loaded checkpoint - resuming." <<endl;
+    std::cout.clear();
 }
 
 //IOFunctions found in IOFunctions.cpp
