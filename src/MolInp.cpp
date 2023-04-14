@@ -325,7 +325,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	}
 }
 
-bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P.
+bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P. TODO if it breaks it assert that num time steps greater than loaded.
 	bool is_valid=true;
 	cerr<<"\033[31;1m";
 	if (omega <= 0 ) { cerr<<"ERROR: pulse omega must be positive"; is_valid=false; }

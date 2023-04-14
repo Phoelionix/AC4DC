@@ -32,13 +32,19 @@ This file is part of AC4DC.
 #include <Eigen/Dense>
 #include <iostream>
 
+struct Checkpoint {
+    size_t n;
+    std::vector<double> knots;
+    FeatureRegimes regimes;
+};
+
 namespace ode {
 template<typename T>
 class Hybrid : public Adams_BM<T>{
     public:
     Hybrid<T>(unsigned int order=4, double rtol=1e-5, unsigned max_iter = 2000): 
         Adams_BM<T>(order), stiff_rtol(rtol), stiff_max_iter(max_iter){};
-    const static unsigned MAX_BEULER_ITER = 50;
+    const static unsigned MAX_BEULER_ITER = 50;  // unused?
     bool good_state = true;
     bool euler_exceeded = false;  // Whether exceeded the max number of euler iterations (on prev. step)
     FeatureRegimes regimes;
@@ -52,30 +58,23 @@ class Hybrid : public Adams_BM<T>{
     double intolerable_stiff_err =0;//0.5;
     unsigned stiff_max_iter = 200;
 
-    std::tuple<size_t, std::vector<double>, FeatureRegimes> old_checkpoint;
-    std::tuple<size_t, std::vector<double>, FeatureRegimes> checkpoint;
-     
-
-
+    Checkpoint old_checkpoint;
+    Checkpoint checkpoint;
+    // For gaussian pulses, this stores the times that we decreased dt so that it can be increased later.
+    //TODO this should be saved if want to load from a point in time, but really it's meant to replace loading.
+    std::vector<double> times_to_increase_dt;  
+    
     void run_steps(ofstream& _log, const double t_resume, const int steps_per_time_update,const int steps_per_grid_transform);  // TODO clean up bootstrapping. -S.P.
     void iterate(ofstream& _log, double t_initial, double t_final, const double t_resume, const int steps_per_time_update,const int steps_per_grid_transform);
     /// Unused
     void backward_Euler(unsigned n); 
     void step_stiff_part(unsigned n);
     // More virtual funcs defined by ElectronRateSolver:
-    virtual void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0){std::cout << "Error, attempted to set up grid with unset virtual function set_up_grid_and_compute_cross_sections." <<std::endl;} 
-    virtual size_t load_checkpoint_and_increase_steps(ofstream &log, std::tuple<size_t, std::vector<double>,FeatureRegimes> checkpoint){std::cout << "Error, attempted to load checkpoint with unset virtual function load_checkpoint_and_increase_steps" <<std::endl;}
+    virtual void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0){std::cout << "Error, attempted to use unset virtual function set_up_grid_and_compute_cross_sections." <<std::endl;} 
+    virtual size_t load_checkpoint_and_decrease_dt(ofstream &log, size_t current_n, Checkpoint _checkpoint){std::cout << "Error, attempted to use unset virtual function load_checkpoint_and_decrease_dt" <<std::endl;}
+    virtual void increase_dt(ofstream &log, size_t current_n){std::cout << "Error, attempted to use with unset virtual function increase_dt" <<std::endl;}
     virtual state_type get_ground_state(){}
 };
-
-// template <typename T>
-// void Hybrid<T>::step_backward_euler(int n){
-//     T dndt;
-//     // this->sys_bound(this->y[n], dndt, this->t[n]);
-//     dndt *=this->dt;
-//     this->y[n+1] = this->y[n];
-//     this->y[n+1] += dndt;
-// }
 
 template<typename T>
 // t_resume = the time to resume simulation from if loading a sim. -S.P.
@@ -92,12 +91,16 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const 
     
     bool resume_sim = (t_resume == t_initial) ? false : true;
 
+    checkpoint = {this->order, Distribution::get_knot_energies(), this->regimes};
     if (resume_sim){
         // The time step size does not depend on previous run's time step size. i.e. step size is same as if there was no loading.
         // TODO implement assertion that density isn't empty.
-        npoints -= ((t_resume-t_initial)/this->dt + 1);
+        size_t resume_idx = (t_resume-t_initial)/this->dt ;
+        checkpoint = {resume_idx, Distribution::get_knot_energies(),this->regimes}; // THIS CURRENTLY DOESNT WORK because we don't store the knot energies.
+        npoints -= (resume_idx + 1);
         npoints += this->t.size(); // 
     }
+    old_checkpoint = checkpoint; 
 
     npoints = (npoints >= this->order) ? npoints : this->order;
 
@@ -145,27 +148,31 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     tol << "[ sim ] Implicit solver uses relative tolerance "<<stiff_rtol<<", max iterations "<<stiff_max_iter<<"\n\r";
     std::cout << tol.str();  // Display in regular terminal even after ncurses screen is gone.
     Display::header += tol.str(); 
-    Display::create_screen();
-    checkpoint = {this->order, Distribution::get_knot_energies(),this->regimes};
-    old_checkpoint = checkpoint;  
-    for (size_t n = this->order; n < this->t.size()-1; n++) {
+    std::stringstream display_string(Display::header, ios_base::app | ios_base::out);
+    Display::create_screen(); 
+    size_t n = this->order - 1; // n can go back if load checkpoint.
+    size_t increasing_dt = 0;
+    while (n < this->t.size()-1) {
+        n++;
+        if (this->t[n+1] <= t_resume) continue; // Start with n = last step.
+
         if ((n-this->order)%steps_per_time_update == 0){
-            // Display info  (TODO Probably cursed implementation of ncurses since I'm using cout).
-            wclrtoeol(Display::win);
-            refresh();  // header doesn't change which I guess is why this is needed.
-            std::cout<< "\n\r" << Display::header << "\n\r"
-            << "[ Rate Solver ] Current timestep size ="<<this->dt*Constant::fs_per_au<<" fs\n\r"
-            << "--- Press BACKSPACE/DEL to end simulation and save the data ---\n\r"      
+            // Display info 
+            display_string.str(Display::header); // clear display string
+            werase(Display::win);
+            display_string<< "\n\r"
+            << "--- Press BACKSPACE/DEL to end simulation and save the data ---\n\r"   
+            << "[ sim ] Current timestep size ="<<this->dt*Constant::fs_per_au<<" fs\n\r"   
             << "[ sim ] t="
             << std::left<<std::setfill(' ')<<std::setw(6)
             << this->t[n] * Constant::fs_per_au << " fs\n\r" 
-            << "[ sim ] " <<Distribution::size << " knots currently active\n\r" 
-            << flush; 
-            refresh();
+            << "[ sim ] " <<Distribution::size << " knots currently active\n\r"; 
+            // << flush; 
+            Display::show(display_string);
         }        
         
         // live plotting
-        if ((n-this->order+1)%100 == 0){
+        if ((n-this->order+1)%25 == 0){ // this rate won't be significant except for samples with no heavy elements
             size_t num_pts = 4000;
             py_plotter.plot_frame(Distribution::get_energies_eV(num_pts),this->y[n].F.get_densities(num_pts,Distribution::get_knot_energies()));
         }        
@@ -175,18 +182,44 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
             old_checkpoint = checkpoint;
             checkpoint = {n, Distribution::get_knot_energies(),this->regimes};
         }
+
         if (euler_exceeded){
             // Reload at checkpoint's n, updating the n step, and decreasing time step length
-            n = this->load_checkpoint_and_increase_steps(_log,old_checkpoint);  // virtual function overridden by ElectronRateSolver
+            n = this->load_checkpoint_and_decrease_dt(_log,n,old_checkpoint);  // virtual function overridden by ElectronRateSolver
             good_state = true;
             euler_exceeded = false;
+            checkpoint = old_checkpoint;
+            if (increasing_dt){
+                // failed to increase step size, push back the time to increase (by 0.5 fs).
+                times_to_increase_dt.pop_back();  // remove the extra time added.
+                times_to_increase_dt.back() = this->t[n] + 0.5/Constant::fs_per_au;
+                increasing_dt = 0;
+            }
+        }
+        else if (!times_to_increase_dt.empty() && times_to_increase_dt.back() < this->t[n]){
+            if (increasing_dt > 0){
+                increasing_dt--;
+                //successfully increased step size
+                times_to_increase_dt.pop_back();
+            }
+
+            // // Attempt to increase step size (i.e. decrease num remaining steps)
+            this->increase_dt(_log,n);
+            // Flag that we are testing to see if still converging.
+            size_t num_steps_to_check = 10;
+            increasing_dt = num_steps_to_check;
         }
         
-        if (this->t[n+1] <= t_resume) continue; // Start with n = last step.
         this->step_nonstiff_part(n); 
         
         // this->y[n+1].from_backwards_Euler(this->dt, this->y[n], stiff_rtol, stiff_max_iter);
         this->step_stiff_part(n);
+
+        if (euler_exceeded && increasing_dt){
+            n = this->load_checkpoint_and_decrease_dt(_log,n,old_checkpoint);
+            good_state = true;
+            euler_exceeded = false;
+        }
 
         // Dynamic grid updater // TODO pop in function.
         if ((n-this->order+1)%steps_per_grid_transform == 0){ 
@@ -209,7 +242,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         auto ch = wgetch(Display::win);
         if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127){   
             string get_to_the_line_and_clear = "\n\n\n\n\n\n\n\r";     // relative to end of header.
-            std::cout <<get_to_the_line_and_clear<<"\033[33mExiting early... press backspace/del again to confirm or any other key to cancel\033[0m"<<flush;
+            display_string <<get_to_the_line_and_clear<<"\033[33mExiting early... press backspace/del again to confirm or any other key to cancel\033[0m"<<flush;
             refresh();
             nodelay(Display::win,FALSE);
              auto ch = wgetch(Display::win);

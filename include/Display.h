@@ -24,6 +24,7 @@ This file is part of AC4DC.
 #include <curses.h> // key detection linux
 #include <assert.h>
 #include <string>
+#include <sstream>
 //#include <conio.h>   // key detection for windows 
 
 /**
@@ -35,6 +36,7 @@ This file is part of AC4DC.
 
 struct Display{ 
     static void create_screen();
+    static void show(const std::stringstream& str);
     static void deactivate();
     static void reactivate();
     static void close();

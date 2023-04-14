@@ -35,10 +35,16 @@ void Display::create_screen(){
     int startx = (80 - WIDTH) / 2;
     int starty = (24 - HEIGHT) / 2;
     signal(SIGINT,Display::signalHandler);  // clean up for interrupt
-    win = newwin(HEIGHT, WIDTH, starty, startx);
-    refresh();
+    //win = newwin(HEIGHT, WIDTH, starty, startx);
+    win = newwin(0, 0, 0, 0);
+    box(win, 0 , 0);	
+    wrefresh(win);
     keypad(win, TRUE);
     nodelay(win,TRUE); // don't wait for input  
+}
+void Display::show(const std::stringstream& spooky_stream){
+    waddstr(win,spooky_stream.str().c_str());
+    wrefresh(win);   
 }
 // void Display::deactivate(){
 //     touchwin(stdscr);
