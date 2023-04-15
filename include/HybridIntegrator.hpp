@@ -57,6 +57,8 @@ class Hybrid : public Adams_BM<T>{
     double stiff_rtol = 1e-4;
     double intolerable_stiff_err =0;//0.5;
     unsigned stiff_max_iter = 200;
+    
+    size_t steps_per_grid_transform;
 
     Checkpoint old_checkpoint;
     Checkpoint checkpoint;
@@ -64,8 +66,8 @@ class Hybrid : public Adams_BM<T>{
     //TODO this should be saved if want to load from a point in time, but really it's meant to replace loading.
     std::vector<double> times_to_increase_dt;  
     
-    void run_steps(ofstream& _log, const double t_resume, const int steps_per_time_update,const int steps_per_grid_transform);  // TODO clean up bootstrapping. -S.P.
-    void iterate(ofstream& _log, double t_initial, double t_final, const double t_resume, const int steps_per_time_update,const int steps_per_grid_transform);
+    void run_steps(ofstream& _log, const double t_resume, const int steps_per_time_update);  // TODO clean up bootstrapping. -S.P.
+    void iterate(ofstream& _log, double t_initial, double t_final, const double t_resume, const int steps_per_time_update);
     /// Unused
     void backward_Euler(unsigned n); 
     void step_stiff_part(unsigned n);
@@ -79,7 +81,7 @@ class Hybrid : public Adams_BM<T>{
 template<typename T>
 // t_resume = the time to resume simulation from if loading a sim. -S.P.
 // _log only used for cross-section recalcs atm.
-void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const double t_resume, const int steps_per_time_update, const int steps_per_grid_transform) {
+void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const double t_resume, const int steps_per_time_update) {
 
     if (this->dt < 1E-16) {
         std::cerr<<"WARN: step size "<<this->dt<<"is smaller than machine precision"<<std::endl;
@@ -117,7 +119,7 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const 
         }
         this->t[n] = this->t[n-1] + this->dt;
     }
-    this->run_steps(_log,t_resume, steps_per_time_update,steps_per_grid_transform);
+    this->run_steps(_log,t_resume, steps_per_time_update);
 }
 
 
@@ -128,7 +130,7 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const 
  * @tparam T 
  */
 template<typename T>
-void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps_per_time_update,const int steps_per_grid_transform){
+void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps_per_time_update){
     assert(this->y.size() == this->t.size());
     assert(this->t.size() >= this->order);
 
@@ -185,11 +187,11 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
 
         if (euler_exceeded){            
             if (!increasing_dt){
-                popup_stream <<"\nMax euler iterations exceeded, reloading checkpoint at "<<this->t[old_checkpoint.n]*Constant::fs_per_au<< "and decreasing dt.\n\r";
+                popup_stream <<"\nMax euler iterations exceeded, reloading checkpoint at "<<this->t[old_checkpoint.n]*Constant::fs_per_au<< " fs and decreasing dt.\n\r";
             }
             else{
                 popup_stream << "\nReloading checkpoint at "<<this->t[old_checkpoint.n]*Constant::fs_per_au
-                <<", as increasing step size led to euler iterations being exceeded. Will attempt again after "<<2*checkpoint_gap<< "steps.\n\r";
+                <<" fs, as increasing step size led to euler iterations being exceeded. Will attempt again after "<<2*checkpoint_gap<< "steps.\n\r";
                 times_to_increase_dt.pop_back();  // remove the extra time added.
                 times_to_increase_dt.back() = this->t[n] + 2*checkpoint_gap*this->dt;  
                 increasing_dt = 0;                
@@ -227,7 +229,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         }
 
         // Dynamic grid updater // TODO pop in function.
-        if ((n-this->order+1)%steps_per_grid_transform == 0){
+        if ((n-this->order+1)%this->steps_per_grid_transform == 0){
             popup_stream << "\nUpdating grid... \n\r"; 
             Display::show(display_stream,popup_stream);
             std::cout.setstate(std::ios_base::failbit);  // disable character output

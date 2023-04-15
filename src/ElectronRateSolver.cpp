@@ -208,7 +208,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
         plasma_header << "[ sim ] Using static grid" << "\n\r";
 
     plasma_header<<"[ Rate Solver ] Using initial timestep size of "<<this->dt*Constant::fs_per_au<<" fs"<<"\n\r";
-    size_t steps_per_grid_transform =  round(input_params.Num_Time_Steps()*(grid_update_period/timespan_au));
+    steps_per_grid_transform =  round(input_params.Num_Time_Steps()*(grid_update_period/timespan_au));
 
 
     std::cout << plasma_header.str()<<std::flush; // display in regular terminal, so that it is still visible after end of program
@@ -216,7 +216,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
     Display::header += plasma_header.str(); // display this in ncurses screen
     //Display::deactivate();
 
-    this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update,steps_per_grid_transform); // Inherited from ABM
+    this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
 
     
     
@@ -248,7 +248,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
         }
         retries--;
         set_starting_state(); //TODO this would be broken by dynamic grid
-        this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update,steps_per_grid_transform); // Inherited from ABM
+        this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
     }
     
     
@@ -509,6 +509,7 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     input_params.num_time_steps = input_params.num_time_steps + (fact - 1)*remaining_steps; // todo separate from input params
     t.resize(n+1); t.resize(input_params.num_time_steps);
     y.resize(n+1); y.resize(input_params.num_time_steps);
+    steps_per_grid_transform = round(steps_per_grid_transform*fact);
 
     // Set up the t grid       
     for (size_t i=n+1; i<input_params.num_time_steps; i++){   // TODO check potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
@@ -585,6 +586,8 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
  * @brief Increases time step size so as to reduce the number of remaining steps.
  * @param _log 
  * @param current_n 
+ * @note current implementation means if a checkpoint was loaded multiple times (as can happen when we have multiple dt decreases within 2*checkpoint period,
+ * then this will be called at the same time multiple times. Not critical to make it better though.  
  */
 void ElectronRateSolver::increase_dt(ofstream &_log, size_t current_n){
     std::cout.setstate(std::ios_base::failbit);  // disable character output
@@ -605,6 +608,7 @@ void ElectronRateSolver::increase_dt(ofstream &_log, size_t current_n){
     input_params.num_time_steps = input_params.num_time_steps - (1-1/fact)*remaining_steps; // todo separate from input params
     t.resize(n+1); t.resize(input_params.num_time_steps);
     y.resize(n+1); y.resize(input_params.num_time_steps);
+    steps_per_grid_transform = round(steps_per_grid_transform/fact);
 
     // Set up the t grid       
     for (size_t i=n+1; i<input_params.num_time_steps; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
