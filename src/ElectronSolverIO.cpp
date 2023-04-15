@@ -195,7 +195,7 @@ void ElectronRateSolver::tokenise(std::string str, std::vector<double> &out, con
     std::string s;
     while (std::getline(ss, s, delim)) {
         if (s.size() == 0 || (s.size() == 1 && s[0] == '\r')){continue;}  // This or part is just to deal with excel being a pain.
-        double d = stod(s); 
+        double d = stold(s); 
         out.push_back(d);
     }
 }
@@ -372,7 +372,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         // todo make a func
         double dirac_peak_cutoff_density = 0; // a peak's density has to be above this to count
         dirac_energy_bounds(y.size()-1,regimes.dirac_maximums,regimes.dirac_minimums,regimes.dirac_peaks,true,regimes.num_dirac_peaks,dirac_peak_cutoff_density);
-        mb_energy_bounds(y.size()-1,regimes.mb_max,regimes.mb_min,regimes.mb_peak);
+        mb_energy_bounds(y.size()-1,regimes.mb_max,regimes.mb_min,regimes.mb_peak,false);
         transition_energy(y.size()-1, param_cutoffs.transition_e);        
     }
 }   

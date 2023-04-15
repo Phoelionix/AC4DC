@@ -122,7 +122,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             double last_trans_e = param_cutoffs.transition_e;
             double dirac_peak_cutoff_density = y[step].F(last_trans_e)*last_trans_e*10;
             dirac_energy_bounds(step,regimes.dirac_maximums,regimes.dirac_minimums,regimes.dirac_peaks,true,regimes.num_dirac_peaks,dirac_peak_cutoff_density);
-            mb_energy_bounds(step,regimes.mb_max,regimes.mb_min,regimes.mb_peak);
+            mb_energy_bounds(step,regimes.mb_max,regimes.mb_min,regimes.mb_peak,false);
             transition_energy(step, param_cutoffs.transition_e);
         } 
         if (old_trans_e != param_cutoffs.transition_e){
@@ -508,7 +508,13 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     assert(remaining_steps > 0 && fact > 1);
     input_params.num_time_steps = input_params.num_time_steps + (fact - 1)*remaining_steps; // todo separate from input params
     t.resize(n+1); t.resize(input_params.num_time_steps);
-    y.resize(n+1); y.resize(input_params.num_time_steps);
+    y.resize(n+1); 
+    // set basis to the one in use at checkpoint.
+    // y[n].F.transform_basis(knots);
+    // zero_y = this->get_ground_state();    
+    // give the future states the correct sizes that was just set.
+    // state_type::set_P_shape(input_params.Store); 
+    //y.resize(input_params.num_time_steps);
     steps_per_grid_transform = round(steps_per_grid_transform*fact);
 
     // Set up the t grid       
@@ -520,58 +526,71 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     while(Distribution::knots_history.back().step > n){
         Distribution::knots_history.pop_back();
     }    
+    // the spline factors are untouched, we just need to load the appropriate knots.
+    Distribution::load_knots_from_history(n);
 
-    /// same as set_up_grid_and_compute_cross_sections but we use the checkpoint's regimes (for consistency's sake).
-    ///////////// 
+
+    // Temporary, but here we are just updating to basis to ensure nothing breaks.
+    // Ideally would just load the grid without affecting when grid updates.
     // Cross-sections
-    bool recalc = true;
-    ofstream dummy_log;
-    input_params.calc_rates(dummy_log,recalc);  
-    //hasRates = true;
+    set_up_grid_and_compute_cross_sections(_log,false,n);
+    // Transform enough previous points needed to get going to new basis
+    std::vector<double> new_energies = Distribution::get_knot_energies();
+    // zero_y is used as the starting state for each step and represents the ground state, so we need to reset it so it has the right knots.
+    this->zero_y = this->get_ground_state();         
+    for (size_t m = n+1 - this->order; m < n+1; m++) {
+        // reload back to the old energies so we can use transform_basis(). yes it's goofy :/
+        Distribution::load_knots_from_history(n);
+        y[m].F.transform_basis(new_energies);
+    }      
+    y.resize(input_params.num_time_steps);
+    /// version intended to load with same grid regimes but it just leads to lots of potential bad cases, better to just
+    // load and determine the grid 
+    //same as set_up_grid_and_compute_cross_sections but we use the checkpoint's regimes (for consistency's sake).
+    /////////////     
+    // bool recalc = true;
+    // ofstream dummy_log;
+    // input_params.calc_rates(dummy_log,recalc);  
+    // //hasRates = true;
 
-    // set basis to the one in use at checkpoint.
-    Distribution::load_knot(knots); 
-    // Set up the container class to have the correct size
-    state_type::set_P_shape(input_params.Store);
+    // if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
+    //     if(_log.is_open()){
+    //         double e = Constant::eV_per_Ha;
+    //         _log << "---|---|---|---|--- [ Checkpoint Knots ] ---|---|---|---|---\n" 
+    //         "Time: "<<t[n]*Constant::fs_per_au <<" fs\n" 
+    //         <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< this->regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
+    //         for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
+    //             _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
+    //         }
+    //         _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<""  
+    //         << endl;
+    //     }        
+    //     else{}
+    // }
 
-    if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
-        if(_log.is_open()){
-            double e = Constant::eV_per_Ha;
-            _log << "---|---|---|---|--- [ Checkpoint Knots ] ---|---|---|---|---\n" 
-            "Time: "<<t[n]*Constant::fs_per_au <<" fs\n" 
-            <<"Therm [peak; range]: "<<this->regimes.mb_peak*e<< "; "<< this->regimes.mb_min*e<<" - "<<this->regimes.mb_max*e<<"\n"; 
-            for(size_t i = 0; i < this->regimes.num_dirac_peaks;i++){
-                _log<<"Photo [peak; range]: "<<this->regimes.dirac_peaks[i]*e<< "; " << this->regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
-            }
-            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<""  
-            << endl;
-        }        
-        else{}
-    }
-
-    // create the tensor of coefficients TODO these aren't constant now - change to lowercase.
-    RATE_EII.resize(input_params.Store.size());
-    RATE_TBR.resize(input_params.Store.size());
-    for (size_t a=0; a<input_params.Store.size(); a++) {
-        size_t N = y[n].F.num_basis_funcs();
-        RATE_EII[a].resize(N);
-        RATE_TBR[a].resize(N*(N+1)/2);
-    }
-    precompute_gamma_coeffs();
-    Distribution::precompute_Q_coeffs(input_params.Store);
+    // // create the tensor of coefficients TODO these aren't constant now - change to lowercase.
+    // RATE_EII.resize(input_params.Store.size());
+    // RATE_TBR.resize(input_params.Store.size());
+    // for (size_t a=0; a<input_params.Store.size(); a++) {
+    //     size_t N = y[n].F.num_basis_funcs();
+    //     RATE_EII[a].resize(N);
+    //     RATE_TBR[a].resize(N*(N+1)/2);
+    // }
+    // precompute_gamma_coeffs();
+    // Distribution::precompute_Q_coeffs(input_params.Store);
     
-    /////////////
+    // /////////////
     std::cout.clear();
-    this->zero_y = this->get_ground_state();
         
 
     // Remember when time step was decreased, and flag to increase time step size again
     switch (input_params.pulse_shape){
 
     case PulseShape::gaussian:
-        if (t[n] >= 0){
-            times_to_increase_dt.push_back(-t[n]+0.05/Constant::fs_per_au);
-        }
+        // TODO impact ionisation dominates so we would need a better method to do this. Arguably it's not worth it. increase_dt is bugged anyway.
+        // if (t[n] <= 0){
+        //     times_to_increase_dt.push_back(-t[n]+0.05/Constant::fs_per_au);
+        // }
         break;
     case PulseShape::square:
         break;  
@@ -588,13 +607,14 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
  * @param current_n 
  * @note current implementation means if a checkpoint was loaded multiple times (as can happen when we have multiple dt decreases within 2*checkpoint period,
  * then this will be called at the same time multiple times. Not critical to make it better though.  
+ * An alternative would also be to make dt proportional to the incoming intensity. What be even better would be making it proportional to the
+ * net magnitude of delta(density) / delta(t)
  */
 void ElectronRateSolver::increase_dt(ofstream &_log, size_t current_n){
+    /* breaks things
     std::cout.setstate(std::ios_base::failbit);  // disable character output
     
     size_t n = current_n;
-
-    this->regimes = checkpoint.regimes;
 
     int remaining_steps = t.size() - (n+1);
     double fact = 1.5; // factor to increase time step size dt by.
@@ -611,8 +631,9 @@ void ElectronRateSolver::increase_dt(ofstream &_log, size_t current_n){
     steps_per_grid_transform = round(steps_per_grid_transform/fact);
 
     // Set up the t grid       
-    for (size_t i=n+1; i<input_params.num_time_steps; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
+    for (int i=n+1; i<input_params.num_time_steps; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
         this->t[i] = this->t[i-1] + this->dt;
     }
+    */
 }
 //IOFunctions found in IOFunctions.cpp

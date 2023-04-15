@@ -102,7 +102,6 @@ double ElectronRateSolver::nearest_inflection(size_t step, double start_energy,d
     // Initialise
     double e = start_energy;
     double inflection = -1;
-    double min_density = -1;
     double last_density = y[step].F(start_energy)*start_energy;
     double last_grad = 0;
     size_t num_sequential = 0;    
@@ -167,7 +166,7 @@ std::vector<double> ElectronRateSolver::approx_regime_peaks(size_t step, double 
     assert(del_energy > 0);
     assert(num_peaks > 0);      
 
-    double min_peak_separation = 400 / Constant::eV_per_Ha; 
+    //double min_peak_separation = 400 / Constant::eV_per_Ha; 
     size_t min_sequential = 3;
     std::vector<double> peak_energies;  
     double last_peak_density = INFINITY; // for asserting expected behaviour.
@@ -239,7 +238,7 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, std::vector<double>& m
         double e_peak = peaks[i];
         if (e_peak < 0){
             // Found all peaks that suit our restrictions, move outside of grid so that it is ignored. 
-            // If allow_shrinkage == false, this removes the region permanently.
+            // Note that if allow_shrinkage == false, this removes the region permanently.
             minimums[i] = -99/Constant::eV_per_Ha;
             maximums[i] = -100/Constant::eV_per_Ha;
             continue;
@@ -290,7 +289,6 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
         _min = new_min;
     }
     //double min_e_seq_range  = 20/Constant::eV_per_Ha;
-    int min_seq_needed = 3; // -> at later times, it seeks min_seq_needed*peak/10 energy to confirm inflection.
     //size_t num_sequential_needed = max(min_seq_needed,(int)(min_e_seq_range/e_step_size+0.5)); 
     size_t num_sequential_needed = 3; // early times are safeguarded from inflections being too small by disallowing shrinkage
     allow_shrinkage = false; //TODO

@@ -57,7 +57,11 @@ public:
     {
         pf.set_shape(input_params.pulse_shape);
         pf.set_pulse(input_params.Fluence(), input_params.Width());
+        // AC4DC V2
         timespan_au = input_params.Width()*4;   // 4*FWHM, capturing effectively entire pulse.
+        // NEUTZE  (TODO have option to set FWHM coverage)
+        timespan_au = input_params.Width()*2.4;
+        std::cout<<"Imaging using -1.2 FWHM to 1.2 FWHM"<<std::endl;
         
         if (input_params.pulse_shape ==  PulseShape::square){  //-FWHM <= t <= 3FWHM
             simulation_start_time = -timespan_au/4;
@@ -67,7 +71,10 @@ public:
             simulation_end_time = timespan_au/2; 
         }
         if (input_params.Cutoff_Inputted()){
-            simulation_end_time = input_params.Simulation_Cutoff(); // This does affect the fineness of the output
+            if (input_params.Simulation_Cutoff() > simulation_end_time){
+                std::cout <<"Ignoring cutoff, as cutoff is past the end time."<<endl;
+            }
+            simulation_end_time = min(input_params.Simulation_Cutoff(),simulation_end_time); 
         }
         simulation_resume_time = simulation_start_time;
         set_grid_regions(input_params.elec_grid_regions);
@@ -98,7 +105,6 @@ public:
 private:
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)
     GridBoundaries elec_grid_regions;
-    FeatureRegimes regimes;
     Cutoffs param_cutoffs; 
     Pulse pf;
     double timespan_au; // Atomic units
@@ -117,7 +123,7 @@ private:
 
     // Dynamic grid
     void dirac_energy_bounds(size_t step, std::vector<double>& maximums, std::vector<double>& minimums, std::vector<double>& peaks, bool allow_shrinkage,size_t num_peaks, double peak_min_density);
-    void mb_energy_bounds(size_t step, double& max, double& min, double& peak_density, bool allow_shrinkage = false);
+    void mb_energy_bounds(size_t step, double& max, double& min, double& peak_density, bool allow_shrinkage);
     void transition_energy(size_t step, double& g_min);
     double approx_nearest_peak(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
     double approx_regime_trough(size_t step, double lower_bound, double upper_bound, double del_energy);

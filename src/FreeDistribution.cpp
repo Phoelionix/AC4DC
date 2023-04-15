@@ -60,14 +60,11 @@ void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_
 
 void Distribution::set_distribution(vector<double> new_knot, vector<double> new_spline_factors) {
     f = new_spline_factors; 
-    // Remove boundary knots
-    new_knot = get_trimmed_knots(new_knot);
-    size = new_knot.size();
-    basis = new_knot;
+    load_knot(new_knot);
     f.resize(size);
 }
 void Distribution::load_knot(vector<double> loaded_knot) {
-    loaded_knot = get_trimmed_knots(loaded_knot);
+    loaded_knot = get_trimmed_knots(loaded_knot); // Remove boundary knots
     size = loaded_knot.size();
     basis = loaded_knot; // note the overload!
 }
