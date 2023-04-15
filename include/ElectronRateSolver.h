@@ -60,7 +60,7 @@ public:
         // AC4DC V2
         timespan_au = input_params.Width()*4;   // 4*FWHM, capturing effectively entire pulse.
         // NEUTZE  (TODO have option to set FWHM coverage)
-        timespan_au = input_params.Width()*2.4;
+        //timespan_au = input_params.Width()*2.4; kinda breaks dyn grid as (not enough time for pulse to widen?)
         std::cout<<"Imaging using -1.2 FWHM to 1.2 FWHM"<<std::endl;
         
         if (input_params.pulse_shape ==  PulseShape::square){  //-FWHM <= t <= 3FWHM
