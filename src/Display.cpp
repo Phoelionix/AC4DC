@@ -25,7 +25,9 @@ This file is part of AC4DC.
 #include <iostream>
 
 // Initialise static variables.
-WINDOW* Display::win; std::string Display::header;
+WINDOW* Display::win; 
+std::string Display::header; 
+std::stringstream Display::display_stream, Display::popup_stream;
 
 void Display::create_screen(){
     initscr();

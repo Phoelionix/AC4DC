@@ -80,6 +80,7 @@ public:
         set_grid_regions(input_params.elec_grid_regions);
 
         grid_update_period = input_params.Grid_Update_Period();  // TODO the grid update period should be made to be at least 3x (probably much more) longer with a gaussian pulse, since early times need it to be updated far less often to avoid instability for such a pulse. 
+        steps_per_time_update = max(1 , (int)(input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
 
         if(input_params.Filtration_File() != ""){
             load_filtration_file();
@@ -96,12 +97,13 @@ public:
     /// Number of secs taken for simulation to run
     long secs;
 
-    /// time duration of get_Q_tbr and get_Q_eii
-    std::chrono::duration<double, std::milli> tbr_time;
-    std::chrono::duration<double, std::milli> eii_time;
-    std::chrono::duration<double, std::milli> ee_time;
-    std::chrono::duration<double, std::milli> apply_delta_time;
-    std::chrono::duration<double, std::milli> misc_time;
+    /// What's the time Mr Wolf?
+    std::chrono::duration<double, std::milli> 
+    display_time, plot_time, dyn_dt_time, pre_ode_time, // pre_ode
+    dyn_grid_time, user_input_time, post_ode_time,  // post_ode
+    pre_tbr_time, eii_time, tbr_time,  // sys_bound
+    ee_time, apply_delta_time; //sys_ee    
+     
 private:
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)
     GridBoundaries elec_grid_regions;
@@ -135,13 +137,33 @@ private:
     void precompute_gamma_coeffs(); // populates above two tensors
     void set_initial_conditions();
 
-    // 
+    // Dynamic time steps
     size_t load_checkpoint_and_decrease_dt(ofstream& _log, size_t current_n, Checkpoint _checkpoint);
-    void increase_dt(ofstream& _log, size_t current_n);
+    void increase_dt(ofstream& _log, size_t current_n); // bugged
+
+    // Display stuff
+    Plotting py_plotter;  
+    int steps_per_time_update;    
 
     /////// Overrides virtual system state methods
-    void sys_bound(const state_type& s, state_type& sdot, state_type& s_bg, const double t); // general dynamics (uses explicit mehtod)
-    void sys_ee(const state_type& s, state_type& sdot, const double t); // electron-electron (uses implicit method)
+    /**
+     * @brief         
+     * @details 1. Displays general information
+     * 2. Handles live plotting
+     * 3. Handles dynamic updates to dt (and checkpoints, which also handle case of NaN being encountered by solver).
+     */
+    void pre_ode_step(ofstream& _log, size_t& n,const int steps_per_time_update);
+    /// general dynamics (uses explicit method)
+    void sys_bound(const state_type& s, state_type& sdot, state_type& s_bg, const double t); 
+    /// electron-electron (uses implicit method)
+    void sys_ee(const state_type& s, state_type& sdot, const double t); 
+    /**
+     * @brief 
+     * @details 1. Handles dynamic grid updates 
+     * 2. Checks if user wants to exit simulation early, truncating the states y and times t, and returning 1 if so.
+     * @return int
+     */
+    int post_ode_step(ofstream& _log, size_t& n);
     /////// 
 
     bool hasRates = false; // flags whether Store has been populated yet.
@@ -159,8 +181,10 @@ private:
     void set_grid_regions(GridBoundaries gb);
     void set_starting_state();
     state_type get_ground_state();
+    void update_grid(ofstream& _log, size_t latest_step);
 
     //void high_energy_stability_check();
+    string its_dinner_time(std::vector<std::chrono::duration<double, std::milli>> times, std::vector<std::string> tags);
 };
 
 

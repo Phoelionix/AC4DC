@@ -47,6 +47,9 @@ struct Display{
     
     static std::string header; // displayed text at start of screen/terminal that doesn't change.
 
+    static std::stringstream display_stream;
+    static std::stringstream popup_stream;
+
     // Could just use this rather than do the screen thing (oops)
     static void signalHandler( int signum );
 };

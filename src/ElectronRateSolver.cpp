@@ -182,8 +182,6 @@ void ElectronRateSolver::solve(ofstream & _log) {
     auto start = std::chrono::system_clock::now();
 
     if (simulation_resume_time > simulation_end_time){cout << "\033[91m[ Error ]\033[0m Simulation is attempting to resume from loaded data with a time after that which it is set to end at." << endl;}
-    
-    int steps_per_time_update = max(1 , (int)(input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
 
 
     
@@ -197,9 +195,9 @@ void ElectronRateSolver::solve(ofstream & _log) {
         plasma_header<< "Updating time every " << steps_per_time_update << " steps." <<"\n\r";
     }
     if (simulation_resume_time != simulation_start_time){
-        plasma_header<<"\033[33m"<<"Loaded simulation at:  "<<"\033[0m"<<(simulation_resume_time)*Constant::fs_per_au<<" fs"<<"\n\r";
+        plasma_header/*<<"\033[33m"*/<<"Loaded simulation at:  "/*<<"\033[0m"*/<<(simulation_resume_time)*Constant::fs_per_au<<" fs"<<"\n\r";
     }
-    plasma_header<<"\033[33m"<<"Final time step:  "<<"\033[0m"<<(simulation_end_time)*Constant::fs_per_au<<" fs"<<"\n\r";
+    plasma_header/*<<"\033[33m"*/<<"Final time step:  "/*<<"\033[0m"*/<<(simulation_end_time)*Constant::fs_per_au<<" fs"<<"\n\r";
     plasma_header<<banner<<"\n\r";
     
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic)
@@ -250,36 +248,42 @@ void ElectronRateSolver::solve(ofstream & _log) {
         set_starting_state(); //TODO this would be broken by dynamic grid
         this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
     }
-    
-    
-    // Times
+
     auto end = chrono::system_clock::now();
     chrono::duration<double> elapsed_seconds = end-start;
     time_t end_time = std::chrono::system_clock::to_time_t(end);
     cout << "[ Solver ] finished computation at " << ctime(&end_time) << endl;
     secs = elapsed_seconds.count();
-    //mins
-    auto eii_m = std::chrono::duration_cast<std::chrono::minutes>(eii_time); 
-    auto tbr_m = std::chrono::duration_cast<std::chrono::minutes>(tbr_time);
-    auto ee_m = std::chrono::duration_cast<std::chrono::minutes>(ee_time);
-    auto apply_delta_m = std::chrono::duration_cast<std::chrono::minutes>(apply_delta_time);
-    auto misc_m = std::chrono::duration_cast<std::chrono::minutes>(misc_time);
-    //secs
-    auto eii_s = std::chrono::duration_cast<std::chrono::seconds>(eii_time); 
-    auto tbr_s = std::chrono::duration_cast<std::chrono::seconds>(tbr_time);
-    auto ee_s = std::chrono::duration_cast<std::chrono::seconds>(ee_time);
-    auto apply_delta_s = std::chrono::duration_cast<std::chrono::seconds>(apply_delta_time);
-    auto misc_s = std::chrono::duration_cast<std::chrono::seconds>(misc_time);
+    
+    // I'm sorry for this
+    std::vector<std::chrono::duration<double, std::milli>> times{
+    display_time, plot_time, dyn_dt_time, pre_ode_time,
+    dyn_grid_time, user_input_time, post_ode_time,
+    pre_tbr_time, eii_time, tbr_time,
+    ee_time, apply_delta_time
+    };
+    std::vector<std::string> tags{
+    "display", "live plotting", "dt updates", "pre_ode()",
+    "dynamic grid updates", "user input detection", "post_ode()",
+    "pre_tbr processes", "get_Q_eii()", "get_Q_tbr()",
+    "get_Q_ee()", "apply_delta()"
+    };
+    
     stringstream solver_times;
-    solver_times <<"[ Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << "\n";
-    solver_times <<"[ Solver ] get_Q_ee() took "<< ee_m.count() <<"m " << ee_s.count()%60 << "s" << "\n";
-    solver_times <<"[ Solver ] get_Q_eii() took "<< eii_m.count() <<"m " << eii_s.count()%60 << "s" << "\n";
-    solver_times <<"[ Solver ] get_Q_tbr() took "<< tbr_m.count() <<"m " << tbr_s.count()%60 << "s" << "\n";
-    solver_times <<"[ Solver ] apply_delta() took "<< apply_delta_m.count() <<"m " << apply_delta_s.count()%60 << "s" << "\n";
-    solver_times <<"[ Solver ] some misc processes took "<< misc_m.count() <<"m " << misc_s.count()%60 << "s";
-    std::cout<<banner<<"\n"<<"\033[1;32m"<<solver_times.str()<<"\033[0m\n"<<endl;
+    solver_times <<"\n[ Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << "\n";
+    solver_times << its_dinner_time(times,tags);
+    std::cout<<banner<<"\033[1;32m"<<solver_times.str()<<"\033[0m\n"<<endl;
     _log <<banner<<"\n"<<solver_times.str(); _log.flush();
+}
 
+string ElectronRateSolver::its_dinner_time(std::vector<std::chrono::duration<double, std::milli>> times, std::vector<std::string> tags){
+    std::stringstream out;
+    for(size_t i = 0; i < times.size(); i++){
+        auto m = std::chrono::duration_cast<std::chrono::minutes>(times[i]); 
+        auto s = std::chrono::duration_cast<std::chrono::seconds>(times[i]);
+        out <<"[ Solver ] "<<tags[i]<<" took "<<m.count()<<"m "<<s.count()%60<< "s" << "\n";
+    }
+    return out.str();
 }
 
 
@@ -337,7 +341,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
 
     if (!good_state) return;
-
+    auto t9 = std::chrono::high_resolution_clock::now();
     for (size_t a = 0; a < s.atomP.size(); a++) {
         const bound_t& P = s.atomP[a];
         bound_t& Pdot = sdot.atomP[a];
@@ -372,7 +376,6 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         }
 
         // EII / TBR bound-state dynamics
-        auto t9 = std::chrono::high_resolution_clock::now();
         double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
         double sdot_bound_charge_subst = 0; 
         size_t N = Distribution::size; 
@@ -427,7 +430,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         sdot.bound_charge += sdot_bound_charge_subst;
 
         auto t10 = std::chrono::high_resolution_clock::now();
-        misc_time += t10 - t9;
+        pre_tbr_time += t10 - t9;
 
         // Free-electron parts
         #ifdef NO_EII
@@ -490,6 +493,11 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot, const dou
     apply_delta_time += t8 - t7;
 }
 
+
+
+
+//// Mid-simulation Non-ode functions
+
 size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_t current_n, Checkpoint _checkpoint){
     std::cout.setstate(std::ios_base::failbit);  // disable character output
     
@@ -532,22 +540,12 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
 
     // Temporary, but here we are just updating to basis to ensure nothing breaks.
     // Ideally would just load the grid without affecting when grid updates.
-    // Cross-sections
-    set_up_grid_and_compute_cross_sections(_log,false,n);
-    // Transform enough previous points needed to get going to new basis
-    std::vector<double> new_energies = Distribution::get_knot_energies();
-    // zero_y is used as the starting state for each step and represents the ground state, so we need to reset it so it has the right knots.
-    this->zero_y = this->get_ground_state();         
-    for (size_t m = n+1 - this->order; m < n+1; m++) {
-        // reload back to the old energies so we can use transform_basis(). yes it's goofy :/
-        Distribution::load_knots_from_history(n);
-        y[m].F.transform_basis(new_energies);
-    }      
-    y.resize(input_params.num_time_steps);
+    update_grid(_log,n);
     /// version intended to load with same grid regimes but it just leads to lots of potential bad cases, better to just
     // load and determine the grid 
     //same as set_up_grid_and_compute_cross_sections but we use the checkpoint's regimes (for consistency's sake).
     /////////////     
+    // Cross-sections
     // bool recalc = true;
     // ofstream dummy_log;
     // input_params.calc_rates(dummy_log,recalc);  
@@ -611,7 +609,7 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
  * net magnitude of delta(density) / delta(t)
  */
 void ElectronRateSolver::increase_dt(ofstream &_log, size_t current_n){
-    /* breaks things
+    /* breaks things TODO may no longer break things since I found what was wrong... retry 0.5 fs FWHM mol file after fixing excessive computation time
     std::cout.setstate(std::ios_base::failbit);  // disable character output
     
     size_t n = current_n;
@@ -637,3 +635,146 @@ void ElectronRateSolver::increase_dt(ofstream &_log, size_t current_n){
     */
 }
 //IOFunctions found in IOFunctions.cpp
+
+
+void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_per_time_update){
+    auto t_start = std::chrono::high_resolution_clock::now();
+    
+
+    ////// Display info ////// (only the regular stuff seen each step, not "popups" from popup_stream)
+    auto t_start_disp = std::chrono::high_resolution_clock::now();
+    if ((n-this->order)%steps_per_time_update == 0){
+        Display::display_stream.str(Display::header); // clear display string
+        Display::display_stream<< "\n\r"
+        << "--- Press BACKSPACE/DEL to end simulation and save the data ---\n\r"   
+        << "[ sim ] Current timestep size = "<<this->dt*Constant::fs_per_au<<" fs\n\r"   
+        << "[ sim ] t="
+        << std::left<<std::setfill(' ')<<std::setw(6)
+        << this->t[n] * Constant::fs_per_au << " fs\n\r" 
+        << "[ sim ] " <<Distribution::size << " knots currently active\n\r"; 
+        // << flush; 
+        Display::show(Display::display_stream);
+    }        
+    display_time += std::chrono::high_resolution_clock::now() - t_start_disp;  
+
+    ////// live plotting ////// 
+    auto t_start_plot = std::chrono::high_resolution_clock::now();
+    if ((n-this->order+1)%25 == 0){ // this rate won't be significant except for samples with no heavy elements
+        size_t num_pts = 4000;
+        py_plotter.plot_frame(Distribution::get_energies_eV(num_pts),this->y[n].F.get_densities(num_pts,Distribution::get_knot_energies()));
+    }        
+    plot_time += std::chrono::high_resolution_clock::now() - t_start_plot;  
+
+    ////// Dynamic time updates //////
+    auto t_start_dt = std::chrono::high_resolution_clock::now();
+    // store checkpoint
+    if ((n-this->order+1)%checkpoint_gap == 0){  // 
+        old_checkpoint = checkpoint;
+        checkpoint = {n, Distribution::get_knot_energies(),this->regimes};
+    }
+    if (euler_exceeded || !good_state){        
+        if (euler_exceeded){    
+            // if (!increasing_dt){
+            //     popup_stream <<"\nMax euler iterations exceeded, reloading checkpoint at "<<this->t[old_checkpoint.n]*Constant::fs_per_au<< " fs and decreasing dt.\n\r";
+            // }
+            // else{
+            Display::popup_stream << "\nReloading checkpoint at "<<t[old_checkpoint.n]*Constant::fs_per_au
+            <<" fs, as increasing step size led to euler iterations being exceeded. Will attempt again after "<<2*checkpoint_gap<< "steps.\n\r";
+            times_to_increase_dt.pop_back();  // remove the extra time added.
+            times_to_increase_dt.back() = t[n] + 2*checkpoint_gap*dt;  
+            increasing_dt = 0;                
+            // }
+        }
+        else{
+            Display::popup_stream <<"\n NaN encountered in ODE iteration. Reloading checkpoint at "<<t[old_checkpoint.n]*Constant::fs_per_au<< " fs and decreasing dt.\n\r";
+        }
+        Display::show(Display::display_stream,Display::popup_stream);
+        // Reload at checkpoint's n, updating the n step, and decreasing time step length
+        n = load_checkpoint_and_decrease_dt(_log,n,old_checkpoint);  // virtual function overridden by ElectronRateSolver
+        good_state = true;
+        euler_exceeded = false;
+        checkpoint = old_checkpoint;
+    }
+    else if (!times_to_increase_dt.empty() && times_to_increase_dt.back() < t[n]){
+        Display::popup_stream <<"\nAttempting to increase dt\n\r";
+        Display::show(Display::display_stream,Display::popup_stream);
+        if (increasing_dt > 0){
+            increasing_dt--;
+        
+            if (increasing_dt == 0){
+                //successfully increased step size
+                times_to_increase_dt.pop_back();
+            }
+        }
+        else{
+            // Attempt to increase step size (i.e. decrease num remaining steps)
+            this->increase_dt(_log,n);
+            // Flag that we are testing to see if still converging.
+            size_t num_steps_to_check = 20;
+            assert(num_steps_to_check < checkpoint_gap);
+            increasing_dt = num_steps_to_check;
+        }
+    }
+    dyn_dt_time += std::chrono::high_resolution_clock::now() - t_start_dt;  
+    
+    pre_ode_time += std::chrono::high_resolution_clock::now() - t_start;  
+}
+
+int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
+    auto t_start = std::chrono::high_resolution_clock::now();
+
+    //////  Dynamic grid updater //////  TODO pop in function.
+    auto t_start_grid = std::chrono::high_resolution_clock::now();
+    if ((n-this->order+1)%steps_per_grid_transform == 0){ // TODO would be good to have a variable that this is equal to that is modified to account for changes in time step size. If a dt decreases you push back the grid update. If you increase dt you could miss it.
+        Display::popup_stream << "\nUpdating grid... \n\r"; 
+        Display::show(Display::display_stream,Display::popup_stream);   
+        update_grid(_log,n+1);          
+    }    
+    dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
+    
+    //////  Check if user wants to end simulation early ////// 
+    auto t_start_usr = std::chrono::high_resolution_clock::now();
+    auto ch = wgetch(Display::win);
+    if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127){   
+        flushinp(); // flush buffered inputs
+        Display::popup_stream <<"\n\rExiting early... press backspace/del again to confirm or any other key to cancel \n\r";
+        Display::show(Display::display_stream,Display::popup_stream, false);
+        nodelay(Display::win, false);
+        ch = wgetch(Display::win);  // note implicitly refreshes screen
+        if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127){
+            y.resize(n);
+            t.resize(n);    
+            return 1;
+        }
+        nodelay(Display::win, true);
+        werase(Display::win);
+    }       
+    if (Display::popup_stream.rdbuf()->in_avail() != 0){
+        // clear stream
+        Display::popup_stream.str(std::string());
+    }   
+    user_input_time += std::chrono::high_resolution_clock::now() - t_start_usr;  
+    
+    post_ode_time += std::chrono::high_resolution_clock::now() - t_start;    
+    return 0;
+}
+
+void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step){
+    size_t n = latest_step;
+    //// Set up new grid ////        
+    std::cout.setstate(std::ios_base::failbit);  // disable character output
+    // Latest step is n, so we decide our new grid based on that step, then transform N = "order" of the prior points to the new basis.
+    set_up_grid_and_compute_cross_sections(_log,false,n); // virtual function overridden by ElectronRateSolver
+    std::cout.clear();
+    //// We need some previous points needed to perform next ode step, so transform them to new basis ////
+    std::vector<double> new_energies = Distribution::get_knot_energies();
+    // zero_y is used as the starting state for each step and represents the ground state, so we need to reset it so it has the right knots.
+    zero_y = get_ground_state();
+    cout << endl;            
+    for (size_t m = n+1 - this->order; m < n+1; m++) {
+        // reload back to the old energies so we can use transform_basis(). Kinda goofy but it's necessary due to the static variables. 
+        Distribution::load_knots_from_history(m);
+        y[m].F.transform_basis(new_energies);
+    }  
+    // The next containers are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state. 
+} 

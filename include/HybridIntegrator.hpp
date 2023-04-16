@@ -45,8 +45,6 @@ class Hybrid : public Adams_BM<T>{
     Hybrid<T>(unsigned int order=4, double rtol=1e-5, unsigned max_iter = 2000): 
         Adams_BM<T>(order), stiff_rtol(rtol), stiff_max_iter(max_iter){};
     const static unsigned MAX_BEULER_ITER = 50;  // unused?
-    bool good_state = true;
-    bool euler_exceeded = false;  // Whether exceeded the max number of euler iterations (on prev. step)
     FeatureRegimes regimes;
     double timestep_reached = 0;       
     private:
@@ -58,11 +56,20 @@ class Hybrid : public Adams_BM<T>{
     double intolerable_stiff_err =0;//0.5;
     unsigned stiff_max_iter = 200;
     
-    size_t steps_per_grid_transform;
 
+
+    // Grid/timestep dynamics
+    size_t steps_per_grid_transform;    
     Checkpoint old_checkpoint; // the checkpoint that is loaded.
     Checkpoint checkpoint; 
-    // For gaussian pulses, this stores the times that we decreased dt so that it can be increased later.
+    int checkpoint_gap = 100; 
+    size_t increasing_dt = 0;
+    // TODO need to separate good_state from euler_exceeded, currently we have the case of good_state is false and 
+    // euler is exceeded, which means euler exceeded. And we have the case of good state is false and euler 
+    // exceeded is false, which means a nan was encountered.    
+    bool good_state = true;
+    bool euler_exceeded = false;  // Whether exceeded the max number of euler iterations (on prev. step)    
+    // [not in use as bugged] For gaussian pulses, this stores the times that we decreased dt so that it can be increased later.
     //TODO this should be saved if want to load from a point in time, but really it's meant to replace loading.
     std::vector<double> times_to_increase_dt;  
     
@@ -76,6 +83,8 @@ class Hybrid : public Adams_BM<T>{
     virtual size_t load_checkpoint_and_decrease_dt(ofstream &_log, size_t current_n, Checkpoint _checkpoint)=0;
     virtual void increase_dt(ofstream &_log, size_t current_n)=0;
     virtual state_type get_ground_state()=0;
+    virtual void pre_ode_step(ofstream& _log, size_t& n,const int steps_per_time_update)=0;
+    virtual int post_ode_step(ofstream& _log, size_t& n)=0;
 };
 
 template<typename T>
@@ -153,8 +162,6 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
 
     // activate the display
     //Display::reactivate();
-    
-    Plotting py_plotter;
 
     if (t_resume < this->t[this->order]){
         // initialise enough points for multistepping to get going
@@ -167,137 +174,29 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     tol << "[ sim ] Implicit solver uses relative tolerance "<<stiff_rtol<<", max iterations "<<stiff_max_iter<<"\n\r";
     std::cout << tol.str();  // Display in regular terminal even after ncurses screen is gone.
     Display::header += tol.str(); 
-    std::stringstream display_stream(Display::header, ios_base::app | ios_base::out); // text shown that updates with frequency 1/steps_per_time_update.
-    std::stringstream popup_stream(std::string(), ios_base::app | ios_base::out);  // text displayed during step of special events like grid updates
+    Display::display_stream = std::stringstream(Display::header, ios_base::app | ios_base::out); // text shown that updates with frequency 1/steps_per_time_update.
+    Display::popup_stream = std::stringstream(std::string(), ios_base::app | ios_base::out);  // text displayed during step of special events like grid updates
     Display::create_screen(); 
     size_t n = this->order - 1; // n can go back if load checkpoint.
-    size_t increasing_dt = 0;
-    int checkpoint_gap = 100; 
-    while (n < this->t.size()-1-1) {
+    while (n+1 < this->t.size() -1) {
         n++;
         if (this->t[n+1] <= t_resume) continue; // Start with n = last step.
 
-        if ((n-this->order)%steps_per_time_update == 0){
-            // Display info 
-            display_stream.str(Display::header); // clear display string
-            display_stream<< "\n\r"
-            << "--- Press BACKSPACE/DEL to end simulation and save the data ---\n\r"   
-            << "[ sim ] Current timestep size = "<<this->dt*Constant::fs_per_au<<" fs\n\r"   
-            << "[ sim ] t="
-            << std::left<<std::setfill(' ')<<std::setw(6)
-            << this->t[n] * Constant::fs_per_au << " fs\n\r" 
-            << "[ sim ] " <<Distribution::size << " knots currently active\n\r"; 
-            // << flush; 
-            Display::show(display_stream);
-        }        
-        
-        // live plotting
-        if ((n-this->order+1)%25 == 0){ // this rate won't be significant except for samples with no heavy elements
-            size_t num_pts = 4000;
-            py_plotter.plot_frame(Distribution::get_energies_eV(num_pts),this->y[n].F.get_densities(num_pts,Distribution::get_knot_energies()));
-        }        
-        // store checkpoint
-        if ((n-this->order+1)%checkpoint_gap == 0){  // 
-            old_checkpoint = checkpoint;
-            checkpoint = {n, Distribution::get_knot_energies(),this->regimes};
-        }
-
-        if (euler_exceeded || !good_state){        
-            if (euler_exceeded){    
-                if (!increasing_dt){
-                    popup_stream <<"\nMax euler iterations exceeded, reloading checkpoint at "<<this->t[old_checkpoint.n]*Constant::fs_per_au<< " fs and decreasing dt.\n\r";
-                }
-                else{
-                    popup_stream << "\nReloading checkpoint at "<<this->t[old_checkpoint.n]*Constant::fs_per_au
-                    <<" fs, as increasing step size led to euler iterations being exceeded. Will attempt again after "<<2*checkpoint_gap<< "steps.\n\r";
-                    times_to_increase_dt.pop_back();  // remove the extra time added.
-                    times_to_increase_dt.back() = this->t[n] + 2*checkpoint_gap*this->dt;  
-                    increasing_dt = 0;                
-                }
-            }
-            else{
-                popup_stream <<"\n NaN encountered in ODE iteration. Reloading checkpoint at "<<this->t[old_checkpoint.n]*Constant::fs_per_au<< " fs and decreasing dt.\n\r";
-            }
-            Display::show(display_stream,popup_stream);
-            // Reload at checkpoint's n, updating the n step, and decreasing time step length
-            n = this->load_checkpoint_and_decrease_dt(_log,n,old_checkpoint);  // virtual function overridden by ElectronRateSolver
-            good_state = true;
-            euler_exceeded = false;
-            checkpoint = old_checkpoint;
-        }
-        else if (!times_to_increase_dt.empty() && times_to_increase_dt.back() < this->t[n]){
-            popup_stream <<"\nAttempting to increase dt\n\r";
-            Display::show(display_stream,popup_stream);
-            if (increasing_dt > 0){
-                increasing_dt--;
-            
-                if (increasing_dt == 0){
-                    //successfully increased step size
-                    times_to_increase_dt.pop_back();
-                }
-            }
-            else{
-                // Attempt to increase step size (i.e. decrease num remaining steps)
-                this->increase_dt(_log,n);
-                // Flag that we are testing to see if still converging.
-                size_t num_steps_to_check = 20;
-                assert(num_steps_to_check < checkpoint_gap);
-                increasing_dt = num_steps_to_check;
-            }
-        }
+        // 1. Display general information
+        // 2. Handle live plotting
+        // 3. Handle dynamic updates to dt (and checkpoints, which also handle case of NaN being encountered by solver).
+        this->pre_ode_step(_log, n,steps_per_time_update);
         
         this->step_nonstiff_part(n); 
         
         // this->y[n+1].from_backwards_Euler(this->dt, this->y[n], stiff_rtol, stiff_max_iter);
         this->step_stiff_part(n);
 
-        if (euler_exceeded && increasing_dt){
-            n = this->load_checkpoint_and_decrease_dt(_log,n,old_checkpoint);
-            good_state = true;
-            euler_exceeded = false;
-        }
-
-        // Dynamic grid updater // TODO pop in function.
-        if ((n-this->order+1)%this->steps_per_grid_transform == 0){ // TODO would be good to have a variable that this is equal to that is modified to account for changes in time step size. If a dt decreases you push back the grid update. If you increase dt you could miss it.
-            popup_stream << "\nUpdating grid... \n\r"; 
-            Display::show(display_stream,popup_stream);
-            std::cout.setstate(std::ios_base::failbit);  // disable character output
-            // The latest step is n + 1, so we decide our new grid based on that step, then transform N = "order" of the prior points to the new basis.
-            this->set_up_grid_and_compute_cross_sections(_log,false,n+1); // virtual function overridden by ElectronRateSolver
-            std::cout.clear();
-            // Transform enough previous points needed to get going to new basis
-            std::vector<double> new_energies = Distribution::get_knot_energies();
-            // zero_y is used as the starting state for each step and represents the ground state, so we need to reset it so it has the right knots.
-            this->zero_y = this->get_ground_state();
-            cout << endl;            
-            for (size_t m = n+2 - this->order; m < n+2; m++) {
-                // reload back to the old energies so we can use transform_basis(). yes it's goofy :/
-                Distribution::load_knots_from_history(n);
-                this->y[m].F.transform_basis(new_energies);
-            }  
-             // The next containers are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state.       
-        }    
-
-        auto ch = wgetch(Display::win);
-        if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127){   
-            flushinp(); // flush buffered inputs
-            popup_stream <<"\n\rExiting early... press backspace/del again to confirm or any other key to cancel \n\r";
-            Display::show(display_stream,popup_stream, false);
-            nodelay(Display::win, false);
-            ch = wgetch(Display::win);  // note implicitly refreshes screen
-            if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127){
-                this->y.resize(n);
-                this->t.resize(n);    
-                break;
-            }
-            nodelay(Display::win, true);
-            werase(Display::win);
-        }       
-        if (popup_stream.rdbuf()->in_avail() != 0){
-            // clear stream
-            popup_stream.str(std::string());
-        }    
-
+        // 1. Handle dynamic grid updates 
+        // 2. Check if user wants to exit simulation early  
+        if (this->post_ode_step(_log,n) == 1){
+            break; // user asked to end the simulation early.
+        } 
     }
     Display::close();
     std::cout<<"\n";
