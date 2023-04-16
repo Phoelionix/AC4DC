@@ -674,16 +674,16 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
     }
     if (euler_exceeded || !good_state){        
         if (euler_exceeded){    
-            // if (!increasing_dt){
-            //     popup_stream <<"\nMax euler iterations exceeded, reloading checkpoint at "<<this->t[old_checkpoint.n]*Constant::fs_per_au<< " fs and decreasing dt.\n\r";
-            // }
-            // else{
+            if (!increasing_dt){
+                Display::popup_stream <<"\nMax euler iterations exceeded, reloading checkpoint at "<<this->t[old_checkpoint.n]*Constant::fs_per_au<< " fs and decreasing dt.\n\r";
+            }
+            else{
             Display::popup_stream << "\nReloading checkpoint at "<<t[old_checkpoint.n]*Constant::fs_per_au
             <<" fs, as increasing step size led to euler iterations being exceeded. Will attempt again after "<<2*checkpoint_gap<< "steps.\n\r";
             times_to_increase_dt.pop_back();  // remove the extra time added.
             times_to_increase_dt.back() = t[n] + 2*checkpoint_gap*dt;  
             increasing_dt = 0;                
-            // }
+            }
         }
         else{
             Display::popup_stream <<"\n NaN encountered in ODE iteration. Reloading checkpoint at "<<t[old_checkpoint.n]*Constant::fs_per_au<< " fs and decreasing dt.\n\r";
