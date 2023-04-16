@@ -28,3 +28,4 @@ Makefile_S
 scripts/scattering/results*
 scripts/scattering/reflections*
 input/debug/Debug.mol
+scripts/scattering/scratchpad.ipynb
