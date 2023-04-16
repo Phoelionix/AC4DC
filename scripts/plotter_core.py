@@ -538,7 +538,7 @@ class Plotter:
         f_avg = np.trapz(form_factors_sqrt_I,times_used)/(times_used[-1]-times_used[0])
         return f_avg   
 
-    def f_stochastic(self,q,atom):
+    def f_stochastic(self,q,atom,damaged = True):
         '''        
         We now include the stochastic contribution by picking the atomic state from the distribution.
         
@@ -552,10 +552,24 @@ class Plotter:
         possibly need to do trapezoidal integration averaging with I. but ignoring constant factors shld be equivalent so long as gaps in time are same.
         
         '''
-        if self.end_t == self.start_t:
-            return np.tile(self.get_average_form_factor(q,[atom],self.end_t)[0], (self.t_fineness)), np.tile(self.start_t, (self.t_fineness))
-        return self.f_snapshots(q,atom,stochastic=True)
 
+        if not damaged:
+            # return undamaged form factor, multiplied by sqrt of average pulse intensity
+            I_avg, times_used = self.I_avg()
+            return self.get_average_form_factor(q,[atom],self.start_t)[0] * np.sqrt(I_avg), times_used
+        else:
+            return self.f_snapshots(q,atom,stochastic=True)
+    def I_avg(self): # average intensity for pulse 
+        def snapshot(idx):
+            # We pass in indices from 0 to fineness-1, transform to time:
+            t = self.start_t + idx/self.t_fineness*(self.end_t-self.start_t)
+            idx = np.searchsorted(self.timeData,t)  # SAME AS IN get_average_form_factor()
+            time_used = self.timeData[idx]
+            val = self.intensityData[idx]
+            return val, time_used      
+        I,times_used = np.fromfunction(snapshot,(self.t_fineness,))
+        I_avg = np.trapz(I,times_used)/(times_used[-1]-times_used[0])
+        return I_avg,times_used
 
     # Coherence stuff, relevant for when have different atomic species (Martin A. Quiney H.M. 2016).  Assuming I haven't misunderstood notation.
     # Useful under the assumption of the nuclei being static. (i.e. the spatial component T(q) is not time dependent)
@@ -685,7 +699,7 @@ class Plotter:
                     orboccs[j] = parse_elecs_from_latex(states[i]) 
                     break
                 if i == len(states) - 1:
-                    print("WARNING, cumulative chance check failed")
+                    print("WARNING, cumulative chance check failed",atomic_density, self.boundData[a][idx[j], :])
                     orboccs[j] = parse_elecs_from_latex(states[i]) 
 
         # Parse the occupancies
@@ -700,6 +714,12 @@ class Plotter:
             occ_list = occ_list[:len(occ_list)-occ_list.count(-99)]
             shielding = SlaterShielding(self.atomic_numbers[a],occ_list)              
             ff[j] = shielding.get_atomic_ff(k,atomic_density)
+        # print("dmg")
+        # print(ff,time_used)
+        # print("normal")
+        # print(np.tile(self.get_average_form_factor(k,[atom],self.start_t)[0], (self.t_fineness)), np.tile(self.start_t, (self.t_fineness)))
+        # print('test done')
+        # asdads
         return ff,time_used    
 
 
@@ -1082,7 +1102,9 @@ class SlaterShielding:
             print("ERROR! shell_ff")
         
     # Gets a single configuration's normalised form factor (* density for purpose of finding average). 
-    def get_atomic_ff(self, k, atomic_density,density=1):
+    def get_atomic_ff(self, k, atomic_density,density=None):
+        if density == None:
+            density = atomic_density
         ff = 0
         norm = 1/atomic_density/self.Z # such that at t = 0, form factor = 1. (At t = 0, we have neutral config density = atomic density, and a factor of N where N is the number of shells, since the shell ff is normalised.)
         for i in range(len(self.shell_occs)):

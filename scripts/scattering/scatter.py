@@ -18,18 +18,19 @@ This file is part of AC4DC.
 ===========================================================================
 (C) Spencer Passmore 2023
 '''
-#%%
+
 #TODO make class
-#%%
+
+####
 %colors nocolor
 import os
-os.getcwd() 
+os.getcwd()
 import sys
 sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
 sys.path.append('/home/speno/AC4DC/scripts/')
 print(sys.path)
+######
 
-#%%
 from Bio.PDB.vectors import Vector as Bio_Vect
 from Bio.PDB.vectors import rotaxis2m
 from Bio.PDB.PDBParser import PDBParser
@@ -84,13 +85,14 @@ class Results_SPI():
         pass
 
 class Crystal():
-    def __init__(self, pdb_fpath, allowed_atoms, rocking_angle = 0.3*np.pi/180, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True):
+    def __init__(self, pdb_fpath, allowed_atoms, rocking_angle = 0.3*np.pi/180, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True, is_damaged=True):
         self.cell_packing = cell_packing
         self.rocking_angle = rocking_angle
         self.sym_factors=[np.array([1,1,1],dtype="float")]
         self.sym_translations = [np.array([0,0,0],dtype="float")]
         self.cell_dim = np.array([1,1,1],dtype="float")              
-
+        self.is_damaged = is_damaged
+        
         parser=PDBParser(PERMISSIVE=1)
         structure_id = os.path.basename(pdb_fpath)
         structure = parser.get_structure(structure_id, pdb_fpath)
@@ -146,11 +148,15 @@ class Crystal():
     def set_ff_calculator(self,ff_calculator):
         self.ff_calculator = ff_calculator                  
     def set_cell_dim(self,x,y,z):
-        ''' in angstrom'''
-        self.cell_dim = np.array([x,y,z])*1.88973
+        ''' 
+        Set the dimensions of the cell. 
+        args x,y,z are the dimensions of the crystal unit cell, i.e. the ones in the pdb file, in angstrom.'''
+        self.cell_dim = np.array([x,y,z])*1.88973 # convert to atomic units 
     def add_symmetry(self,symmetry_factor,symmetry_translation):
         self.sym_factors.append(symmetry_factor)
-        self.sym_translations.append(symmetry_translation)        
+        self.sym_translations.append(symmetry_translation)
+
+
 
 class Atomic_Species():
     def __init__(self,name,crystal):
@@ -169,9 +175,9 @@ class Atomic_Species():
             self.ff = self.crystal.ff_calculator.f_average(q,self.name)      # note that in taking the integral to get this ff, we included the relative intensity.
         else:
             #self.ff_snapshots, self.times_used = self.crystal.ff_calculator.f_stochastic(q,self.name)
-            self.times_used = self.crystal.ff_calculator.f_stochastic(q,self.name)[1]
+            self.times_used = self.crystal.ff_calculator.f_stochastic(q,self.name,self.crystal.is_damaged)[1]
             
-            def stoch_f_placeholder(): return self.crystal.ff_calculator.f_stochastic(q,self.name)[0]
+            def stoch_f_placeholder(): return self.crystal.ff_calculator.f_stochastic(q,self.name,self.crystal.is_damaged)[0]
             self.get_stochastic_f = stoch_f_placeholder
             #self.get_stochastic_f = get_stochastic_f
 
@@ -185,7 +191,7 @@ class Atomic_Species():
         # e.g. (-1,1,-1),(0,0.5,0) -> -X,Y+1/2,-Z  
 
 class XFEL():
-    def __init__(self, experiment_name, photon_energy, detector_distance, hemisphere_screen = True, orientation_set = [[0,0,0],], x_orientations = 1, y_orientations = 1,q_cutoff="hemisphere", pixels_per_ring = 400, num_rings = 50,t_fineness=100):
+    def __init__(self, experiment_name, photon_energy, detector_distance, q_cutoff = None, max_triple_miller_idx = None, screen_type = "hemisphere", orientation_set = [[0,0,0],], x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100):
         """ #### Initialise the imaging experiment's controlled parameters
         experiment_name:
             String that the output folder will be named.        
@@ -193,8 +199,8 @@ class XFEL():
             Should be the same as that given in the original input file!
         detector_distance [bohr];
             The distance between the target and the centre of the detector 
-        q_cutoff [1/bohr]:
-            The maximum q allowed.
+        screen_type:
+            "circle", "hemisphere", "sphere". Circle corresponds to a flat screen - i.e. it 'squashes ya dots'. Sphere makes no difference if a max q is specified below the hemisphere q range.
         pixels_per_ring: 
             The number of different values for phi to plot. phi is the angle that the incident light makes with 
             the y axis, (z-axis is firing line. y-axis is any arbitrary axis perpendicular to z-axis.)
@@ -207,9 +213,12 @@ class XFEL():
         orientation_set:
             contains each set of cardan angles for each orientation to images. Crystal only. 
             Overriden for imagings with random orientations. TODO replace x_orientations and y_orientations with this.
+        max_triple_miller_idx:
+            If specified, the maximum momentum transfer is set to that corresponding to (m,m,m), where m = max_triple_miller_idx
+        q_cutoff [1/angstrom]:
+            If specified, only bragg points corresponding to momentum transfers at or below this value will be simulated.    
         """
         self.experiment_name = experiment_name
-        self.hemisphere_screen = hemisphere_screen
         self.photon_momentum = 2*np.pi/E_to_lamb(photon_energy)
         self.photon_energy = photon_energy
         self.detector_distance = detector_distance
@@ -217,14 +226,20 @@ class XFEL():
         self.num_rings = num_rings
         self.x_orientations = x_orientations
         self.y_orientations = y_orientations
+        self.max_triple_miller_idx = max_triple_miller_idx
 
- 
-        if q_cutoff == "hemisphere":
+        self.hemisphere_screen = True
+        if screen_type == "flat":
+            self.hemisphere_screen = False
+
+        elif screen_type == "hemisphere":
             # as q = 2ksin(theta), non-inclusive upper bound is 45 degrees(theoretically).  
-            q_cutoff = 2*self.photon_momentum/np.sqrt(2)  - 0.00000001       
-        if q_cutoff == "sphere":
-            q_cutoff = 2*self.photon_momentum  - 0.00000001
-        self.q_cutoff = q_cutoff
+            self.max_q = 2*self.photon_momentum/np.sqrt(2)  - 0.00000001       
+        elif screen_type == "sphere":
+            self.max_q = 2*self.photon_momentum  - 0.00000001
+        if q_cutoff != None:
+            self.max_q = min(self.max_q,q_cutoff/1.88973) # convert to atomic units 
+
 
         self.t_fineness = t_fineness
 
@@ -238,7 +253,7 @@ class XFEL():
     def get_ff_calculator(self,start_time,end_time,damage_output_handle):
         ff_calculator = Plotter(damage_output_handle,"y")
         plt.close()
-        ff_calculator.initialise_coherence_params(start_time,end_time,self.q_cutoff,self.photon_energy,t_fineness=self.t_fineness) # q_fineness isn't used for our purposes.   
+        ff_calculator.initialise_coherence_params(start_time,end_time,self.max_q,self.photon_energy,t_fineness=self.t_fineness) # q_fineness isn't used for our purposes.   
         return ff_calculator
     
     def spooky_laser(self, start_time, end_time, damage_output_handle, target, clear_output = False, random_orientation = False, SPI=False):
@@ -274,7 +289,7 @@ class XFEL():
         if SPI:
             result = Results_SPI()
             result.I = 0            
-            q_samples = np.linspace(0,self.q_cutoff,self.num_rings)
+            q_samples = np.linspace(0,self.max_q,self.num_rings)
             for rot_x in range(self.x_orientations):
                 self.x_rot_matrix = rotaxis2m(self.x_rotation,Bio_Vect(1, 0, 0))      
                 self.y_rotation = 0                 
@@ -358,7 +373,7 @@ class XFEL():
         theta = self.q_to_theta(q)
         q_parr_screen = self.q_to_q_scr(q)
         if self.hemisphere_screen:
-            print("hemisphere screen not supported for SPI yet.")
+            print("hemisphere/spherical screen not supported for SPI yet.")
         ring = self.Ring(q,q_parr_screen,theta)
         ring.I = self.illuminate(ring)
         return ring 
@@ -410,7 +425,7 @@ class XFEL():
                 raise Exception("Times used don't match between species.")
             # resets the form factor for each atom
             species.set_scalar_form_factor(feature.q)            
-            # iterate through each symmetry of unit cell (each asymmetric unit)
+            # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
             for s in range(len(self.target.sym_factors)):
                 for R in species.coords:
                         count += 1
@@ -438,9 +453,9 @@ class XFEL():
         # We normalise by dividing by the duration.
         # print("F SUM")
         # print(F_sum.shape)
-        #print(F_sum)
+        # print("F_sum",F_sum)
         if (times_used[-1] == times_used[0]):   
-            I =  np.square(np.abs(F_sum[0][0]))
+            I =  np.square(np.abs(F_sum[:,0]))
         else:
             I = np.trapz(np.square(np.abs(F_sum)),times_used,axis=1) / (times_used[-1]-times_used[0]) #TODO trapz 
         return I
@@ -547,9 +562,9 @@ class XFEL():
         #   G = hb1 + kb2 + lb3. (bi = lattice vector)
         #   !Attention! Assuming vectors are orthogonal.
         # TODO double check not cutting off possible values.
-        q_1_max = self.q_cutoff
-        q_2_max = self.q_cutoff
-        q_3_max = self.q_cutoff        # q = (0,0,l) case.
+        q_1_max = self.max_q
+        q_2_max = self.max_q
+        q_3_max = self.max_q        # q = (0,0,l) case.
         h_max = 0
         while h_max*np.sqrt(sum(pow(element, 2) for element in b[0])) <= q_1_max:
             h_max += 1
@@ -579,12 +594,18 @@ class XFEL():
         G_temp, cardan_angles = get_G(indices) 
         random_orientation = False # Only do random orientations once
 
-        q_cutoff_rule = lambda g: np.sqrt(((g[0])**2+(g[1])**2+(g[2])**2))<= self.q_cutoff
-        #q_cutoff_rule = lambda f: np.sqrt(((f[0]*np.average(cell_dim))**2+(f[1]*np.average(cell_dim))**2+(f[2]*np.average(cell_dim))**2))<= self.q_cutoff
+        if self.max_triple_miller_idx != None:
+            m = self.max_triple_miller_idx
+            max_g_vect = get_G(np.full((1,3),m))[0][0]
+            self.max_q = min(self.max_q,np.sqrt(((max_g_vect[0])**2+(max_g_vect[1])**2+(max_g_vect[2])**2)))
+        
+        print("using maximum q of ",self.max_q*1.88973," angstrom-1")
+        max_q_rule = lambda g: np.sqrt(((g[0])**2+(g[1])**2+(g[2])**2))<= self.max_q
+        #max_q_rule = lambda f: np.sqrt(((f[0]*np.average(cell_dim))**2+(f[1]*np.average(cell_dim))**2+(f[2]*np.average(cell_dim))**2))<= self.max_q
         q0 = self.photon_momentum
         
         # Catch the miller indices with a boolean mask
-        mask = np.apply_along_axis(selection_rule,1,indices)*np.apply_along_axis(q_cutoff_rule,1,G_temp)*np.apply_along_axis(self.mosaic_elastic_condition,1,G_temp)
+        mask = np.apply_along_axis(selection_rule,1,indices)*np.apply_along_axis(max_q_rule,1,G_temp)*np.apply_along_axis(self.mosaic_elastic_condition,1,G_temp)
         indices = indices[mask]
 
         print("Cardan angles:",cardan_angles)
@@ -671,7 +692,7 @@ class XFEL():
         ''' determines whether vector q is allowed.'''
         # Rocking angle version
         q = np.sqrt(q_vect[0]**2 + q_vect[1]**2 + q_vect[2]**2)
-        if q > self.q_cutoff:
+        if q > self.max_q:
             return False
         theta = self.q_to_theta(q)
         k = self.photon_momentum
@@ -803,8 +824,8 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
             # print(sector_radial)
             # print()
             # print(sector_histogram)
-            add_screen_properties()       
-            plt.show()        
+            add_screen_properties()
+            plt.show()
 
         fig = plt.figure()
         ax = fig.add_subplot(projection="polar")
@@ -1141,7 +1162,7 @@ def get_result(filename,results_dir,compare_dir = None):
 
 
 
-#%% https://scripts.iucr.org/cgi-bin/paper?S0021889807029238, http://superflip.fzu.cz/
+##### https://scripts.iucr.org/cgi-bin/paper?S0021889807029238, http://superflip.fzu.cz/
 
 import pandas as pd
 import csv
@@ -1155,7 +1176,7 @@ def create_reflection_file(result_handle,overwrite=False):
     for filename in os.listdir(results_dir):
         result = get_result(filename,results_dir)[0]
         if result == "__PASS__":
-            continue            
+            continue
         if result == None:
             break          
         miller_indices = result.miller_indices
@@ -1187,7 +1208,7 @@ def create_reflection_file(result_handle,overwrite=False):
 
 #create_reflection_file("f1_11",True)
 
-#%%
+#####
 # stylin' 
 def stylin():
     experiment1_name = exp_name1#"Lys_9.95_random"#exp_name1
@@ -1228,7 +1249,7 @@ def stylin():
     # # plottin'
 
     # as q = ksin(theta).  
-    q_scr_max = experiment1.q_cutoff#experiment1.q_cutoff*(1/np.sqrt(2)) # for flat screen. as q_scr = qcos(theta). (q_z = qsin(theta) =ksin^2(theta)), max theta is 45. (Though experimentally ~ 22 as of HR paper)
+    q_scr_max = experiment1.max_q#experiment1.max_q*(1/np.sqrt(2)) # for flat screen. as q_scr = qcos(theta). (q_z = qsin(theta) =ksin^2(theta)), max theta is 45. (Though experimentally ~ 22 as of HR paper)
 
     zoom_to_fit = False
     if not zoom_to_fit:
@@ -1236,24 +1257,24 @@ def stylin():
             radial_lim = q_scr_max+0.2
         #els:
     #else:
-    #     radial_lim = screen_radius#min(screen_radius,experiment.q_to_r(experiment.q_cutoff))
+    #     radial_lim = screen_radius#min(screen_radius,experiment.q_to_r(experiment.max_q))
     #     print(radial_lim)
     #     if use_q:
     #         #radial_lim = experiment.r_to_q_scr(radial_lim)
-    #         radial_lim = q_scr_lim #radial_lim = min(q_scr_lim,experiment.q_to_q_scr(experiment.q_cutoff))
+    #         radial_lim = q_scr_lim #radial_lim = min(q_scr_lim,experiment.q_to_q_scr(experiment.max_q))
     #         print(radial_lim)
     # else:
     #     radial_lim = None
 
     #TODO fix above to work with distance
 
-    # Sectors
+    # R Sectors
     scatter_scatter_plot(crystal_aligned_frame = False,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
     # Intensity of experiment 1. 
     scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-    # Sectors
+    # R Sectors aligned
     scatter_scatter_plot(crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-    # Intensity of experiment 1. 
+    # Intensity of experiment 1 aligned. 
     scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
 
     #NEED TO CHECK. We have a 1:1 mapping from q to q_parr, but with our miller indices we are generating multiple q_parr with diff q.
@@ -1366,7 +1387,7 @@ plt.ylabel("y (Ang)")
 # implement stochastic stuff
 # implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector
 root = "lysNeutze"
-tag = "v11" # - multi #"v7" 3 - single
+tag = "v17" # - multi #"v7" 3 - single
 #  #TODO make this nicer and pop in a function 
 DEBUG = False
 energy = 6000 #
@@ -1380,8 +1401,8 @@ CNO_to_N = True
 allowed_atoms_1 = ["N_fast","S_fast"]
 allowed_atoms_2 = ["N_fast","S_fast"]
 
-end_time_1 = -10#-9.95
-end_time_2 = 10#0#-9.80  
+start_time = -10
+end_time = 10#0#-9.80  
 
 num_orients = 1
 # [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
@@ -1390,7 +1411,7 @@ ax_y = 1
 ax_z = 0
 random_orientation = True # if true, overrides orientation_set
 
-rock_angle = 0.012 #0.3 # degrees
+rock_angle = 2 #0.3 # degrees
 
 #neutze
 pdb_path = "/home/speno/AC4DC/scripts/scattering/2lzm.pdb"
@@ -1399,7 +1420,10 @@ pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb"
 
 output_handle = "D_lys_neutze_simple_7"
 
-hemisphere_screen = True
+screen_type = "hemisphere"
+
+max_triple_miller_idx = None # = m, where max momentum given by q with miller indices (m,m,m)
+q_cutoff = 2.2  # angstrom
 
 #---------------------------------#
 
@@ -1412,32 +1436,33 @@ orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0
 orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
 print(orientation_set)
 
-experiment1 = XFEL(exp_name1,energy,100, hemisphere_screen = hemisphere_screen, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
-experiment2 = XFEL(exp_name2,energy,100, hemisphere_screen = hemisphere_screen, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
-
-
+experiment1 = XFEL(exp_name1,energy,100, q_cutoff = q_cutoff, max_triple_miller_idx = max_triple_miller_idx, screen_type = screen_type, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+experiment2 = copy.deepcopy(experiment1); experiment2.experiment_name = exp_name2
 #0.85  - 0.88 angstrom resolution - >  
 
 # sym_translations = [np.array([0,0,0])]
 # cell_dim = [np.array([1,1,1])]  
 
+
 crystal = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=CNO_to_N,cell_packing = "SC")
 # neutze
-crystal.set_cell_dim(61.200 ,  61.200 ,  61.2)  #TODO this isn't right we didn't implement rock angle properly
+#crystal.set_cell_dim(61.200 ,  61.200 ,  61.2)  #TODO this isn't right we didn't implement rock angle properly
+# hen egg lys
+crystal.set_cell_dim(79.000  , 79.000  , 38.000)
+crystal.add_symmetry(np.array([-1, -1,1]),np.array([0.5,0,0.5]))  #2555
+crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0.5]))  #3555
+crystal.add_symmetry(np.array([1, -1,-1]),np.array([0.5,0.5,0]))  #4555
 
+crystal_undmged = copy.deepcopy(crystal)
+crystal_undmged.is_damaged = False
 
-#
-#crystal.set_cell_dim(79.000  , 79.000  , 38.000)
-#crystal.add_symmetry(np.array([-1, -1,1]),np.array([0.5,0,0.5]))  #2555
-#crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0.5]))  #3555
-#crystal.add_symmetry(np.array([1, -1,-1]),np.array([0.5,0.5,0]))  #4555
 
 SPI = False
 
-exp1_orientations = experiment1.spooky_laser(-10,end_time_1,output_handle,crystal, random_orientation = random_orientation, SPI=SPI)
+exp1_orientations = experiment1.spooky_laser(start_time,end_time,output_handle,crystal, random_orientation = random_orientation, SPI=SPI)
 create_reflection_file(exp_name1)
 experiment2.orientation_set = exp1_orientations
-experiment2.spooky_laser(-10,end_time_2,output_handle,crystal, random_orientation = False, SPI=SPI)
+experiment2.spooky_laser(start_time,end_time,output_handle,crystal_undmged, random_orientation = False, SPI=SPI)
 
 stylin()
 #^^^^^^^
@@ -1457,8 +1482,8 @@ exp_name2 = str(root) + "2_" + str(tag)
 allowed_atoms_1 = ["C_fast","N_fast","O_fast","S_fast"]
 allowed_atoms_2 = ["C_fast","N_fast","O_fast","S_fast"]
 
-end_time_1 = -10#-9.95
-end_time_2 = -10#-9.80  
+start_time = -10
+end_time = 10#-9.95
 
 #orientation_set = [[5.532278012665244, 1.6378991611963682, 1.3552062099726534]] # Spooky spider orientation
 num_orients = 30
@@ -1469,13 +1494,13 @@ ax_z = 1
 random_orientation = True  # if true, overrides orientation_set
 
 rock_angle = 0.15 # degrees
-hemisphere_screen = True
+screen_type = "hemisphere"
 
 pdb_path = "/home/speno/AC4DC/scripts/scattering/3u7t.pdb" #Crambin
 
 output_handle = "Improved_Lys_mid_6"
 
-q_cutoff = "hemisphere" #"max"
+q_cutoff = None
 
 test_the_onion = False  # <- a test case I'm familiar with, I'm using it to check if anything breaks.
 #---------------------------------#
@@ -1489,17 +1514,20 @@ print(orientation_set)
 
 if test_the_onion:
     orientation_set = [[0,0,0],[np.pi/4,0,0]]
-    #q_cutoff = 10
+    #max_q = 10
 
-experiment1 = XFEL(exp_name1,energy,100, q_cutoff = q_cutoff,hemisphere_screen = hemisphere_screen, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
-experiment2 = XFEL(exp_name2,energy,100, q_cutoff = q_cutoff,hemisphere_screen = hemisphere_screen, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+experiment1 = XFEL(exp_name1,energy,100, q_cutoff = q_cutoff,screen_type = screen_type, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+experiment2 = XFEL(exp_name2,energy,100, q_cutoff = q_cutoff,screen_type = screen_type, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
 
 
-crystal = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=False,cell_packing = "SC")
-crystal.set_cell_dim(22.795 ,  18.826 ,  41.042)
+crystal_dmged = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=False,cell_packing = "SC")
+crystal_dmged.set_cell_dim(22.795 ,  18.826 ,  41.042)
 if test_the_onion:
-   crystal.set_cell_dim(20,20,20)
-crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))   #2555
+   crystal_dmged.set_cell_dim(20,20,20)
+crystal_dmged.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))   #2555
+
+crystal_undmged = copy.deepcopy(crystal_dmged)
+crystal_undmged.is_damaged = False
 
 
 SPI = False
@@ -1512,7 +1540,7 @@ experiment2.spooky_laser(-10,end_time_2,output_handle,crystal, random_orientatio
 stylin()
 
 
- 
+
 
 # %%
 #%%
@@ -1541,7 +1569,7 @@ orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0
 orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
 print(orientation_set)
 
-experiment = XFEL("SPI",energy,100, hemisphere_screen = True, pixels_per_ring = 500, num_rings = 500,t_fineness=100)
+experiment = XFEL("SPI",energy,100, screen_type = "hemisphere_screen", pixels_per_ring = 500, num_rings = 500,t_fineness=100)
 crystal = Crystal(pdb_path,allowed_atoms,CNO_to_N=False,cell_packing = "SC")
 
 SPI = True
