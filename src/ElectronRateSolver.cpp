@@ -516,7 +516,7 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     assert(remaining_steps > 0 && fact > 1);
     input_params.num_time_steps = input_params.num_time_steps + (fact - 1)*remaining_steps; // todo separate from input params
     t.resize(n+1); t.resize(input_params.num_time_steps);
-    y.resize(n+1); 
+    y.resize(n+1); y.resize(input_params.num_time_steps);
     // set basis to the one in use at checkpoint.
     // y[n].F.transform_basis(knots);
     // zero_y = this->get_ground_state();    
@@ -541,6 +541,7 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     // Temporary, but here we are just updating to basis to ensure nothing breaks.
     // Ideally would just load the grid without affecting when grid updates.
     update_grid(_log,n);
+    
     /// version intended to load with same grid regimes but it just leads to lots of potential bad cases, better to just
     // load and determine the grid 
     //same as set_up_grid_and_compute_cross_sections but we use the checkpoint's regimes (for consistency's sake).
@@ -772,8 +773,11 @@ void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step){
     zero_y = get_ground_state();
     cout << endl;            
     for (size_t m = n+1 - this->order; m < n+1; m++) {
-        // reload back to the old energies so we can use transform_basis(). Kinda goofy but it's necessary due to the static variables. 
-        Distribution::load_knots_from_history(m);
+        // We transform this step to the correct basis, but we also need a few steps to get us going, 
+        // so we transform a few previous steps 
+        // Kinda goofy but it's necessary due to the static variables. 
+        assert(this-> order < steps_per_grid_transform);
+        Distribution::load_knots_from_history(n-1); // the n - 1 is correct. 
         y[m].F.transform_basis(new_energies);
     }  
     // The next containers are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state. 
