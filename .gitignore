@@ -29,3 +29,7 @@ scripts/scattering/results*
 scripts/scattering/reflections*
 input/debug/Debug.mol
 scripts/scattering/scratchpad.ipynb
+MakefileTest
+my_file_test.out
+test_build/
+test_src/

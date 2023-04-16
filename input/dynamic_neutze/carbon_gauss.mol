@@ -8,7 +8,7 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 
 #PULSE
 6000         // Photon energy in eV.
-5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). The total sim time is 4x this. TODO just make total sim time the debug cutoff time. 
+5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). The total sim time is 4x this.
 gaussian       // Pulse shape
 
 
@@ -28,7 +28,7 @@ true
 //-----------
 
 #NUMERICAL
-500000          // Initial guess for number of time step points for rate equation.
+20000          // Starting number of time steps for rate equation.
 18            // Number of threads in OpenMP.
 0.25          // Grid update period in fs, (dynamic grid only).
 
@@ -52,7 +52,7 @@ false        // use manual grid? If false, dynamic grid is used.
 //1000   // Point to load time from 
 
 #DEBUG
-10      // Simulation cutoff time in fs
+-2     // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 
