@@ -89,6 +89,4 @@ leads to:
 
 
 ## TODO
-The grid dynamically changes points to support the peak phenomena. For gaussian pulses a lot of time is saved
-by using few time steps early on, and using a high number around the peak of the pulse. This is currently performed manually - loading a file by putting in a time at or past the maximum loads that simulation at the final step. 
-Having the simulation check for negative values below the transition energy would be a good solution.
+Implement more sophisticated input settings that take in a csv/lists of a) the regions' energy boundaries, and b) a list of the power and number of grid points of each region    
