@@ -52,7 +52,7 @@ false        // use manual grid? If false, dynamic grid is used.
 //1000   // Point to load time from 
 
 #DEBUG
--2     // Simulation cutoff time in fs
+10      // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 
