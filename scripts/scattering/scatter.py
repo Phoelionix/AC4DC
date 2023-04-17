@@ -82,7 +82,8 @@ class Results():
             if subtracted == False:
                 self.R[i] = -1 
 class Results_SPI():
-        pass
+    def package_up(self):
+        self.q, self.phi_mesh = np.meshgrid(self.q,self.phi)      
 
 class Crystal():
     def __init__(self, pdb_fpath, allowed_atoms, rocking_angle = 0.3*np.pi/180, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True, is_damaged=True):
@@ -191,7 +192,7 @@ class Atomic_Species():
         # e.g. (-1,1,-1),(0,0.5,0) -> -X,Y+1/2,-Z  
 
 class XFEL():
-    def __init__(self, experiment_name, photon_energy, detector_distance, q_cutoff = None, max_triple_miller_idx = None, screen_type = "hemisphere", orientation_set = [[0,0,0],], x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100):
+    def __init__(self, experiment_name, photon_energy, detector_distance, q_minimum = None, q_cutoff = None, max_triple_miller_idx = None, screen_type = "hemisphere", orientation_set = [[0,0,0],], x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100):
         """ #### Initialise the imaging experiment's controlled parameters
         experiment_name:
             String that the output folder will be named.        
@@ -228,15 +229,23 @@ class XFEL():
         self.y_orientations = y_orientations
         self.max_triple_miller_idx = max_triple_miller_idx
 
-        self.hemisphere_screen = True
-        if screen_type == "flat":
-            self.hemisphere_screen = False
 
+        self.min_q = 0
+        if q_minimum!=None:
+            self.min_q = q_minimum
+
+        self.hemisphere_screen = True
+        if screen_type == "flat": #well a circle
+            self.hemisphere_screen = False
+            self.max_q = self.photon_momentum - 0.00000001
         elif screen_type == "hemisphere":
             # as q = 2ksin(theta), non-inclusive upper bound is 45 degrees(theoretically).  
-            self.max_q = 2*self.photon_momentum/np.sqrt(2)  - 0.00000001       
+            self.max_q = 2*self.photon_momentum/np.sqrt(2)  - 0.00000001
+
         elif screen_type == "sphere":
             self.max_q = 2*self.photon_momentum  - 0.00000001
+        else:
+            raise Exception("Available screen types are 'flat, 'hemisphere', and 'sphere'")
         if q_cutoff != None:
             self.max_q = min(self.max_q,q_cutoff/1.88973) # convert to atomic units 
 
@@ -289,7 +298,7 @@ class XFEL():
         if SPI:
             result = Results_SPI()
             result.I = 0            
-            q_samples = np.linspace(0,self.max_q,self.num_rings)
+            q_samples = np.linspace(self.min_q,self.max_q,self.num_rings)
             for rot_x in range(self.x_orientations):
                 self.x_rot_matrix = rotaxis2m(self.x_rotation,Bio_Vect(1, 0, 0))      
                 self.y_rotation = 0                 
@@ -321,6 +330,7 @@ class XFEL():
                 self.x_rotation += 2*np.pi/self.x_orientations
                 result.phi = phi
                 result.q = q
+            #result.package_up()
             return result
 
         else:
@@ -437,10 +447,17 @@ class XFEL():
                         T = np.zeros(phis.shape,dtype="complex_")
                         if SPI:
                             T = self.SPI_spatial_factor(phis,coord,feature)
+                            f = species.get_stochastic_f()
+                            # print("------")
+                            # print(T[:,np.newaxis])
+                            # print("------")
+                            # print(np.tile(f,(len(T),1)))
+                            F_sum += T[:,np.newaxis] * np.tile(f,(len(T),1))   # we want columns to be times, rows to be phis
                         else:
-                            T= self.spatial_factor(phis,coord,feature,cardan_angles)
-                        f = species.get_stochastic_f()
-                        F_sum += f*T   
+                            T= self.spatial_factor(phis,coord,feature,cardan_angles)   
+                            f = species.get_stochastic_f()   # todo this is WRONG currently since we are using a different f for different points for the same atom. 
+                                                             # Take a leaf out of SPI method
+                            F_sum += f*T   
                         # print("FF")
                         # print("f shape",f.shape)
                         # print("f_sum shape",F_sum.shape)
@@ -454,6 +471,7 @@ class XFEL():
         # print("F SUM")
         # print(F_sum.shape)
         # print("F_sum",F_sum)
+
         if (times_used[-1] == times_used[0]):   
             I =  np.square(np.abs(F_sum[:,0]))
         else:
@@ -498,12 +516,12 @@ class XFEL():
         q_y = feature.G[1]#q_z*np.sin(phi_array)
         q_x = feature.G[0]#q_z*np.cos(phi_array)
         q_vect = np.column_stack([q_x,q_y,q_z])
-        # Rotate our q vector BACK to the 0 0 0 orientation of the crystal.
+        # Rotate our q vector BACK to the real laser orientation relative to the crystal.
         q_vect = self.rotate_G_to_orientation(q_vect,*cardan_angles,inverse=True)[0]            
         spatial_structure_factor = np.exp(-1j*np.dot(q_vect,coord))   
         return spatial_structure_factor
 
-    def SPI_spatial_factor(self,phi_array,R,feature):
+    def SPI_spatial_factor(self,phi_array,coord,feature):
         """ theta = scattering angle relative to z-y plane """ 
         q_z = feature.q*np.sin(feature.theta)
         q_z = np.tile(q_z,len(phi_array))
@@ -511,10 +529,7 @@ class XFEL():
         q_y = feature.q_parr_screen*np.sin(phi_array)
         q_x = feature.q_parr_screen*np.cos(phi_array)
         q_vect = np.column_stack([q_x,q_y,q_z])
-        for i in range(len(self.target.sym_factors)):
-            coord = R.get_array()
-            coord = np.multiply(R.get_array(),self.target.sym_factors[i]) + np.multiply(self.target.cell_dim,self.target.sym_translations[i])
-            spatial_structure_factor = np.exp(-1j*np.dot(q_vect,coord))   
+        spatial_structure_factor = np.exp(-1j*np.dot(q_vect,coord))   
         return spatial_structure_factor    
     def bragg_points(self,crystal, cell_packing, cardan_angles,random_orientation=False):
         ''' 
@@ -599,13 +614,13 @@ class XFEL():
             max_g_vect = get_G(np.full((1,3),m))[0][0]
             self.max_q = min(self.max_q,np.sqrt(((max_g_vect[0])**2+(max_g_vect[1])**2+(max_g_vect[2])**2)))
         
-        print("using maximum q of ",self.max_q*1.88973," angstrom-1")
-        max_q_rule = lambda g: np.sqrt(((g[0])**2+(g[1])**2+(g[2])**2))<= self.max_q
+        print("using q range of ", self.min_q*1.88973,"-",self.max_q*1.88973," angstrom-1")
+        min_max_q_rule = lambda g: self.min_q <= np.sqrt(((g[0])**2+(g[1])**2+(g[2])**2)) <= self.max_q
         #max_q_rule = lambda f: np.sqrt(((f[0]*np.average(cell_dim))**2+(f[1]*np.average(cell_dim))**2+(f[2]*np.average(cell_dim))**2))<= self.max_q
         q0 = self.photon_momentum
         
         # Catch the miller indices with a boolean mask
-        mask = np.apply_along_axis(selection_rule,1,indices)*np.apply_along_axis(max_q_rule,1,G_temp)*np.apply_along_axis(self.mosaic_elastic_condition,1,G_temp)
+        mask = np.apply_along_axis(selection_rule,1,indices)*np.apply_along_axis(min_max_q_rule,1,G_temp)*np.apply_along_axis(self.mosaic_elastic_condition,1,G_temp)
         indices = indices[mask]
 
         print("Cardan angles:",cardan_angles)
@@ -724,7 +739,7 @@ def E_to_lamb(photon_energy):
         # q = 4*pi*sin(theta)/lambda = 2pi*u, where q is the momentum in AU (a_0^-1), u is the spatial frequency.
         # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
-def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_result = None,full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, bg_colour = "black",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None):
+def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_result1 = None, SPI_result2 = None, full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, bg_colour = "black",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None):
     ''' (Complete spaghetti at this point.)
     Plots the simulated scattering image.
     result_handle:
@@ -958,8 +973,8 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 R_den_histogram += denominators            
 
                 if neutze_R:
-                    all_I_ideal.extend(I1)
-                    all_I_real.extend(I2)
+                    all_I_real.extend(I1)
+                    all_I_ideal.extend(I2)
 
 
             if log_I: 
@@ -1040,7 +1055,7 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
             plot_sectors(R_histogram) 
 
             if neutze_R:
-                print("Neutze R: ")
+                print("Neutze R:")
                 sqrt_ideal = np.sqrt(all_I_ideal)
                 sqrt_real = np.sqrt(all_I_real)
                 inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real) 
@@ -1050,12 +1065,13 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 #plot_sectors(neutze_histogram)
        
     else:
-        result = SPI_result
+        result1 = SPI_result1
+        result2 = SPI_result2
         ## Continuous (SPI)
         if log_I: 
-            z = np.log(result.I)
+            z = np.log(result1.I)
         else:
-            z = result.I        
+            z = result1.I        
         if log_I and cutoff_log_intensity != None:
             #cutoff_log_intensity = -1
             z -= cutoff_log_intensity
@@ -1063,14 +1079,18 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
             pass
         #radial_axis = result.r
         if plot_against_q:
-            radial_axis =  result.q         
+            radial_axis =  result1.q         
         fig = plt.figure()
         ax = fig.add_subplot(projection="polar")
-        phi_mesh = result.phi_mesh
-        if crystal_aligned_frame:
-            phi_mesh = result.phi_aligned_mesh        
-        ax.pcolormesh(phi_mesh, radial_axis, z,cmap=cmap)
-        ax.plot(result.phi, radial_axis, color = 'k',ls='none')
+        # phi_mesh = result.phi_mesh
+        # if crystal_aligned_frame:
+        #     phi_mesh = result.phi_aligned_mesh   
+        #     print("crystal aligned not implemented for SPI yet")    
+        print(result1.phi.shape)
+        print(radial_axis.shape)
+        print(z.shape) 
+        ax.pcolormesh(result1.phi, radial_axis, z,cmap=cmap)
+        ax.plot(result1.phi, radial_axis, color = 'k',ls='none')
         plt.grid(alpha=min(show_grid,0.6),dashes=(5,10)) 
 
         if radial_lim:
@@ -1078,6 +1098,14 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
             plt.ylim(bottom,radial_lim)
         if log_radial:
             plt.yscale("log")
+
+        if result2 != None:
+            print("Neutze R: ")
+            sqrt_real = np.sqrt(result1.I)
+            sqrt_ideal = np.sqrt(result2.I)
+            inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real) 
+            R = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))
+            print(R)            
 
     def get_orientation_set_of_folder():
         '''Returns a list of orientations present in results subfolder'''
@@ -1210,7 +1238,7 @@ def create_reflection_file(result_handle,overwrite=False):
 
 #####
 # stylin' 
-def stylin():
+def stylin(SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None):
     experiment1_name = exp_name1#"Lys_9.95_random"#exp_name1
     experiment2_name = exp_name2#"lys_9.80_random"#exp_name2 
 
@@ -1269,13 +1297,23 @@ def stylin():
     #TODO fix above to work with distance
 
     # R Sectors
-    scatter_scatter_plot(crystal_aligned_frame = False,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-    # Intensity of experiment 1. 
-    scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-    # R Sectors aligned
-    scatter_scatter_plot(crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-    # Intensity of experiment 1 aligned. 
-    scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+    if not SPI:
+        scatter_scatter_plot(crystal_aligned_frame = False,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+        # Intensity of experiment 1. 
+        scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+        # R Sectors aligned
+        scatter_scatter_plot(crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+        # Intensity of experiment 1 aligned. 
+        scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+    else:
+        #TODO Get the colors to match neutze.
+        use_q = True
+        log_radial = False
+        log_I = True
+        cutoff_log_intensity = None 
+        cmap = "PiYG_r"# "plasma"
+        radial_lim = SPI_max_q
+        scatter_scatter_plot(SPI_result1=SPI_result1,SPI_result2=SPI_result2,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
 
     #NEED TO CHECK. We have a 1:1 mapping from q to q_parr, but with our miller indices we are generating multiple q_parr with diff q.
     # So we SHOULD get the same q_parr with different q_z. Which makes sense since we are just doing cosine. But still icky maybe?
@@ -1387,7 +1425,7 @@ plt.ylabel("y (Ang)")
 # implement stochastic stuff
 # implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector
 root = "lysNeutze"
-tag = "v17" # - multi #"v7" 3 - single
+tag = "v19" # - multi #"v7" 3 - single
 #  #TODO make this nicer and pop in a function 
 DEBUG = False
 energy = 6000 #
@@ -1411,7 +1449,7 @@ ax_y = 1
 ax_z = 0
 random_orientation = True # if true, overrides orientation_set
 
-rock_angle = 2 #0.3 # degrees
+rock_angle = 1 #0.3 # degrees
 
 #neutze
 pdb_path = "/home/speno/AC4DC/scripts/scattering/2lzm.pdb"
@@ -1420,11 +1458,16 @@ pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb"
 
 output_handle = "D_lys_neutze_simple_7"
 
-screen_type = "hemisphere"
+screen_type = "flat"#"hemisphere"
 
 max_triple_miller_idx = None # = m, where max momentum given by q with miller indices (m,m,m)
-q_cutoff = 2.2  # angstrom
+q_minimum = 1/30 #angstrom
+q_cutoff = 1/2  # angstrom
 
+SPI = True
+
+num_rings = 3
+pixels_per_ring = 10
 #---------------------------------#
 
 
@@ -1436,7 +1479,7 @@ orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0
 orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
 print(orientation_set)
 
-experiment1 = XFEL(exp_name1,energy,100, q_cutoff = q_cutoff, max_triple_miller_idx = max_triple_miller_idx, screen_type = screen_type, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
+experiment1 = XFEL(exp_name1,energy,100, q_minimum = q_minimum, q_cutoff = q_cutoff, max_triple_miller_idx = max_triple_miller_idx, screen_type = screen_type, orientation_set = orientation_set, pixels_per_ring = pixels_per_ring, num_rings = num_rings,t_fineness=100)
 experiment2 = copy.deepcopy(experiment1); experiment2.experiment_name = exp_name2
 #0.85  - 0.88 angstrom resolution - >  
 
@@ -1456,15 +1499,21 @@ crystal.add_symmetry(np.array([1, -1,-1]),np.array([0.5,0.5,0]))  #4555
 crystal_undmged = copy.deepcopy(crystal)
 crystal_undmged.is_damaged = False
 
-
-SPI = False
-
-exp1_orientations = experiment1.spooky_laser(start_time,end_time,output_handle,crystal, random_orientation = random_orientation, SPI=SPI)
-create_reflection_file(exp_name1)
-experiment2.orientation_set = exp1_orientations
-experiment2.spooky_laser(start_time,end_time,output_handle,crystal_undmged, random_orientation = False, SPI=SPI)
-
-stylin()
+if SPI:
+    SPI_result1 = experiment1.spooky_laser(start_time,end_time,output_handle,crystal, SPI=SPI)
+    SPI_result2 = experiment2.spooky_laser(start_time,end_time,output_handle,crystal_undmged, SPI=SPI)
+    stylin(SPI=True,SPI_max_q = q_cutoff,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
+else:
+    exp1_orientations = experiment1.spooky_laser(start_time,end_time,output_handle,crystal, random_orientation = random_orientation, SPI=SPI)
+    create_reflection_file(exp_name1)
+    experiment2.orientation_set = exp1_orientations
+    experiment2.spooky_laser(start_time,end_time,output_handle,crystal_undmged, random_orientation = False, SPI=SPI)
+    stylin()
+#%%
+if SPI:
+    stylin(SPI=True,SPI_max_q = q_cutoff,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
+else:
+    stylin()
 #^^^^^^^
 #%%
 ### Simulate crambin
