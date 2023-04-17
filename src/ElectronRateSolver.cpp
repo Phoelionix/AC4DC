@@ -77,7 +77,7 @@ state_type ElectronRateSolver::get_ground_state() {
 //          Detect the transition energy
 // If dynamic grid, call set_up_grid_and_compute_cross_sections(init = false) 
 // after each non-zero integer multiple of the update period. 
-void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step) {//, bool recalc) {
+void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step, bool force_update) {//, bool recalc) {
     if (!init && input_params.elec_grid_type.mode != GridSpacing::dynamic){
         return; 
     }
@@ -96,12 +96,12 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
     
 
     /// Set up the grid
-    
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
         double old_trans_e = param_cutoffs.transition_e;
         if(init){
             // Empirically-based guesses for good starts.
-            std::cout << "[ Dynamic Grid ] Starting with initial grid" << std::endl;
+            std::cout << "[ Dynamic Grid ] Starting with initial grid guess"<<std::endl;
+            _log << "[ Dynamic Grid ] Starting with initial grid guess"<<endl;
             double e = 1/Constant::eV_per_Ha;
             param_cutoffs.transition_e = 250*e;
             regimes.mb_peak=0; regimes.mb_min=4*e; regimes.mb_max=10*e;
@@ -128,13 +128,15 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             mb_energy_bounds(step,regimes.mb_max,regimes.mb_min,regimes.mb_peak,false);
             // Check whether we should update
             if (regimes.mb_min == old_mb_min && regimes.mb_max == old_mb_max){
-                // We must be still at the start of the simulation, it's unnecessary, even detrimental, to update.
-                _log << "SKIPPED grid update as mb range was the same";
-                regimes.dirac_minimums = old_dirac_mins; 
-                regimes.dirac_maximums = old_dirac_maxs;
-                return;
+                if (force_update) _log <<"Forcing grid update"<< endl; // probably will never happen
+                else{
+                    // We must be still at the start of the simulation, it's unnecessary, even detrimental, to update.
+                    _log << "SKIPPED grid update as Maxwell-Boltzmann region's grid point range was the same"<<endl;
+                    regimes.dirac_minimums = old_dirac_mins; 
+                    regimes.dirac_maximums = old_dirac_maxs;
+                    return;
+                }
             }             
-            
             transition_energy(step, param_cutoffs.transition_e);
             // 
         } 
@@ -147,6 +149,9 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
         else std::cout<<"Thermal cutoff energy had NO update." <<std::endl;    
 
     }
+    else{
+        _log << "[ Manual Grid ] Setting static grid" <<endl;
+    }
 
 
     Distribution::set_basis(step, input_params.elec_grid_type, param_cutoffs, regimes, elec_grid_regions);
@@ -156,7 +161,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
 
     if (init){
         // Set up the rate equations (setup called from parent Adams_B  M)
-        set_starting_state();
+        set_starting_state(); // possibly redundant steps in here.
     }
 
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
@@ -171,7 +176,6 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<""  
             << endl;
         }        
-        else{}
     }
 
     // create the tensor of coefficients TODO these aren't constant now - change to lowercase.
@@ -515,14 +519,15 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     std::cout.setstate(std::ios_base::failbit);  // disable character output
     
     size_t n = _checkpoint.n; // index of step to load at 
-    std::vector<double> knots = _checkpoint.knots;
+    //std::vector<double> knots = _checkpoint.knots;
+    std::vector<double> old_knots = Distribution::get_knot_energies();
 
-    this->regimes = _checkpoint.regimes;
+    this->regimes = _checkpoint.regimes; // needed for when we next update the regimes (it needs the previous regime for reference)
 
     int remaining_steps = t.size() - (n+1);
     double fact = 1.5; // factor to increase time step density by (past the checkpoint). TODO need to implement max time steps.
-    
-    _log <<"Euler iterations exceeded beyond tolerable error at t="<<t[current_n]*Constant::fs_per_au
+    const string banner = "================================================================================";
+    _log <<banner<<"\nEuler iterations exceeded beyond tolerable error at t="<<t[current_n]*Constant::fs_per_au
     <<". Decreasing remaining time step size from "<<this->dt*Constant::fs_per_au<<" fs to "<< dt/fact*Constant::fs_per_au<<" fs."<<endl;
     // REDUCE time step size by factor, then add on extra steps.
     this->dt/=fact;
@@ -550,13 +555,19 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     // the spline factors are untouched, we just need to load the appropriate knots.
     Distribution::load_knots_from_history(n);
 
-    _log <<"Loaded knots... ";
+    _log <<"Loaded knots..."<<endl;
 
     // Possibly temporary, but here we are just updating basis to ensure nothing breaks.
     // Ideally would just load the grid without affecting when grid updates.
-    update_grid(_log,n);
+    if (old_knots != Distribution::get_knot_energies()){
+        // absolutely must update, no matter what!
+        update_grid(_log,n,true);
+    }
+    else{
+        update_grid(_log,n,false);
+    }
 
-    _log <<"Updated grid... ";
+    _log <<"Updated grid..."<<endl;
 
     // It is standard to use a method like fourth-order Runge-Kutta after changing the step size to get us going:
     // (TODO a lack of ee dynamics currently in this step is slightly off-putting as it is more important than when initialising)
@@ -583,7 +594,7 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
         break;  
     }   
 
-    _log << "Loaded checkpoint - resuming." <<endl;
+    _log << "Loaded checkpoint - resuming."<<endl;
     
     return n;
 }
@@ -718,10 +729,11 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
 int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
     auto t_start = std::chrono::high_resolution_clock::now();
 
-    //////  Dynamic grid updater //////  TODO pop in function.
+    //////  Dynamic grid updater ////// 
     auto t_start_grid = std::chrono::high_resolution_clock::now();
     if ((n-this->order+1)%steps_per_grid_transform == 0){ // TODO would be good to have a variable that this is equal to that is modified to account for changes in time step size. If a dt decreases you push back the grid update. If you increase dt you could miss it.
         Display::popup_stream << "\nUpdating grid... \n\r"; 
+        _log << "[ Dynamic Grid ] Updating grid" << endl;
         Display::show(Display::display_stream,Display::popup_stream);   
         update_grid(_log,n+1);          
     }    
@@ -754,12 +766,12 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
     return 0;
 }
 
-void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step){
+void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool force_update){
     size_t n = latest_step;
     //// Set up new grid ////        
     std::cout.setstate(std::ios_base::failbit);  // disable character output
     // Latest step is n, so we decide our new grid based on that step, then transform N = "order" of the prior points to the new basis.
-    set_up_grid_and_compute_cross_sections(_log,false,n); // virtual function overridden by ElectronRateSolver
+    set_up_grid_and_compute_cross_sections(_log,false,n,force_update); // virtual function overridden by ElectronRateSolver
     std::cout.clear();
     //// We need some previous points needed to perform next ode step, so transform them to new basis ////
     std::vector<double> new_energies = Distribution::get_knot_energies();

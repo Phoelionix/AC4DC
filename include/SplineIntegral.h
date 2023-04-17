@@ -194,7 +194,7 @@ public:
         return *this;        
     }    
 
-
+    /// Returns the knot vector, boundary grid points included
     vector<double> get_knot(){return knot;}
 
     SplineIntegral() {};

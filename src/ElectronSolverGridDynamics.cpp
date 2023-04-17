@@ -245,8 +245,8 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, std::vector<double>& m
         }
 
         assert(e_peak >= min_photo_peak_considered);
-        double up_e_step = max((maximums[i] - e_peak) , 10/Constant::eV_per_Ha)/200;
-        double down_e_step = min(minimums[i] - e_peak , -10/Constant::eV_per_Ha)/200;            
+        double up_e_step = peak_search_step_size/2;
+        double down_e_step = -peak_search_step_size/2;            
         // Get bounds
         std::cout << "Inflections of peak at " <<e_peak*Constant::eV_per_Ha <<" are... Lwr:";
         double lower_bound = approx_regime_bound(step,e_peak, down_e_step, num_sequential_needed,600,1./4.);

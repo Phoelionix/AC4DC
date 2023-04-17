@@ -79,9 +79,6 @@ class Hybrid : public Adams_BM<T>{
     void backward_Euler(unsigned n); 
     void step_stiff_part(unsigned n);
     // More virtual funcs defined by ElectronRateSolver:
-    virtual void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0) = 0;
-    virtual size_t load_checkpoint_and_decrease_dt(ofstream &_log, size_t current_n, Checkpoint _checkpoint)=0;
-    virtual void increase_dt(ofstream &_log, size_t current_n)=0;
     virtual state_type get_ground_state()=0;
     virtual void pre_ode_step(ofstream& _log, size_t& n,const int steps_per_time_update)=0;
     virtual int post_ode_step(ofstream& _log, size_t& n)=0;
