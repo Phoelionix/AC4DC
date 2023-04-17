@@ -736,7 +736,13 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
         _log << "[ Dynamic Grid ] Updating grid" << endl;
         Display::show(Display::display_stream,Display::popup_stream);   
         update_grid(_log,n+1);          
-    }    
+    }   
+    // move from initial grid to dynamic grid shortly after sim start.
+    else if (n-this->order == max(2,(int)(steps_per_grid_transform/10))){
+        Display::popup_stream << "\n Performing initial grid update... \n\r"; 
+        _log << "[ Dynamic Grid ] Performing initial grid update..." << endl;
+        update_grid(_log,n+1,true); 
+    }
     dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
     
     //////  Check if user wants to end simulation early ////// 
