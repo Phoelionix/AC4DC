@@ -177,7 +177,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     Display::display_stream = std::stringstream(Display::header, ios_base::app | ios_base::out); // text shown that updates with frequency 1/steps_per_time_update.
     Display::popup_stream = std::stringstream(std::string(), ios_base::app | ios_base::out);  // text displayed during step of special events like grid updates
     Display::create_screen(); 
-    size_t n = this->order - 1; // n can go back if load checkpoint.
+    size_t n = this->order - 1; // define here w/ a while loop so that n can decrease if load checkpoint.
     while (n+1 < this->t.size() -1) {
         n++;
         if (this->t[n+1] <= t_resume) continue; // Start with n = last step.

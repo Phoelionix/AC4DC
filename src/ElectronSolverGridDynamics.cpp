@@ -2,7 +2,7 @@
  * @file ElectronSolverGridDynamics.cpp
  * @author Spencer Passmore
  * @brief 
- * @note density refers to energy density.
+ * @note density refers to electron energy density.
  */
 /*===========================================================================
 This file is part of AC4DC.
@@ -68,7 +68,7 @@ double ElectronRateSolver::approx_nearest_peak(size_t step, double start_energy,
         if (e > max){
             local_max = max; break;}
 
-        double density = y[step].F(e)*e;  // energy density. Plot breakage seems to depend on this. TODO check why
+        double density = y[step].F(e)*e;  //  electron energy density.
         if(density < last_density && ascended_count >= min_sequential){
             if (num_sequential == 0){
                 local_max = e - del_energy;
@@ -113,7 +113,7 @@ double ElectronRateSolver::nearest_inflection(size_t step, double start_energy,d
             inflection = min; break;}
         if (e > max){
             inflection = max; break;}
-        double density = y[step].F(e)*e; // energy density
+        double density = y[step].F(e)*e; // electron energy density
         double mag_grad = abs((density - last_density)/del_energy);  // Should be fine unless we have extremely bad behaviour.
         if(mag_grad <= last_grad){
             if (num_sequential == 0){
@@ -153,7 +153,7 @@ double ElectronRateSolver::approx_regime_peak(size_t step, double lower_bound, d
     double peak_e = -1;
     // Seek maximum between low and upper bound.
     while (e < upper_bound){
-        double density = y[step].F(e)*e; // energy density
+        double density = y[step].F(e)*e; // electron energy density
         if (density > peak_density){
             peak_density = density;
             peak_e = e;
@@ -178,7 +178,7 @@ std::vector<double> ElectronRateSolver::approx_regime_peaks(size_t step, double 
         while (e < upper_bound){
             // search for nearest peak, by looking for the nearest point that a) occurs after the density has been rising and b) is higher than the following min_sequential points separated by del_e
             e = approx_nearest_peak(step,e,del_energy,min_sequential,lower_bound,upper_bound);
-            double density = y[step].F(e)*e; // energy density
+            double density = y[step].F(e)*e; // electron energy density
             // separate peaks by min_peak_separation... doesnt really work since the highest peaks are at the back ah well. TODO
             if (std::find(peak_energies.begin(),peak_energies.end(),e)!= peak_energies.end()){
                 //e+= min_peak_separation; //not working atm
@@ -207,7 +207,7 @@ double ElectronRateSolver::approx_regime_trough(size_t step, double lower_bound,
     double trough_e = -1;
     // Seek maximum between low and upper bound.
     while (e < upper_bound){
-        double density = y[step].F(e)*e; // energy density
+        double density = y[step].F(e)*e; // electron energy density
         if (density < trough_density){
             trough_density = density;
             trough_e = e;
@@ -227,7 +227,7 @@ double ElectronRateSolver::approx_regime_trough(size_t step, double lower_bound,
  * to be some point past this.
  */
 void ElectronRateSolver::dirac_energy_bounds(size_t step, std::vector<double>& maximums, std::vector<double>& minimums, std::vector<double>& peaks, bool allow_shrinkage,size_t num_peaks, double peak_min_density) {
-    double min_photo_peak_considered = 1500/Constant::eV_per_Ha; // TODO make input variable?
+    double min_photo_peak_considered = 1500/Constant::eV_per_Ha;  // An energy that is above auger energies but will catch significant peaks.
     double peak_search_step_size = 10/Constant::eV_per_Ha;
     // Find peaks
     size_t num_sequential_needed = 3;

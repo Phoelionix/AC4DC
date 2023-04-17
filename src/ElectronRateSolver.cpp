@@ -105,7 +105,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             double e = 1/Constant::eV_per_Ha;
             param_cutoffs.transition_e = 250*e;
             regimes.mb_peak=0; regimes.mb_min=4*e; regimes.mb_max=10*e;
-            // cast a wide net to ensure we capture all dirac peaks. // TODO there has to be a much better way than this.
+            // cast a wide net to ensure we capture all dirac peaks. // TODO? there has to be a much better way than this.
             double photo_peak = -1, photo_min = 1e9, photo_max = -1e9; 
             for(auto& atom : input_params.Store) {
                 for(auto& r : atom.Photo) {      
@@ -118,12 +118,25 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
                 regimes.dirac_maximums[i] = photo_min + (i+1)*(photo_max-photo_min)/regimes.num_dirac_peaks;
             }
         }
-        else{ //TODO reset dirac bounds on first one of these calls (since they are initialised to be very wide) IF shrinkage is to be turned off for dirac regions.
+        else{ //TODO? reset dirac bounds on first one of these calls (since they are initialised to be very wide) IF shrinkage is to be turned off for dirac regions.
+            double old_mb_min = regimes.mb_min, old_mb_max = regimes.mb_max;
+            auto old_dirac_mins = regimes.dirac_minimums, old_dirac_maxs = regimes.dirac_maximums;
+            
             double last_trans_e = param_cutoffs.transition_e;
             double dirac_peak_cutoff_density = y[step].F(last_trans_e)*last_trans_e*10;
             dirac_energy_bounds(step,regimes.dirac_maximums,regimes.dirac_minimums,regimes.dirac_peaks,true,regimes.num_dirac_peaks,dirac_peak_cutoff_density);
             mb_energy_bounds(step,regimes.mb_max,regimes.mb_min,regimes.mb_peak,false);
+            // Check whether we should update
+            if (regimes.mb_min == old_mb_min && regimes.mb_max == old_mb_max){
+                // We must be still at the start of the simulation, it's unnecessary, even detrimental, to update.
+                _log << "SKIPPED grid update as mb range was the same";
+                regimes.dirac_minimums = old_dirac_mins; 
+                regimes.dirac_maximums = old_dirac_maxs;
+                return;
+            }             
+            
             transition_energy(step, param_cutoffs.transition_e);
+            // 
         } 
         if (old_trans_e != param_cutoffs.transition_e){
             std::cout <<"thermal cutoff energy updated from:\n"
@@ -218,7 +231,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
 
     
     
-    // 12-04 leaving this for now since I'm using it to catch really bad errors, but it now serves no more than this in practice.
+    // 12-04 leaving this for now since I'm using it to catch really bad errors, but it now serves no more than that in practice.
     // Using finer time steps to attempt to resolve NaN encountered in ODE solving. 
     /* Redoes the ENTIRE simulation. As it seems to be intended to, it should be fixed to start from timestep_reached. 
     // But really it should start from earlier than timestep_reached since bad states tend start before they appear, in a snowball-like effect. -S.P.
@@ -265,7 +278,7 @@ void ElectronRateSolver::solve(ofstream & _log) {
     std::vector<std::string> tags{
     "display", "live plotting", "dt updates", "pre_ode()",
     "dynamic grid updates", "user input detection", "post_ode()",
-    "pre_tbr processes", "get_Q_eii()", "get_Q_tbr()",
+    "misc bound processes", "get_Q_eii()", "get_Q_tbr()",
     "get_Q_ee()", "apply_delta()"
     };
     
@@ -498,7 +511,7 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot, const dou
 
 //// Mid-simulation Non-ode functions
 
-size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_t current_n, Checkpoint _checkpoint){
+size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_t current_n, Checkpoint _checkpoint){    
     std::cout.setstate(std::ios_base::failbit);  // disable character output
     
     size_t n = _checkpoint.n; // index of step to load at 
@@ -537,56 +550,31 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     // the spline factors are untouched, we just need to load the appropriate knots.
     Distribution::load_knots_from_history(n);
 
+    _log <<"Loaded knots... ";
 
-    // Temporary, but here we are just updating to basis to ensure nothing breaks.
+    // Possibly temporary, but here we are just updating basis to ensure nothing breaks.
     // Ideally would just load the grid without affecting when grid updates.
     update_grid(_log,n);
-    
-    /// version intended to load with same grid regimes but it just leads to lots of potential bad cases, better to just
-    // load and determine the grid 
-    //same as set_up_grid_and_compute_cross_sections but we use the checkpoint's regimes (for consistency's sake).
-    /////////////     
-    // Cross-sections
-    // bool recalc = true;
-    // ofstream dummy_log;
-    // input_params.calc_rates(dummy_log,recalc);  
-    // //hasRates = true;
 
-    // if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
-    //     if(_log.is_open()){
-    //         double e = Constant::eV_per_Ha;
-    //         _log << "---|---|---|---|--- [ Checkpoint Knots ] ---|---|---|---|---\n" 
-    //         "Time: "<<t[n]*Constant::fs_per_au <<" fs\n" 
-    //         <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< this->regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
-    //         for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
-    //             _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
-    //         }
-    //         _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<""  
-    //         << endl;
-    //     }        
-    //     else{}
-    // }
+    _log <<"Updated grid... ";
 
-    // // create the tensor of coefficients TODO these aren't constant now - change to lowercase.
-    // RATE_EII.resize(input_params.Store.size());
-    // RATE_TBR.resize(input_params.Store.size());
-    // for (size_t a=0; a<input_params.Store.size(); a++) {
-    //     size_t N = y[n].F.num_basis_funcs();
-    //     RATE_EII[a].resize(N);
-    //     RATE_TBR[a].resize(N*(N+1)/2);
-    // }
-    // precompute_gamma_coeffs();
-    // Distribution::precompute_Q_coeffs(input_params.Store);
-    
-    // /////////////
+    // It is standard to use a method like fourth-order Runge-Kutta after changing the step size to get us going:
+    // (TODO a lack of ee dynamics currently in this step is slightly off-putting as it is more important than when initialising)
+    // We get indistinguishable results skipping this entirely (for a factor of 1.5 at least).
+    /*
+    n += this->order;
+    for (size_t m = n-this->order; m < n; m++) {
+            this->step_rk4(m);
+    }
     std::cout.clear();
+    */
         
 
     // Remember when time step was decreased, and flag to increase time step size again
     switch (input_params.pulse_shape){
 
     case PulseShape::gaussian:
-        // TODO impact ionisation dominates so we would need a better method to do this. Arguably it's not worth it. increase_dt is bugged anyway.
+        // TODO impact ionisation dominates so we would need a better method to do this. Arguably it's not worth it. 
         // if (t[n] <= 0){
         //     times_to_increase_dt.push_back(-t[n]+0.05/Constant::fs_per_au);
         // }
@@ -610,7 +598,7 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
  * net magnitude of delta(density) / delta(t)
  */
 void ElectronRateSolver::increase_dt(ofstream &_log, size_t current_n){
-    /* breaks things TODO may no longer break things since I found what was wrong... retry 0.5 fs FWHM mol file after fixing excessive computation time
+    // /* breaks things TODO may no longer break things since I found what was wrong... retry 0.5 fs FWHM mol file after fixing excessive computation time
     std::cout.setstate(std::ios_base::failbit);  // disable character output
     
     size_t n = current_n;
@@ -633,7 +621,7 @@ void ElectronRateSolver::increase_dt(ofstream &_log, size_t current_n){
     for (int i=n+1; i<input_params.num_time_steps; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
         this->t[i] = this->t[i-1] + this->dt;
     }
-    */
+    // */
 }
 //IOFunctions found in IOFunctions.cpp
 
@@ -673,7 +661,9 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         old_checkpoint = checkpoint;
         checkpoint = {n, Distribution::get_knot_energies(),this->regimes};
     }
-    if (euler_exceeded || !good_state){        
+    
+    if (euler_exceeded || !good_state){     
+        bool store_dt_increase = true;   
         if (euler_exceeded){    
             if (!increasing_dt){
                 Display::popup_stream <<"\nMax euler iterations exceeded, reloading checkpoint at "<<this->t[old_checkpoint.n]*Constant::fs_per_au<< " fs and decreasing dt.\n\r";
@@ -681,8 +671,8 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
             else{
             Display::popup_stream << "\nReloading checkpoint at "<<t[old_checkpoint.n]*Constant::fs_per_au
             <<" fs, as increasing step size led to euler iterations being exceeded. Will attempt again after "<<2*checkpoint_gap<< "steps.\n\r";
-            times_to_increase_dt.pop_back();  // remove the extra time added.
             times_to_increase_dt.back() = t[n] + 2*checkpoint_gap*dt;  
+            store_dt_increase = false;
             increasing_dt = 0;                
             }
         }
@@ -692,6 +682,10 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         Display::show(Display::display_stream,Display::popup_stream);
         // Reload at checkpoint's n, updating the n step, and decreasing time step length
         n = load_checkpoint_and_decrease_dt(_log,n,old_checkpoint);  // virtual function overridden by ElectronRateSolver
+        if (!store_dt_increase){
+            // remove the extra time added.   
+            times_to_increase_dt.pop_back();           
+        }
         good_state = true;
         euler_exceeded = false;
         checkpoint = old_checkpoint;

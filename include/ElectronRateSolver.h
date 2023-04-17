@@ -59,8 +59,10 @@ public:
         pf.set_pulse(input_params.Fluence(), input_params.Width());
         // AC4DC V2
         timespan_au = input_params.Width()*4;   // 4*FWHM, capturing effectively entire pulse.
-        // NEUTZE  (TODO have option to set FWHM coverage)
-        //timespan_au = input_params.Width()*2.4; kinda breaks dyn grid as (not enough time for pulse to widen?)
+        // NEUTZE  (TODO have option to set FWHM coverage. Though it's better for the sim to get out of that early stage)
+        // would be interesting to see how much of a difference only simulating this amount is with a gaussian, since you're cutting off a lot of time
+        // for electron impact (even if the pulse intensity is miniscule). 
+        timespan_au = input_params.Width()*2.4; 
         std::cout<<"Imaging using -1.2 FWHM to 1.2 FWHM"<<std::endl;
         
         if (input_params.pulse_shape ==  PulseShape::square){  //-FWHM <= t <= 3FWHM
