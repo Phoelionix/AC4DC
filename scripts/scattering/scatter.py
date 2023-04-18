@@ -144,7 +144,9 @@ class Crystal():
             print("The following pdb atoms were found but ignored:",pdb_atoms_ignored)
         if ac4dc_atoms_ignored != "":
             print("The following atoms were allowed but not found:",ac4dc_atoms_ignored)
+        
         self.species_dict = species_dict 
+        
 
     def set_ff_calculator(self,ff_calculator):
         self.ff_calculator = ff_calculator                  
@@ -165,23 +167,39 @@ class Atomic_Species():
         self.crystal = crystal 
         self.ff = 0 # form_factor
         self.coords = []  # coord of each atom in species in asymmetric unit
+
     def add_atom(self,vector):
         self.coords.append(vector)
+        
+    def set_stochastic_states(self):
+        self.times_used = self.crystal.ff_calculator.f_undamaged(0,self.name)[1]
+        if self.crystal.is_damaged:
+            # Initialise an array that tracks the individual atoms' form factors.
+            self.num_atoms = len(crystal.sym_factors)*len(self.coords)
+            self.orb_occs= np.empty(self.num_atoms,dtype = object)
+            for idx in range(self.num_atoms):
+                self.orb_occs[idx] = self.crystal.ff_calculator.random_state_snapshots(self.name)[0] 
+
     def get_stochastic_f():
         raise Exception("Did not set_scalar_form_factor before calling stochastic f")
-    def set_scalar_form_factor(self,q):
+        
+    def set_scalar_form_factor(self,q,stochastic=True):
+        '''
+        num_atoms = number of atoms including symmetries
+        '''
         # F_i(q) = f(q)*T_i(q), where f = self.ff is the time-integrated average 
-        stochastic = True
         if not stochastic:
             self.ff = self.crystal.ff_calculator.f_average(q,self.name)      # note that in taking the integral to get this ff, we included the relative intensity.
         else:
             #self.ff_snapshots, self.times_used = self.crystal.ff_calculator.f_stochastic(q,self.name)
-            self.times_used = self.crystal.ff_calculator.f_stochastic(q,self.name,self.crystal.is_damaged)[1]
             
-            def stoch_f_placeholder(): return self.crystal.ff_calculator.f_stochastic(q,self.name,self.crystal.is_damaged)[0]
+            if not self.crystal.is_damaged: 
+                def stoch_f_placeholder(atom_idx): 
+                    return self.crystal.ff_calculator.f_undamaged(q,self.name)[0]
+            else:
+                def stoch_f_placeholder(atom_idx): 
+                    return self.crystal.ff_calculator.random_states_to_f_snapshots(self.times_used,self.orb_occs[atom_idx],q,self.name)[0]
             self.get_stochastic_f = stoch_f_placeholder
-            #self.get_stochastic_f = get_stochastic_f
-
         #self.ff = self.crystal.ff_calculator.f_stochastic_snapshots(q,self.name)
     def add_cell_symmetries(self,factor,translation):
         '''Until this is applied, the coords will contain only
@@ -252,7 +270,7 @@ class XFEL():
 
         self.t_fineness = t_fineness
 
-        self.phi_array = np.linspace(0,2*np.pi,self.pixels_per_ring,endpoint=False)
+        self.phi_array = np.linspace(0,2*np.pi,self.pixels_per_ring,endpoint=False)  # used only for SPI. Really need to refactor...
         self.y_rotation = 0 # Current rotation of crystal (y axis currently)
         self.x_rotation = 0 # Current rotation of crystal (y axis currently)
         self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))     
@@ -276,6 +294,8 @@ class XFEL():
         """
         ff_calculator = self.get_ff_calculator(start_time,end_time,damage_output_handle)     
         target.set_ff_calculator(ff_calculator)
+        for species in target.species_dict.values():
+            species.set_stochastic_states()        
         self.target = target
 
         ring = np.empty(self.num_rings,dtype="object")
@@ -298,7 +318,8 @@ class XFEL():
         if SPI:
             result = Results_SPI()
             result.I = 0            
-            q_samples = np.linspace(self.min_q,self.max_q,self.num_rings)
+            q_sep = (self.max_q-self.min_q)/(self.num_rings)
+            q_samples = np.linspace(self.min_q,self.max_q,self.num_rings) + q_sep/2
             for rot_x in range(self.x_orientations):
                 self.x_rot_matrix = rotaxis2m(self.x_rotation,Bio_Vect(1, 0, 0))      
                 self.y_rotation = 0                 
@@ -307,8 +328,9 @@ class XFEL():
                     self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))      
                     self.y_rotation += 2*np.pi/self.y_orientations              
                     for i, q in enumerate(q_samples):
-                        ring[i] = self.generate_ring(q)
-                        #ring[i].I = (ring[i].I+1)
+                        # approximate angle subtended
+                        angle_subtended = self.q_to_theta(q+q_sep/2) - self.q_to_theta(q-q_sep/2)
+                        ring[i] = self.generate_ring(q,self.phi_array,angle_subtended)
                         #print("q:",q, "x:",ring[i].R,"I[alph=0]",ring[i].I[0])
 
 
@@ -376,16 +398,19 @@ class XFEL():
     class Spot(Feature):
         def __init__(self,*args):
             super().__init__(*args)
-    def generate_ring(self,q):
+    def generate_ring(self,q,phi_array,angle_subtended):
         '''Returns the intensity(phi) array and the radius for given q.'''
         #print("q=",q)
         #r = self.q_to_r(q)# TODO
         theta = self.q_to_theta(q)
         q_parr_screen = self.q_to_q_scr(q)
+        solid_angle = (2*np.pi/len(phi_array)) * (np.pi/angle_subtended)   # solid angle in fractions [sp] 
+        proj_solid_angle = solid_angle  # laser source.
         if self.hemisphere_screen:
             print("hemisphere/spherical screen not supported for SPI yet.")
+            #proj_solid_angle = solid_angle
         ring = self.Ring(q,q_parr_screen,theta)
-        ring.I = self.illuminate(ring)
+        ring.I = self.illuminate(ring,phis=phi_array,SPI_proj_solid_angle=proj_solid_angle)
         return ring 
     def generate_point(self,G,cardan_angles): # G = vector
         q = np.sqrt(G[0]**2+G[1]**2+G[2]**2)
@@ -408,7 +433,7 @@ class XFEL():
         #print("phi",point.phi,"q_parr_screen",point.q_parr_screen)
         
         phis = np.array([point.phi])
-        point.I = self.illuminate(point,phis,cardan_angles)
+        point.I = self.illuminate(point,phis=phis,cardan_angles=cardan_angles)
         # # Trig check      
         # check = smth  # check = np.sqrt(G[0]**2+G[1]**2)
         # if q_parr_screen != check:
@@ -418,26 +443,29 @@ class XFEL():
 
     # Returns the relative intensity at point q for the target's unit cell, i.e. ignoring crystalline effects.
     # If the feature is a bragg spot, this gives its relative intensity, but due to photon conservation won't be the same as the intensity without crystallinity - additionally different factors for non-zero form factors occur across different crystal patterns.
-    def illuminate(self,feature,phis = None,cardan_angles = None):  # Feature = ring or spot.
-        """Returns the intensity at q. Not crystalline yet."""
-        if phis == None:
-            phis = self.phi_array
+    def illuminate(self,feature,phis = None,cardan_angles = None, SPI_proj_solid_angle=None):  # Feature = ring or spot.
+        """Returns the intensity at q. Not crystalline yet.
+        phis is an ndarray containing the angle of each point to calculate for (SPI) rings, but should contain only 1 element for points.
+        """
+        # if phis == None:
+        #     phis = self.phi_array
         
         times_used = None
         for species in self.target.species_dict.values():
             species.set_scalar_form_factor(feature.q)
             times_used = species.times_used
 
-        F_sum = np.zeros(phis.shape+(self.t_fineness,),dtype="complex_")
+        F_sum = np.zeros(phis.shape+(self.t_fineness,),dtype="complex_")  # [phis,times]
         count = 0
         for species in self.target.species_dict.values():
             if not np.array_equal(times_used,species.times_used):
-                raise Exception("Times used don't match between species.")
-            # resets the form factor for each atom
-            species.set_scalar_form_factor(feature.q)            
+                raise Exception("Times used don't match between species.")        
             # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
             for s in range(len(self.target.sym_factors)):
-                for R in species.coords:
+                for i, R in enumerate(species.coords):
+                        # set the stochastic f if not yet set
+                        atm_idx = len(species.coords)*s + i
+
                         count += 1
                         # Rotate to crystal's current orientation 
                         R = R.left_multiply(self.y_rot_matrix)  
@@ -447,35 +475,26 @@ class XFEL():
                         T = np.zeros(phis.shape,dtype="complex_")
                         if SPI:
                             T = self.SPI_spatial_factor(phis,coord,feature)
-                            f = species.get_stochastic_f()
-                            # print("------")
-                            # print(T[:,np.newaxis])
-                            # print("------")
-                            # print(np.tile(f,(len(T),1)))
-                            F_sum += T[:,np.newaxis] * np.tile(f,(len(T),1))   # we want columns to be times, rows to be phis
                         else:
                             T= self.spatial_factor(phis,coord,feature,cardan_angles)   
-                            f = species.get_stochastic_f()   # todo this is WRONG currently since we are using a different f for different points for the same atom. 
-                                                             # Take a leaf out of SPI method
-                            F_sum += f*T   
-                        # print("FF")
-                        # print("f shape",f.shape)
-                        # print("f_sum shape",F_sum.shape)
-                        # print("T shape",T.shape)
-                        # Rotate atom for next sample            
-        #print("iterated through",count,"atoms")
-        # Ignoring polarisation, pointwise, I(q) is propto
-        # int{I_beam(t).F.F*}dt,
-        # where F = Σ(f_atom*T) (in this code I_beam(t) is included in f_atom)
-        # We normalise by dividing by the duration.
-        # print("F SUM")
-        # print(F_sum.shape)
-        # print("F_sum",F_sum)
+                        f = species.get_stochastic_f(atm_idx)   
+                        F_sum += T[:,np.newaxis] * np.tile(f,(len(T),1))   # copying down rows of the time vector gives us [phis,times]
 
         if (times_used[-1] == times_used[0]):   
             I =  np.square(np.abs(F_sum[:,0]))
         else:
-            I = np.trapz(np.square(np.abs(F_sum)),times_used,axis=1) / (times_used[-1]-times_used[0]) #TODO trapz 
+            I = np.trapz(np.square(np.abs(F_sum)),times_used,axis=1) / (times_used[-1]-times_used[0]) #TODO may need to modify by (1+cos^2theta).
+        
+        # For unpolarised light (as used by Neutze 2000). (1/2)r_e^2(1+cos^2(theta)) is thomson scattering - recovering the correct equation for a lone electron, where |f|^2 = 1 by definition.    
+        thet = self.q_to_theta(feature.q)
+        r_e_sqr = 2.83570628e-9        
+        I*= r_e_sqr*(1/2)*(1+np.square(np.cos(2*thet)))
+        
+        if SPI:
+            # For crystal we can approximate infinitely small pixels and just consider bragg points. (i.e. The intensity will be the same so long as the pixel isn't covering multiple points.)
+            # But for SPI need to take the pixel's size into account. Neutze 2000 makes the following approximation:
+            I *=  SPI_proj_solid_angle    # equiv. to *= solid_angle
+
         return I
 
     def illuminate_average(self,feature,phis = None,cardan_angles = None):  # Feature = ring or spot.
@@ -669,8 +688,10 @@ class XFEL():
             G = G.T
         return G, [alpha,beta,gamma]
                 
-    # q_abs [1/bohr]
     def q_to_theta(self,q):
+        '''
+        q momentum transfer [1/bohr]
+        '''
         lamb = E_to_lamb(self.photon_energy)
         theta = np.arcsin(lamb*q/(4*np.pi)) 
         #if not (theta >= 0 and theta < 45):
@@ -688,7 +709,7 @@ class XFEL():
         """ 
         """
         theta = self.q_to_theta(q)
-        # From here it will help to consider q as referring to the final momentum.
+        # From here it will help to consider q as referring to the final momentum. /// what is this comment??????? 
         v_x = c_au*np.cos(2*theta)
         v_y = c_au*np.sin(2*theta)
         D = self.detector_distance
@@ -699,7 +720,7 @@ class XFEL():
             """ Returns the screen-parallel component of q (or equivalently the final momentum).
             """
             theta = self.q_to_theta(q)
-            return q/(sin(np.pi/2-theta))#q*np.cos(theta)
+            return q/(sin(np.pi/2-theta))
     def q_to_q_scr_curved(self,G):
         return np.sqrt(G[0]**2+G[1]**2)
     
@@ -1425,7 +1446,7 @@ plt.ylabel("y (Ang)")
 # implement stochastic stuff
 # implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector
 root = "lysNeutze"
-tag = "v19" # - multi #"v7" 3 - single
+tag = "v21" # - multi #"v7" 3 - single
 #  #TODO make this nicer and pop in a function 
 DEBUG = False
 energy = 6000 #
@@ -1442,14 +1463,7 @@ allowed_atoms_2 = ["N_fast","S_fast"]
 start_time = -10
 end_time = 10#0#-9.80  
 
-num_orients = 1
-# [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
-ax_x = 1
-ax_y = 1
-ax_z = 0
-random_orientation = True # if true, overrides orientation_set
 
-rock_angle = 1 #0.3 # degrees
 
 #neutze
 pdb_path = "/home/speno/AC4DC/scripts/scattering/2lzm.pdb"
@@ -1460,14 +1474,26 @@ output_handle = "D_lys_neutze_simple_7"
 
 screen_type = "flat"#"hemisphere"
 
-max_triple_miller_idx = None # = m, where max momentum given by q with miller indices (m,m,m)
+
 q_minimum = 1/30 #angstrom
 q_cutoff = 1/2  # angstrom
+#crystal stuff
+max_triple_miller_idx = None # = m, where max momentum given by q with miller indices (m,m,m)
 
-SPI = True
+num_orients = 1
+# [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
+ax_x = 1
+ax_y = 1
+ax_z = 0
+random_orientation = True # if true, overrides orientation_set
 
+rock_angle = 1 #0.3 # degrees
+
+#SPI stuff
 num_rings = 3
 pixels_per_ring = 10
+
+SPI = True
 #---------------------------------#
 
 

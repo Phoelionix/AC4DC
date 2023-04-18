@@ -1,36 +1,35 @@
+//Neutze
+//also need to try using just lys_c settings later, since it's gaussian could possibly work?
+
 #ATOMS
-C_fast 1
+N_fast 991
+S_fast 10
 
 #VOLUME
-18.11        // Volume per molecule in Angstrom^3.
+20000        // Volume per molecule in Angstrom^3.
 300         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
 6000         // Photon energy in eV.
-5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). The total sim time is 4x this.
+5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
-
-
-//---------- Choose true for ONE of the following (or just delete ones you are not using.)
-#USE_COUNT
-false // need to implement!
-1.33    // Number of photons in trillions (10^12).
-
-#USE_INTENSITY
-false // need to check working!
-0.15        // peak intensity in 10^19 W/cm^2
 
 #USE_FLUENCE
 true
 1677         // Pulse fluence in 10^4 * J/cm^2. (== Neutze's I_tot)
 
-//-----------
-
 #NUMERICAL
-20000          // Starting number of time steps for rate equation.
+20000       // Initial guess for number of time step points for rate equation.        If loading time, then the time steps should be whatever gives the time step density at end of sim. (TODO make this automatic or change input to be time step width)
 18            // Number of threads in OpenMP.
-0.25          // Grid update period in fs, (dynamic grid only).
+0.25            // Grid update period in fs, (dynamic grid only).
+
+#MANUAL_GRID
+false        // use manual grid? If false, dynamic grid is used.
+2000            // Transition energy.  The temperature, and thus coulomb logarithm, is approximated by calculating the equilibrium definition of temperature for the energy distribution below this cutoff.
+1|30|55|65|85|105|145|150                 // manual grid boundary indices, with point at 0 excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
+4|10|50|200|500|4500|6500|10000       // manual grid boundary energies, with point at 0 excluded. No spaces.
+1|1|1|1|1|1|1 
 
 #OUTPUT
 800         // Number of time steps in the output files.
@@ -39,23 +38,15 @@ N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
-#MANUAL_GRID
-false        // use manual grid? If false, dynamic grid is used.
-2000           // Transition energy.  The temperature, and thus coulomb logarithm, is approximated by calculating the equilibrium definition of temperature for the energy distribution below this cutoff.
-1|30|55|65|85|105|145|150                 // manual grid boundary indices, with point at 0 excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
-4|10|50|200|500|4500|6500|10000       // manual grid boundary energies, with point at 0 excluded. No spaces.
-1|1|1|1|1|1|1 
-
-
 #LOAD
-//carbon_gauss_3 // Output folder name
-//1000   // Point to load time from 
+//lys_neutze_simple_21 //lys_neutze_simple_21 //lys_neutze_simple_2 // Output folder name
+//10   // Point to load time from
 
 #DEBUG
-10      // Simulation cutoff time in fs
+10 //10     // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 
 Notes:
-
-Dyn grid testing
+1. Start with 80 000 time steps
+2. use 500 000 steps for around peak area when breakage.

@@ -517,6 +517,86 @@ class Plotter:
             return None
         return form_factors_sqrt_I, times_used
     
+
+    #############Important bit#######################
+    def random_state_snapshots(self,atom):
+        '''
+        Get t_fineness form factors, distributed as evenly between plotter_obj.start_t and plotter_obj.end_t as possible.
+        t_fineness = number of snapshots
+        f is modified from the typical definition is multiplied by the scalar sqrt(I(t)) to deal with gaussian case.
+        '''
+        def snapshot(idx):
+            # We pass in indices from 0 to fineness-1, transform to time:
+            t = self.start_t + idx/self.t_fineness*(self.end_t-self.start_t)
+            val, time_used = self.get_random_state(t,atom)
+            return val, time_used
+        orb_occs,times_used = np.fromfunction(snapshot,(self.t_fineness,))   # (Need to double check working as expected - not using np.vectorise)
+        if len(times_used) != len(np.unique(times_used)):
+            print("times used:", times_used)
+            print("Error, used same times! Choose a different fineness or a larger range.")
+            return None
+        return orb_occs, times_used
+    
+    def random_states_to_f_snapshots(self,times_used,orb_occs, q, atom):
+        idx = np.searchsorted(self.timeData,times_used)  # SAME AS IN get_average_form_factor()
+        form_factors_sqrt_I = self.ff_from_state(times_used,orb_occs,q,atom) * np.sqrt(self.intensityData[idx])   # (Need to double check working as expected - not using np.vectorise)
+        return form_factors_sqrt_I, times_used        
+            
+    def ff_from_state(self,time,orboccs,k,atom):
+        a = atom
+        atomic_density = np.sum(self.boundData[a][0, :])
+        ff = np.zeros(shape=(len(time)))
+        for j, indiv_time in enumerate(time):
+            occ_list = [-99]*10
+            for orb, occ in orboccs[j].items():
+                l = int(orb[0]) - 1
+                if occ_list[l] == -99:
+                    occ_list[l] = 0
+                occ_list[l] += occ
+            occ_list = occ_list[:len(occ_list)-occ_list.count(-99)]
+            shielding = SlaterShielding(self.atomic_numbers[a],occ_list)              
+            ff[j] = shielding.get_atomic_ff(k,atomic_density)  
+        return ff      
+
+    def get_random_state(self,time,atom):
+        idx = np.searchsorted(self.timeData,time)      
+        time_used = self.timeData[idx]  # The actual time used
+
+        a = atom
+        states = self.statedict[a]   
+        atomic_density = np.sum(self.boundData[a][0, :])
+        
+        # if atomic_density != self.boundData[a][0,0]: 
+        #     print("Warning, initial state appears to be damaged!")
+        #     print(self.boundData[a][0,:])
+
+        # Sample a configuration from the discrete set
+        roll = np.random.rand(len(time))
+        orboccs = np.empty(shape=(len(time)),dtype="object")
+        for j, indiv_time in enumerate(time):  # array compatibility
+            cumulative_chance = 0 
+            for i in range(len(states)):
+                cumulative_chance += self.boundData[a][idx[j], i]/atomic_density
+                if cumulative_chance >= roll[j]:
+                    orboccs[j] = parse_elecs_from_latex(states[i]) 
+                    break
+                if i == len(states) - 1:
+                    print("WARNING, cumulative chance check failed",atomic_density, self.boundData[a][idx[j], :])
+                    orboccs[j] = parse_elecs_from_latex(states[i]) 
+        return orboccs,time_used
+
+    
+
+    def get_stochastic_form_factor(self,k,atom,time):
+        '''
+        Returns a stochastic form factor at 'time' [fs], and time used.
+        '''        
+        orb_occs, times_used = self.get_random_state(time,atom)
+
+        ff = self.ff_from_state(time,orb_occs,k,atom)
+
+        return ff,times_used    
+        
     def f_average(self,q,atom): 
         ''' 
         If we use an average form factor, then we are making the approximation that for a const intensity I ~= int{F.F*}dt =int{f^2}dt T.T*, 
@@ -538,7 +618,7 @@ class Plotter:
         f_avg = np.trapz(form_factors_sqrt_I,times_used)/(times_used[-1]-times_used[0])
         return f_avg   
 
-    def f_stochastic(self,q,atom,damaged = True):
+    def f_undamaged(self,q,atom):
         '''        
         We now include the stochastic contribution by picking the atomic state from the distribution.
         
@@ -552,13 +632,11 @@ class Plotter:
         possibly need to do trapezoidal integration averaging with I. but ignoring constant factors shld be equivalent so long as gaps in time are same.
         
         '''
-
-        if not damaged:
-            # return undamaged form factor, multiplied by sqrt of average pulse intensity
-            I_avg, times_used = self.I_avg()
-            return self.get_average_form_factor(q,[atom],self.start_t)[0] * np.sqrt(I_avg), times_used
-        else:
-            return self.f_snapshots(q,atom,stochastic=True)
+        # return undamaged form factor, multiplied by sqrt of average pulse intensity
+        I_avg, times_used = self.I_avg()
+        return self.get_average_form_factor(q,[atom],self.start_t)[0] * np.sqrt(I_avg), times_used
+    # def f_damaged(self,q,atom):
+    #     return self.f_snapshots(q,atom,stochastic=True)
     def I_avg(self): # average intensity for pulse 
         def snapshot(idx):
             # We pass in indices from 0 to fineness-1, transform to time:
@@ -570,6 +648,10 @@ class Plotter:
         I,times_used = np.fromfunction(snapshot,(self.t_fineness,))
         I_avg = np.trapz(I,times_used)/(times_used[-1]-times_used[0])
         return I_avg,times_used
+
+    ####################################
+
+
 
     # Coherence stuff, relevant for when have different atomic species (Martin A. Quiney H.M. 2016).  Assuming I haven't misunderstood notation.
     # Useful under the assumption of the nuclei being static. (i.e. the spatial component T(q) is not time dependent)
@@ -669,58 +751,7 @@ class Plotter:
                 ff += atomic_prop * shielding.get_atomic_ff(k,atomic_density,density=state_density)
         return ff,time_used    
     
-    # Note this combines form factors when supplied multiple species, which is not necessarily interesting.
-    def get_stochastic_form_factor(self,k,atom,time):
-        '''
-        Returns a stochastic form factor at 'time' [fs], and time used.
-        '''        
-        idx = np.searchsorted(self.timeData,time)      
-        time_used = self.timeData[idx]  # The actual time used
-
-        a = atom
-        states = self.statedict[a]   
-        atomic_density = np.sum(self.boundData[a][0, :])
-        # if atomic_density != self.boundData[a][0,0]: 
-        #     print("Warning, initial state appears to be damaged!")
-        #     print(self.boundData[a][0,:])
-
-        # Sample a configuration from the discrete set
-        roll = np.random.rand(len(time))
-        orboccs = np.empty(shape=(len(time)),dtype="object")
-        for j, indiv_time in enumerate(time):  # array compatibility
-            cumulative_chance = 0 
-            for i in range(len(states)):
-                cumulative_chance += self.boundData[a][idx[j], i]/atomic_density
-                # print("_________")
-                # print(cumulative_chance)
-                # print(roll)
-                # print("_________")
-                if cumulative_chance >= roll[j]:
-                    orboccs[j] = parse_elecs_from_latex(states[i]) 
-                    break
-                if i == len(states) - 1:
-                    print("WARNING, cumulative chance check failed",atomic_density, self.boundData[a][idx[j], :])
-                    orboccs[j] = parse_elecs_from_latex(states[i]) 
-
-        # Parse the occupancies
-        ff = np.zeros(shape=(len(time)))
-        for j, indiv_time in enumerate(time):
-            occ_list = [-99]*10
-            for orb, occ in orboccs[j].items():
-                l = int(orb[0]) - 1
-                if occ_list[l] == -99:
-                    occ_list[l] = 0
-                occ_list[l] += occ
-            occ_list = occ_list[:len(occ_list)-occ_list.count(-99)]
-            shielding = SlaterShielding(self.atomic_numbers[a],occ_list)              
-            ff[j] = shielding.get_atomic_ff(k,atomic_density)
-        # print("dmg")
-        # print(ff,time_used)
-        # print("normal")
-        # print(np.tile(self.get_average_form_factor(k,[atom],self.start_t)[0], (self.t_fineness)), np.tile(self.start_t, (self.t_fineness)))
-        # print('test done')
-        # asdads
-        return ff,time_used    
+    
 
 
     def print_bound_slice(self,time=-7.5):
