@@ -301,12 +301,15 @@ int main(int argc, const char *argv[]) {
     S.set_up_grid_and_compute_cross_sections(log, true);
     if (runsettings.solve_rate_eq) {
         cout << "\033[1;32mSolving rate equations..." << "\033[35m\033[1mTarget: " << name << "\033[0m" <<endl;       
-        S.solve(log);
+        
+        string backup_dir = "output/backup_data";
+        try_mkdir(backup_dir);
+        S.solve(log, backup_dir);
         try_mkdir(outdir);
         S.save(outdir);    
         //pybind11::finalize_interpreter(); just never call finalize (via this or scoped_interpreter) since it crashes due to a missing pointer for whatever reason.
     }
-    move_mol_file(tmp_molfile,outdir,name);
+    move_mol_file(tmp_molfile,outdir,name); 
     move_log_file(logpath,outdir,name);
     cout << "\033[38;5;47mDone! \033[0m" <<endl;
     return 0;

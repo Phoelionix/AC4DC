@@ -194,9 +194,11 @@ void ElectronRateSolver::set_grid_regions(GridBoundaries gb){
     elec_grid_regions = gb;
 }
 
-void ElectronRateSolver::solve(ofstream & _log) {
+void ElectronRateSolver::solve(ofstream & _log, const std::string& tmp_data_folder) {
     assert (hasRates || "No rates found! Use ElectronRateSolver::initialise_grid_with_computed_cross_sections(log)\n");
     auto start = std::chrono::system_clock::now();
+
+    data_backup_folder = tmp_data_folder;
 
     if (simulation_resume_time > simulation_end_time){cout << "\033[91m[ Error ]\033[0m Simulation is attempting to resume from loaded data with a time after that which it is set to end at." << endl;}
 
@@ -274,13 +276,13 @@ void ElectronRateSolver::solve(ofstream & _log) {
     
     // I'm sorry for this
     std::vector<std::chrono::duration<double, std::milli>> times{
-    display_time, plot_time, dyn_dt_time, pre_ode_time,
+    display_time, plot_time, dyn_dt_time, backup_time, pre_ode_time,
     dyn_grid_time, user_input_time, post_ode_time,
     pre_tbr_time, eii_time, tbr_time,
     ee_time, apply_delta_time
     };
     std::vector<std::string> tags{
-    "display", "live plotting", "dt updates", "pre_ode()",
+    "display", "live plotting", "dt updates", "data backups", "pre_ode()",
     "dynamic grid updates", "user input detection", "post_ode()",
     "misc bound processes", "get_Q_eii()", "get_Q_tbr()",
     "get_Q_ee()", "apply_delta()"
@@ -647,6 +649,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         Display::display_stream.str(Display::header); // clear display string
         Display::display_stream<< "\n\r"
         << "--- Press BACKSPACE/DEL to end simulation and save the data ---\n\r"   
+        << "[ sim ] Next data backup in "<<(minutes_per_save - std::chrono::duration_cast<std::chrono::minutes>(std::chrono::high_resolution_clock::now() - time_of_last_save)).count()<<" minute(s).\n\r"  
         << "[ sim ] Current timestep size = "<<this->dt*Constant::fs_per_au<<" fs\n\r"   
         << "[ sim ] t="
         << std::left<<std::setfill(' ')<<std::setw(6)
@@ -672,7 +675,6 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         old_checkpoint = checkpoint;
         checkpoint = {n, Distribution::get_knot_energies(),this->regimes};
     }
-    
     if (euler_exceeded || !good_state){     
         bool store_dt_increase = true;   
         if (euler_exceeded){    
@@ -721,7 +723,27 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
             increasing_dt = num_steps_to_check;
         }
     }
-    dyn_dt_time += std::chrono::high_resolution_clock::now() - t_start_dt;  
+    dyn_dt_time += std::chrono::high_resolution_clock::now() - t_start_dt;
+    
+    
+    /// Save data periodically in case of crash (currently need to manually copy mol file from log folder and move folder to output if want to plot). 
+    if(std::chrono::duration_cast<std::chrono::minutes>(std::chrono::high_resolution_clock::now() - time_of_last_save) > minutes_per_save){
+        auto t_start_backup = std::chrono::high_resolution_clock::now();
+          _log << "Saving output backup" << endl;
+          Display::popup_stream <<"\nSaving output backup, simulation will resume soon...\n\r";
+          Display::show(Display::display_stream,Display::popup_stream);        
+          time_of_last_save = std::chrono::high_resolution_clock::now();
+          size_t old_size = y.size();
+          y.resize(n+1); t.resize(n+1);
+          save(data_backup_folder);
+          y.resize(old_size); t.resize(old_size);
+          // re-set the future t values       
+          for (int i=n+1; i<input_params.num_time_steps; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
+              this->t[i] = this->t[i-1] + this->dt;
+          }          
+        backup_time += std::chrono::high_resolution_clock::now() - t_start_backup;
+    }
+    
     
     pre_ode_time += std::chrono::high_resolution_clock::now() - t_start;  
 }
@@ -737,11 +759,40 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
         Display::show(Display::display_stream,Display::popup_stream);   
         update_grid(_log,n+1);          
     }   
-    // move from initial grid to dynamic grid shortly after sim start.
-    else if (n-this->order == max(2,(int)(steps_per_grid_transform/10))){
+    // move from initial grid to dynamic grid shortly after a fresh simulation's start.
+    else if (n-this->order == max(2,(int)(steps_per_grid_transform/10)) && (input_params.Load_Folder() == "") && !grid_initialised){
         Display::popup_stream << "\n Performing initial grid update... \n\r"; 
         _log << "[ Dynamic Grid ] Performing initial grid update..." << endl;
+        Display::show(Display::display_stream,Display::popup_stream); 
         update_grid(_log,n+1,true); 
+        //////// restart simulation with better grid.
+        /* bugged but I'll fix if I get time.
+        n = order;
+        old_checkpoint.regimes = regimes;
+        old_checkpoint.knots = Distribution::get_knot_energies();
+        old_checkpoint.n = n;
+        checkpoint = old_checkpoint;
+        while (Distribution::knots_history.size() > 0){
+            Distribution::knots_history.pop_back();
+        }
+        Distribution::set_basis(n, input_params.elec_grid_type, param_cutoffs, regimes, elec_grid_regions);
+        y.resize(n+1); y.resize(t.size());
+        t.resize(n+1); t.resize(y.size());
+        // Set up the t grid       
+        for (int i=n+1; i<input_params.num_time_steps; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
+            this->t[i] = this->t[i-1] + this->dt;
+        }
+        // same as from update_grid()
+        std::vector<double> new_energies = Distribution::get_knot_energies();
+        zero_y = get_ground_state();        
+        for (size_t m = n+1 - this->order; m < n+1; m++) {
+            assert(this-> order < steps_per_grid_transform);
+            Distribution::load_knots_from_history(n-1); // the n - 1 is correct. 
+            y[m].F.transform_basis(new_energies);
+        }          
+        grid_initialised = true;
+        */
+        ////////
     }
     dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
     

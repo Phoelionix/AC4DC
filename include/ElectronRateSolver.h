@@ -87,10 +87,11 @@ public:
         if(input_params.Filtration_File() != ""){
             load_filtration_file();
         }
-        
+
+        time_of_last_save = std::chrono::high_resolution_clock::now(); 
     }
     /// Solve the rate equations
-    void solve(ofstream & _log);
+    void solve(ofstream & _log, const string& tmp_data_folder);
     void save(const std::string& folder);
     /// Sets up the rate equations, which requires computing the atomic cross-sections/avg. transition rates to get the coefficients.
     void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0,bool force_update = false); //bool recalc=true);
@@ -101,10 +102,13 @@ public:
 
     /// What's the time Mr Wolf?
     std::chrono::duration<double, std::milli> 
-    display_time, plot_time, dyn_dt_time, pre_ode_time, // pre_ode
+    display_time, plot_time, dyn_dt_time, backup_time, pre_ode_time, // pre_ode
     dyn_grid_time, user_input_time, post_ode_time,  // post_ode
     pre_tbr_time, eii_time, tbr_time,  // sys_bound
-    ee_time, apply_delta_time; //sys_ee    
+    ee_time, apply_delta_time; //sys_ee 
+
+    std::chrono::_V2::system_clock::time_point time_of_last_save;   
+    std::chrono::minutes minutes_per_save{60};
      
 private:
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)
@@ -170,6 +174,9 @@ private:
 
     bool hasRates = false; // flags whether Store has been populated yet.
     void copyInput(const std::string& src,const std::string& dir);
+
+    // handling deletion of present file
+    void file_delete_check(const std::string& fname);
     /// Saves a table of free-electron dynamics to file fname
     void saveFree(const std::string& file);
     void saveFreeRaw(const std::string& fname);
@@ -187,6 +194,10 @@ private:
 
     //void high_energy_stability_check();
     string its_dinner_time(std::vector<std::chrono::duration<double, std::milli>> times, std::vector<std::string> tags);
+    
+    /// Folder that saves data periodically (period determined by minutes_per_save)
+    string data_backup_folder; 
+    bool grid_initialised = false;
 };
 
 

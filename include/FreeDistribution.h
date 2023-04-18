@@ -255,6 +255,8 @@ public:
     static size_t size;
     double my_size(){return f.size();}
     static std::vector<double> load_knots_from_history(size_t step_idx);
+    static size_t most_recent_knot_change_idx(size_t step_idx);
+    static size_t next_knot_change_idx(size_t step_idx);
     static std::vector<double> get_knots_from_history(size_t step_idx);
     static void set_knot_history(size_t i, std::vector<double> replacement_knot){knots_history[i]={i,replacement_knot};}
     // history of grid points (for dynamic grid)

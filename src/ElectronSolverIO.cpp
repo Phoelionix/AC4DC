@@ -34,6 +34,7 @@ This file is part of AC4DC.
 #include <math.h>
 #include <omp.h>
 #include "config.h"
+#include <filesystem>
 
 // IO functions
 void ElectronRateSolver::save(const std::string& _dir) {
@@ -64,7 +65,21 @@ void ElectronRateSolver::save(const std::string& _dir) {
     pf.save(fake_t,dir+"intensity.csv");
 }
 
+void ElectronRateSolver::file_delete_check(const std::string& fname){
+    if(std::filesystem::exists(fname)){
+        if( remove( fname.c_str() ) != 0 ){
+            perror( "[ Output ] Error saving file: could not delete existing file" );
+            return;
+            }
+        else
+            puts( "File successfully deleted" );
+    }    
+}
+
+
 void ElectronRateSolver::saveFree(const std::string& fname) {
+    file_delete_check(fname);
+
     double min_outputted_points = 25;
     // Saves a table of free-electron dynamics to file fname
     ofstream f;
@@ -84,9 +99,13 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
     float t_fineness = timespan_au  / num_t_points;
     float previous_t = t[0];
     int i = -1; 
+    size_t prev_knot_update = INFINITY;
     while (i <  static_cast<int>(t.size())-1){
         i++;
-        Distribution::load_knots_from_history(i); // TODO CRITICAL this takes ages currently, need to only load knots once for each basis change.  
+        if (prev_knot_update > i){
+            Distribution::load_knots_from_history(i);
+            prev_knot_update = Distribution::most_recent_knot_change_idx(i);
+        } 
         if(t[i] < previous_t + t_fineness){
             continue;
         }
@@ -94,6 +113,7 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
         previous_t = t[i];
     }
     f.close();
+    Distribution::load_knots_from_history(t.size()); // back to original state
 }
 
 /**
@@ -102,6 +122,8 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
  * @param fname 
  */
 void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
+    file_delete_check(fname);
+
     ofstream f;
     cout << "FreeRaw: \033[94m'"<<fname<<"'\033[95m | ";
     f.open(fname);
@@ -111,11 +133,16 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
 
     assert(y.size() == t.size());
     
+    size_t prev_knot_update = INFINITY;
     for (size_t i=0; i<t.size(); i++) {
-        Distribution::load_knots_from_history(i);
+        if (prev_knot_update > i){
+            Distribution::load_knots_from_history(i);
+            prev_knot_update = Distribution::most_recent_knot_change_idx(i);
+        } 
         f<<t[i]*Constant::fs_per_au<<" "<<y[i].F<<endl;  // Note that the << operator divides the factors by Constant::eV_per_Ha. -S.P.
     }
     f.close();
+    Distribution::load_knots_from_history(t.size()); // back to original state
 }
 
 
@@ -125,8 +152,10 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
     assert(y.size() == t.size());
     // Iterate over atom types
     for (size_t a=0; a<input_params.Store.size(); a++) {
-        ofstream f;
         string fname = dir+"dist_"+input_params.Store[a].name+".csv";
+        file_delete_check(fname);
+        
+        ofstream f;
         cout << "Bound: \033[94m'"<<fname<<"'\033[95m | ";
         f.open(fname);
         f << "# Ionic electron dynamics"<<endl;
@@ -162,6 +191,8 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
 void ElectronRateSolver::saveBoundRaw(const std::string& dir) {
     for (size_t a=0; a<input_params.Store.size(); a++) {
         string fname = dir+"dist_"+input_params.Store[a].name+"_Raw.csv";
+        file_delete_check(fname);
+
         ofstream f;
         cout << "BoundRaw: \033[94m'"<<fname<<"'\033[95m | ";
         f.open(fname);

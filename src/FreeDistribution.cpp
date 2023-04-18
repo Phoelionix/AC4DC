@@ -230,7 +230,7 @@ std::vector<double> Distribution::get_trimmed_knots(std::vector<double> knots){
 /**
  * @brief Loads the static variables relating to the basis that are changed by grid updates.
  * @param step_idx Step to load.
- * @return returns the knot that was loaded.
+ * @return returns the knot that was loaded for convenience.
  */
 std::vector<double> Distribution::load_knots_from_history(size_t step_idx){
     std::vector<double> loaded_knot = get_knots_from_history(step_idx);
@@ -238,9 +238,32 @@ std::vector<double> Distribution::load_knots_from_history(size_t step_idx){
     return loaded_knot;
 }
 
+size_t Distribution::most_recent_knot_change_idx(size_t step_idx){
+    size_t most_recent_update;
+    // Find the step of the most recent knot update as of step_idx. (will return same step if given the step of the change.)
+    for(auto elem: knots_history){
+        if (elem.step > step_idx) break; 
+            most_recent_update = elem.step;
+    }
+    return most_recent_update;
+}
+
+
+size_t Distribution::next_knot_change_idx(size_t step_idx){
+    size_t next_knot_update;
+    // Find the step of the most recent knot update as of step_idx. (will return same step if given the step of the change.)
+    for(auto elem: knots_history){
+        if (elem.step > step_idx) 
+            next_knot_update = elem.step;
+            break; 
+    }
+    return next_knot_update;
+}
+
+
 std::vector<double> Distribution::get_knots_from_history(size_t step_idx){
     vector<double> loaded_knot;
-    // Find the most recent knot update as of step_idx.
+    // Find the most recent grid update's knots as of step_idx. 
     for(auto elem: knots_history){
         if (elem.step > step_idx) break;
         loaded_knot = elem.energy;
