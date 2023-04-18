@@ -42,6 +42,8 @@ public:
     }    
     double get_next_knot(double previous_knot);
     void update_region(double new_centre,double new_min, double new_max);
+    void set_num_points(int n){num_points = n;}
+    int get_num_points(){return num_points;}
 
 private:
     int num_points;
@@ -56,12 +58,21 @@ class GridRegions
 {
 public:
     GridRegions();
+    GridRegions(size_t num_static);
     void update_regions(FeatureRegimes rgm);
 
 protected:
     void set_static_energies(vector<double> energy_boundaries);
     std::vector<Region> regions;
 
+    // GridRegions& operator+=(const GridRegions& other_GR){
+    //     regions.insert(regions.end(), other_GR.regions.begin(), other_GR.regions.end());
+    //     return *this;
+    // }
+    // GridRegions& operator=(const GridRegions& other_GR){
+    //     regions = other_GR.regions;
+    //     return *this;
+    // }    
 
 private:
     int NUM_STATIC_REGIONS = 3;

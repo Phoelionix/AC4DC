@@ -45,18 +45,37 @@ size_t Distribution::size=0;
 void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, GridBoundaries elec_grid_regions){
     // Defines a grid of num_funcs points (if manual, thsi is the total number of free-electron grid points specified in the .mol file.)
     // where num_funcs is the number of non-boundary (i.e. "usable") splines/knots.
-    //basis_history.push_back(SplineIntegral());
     basis.set_parameters(grid_style, elec_grid_regions,regimes);
     knots_history.push_back(indexed_knot{step,get_knot_energies()});
     Distribution::size=basis.num_funcs;
     Distribution::CoulombLog_cutoff = basis.i_from_e(param_cutoffs.transition_e);
     Distribution::CoulombDens_min = param_cutoffs.min_coulomb_density;
-    // cout<<"[ Free ] Estimating lnLambda based on first ";
-    // cout<<CoulombLog_cutoff<<" points, up to "<<grid_style.transition_e<<" Ha"<<endl;    
     cout<<"[ Free ] Estimating lnLambda for energies below ";
     cout<<param_cutoffs.transition_e<<" Ha"<<endl;
     cout<<"[ Free ] Neglecting electron-electron below density of n = "<<CoulombDens_min<<"au^-3"<<endl;
 }
+
+// Adaptive B-spline implementation
+void Distribution::seek_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes){
+    // Process:
+    //1. Try to match the distribution with a low-density basis, based on the regimes. 
+    //2. Find the error in each regime. (which is fine to do since the basis is sparse) 
+    //3. If error in each regime is lower than tolerable, we are done, otherwise:
+    //4. Increase the number of points in the segment that has the highest error
+    //5. Return to 2.
+    
+    // initialise region segments
+    //basis.prep_adapt_knots(regimes);
+    basis.adapt_knots(grid_style, regimes,true);
+    knots_history.push_back(indexed_knot{step,get_knot_energies()});
+    Distribution::size=basis.num_funcs;
+    Distribution::CoulombLog_cutoff = basis.i_from_e(param_cutoffs.transition_e);
+    Distribution::CoulombDens_min = param_cutoffs.min_coulomb_density;
+    cout<<"[ Free ] Estimating lnLambda for energies below ";
+    cout<<param_cutoffs.transition_e<<" Ha"<<endl;
+    cout<<"[ Free ] Neglecting electron-electron below density of n = "<<CoulombDens_min<<"au^-3"<<endl;
+}
+
 
 void Distribution::set_distribution(vector<double> new_knot, vector<double> new_spline_factors) {
     f = new_spline_factors; 
@@ -586,4 +605,72 @@ ostream& operator<<(ostream& os, const Distribution& dist) {
         os<<" "<<dist[i]/Constant::eV_per_Ha;
     }
     return os;
+}
+
+
+
+void Distribution::adapt_knots(const GridSpacing& gt, FeatureRegimes& regimes, bool init, std::vector<double> reference_energies,std::vector<double> prev_Edens){
+    double MAX_ERR = 0.01; 
+    
+    if (init){
+    //     std::vector<Region> new_regions;
+    //     for(size_t i = 0; i < regions.size();i++){
+    //         if((regions[i].get_type() == "dirac") || (regions[i].get_type() == "mb")){
+    //             regions[i].set_num_points(2)
+    //             new_regions.push_back(regions[i]);
+    //         }
+    //     }
+    //     regions = new_regions;
+        size_t starting_point_count = 5;
+        for(size_t i = 0; i < basis.regions.size();i++){
+            basis.regions[i].set_num_points(starting_point_count);
+            prev_segments_Edens.push_back(INFINITY);
+        }
+    }
+    
+
+    // std::vector<double> peaks = regimes.dirac_peaks;
+    // peaks.push_back(regimes.mb_peak);
+
+    // transform 
+    auto new_knots = basis.set_knot(gt,regimes,true);
+    basis.set_parameters(new_knots);
+    
+    
+    // add to knots that have too high normalised mean square errors.
+    bool exceeded_error = false;
+    std::vector<double> Edens;
+    for (size_t j = 0; j < size; j++){
+        double e = get_trimmed_knots(get_knot_energies())[j]; 
+        Edens.push_back((*this)(e)*e);
+    }
+
+    // replace this with the quadrature integration approximation thing, against a set of reference energies.
+    for(size_t i = 0; i < basis.regions.size();i++){
+        size_t min_knot = basis.i_from_e(basis.regions[i].get_E_min()); 
+        size_t max_knot = basis.i_from_e(basis.regions[i].get_E_max()); 
+        double segment_square_diff = 0;
+        double segment_square_denom = 0;
+
+        // find MSE
+        for(size_t j = min_knot; j <= max_knot,j++){
+            double e = get_knot_energies()[i];
+            segment_square_diff += pow(Edens[j] - prev_Edens[j],2);
+            segment_square_denom += pow(prev_Edens[j],2);
+        }
+
+        double norm_MSE = segment_square_diff/segment_square_denom;
+
+        if(norm_MSE > MAX_ERR){
+            exceeded_error = true;
+            basis.regions[i].set_num_points(basis.regions[i].get_num_points() + 2);
+        }
+
+    }
+    if (exceeded_error)
+        adapt_knots(gt,regimes,false,Edens);
+    else 
+        return;
+
+    set_parameters(new_knots);
 }

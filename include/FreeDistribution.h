@@ -227,6 +227,7 @@ public:
     std::string output_densities(size_t num_pts, std::vector<double> reference_knots) const;
 
     std::vector<double> get_densities(size_t num_pts, std::vector<double> reference_knots) const;
+    static std::string output_knots_eV();
     // 
     /**
      * @brief Switch grid points to the knot_energies provided, and replace densities with the ones interpolated to by the splines. 
@@ -250,8 +251,22 @@ public:
      * @param grid_style 
      */
     static void set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, GridBoundaries elec_grid_regions);
-    static std::string output_knots_eV();
+    /**
+     * @brief The setup function.
+     * @details Grants the distribution its energy basis, which serves as the knot points for the spline. Assigns CoulombLog_cutoff and Distribution::CoulombDens_min.
+     * Uses the regimes given as a starting point to find a good basis.
+     * @param n  Num elec points
+     * @param min_e min elec energy
+     * @param max_e max elec energy
+     * @param grid_style 
+     */    
+    static void seek_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes);
     
+    //void prep_adapt_knots(const FeatureRegimes& regimes);
+    void adapt_knots(const GridSpacing& gt, FeatureRegimes& regimes, bool init,std::vector<double> differences = {});
+
+
+
     static size_t size;
     double my_size(){return f.size();}
     static std::vector<double> load_knots_from_history(size_t step_idx);

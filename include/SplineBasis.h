@@ -36,6 +36,7 @@ class BasisSet  : private GridRegions
 public:
     BasisSet() : GridRegions::GridRegions() {} 
     void set_parameters(const GridSpacing& gt, GridBoundaries& elec_grid_regions, FeatureRegimes& regimes);
+    void set_parameters(std::vector<double> new_grid_knots);
     /// Returns S_inverse(deltaf) 
     Eigen::VectorXd Sinv(const Eigen::VectorXd& deltaf);
     /// Returns S_inverse(J)
@@ -76,7 +77,7 @@ protected:
     Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int> >  linsolver;
     std::vector<double> knot;
     double overlap(size_t j, size_t k) const;
-    void set_knot(const GridSpacing& gt,FeatureRegimes& regimes); 
+    std::vector<double> set_knot(const GridSpacing& gt,FeatureRegimes& regimes, bool trial);  // sets knot and returns it for convenience. if trial is true, only returns the knot without setting.
     void manual_set_knot(const GridSpacing& gt); 
     
     double _min;
