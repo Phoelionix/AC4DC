@@ -99,25 +99,38 @@ public:
     typedef std::vector<SparseTriple> sparse_matrix;
     typedef std::vector<SparsePair> pair_list;
 
+    /**
+     * @details
+     * Interpretation: J^th matrix element of dQ/dt given by
+     * Q_eii[a][xi][J][K] * P^a[xi] * F[K]
+     *       ^  ^   ^  ^
+     *       |  |   Basis indices (J index for LHS, K index for RHS)
+     *       |  state within atom a
+     *       Atom
+    */
     typedef std::vector<std::vector< std::vector< std::vector<double> > > > Q_eii_t;
-    // Interpretation: J^th matrix element of dQ/dt given by
-    // Q_eii[a][xi][J][K] * P^a[xi] * F[K]
-    //       ^  ^   ^  ^
-    //       |  |   Basis indices (J index for LHS, K index for RHS)
-    //       |  state within atom a
-    //       Atom
+
+
+    /**
+     * @details 
+     * Interpretation: J^th matrix element of dQ/dt given by
+     * vector<SparseTriple> &nv = Q_tbr[a][xi][J]
+     * for (auto& Q : nv) {
+     *      tmp += nv.val * P^a[xi] * F[nv.K] * F[nv.L]
+     * }
+    */
     typedef std::vector<std::vector<std::vector<sparse_matrix> > > Q_tbr_t;
-    // Interpretation: J^th matrix element of dQ/dt given by
-    // vector<SparseTriple> &nv = Q_tbr[a][xi][J]
-    // for (auto& Q : nv) {
-    //      tmp += nv.val * P^a[xi] * F[nv.K] * F[nv.L]
-    // }
+
+    /**
+     * @details
+     * Interpretation: J'th element of df/dt is given by
+     * for (auto& q : Q_EE[J][K]) {
+     *     tmp += q.val*F[K]*F[q.idx]
+     * }
+     * 1000 times fewer components than QTBR, not a problem
+    */
     typedef std::vector<std::vector<pair_list> > Q_ee_t;
-    // Interpretation: J'th element of df/dt is given by
-    // for (auto& q : Q_EE[J][K]) {
-    //     tmp += q.val*F[K]*F[q.idx]
-    // }
-    // 1000 times fewer components than QTBR, not a problem
+
 
      /**
      * @brief // Replaces inner knots with the ones provided, using the current boundaries to determine which are inner. 

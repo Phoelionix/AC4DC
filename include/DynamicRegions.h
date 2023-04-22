@@ -60,10 +60,11 @@ public:
     GridRegions();
     GridRegions(size_t num_static);
     void update_regions(FeatureRegimes rgm);
+    std::vector<Region> regions;
 
 protected:
     void set_static_energies(vector<double> energy_boundaries);
-    std::vector<Region> regions;
+    
 
     // GridRegions& operator+=(const GridRegions& other_GR){
     //     regions.insert(regions.end(), other_GR.regions.begin(), other_GR.regions.end());

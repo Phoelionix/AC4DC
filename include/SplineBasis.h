@@ -31,7 +31,7 @@ This file is part of AC4DC.
 
 static constexpr bool USING_SQRTE_PREFACTOR = true;
 
-class BasisSet  : private GridRegions
+class BasisSet  : public GridRegions
 {
 public:
     BasisSet() : GridRegions::GridRegions() {} 
@@ -72,12 +72,13 @@ public:
     std::vector<double> areas;
     int i_from_e(double e);
     int lower_i_from_e(double e);  
+    std::vector<double> set_knot(const GridSpacing& gt,FeatureRegimes& regimes, bool trial = false, bool do_not_update_regions = false);  // sets knot and returns it for convenience. if trial is true, only returns the knot without setting.
 protected:
     // Eigen::PartialPivLU<Eigen::MatrixXd > linsolver;
     Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int> >  linsolver;
     std::vector<double> knot;
     double overlap(size_t j, size_t k) const;
-    std::vector<double> set_knot(const GridSpacing& gt,FeatureRegimes& regimes, bool trial);  // sets knot and returns it for convenience. if trial is true, only returns the knot without setting.
+    
     void manual_set_knot(const GridSpacing& gt); 
     
     double _min;

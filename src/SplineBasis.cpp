@@ -97,8 +97,10 @@ int BasisSet::lower_i_from_e(double e) {
  * @param gt grid type, also referred to as grid_style. Only used for zero_degree_0 and zero_degree_inf. TODO really need to refactor around how we are using gt.
  */
 
-std::vector<double> BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rgm, bool trial = false){
-    update_regions(rgm);
+std::vector<double> BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rgm, bool trial, bool do_not_update_regions){
+    if (!do_not_update_regions){
+        update_regions(rgm);
+    }
     int Z_0 = gt.zero_degree_0;
     int Z_inf = gt.zero_degree_inf;
     if( BSPLINE_ORDER - Z_0 < 0){
@@ -151,13 +153,14 @@ std::vector<double> BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rg
         assert(i < 999);
         new_knots.push_back(next_point);
     }
-    num_funcs = new_knots.size()-(start+1)-1;
+    size_t tmp_num_funcs = new_knots.size()-(start+1)-1;
     // t_{n+1+z_infinity} has been set now. Repeat it until the end.
-    for (size_t i= num_funcs + 1 + Z_inf; i< num_funcs+BSPLINE_ORDER; i++) {
-        new_knots.push_back(new_knots[num_funcs + Z_inf]);
+    for (size_t i= tmp_num_funcs + 1 + Z_inf; i< tmp_num_funcs+BSPLINE_ORDER; i++) {
+        new_knots.push_back(new_knots[tmp_num_funcs + Z_inf]);
     }
     
     if (!trial){
+        num_funcs = tmp_num_funcs;
         knot = new_knots;
     }
     #ifdef DEBUG

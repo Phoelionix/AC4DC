@@ -49,21 +49,67 @@ GridRegions::GridRegions(){
     // energies 4|10|50|200|500|4500|6500|10000   
     int pts_per_dirac = 30; // per region, often will have much less per photopeak.
     bool debug = false;
+    // regions = {
+    //     Region(1,5,10,"static"),  // low divergent
+    //     Region(25,10,50, "static"), // low support (MB is very fine early on, grid doesn't let us make it suddenly become super fine.)
+    //     Region(10,50,200,"static"), 
+    //     Region(35,200,600,"static"), // auger
+    //     Region(40,600,6500,"static"),  //TODO change 6500 to be the xray energy.
+    //     Region(10,6500,15000,"static"), // high tail
+    //     Region(35,-1,-1,"mb"), // Maxwell-boltzmann distribution
+    //     // Photoelectron peaks. need to include num regions defined here in FeatureRegimes.
+    //     Region(pts_per_dirac,-1,-1,"dirac"), 
+    //     Region(pts_per_dirac,-1,-1,"dirac"), 
+    //     Region(pts_per_dirac,-1,-1,"dirac"), 
+    //     Region(pts_per_dirac,-1,-1,"dirac"),
+
+    //     Region(1,5,50,"static"),
+    //     Region(1,25,75,"static"), 
+    //     Region(1,50,125,"static"), 
+    //     Region(1,90,180,"static"), 
+    //     Region(1,145,290,"static"), 
+    //     Region(1,200,400,"static"), 
+    //     Region(1,500,1000,"static"), 
+    //     Region(1,750,1500,"static"), 
+    //     Region(1,1200,2400,"static"), 
+    //     Region(1,1800,3600,"static"), 
+    //     Region(1,2700,5400,"static"), 
+    //     Region(1,4000,8000,"static"), 
+    //     Region(1,6000,12000,"static")
+    // };
+
+    
     if(!debug){    
+        ///// high accuracy
+        // regions = {
+        //     Region(1,5,10,"static"),  // low divergent
+        //     Region(25,10,50, "static"), // low support (MB is very fine early on, grid doesn't let us make it suddenly become super fine.)
+        //     Region(10,50,200,"static"), 
+        //     Region(35,200,600,"static"), // auger
+        //     Region(40,600,6500,"static"),  //TODO change 6500 to be the xray energy.
+        //     Region(10,6500,15000,"static"), // high tail
+        //     Region(35,-1,-1,"mb"), // Maxwell-boltzmann distribution
+        //     // Photoelectron peaks. need to include num regions defined here in FeatureRegimes.
+        //     Region(pts_per_dirac,-1,-1,"dirac"), 
+        //     Region(pts_per_dirac,-1,-1,"dirac"), 
+        //     Region(pts_per_dirac,-1,-1,"dirac"), 
+        //     Region(pts_per_dirac,-1,-1,"dirac") 
+        // };
+        pts_per_dirac = 15;
         regions = {
             Region(1,5,10,"static"),  // low divergent
-            Region(25,10,50, "static"), // low support (MB is very fine early on, grid doesn't let us make it suddenly become super fine.)
+            Region(15,10,50, "static"), // low support (MB is very fine early on, grid doesn't let us make it suddenly become super fine.)
             Region(10,50,200,"static"), 
-            Region(35,200,600,"static"), // auger
-            Region(40,600,6500,"static"),  //TODO change 6500 to be the xray energy.
+            Region(20,200,600,"static"), // auger
+            Region(25,600,6500,"static"),  //TODO change 6500 to be the xray energy.
             Region(10,6500,15000,"static"), // high tail
-            Region(35,-1,-1,"mb"), // Maxwell-boltzmann distribution
+            Region(20,-1,-1,"mb"), // Maxwell-boltzmann distribution
             // Photoelectron peaks. need to include num regions defined here in FeatureRegimes.
             Region(pts_per_dirac,-1,-1,"dirac"), 
             Region(pts_per_dirac,-1,-1,"dirac"), 
             Region(pts_per_dirac,-1,-1,"dirac"), 
             Region(pts_per_dirac,-1,-1,"dirac") 
-        };
+        };        
     }
     else{
         pts_per_dirac = 10;
@@ -81,8 +127,8 @@ GridRegions::GridRegions(){
             Region(pts_per_dirac,-1,-1,"dirac"), 
             Region(pts_per_dirac,-1,-1,"dirac") 
         };
-
     }
+
 
 } 
 /**

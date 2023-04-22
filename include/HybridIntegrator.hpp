@@ -54,7 +54,7 @@ class Hybrid : public Adams_BM<T>{
 
     double stiff_rtol = 1e-4;
     double intolerable_stiff_err =0;//0.5;
-    unsigned stiff_max_iter = 200;
+    unsigned stiff_max_iter = 300;//200; 
     
 
 

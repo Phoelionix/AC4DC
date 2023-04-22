@@ -140,7 +140,12 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             }             
             transition_energy(step, param_cutoffs.transition_e);
             // 
-            Distribution::seek_basis(step, input_params.elec_grid_type, param_cutoffs, regimes);
+            if (y[step].F.seek_basis(_log, input_params.elec_grid_type, step, param_cutoffs)){
+                //_log << "B-spline failed to find convergent basis, using backup dynamic grid."; _log.flush();   Disabled
+            }
+            else{
+                 _log << "B-spline basis successfully converged"; _log.flush();
+            }
         } 
         if (old_trans_e != param_cutoffs.transition_e){
             std::cout <<"thermal cutoff energy updated from:\n"
@@ -568,7 +573,10 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
         update_grid(_log,n,true);
     }
     else{
-        update_grid(_log,n,false);
+        
+        // update_grid(_log,n,false);
+        // we should always update grid now anyway with the adaptive b splines
+        update_grid(_log,n,true);
     }
 
     _log <<"Updated grid..."<<endl;
@@ -759,7 +767,7 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
         Display::popup_stream << "\nUpdating grid... \n\r"; 
         _log << "[ Dynamic Grid ] Updating grid" << endl;
         Display::show(Display::display_stream,Display::popup_stream);   
-        update_grid(_log,n+1);          
+        update_grid(_log,n+1,true);          
     }   
     // move from initial grid to dynamic grid shortly after a fresh simulation's start.
     else if (n-this->order == max(2,(int)(steps_per_grid_transform/10)) && (input_params.Load_Folder() == "") && !grid_initialised){

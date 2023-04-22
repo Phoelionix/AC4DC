@@ -39,7 +39,6 @@ This file is part of AC4DC.
 #include "LossGeometry.hpp"
 #include "config.h"
 
-
 struct indexed_knot
 {
     size_t step; // Step that this grid of knots was set
@@ -260,10 +259,10 @@ public:
      * @param max_e max elec energy
      * @param grid_style 
      */    
-    static void seek_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes);
+    int seek_basis(ofstream& _log, GridSpacing gt, size_t step, Cutoffs param_cutoffs);
     
     //void prep_adapt_knots(const FeatureRegimes& regimes);
-    void adapt_knots(const GridSpacing& gt, FeatureRegimes& regimes, bool init,std::vector<double> differences = {});
+    int adapt_knots(bool init, GridSpacing gt, Distribution original_distribution, std::vector<double> original_knots, std::vector<double> reference_energies = {}, std::vector<double> prev_Edens = {},size_t iteration = 0);
 
 
 
