@@ -54,13 +54,13 @@ DEBUG = False
 c_au = 137.036; eV_per_Ha = 27.211385 
 
 class Results():
-    def __init__(self,num_points):
+    def __init__(self,num_points,image_index):
         self.phi = np.zeros(num_points)
         self.phi_aligned = np.zeros(num_points)
         self.I = np.zeros(num_points)
         self.q = np.zeros(num_points)
         self.r = np.zeros(num_points)
-        self.image_index = np.zeros(num_points)    
+        self.image_index = image_index 
 
     def package_up(self,miller_indices):
         _, self.phi_mesh = np.meshgrid(self.q,self.phi)  
@@ -437,26 +437,24 @@ class XFEL():
             return result        
 
         else:
-            # Iterate through each orientation of crystal
+            # Iterate through each orientation of crystal, picklin' up a file for each orientation
             used_orientations = []
             for j, cardan_angles in enumerate(self.orientation_set):               
                 print("Imaging orientation",j)
                 bragg_points, miller_indices,cardan_angles = self.bragg_points(target,cell_packing = target.cell_packing, cardan_angles = cardan_angles,random_orientation=random_orientation)
                 used_orientations.append(cardan_angles)
                 num_points = int(len(bragg_points))
-                result = Results(num_points)
+                result = Results(num_points,j)
                 # Get the q vectors where non-zero
                 i = 0
                 #TODO vectorise
                 # (Assume pixel adjacent to bragg point does not capture remnants of sinc function)
                 point = self.generate_point(bragg_points,cardan_angles)
-                #tmp_radii[i] = point.r
+                # fix this filling stuff
                 result.phi = point.phi
                 result.phi_aligned = point.phi_crystal_aligned
                 result.q = point.q_parr_screen
-                print(point.I)
-                result.I = point.I
-                result.image_index[j] = j
+                result.I += point.I
                 
                 result.package_up(miller_indices)
                 #Save the result object into its own file within the output folder for the experiment
@@ -1039,7 +1037,7 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
             # Catch for multiple overlapping points (within same orientation only!!!) (does work, but would be unlikely.)
             # TODO need to do something about fact that overlapping points with many plots will hide points. Not critical rn thanks to sectors. 
             for i in range(len(result1.I)):
-                if (radial_axis[i], phi[i],result1.image_index[i])  in processed_copies:
+                if (radial_axis[i], phi[i],result1.image_index)  in processed_copies:
                     unique_values_mask[i] = False
                     continue
                 else:
@@ -1497,7 +1495,7 @@ def stylin(SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None):
 # implement stochastic stuff
 # implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector
 root = "tetra"
-tag = "v7" # - multi #"v7" 3 - single
+tag = "v8" # - multi #"v7" 3 - single
 #  #TODO make this nicer and pop in a function 
 DEBUG = False
 energy = 6000 # 12561
@@ -1515,7 +1513,7 @@ start_time = -10
 end_time = 10#0#-9.80  
 
 #orientation_set = [[5.532278012665244, 1.6378991611963682, 1.3552062099726534]] # Spooky spider orientation
-num_orients = 1
+num_orients = 10
 # [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
 ax_x = 1
 ax_y = 1
