@@ -748,7 +748,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
           save(data_backup_folder);
           y.resize(old_size); t.resize(old_size);
           // re-set the future t values       
-          for (int i=n+1; i<input_params.num_time_steps; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
+          for (int i=n+1; i<t.size()-1; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
               this->t[i] = this->t[i-1] + this->dt;
           }          
         backup_time += std::chrono::high_resolution_clock::now() - t_start_backup;
