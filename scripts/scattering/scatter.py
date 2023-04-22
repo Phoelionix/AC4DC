@@ -87,13 +87,14 @@ class Results_Grid():
     pass    
 
 class Crystal():
-    def __init__(self, pdb_fpath, allowed_atoms, rocking_angle = 0.3*np.pi/180, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True, is_damaged=True):
+    def __init__(self, pdb_fpath, allowed_atoms, rocking_angle = 0.3*np.pi/180, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True, is_damaged=True,num_cells = 1):
         self.cell_packing = cell_packing
         self.rocking_angle = rocking_angle
         self.sym_factors=[np.array([1,1,1],dtype="float")]
         self.sym_translations = [np.array([0,0,0],dtype="float")]
         self.cell_dim = np.array([1,1,1],dtype="float")              
         self.is_damaged = is_damaged
+        self.num_cells = num_cells
         
         parser=PDBParser(PERMISSIVE=1)
         structure_id = os.path.basename(pdb_fpath)
@@ -162,6 +163,7 @@ class Crystal():
 
 
 
+
 class Atomic_Species():
     def __init__(self,name,crystal):
         self.name = name 
@@ -170,7 +172,9 @@ class Atomic_Species():
         self.coords = []  # coord of each atom in species in asymmetric unit
 
     def add_atom(self,vector):
-        self.coords.append(vector)
+        # We superimpose all cells on the first billouin zone coordinates.
+        new_atoms = [vector]*self.crystal.num_cells
+        self.coords.extend(new_atoms)
         
     def set_stochastic_states(self):
         self.times_used = self.crystal.ff_calculator.f_undamaged(0,self.name)[1]
@@ -352,7 +356,7 @@ class XFEL():
             def resolution_to_q_scr(d):
                 q = 2*np.pi/d
                 return self.q_to_q_scr(q)
-            N = 90#100  NxN cells
+            N = 100#100  NxN cells
             ang_per_bohr = 1/1.88973  # > 1 ang = 1.88973 bohr
             cell = np.zeros((N,N),dtype="object")
             result = Results_Grid()      
@@ -420,7 +424,7 @@ class XFEL():
                     print("Imaging at x, y, rotations:",self.x_rotation,self.y_rotation)
                     self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))      
                     self.y_rotation += 2*np.pi/self.y_orientations              
-                    result.I += self.generate_cell_intensity(q_grid,x,y)
+                    result.I += self.generate_cell_intensity(q_grid,result.xy)
                     mask = q_grid
                     mask[mask < self.min_q] = 0; mask[mask > self.max_q] = 0
                     mask[mask != 0] = 1
@@ -479,16 +483,16 @@ class XFEL():
             super().__init__(*args)
             
         
-    def generate_cell_intensity(self,q,x,y):
+    def generate_cell_intensity(self,q,xy_grid):
         solid_angle = 1  # approximate all as same for now.
         theta = self.q_to_theta(q)
         q_parr_screen = self.q_to_q_scr(q)     
         if self.hemisphere_screen:
             print("hemisphere/spherical screen not supported for SPI yet.")           
         cell = self.Cell(q,q_parr_screen,theta)
-        phi = np.arccos(x/y)
-        phis = np.array([phi])
-        return self.illuminate(cell,phis=phis,SPI_proj_solid_angle = solid_angle)[0]
+        phis = np.arctan2(xy_grid[:,:,1],xy_grid[:,:,0])
+        #print("phis",phis)
+        return self.illuminate(cell,phis=phis,SPI_proj_solid_angle = solid_angle)
 
     def generate_ring(self,q,phi_array,angle_subtended):
         '''Returns the intensity(phi) array and the radius for given q.'''
@@ -555,10 +559,11 @@ class XFEL():
             if len(feature.G.shape) > 1:
                 F_shape += (len(feature.G[2]),) #[times,num_G]   
         else:
-            F_shape += phis.shape  
-            F_shape += (self.t_fineness,)# [phis,times]
+            if type(feature) is self.Ring:
+                F_shape += phis.shape  
+            F_shape += (self.t_fineness,)# [?phis?,times]
             if type(feature.q) is np.ndarray:
-                F_shape += feature.q.shape          # [phis,times,feature.q.shape]
+                F_shape += feature.q.shape          # [?phis?,times,feature.q.shape]
         
         F_sum = np.zeros(F_shape,dtype="complex_")  
         for species in self.target.species_dict.values():
@@ -566,6 +571,7 @@ class XFEL():
                 raise Exception("Times used don't match between species.")        
             # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
             for s in range(len(self.target.sym_factors)):
+                print("Working through symmetry",s)
                 for i, R in enumerate(species.coords):
                         atm_idx = len(species.coords)*s + i
                         # Rotate to target's current orientation 
@@ -576,19 +582,22 @@ class XFEL():
                         if SPI:
                             T = self.SPI_interference_factor(phis,coord,feature)  #[num_G]
                         else:
-                            T= self.interference_factor(coord,feature,cardan_angles)   #[phis,feature.q.shape]
+                            T= self.interference_factor(coord,feature,cardan_angles)   # if grid: [phis,qx,qy]  if ring: [phis,q] (unimplemented)
                             #T = np.expand_dims(T,0)                  
                         f = species.get_stochastic_f(atm_idx)    
                         #print(F_sum.shape,T.shape,f.shape) 
-                        if SPI:                             
-                            F_sum += T[:,None] * f[None,...]        # [phis,momenta,None]X[None,times, feature.q.shape]  -> [phis,times,feature.q.shape] if q is an array
+                        if SPI: 
+                            if type(feature) is self.Cell:
+                                F_sum += T[None,...]*f          
+                            if type(feature) is self.Ring:           
+                                F_sum += T[:,None] * f[None,...]        # [?phis?,momenta,None]X[None,times, feature.q.shape]  -> [?phis?,times,feature.q.shape] if q is an array
                         else:
-                            F_sum = T[None,:] * f                            # [None,num_G]X[times,num_G]  ->[times,num_G] 
+                            F_sum += T[None,:] * f                            # [None,num_G]X[times,num_G]  ->[times,num_G] 
         if (times_used[-1] == times_used[0]):   
             raise Exception("Intensity array's final time equals its initial time") #I =  np.square(np.abs(F_sum[:,0]))  # 
         else:
             time_axis = 0
-            if SPI:
+            if type(feature) is self.Ring:
                 time_axis = 1
             I = np.trapz(np.square(np.abs(F_sum)),times_used,axis = time_axis) / (times_used[-1]-times_used[0])         #[num_G] for points, or for SPI: [phis,feature.q.shape], corresponding to rings or square grid
         
@@ -601,7 +610,7 @@ class XFEL():
             # For crystal we can approximate infinitely small pixels and just consider bragg points. (i.e. The intensity will be the same so long as the pixel isn't covering multiple points.)
             # But for SPI need to take the pixel's size into account. Neutze 2000 makes the following approximation:
             I *=  SPI_proj_solid_angle    # equiv. to *= solid_angle
-
+        #print(I)
         return I
 
     def illuminate_average(self,feature,phis = None,cardan_angles = None):  # Feature = ring or spot.
@@ -641,19 +650,23 @@ class XFEL():
 
     def SPI_interference_factor(self,phi_array,coord,feature):  #TODO refactor SPI features so can just use above (allows for realignment)
         """ theta = scattering angle relative to z-y plane """ 
-        
         q_z = np.multiply(feature.q,np.sin(feature.theta))                          # dim = [qX,qY] for square screen with cell coords given by X,Y 
         # phi is angle of vector relative to x-y plane, pointing from screen centre to point of incidence. 
-        q_z = np.repeat(q_z[np.newaxis,:,:],len(phi_array),axis=0)            
-        q_y = feature.q_parr_screen[None,...]*np.sin(phi_array[:])
-        q_x = feature.q_parr_screen[None,...]*np.cos(phi_array[:])   # dim = [phis,qX,qY]
+        # TODO need to get working with rings again since they were designed to have multi phi for each q. Here it is 1:1
+        if type(feature) is not self.Cell:
+            raise Exception("accidentally removed ring implementation sorry!")
+        q_z = q_z       
+        q_y = feature.q_parr_screen * np.sin(phi_array)
+        q_x = feature.q_parr_screen * np.cos(phi_array)   # dim = [qX,qY]
+        #print("====="); print(phi_array);print("-----");print(q_z.shape,q_y.shape,q_x.shape)   
         q_vect = np.array([q_x,q_y,q_z])
-        q_vect = np.moveaxis(q_vect,0,len(q_vect.shape)-1)    # dim = [phis,qX,qX,3]
-
+        q_vect = np.moveaxis(q_vect,0,len(q_vect.shape)-1)    # dim = [qX,qX,3]
+        
         q_dot_r = np.apply_along_axis(np.dot,len(q_vect.shape)-1,q_vect,coord) # dim = [phis,qX,qY]       q_dot_r = np.tensordot(q_vect,coord,axes=len(q_vect.shape)-1)
-        if type(feature.q) == np.ndarray and q_dot_r.shape != phi_array.shape + feature.q.shape:
+        if type(feature.q) == np.ndarray and q_dot_r.shape != feature.q.shape:
             raise Exception("Unexpected q_dot_r shape.",q_dot_r.shape)
         T = np.exp(-1j*q_dot_r)   
+        #print(T)
         return T   
     def bragg_points(self,crystal, cell_packing, cardan_angles,random_orientation=False):
         ''' 
@@ -1021,7 +1034,7 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
             # get points at same position on screen.
             radial_axis = result1.r
             if plot_against_q:
-                radial_axis =  result1.q        
+                radial_axis = result1.q        
             radial_axis = radial_axis[0]    
             identical_count = np.zeros(result1.I.shape)
             
@@ -1200,13 +1213,29 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
         result1 = SPI_result1
         result2 = SPI_result2        
         ## Square grid
-        if type(result1) == Results_Grid:
+        print(type(result1))
+        if len(result1.I.shape) > 1:#if type(result1) == Results_Grid:
+            if log_I: 
+                z1 = np.log(result1.I)
+                if result2 != None:
+                    z2 = np.log(result2.I)
+            else:
+                z1 = result1.I        
+                if result2 != None:
+                    z2 = result2.I        
+            if log_I and cutoff_log_intensity != None:
+                z1 -= cutoff_log_intensity
+                z1[z1<0] = 0
+                if result2 != None:
+                    z2 -= cutoff_log_intensity
+                    z2[z2<0] = 0
+                pass            
             print("Result 1 (Damaged):")
-            plt.imshow(result1.I)
+            plt.imshow(z1)
             plt.show()
             if result2 != None:
                 print("Result 2 (Undamaged)")
-                plt.imshow(result2.I)
+                plt.imshow(z2)
                 plt.show()
                 print("Neutze R: ")
                 sqrt_real = np.sqrt(result1.I)
@@ -1230,8 +1259,8 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 R_den = np.sum((sqrt_ideal))
                 R = R_num/R_den                
                 print(R)          
+        ## Circle grid
         else:
-            ## Circle grid
             if log_I: 
                 z = np.log(result1.I)
             else:
@@ -1243,7 +1272,7 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 pass
             #radial_axis = result.r
             if plot_against_q:
-                radial_axis =  result1.q         
+                radial_axis = result1.q         
             fig = plt.figure()
             ax = fig.add_subplot(projection="polar")
             # phi_mesh = result.phi_mesh
@@ -1495,7 +1524,7 @@ def stylin(SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None):
 # implement stochastic stuff
 # implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector
 root = "tetra"
-tag = "v8" # - multi #"v7" 3 - single
+tag = "v10" # - multi #"v7" 3 - single
 #  #TODO make this nicer and pop in a function 
 DEBUG = False
 energy = 6000 # 12561
@@ -1513,7 +1542,7 @@ start_time = -10
 end_time = 10#0#-9.80  
 
 #orientation_set = [[5.532278012665244, 1.6378991611963682, 1.3552062099726534]] # Spooky spider orientation
-num_orients = 10
+num_orients = 50
 # [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
 ax_x = 1
 ax_y = 1
@@ -1528,7 +1557,7 @@ output_handle = "carbon_gauss_32"#"sodion_tetrapeptide_2"
 
 screen_type = "flat"  
 
-rock_angle = 1 #0.3 # degrees
+rock_angle = 0.3 #0.3 # degrees
 
 q_minimum =  None#2*np.pi/30#None #angstrom
 q_cutoff = 2*np.pi/2
@@ -1539,7 +1568,7 @@ max_triple_miller_idx = None # = m, where max momentum given by q with miller in
 num_rings = 20
 pixels_per_ring = 20
 
-SPI = False
+SPI = True
 #---------------------------------#
 
 
@@ -1617,7 +1646,7 @@ plt.ylabel("y (Ang)")
 # implement stochastic stuff
 # implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector
 root = "lysNeutze"
-tag = "v21" # - multi #"v7" 3 - single
+tag = "v27" # - multi #"v7" 3 - single
 #  #TODO make this nicer and pop in a function 
 DEBUG = False
 energy = 6000 #
@@ -1647,7 +1676,7 @@ screen_type = "flat"#"hemisphere"
 
 
 
-q_minimum = None #2*np.pi/30#None #angstrom
+q_minimum = None#2*np.pi/30#None #angstrom
 q_cutoff = 2*np.pi/2
 #crystal stuff
 max_triple_miller_idx = None # = m, where max momentum given by q with miller indices (m,m,m)
@@ -1659,15 +1688,19 @@ ax_y = 1
 ax_z = 0
 random_orientation = True # if true, overrides orientation_set
 
-rock_angle = 1 #0.3 # degrees
+rock_angle = 0.3 #0.3 # degrees
+
+num_cells = 4
 
 #SPI stuff
+one_cell_only = True   # Set to true for a single particle 
 num_rings = 20
 pixels_per_ring = 20
 
-SPI = False
+SPI = True
 #---------------------------------#
-
+if SPI and one_cell_only:
+    num_cells = 1
 
 # if not random:
 if ax_x == ax_y == ax_z and ax_z == 0 and random_orientation == False:
@@ -1685,7 +1718,7 @@ experiment2 = copy.deepcopy(experiment1); experiment2.experiment_name = exp_name
 # cell_dim = [np.array([1,1,1])]  
 
 
-crystal = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=CNO_to_N,cell_packing = "SC")
+crystal = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=CNO_to_N,cell_packing = "SC",num_cells = num_cells)
 # neutze
 #crystal.set_cell_dim(61.200 ,  61.200 ,  61.2)  #TODO this isn't right we didn't implement rock angle properly
 # hen egg lys
@@ -1710,6 +1743,7 @@ else:
     experiment2.spooky_laser(start_time,end_time,output_handle,crystal_undmged, random_orientation = False, SPI=SPI)
     stylin()
 #%%
+SPI = True
 if SPI:
     stylin(SPI=True,SPI_max_q = q_cutoff,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
 else:
