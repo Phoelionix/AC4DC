@@ -1253,8 +1253,8 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 plt.yticks(ticks,ticklabels)
                 plt.show()
 
-                print("Regular R form:")
-                A = np.abs((inv_K*sqrt_real - sqrt_ideal))
+                print("Regular R:")
+                A = np.abs((sqrt_real - sqrt_ideal))
                 R_num = np.sum(A)
                 R_den = np.sum((sqrt_ideal))
                 R = R_num/R_den                
@@ -1299,6 +1299,9 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real) 
                 R = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))
                 print(R)            
+                print("Regular R:")
+                R = np.sum(np.abs((sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))
+                print(R)
 
     def get_orientation_set_of_folder():
         '''Returns a list of orientations present in results subfolder'''
