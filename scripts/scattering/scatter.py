@@ -352,7 +352,7 @@ class XFEL():
             def resolution_to_q_scr(d):
                 q = 2*np.pi/d
                 return self.q_to_q_scr(q)
-            N = 100#100  NxN cells
+            N = 90#100  NxN cells
             ang_per_bohr = 1/1.88973  # > 1 ang = 1.88973 bohr
             cell = np.zeros((N,N),dtype="object")
             result = Results_Grid()      
@@ -448,15 +448,16 @@ class XFEL():
                 # Get the q vectors where non-zero
                 i = 0
                 #TODO vectorise
-                for i, G in enumerate(bragg_points):   # (Assume pixel adjacent to bragg point does not capture remnants of sinc function)
-                    point = self.generate_point(G,cardan_angles)
-                    #tmp_radii[i] = point.r
-                    result.phi[i] = point.phi
-                    result.phi_aligned[i] = point.phi_crystal_aligned
-                    result.q[i] = point.q_parr_screen
-                    print(point.I)
-                    result.I[i] = point.I
-                    result.image_index[i] = j
+                # (Assume pixel adjacent to bragg point does not capture remnants of sinc function)
+                point = self.generate_point(bragg_points,cardan_angles)
+                #tmp_radii[i] = point.r
+                result.phi = point.phi
+                result.phi_aligned = point.phi_crystal_aligned
+                result.q = point.q_parr_screen
+                print(point.I)
+                result.I = point.I
+                result.image_index[j] = j
+                
                 result.package_up(miller_indices)
                 #Save the result object into its own file within the output folder for the experiment
                 fpath = directory + str(cardan_angles) +".pickle"
@@ -505,7 +506,9 @@ class XFEL():
         ring.I = self.illuminate(ring,phis=phi_array,SPI_proj_solid_angle=proj_solid_angle)
         return ring 
     def generate_point(self,G,cardan_angles): # G = vector
-        q = np.sqrt(G[0]**2+G[1]**2+G[2]**2)
+        if len(G.shape) > 1:
+            G = np.moveaxis(G,0,len(G.shape)-1)  # moves the axis corresponding to the individual momentum to the back, giving us dim = [3,num_G].
+        q = np.sqrt(np.power(G[0],2)+np.power(G[1],2)+np.power(G[2],2))
         #r = self.q_to_r(q) # TODO
         q_parr_screen = self.q_to_q_scr(q)
         if self.hemisphere_screen:
@@ -524,8 +527,7 @@ class XFEL():
 
         #print("phi",point.phi,"q_parr_screen",point.q_parr_screen)
         
-        phis = np.array([point.phi])
-        point.I = self.illuminate(point,phis=phis,cardan_angles=cardan_angles)
+        point.I = self.illuminate(point,cardan_angles=cardan_angles)
         # # Trig check      
         # check = smth  # check = np.sqrt(G[0]**2+G[1]**2)
         # if q_parr_screen != check:
@@ -549,9 +551,17 @@ class XFEL():
             species.set_scalar_form_factor(feature.q)
             times_used = species.times_used
 
-        F_shape = phis.shape+(self.t_fineness,)  # [phis,times]
-        if type(feature.q) is np.ndarray:
-            F_shape += feature.q.shape          # [phis,times,momenta]
+        F_shape = tuple()
+        if type(feature) is self.Spot:
+            F_shape += (self.t_fineness,)           
+            if len(feature.G.shape) > 1:
+                F_shape += (len(feature.G[2]),) #[times,num_G]   
+        else:
+            F_shape += phis.shape  
+            F_shape += (self.t_fineness,)# [phis,times]
+            if type(feature.q) is np.ndarray:
+                F_shape += feature.q.shape          # [phis,times,feature.q.shape]
+        
         F_sum = np.zeros(F_shape,dtype="complex_")  
         for species in self.target.species_dict.values():
             if not np.array_equal(times_used,species.times_used):
@@ -565,18 +575,24 @@ class XFEL():
                         R = R.left_multiply(self.x_rot_matrix)   
                         coord = np.multiply(R.get_array(),self.target.sym_factors[s]) + np.multiply(self.target.cell_dim,self.target.sym_translations[s])
                         # Get spatial factor T
-                        T = np.zeros(phis.shape,dtype="complex_")
                         if SPI:
-                            T = self.SPI_interference_factor(phis,coord,feature)
+                            T = self.SPI_interference_factor(phis,coord,feature)  #[num_G]
                         else:
-                            T= self.interference_factor(phis,coord,feature,cardan_angles)   
-                        f = species.get_stochastic_f(atm_idx)                                  
-                        F_sum += T[:,None] * f[None,...]        # [phis,None]X[None,times] [phis,times] or [phis,momenta]X[None,times, momenta]  -> [phis,times,momenta] if q is an array
-                            
+                            T= self.interference_factor(coord,feature,cardan_angles)   #[phis,feature.q.shape]
+                            #T = np.expand_dims(T,0)                  
+                        f = species.get_stochastic_f(atm_idx)    
+                        #print(F_sum.shape,T.shape,f.shape) 
+                        if SPI:                             
+                            F_sum += T[:,None] * f[None,...]        # [phis,momenta,None]X[None,times, feature.q.shape]  -> [phis,times,feature.q.shape] if q is an array
+                        else:
+                            F_sum = T[None,:] * f                            # [None,num_G]X[times,num_G]  ->[times,num_G] 
         if (times_used[-1] == times_used[0]):   
             raise Exception("Intensity array's final time equals its initial time") #I =  np.square(np.abs(F_sum[:,0]))  # 
         else:
-            I = np.trapz(np.square(np.abs(F_sum)),times_used,axis=1) / (times_used[-1]-times_used[0])
+            time_axis = 0
+            if SPI:
+                time_axis = 1
+            I = np.trapz(np.square(np.abs(F_sum)),times_used,axis = time_axis) / (times_used[-1]-times_used[0])         #[num_G] for points, or for SPI: [phis,feature.q.shape], corresponding to rings or square grid
         
         # For unpolarised light (as used by Neutze 2000). (1/2)r_e^2(1+cos^2(theta)) is thomson scattering - recovering the correct equation for a lone electron, where |f|^2 = 1 by definition.    
         thet = self.q_to_theta(feature.q)
@@ -609,7 +625,7 @@ class XFEL():
                         if SPI:
                             T = self.SPI_interference_factor(phis,coord,feature)
                         else:
-                            T= self.interference_factor(phis,coord,feature,cardan_angles)
+                            T= self.interference_factor(coord,feature,cardan_angles)
                         F += species.ff_average*T   
                         # Rotate atom for next sample            
         I = np.square(np.abs(F))        
@@ -617,17 +633,12 @@ class XFEL():
 
         return I 
 
-    def interference_factor(self,phi_array,coord,feature,cardan_angles):
+    def interference_factor(self,coord,feature,cardan_angles):
         """ theta = scattering angle relative to z-y plane """ 
-        q_z = feature.G[2]#feature.q_parr_screen*np.sin(feature.theta) TODO replace with functional method
-        q_z = np.tile(q_z,len(phi_array))
-        # phi angle of vector relative to x-y plane, pointing from screen centre to point hit. 
-        q_y = feature.G[1]#q_z*np.sin(phi_array)
-        q_x = feature.G[0]#q_z*np.cos(phi_array)
-        q_vect = np.column_stack([q_x,q_y,q_z])
-        # Rotate our q vector BACK to the real laser orientation relative to the crystal.
-        q_vect = self.rotate_G_to_orientation(q_vect,*cardan_angles,inverse=True)[0]            
-        T = np.exp(-1j*np.dot(q_vect,coord))   
+        # Rotate our G vector BACK to the real laser orientation relative to the crystal.
+        q_vect = self.rotate_G_to_orientation(feature.G.copy(),*cardan_angles,inverse=True)[0]       
+        q_dot_r = np.apply_along_axis(np.dot,0,q_vect,coord) # dim = [num_G]                      
+        T = np.exp(-1j*q_dot_r)
         return T
 
     def SPI_interference_factor(self,phi_array,coord,feature):  #TODO refactor SPI features so can just use above (allows for realignment)
@@ -639,9 +650,9 @@ class XFEL():
         q_y = feature.q_parr_screen[None,...]*np.sin(phi_array[:])
         q_x = feature.q_parr_screen[None,...]*np.cos(phi_array[:])   # dim = [phis,qX,qY]
         q_vect = np.array([q_x,q_y,q_z])
-        q_vect = np.moveaxis(q_vect,0,len(q_vect.shape)-1)    # dim = [phis,qx,qy,3]
+        q_vect = np.moveaxis(q_vect,0,len(q_vect.shape)-1)    # dim = [phis,qX,qX,3]
 
-        q_dot_r = np.apply_along_axis(np.dot,len(q_vect.shape)-1,q_vect,coord) # dim = [phis,qx,qy]       q_dot_r = np.tensordot(q_vect,coord,axes=len(q_vect.shape)-1)
+        q_dot_r = np.apply_along_axis(np.dot,len(q_vect.shape)-1,q_vect,coord) # dim = [phis,qX,qY]       q_dot_r = np.tensordot(q_vect,coord,axes=len(q_vect.shape)-1)
         if type(feature.q) == np.ndarray and q_dot_r.shape != phi_array.shape + feature.q.shape:
             raise Exception("Unexpected q_dot_r shape.",q_dot_r.shape)
         T = np.exp(-1j*q_dot_r)   
@@ -668,7 +679,7 @@ class XFEL():
                         print(b)
                         print(miller_indices[i],G[i])
                 #G = G.reshape(3,)
-                G, used_angles = self.rotate_G_to_orientation(G,*cardan_angles,random = random_orientation) 
+                G, used_angles = self.rotate_G_to_orientation(G,*cardan_angles,random = random_orientation,G_idx_first = True) 
             else: 
                 G = "non-cartesian Unimplemented"
             return G, used_angles
@@ -750,8 +761,9 @@ class XFEL():
             print(G)
         return G, indices, cardan_angles
 
-    def rotate_G_to_orientation(self,G,alpha=0,beta=0,gamma=0,random=False,inverse = False):
+    def rotate_G_to_orientation(self,G,alpha=0,beta=0,gamma=0,random=False,inverse = False, G_idx_first = False):
         '''
+        Assumes G.shape = (num_momenta,3)
         Rotates the G vectors to correspond to the crystal when oriented to the given cardan angles. 
         alpha: x-axis angle [radians].
         beta:  y-axis angle [radians].
@@ -760,11 +772,15 @@ class XFEL():
         G: transformed G
         list: [alpha,beta,gamma] (the angles used)
         '''
-        # Handle case of shape = (N,3)
-        transposed = False
-        if G.shape[0] != 3:
-            G = G.T
-            transposed = True
+        moved_axis = False
+        if G_idx_first and G.shape[len(G.shape)-1] != 3:
+            raise Exception("please give array of form [...,num_G,3]")
+        elif not G_idx_first and G.shape[len(G.shape) -2] !=3:
+            raise Exception("please give array of form [...,3,num_G]")
+            
+        if G_idx_first:
+            G = np.swapaxes(G,len(G.shape)-2,len(G.shape)-1)
+
 
         if random == True:
             alpha = np.random.random_sample()*2*np.pi
@@ -778,11 +794,11 @@ class XFEL():
         # Apply rotation
         #print("Rotation matrix:")
         #print(R.as_matrix())
-        G = np.matmul(np.around(rot_matrix,decimals=10),G)
+        G = np.matmul(np.around(rot_matrix,decimals=10),G)    #  [3,3]X[3,num_G]
 
-        if transposed:
-            G = G.T
-        return G, [alpha,beta,gamma]
+        if G_idx_first:
+            G = np.swapaxes(G,len(G.shape)-2,len(G.shape)-1)  
+        return G, [alpha,beta,gamma]  # [num_G,3]
                 
     def q_to_theta(self,q):
         '''
@@ -1481,7 +1497,7 @@ def stylin(SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None):
 # implement stochastic stuff
 # implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector
 root = "tetra"
-tag = "v6" # - multi #"v7" 3 - single
+tag = "v7" # - multi #"v7" 3 - single
 #  #TODO make this nicer and pop in a function 
 DEBUG = False
 energy = 6000 # 12561
@@ -1504,7 +1520,7 @@ num_orients = 1
 ax_x = 1
 ax_y = 1
 ax_z = 0
-random_orientation = False # if true, overrides orientation_set
+random_orientation = True # if true, overrides orientation_set
 
 rock_angle = 2 # degrees
 
@@ -1517,7 +1533,7 @@ screen_type = "flat"
 rock_angle = 1 #0.3 # degrees
 
 q_minimum =  None#2*np.pi/30#None #angstrom
-q_cutoff = None#2*np.pi/2
+q_cutoff = 2*np.pi/2
 #crystal stuff
 max_triple_miller_idx = None # = m, where max momentum given by q with miller indices (m,m,m)
 
@@ -1632,10 +1648,8 @@ output_handle = "D_lys_neutze_simple_7"
 screen_type = "flat"#"hemisphere"
 
 
-q_minimum = 2*np.pi/30#None #angstrom
-#q_cutoff = None  # angstrom
-#resolution = 2
-#q_cutoff = 2*np.pi/resolution
+
+q_minimum = None #2*np.pi/30#None #angstrom
 q_cutoff = 2*np.pi/2
 #crystal stuff
 max_triple_miller_idx = None # = m, where max momentum given by q with miller indices (m,m,m)

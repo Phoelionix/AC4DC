@@ -542,10 +542,12 @@ class Plotter:
     def random_states_to_f_snapshots(self,times_used,orb_occs, q, atom):
         idx = np.searchsorted(self.timeData,times_used)  # SAME AS IN get_average_form_factor()
         if type(q) is np.ndarray:
-            if q.shape == 1:
+            if len(q.shape) == 1:
                 form_factors_sqrt_I = self.ff_from_state(times_used,orb_occs,q,atom) * np.sqrt(self.intensityData[idx][...,None])   # (Need to double check working as expected - not using np.vectorise)
-            elif q.shape == 2:
+            elif len(q.shape) == 2:
                 form_factors_sqrt_I = self.ff_from_state(times_used,orb_occs,q,atom) * np.sqrt(self.intensityData[idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
+            else:
+                raise Exception("unexpected q shape",q.shape)
         else:
             form_factors_sqrt_I = self.ff_from_state(times_used,orb_occs,q,atom) * np.sqrt(self.intensityData[idx][...])   # (Need to double check working as expected - not using np.vectorise)
         return form_factors_sqrt_I, times_used        
@@ -627,7 +629,8 @@ class Plotter:
         '''
         # return undamaged form factor, multiplied by sqrt of average pulse intensity
         I_avg, times_used = self.I_avg()
-        return self.get_average_form_factor(q,[atom],self.start_t)[0] * np.sqrt(I_avg), times_used
+        f_sqrt_I = self.get_average_form_factor(q,[atom],self.start_t)[0][...,None] * np.array(np.sqrt(I_avg)*np.ones(len(times_used)))
+        return np.moveaxis(f_sqrt_I,len(f_sqrt_I.shape)-1,0), times_used                     
     # def f_damaged(self,q,atom):
     #     return self.f_snapshots(q,atom,stochastic=True)
     def I_avg(self): # average intensity for pulse 
