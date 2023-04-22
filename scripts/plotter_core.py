@@ -541,7 +541,13 @@ class Plotter:
     
     def random_states_to_f_snapshots(self,times_used,orb_occs, q, atom):
         idx = np.searchsorted(self.timeData,times_used)  # SAME AS IN get_average_form_factor()
-        form_factors_sqrt_I = self.ff_from_state(times_used,orb_occs,q,atom) * np.sqrt(self.intensityData[idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
+        if type(q) is np.ndarray:
+            if q.shape == 1:
+                form_factors_sqrt_I = self.ff_from_state(times_used,orb_occs,q,atom) * np.sqrt(self.intensityData[idx][...,None])   # (Need to double check working as expected - not using np.vectorise)
+            elif q.shape == 2:
+                form_factors_sqrt_I = self.ff_from_state(times_used,orb_occs,q,atom) * np.sqrt(self.intensityData[idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
+        else:
+            form_factors_sqrt_I = self.ff_from_state(times_used,orb_occs,q,atom) * np.sqrt(self.intensityData[idx][...])   # (Need to double check working as expected - not using np.vectorise)
         return form_factors_sqrt_I, times_used        
             
     def ff_from_state(self,time,orboccs,k,atom):

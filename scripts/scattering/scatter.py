@@ -570,9 +570,9 @@ class XFEL():
                             T = self.SPI_interference_factor(phis,coord,feature)
                         else:
                             T= self.interference_factor(phis,coord,feature,cardan_angles)   
-                        f = species.get_stochastic_f(atm_idx)   #TODO support array q
-                        F_sum += T[:,None,] * f[None,...]   # [phis,None]X[None,times] [phis,times], or  [phis,momenta]X[None,times, momenta]  -> [phis,times,momenta] if q is an array
-
+                        f = species.get_stochastic_f(atm_idx)                                  
+                        F_sum += T[:,None] * f[None,...]        # [phis,None]X[None,times] [phis,times] or [phis,momenta]X[None,times, momenta]  -> [phis,times,momenta] if q is an array
+                            
         if (times_used[-1] == times_used[0]):   
             raise Exception("Intensity array's final time equals its initial time") #I =  np.square(np.abs(F_sum[:,0]))  # 
         else:
@@ -1178,9 +1178,6 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real) 
                 R = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))
                 print(R)
-                print("Regular R:")
-                R = np.sum(np.abs((sqrt_real - sqrt_ideal))/np.sum(sqrt_ideal))
-                print(R)
                 #neutze_histogram = np.histogram2d(phi, radial_axis, weights=R, bins=(np.array([-np.pi,np.pi]), radial_edges))[0]             
                 #plot_sectors(neutze_histogram)
     
@@ -1484,7 +1481,7 @@ def stylin(SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None):
 # implement stochastic stuff
 # implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector
 root = "tetra"
-tag = "v1" # - multi #"v7" 3 - single
+tag = "v6" # - multi #"v7" 3 - single
 #  #TODO make this nicer and pop in a function 
 DEBUG = False
 energy = 6000 # 12561
@@ -1507,9 +1504,9 @@ num_orients = 1
 ax_x = 1
 ax_y = 1
 ax_z = 0
-random_orientation = True # if true, overrides orientation_set
+random_orientation = False # if true, overrides orientation_set
 
-rock_angle = 0.3 # degrees
+rock_angle = 2 # degrees
 
 pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb" #tetrapeptide
 
@@ -1519,8 +1516,8 @@ screen_type = "flat"
 
 rock_angle = 1 #0.3 # degrees
 
-q_minimum = 2*np.pi/30#None #angstrom
-q_cutoff = 2*np.pi/2
+q_minimum =  None#2*np.pi/30#None #angstrom
+q_cutoff = None#2*np.pi/2
 #crystal stuff
 max_triple_miller_idx = None # = m, where max momentum given by q with miller indices (m,m,m)
 
@@ -1528,7 +1525,7 @@ max_triple_miller_idx = None # = m, where max momentum given by q with miller in
 num_rings = 20
 pixels_per_ring = 20
 
-SPI = True
+SPI = False
 #---------------------------------#
 
 
@@ -1656,7 +1653,7 @@ rock_angle = 1 #0.3 # degrees
 num_rings = 20
 pixels_per_ring = 20
 
-SPI = True
+SPI = False
 #---------------------------------#
 
 
