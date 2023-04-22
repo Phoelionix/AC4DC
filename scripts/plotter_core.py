@@ -499,6 +499,8 @@ class Plotter:
         Get t_fineness form factors, distributed as evenly between plotter_obj.start_t and plotter_obj.end_t as possible.
         t_fineness = number of snapshots
         f is modified from the typical definition is multiplied by the scalar sqrt(I(t)) to deal with gaussian case.
+        
+        Returns array with element f_sqrtI(t_i, q_j) given by f_sqrtI_{i,j}
         '''
         def snapshot(idx):
             # We pass in indices from 0 to fineness-1, transform to time:
@@ -539,23 +541,28 @@ class Plotter:
     
     def random_states_to_f_snapshots(self,times_used,orb_occs, q, atom):
         idx = np.searchsorted(self.timeData,times_used)  # SAME AS IN get_average_form_factor()
-        form_factors_sqrt_I = self.ff_from_state(times_used,orb_occs,q,atom) * np.sqrt(self.intensityData[idx])   # (Need to double check working as expected - not using np.vectorise)
+        form_factors_sqrt_I = self.ff_from_state(times_used,orb_occs,q,atom) * np.sqrt(self.intensityData[idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
         return form_factors_sqrt_I, times_used        
             
     def ff_from_state(self,time,orboccs,k,atom):
         a = atom
         atomic_density = np.sum(self.boundData[a][0, :])
-        ff = np.zeros(shape=(len(time)))
-        for j, indiv_time in enumerate(time):
+        #ff = np.zeros(shape=(len(np.array(k)),len(time)))
+        ff_shape = (len(time),)
+        if type(k) is np.ndarray:
+            ff_shape += k.shape 
+        ff = np.zeros(shape=ff_shape)
+        for i, indiv_time in enumerate(time): #TODO vectorise
             occ_list = [-99]*10
-            for orb, occ in orboccs[j].items():
+            for orb, occ in orboccs[i].items():
                 l = int(orb[0]) - 1
                 if occ_list[l] == -99:
                     occ_list[l] = 0
                 occ_list[l] += occ
             occ_list = occ_list[:len(occ_list)-occ_list.count(-99)]
             shielding = SlaterShielding(self.atomic_numbers[a],occ_list)              
-            ff[j] = shielding.get_atomic_ff(k,atomic_density)  
+            #ff[:,j] = shielding.get_atomic_ff(k,atomic_density)  
+            ff[i] = shielding.get_atomic_ff(k,atomic_density)  # ff[i] = [f(t_i,q0),f(t_i,q1),...,f(t_i,qn)]
         return ff      
 
     def get_random_state(self,time,atom):
@@ -589,38 +596,18 @@ class Plotter:
 
     def get_stochastic_form_factor(self,k,atom,time):
         '''
-        Returns a stochastic form factor at 'time' [fs], and time used.
+        Returns a stochastic form factor for each momentum transfer 'k' at 'time' [fs], and time used.
+        Returns array with element f(t_i, q_j) given by f_{i,j}
         '''        
         orb_occs, times_used = self.get_random_state(time,atom)
 
-        ff = self.ff_from_state(time,orb_occs,k,atom)
+        ff = self.ff_from_state(time,orb_occs,k,atom) 
 
-        return ff,times_used    
-        
-    def f_average(self,q,atom): 
-        ''' 
-        If we use an average form factor, then we are making the approximation that for a const intensity I ~= int{F.F*}dt =int{f^2}dt T.T*, 
-        This function returns f, modified by the relative intensity so f-> sqrt(I_tot(t)) f
-        where F(q)_i = f(q)T(q)_i is the contribution to F by an atom, and f is the time-integrated component, T(q) is the spatial component.
-        def f_average(self,q,atom):
-            if self.end_t == self.start_t:
-                return self.get_average_form_factor(q,[atom],self.end_t)[0]
-
-        
-
-        
-        '''
-        if self.end_t == self.start_t:
-            return self.get_average_form_factor(q,[atom],self.end_t)[0]
-
-        form_factors_sqrt_I, times_used = self.f_snapshots(q,atom)
-        #Approximate integral with composite trapezoidal rule.
-        f_avg = np.trapz(form_factors_sqrt_I,times_used)/(times_used[-1]-times_used[0])
-        return f_avg   
+        return ff,times_used      
 
     def f_undamaged(self,q,atom):
         '''        
-        We now include the stochastic contribution by picking the atomic state from the distribution.
+        Compared to f_average, we now include the stochastic contribution by picking the atomic state from the distribution.
         
         Since we aren't using an average, we have to individually calculate the overall intensity (i.e. contributed to by all atoms) 
         at each point in time.
@@ -629,8 +616,8 @@ class Plotter:
         
         F(t) = SUM(f(q,t)_i T(q)_i). 
         
-        possibly need to do trapezoidal integration averaging with I. but ignoring constant factors shld be equivalent so long as gaps in time are same.
-        
+
+        Returns row matrix, with element f(t_i,q_j) = f_{i,j}
         '''
         # return undamaged form factor, multiplied by sqrt of average pulse intensity
         I_avg, times_used = self.I_avg()
@@ -650,7 +637,24 @@ class Plotter:
         return I_avg,times_used
 
     ####################################
+    def f_average(self,q,atom): 
+        ''' 
+        If we use an average form factor, then we are making the approximation that for a const intensity I ~= int{F.F*}dt =int{f^2}dt T.T*, 
+        This function returns f, modified by the relative intensity so f-> sqrt(I_tot(t)) f
+        where F(q)_i = f(q)T(q)_i is the contribution to F by an atom, and f is the time-integrated component, T(q) is the spatial component.
+        def f_average(self,q,atom):
+            if self.end_t == self.start_t:
+                return self.get_average_form_factor(q,[atom],self.end_t)[0]
 
+        
+        '''
+        if self.end_t == self.start_t:
+            return self.get_average_form_factor(q,[atom],self.end_t)[0]
+
+        form_factors_sqrt_I, times_used = self.f_snapshots(q,atom)
+        #Approximate integral with composite trapezoidal rule.
+        f_avg = np.trapz(form_factors_sqrt_I,times_used)/(times_used[-1]-times_used[0])
+        return f_avg 
 
 
     # Coherence stuff, relevant for when have different atomic species (Martin A. Quiney H.M. 2016).  Assuming I haven't misunderstood notation.
@@ -1122,13 +1126,13 @@ class SlaterShielding:
     def get_shell_ff(self, k, shell_num ):
         lamb = self.Z - self.s[shell_num-1]
         lamb/=shell_num
-        D = (4*lamb**2+k**2)
+        D = 4*lamb**2+np.power(k,2)
         if shell_num == 1:            
-            return 16*lamb**4/D**2
+            return 16*lamb**4/np.power(D,2)
         if shell_num == 2:
-            return 64*lamb**6*(4*lamb**2-k**2)/D**4
+            return 64*lamb**6*(4*lamb**2-np.power(k,2))/np.power(D,4)
         if shell_num == 3:
-            return 128*lamb**7/6*(192*lamb**5-160*lamb**3*k**2+12*lamb*k**4)/D**6
+            return 128*lamb**7/6*(192*lamb**5-160*lamb**3*np.power(k,2)+12*lamb*np.power(k,4))/np.power(D,6)
         else:
             print("ERROR! shell_ff")
         
@@ -1137,8 +1141,10 @@ class SlaterShielding:
         if density == None:
             density = atomic_density
         ff = 0
+        if type(k) == np.ndarray:
+            ff = np.zeros(k.shape)
         norm = 1/atomic_density/self.Z # such that at t = 0, form factor = 1. (At t = 0, we have neutral config density = atomic density, and a factor of N where N is the number of shells, since the shell ff is normalised.)
-        for i in range(len(self.shell_occs)):
+        for i in range(len(self.shell_occs)):  #TODO vectorise
             ff += self.get_shell_ff(k,i+1)*norm*self.shell_occs[i]
         return ff * density
     #
