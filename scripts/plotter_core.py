@@ -596,7 +596,7 @@ class Plotter:
                     orboccs[j] = parse_elecs_from_latex(states[i]) 
                     break
                 if i == len(states) - 1:
-                    print("WARNING, cumulative chance check failed",atomic_density, self.boundData[a][idx[j], :])
+                    print("WARNING, cumulative chance check failed (likely a floating point error if this only happened a few times)",atomic_density, self.boundData[a][idx[j], :])
                     orboccs[j] = parse_elecs_from_latex(states[i]) 
         return orboccs,time_used
 

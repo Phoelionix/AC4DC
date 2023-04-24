@@ -92,9 +92,13 @@ class Results_Grid():
     pass    
 
 class Crystal():
-    def __init__(self, pdb_fpath, allowed_atoms, rocking_angle = 0.3*np.pi/180, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True, is_damaged=True,cell_scale = 1):
+    def __init__(self, pdb_fpath, allowed_atoms, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True, is_damaged=True,cell_scale = 1):
+        '''
+        rocking_angle [degrees]
+        cell_packing ("SC","BCC","FCC","FCC-D")
+        '''
         self.cell_packing = cell_packing
-        self.rocking_angle = rocking_angle
+        self.rocking_angle = rocking_angle * np.pi/180
         #self.sym_factors=[np.array([1,1,1],dtype="float")]
         #self.sym_translations = [np.array([0,0,0],dtype="float")]
         self.sym_factors = []; self.sym_translations = []; 
@@ -233,11 +237,10 @@ class Crystal():
                 if coord[0] == coord2[0] and coord[1] == coord2[1]  and coord[2] == coord2[2]  and i!=j:
                     print("error duplicate coord found:",coord)
         #color[color!='y'] = '#0f0f0f00'   # example to see just one atom type
-        print(color)
         print("---")
         print("x_min/max:",np.min(plot_coords[:,0]),np.max(plot_coords[:,0]))
         print("y_min/max:",np.min(plot_coords[:,1]),np.max(plot_coords[:,1]))
-        print("y_min/max:",np.min(plot_coords[:,2]),np.max(plot_coords[:,2]))
+        print("z_min/max:",np.min(plot_coords[:,2]),np.max(plot_coords[:,2]))
         print("---")
         print(plot_coords[:,0])
         ax.scatter(plot_coords[:,0],plot_coords[:,1],plot_coords[:,2],c=color)
@@ -454,7 +457,7 @@ class XFEL():
             def resolution_to_q_scr(d):
                 q = 2*np.pi/d
                 return self.q_to_q_scr(q)
-            N = 10#100  NxN cells
+            N = 100#100  NxN cells
             ang_per_bohr = 1/1.88973  # > 1 ang = 1.88973 bohr
             cell = np.zeros((N,N),dtype="object")
             result = Results_Grid()      
@@ -1028,9 +1031,12 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
             plt.ylim(bottom,radial_lim)
         if log_radial:
             plt.yscale("log")  
-        plt.gca().set_facecolor(bg_colour) 
-        plt.gcf().set_figwidth(20)
-        plt.gcf().set_figheight(20)             
+        plt.gca().set_facecolor(bg_colour)      
+        #plt.gcf().set_figwidth(20)         # if not using widget magic
+        #plt.gcf().set_figheight(20)        #       
+            
+        plt.gcf().set_figwidth(10)
+        plt.gcf().set_figheight(10)                  
     
     if result_handle != None:
         results_dir = "results/"+result_handle+"/"
@@ -1089,9 +1095,6 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
             add_screen_properties()
             plt.show()
 
-        fig = plt.figure()
-        ax = fig.add_subplot(projection="polar")
-
         if compare_handle != None:
             if log_I:
                 print("Not plotting logarithmic I, not supported for comparisons.")
@@ -1103,6 +1106,12 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
         # Iterate through each orientation (file) to get minimum/maximum for normalisation of plot of scattering image (not difference image).
         max_z = -np.inf
         min_z = np.inf
+
+        fig = plt.figure()
+        # fig.canvas.layout.width = '40%'
+        # fig.canvas.layout.height = '40%'
+        # fig.canvas       
+        ax = fig.add_subplot(projection="polar")        
         for filename in os.listdir(results_dir):
             #result = get_result(filename)
             result1,result2 = get_result(filename,results_dir,compare_dir)
@@ -1308,6 +1317,9 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real) 
                 R = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))
                 print(R)
+                print("Regular R:")
+                R = np.sum(np.abs((sqrt_real - sqrt_ideal)))/np.sum(sqrt_ideal)
+                print(R)
                 #neutze_histogram = np.histogram2d(phi, radial_axis, weights=R, bins=(np.array([-np.pi,np.pi]), radial_edges))[0]             
                 #plot_sectors(neutze_histogram)
     
@@ -1396,7 +1408,7 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 plt.yscale("log")
 
             if result2 != None:
-                print("Neutze R: ")
+                print("Neutze R:")
                 sqrt_real = np.sqrt(result1.I)
                 sqrt_ideal = np.sqrt(result2.I)
                 inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real) 
@@ -1409,7 +1421,48 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
     def get_orientation_set_of_folder():
         '''Returns a list of orientations present in results subfolder'''
 
+def parse_symmetry(pdb_fpath,target):
+    with open(filename) as diary_file:
+        at_sym_op = False
+        at_sym_transformations = False
+        sym_mtx = np.zeros((3,3))
+        for line in diary_file:
+            line = line.strip()
+            # Check if left section of symmetry data, marked by line.strip() =="REMARK 290". 
+            if len(line) == 10: 
+                if at_sym_op:
+                    at_sym_op = False
+                if at_sym_transformations: 
+                    # Reached end of data
+                    break
+            if at_sym_op:
+                print("NNNMMM: ",line[17:21])  
+                # symms format: [X,Y,Z , -X,-Y,Z+1/2,-Y+1/2,X+1/2,Z+3/4] etc.
+                # symms = line[24:].split()
+                # # Parse the symmetry string and add the symmetry to the target's structure
+                # for sym in symms:
+                # -Y,X-Y,Z+2/3  -> factor: [[0,-1,0], [1,-1,0],[0,0,1]]  translation: [0,0,2/3]
+            if at_sym_transformations:
+                entries = line.split()
+                x = entries[2][-1]
+                for y, element in entries[3:-1]:
+                    sym_mtx[x,y] = float(element)
 
+                sym_mtx[x] += float(entries[-1])
+                
+                if mtx_row == 2:
+                    target.add_symmetry_matrix(sym_mtx)
+                    sym_mtx = np.zeros(3)
+
+            if "NNNMMM   OPERATOR" in line:
+                at_relevant_lines = True
+                print("Displaying symmetry operations")
+            if line == "REMARK 290 RELATED MOLECULES.":
+                at_sym_transformations = True
+
+    
+
+    crystal.add_symmetry(np.array([-1, -1,1]),np.array([0,0,0.5])) #2555
 
 # https://stackoverflow.com/questions/7404116/defining-the-midpoint-of-a-colormap-in-matplotlib
 from mpl_toolkits.axes_grid1 import AxesGrid
@@ -1736,7 +1789,7 @@ else:
 # implement stochastic stuff
 # implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector
 root = "lysNeutze"
-tag = "v27" # - multi #"v7" 3 - single
+tag = "v30" # - multi #"v7" 3 - single
 #  #TODO make this nicer and pop in a function 
 DEBUG = False
 energy = 6000 #
@@ -1757,37 +1810,52 @@ end_time = 10#0#-9.80
 
 output_handle = "D_lys_neutze_simple_7"
 
-screen_type = "flat"#"hemisphere"
+
+target = "hen"  #"neutze"/"hen"/"tetra"
+top_resolution = 2
+bottom_resolution = 30
+
+no_symms = False 
+
+def res_to_q(d):
+    '''
+    Pass d = None to use default resolution (when put into exp_args)
+    '''
+    if d == None:
+        return None
+    return 2*np.pi/d
+
+exp_args = dict(
+    screen_type = "flat"#"hemisphere"
+    q_minimum = res_to_q(resolution)#None #angstrom
+    q_cutoff = res_to_q(resolution)#2*np.pi/2
+    #####crystal stuff
+    max_triple_miller_idx = None # = m, where max momentum given by q with miller indices (m,m,m)
+    #orientations
+    num_orients = 1
+    # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.
+    ax_x = 1
+    ax_y = 1
+    ax_z = 0
+    random_orientation = True # if true, overrides orientation_set
+    #mosaicity
+    
+
+    ####SPI stuff
+    num_rings = 20
+    pixels_per_ring = 20
+    ######
+    cell_scale = 1  # cell_scale^3 unit cells (cubic)
+    SPI = True   
+)
+
+crystal_args = dict(
+
+    
+)
 
 
-
-q_minimum = None#2*np.pi/30#None #angstrom
-q_cutoff = None#2*np.pi/2
-#####crystal stuff
-max_triple_miller_idx = None # = m, where max momentum given by q with miller indices (m,m,m)
-#orientations
-num_orients = 1
-# [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.
-ax_x = 1
-ax_y = 1
-ax_z = 0
-random_orientation = True # if true, overrides orientation_set
-#mosaicity
-rock_angle = 0.3 #0.3 # degrees
-
-####SPI stuff
-one_cell_only = False   # if True ignore cell_scale and just do a single particle/unit cell
-num_rings = 20
-pixels_per_ring = 20
-######
-lys_type = "hen"  #"neutze"/"hen"
-cell_scale = 2  # cell_scale^3 unit cells (cubic)
-SPI = True
-no_symms = False
 #---------------------------------#
-if SPI and one_cell_only:
-    cell_scale = 1  
-
 # if not random:
 if ax_x == ax_y == ax_z and ax_z == 0 and random_orientation == False:
     throwabxzd
@@ -1803,9 +1871,6 @@ experiment2 = copy.deepcopy(experiment1); experiment2.experiment_name = exp_name
 # sym_translations = [np.array([0,0,0])]
 # cell_dim = [np.array([1,1,1])]  
 
-
-
-
 if lys_type == "neutze": #T4 virus lys
     pdb_path = "/home/speno/AC4DC/scripts/scattering/2lzm.pdb"
 elif lys_type == "hen": # egg white lys
@@ -1815,7 +1880,7 @@ else:
 
 crystal = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=CNO_to_N,cell_packing = "SC",cell_scale = cell_scale)
 
-if lys_type == "neutze":  
+if target == "neutze":  
     # neutze  CRYST1   61.200   61.200   96.800  90.00  90.00 120.00 P 32 2 1      6   
     crystal.set_cell_dim(61.200 ,  61.200 ,  61.2)  #TODO this isn't right we didn't implement (rock angle?) properly # Did I mean the basis angle?
     if no_symms is False:
@@ -1825,7 +1890,7 @@ if lys_type == "neutze":
         crystal.add_weird_symmetry(np.array([[1,-1,0], [0,-1,0],[0,0,-1]]),np.array([0,0,1/3]))  #5555
         crystal.add_weird_symmetry(np.array([[-1,0,0], [-1,1,0],[0,0,-1]]),np.array([0,0,2/3]))  #6555 
 
-elif lys_type == "hen":
+elif target == "hen":
     # hen egg lys
     crystal.set_cell_dim(79.000  , 79.000  , 38.000)
     if no_symms is False:
@@ -1844,15 +1909,12 @@ elif lys_type == "hen":
     REMARK 290       8555   -Y,-X,-Z+1/2   
     '''        
 
-plt.close()
-plt.ion()
+
 crystal.plot_me_and_pray()
 crystal_undmged = copy.deepcopy(crystal)
 crystal_undmged.is_damaged = False
 
-#%%
-plt.close()
-plt.ioff()
+##%%
 if SPI:
     SPI_result1 = experiment1.spooky_laser(start_time,end_time,output_handle,crystal, SPI=SPI)
     SPI_result2 = experiment2.spooky_laser(start_time,end_time,output_handle,crystal_undmged, SPI=SPI)
@@ -1864,7 +1926,6 @@ else:
     experiment2.spooky_laser(start_time,end_time,output_handle,crystal_undmged, random_orientation = False, SPI=SPI)
     stylin()
 #%%
-SPI = True
 if SPI:
     stylin(SPI=True,SPI_max_q = q_cutoff,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
 else:
