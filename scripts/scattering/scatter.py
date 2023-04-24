@@ -257,11 +257,11 @@ class Crystal():
             if i >= num_test_points:
                 break                
             for R in species.coords:
-                test_points[i] = R
+                test_points[i] = R.get_array()
                 i+=1
                 if i >= num_test_points:
                     break      
-        #print("test_points.shape",test_points.shape)
+        print("test_points.shape",test_points.shape)
         plot_coords = []
         for i in range(len(self.sym_rotations)):
             coord_list = self.get_sym_xfmed_point(test_points,i).tolist()
@@ -292,7 +292,7 @@ class Crystal():
         print("y_min/max:",np.min(plot_coords[:,1]),np.max(plot_coords[:,1]))
         print("z_min/max:",np.min(plot_coords[:,2]),np.max(plot_coords[:,2]))
         print("---")
-        #print(plot_coords[:,0])
+        print(plot_coords[:,0])
         ax.scatter(plot_coords[:,0],plot_coords[:,1],plot_coords[:,2],c=color)
         ax.set_xlabel('x [$\AA$]')
         ax.set_ylabel('y [$\AA$]')
@@ -312,7 +312,7 @@ class Atomic_Species():
         We do not store additional coordinates, instead storing the symmetries, and an array of atomic states corresponding to each atom, for each symmetry. (so num symmetries * num atoms added)
         '''           
 
-        self.coords.append(vector.get_array())
+        self.coords.append(vector)
         
     def set_stochastic_states(self):
         '''
@@ -326,17 +326,15 @@ class Atomic_Species():
         if self.crystal.is_damaged:
             # Initialise an array that tracks the individual atoms' form factors.
             self.num_atoms = len(crystal.sym_rotations)*len(self.coords)
-            orb_occs_shape = (self.num_atoms,) + self.crystal.ff_calculator.random_state_snapshots(self.name)[0].shape
-            self.orb_occs= np.empty(orb_occs_shape)    # self.orb_occs[i] is an array of states corresponding to each time. We make the dubious but necessary approximation that an atom's state is independent of its prior states.  
+            self.orb_occs= np.empty(self.num_atoms,dtype = object)    # self.orb_occs[i] is an array of states corresponding to each time. We make the dubious but necessary approximation that an atom's state is independent of its prior states.  
             for idx in range(self.num_atoms):
-                self.orb_occs[idx,None] = self.crystal.ff_calculator.random_state_snapshots(self.name)[0] 
+                self.orb_occs[idx] = self.crystal.ff_calculator.random_state_snapshots(self.name)[0] 
 
     def get_stochastic_f(atom_idx,q_arr):
         '''
         (Is defined by set_scalar_form_factor).
         Returns the form factor multiplied by sqrt(I). f.shape = ( len(times) , ) + momenta.shape  
         
-        atom_idx, int or int array
         q_arr = mom. transfer [1/a0], scalar or array
         '''
         raise Exception("Did not set_scalar_form_factor before calling stochastic f")
@@ -733,30 +731,28 @@ class XFEL():
                 raise Exception("Times used don't match between species.")        
             # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
             for s in range(len(self.target.sym_rotations)):
-                    print("Working through symmetry",s)
-                    #for i, R in enumerate(species.coords):
-                    atm_idx = np.arange(len(species.coords)*s, len(species.coords)*(s+1))
-                    # Rotate to target's current orientation 
-                    # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
-                    R = species.coords
-                    R = R @ self.y_rot_matrix
-                    R = R @ self.x_rot_matrix  
-                    coord = self.target.get_sym_xfmed_point(R,s)  # dim = [ N, 3]
-                    # Get spatial factor T
-                    if SPI:
-                        T = self.SPI_interference_factor(phis,coord,feature)  #[num_G]
-                    else:
-                        T= self.interference_factor(coord,feature,cardan_angles)   # if grid: [phis,qx,qy]  if ring: [phis,q] (unimplemented)
-                        #T = np.expand_dims(T,0)                  
-                    f = species.get_stochastic_f(atm_idx, feature.q)  
-                    #print(F_sum.shape,T.shape,f.shape) 
-                    if SPI: 
-                        if type(feature) is self.Cell:
-                            F_sum += np.sum(T[:,None,...]*f)          #[num_atoms,None,qX,qY] X [num_atoms,times,qX,qY]
-                        if type(feature) is self.Ring:           
-                            F_sum += np.sum(T[:,None] * f[None,...])        # [?phis?,momenta,None]X[None,times, feature.q.shape]  -> [?phis?,times,feature.q.shape] if q is an array
-                    else:
-                        F_sum += np.sum(T[None,:] * f)                           # [None,num_G]X[times,num_G]  ->[times,num_G] 
+                print("Working through symmetry",s)
+                for i, R in enumerate(species.coords):
+                        atm_idx = len(species.coords)*s + i
+                        # Rotate to target's current orientation 
+                        R = R.left_multiply(self.y_rot_matrix)  
+                        R = R.left_multiply(self.x_rot_matrix)   
+                        coord = self.target.get_sym_xfmed_point(R.get_array(),s)  # TODO R should work vectorised now
+                        # Get spatial factor T
+                        if SPI:
+                            T = self.SPI_interference_factor(phis,coord,feature)  #[num_G]
+                        else:
+                            T= self.interference_factor(coord,feature,cardan_angles)   # if grid: [phis,qx,qy]  if ring: [phis,q] (unimplemented)
+                            #T = np.expand_dims(T,0)                  
+                        f = species.get_stochastic_f(atm_idx, feature.q)  
+                        #print(F_sum.shape,T.shape,f.shape) 
+                        if SPI: 
+                            if type(feature) is self.Cell:
+                                F_sum += T[None,...]*f          
+                            if type(feature) is self.Ring:           
+                                F_sum += T[:,None] * f[None,...]        # [?phis?,momenta,None]X[None,times, feature.q.shape]  -> [?phis?,times,feature.q.shape] if q is an array
+                        else:
+                            F_sum += T[None,:] * f                            # [None,num_G]X[times,num_G]  ->[times,num_G] 
         if (times_used[-1] == times_used[0]):   
             raise Exception("Intensity array's final time equals its initial time") #I =  np.square(np.abs(F_sum[:,0]))  # 
         else:
@@ -805,11 +801,11 @@ class XFEL():
 
         return I 
 
-    def interference_factor(self,coord,feature,cardan_angles,axis=0):
+    def interference_factor(self,coord,feature,cardan_angles):
         """ theta = scattering angle relative to z-y plane """ 
         # Rotate our G vector BACK to the real laser orientation relative to the crystal.
         q_vect = self.rotate_G_to_orientation(feature.G.copy(),*cardan_angles,inverse=True)[0]       
-        q_dot_r = np.apply_along_axis(np.dot,axis,q_vect,coord) # dim = [num_G]                      
+        q_dot_r = np.apply_along_axis(np.dot,0,q_vect,coord) # dim = [num_G]                      
         T = np.exp(-1j*q_dot_r)
         return T
 
@@ -827,10 +823,9 @@ class XFEL():
         q_vect = np.array([q_x,q_y,q_z])
         q_vect = np.moveaxis(q_vect,0,len(q_vect.shape)-1)    # dim = [qX,qX,3]
         
-        q_dot_r = np.apply_along_axis(np.dot,len(q_vect.shape)-1,q_vect,coord.T).T # dim = [phis,qX,qY]       q_dot_r = np.tensordot(q_vect,coord,axes=len(q_vect.shape)-1)
-        if (type(feature.q) == np.ndarray): 
-            if len(coord.shape) == 2 and q_dot_r.shape != (coord.shape[0],) + feature.q.shape or len(coord.shape) == 1 and q_dot_r.shape != feature.q.shape:
-                raise Exception("Unexpected q_dot_r shape.",q_dot_r.shape)
+        q_dot_r = np.apply_along_axis(np.dot,len(q_vect.shape)-1,q_vect,coord) # dim = [phis,qX,qY]       q_dot_r = np.tensordot(q_vect,coord,axes=len(q_vect.shape)-1)
+        if type(feature.q) == np.ndarray and q_dot_r.shape != feature.q.shape:
+            raise Exception("Unexpected q_dot_r shape.",q_dot_r.shape)
         T = np.exp(-1j*q_dot_r)   
         #print(T)
         return T   
@@ -1715,10 +1710,10 @@ DEBUG = False
 
 
 
-target_options = ["neutze","hen","tetra"]  # tetra file's dimensions seem off. Or I'm missing something. Hen lys works at least.
+target_options = ["neutze","hen","tetra"]
 #---------------------------------#
 
-target = "tetra"  #target_options[1]
+target = target_options[2]
 top_resolution = 2
 bottom_resolution = None#30
 
