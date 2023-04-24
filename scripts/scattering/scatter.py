@@ -110,7 +110,7 @@ class Crystal():
         if include_symmetries:
             self.parse_symmetry_from_pdb() # All asymmetric units in unit cell
         else:   
-            self.add_symmetry(np.identity,np.zeros((3)))  # Only one asymmetric unit per unit cell
+            self.add_symmetry(np.identity(3),np.zeros((3)))  # Only one asymmetric unit per unit cell
 
         parser=PDBParser(PERMISSIVE=1)
         structure_id = os.path.basename(self.pdb_fpath)
@@ -177,12 +177,13 @@ class Crystal():
             # Construct the cube by adding the "unit cell translation" to the symmetry translation. 
             # (e.g. if crystal is centred on origin, in fractional crystallographic coordinates the index of the unit cell is equal to the unit cell's translation from the origin.) 
             print_thing = np.array(["][x]   [","][y] + [","][z]   ["],dtype=object)
+            print(symmetry_label,"\n",np.c_[symmetry_factor, print_thing ,symmetry_translation],sep="")
             for coord in cube_coords:
                 #print(coord)
                 translation = coord*self.cell_dim + symmetry_translation
                 self.sym_translations.append(translation)
                 self.sym_rotations.append(symmetry_factor)
-                print(symmetry_label,"\n",np.c_[self.sym_rotations[-1], print_thing ,self.sym_translations[-1]],sep="") 
+                 
         else:
             #Can just duplicate symmetries if not SPI since equivalent for crystal.
             raise Exception("Lacking implementation")
@@ -358,7 +359,7 @@ class Atomic_Species():
                     return self.crystal.ff_calculator.random_states_to_f_snapshots(self.times_used,self.orb_occs[atom_idx],q_arr,self.name)[0]  # f has form  [times,momenta]
             self.get_stochastic_f = stoch_f_placeholder
 class XFEL():
-    def __init__(self, experiment_name, photon_energy, detector_distance_mm=100, q_minimum = None, q_cutoff = None, max_triple_miller_idx = None, screen_type = "hemisphere", orientation_set = [[0,0,0],], x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100):
+    def __init__(self, experiment_name, photon_energy, detector_distance_mm=100, q_minimum = None, q_cutoff = None, max_triple_miller_idx = None, screen_type = "hemisphere", orientation_set = [[0,0,0],], x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100,SPI_y_rotation = 0,SPI_x_rotation = 0,SPI_z_rotation = 0):
         """ #### Initialise the imaging experiment's controlled parameters
         experiment_name:
             String that the output folder will be named.        
@@ -419,8 +420,10 @@ class XFEL():
         self.t_fineness = t_fineness
 
         self.phi_array = np.linspace(0,2*np.pi,self.pixels_per_ring,endpoint=False)  # used only for SPI. Really need to refactor...
-        self.y_rotation = 0 # Current rotation of crystal (y axis currently)
-        self.x_rotation = 0 # Current rotation of crystal (y axis currently)
+        self.z_rotation = SPI_z_rotation *np.pi/180
+        self.y_rotation = SPI_y_rotation *np.pi/180 # Current rotation of crystal (y axis currently) (did I mean z axis?)
+        self.x_rotation = SPI_x_rotation *np.pi/180# Current rotation of crystal (y axis currently)
+        self.z_rot_matrix = rotaxis2m(self.z_rotation,Bio_Vect(0, 0, 1))
         self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))     
         self.x_rot_matrix = rotaxis2m(self.x_rotation,Bio_Vect(1, 0, 0))        
         self.orientation_set = orientation_set 
@@ -572,7 +575,7 @@ class XFEL():
             # Calculate I for each cell from q (need to vectorise q)
             for rot_x in range(self.x_orientations):
                 self.x_rot_matrix = rotaxis2m(self.x_rotation,Bio_Vect(1, 0, 0))      
-                self.y_rotation = 0                 
+                #self.y_rotation = 0                 
                 for rot_y in range(self.y_orientations):
                     print("Imaging at x, y, rotations:",self.x_rotation,self.y_rotation)
                     self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))      
@@ -735,6 +738,7 @@ class XFEL():
                 for i, R in enumerate(species.coords):
                         atm_idx = len(species.coords)*s + i
                         # Rotate to target's current orientation 
+                        R = R.left_multiply(self.z_rot_matrix)  
                         R = R.left_multiply(self.y_rot_matrix)  
                         R = R.left_multiply(self.x_rot_matrix)   
                         coord = self.target.get_sym_xfmed_point(R.get_array(),s)  # TODO R should work vectorised now
@@ -1713,7 +1717,7 @@ DEBUG = False
 target_options = ["neutze","hen","tetra"]
 #---------------------------------#
 
-target = target_options[2]
+target = "hen" #target_options[2]
 top_resolution = 2
 bottom_resolution = None#30
 
@@ -1734,18 +1738,22 @@ exp_qwargs = dict(
     ####SPI stuff
     num_rings = 20,
     pixels_per_ring = 20,
+    # first image orientation (cardan angles, degrees) 
+    SPI_x_rotation = 0,
+    SPI_y_rotation = 0,
+    SPI_z_rotation = 0,
     ######
     
 )
 
 ##### Crystal params
 crystal_qwargs = dict(
-    #CNO_to_N = True,   # whether the laser simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
-    rocking_angle = 0.3,  # (approximating mosaicity)
-    cell_packing = "SC",
-    cell_scale = 2,  # for SC: cell_scale^3 unit cells   
-    orbitals_as_shells = True,
+    cell_scale = 2,  # for SC: cell_scale^3 unit cells 
     include_symmetries = True,
+    cell_packing = "SC",
+    rocking_angle = 0.3,  # (approximating mosaicity)
+    orbitals_as_shells = True,
+    #CNO_to_N = True,   # whether the laser simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
 )
 #### Individual experiment arguments 
 start_time = -10
@@ -1805,7 +1813,6 @@ exp_name2 = str(root) + "2_" + str(tag)
 # Set up experiments
 experiment1 = XFEL(exp_name1,energy,orientation_set = orientation_set,**exp_qwargs)
 experiment2 = XFEL(exp_name2,energy,orientation_set = orientation_set,**exp_qwargs)
-
 # Create Crystals
 
 crystal = Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=True,CNO_to_N = CNO_to_N, **crystal_qwargs)
