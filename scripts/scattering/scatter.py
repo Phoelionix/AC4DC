@@ -92,7 +92,7 @@ class Results_Grid():
     pass    
 
 class Crystal():
-    def __init__(self, pdb_fpath, allowed_atoms, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True, is_damaged=True,cell_scale = 1):
+    def __init__(self, pdb_fpath, allowed_atoms, include_symmetries = True, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True, is_damaged=True,cell_scale = 1):
         '''
         rocking_angle [degrees]
         cell_packing ("SC","BCC","FCC","FCC-D")
@@ -105,12 +105,17 @@ class Crystal():
         self.cell_dim = np.array([1,1,1],dtype="float")              
         self.is_damaged = is_damaged
         self.cell_scale = cell_scale  # TODO allow for non-cubic crystals and non SC cell packing.
+        self.pdb_fpath = pdb_fpath
+
+        if include_symmetries:
+            self.parse_symmetry()
+        else:   
+            self.add_symmetry(np.array([1,1,1]),np.array([0,0,0]))
         
-        self.add_symmetry(np.array([1,1,1]),np.array([0,0,0]))
 
         parser=PDBParser(PERMISSIVE=1)
-        structure_id = os.path.basename(pdb_fpath)
-        structure = parser.get_structure(structure_id, pdb_fpath)
+        structure_id = os.path.basename(self.pdb_fpath)
+        structure = parser.get_structure(structure_id, self.pdb_fpath)
         
         ## Dictionary for going from pdb to ac4dc names.
         # different names
@@ -167,16 +172,13 @@ class Crystal():
         Set the dimensions of the cell. 
         args x,y,z are the dimensions of the crystal unit cell, i.e. the ones in the pdb file, in angstrom.'''
         self.cell_dim = np.array([x,y,z])*1.88973 # convert to atomic units 
-    def add_symmetry(self,symmetry_factor,symmetry_translation):
-        # Convert to unit cell dimensions s.t. unit_cell_dim * translation gives the translation
-        symmetry_translation = symmetry_translation *0.5 # The cell dimensions are treated as ranging between [-1,1], I think???? so a translation of e.g. 0.5 is going to be 0.25 * cell dimension. 
-        if not isinstance(self.cell_scale,int):
-            raise Exception("Please provide an integer for cell scale. This corresponds to the number of unit cells along each crystal basis axis.")
-        if self.cell_scale == 1:
-            self.sym_factors.append(symmetry_factor)
-            self.sym_translations.append(symmetry_translation)
-            self.num_cells = 1 
-        # If we have multiple unit cells            
+    
+    def add_symmetry_matrix(self,symmetry_matrix,symmetry_label=""):
+        if symmetry_label!="": symmetry_label += " "
+        if self.cell_scale == 1: # Single unit cell, e.g. a single protein
+            self.symmetries.append(symmetry_matrix)
+            self.num_cells = 1
+        # Simple cubic packing.
         elif self.cell_packing == "SC":
             self.num_cells = self.cell_scale**3
             # Generate the coordinates of the cube (performance: defining scaling matrix/cube coords outside of here would be more efficient). But only runs once  \_( '_')_/ ¯\_(ツ)_/¯.
@@ -186,12 +188,62 @@ class Crystal():
             # (e.g. if crystal is centred on origin, in fractional crystallographic coordinates the index of the unit cell is equal to the unit cell's translation from the origin.) 
             for coord in cube_coords:
                 #print(coord)
-                coord = coord#*0.5 #? 
-                self.sym_factors.append(symmetry_factor)  
-                self.sym_translations.append(symmetry_translation + coord*0.5)  # Not sure why a factor of a half here.    
+                translation = np.identity()*coord
+                self.symmetries.append(symmetry_matrix + translation)
+                print(symmetry_label,"Symmetry matrix:\n",symmetry_matrix + translation,sep="") 
         else:
             #Can just duplicate symmetries if not SPI since equivalent for crystal.
             raise Exception("Lacking implementation")
+            
+    def parse_symmetry(target):
+        '''
+        Parses the symmetry transformations from the pdb file into ndarrays and adds each to the target via add_symmetry_matrix().  
+        Also returns the parsed matrices. 
+        Target object must have <str> pdb_fpath and add_symmetry_matrix(<ndarray>) members.
+        '''
+        with open(target.pdb_fpath) as pdb_file:
+            at_SYMOP = False
+            at_symmetry_xformations = False
+            sym_mtx = np.zeros((3,3))
+            sym_labels = []
+            sym_mtces_parsed = []
+            for line in pdb_file:
+                line = line.strip()
+
+                # End data - Check if left section of symmetry data, marked by the line containing solely "REMARK 290". 
+                if len(line) == 10: 
+                    if at_sym_op:
+                        at_sym_op = False
+                    if at_symmetry_xformations: 
+                        # Reached end of data
+                        break
+
+                # Symmetry operators (purely for terminal output - doesn't affect simulation)
+                if at_SYMOP:
+                    sym_labels.append(line[17:])
+                    print("NNNMMM: ",sym_labels[-1])
+                    
+                # Add each symmetry to target
+                if at_symmetry_xformations:
+                    entries = line.split()
+                    # x/y index rows/cols
+                    x = entries[2][-1] 
+                    for y, element in entries[3:-1]:
+                        sym_mtx[x,y] = float(element)
+                    sym_mtx[x] += float(entries[-1])
+                    if x == 2:
+                        target.add_symmetry_matrix(sym_mtx,sym_labels.pop())
+                        sym_mtces_parsed.append(sym_mtx)
+                        sym_mtx = np.zeros(3) # unnecessary but feels scary not to do this
+                
+                # Start data - Check if this line marks the next as the beginning of the desired data.
+                if "NNNMMM   OPERATOR" in line:
+                    at_SYMOP = True
+                    print("Parsing the following symmetry operations:")
+                if line == "REMARK 290 RELATED MOLECULES.":
+                    at_symmetry_xformations = True
+        return sym_mtces_parsed
+    
     def plot_me_and_pray(self):
         '''
         plots the symmetry points. Origin is the centre of the base asymmetric unit (not the centre of a unit cell).
@@ -1421,49 +1473,10 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
     def get_orientation_set_of_folder():
         '''Returns a list of orientations present in results subfolder'''
 
-def parse_symmetry(pdb_fpath,target):
-    with open(filename) as diary_file:
-        at_sym_op = False
-        at_sym_transformations = False
-        sym_mtx = np.zeros((3,3))
-        for line in diary_file:
-            line = line.strip()
-            # Check if left section of symmetry data, marked by line.strip() =="REMARK 290". 
-            if len(line) == 10: 
-                if at_sym_op:
-                    at_sym_op = False
-                if at_sym_transformations: 
-                    # Reached end of data
-                    break
-            if at_sym_op:
-                print("NNNMMM: ",line[17:21])  
-                # symms format: [X,Y,Z , -X,-Y,Z+1/2,-Y+1/2,X+1/2,Z+3/4] etc.
-                # symms = line[24:].split()
-                # # Parse the symmetry string and add the symmetry to the target's structure
-                # for sym in symms:
-                # -Y,X-Y,Z+2/3  -> factor: [[0,-1,0], [1,-1,0],[0,0,1]]  translation: [0,0,2/3]
-            if at_sym_transformations:
-                entries = line.split()
-                x = entries[2][-1]
-                for y, element in entries[3:-1]:
-                    sym_mtx[x,y] = float(element)
+#%%
+parse_symmetry(Crystal("/home/speno/AC4DC/scripts/scattering/5zck.pdb",["C_fast"]))
 
-                sym_mtx[x] += float(entries[-1])
-                
-                if mtx_row == 2:
-                    target.add_symmetry_matrix(sym_mtx)
-                    sym_mtx = np.zeros(3)
-
-            if "NNNMMM   OPERATOR" in line:
-                at_relevant_lines = True
-                print("Displaying symmetry operations")
-            if line == "REMARK 290 RELATED MOLECULES.":
-                at_sym_transformations = True
-
-    
-
-    crystal.add_symmetry(np.array([-1, -1,1]),np.array([0,0,0.5])) #2555
-
+#%%
 # https://stackoverflow.com/questions/7404116/defining-the-midpoint-of-a-colormap-in-matplotlib
 from mpl_toolkits.axes_grid1 import AxesGrid
 import matplotlib
