@@ -168,6 +168,7 @@ class Crystal():
         self.ff_calculator = ff_calculator                  
     
     def add_symmetry(self,symmetry_factor,symmetry_translation,symmetry_label="Symmetry Operation:"):
+        symmetry_translation/= ang_per_bohr
         # Simple cubic packing.
         if self.cell_packing == "SC":
             self.num_cells = self.cell_scale**3
@@ -180,7 +181,7 @@ class Crystal():
             print(symmetry_label,"\n",np.c_[symmetry_factor, print_thing ,symmetry_translation],sep="")
             for coord in cube_coords:
                 #print(coord)
-                translation = coord*self.cell_dim + symmetry_translation
+                translation = coord*self.cell_dim + symmetry_translation 
                 self.sym_translations.append(translation)
                 self.sym_rotations.append(symmetry_factor)
                  
@@ -278,7 +279,7 @@ class Crystal():
                 color[i*self.num_cells + len(test_points)*j:i*self.num_cells + len(test_points)*j+ 1] = 'y'      # same atom in every asym unit          
             color[i*len(test_points):i*len(test_points) + 1] = 'r'      # same atom in every same unit cell         
         
-        plot_coords = np.array(plot_coords)
+        plot_coords = np.array(plot_coords)*ang_per_bohr
         # if np.unique(plot_coords) != plot_coords:
         #     a, unique_indices = np.apply_along_axis(np.unique,1,plot_coords,return_index=True)
         #     print(len(np.delete(plot_coords, unique_indices)), "non-unique coords found:")
@@ -313,7 +314,7 @@ class Atomic_Species():
         We do not store additional coordinates, instead storing the symmetries, and an array of atomic states corresponding to each atom, for each symmetry. (so num symmetries * num atoms added)
         '''           
 
-        self.coords.append(vector)
+        self.coords.append(vector/ang_per_bohr)
         
     def set_stochastic_states(self):
         '''
@@ -526,7 +527,7 @@ class XFEL():
             # res. at edge corner or centre? Surely at centre, for a full ring of information
             screen_width = 2*np.sin(2*max_theta)*screen_distance  # edge centre  # We have placed our screen to have the desired resolution at the "rim".
             #screen_width=  2 * (np.sin(2*max_theta)/np.sqrt(2)) * screen_distance # corner
-            print("Screen width:",screen_width*ang_per_bohr/10e7,"mm")
+            print("Screen width:",round(screen_width*ang_per_bohr/10e7,2),"mm")
             # X is the distance from the centre of the screen to the point of incidence (flat screen)
             # We know where the cells are, they are equally spaced. We also know the distance from the screen to the detector.
             # This gives us theta.
@@ -1748,7 +1749,7 @@ exp_qwargs = dict(
 
 ##### Crystal params
 crystal_qwargs = dict(
-    cell_scale = 2,  # for SC: cell_scale^3 unit cells 
+    cell_scale = 1,  # for SC: cell_scale^3 unit cells 
     include_symmetries = True,
     cell_packing = "SC",
     rocking_angle = 0.3,  # (approximating mosaicity)
@@ -1759,7 +1760,7 @@ crystal_qwargs = dict(
 start_time = -10
 end_time = 10 #0#-9.80    
 laser_firing_qwargs = dict(
-    SPI = True,
+    SPI = False,
     pixels_across = 100,
 )
 
@@ -1818,7 +1819,7 @@ experiment2 = XFEL(exp_name2,energy,orientation_set = orientation_set,**exp_qwar
 crystal = Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=True,CNO_to_N = CNO_to_N, **crystal_qwargs)
 crystal_undmged = Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
 crystal.plot_me()
-
+#%%
 ##%%
 if laser_firing_qwargs["SPI"]:
     SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,crystal, **laser_firing_qwargs)
