@@ -56,7 +56,7 @@ from mpl_toolkits.mplot3d import Axes3D
 plt.ioff()  # stops weird vscode stuff
 
 DEBUG = False 
-c_au = 137.036; eV_per_Ha = 27.211385 
+c_au = 137.036; eV_per_Ha = 27.211385; ang_per_bohr = 1/1.88973  # > 1 ang = 1.88973 bohr
 
 class Results():
     def __init__(self,num_points,image_index):
@@ -92,24 +92,25 @@ class Results_Grid():
     pass    
 
 class Crystal():
-    def __init__(self, pdb_fpath, allowed_atoms, include_symmetries = True, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True, is_damaged=True,cell_scale = 1):
+    def __init__(self, pdb_fpath, allowed_atoms, cell_dim, is_damaged=True, include_symmetries = True, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True,cell_scale = 1):
         '''
         rocking_angle [degrees]
         cell_packing ("SC","BCC","FCC","FCC-D")
+        cell_dim [angstroms]
         '''
         self.cell_packing = cell_packing
         self.rocking_angle = rocking_angle * np.pi/180
-        self.cell_dim = np.array([1,1,1],dtype="float")              
+        self.cell_dim = cell_dim/ang_per_bohr  #np.array([1,1,1],dtype="float")              
         self.is_damaged = is_damaged
         self.cell_scale = cell_scale  # TODO allow for non-cubic crystals and non SC cell packing.
         self.pdb_fpath = pdb_fpath
         
         # Symmetry for each asymmetric unit simulated. If non-SPI, this is defining the supercell.
-        self.sym_factors = []; self.sym_translations = []; 
+        self.sym_rotations = []; self.sym_translations = []; 
         if include_symmetries:
-            self.parse_symmetry_from_pdb()
+            self.parse_symmetry_from_pdb() # All asymmetric units in unit cell
         else:   
-            self.add_symmetry(np.identity,np.zeros((3,3)))  # Only one asymmetric unit per unit cell
+            self.add_symmetry(np.identity,np.zeros((3)))  # Only one asymmetric unit per unit cell
 
         parser=PDBParser(PERMISSIVE=1)
         structure_id = os.path.basename(self.pdb_fpath)
@@ -161,15 +162,10 @@ class Crystal():
             print("The following pdb atoms were found but ignored:",pdb_atoms_ignored)
         if ac4dc_atoms_ignored != "":
             print("The following atoms were allowed but not found:",ac4dc_atoms_ignored)
-        
+
         self.species_dict = species_dict 
     def set_ff_calculator(self,ff_calculator):
         self.ff_calculator = ff_calculator                  
-    def set_cell_dim(self,x,y,z):
-        ''' 
-        Set the dimensions of the cell. 
-        args x,y,z are the dimensions of the crystal unit cell, i.e. the ones in the pdb file, in angstrom.'''
-        self.cell_dim = np.array([x,y,z])*1.88973 # convert to atomic units 
     
     def add_symmetry(self,symmetry_factor,symmetry_translation,symmetry_label="Symmetry Operation:"):
         # Simple cubic packing.
@@ -183,10 +179,10 @@ class Crystal():
             print_thing = np.array(["][x]   [","][y] + [","][z]   ["],dtype=object)
             for coord in cube_coords:
                 #print(coord)
-                translation = np.diag(coord)*self.cell_dim + symmetry_translation
+                translation = coord*self.cell_dim + symmetry_translation
                 self.sym_translations.append(translation)
-                self.sym_factors.append(symmetry_factor)
-                print(symmetry_label,"\n",np.c_[self.sym_factors[-1], print_thing ,self.sym_translations[-1]],sep="") 
+                self.sym_rotations.append(symmetry_factor)
+                print(symmetry_label,"\n",np.c_[self.sym_rotations[-1], print_thing ,self.sym_translations[-1]],sep="") 
         else:
             #Can just duplicate symmetries if not SPI since equivalent for crystal.
             raise Exception("Lacking implementation")
@@ -225,9 +221,8 @@ class Crystal():
                         sym_factor[x,y] = element
                     sym_trans[x] = entries[-1]
                     if x == 2:
-                        sym_trans_2d = np.diag(sym_trans)
-                        target.add_symmetry(sym_factor.copy(),sym_trans_2d.copy(),sym_labels.pop())
-                        sym_mtces_parsed.append([sym_factor.copy(),sym_trans_2d.copy()])
+                        target.add_symmetry(sym_factor.copy(),sym_trans.copy(),sym_labels.pop(0))
+                        sym_mtces_parsed.append([sym_factor.copy(),sym_trans.copy()])
                         
                 
                 # Start data - Check if this line marks the next as the beginning of the desired data.
@@ -243,7 +238,8 @@ class Crystal():
         R = 1D or 2D array of shape (3,N)
         '''
         i = symmetry_index
-        return np.matmul(self.sym_factors[i],R) + self.sym_translations[i]  # dim = [xyz,xyz] x [xyz,N] or dim = [xyz,xyz] x [xyz,1]
+        # Transpose because we've stored the vectors in the 0th axis. 
+        return (self.sym_rotations[i] @ R.T).T+ self.sym_translations[i]  # dim = [xyz,xyz] x [xyz,N] or dim = [xyz,xyz] x [xyz,1]
             
     def plot_me(self):
         '''
@@ -267,17 +263,17 @@ class Crystal():
                     break      
         print("test_points.shape",test_points.shape)
         plot_coords = []
-        for i in range(len(self.sym_factors)):
-            coord_list = self.sym_xfmed_point(R,i).to_list()
+        for i in range(len(self.sym_rotations)):
+            coord_list = self.get_sym_xfmed_point(test_points,i).tolist()
             plot_coords.extend(coord_list)  
         color = np.empty(len(plot_coords),dtype=object) 
         color.fill('b')
 
-        for i in range(int(len(self.sym_factors)/self.num_cells)):           
+        for i in range(int(len(self.sym_rotations)/self.num_cells)):           
             color[i*self.num_cells*len(test_points):i*self.num_cells*len(test_points)+len(test_points)] = 'c'  # atoms in one unit cell  
         color[:len(test_points)] = 'g'  # atoms in one asym unit       
         for i in range(self.num_cells):
-            for j in range(len(self.sym_factors)):
+            for j in range(len(self.sym_rotations)):
                 color[i*self.num_cells + len(test_points)*j:i*self.num_cells + len(test_points)*j+ 1] = 'y'      # same atom in every asym unit          
             color[i*len(test_points):i*len(test_points) + 1] = 'r'      # same atom in every same unit cell         
         
@@ -329,7 +325,7 @@ class Atomic_Species():
         self.times_used = self.crystal.ff_calculator.f_undamaged(0,self.name)[1]
         if self.crystal.is_damaged:
             # Initialise an array that tracks the individual atoms' form factors.
-            self.num_atoms = len(crystal.sym_factors)*len(self.coords)
+            self.num_atoms = len(crystal.sym_rotations)*len(self.coords)
             self.orb_occs= np.empty(self.num_atoms,dtype = object)    # self.orb_occs[i] is an array of states corresponding to each time. We make the dubious but necessary approximation that an atom's state is independent of its prior states.  
             for idx in range(self.num_atoms):
                 self.orb_occs[idx] = self.crystal.ff_calculator.random_state_snapshots(self.name)[0] 
@@ -362,14 +358,14 @@ class Atomic_Species():
                     return self.crystal.ff_calculator.random_states_to_f_snapshots(self.times_used,self.orb_occs[atom_idx],q_arr,self.name)[0]  # f has form  [times,momenta]
             self.get_stochastic_f = stoch_f_placeholder
 class XFEL():
-    def __init__(self, experiment_name, photon_energy, detector_distance, q_minimum = None, q_cutoff = None, max_triple_miller_idx = None, screen_type = "hemisphere", orientation_set = [[0,0,0],], x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100):
+    def __init__(self, experiment_name, photon_energy, detector_distance_mm=100, q_minimum = None, q_cutoff = None, max_triple_miller_idx = None, screen_type = "hemisphere", orientation_set = [[0,0,0],], x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100):
         """ #### Initialise the imaging experiment's controlled parameters
         experiment_name:
             String that the output folder will be named.        
         photon_energy [eV]:
             Should be the same as that given in the original input file!
-        detector_distance [bohr];
-            The distance between the target and the centre of the detector 
+        detector_distance_mm [mm];
+            The distance in mm between the target and the centre of the detector 
         screen_type:
             "circle", "hemisphere", "sphere". Circle corresponds to a flat screen - i.e. it 'squashes ya dots'. Sphere makes no difference if a max q is specified below the hemisphere q range.
         pixels_per_ring: 
@@ -390,9 +386,9 @@ class XFEL():
             If specified, only bragg points corresponding to momentum transfers at or below this value will be simulated.    
         """
         self.experiment_name = experiment_name
-        self.photon_momentum = 2*np.pi/E_to_lamb(photon_energy)  #a.u.
-        self.photon_energy = photon_energy  #eV
-        self.detector_distance = detector_distance
+        self.detector_distance = detector_distance_mm*10e7/ang_per_bohr  # [a0 (bohr)]
+        self.photon_momentum = 2*np.pi/E_to_lamb(photon_energy)  # atomic units, [a0^-1]. 
+        self.photon_energy = photon_energy  #eV Attention: not in atomic units
         self.pixels_per_ring = pixels_per_ring
         self.num_rings = num_rings
         self.x_orientations = x_orientations
@@ -435,7 +431,7 @@ class XFEL():
         ff_calculator.initialise_coherence_params(start_time,end_time,self.max_q,self.photon_energy,t_fineness=self.t_fineness) # q_fineness isn't used for our purposes.   
         return ff_calculator
     
-    def spooky_laser(self, start_time, end_time, damage_output_handle, target, clear_output = False, random_orientation = False, SPI=False):
+    def spooky_laser(self, start_time, end_time, damage_output_handle, target, circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False):
         """ 
         end_time: The end time of the photon capture in femtoseconds. Not a real thing experimentally, but useful for choosing 
         a level of damage. Explicitly, it is used to determine the upper time limit for the integration of the form factor.
@@ -451,6 +447,9 @@ class XFEL():
         self.target = target
 
         
+
+        if pixels_across == None and circle_grid == False and SPI:
+            raise Exception("Require pixels_across argument for rectangular screen")
         
         # Create output folder for results
         directory = "results/" + self.experiment_name + "/"
@@ -466,7 +465,7 @@ class XFEL():
                 os.rmdir(directory)          
         os.makedirs(directory, exist_ok=exist_ok)      
 
-        circle_grid = False
+        
         if SPI and circle_grid:
             ring = np.empty(self.num_rings,dtype="object")
             result = Results_SPI()
@@ -511,8 +510,7 @@ class XFEL():
             def resolution_to_q_scr(d):
                 q = 2*np.pi/d
                 return self.q_to_q_scr(q)
-            N = 100#100  NxN cells
-            ang_per_bohr = 1/1.88973  # > 1 ang = 1.88973 bohr
+            N = pixels_across#100  NxN cells
             cell = np.zeros((N,N),dtype="object")
             result = Results_Grid()      
             
@@ -521,7 +519,7 @@ class XFEL():
             d = 2/ang_per_bohr # resolution            
             max_theta = self.q_to_theta(2*np.pi/d)
             #screen_width = resolution_to_X(d) * 2
-            screen_distance = 100*10e7/ang_per_bohr # screen-target separation [a0]
+            screen_distance = self.detector_distance # screen-target separation [a0]
             # res. at edge corner or centre? Surely at centre, for a full ring of information
             screen_width = 2*np.sin(2*max_theta)*screen_distance  # edge centre  # We have placed our screen to have the desired resolution at the "rim".
             #screen_width=  2 * (np.sin(2*max_theta)/np.sqrt(2)) * screen_distance # corner
@@ -697,14 +695,17 @@ class XFEL():
 
     # Returns the relative intensity at point q for the target's unit cell, i.e. ignoring crystalline effects.
     # If the feature is a bragg spot, this gives its relative intensity, but due to photon conservation won't be the same as the intensity without crystallinity - additionally different factors for non-zero form factors occur across different crystal patterns.
-    def illuminate(self,feature,phis = None,cardan_angles = None, SPI_proj_solid_angle=None):  # Feature = ring or spot.
+    def illuminate(self,feature, phis = None,cardan_angles = None, SPI_proj_solid_angle=None):  # Feature = ring or spot.
         """Returns the intensity at q. Not crystalline yet.
         phis is an ndarray containing the angle of each point to calculate for (SPI) rings, but should contain only 1 element for points.
         """
         # if phis == None:
         #     phis = self.phi_array
         
-
+        if type(feature) == self.Spot:
+            SPI = False
+        elif type(feature) in [self.Cell,self.Ring]:
+            SPI = True
 
         times_used = None
         for species in self.target.species_dict.values():
@@ -729,14 +730,14 @@ class XFEL():
             if not np.array_equal(times_used,species.times_used):
                 raise Exception("Times used don't match between species.")        
             # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
-            for s in range(len(self.target.sym_factors)):
+            for s in range(len(self.target.sym_rotations)):
                 print("Working through symmetry",s)
                 for i, R in enumerate(species.coords):
                         atm_idx = len(species.coords)*s + i
                         # Rotate to target's current orientation 
                         R = R.left_multiply(self.y_rot_matrix)  
                         R = R.left_multiply(self.x_rot_matrix)   
-                        coord = target.get_sym_xfmed_point(R.get_array(),s)  # TODO R should work vectorised now
+                        coord = self.target.get_sym_xfmed_point(R.get_array(),s)  # TODO R should work vectorised now
                         # Get spatial factor T
                         if SPI:
                             T = self.SPI_interference_factor(phis,coord,feature)  #[num_G]
@@ -780,13 +781,13 @@ class XFEL():
         for species in self.target.species_dict.values():
             species.set_scalar_form_factor(feature.q)
             # iterate through each symmetry of unit cell (each asymmetric unit)
-            for s in range(len(self.target.sym_factors)):
+            for s in range(len(self.target.sym_rotations)):
                 for R in species.coords:
                         # Rotate to crystal's current orientation 
                         R = R.left_multiply(self.y_rot_matrix)  
                         R = R.left_multiply(self.x_rot_matrix)   
                         # PDB format note: if x axis has dim of X, we have a point between [- X, X].
-                        coord = np.multiply(R.get_array(),self.target.sym_factors[s]) + np.multiply(self.target.cell_dim,self.target.sym_translations[s])
+                        coord = np.multiply(R.get_array(),self.target.sym_rotations[s]) + np.multiply(self.target.cell_dim,self.target.sym_translations[s])
                         # Get spatial factor T
                         T = np.zeros(phis.shape,dtype="complex_")
                         if SPI:
@@ -965,7 +966,7 @@ class XFEL():
         # Apply rotation
         #print("Rotation matrix:")
         #print(R.as_matrix())
-        G = np.matmul(np.around(rot_matrix,decimals=10),G)    #  [3,3]X[3,num_G]
+        G = np.around(rot_matrix,decimals=10) @ G     # [3,3]X[3,num_G]
 
         if G_idx_first:
             G = np.swapaxes(G,len(G.shape)-2,len(G.shape)-1)  
@@ -988,6 +989,8 @@ class XFEL():
     #     theta = self.q_to_theta(q)
     #     return D*np.tan(2*theta)
 
+    #TODO I'll have to check later if this is crazy or not
+    '''   
     def q_to_scr_pos(self,q):
         """ 
         """
@@ -999,6 +1002,7 @@ class XFEL():
         t = D/v_x
         radius = v_y*t
         return radius
+    '''
     def q_to_q_scr(self,q):
             """ Returns the screen-parallel component of q (or equivalently the final momentum).
             """
@@ -1475,12 +1479,6 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
     def get_orientation_set_of_folder():
         '''Returns a list of orientations present in results subfolder'''
 
-#%%
-# print_thing = np.array(["][x]   [","][y] + [","][z]   ["],dtype=object)
-# for elem in Crystal("/home/speno/AC4DC/scripts/scattering/5zck.pdb",["C_fast"]).parse_symmetry_from_pdb():
-#     print("","Symmetry operation:\n",np.c_[elem[0], print_thing ,elem[1]],sep="") 
-Crystal("/home/speno/AC4DC/scripts/scattering/5zck.pdb",["C_fast"],include_symmetries=True)
-#%%
 # https://stackoverflow.com/questions/7404116/defining-the-midpoint-of-a-colormap-in-matplotlib
 from mpl_toolkits.axes_grid1 import AxesGrid
 import matplotlib
@@ -1689,151 +1687,6 @@ def stylin(SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None):
     # Need to double check we get different intensities for same q_parr. Pretty sure that's implemented.
 #stylin()
 
-#TODO 
-# log doesnt work atm.
-# Get the rings to correspond to actual rings
-
-#%% TETRAPEPTIDE EXPERIMENT SETUP
-### Simulate tetrapeptide
-#TODO
-# have max q, that matches neutze
-# implement stochastic stuff
-# implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector
-root = "tetra"
-tag = "v10" # - multi #"v7" 3 - single
-#  #TODO make this nicer and pop in a function 
-DEBUG = False
-energy = 6000 # 12561
-
-
-exp_name1 = str(root) + "1_" + str(tag)
-exp_name2 = str(root) + "2_" + str(tag)
-
-CNO_to_N = False
-
-allowed_atoms_1 = ["C_fast"]#["N_fast","S_fast"]
-allowed_atoms_2 = ["C_fast"]#["N_fast","S_fast"]
-
-start_time = -10
-end_time = 10#0#-9.80  
-
-#orientation_set = [[5.532278012665244, 1.6378991611963682, 1.3552062099726534]] # Spooky spider orientation
-num_orients = 50
-# [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
-ax_x = 1
-ax_y = 1
-ax_z = 0
-random_orientation = True # if true, overrides orientation_set
-
-rock_angle = 2 # degrees
-
-pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb" #tetrapeptide
-
-output_handle = "carbon_gauss_32"#"sodion_tetrapeptide_2"
-
-screen_type = "flat"  
-
-rock_angle = 0.3 #0.3 # degrees
-
-q_minimum =  None#2*np.pi/30#None #angstrom
-q_cutoff = None#2*np.pi/2
-#crystal stuff
-max_triple_miller_idx = None # = m, where max momentum given by q with miller indices (m,m,m)
-
-#SPI stuff
-num_rings = 20
-pixels_per_ring = 20
-one_cell_only = False
-
-SPI = True
-cell_scale = 2
-#---------------------------------#
-if SPI and one_cell_only:
-    cell_scale = 1  
-
-# if not random:
-if ax_x == ax_y == ax_z and ax_z == 0 and random_orientation == False:
-    throwabxzd
-orientation_axis = Bio_Vect(ax_x,ax_y,ax_z)
-orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0,2*np.pi,num_orients,endpoint=False)]
-orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
-print(orientation_set)
-
-experiment1 = XFEL(exp_name1,energy,100, q_minimum = q_minimum, q_cutoff = q_cutoff, max_triple_miller_idx = max_triple_miller_idx, screen_type = screen_type, orientation_set = orientation_set, pixels_per_ring = pixels_per_ring, num_rings = num_rings,t_fineness=100)
-experiment2 = copy.deepcopy(experiment1); experiment2.experiment_name = exp_name2
-#0.85  - 0.88 angstrom resolution - >  
-
-# sym_translations = [np.array([0,0,0])]
-# cell_dim = [np.array([1,1,1])]  
-
-
-crystal = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=False,cell_packing = "SC",cell_scale = cell_scale)
-crystal.set_cell_dim(4.813 ,  17.151 ,  29.564)
-crystal.add_symmetry(np.array([-1, -1,1]),np.array([0.5,0,0.5]))  #2555
-crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0.5]))  #3555
-crystal.add_symmetry(np.array([1, -1,-1]),np.array([0.5,0.5,0]))  #4555
-crystal.plot_me()
-
-#%%
-crystal_undmged = copy.deepcopy(crystal)
-crystal_undmged.is_damaged = False
-
-if SPI:
-    SPI_result1 = experiment1.spooky_laser(start_time,end_time,output_handle,crystal, SPI=SPI)
-    SPI_result2 = experiment2.spooky_laser(start_time,end_time,output_handle,crystal_undmged, SPI=SPI)
-    stylin(SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
-else:
-    exp1_orientations = experiment1.spooky_laser(start_time,end_time,output_handle,crystal, random_orientation = random_orientation, SPI=SPI)
-    create_reflection_file(exp_name1)
-    experiment2.orientation_set = exp1_orientations
-    experiment2.spooky_laser(start_time,end_time,output_handle,crystal_undmged, random_orientation = False, SPI=SPI)
-    stylin()
-#%%
-print(E_to_lamb(6000))
-experiment1.photon_momentum
-    
-#%%
-if SPI:
-    stylin(SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
-else:
-    stylin()
-
-#%%
-#%% vvvvvvvvv
-### Simulate lysozyme
-#TODO
-# have max q, that matches neutze
-# implement stochastic stuff
-# implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector
-root = "lysNeutze"
-tag = "v30" # - multi #"v7" 3 - single
-#  #TODO make this nicer and pop in a function 
-DEBUG = False
-energy = 6000 #
-
-
-exp_name1 = str(root) + "1_" + str(tag)
-exp_name2 = str(root) + "2_" + str(tag)
-
-CNO_to_N = True
-
-allowed_atoms_1 = ["N_fast","S_fast"]
-allowed_atoms_2 = ["N_fast","S_fast"]
-
-start_time = -10
-end_time = 10#0#-9.80  
-
-
-
-output_handle = "D_lys_neutze_simple_7"
-
-
-target = "hen"  #"neutze"/"hen"/"tetra"
-top_resolution = 2
-bottom_resolution = 30
-
-no_symms = False 
-
 def res_to_q(d):
     '''
     Pass d = None to use default resolution (when put into exp_args)
@@ -1842,108 +1695,136 @@ def res_to_q(d):
         return None
     return 2*np.pi/d
 
-exp_args = dict(
-    screen_type = "flat"#"hemisphere"
-    q_minimum = res_to_q(resolution)#None #angstrom
-    q_cutoff = res_to_q(resolution)#2*np.pi/2
-    #####crystal stuff
-    max_triple_miller_idx = None # = m, where max momentum given by q with miller indices (m,m,m)
-    #orientations
-    num_orients = 1
-    # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.
-    ax_x = 1
-    ax_y = 1
-    ax_z = 0
-    random_orientation = True # if true, overrides orientation_set
-    #mosaicity
-    
+#TODO 
+# log doesnt work atm.
+# Get the rings to correspond to actual rings
 
-    ####SPI stuff
-    num_rings = 20
-    pixels_per_ring = 20
-    ######
-    cell_scale = 1  # cell_scale^3 unit cells (cubic)
-    SPI = True   
-)
+#%% vvvvvvvvv
+### Simulate
+#TODO
+# have max q, that matches neutze
+# implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector (or just do SPI)
 
-crystal_args = dict(
-
-    
-)
+#  #TODO make this nicer and pop in a function 
+DEBUG = False
 
 
+
+target_options = ["neutze","hen","tetra"]
 #---------------------------------#
-# if not random:
+
+target = target_options[2]
+top_resolution = 2
+bottom_resolution = None#30
+
+
+#### XFEL params
+tag = "v31" # Non-SPI i.e. Crystal only, Tag to add to distinguish different experiments on same target. Reflections saved in directory named root +tag named according to orientation .
+#TODO make it so reflections don't overwrite same orientation, as stochastic now.
+random_orientation = True, # if true, overrides orientation_set
+energy = 6000 # eV
+exp_qwargs = dict(
+    detector_distance_mm = 100,
+    screen_type = "flat",#"hemisphere"
+    q_minimum = res_to_q(bottom_resolution),#None #angstrom
+    q_cutoff = res_to_q(top_resolution),#2*np.pi/2
+    t_fineness=100,   
+    #####crystal stuff
+    max_triple_miller_idx = None, # = m, where max momentum given by q with miller indices (m,m,m)
+    ####SPI stuff
+    num_rings = 20,
+    pixels_per_ring = 20,
+    ######
+    
+)
+
+##### Crystal params
+crystal_qwargs = dict(
+    #CNO_to_N = True,   # whether the laser simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
+    rocking_angle = 0.3,  # (approximating mosaicity)
+    cell_packing = "SC",
+    cell_scale = 2,  # for SC: cell_scale^3 unit cells   
+    orbitals_as_shells = True,
+    include_symmetries = True,
+)
+#### Individual experiment arguments 
+start_time = -10
+end_time = 10 #0#-9.80    
+laser_firing_qwargs = dict(
+    SPI = True,
+    pixels_across = 100,
+)
+
+#orientations
+num_orients = 1
+# [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.
+ax_x = 1
+ax_y = 1
+ax_z = 0
+#----------orientation thing that needs to be to XFEL class (TODO)-----------------------#
+
 if ax_x == ax_y == ax_z and ax_z == 0 and random_orientation == False:
     throwabxzd
+# if not random_orientation:
 orientation_axis = Bio_Vect(ax_x,ax_y,ax_z)
 orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0,2*np.pi,num_orients,endpoint=False)]
 orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
 print("ori set if not random:", orientation_set)  #TODO double check shows when random and if so disable when random
-
-experiment1 = XFEL(exp_name1,energy,100, q_minimum = q_minimum, q_cutoff = q_cutoff, max_triple_miller_idx = max_triple_miller_idx, screen_type = screen_type, orientation_set = orientation_set, pixels_per_ring = pixels_per_ring, num_rings = num_rings,t_fineness=100)
-experiment2 = copy.deepcopy(experiment1); experiment2.experiment_name = exp_name2
-#0.85  - 0.88 angstrom resolution - >  
-
-# sym_translations = [np.array([0,0,0])]
-# cell_dim = [np.array([1,1,1])]  
-
-if lys_type == "neutze": #T4 virus lys
+#---------------------------------#
+if target == "neutze": #T4 virus lys
+    root = "neutze_lys"
     pdb_path = "/home/speno/AC4DC/scripts/scattering/2lzm.pdb"
-elif lys_type == "hen": # egg white lys
+    cell_dim = np.array((61.200 ,  61.200 ,  61.2))#TODO should read this automatically...
+    target_handle = "D_lys_neutze_simple_7"  
+    allowed_atoms_1 = ["N_fast","S_fast"]
+    allowed_atoms_2 = ["N_fast","S_fast"]      
+    CNO_to_N = True
+elif target == "hen": # egg white lys
+    root = "hen_lys"
     pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb"
+    cell_dim = np.array((79.000  , 79.000  , 38.000))
+    target_handle = "D_lys_neutze_simple_7"  
+    allowed_atoms_1 = ["N_fast","S_fast"]
+    allowed_atoms_2 = ["N_fast","S_fast"]      
+    CNO_to_N = True
+elif target == "tetra": 
+    root = "tetra"
+    pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb" 
+    cell_dim = np.array((4.813 ,  17.151 ,  29.564))
+    target_handle = "carbon_gauss_32"
+    allowed_atoms_1 = ["C_fast"]
+    allowed_atoms_2 = ["C_fast"]      
+    CNO_to_N = False
 else:
-    raise Exception("lys_type invalid")
+    raise Exception("'target' invalid")
+exp_name1 = str(root) + "1_" + str(tag)
+exp_name2 = str(root) + "2_" + str(tag)
 
-crystal = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=CNO_to_N,cell_packing = "SC",cell_scale = cell_scale)
+#-------------------------------#
 
-if target == "neutze":  
-    # neutze  CRYST1   61.200   61.200   96.800  90.00  90.00 120.00 P 32 2 1      6   
-    crystal.set_cell_dim(61.200 ,  61.200 ,  61.2)  #TODO this isn't right we didn't implement (rock angle?) properly # Did I mean the basis angle?
-    if no_symms is False:
-        crystal.add_weird_symmetry(np.array([[0,-1,0], [1,-1,0],[0,0,1]]),np.array([0,0,2/3]))  #2555
-        crystal.add_weird_symmetry(np.array([[-1,1,0], [-1,0,0],[0,0,1]]),np.array([0,0,1/3]))  #3555
-        crystal.add_weird_symmetry(np.array([[0,1,0], [1,0,0],[0,0,-1]]),np.array([0,0,0]))  #4555
-        crystal.add_weird_symmetry(np.array([[1,-1,0], [0,-1,0],[0,0,-1]]),np.array([0,0,1/3]))  #5555
-        crystal.add_weird_symmetry(np.array([[-1,0,0], [-1,1,0],[0,0,-1]]),np.array([0,0,2/3]))  #6555 
+# Set up experiments
+experiment1 = XFEL(exp_name1,energy,orientation_set = orientation_set,**exp_qwargs)
+experiment2 = XFEL(exp_name2,energy,orientation_set = orientation_set,**exp_qwargs)
 
-elif target == "hen":
-    # hen egg lys
-    crystal.set_cell_dim(79.000  , 79.000  , 38.000)
-    if no_symms is False:
-        crystal.add_symmetry(np.array([-1, -1,1]),np.array([0,0,0.5]))  #2555
-        crystal.add_symmetry(np.array([-1, 1,-1]),np.array([1/2,1/2,3/4]))  #5555
-        crystal.add_symmetry(np.array([1, -1,-1]),np.array([1/2,1/2,1/4]))  #6555
+# Create Crystals
 
-    '''
-    REMARK 290       1555   X,Y,Z                                                   
-    REMARK 290       2555   -X,-Y,Z+1/2                                             
-    REMARK 290       3555   -Y+1/2,X+1/2,Z+3/4                                      
-    REMARK 290       4555   Y+1/2,-X+1/2,Z+1/4                                      
-    REMARK 290       5555   -X+1/2,Y+1/2,-Z+3/4                                     
-    REMARK 290       6555   X+1/2,-Y+1/2,-Z+1/4                                     
-    REMARK 290       7555   Y,X,-Z                                                  
-    REMARK 290       8555   -Y,-X,-Z+1/2   
-    '''        
-
-
+crystal = Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=True,CNO_to_N = CNO_to_N, **crystal_qwargs)
+crystal_undmged = Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
 crystal.plot_me()
-crystal_undmged = copy.deepcopy(crystal)
-crystal_undmged.is_damaged = False
 
 ##%%
-if SPI:
-    SPI_result1 = experiment1.spooky_laser(start_time,end_time,output_handle,crystal, SPI=SPI)
-    SPI_result2 = experiment2.spooky_laser(start_time,end_time,output_handle,crystal_undmged, SPI=SPI)
-    stylin(SPI=True,SPI_max_q = q_cutoff,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
+if laser_firing_qwargs["SPI"]:
+    SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,crystal, **laser_firing_qwargs)
+    SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,crystal_undmged, **laser_firing_qwargs)
+    stylin(SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
 else:
-    exp1_orientations = experiment1.spooky_laser(start_time,end_time,output_handle,crystal, random_orientation = random_orientation, SPI=SPI)
+    exp1_orientations = experiment1.spooky_laser(start_time,end_time,target_handle,crystal, random_orientation = random_orientation, **laser_firing_qwargs)
     create_reflection_file(exp_name1)
     experiment2.orientation_set = exp1_orientations
-    experiment2.spooky_laser(start_time,end_time,output_handle,crystal_undmged, random_orientation = False, SPI=SPI)
+    experiment2.spooky_laser(start_time,end_time,target_handle,crystal_undmged, random_orientation = False, **laser_firing_qwargs)
     stylin()
 #%%
-if SPI:
+if laser_firing_qwargs.SPI:
     stylin(SPI=True,SPI_max_q = q_cutoff,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
 else:
     stylin()
@@ -2001,7 +1882,7 @@ screen_type = "hemisphere"
 
 pdb_path = "/home/speno/AC4DC/scripts/scattering/3u7t.pdb" #Crambin
 
-output_handle = "Improved_Lys_mid_6"
+target_handle = "Improved_Lys_mid_6"
 
 q_cutoff = None
 
@@ -2035,10 +1916,10 @@ crystal_undmged.is_damaged = False
 
 SPI = False
 
-exp1_orientations = experiment1.spooky_laser(-10,end_time_1,output_handle,crystal, random_orientation = random_orientation, SPI=SPI)
+exp1_orientations = experiment1.spooky_laser(-10,end_time_1,target_handle,crystal, random_orientation = random_orientation, SPI=SPI)
 create_reflection_file(exp_name1)
 experiment2.orientation_set = exp1_orientations
-experiment2.spooky_laser(-10,end_time_2,output_handle,crystal, random_orientation = False, SPI=SPI)
+experiment2.spooky_laser(-10,end_time_2,target_handle,crystal, random_orientation = False, SPI=SPI)
 
 stylin()
 
@@ -2061,7 +1942,7 @@ rock_angle = 0.3 # degrees
 
 pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb" #Lysozyme
 
-output_handle = "Improved_Lys_mid_6"
+target_handle = "Improved_Lys_mid_6"
 
 #---------------------------------#
 
@@ -2077,7 +1958,7 @@ crystal = Crystal(pdb_path,allowed_atoms,CNO_to_N=False,cell_packing = "SC")
 
 SPI = True
 
-SPI_result = experiment.spooky_laser(-10,end_time,output_handle,crystal, SPI=SPI)
+SPI_result = experiment.spooky_laser(-10,end_time,target_handle,crystal, SPI=SPI)
 
 #%%
 #TODO Get the colors to match neutze.
