@@ -99,19 +99,17 @@ class Crystal():
         '''
         self.cell_packing = cell_packing
         self.rocking_angle = rocking_angle * np.pi/180
-        #self.sym_factors=[np.array([1,1,1],dtype="float")]
-        #self.sym_translations = [np.array([0,0,0],dtype="float")]
-        self.sym_factors = []; self.sym_translations = []; 
         self.cell_dim = np.array([1,1,1],dtype="float")              
         self.is_damaged = is_damaged
         self.cell_scale = cell_scale  # TODO allow for non-cubic crystals and non SC cell packing.
         self.pdb_fpath = pdb_fpath
-
-        if include_symmetries:
-            self.parse_symmetry()
-        else:   
-            self.add_symmetry(np.array([1,1,1]),np.array([0,0,0]))
         
+        # Symmetry for each asymmetric unit simulated. If non-SPI, this is defining the supercell.
+        self.sym_factors = []; self.sym_translations = []; 
+        if include_symmetries:
+            self.parse_symmetry_from_pdb()
+        else:   
+            self.add_symmetry(np.identity,np.zeros((3,3)))  # Only one asymmetric unit per unit cell
 
         parser=PDBParser(PERMISSIVE=1)
         structure_id = os.path.basename(self.pdb_fpath)
@@ -173,78 +171,81 @@ class Crystal():
         args x,y,z are the dimensions of the crystal unit cell, i.e. the ones in the pdb file, in angstrom.'''
         self.cell_dim = np.array([x,y,z])*1.88973 # convert to atomic units 
     
-    def add_symmetry_matrix(self,symmetry_matrix,symmetry_label=""):
-        if symmetry_label!="": symmetry_label += " "
-        if self.cell_scale == 1: # Single unit cell, e.g. a single protein
-            self.symmetries.append(symmetry_matrix)
-            self.num_cells = 1
+    def add_symmetry(self,symmetry_factor,symmetry_translation,symmetry_label="Symmetry Operation:"):
         # Simple cubic packing.
-        elif self.cell_packing == "SC":
+        if self.cell_packing == "SC":
             self.num_cells = self.cell_scale**3
             # Generate the coordinates of the cube (performance: defining scaling matrix/cube coords outside of here would be more efficient). But only runs once  \_( '_')_/ ¯\_(ツ)_/¯.
             x, y, z= np.meshgrid(np.arange(0, self.cell_scale), np.arange(0, self.cell_scale), np.arange(0, self.cell_scale))
             cube_coords = np.stack([ y.flatten(), x.flatten(), z.flatten()], axis = -1)
             # Construct the cube by adding the "unit cell translation" to the symmetry translation. 
             # (e.g. if crystal is centred on origin, in fractional crystallographic coordinates the index of the unit cell is equal to the unit cell's translation from the origin.) 
+            print_thing = np.array(["][x]   [","][y] + [","][z]   ["],dtype=object)
             for coord in cube_coords:
                 #print(coord)
-                translation = np.identity()*coord
-                self.symmetries.append(symmetry_matrix + translation)
-                print(symmetry_label,"Symmetry matrix:\n",symmetry_matrix + translation,sep="") 
+                translation = np.diag(coord)*self.cell_dim + symmetry_translation
+                self.sym_translations.append(translation)
+                self.sym_factors.append(symmetry_factor)
+                print(symmetry_label,"\n",np.c_[self.sym_factors[-1], print_thing ,self.sym_translations[-1]],sep="") 
         else:
             #Can just duplicate symmetries if not SPI since equivalent for crystal.
             raise Exception("Lacking implementation")
             
-    def parse_symmetry(target):
+    def parse_symmetry_from_pdb(target):
         '''
-        Parses the symmetry transformations from the pdb file into ndarrays and adds each to the target via add_symmetry_matrix().  
+        Parses the symmetry transformations from the pdb file into ndarrays and adds each to the crystal.  
         Also returns the parsed matrices. 
-        Target object must have <str> pdb_fpath and add_symmetry_matrix(<ndarray>) members.
         '''
+        at_SYMOP = False
+        at_symmetry_xformations = False
+        sym_factor = np.zeros((3,3))
+        sym_trans = np.zeros((3))
+        sym_labels = []
+        sym_mtces_parsed = []        
         with open(target.pdb_fpath) as pdb_file:
-            at_SYMOP = False
-            at_symmetry_xformations = False
-            sym_mtx = np.zeros((3,3))
-            sym_labels = []
-            sym_mtces_parsed = []
             for line in pdb_file:
                 line = line.strip()
-
                 # End data - Check if left section of symmetry data, marked by the line containing solely "REMARK 290". 
                 if len(line) == 10: 
-                    if at_sym_op:
-                        at_sym_op = False
+                    if at_SYMOP:
+                        at_SYMOP = False
                     if at_symmetry_xformations: 
                         # Reached end of data
                         break
-
                 # Symmetry operators (purely for terminal output - doesn't affect simulation)
                 if at_SYMOP:
-                    sym_labels.append(line[17:])
-                    print("NNNMMM: ",sym_labels[-1])
-                    
+                    sym_labels.append(line[17:21]+": ("+line[21:].strip()+")")
                 # Add each symmetry to target
                 if at_symmetry_xformations:
-                    entries = line.split()
+                    entries = line.split()[2:]
+                    x = int(entries[0][-1]) - 1  
+                    entries = [float(f) for f in entries[2:]]
                     # x/y index rows/cols
-                    x = entries[2][-1] 
-                    for y, element in entries[3:-1]:
-                        sym_mtx[x,y] = float(element)
-                    sym_mtx[x] += float(entries[-1])
+                    for y, element in enumerate(entries[:-1]):
+                        sym_factor[x,y] = element
+                    sym_trans[x] = entries[-1]
                     if x == 2:
-                        target.add_symmetry_matrix(sym_mtx,sym_labels.pop())
-                        sym_mtces_parsed.append(sym_mtx)
-                        sym_mtx = np.zeros(3) # unnecessary but feels scary not to do this
+                        sym_trans_2d = np.diag(sym_trans)
+                        target.add_symmetry(sym_factor.copy(),sym_trans_2d.copy(),sym_labels.pop())
+                        sym_mtces_parsed.append([sym_factor.copy(),sym_trans_2d.copy()])
+                        
                 
                 # Start data - Check if this line marks the next as the beginning of the desired data.
                 if "NNNMMM   OPERATOR" in line:
                     at_SYMOP = True
-                    print("Parsing the following symmetry operations:")
+                    print("Parsing symmetry operations...")
                 if line == "REMARK 290 RELATED MOLECULES.":
                     at_symmetry_xformations = True
         return sym_mtces_parsed
     
-    def plot_me_and_pray(self):
+    def get_sym_xfmed_point(self,R,symmetry_index):
+        '''
+        R = 1D or 2D array of shape (3,N)
+        '''
+        i = symmetry_index
+        return np.matmul(self.sym_factors[i],R) + self.sym_translations[i]  # dim = [xyz,xyz] x [xyz,N] or dim = [xyz,xyz] x [xyz,1]
+            
+    def plot_me(self):
         '''
         plots the symmetry points. Origin is the centre of the base asymmetric unit (not the centre of a unit cell).
         '''
@@ -264,11 +265,12 @@ class Crystal():
                 i+=1
                 if i >= num_test_points:
                     break      
-        plot_coords = []  # for glancing at whole structure
-        root_coords = []  # for ease of tracking unit cells
+        print("test_points.shape",test_points.shape)
+        plot_coords = []
         for i in range(len(self.sym_factors)):
-            plot_coords.extend(np.multiply(test_points,self.sym_factors[i]) + np.multiply(self.cell_dim,self.sym_translations[i]))
-        color = np.empty(len(plot_coords),dtype=object)
+            coord_list = self.sym_xfmed_point(R,i).to_list()
+            plot_coords.extend(coord_list)  
+        color = np.empty(len(plot_coords),dtype=object) 
         color.fill('b')
 
         for i in range(int(len(self.sym_factors)/self.num_cells)):           
@@ -734,7 +736,7 @@ class XFEL():
                         # Rotate to target's current orientation 
                         R = R.left_multiply(self.y_rot_matrix)  
                         R = R.left_multiply(self.x_rot_matrix)   
-                        coord = np.multiply(R.get_array(),self.target.sym_factors[s]) + np.multiply(self.target.cell_dim,self.target.sym_translations[s])
+                        coord = target.get_sym_xfmed_point(R.get_array(),s)  # TODO R should work vectorised now
                         # Get spatial factor T
                         if SPI:
                             T = self.SPI_interference_factor(phis,coord,feature)  #[num_G]
@@ -1474,8 +1476,10 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
         '''Returns a list of orientations present in results subfolder'''
 
 #%%
-parse_symmetry(Crystal("/home/speno/AC4DC/scripts/scattering/5zck.pdb",["C_fast"]))
-
+# print_thing = np.array(["][x]   [","][y] + [","][z]   ["],dtype=object)
+# for elem in Crystal("/home/speno/AC4DC/scripts/scattering/5zck.pdb",["C_fast"]).parse_symmetry_from_pdb():
+#     print("","Symmetry operation:\n",np.c_[elem[0], print_thing ,elem[1]],sep="") 
+Crystal("/home/speno/AC4DC/scripts/scattering/5zck.pdb",["C_fast"],include_symmetries=True)
 #%%
 # https://stackoverflow.com/questions/7404116/defining-the-midpoint-of-a-colormap-in-matplotlib
 from mpl_toolkits.axes_grid1 import AxesGrid
@@ -1768,7 +1772,7 @@ crystal.set_cell_dim(4.813 ,  17.151 ,  29.564)
 crystal.add_symmetry(np.array([-1, -1,1]),np.array([0.5,0,0.5]))  #2555
 crystal.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0.5]))  #3555
 crystal.add_symmetry(np.array([1, -1,-1]),np.array([0.5,0.5,0]))  #4555
-crystal.plot_me_and_pray()
+crystal.plot_me()
 
 #%%
 crystal_undmged = copy.deepcopy(crystal)
@@ -1923,7 +1927,7 @@ elif target == "hen":
     '''        
 
 
-crystal.plot_me_and_pray()
+crystal.plot_me()
 crystal_undmged = copy.deepcopy(crystal)
 crystal_undmged.is_damaged = False
 
