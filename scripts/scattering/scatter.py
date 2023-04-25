@@ -263,7 +263,6 @@ class Crystal():
                 i+=1
                 if i >= num_test_points:
                     break      
-        print("test_points.shape",test_points.shape)
         plot_coords = []
         for i in range(len(self.sym_rotations)):
             coord_list = self.get_sym_xfmed_point(test_points,i).tolist()
@@ -284,10 +283,19 @@ class Crystal():
         #     a, unique_indices = np.apply_along_axis(np.unique,1,plot_coords,return_index=True)
         #     print(len(np.delete(plot_coords, unique_indices)), "non-unique coords found:")
         #     print(np.delete(plot_coords, unique_indices))
+        coord_errors = 0  
         for i, coord in enumerate(plot_coords):
             for j, coord2 in enumerate(plot_coords):
                 if coord[0] == coord2[0] and coord[1] == coord2[1]  and coord[2] == coord2[2]  and i!=j:
-                    print("error duplicate coord found:",coord)
+                    if coord_errors < 50:
+                        print("error duplicate coord found:",coord)
+                    
+                    coord_errors += 1
+        if coord_errors >=50:
+            print("----------")
+            print(coord_errors - 49,"more duplicate coord errors suppressed")
+            print("----------")
+                        
         #color[color!='y'] = '#0f0f0f00'   # example to see just one atom type
         print("---")
         print("x_min/max:",np.min(plot_coords[:,0]),np.max(plot_coords[:,0]))
@@ -844,7 +852,7 @@ class XFEL():
 
         def get_G(miller_indices,cartesian=True):
             '''
-            Get G in global cartesian coordinates (crystal axes not implemented),
+            Get G in global cartesian coordinates (crystal/zone axes not implemented),
             where G = G[0]x + G[1]y + G[2]z
             '''       #TODO vectorise somehow      
             G = np.zeros(miller_indices.shape)
@@ -910,7 +918,8 @@ class XFEL():
 
         # Set G, and retrieve the cardan angles used (in case of random orientations)
         G_temp, cardan_angles = get_G(indices) 
-        random_orientation = False # Only do random orientations once
+        # If we used a random orientation, we now lock in the orientations just generated and contained in cardan_angles.
+        random_orientation = False 
 
         if self.max_triple_miller_idx != None:
             m = self.max_triple_miller_idx
@@ -958,7 +967,8 @@ class XFEL():
         if G_idx_first:
             G = np.swapaxes(G,len(G.shape)-2,len(G.shape)-1)
 
-
+        if type(random) != bool:
+            raise Exception("random_orientation must be boolean")
         if random == True:
             alpha = np.random.random_sample()*2*np.pi
             beta = np.random.random_sample()*2*np.pi
@@ -1568,7 +1578,7 @@ import pandas as pd
 import csv
 def create_reflection_file(result_handle,overwrite=False):
     print("Creating reflection file for",result_handle)
-    directory = "reflections/"    
+    directory = "reflections/"
     results_dir = "results/"+ result_handle+"/"
     os.makedirs(directory, exist_ok=True) 
     results_dir = "results/"+result_handle+"/"
@@ -1710,13 +1720,12 @@ def res_to_q(d):
 # have max q, that matches neutze
 # implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector (or just do SPI)
 
+
 #  #TODO make this nicer and pop in a function 
 DEBUG = False
 
-
-
 target_options = ["neutze","hen","tetra"]
-#---------------------------------#
+#------------User params------------------#
 
 target = "hen" #target_options[2]
 top_resolution = 2
@@ -1724,9 +1733,9 @@ bottom_resolution = None#30
 
 
 #### XFEL params
-tag = "v31" # Non-SPI i.e. Crystal only, Tag to add to distinguish different experiments on same target. Reflections saved in directory named root +tag named according to orientation .
+tag = "" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
 #TODO make it so reflections don't overwrite same orientation, as stochastic now.
-random_orientation = True, # if true, overrides orientation_set
+random_orientation = True # if true, overrides orientation_set with random orientations (only affects non-SPI)
 energy = 6000 # eV
 exp_qwargs = dict(
     detector_distance_mm = 100,
@@ -1749,7 +1758,7 @@ exp_qwargs = dict(
 
 ##### Crystal params
 crystal_qwargs = dict(
-    cell_scale = 1,  # for SC: cell_scale^3 unit cells 
+    cell_scale = 2,  # for SC: cell_scale^3 unit cells 
     include_symmetries = True,
     cell_packing = "SC",
     rocking_angle = 0.3,  # (approximating mosaicity)
@@ -1765,11 +1774,39 @@ laser_firing_qwargs = dict(
 )
 
 #orientations
-num_orients = 1
+num_orients = 5
 # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.
 ax_x = 1
 ax_y = 1
 ax_z = 0
+
+
+#-------------Optional: Choose previous folder for crystal results----------------------------#
+chosen_root_handle = None # None for new. Else use "tetra_v1", if want to add images under same params to same results.
+#---------------------------Result handle names---------------------------#
+exp1_qualifier = "_real"
+exp2_qualifier = "_ideal"
+if chosen_root_handle is None:
+    version_number = 1
+    count = 0
+    while True:
+        if tag != "":
+            tag = "_" + tag
+        if count > 99:
+            raise Exception("could not find valid file in " + str(count) + " loops")
+        results_dir = "results/" # needs to be synced with other functions
+        root_handle = str(target) + tag + "_v" + str(version_number)
+        exp_name1 = root_handle + "_" + exp1_qualifier + "real"
+        exp_name2 = root_handle + "_" + exp2_qualifier + "ideal"    
+        if os.path.exists(os.path.dirname(results_dir + exp_name1 + "/")) or os.path.exists(os.path.dirname(results_dir + exp_name2 + "/")):
+            version_number+=1
+            count+=1
+            continue 
+        break
+else:
+    exp_name1 = chosen_root_handle + "_" + exp1_qualifier + "real"
+    exp_name2 = chosen_root_handle + "_" + exp2_qualifier + "ideal"  
+    
 #----------orientation thing that needs to be to XFEL class (TODO)-----------------------#
 
 if ax_x == ax_y == ax_z and ax_z == 0 and random_orientation == False:
@@ -1781,7 +1818,6 @@ orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_
 print("ori set if not random:", orientation_set)  #TODO double check shows when random and if so disable when random
 #---------------------------------#
 if target == "neutze": #T4 virus lys
-    root = "neutze_lys"
     pdb_path = "/home/speno/AC4DC/scripts/scattering/2lzm.pdb"
     cell_dim = np.array((61.200 ,  61.200 ,  61.2))#TODO should read this automatically...
     target_handle = "D_lys_neutze_simple_7"  
@@ -1789,7 +1825,6 @@ if target == "neutze": #T4 virus lys
     allowed_atoms_2 = ["N_fast","S_fast"]      
     CNO_to_N = True
 elif target == "hen": # egg white lys
-    root = "hen_lys"
     pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb"
     cell_dim = np.array((79.000  , 79.000  , 38.000))
     target_handle = "D_lys_neutze_simple_7"  
@@ -1797,7 +1832,6 @@ elif target == "hen": # egg white lys
     allowed_atoms_2 = ["N_fast","S_fast"]      
     CNO_to_N = True
 elif target == "tetra": 
-    root = "tetra"
     pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb" 
     cell_dim = np.array((4.813 ,  17.151 ,  29.564))
     target_handle = "carbon_gauss_32"
@@ -1806,9 +1840,6 @@ elif target == "tetra":
     CNO_to_N = False
 else:
     raise Exception("'target' invalid")
-exp_name1 = str(root) + "1_" + str(tag)
-exp_name2 = str(root) + "2_" + str(tag)
-
 #-------------------------------#
 
 # Set up experiments
@@ -1819,16 +1850,16 @@ experiment2 = XFEL(exp_name2,energy,orientation_set = orientation_set,**exp_qwar
 crystal = Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=True,CNO_to_N = CNO_to_N, **crystal_qwargs)
 crystal_undmged = Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
 crystal.plot_me()
-#%%
+
 ##%%
 if laser_firing_qwargs["SPI"]:
-    SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,crystal, **laser_firing_qwargs)
-    SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,crystal_undmged, **laser_firing_qwargs)
+    SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,crystal, random_orientation = random_orientation, **laser_firing_qwargs)
+    SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,crystal_undmged, random_orientation = False, **laser_firing_qwargs)
     stylin(SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
 else:
     exp1_orientations = experiment1.spooky_laser(start_time,end_time,target_handle,crystal, random_orientation = random_orientation, **laser_firing_qwargs)
     create_reflection_file(exp_name1)
-    experiment2.orientation_set = exp1_orientations
+    experiment2.orientation_set = exp1_orientations  # pass in orientations to next sim, random_orientation must be false so not overridden!
     experiment2.spooky_laser(start_time,end_time,target_handle,crystal_undmged, random_orientation = False, **laser_firing_qwargs)
     stylin()
 #%%
