@@ -243,17 +243,23 @@ class Crystal():
         # Transpose because we've stored the vectors in the 0th axis. 
         return (self.sym_rotations[i] @ R.T).T+ self.sym_translations[i]  # dim = [xyz,xyz] x [xyz,N] or dim = [xyz,xyz] x [xyz,1]
             
-    def plot_me(self):
+    def plot_me(self,max_points = 500):
         '''
         plots the symmetry points. Origin is the centre of the base asymmetric unit (not the centre of a unit cell).
         '''
         plt.close()
         fig = plt.figure(figsize=(4,4))
         ax = fig.add_subplot(111, projection='3d')
-        num_test_points = 50
-        test_points = np.empty((num_test_points,3))
-
-        print("Generating plot of sample of at most",num_test_points,"atoms from asymmetric unit")
+        num_test_points = int(max_points/(self.num_cells*len(self.sym_translations)))
+        num_atoms_avail = 0
+        for species in self.species_dict.values():
+             num_atoms_avail += len(species.coords)
+                 
+        test_points = np.empty((min(num_atoms_avail,num_test_points),3))
+        qualifier = "sample of"
+        if num_atoms_avail == len(test_points):
+            qualifier = "all" 
+        print("Generating plot with",qualifier,len(test_points),"atoms per asymmetric unit")
         i = 0
         for species in self.species_dict.values():
             if i >= num_test_points:
@@ -302,7 +308,6 @@ class Crystal():
         print("y_min/max:",np.min(plot_coords[:,1]),np.max(plot_coords[:,1]))
         print("z_min/max:",np.min(plot_coords[:,2]),np.max(plot_coords[:,2]))
         print("---")
-        print(plot_coords[:,0])
         ax.scatter(plot_coords[:,0],plot_coords[:,1],plot_coords[:,2],c=color)
         ax.set_xlabel('x [$\AA$]')
         ax.set_ylabel('y [$\AA$]')
@@ -590,9 +595,16 @@ class XFEL():
                     self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))      
                     self.y_rotation += 2*np.pi/self.y_orientations              
                     result.I += self.generate_cell_intensity(q_grid,result.xy)
+                    #mask = (q_grid < self.min_q) + (q_grid > self.max_q)
+                    #mask = np.zeros(q_grid.shape,dtype=bool)
+                    #mask[q_grid < self.min_q] = True; mask[q_grid > self.max_q] = True
+
                     mask = q_grid
                     mask[mask < self.min_q] = 0; mask[mask > self.max_q] = 0
                     mask[mask != 0] = 1
+
+                    #print("MASK",mask)
+                    #result.I[mask == 0] = None
                     result.I*=mask
                 self.x_rotation += 2*np.pi/self.x_orientations             
             # convert to angstrom
@@ -735,10 +747,11 @@ class XFEL():
             F_shape += (self.t_fineness,)# [?phis?,times]
             if type(feature.q) is np.ndarray:
                 F_shape += feature.q.shape          # [?phis?,times,feature.q.shape]
-        
+                
+        # Technically sum of F(t)*sqrt(J(t)), where F = sum(f(q,t)*T(q)), and J(t) is the incident intensity, thus accounting for the pulse profile.
         F_sum = np.zeros(F_shape,dtype="complex_")  
         for species in self.target.species_dict.values():
-            print("Working through species",species.name)
+            print("Getting contribution to integrand from species",species.name)
             if not np.array_equal(times_used,species.times_used):
                 raise Exception("Times used don't match between species.")        
             # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
@@ -757,28 +770,30 @@ class XFEL():
                         else:
                             T= self.interference_factor(coord,feature,cardan_angles)   # if grid: [phis,qx,qy]  if ring: [phis,q] (unimplemented)
                             #T = np.expand_dims(T,0)                  
-                        f = species.get_stochastic_f(atm_idx, feature.q)  
+                        f = species.get_stochastic_f(atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells.
                         #print(F_sum.shape,T.shape,f.shape) 
                         if SPI: 
                             if type(feature) is self.Cell:
-                                F_sum += T[None,...]*f          
+                                F_sum += T[None,...]*f           
                             if type(feature) is self.Ring:           
-                                F_sum += T[:,None] * f[None,...]        # [?phis?,momenta,None]X[None,times, feature.q.shape]  -> [?phis?,times,feature.q.shape] if q is an array
+                                F_sum += T[:,None] * f[None,...]       # [?phis?,momenta,None]X[None,times, feature.q.shape]  -> [?phis?,times,feature.q.shape] if q is an array
                         else:
-                            F_sum += T[None,:] * f                            # [None,num_G]X[times,num_G]  ->[times,num_G] 
+                            F_sum += T[None,:] * f                         # [None,num_G]X[times,num_G]  ->[times,num_G] 
         if (times_used[-1] == times_used[0]):   
             raise Exception("Intensity array's final time equals its initial time") #I =  np.square(np.abs(F_sum[:,0]))  # 
         else:
             time_axis = 0
             if type(feature) is self.Ring:
                 time_axis = 1
-            I = np.trapz(np.square(np.abs(F_sum)),times_used,axis = time_axis) / (times_used[-1]-times_used[0])         #[num_G] for points, or for SPI: [phis,feature.q.shape], corresponding to rings or square grid
+            I = np.trapz(np.square(np.abs(F_sum)),times_used,axis = time_axis) / (times_used[-1]-times_used[0])       #[num_G] for points, or for SPI: [phis,feature.q.shape], corresponding to rings or square grid
         
         # For unpolarised light (as used by Neutze 2000). (1/2)r_e^2(1+cos^2(theta)) is thomson scattering - recovering the correct equation for a lone electron, where |f|^2 = 1 by definition.    
         thet = self.q_to_theta(feature.q)
         r_e_sqr = 2.83570628e-9        
         I*= r_e_sqr*(1/2)*(1+np.square(np.cos(2*thet)))
         
+        print("Total screen-incident intensity = ","{:e}".format(np.sum(I)))
+
         if SPI:
             # For crystal we can approximate infinitely small pixels and just consider bragg points. (i.e. The intensity will be the same so long as the pixel isn't covering multiple points.)
             # But for SPI need to take the pixel's size into account. Neutze 2000 makes the following approximation:
@@ -1072,6 +1087,7 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
         Must have same orientations.
     
     '''
+    print("=====================Plotting===========================")
     mpl.rcParams['text.color'] = "blue"
     mpl.rcParams['axes.labelcolor'] = "blue"
     mpl.rcParams['xtick.color'] = "black"
@@ -1393,6 +1409,7 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 print("Regular R:")
                 R = np.sum(np.abs((sqrt_real - sqrt_ideal)))/np.sum(sqrt_ideal)
                 print(R)
+                print("sum of real","{:e}".format(np.sum(sqrt_real)),"sum of ideal","{:e}".format(np.sum(sqrt_ideal)),"sum of abs difference","{:e}".format(np.sum(np.abs((sqrt_real - sqrt_ideal)))))
                 #neutze_histogram = np.histogram2d(phi, radial_axis, weights=R, bins=(np.array([-np.pi,np.pi]), radial_edges))[0]             
                 #plot_sectors(neutze_histogram)
     
@@ -1401,29 +1418,49 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
         result1 = SPI_result1
         result2 = SPI_result2        
         ## Square grid
-        print(type(result1))
         if len(result1.I.shape) > 1:#if type(result1) == Results_Grid:
             if log_I: 
                 z1 = np.log(result1.I)
+                z1[result1.I == 0] = None
                 if result2 != None:
                     z2 = np.log(result2.I)
+                    z2[result2.I == 0] = None
             else:
-                z1 = result1.I        
+                #TODO fix up this masked stuff i didnt finish 
+                # z1 -= cutoff_log_intensity
+                # z1[z1<0] = 0
+                z1 = result1.I.copy()        
                 if result2 != None:
-                    z2 = result2.I        
+                    #z2 -= cutoff_log_intensity
+                    #z2[z2<0] = 0
+                    z2 = result2.I.copy()        
             if log_I and cutoff_log_intensity != None:
-                z1 -= cutoff_log_intensity
-                z1[z1<0] = 0
+                np.ma.array(z1, mask=(z1<cutoff_log_intensity)*(np.isnan(z2)))
                 if result2 != None:
-                    z2 -= cutoff_log_intensity
-                    z2[z2<0] = 0
-                pass            
+                    z2 = np.ma.array(z2, mask=(z2<cutoff_log_intensity)*(np.isnan(z2)))
+            else:
+                z1 = np.ma.array(z1,mask = np.isnan(z1))
+                z2 = np.ma.array(z2,mask = np.isnan(z2)) 
+            print(z1)
+            print(z2)       
             print("Result 1 (Damaged):")
-            plt.imshow(z1)
+            print("Total screen-incident intensity:","{:e}".format(np.sum(result1.I)))
+            if result2 != None:
+                combined_data = np.array([z1,z2])
+            else: 
+                combined_data = z1
+            z_min, z_max = np.nanmin(combined_data), np.nanmax(combined_data)   
+            print("HEYHEY",z_min,z_max)         
+            current_cmap = plt.colormaps.get_cmap("viridis")
+            current_cmap.set_bad(color='black')
+            z1_map = plt.imshow(z1,vmin=z_min,vmax=z_max,cmap=current_cmap)
+            plt.colorbar(z1_map)
             plt.show()
             if result2 != None:
-                print("Result 2 (Undamaged)")
-                plt.imshow(z2)
+                print("Result 2 (Undamaged):")
+                print("Total screen-incident intensity:","{:e}".format(np.sum(result2.I)))
+                z2_map = plt.imshow(z2,vmin=z_min,vmax=z_max,cmap=current_cmap)
+                plt.colorbar(z2_map)
                 plt.show()
                 print("Neutze R: ")
                 sqrt_real = np.sqrt(result1.I)
@@ -1442,11 +1479,12 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 plt.show()
 
                 print("Regular R:")
-                A = np.abs((sqrt_real - sqrt_ideal))
+                A = np.abs(sqrt_real - sqrt_ideal)
                 R_num = np.sum(A)
-                R_den = np.sum((sqrt_ideal))
+                R_den = np.sum(sqrt_ideal)
                 R = R_num/R_den                
-                print(R)          
+                print(R)   
+                print("sum of real","{:e}".format(np.sum(sqrt_real)),"sum of ideal","{:e}".format(np.sum(sqrt_ideal)),"sum of abs difference","{:e}".format(R_num))       
         ## Circle grid
         else:
             if log_I: 
@@ -1692,10 +1730,10 @@ def stylin(SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None):
         use_q = True
         log_radial = False
         log_I = True
-        cutoff_log_intensity = None 
+        cutoff_log_intensity = None # -1 or None
         cmap = "PiYG_r"# "plasma"
         radial_lim = SPI_max_q
-        scatter_scatter_plot(SPI_result1=SPI_result1,SPI_result2=SPI_result2,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+        scatter_scatter_plot(log_I = log_I, cutoff_log_intensity = cutoff_log_intensity, SPI_result1=SPI_result1,SPI_result2=SPI_result2,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap)
 
     #NEED TO CHECK. We have a 1:1 mapping from q to q_parr, but with our miller indices we are generating multiple q_parr with diff q.
     # So we SHOULD get the same q_parr with different q_z. Which makes sense since we are just doing cosine. But still icky maybe?
@@ -1725,7 +1763,7 @@ def res_to_q(d):
 DEBUG = False
 
 target_options = ["neutze","hen","tetra"]
-#------------User params------------------#
+#============------------User params---------==========#
 
 target = "hen" #target_options[2]
 top_resolution = 2
@@ -1758,7 +1796,7 @@ exp_qwargs = dict(
 
 ##### Crystal params
 crystal_qwargs = dict(
-    cell_scale = 2,  # for SC: cell_scale^3 unit cells 
+    cell_scale = 1,  # for SC: cell_scale^3 unit cells 
     include_symmetries = True,
     cell_packing = "SC",
     rocking_angle = 0.3,  # (approximating mosaicity)
@@ -1766,11 +1804,11 @@ crystal_qwargs = dict(
     #CNO_to_N = True,   # whether the laser simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
 )
 #### Individual experiment arguments 
-start_time = -10
-end_time = 10 #0#-9.80    
+start_time = -6
+end_time = 2.8#10 #0#-9.80    
 laser_firing_qwargs = dict(
-    SPI = False,
-    pixels_across = 100,
+    SPI = True,
+    pixels_across = 100,  # shld go on xfel params.
 )
 
 #orientations
@@ -1781,8 +1819,10 @@ ax_y = 1
 ax_z = 0
 
 
-#-------------Optional: Choose previous folder for crystal results----------------------------#
+# Optional: Choose previous folder for crystal results
 chosen_root_handle = None # None for new. Else use "tetra_v1", if want to add images under same params to same results.
+#=========================-------------------------===========================#
+
 #---------------------------Result handle names---------------------------#
 exp1_qualifier = "_real"
 exp2_qualifier = "_ideal"
@@ -1848,9 +1888,10 @@ experiment2 = XFEL(exp_name2,energy,orientation_set = orientation_set,**exp_qwar
 # Create Crystals
 
 crystal = Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=True,CNO_to_N = CNO_to_N, **crystal_qwargs)
+# The undamaged crystal uses the initial state but still performs the same integration step with the pulse profile weighting.
 crystal_undmged = Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
-crystal.plot_me()
-
+crystal.plot_me(500)
+#%%
 ##%%
 if laser_firing_qwargs["SPI"]:
     SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,crystal, random_orientation = random_orientation, **laser_firing_qwargs)
@@ -1863,8 +1904,8 @@ else:
     experiment2.spooky_laser(start_time,end_time,target_handle,crystal_undmged, random_orientation = False, **laser_firing_qwargs)
     stylin()
 #%%
-if laser_firing_qwargs.SPI:
-    stylin(SPI=True,SPI_max_q = q_cutoff,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
+if laser_firing_qwargs["SPI"]:
+    stylin(SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
 else:
     stylin()
 #^^^^^^^
