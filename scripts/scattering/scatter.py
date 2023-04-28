@@ -92,7 +92,7 @@ class Results_Grid():
     pass    
 
 class Crystal():
-    def __init__(self, pdb_fpath, allowed_atoms, cell_dim, is_damaged=True, include_symmetries = True, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True,cell_scale = 1):
+    def __init__(self, pdb_fpath, allowed_atoms, cell_dim, positional_stdv = 0, is_damaged=True, include_symmetries = True, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True,cell_scale = 1):
         '''
         rocking_angle [degrees]
         cell_packing ("SC","BCC","FCC","FCC-D")
@@ -104,6 +104,7 @@ class Crystal():
         self.is_damaged = is_damaged
         self.cell_scale = cell_scale  # TODO allow for non-cubic crystals and non SC cell packing.
         self.pdb_fpath = pdb_fpath
+        self.positional_stdv = positional_stdv/ang_per_bohr # RMS error in coord positions, SPI sim only.
         
         # Symmetry for each asymmetric unit simulated. If non-SPI, this is defining the supercell.
         self.sym_rotations = []; self.sym_translations = []; 
@@ -163,7 +164,11 @@ class Crystal():
         if ac4dc_atoms_ignored != "":
             print("The following atoms were allowed but not found:",ac4dc_atoms_ignored)
 
+        for species in species_dict.values():
+            species.set_coord_deviation()
         self.species_dict = species_dict 
+
+
     def set_ff_calculator(self,ff_calculator):
         self.ff_calculator = ff_calculator                  
     
@@ -241,21 +246,22 @@ class Crystal():
         '''
         i = symmetry_index
         # Transpose because we've stored the vectors in the 0th axis. 
-        return (self.sym_rotations[i] @ R.T).T+ self.sym_translations[i]  # dim = [xyz,xyz] x [xyz,N] or dim = [xyz,xyz] x [xyz,1]
+        return (self.sym_rotations[i] @ R.T).T+ self.sym_translations[i]   # dim = [xyz,xyz] x [xyz,N] or dim = [xyz,xyz] x [xyz,1]
             
     def plot_me(self,max_points = 500):
         '''
         plots the symmetry points. Origin is the centre of the base asymmetric unit (not the centre of a unit cell).
+        RMS error in positions ('positional_stdv') is not accounted for
         '''
         plt.close()
         fig = plt.figure(figsize=(4,4))
         ax = fig.add_subplot(111, projection='3d')
-        num_test_points = int(max_points/(self.num_cells*len(self.sym_translations)))
         num_atoms_avail = 0
         for species in self.species_dict.values():
              num_atoms_avail += len(species.coords)
-                 
-        test_points = np.empty((min(num_atoms_avail,num_test_points),3))
+        num_test_points = max(1,int(max_points/(self.num_cells*len(self.sym_translations))))
+        num_test_points = min(num_atoms_avail,num_test_points)         
+        test_points = np.empty((num_test_points,3))
         qualifier = "sample of"
         if num_atoms_avail == len(test_points):
             qualifier = "all" 
@@ -338,12 +344,23 @@ class Atomic_Species():
         by a call to the data of the atomic nuclei's states.
         '''
         self.times_used = self.crystal.ff_calculator.f_undamaged(0,self.name)[1]
+        if self.num_atoms != len(self.crystal.sym_rotations)*len(self.coords):
+            raise Exception("num atoms was not same on set_stochastic_states call as when set by set_coord_deviation")
         if self.crystal.is_damaged:
             # Initialise an array that tracks the individual atoms' form factors.
-            self.num_atoms = len(crystal.sym_rotations)*len(self.coords)
             self.orb_occs= np.empty(self.num_atoms,dtype = object)    # self.orb_occs[i] is an array of states corresponding to each time. We make the dubious but necessary approximation that an atom's state is independent of its prior states.  
             for idx in range(self.num_atoms):
                 self.orb_occs[idx] = self.crystal.ff_calculator.random_state_snapshots(self.name)[0] 
+    def set_coord_deviation(self):
+        self.num_atoms = len(self.crystal.sym_rotations)*len(self.coords)
+        self.error = np.empty((self.num_atoms,3))
+        for idx in range(self.num_atoms):
+            # get random error in spherical coords based on RMS error in position, convert to cartesian.
+            # there's probably a better way to do it
+            err_phi,err_thet = np.random.random()*2*np.pi, np.random.random()*np.pi
+            err_r = np.random.normal(0,self.crystal.positional_stdv, size = (3))
+            self.error[idx] = err_r*(np.sin(err_phi)*np.cos(err_thet),np.sin(err_phi)*np.cos(err_thet),np.cos(err_thet))
+
 
     def get_stochastic_f(atom_idx,q_arr):
         '''
@@ -460,7 +477,7 @@ class XFEL():
         ff_calculator = self.get_ff_calculator(start_time,end_time,damage_output_handle)     
         target.set_ff_calculator(ff_calculator)
         for species in target.species_dict.values():
-            species.set_stochastic_states()        
+            species.set_stochastic_states()      
         self.target = target
 
         
@@ -751,6 +768,7 @@ class XFEL():
         # Technically sum of F(t)*sqrt(J(t)), where F = sum(f(q,t)*T(q)), and J(t) is the incident intensity, thus accounting for the pulse profile.
         F_sum = np.zeros(F_shape,dtype="complex_")  
         for species in self.target.species_dict.values():
+            print("------------------------------------------------------------")
             print("Getting contribution to integrand from species",species.name)
             if not np.array_equal(times_used,species.times_used):
                 raise Exception("Times used don't match between species.")        
@@ -766,7 +784,7 @@ class XFEL():
                         coord = self.target.get_sym_xfmed_point(R.get_array(),s)  # TODO R should work vectorised now
                         # Get spatial factor T
                         if SPI:
-                            T = self.SPI_interference_factor(phis,coord,feature)  #[num_G]
+                            T = self.SPI_interference_factor(phis,coord+species.error[atm_idx],feature)  #[num_G]
                         else:
                             T= self.interference_factor(coord,feature,cardan_angles)   # if grid: [phis,qx,qy]  if ring: [phis,q] (unimplemented)
                             #T = np.expand_dims(T,0)                  
@@ -838,7 +856,9 @@ class XFEL():
         return T
 
     def SPI_interference_factor(self,phi_array,coord,feature):  #TODO refactor SPI features so can just use above (allows for realignment)
-        """ theta = scattering angle relative to z-y plane """ 
+        """ theta = scattering angle relative to z-y plane 
+        
+        """ 
         q_z = np.multiply(feature.q,np.sin(feature.theta))                          # dim = [qX,qY] for square screen with cell coords given by X,Y 
         # phi is angle of vector relative to x-y plane, pointing from screen centre to point of incidence. 
         # TODO need to get working with rings again since they were designed to have multi phi for each q. Here it is 1:1
@@ -850,8 +870,7 @@ class XFEL():
         #print("====="); print(phi_array);print("-----");print(q_z.shape,q_y.shape,q_x.shape)   
         q_vect = np.array([q_x,q_y,q_z])
         q_vect = np.moveaxis(q_vect,0,len(q_vect.shape)-1)    # dim = [qX,qX,3]
-        
-        q_dot_r = np.apply_along_axis(np.dot,len(q_vect.shape)-1,q_vect,coord) # dim = [phis,qX,qY]       q_dot_r = np.tensordot(q_vect,coord,axes=len(q_vect.shape)-1)
+        q_dot_r = np.apply_along_axis(np.dot,len(q_vect.shape)-1,q_vect, coord) # dim = [phis,qX,qY]       q_dot_r = np.tensordot(q_vect,coord,axes=len(q_vect.shape)-1)
         if type(feature.q) == np.ndarray and q_dot_r.shape != feature.q.shape:
             raise Exception("Unexpected q_dot_r shape.",q_dot_r.shape)
         T = np.exp(-1j*q_dot_r)   
@@ -1449,8 +1468,7 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 combined_data = np.array([z1,z2])
             else: 
                 combined_data = z1
-            z_min, z_max = np.nanmin(combined_data), np.nanmax(combined_data)   
-            print("HEYHEY",z_min,z_max)         
+            z_min, z_max = np.nanmin(combined_data), np.nanmax(combined_data)       
             current_cmap = plt.colormaps.get_cmap("viridis")
             current_cmap.set_bad(color='black')
             z1_map = plt.imshow(z1,vmin=z_min,vmax=z_max,cmap=current_cmap)
@@ -1769,6 +1787,23 @@ target = "hen" #target_options[2]
 top_resolution = 2
 bottom_resolution = None#30
 
+#### Individual experiment arguments 
+start_time = -6
+end_time = 2.8#10 #0#-9.80    
+laser_firing_qwargs = dict(
+    SPI = True,
+    pixels_across = 100,  # shld go on xfel params.
+)
+##### Crystal params
+crystal_qwargs = dict(
+    cell_scale = 2,  # for SC: cell_scale^3 unit cells 
+    positional_stdv = 0.2, # RMS in atomic coord position [angstrom]
+    include_symmetries = True,  # should unit cell contain symmetries?
+    cell_packing = "SC",
+    rocking_angle = 0.3,  # (approximating mosaicity)
+    orbitals_as_shells = True,
+    #CNO_to_N = True,   # whether the laser simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
+)
 
 #### XFEL params
 tag = "" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
@@ -1792,23 +1827,6 @@ exp_qwargs = dict(
     SPI_z_rotation = 0,
     ######
     
-)
-
-##### Crystal params
-crystal_qwargs = dict(
-    cell_scale = 1,  # for SC: cell_scale^3 unit cells 
-    include_symmetries = True,
-    cell_packing = "SC",
-    rocking_angle = 0.3,  # (approximating mosaicity)
-    orbitals_as_shells = True,
-    #CNO_to_N = True,   # whether the laser simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
-)
-#### Individual experiment arguments 
-start_time = -6
-end_time = 2.8#10 #0#-9.80    
-laser_firing_qwargs = dict(
-    SPI = True,
-    pixels_across = 100,  # shld go on xfel params.
 )
 
 #orientations
@@ -1862,21 +1880,21 @@ if target == "neutze": #T4 virus lys
     cell_dim = np.array((61.200 ,  61.200 ,  61.2))#TODO should read this automatically...
     target_handle = "D_lys_neutze_simple_7"  
     allowed_atoms_1 = ["N_fast","S_fast"]
-    allowed_atoms_2 = ["N_fast","S_fast"]      
+    #allowed_atoms_2 = ["N_fast","S_fast"]      
     CNO_to_N = True
 elif target == "hen": # egg white lys
     pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb"
     cell_dim = np.array((79.000  , 79.000  , 38.000))
     target_handle = "D_lys_neutze_simple_7"  
     allowed_atoms_1 = ["N_fast","S_fast"]
-    allowed_atoms_2 = ["N_fast","S_fast"]      
+    #allowed_atoms_2 = ["N_fast","S_fast"]      
     CNO_to_N = True
 elif target == "tetra": 
     pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb" 
     cell_dim = np.array((4.813 ,  17.151 ,  29.564))
     target_handle = "carbon_gauss_32"
     allowed_atoms_1 = ["C_fast"]
-    allowed_atoms_2 = ["C_fast"]      
+    #allowed_atoms_2 = ["C_fast"]      
     CNO_to_N = False
 else:
     raise Exception("'target' invalid")
@@ -1889,10 +1907,11 @@ experiment2 = XFEL(exp_name2,energy,orientation_set = orientation_set,**exp_qwar
 
 crystal = Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=True,CNO_to_N = CNO_to_N, **crystal_qwargs)
 # The undamaged crystal uses the initial state but still performs the same integration step with the pulse profile weighting.
-crystal_undmged = Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
-crystal.plot_me(500)
-#%%
-##%%
+# we copy the other crystal so that it has the same deviations in coords
+crystal_undmged = copy.deepcopy(crystal)#Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
+crystal_undmged.is_damaged = False
+crystal.plot_me(20000)
+
 if laser_firing_qwargs["SPI"]:
     SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,crystal, random_orientation = random_orientation, **laser_firing_qwargs)
     SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,crystal_undmged, random_orientation = False, **laser_firing_qwargs)
