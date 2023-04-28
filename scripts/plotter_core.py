@@ -1152,10 +1152,10 @@ class SlaterShielding:
         ff = 0
         if type(k) == np.ndarray:
             ff = np.zeros(k.shape)
-        norm = 1/atomic_density   # /self.Z # If perform the normalisation of division by Z ->  for no ionisation at q = 0, form factor = 1. (At t = 0, we have neutral config density = atomic density.)
+        norm = density/atomic_density   # /self.Z # If perform the normalisation of division by Z ->  for no ionisation at q = 0, form factor = 1. (At t = 0, we have neutral config density = atomic density.)
         for i in range(len(self.shell_occs)):  #TODO vectorise
             ff += self.get_shell_ff(k,i+1)*norm*self.shell_occs[i]
-        return ff * density
+        return ff
     #
     # def get_atomic_ff_but_now_its_spooky(self,k,density,atomic_density):
     #     # sample the density distribution to get a random

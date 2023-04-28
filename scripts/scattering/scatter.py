@@ -782,6 +782,7 @@ class XFEL():
                         R = R.left_multiply(self.y_rot_matrix)  
                         R = R.left_multiply(self.x_rot_matrix)   
                         coord = self.target.get_sym_xfmed_point(R.get_array(),s)  # TODO R should work vectorised now
+                        print("coord",coord)
                         # Get spatial factor T
                         if SPI:
                             T = self.SPI_interference_factor(phis,coord+species.error[atm_idx],feature)  #[num_G]
@@ -789,6 +790,7 @@ class XFEL():
                             T= self.interference_factor(coord,feature,cardan_angles)   # if grid: [phis,qx,qy]  if ring: [phis,q] (unimplemented)
                             #T = np.expand_dims(T,0)                  
                         f = species.get_stochastic_f(atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells.
+                        print("f",f)
                         #print(F_sum.shape,T.shape,f.shape) 
                         if SPI: 
                             if type(feature) is self.Cell:
@@ -797,6 +799,7 @@ class XFEL():
                                 F_sum += T[:,None] * f[None,...]       # [?phis?,momenta,None]X[None,times, feature.q.shape]  -> [?phis?,times,feature.q.shape] if q is an array
                         else:
                             F_sum += T[None,:] * f                         # [None,num_G]X[times,num_G]  ->[times,num_G] 
+                print("s,F_sum",s,F_sum)
         if (times_used[-1] == times_used[0]):   
             raise Exception("Intensity array's final time equals its initial time") #I =  np.square(np.abs(F_sum[:,0]))  # 
         else:
@@ -874,7 +877,8 @@ class XFEL():
         if type(feature.q) == np.ndarray and q_dot_r.shape != feature.q.shape:
             raise Exception("Unexpected q_dot_r shape.",q_dot_r.shape)
         T = np.exp(-1j*q_dot_r)   
-        #print(T)
+        print("q dot r", q_dot_r)
+        print("T", T)
         return T   
     def bragg_points(self,crystal, cell_packing, cardan_angles,random_orientation=False):
         ''' 
@@ -1770,7 +1774,7 @@ def res_to_q(d):
 # log doesnt work atm.
 # Get the rings to correspond to actual rings
 
-#%% vvvvvvvvv
+##%% vvvvvvvvv
 ### Simulate
 #TODO
 # have max q, that matches neutze
@@ -1783,7 +1787,7 @@ DEBUG = False
 target_options = ["neutze","hen","tetra"]
 #============------------User params---------==========#
 
-target = "hen" #target_options[2]
+target = "tetra" #target_options[2]
 top_resolution = 2
 bottom_resolution = None#30
 
@@ -1792,12 +1796,12 @@ start_time = -6
 end_time = 2.8#10 #0#-9.80    
 laser_firing_qwargs = dict(
     SPI = True,
-    pixels_across = 100,  # shld go on xfel params.
+    pixels_across = 2,  # shld go on xfel params.
 )
 ##### Crystal params
 crystal_qwargs = dict(
-    cell_scale = 2,  # for SC: cell_scale^3 unit cells 
-    positional_stdv = 0.2, # RMS in atomic coord position [angstrom]
+    cell_scale = 1,  # for SC: cell_scale^3 unit cells 
+    positional_stdv = 0,#0.2, # RMS in atomic coord position [angstrom]
     include_symmetries = True,  # should unit cell contain symmetries?
     cell_packing = "SC",
     rocking_angle = 0.3,  # (approximating mosaicity)
