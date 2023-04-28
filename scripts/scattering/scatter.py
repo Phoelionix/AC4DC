@@ -333,7 +333,7 @@ class Atomic_Species():
         We do not store additional coordinates, instead storing the symmetries, and an array of atomic states corresponding to each atom, for each symmetry. (so num symmetries * num atoms added)
         '''           
 
-        self.coords.append(vector/ang_per_bohr)
+        self.coords.append(vector.get_array()/ang_per_bohr)
         
     def set_stochastic_states(self):
         '''
@@ -1799,7 +1799,7 @@ laser_firing_qwargs = dict(
 )
 ##### Crystal params
 crystal_qwargs = dict(
-    cell_scale = 2,  # for SC: cell_scale^3 unit cells 
+    cell_scale = 1,  # for SC: cell_scale^3 unit cells 
     positional_stdv = 0.2, # RMS in atomic coord position [angstrom]
     include_symmetries = True,  # should unit cell contain symmetries?
     cell_packing = "SC",

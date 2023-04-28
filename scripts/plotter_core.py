@@ -1171,40 +1171,61 @@ class SlaterShielding:
             lamb = self.Z - self.s[shell_num-1]
         lamb/=shell_num
         D = 4*lamb**2+np.power(k,2)
-        if shell_num == 1:            
+        if shell_num == 1:  
             return 16*lamb**4/np.power(D,2)
         if shell_num == 2:
             return 64*lamb**6*(4*lamb**2-np.power(k,2))/np.power(D,4)
         if shell_num == 3:
             return 128*lamb**7/6*(192*lamb**5-160*lamb**3*np.power(k,2)+12*lamb*np.power(k,4))/np.power(D,6)
         else:
-            print("ERROR! shell_ff")
+            raise Exception("ERROR! shell_ff")
         
     # Gets a single configuration's normalised form factor (* density for purpose of finding average). 
     def get_atomic_ff(self, k, atomic_density,density=None):
         if density == None:
             density = atomic_density
         ff = 0
-        iter_range = range(len(self.shell_occs)) 
+        num_subshells = len(self.shell_occs) 
         ff_shape = () 
         if type(self.shell_occs) == np.ndarray:
             ff_shape += (self.shell_occs.shape[0],)
-            iter_range = range(len(self.shell_occs[0])) 
+            num_subshells = len(self.shell_occs[0]) 
         if type(k) == np.ndarray:
             ff_shape += k.shape
         if ff_shape != ():
-            ff = np.empty(ff_shape)
-        norm = 1/atomic_density   # /self.Z # If perform the normalisation of division by Z ->  for no ionisation at q = 0, form factor = 1. (At t = 0, we have neutral config density = atomic density.)
-        for i in iter_range:  #TODO vectorise
-            ff += self.get_shell_ff(k,i+1)*norm
+            ff = np.zeros(ff_shape)
+        norm = density/atomic_density   # /self.Z # If perform the normalisation of division by Z ->  for no ionisation at q = 0, form factor = 1. (At t = 0, we have neutral config density = atomic density.)
+        # We calculate the form factor for each subshell, then we multiply by the corresponding subshell occupancies to get the form factor.
+        # Since each electron contributes at most 1 to the form factor (corresponding to free electron scattering), we use this fact to check for errors.
+        debug_old_ff = "0"
+        for i in range(num_subshells):  #TODO vectorise 
             if type(self.shell_occs) == np.ndarray:
-                ff*= self.shell_occs[:,i,None,None] 
+                ff += self.get_shell_ff(k,i+1)*norm * self.shell_occs[:,i,None,None]
+                print(ff)
             else: 
-                ff*= self.shell_occs[i]
-        return ff * density
-    #
-    # def get_atomic_ff_but_now_its_spooky(self,k,density,atomic_density):
-    #     # sample the density distribution to get a random
+                ff += self.get_shell_ff(k,i+1)*norm*self.shell_occs[i]
+            # check atomic ff is below Z.
+            atomic_ff = "{:e}".format(np.array(ff).flatten()[-1])
+            if np.array(ff).flatten()[-1] > self.Z:
+                shell_ff = "{:e}".format(np.array(self.get_shell_ff(k,i+1)).flatten()[-1])
+                if type(self.shell_occs[i]) == int:
+                    shell_occ = "{:e}".format(self.shell_occs[i])
+                else:
+                    shell_occ = str(np.array(self.shell_occs.astype(float)).reshape(-1,np.array(self.shell_occs.astype(float)).shape[-1])[-1][i])
+                raise Exception("Form factor (sample) of " + debug_old_ff + " + " + shell_ff + " x " + str(norm) + " x " + shell_occ + " = " + atomic_ff + " above atomic number " + str(self.Z))
+            debug_old_ff = atomic_ff
+        return ff
+
+    # def get_atomic_ff(self, k, atomic_density,density=None):
+    #     if density == None:
+    #         density = atomic_density
+    #     ff = 0
+    #     if type(k) == np.ndarray:
+    #         ff = np.zeros(k.shape)
+    #     norm = 1/atomic_density   # /self.Z # If perform the normalisation of division by Z ->  for no ionisation at q = 0, form factor = 1. (At t = 0, we have neutral config density = atomic density.)
+    #     for i in range(len(self.shell_occs)):  #TODO vectorise
+    #         ff += self.get_shell_ff(k,i+1)*norm*self.shell_occs[i]
+    #     return ff * density
     
 
 if __name__ == "__main__":
