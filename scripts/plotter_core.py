@@ -538,7 +538,7 @@ class Plotter:
             print("Error, used same times! Choose a different fineness or a larger range.")
             return None
         return orb_occs, times_used
-    
+        
     def random_states_to_f_snapshots(self,times_used,orb_occ_arr, q, atom):
         idx = np.searchsorted(self.timeData,times_used)  # SAME AS IN get_average_form_factor()
         if type(q) is np.ndarray:
@@ -563,11 +563,14 @@ class Plotter:
         if type(k) is np.ndarray:
             ff_shape += k.shape 
         ff = np.zeros(shape=ff_shape)
+        #temp: move time axis to front...
+        np.moveaxis(orb_occ_arr,1,0)
         for i, indiv_time in enumerate(time): #TODO vectorise
-            shielding = SlaterShielding(self.atomic_numbers[a],orb_occ_arr)              
+            shielding = SlaterShielding(self.atomic_numbers[a],orb_occ_arr[i])              
             #ff[:,j] = shielding.get_atomic_ff(k,atomic_density)  
             if type(orb_occ_arr) is np.ndarray:
-                ff[:,i] = shielding.get_atomic_ff(k,atomic_density)  # ff[i] = [f(t_i,q0),f(t_i,q1),...,f(t_i,qn)]
+                print(ff.shape,shielding.get_atomic_ff(k,atomic_density).shape)
+                ff[:,i] = shielding.get_atomic_ff(k,atomic_density)
             else:
                 ff[i] = shielding.get_atomic_ff(k,atomic_density)  # ff[i] = [f(t_i,q0),f(t_i,q1),...,f(t_i,qn)]
         return ff      
@@ -598,14 +601,18 @@ class Plotter:
                     print("WARNING, cumulative chance check failed (likely a floating point error if this only happened a few times)",atomic_density, self.boundData[a][idx[j], :])
                     orboccs[j] = parse_elecs_from_latex(states[i]) 
         # convert to an np array format, giving the occupancy at each subshell.
-        occ_list = [-99]*10
-        for orb, occ in orboccs[i].items():
-            l = int(orb[0]) - 1
-            if occ_list[l] == -99:
-                occ_list[l] = 0
-            occ_list[l] += occ
-        occ_list = np.array(occ_list[:len(occ_list)-occ_list.count(-99)])        
-        return occ_list,time_used
+        occ_arr = np.empty((len(time),len(orboccs[j])))   
+        for j, indiv_time in enumerate(time): 
+            occ_list = [-99]*10
+            for orb, occ in orboccs[j].items():
+                l = int(orb[0]) - 1
+                if occ_list[l] == -99:
+                    occ_list[l] = 0
+                occ_list[l] += occ
+            occ_arr[j] = np.array(occ_list[:len(occ_list)-occ_list.count(-99)]) 
+        print(occ_arr)
+        occ_arr = occ_arr.astype(int)       
+        return occ_arr,time_used
 
     
 
@@ -1135,13 +1142,15 @@ class SlaterShielding:
                             if n == 0:
                                 s_factor = 0.30
                             s += s_factor * max(0, N_e - 1)
+                            # tmp = N_e - 1; tmp[tmp < 0] = 0
+                            # s += s_factor * tmp
                         elif m == n - 1:
                             s += 0.85*N_e
                         else:
                             s += N_e           
                     self.s[i,n] = s
                     if s > self.Z:
-                        print("Warning, s =",self.s)                 
+                       print("Warning, s =",self.s)                 
 
         else:
             self.s = []
@@ -1200,7 +1209,8 @@ class SlaterShielding:
         debug_old_ff = "0"
         for i in range(num_subshells):  #TODO vectorise 
             if type(self.shell_occs) == np.ndarray:
-                ff += self.get_shell_ff(k,i+1)*norm * self.shell_occs[:,i,None,None]
+                print(self.get_shell_ff(k,i+1).shape,self.shell_occs.shape,"asadss")
+                ff += self.get_shell_ff(k,i+1)*norm * self.shell_occs[:,i,None,None]   # [atoms,state, qx,qy] [atoms,time,state]
             else: 
                 ff += self.get_shell_ff(k,i+1)*norm*self.shell_occs[i]
             # check atomic ff is below Z.

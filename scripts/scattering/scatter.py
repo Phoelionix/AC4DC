@@ -785,7 +785,6 @@ class XFEL():
                     coord = coord @ self.x_rot_matrix  
                     coord = coord @ self.y_rot_matrix
                     coord = coord @ self.z_rot_matrix
-                    print("coord",coord)
                     # Get spatial factor T
                     if SPI:
                         T = self.SPI_interference_factor(phis,coord,feature)  #[num_G]
@@ -875,13 +874,14 @@ class XFEL():
         #print("====="); print(phi_array);print("-----");print(q_z.shape,q_y.shape,q_x.shape)   
         q_vect = np.array([q_x,q_y,q_z])
         q_vect = np.moveaxis(q_vect,0,len(q_vect.shape)-1)    # dim = [qX,qX,3]
-        q_dot_r = np.apply_along_axis(np.dot,len(q_vect.shape)-1,q_vect,coord.T).T # dim = [phis,qX,qY]       q_dot_r = np.tensordot(q_vect,coord,axes=len(q_vect.shape)-1)
+        coord = np.moveaxis(coord,0,-1)
+        q_dot_r = np.apply_along_axis(np.matmul,len(q_vect.shape)-1,q_vect,coord) # dim = [phis,qX,qY]       q_dot_r = np.tensordot(q_vect,coord,axes=len(q_vect.shape)-1)
+        q_dot_r = np.moveaxis(q_dot_r,-1,0)
+        coord = np.moveaxis(coord,-1,0)
         if (type(feature.q) == np.ndarray): 
             if len(coord.shape) == 2 and q_dot_r.shape != (coord.shape[0],) + feature.q.shape or len(coord.shape) == 1 and q_dot_r.shape != feature.q.shape:
                 raise Exception("Unexpected q_dot_r shape.",q_dot_r.shape)
-        T = np.exp(-1j*q_dot_r)   
-        print("qdot_r",q_dot_r)
-        print("T",T)
+        T = np.exp(-1j*q_dot_r) 
         return T   
     def bragg_points(self,crystal, cell_packing, cardan_angles,random_orientation=False):
         ''' 
@@ -1929,6 +1929,12 @@ else:
     experiment2.orientation_set = exp1_orientations  # pass in orientations to next sim, random_orientation must be false so not overridden!
     experiment2.spooky_laser(start_time,end_time,target_handle,crystal_undmged, random_orientation = False, **laser_firing_qwargs)
     stylin()
+
+#%%
+orb_occs1, times_used = crystal.ff_calculator.random_state_snapshots("C_fast") 
+orb_occs2, times_used = crystal.ff_calculator.random_state_snapshots("C_fast") 
+twoatoms = np.array(orb_occs1,orb_occs2)
+crystal.ff_calculator.random_states_to_f_snapshots(times_used,twoatoms, 1, "C_fast")     
 #%%
 if laser_firing_qwargs["SPI"]:
     stylin(SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
