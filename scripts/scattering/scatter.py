@@ -791,7 +791,6 @@ class XFEL():
                     else:
                         T= self.interference_factor(coord,feature,cardan_angles)   # if grid: [phis,qx,qy]  if ring: [phis,q] (unimplemented)
                     f = species.get_stochastic_f(atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
-                    print("f",f)
                     #print(F_sum.shape,T.shape,f.shape) 
                     if SPI: 
                         if type(feature) is self.Cell:
@@ -800,7 +799,7 @@ class XFEL():
                             F_sum += np.sum(T[:,None] * f[None,...],axis=0)        # [?phis?,momenta,None]X[None,times, feature.q.shape]  -> [?phis?,times,feature.q.shape] if q is an array
                     else:
                         F_sum += np.sum(T[None,:] * f)                           # [None,num_G]X[times,num_G]  ->[times,num_G] 
-                    print("s,F_sum",s,F_sum)
+                    #print("s,F_sum",s,F_sum)
         if (times_used[-1] == times_used[0]):   
             raise Exception("Intensity array's final time equals its initial time") #I =  np.square(np.abs(F_sum[:,0]))  # 
         else:
@@ -1799,11 +1798,11 @@ start_time = -6
 end_time = 2.8#10 #0#-9.80    
 laser_firing_qwargs = dict(
     SPI = True,
-    pixels_across = 2,  # shld go on xfel params.
+    pixels_across = 100,  # shld go on xfel params.
 )
 ##### Crystal params
 crystal_qwargs = dict(
-    cell_scale = 1,  # for SC: cell_scale^3 unit cells 
+    cell_scale = 4,  # for SC: cell_scale^3 unit cells 
     positional_stdv = 0,#0.2, # RMS in atomic coord position [angstrom]
     include_symmetries = True,  # should unit cell contain symmetries?
     cell_packing = "SC",

@@ -564,12 +564,11 @@ class Plotter:
             ff_shape += k.shape 
         ff = np.zeros(shape=ff_shape)
         #temp: move time axis to front...
-        np.moveaxis(orb_occ_arr,1,0)
+        orb_occ_arr = np.moveaxis(orb_occ_arr,1,0)
         for i, indiv_time in enumerate(time): #TODO vectorise
             shielding = SlaterShielding(self.atomic_numbers[a],orb_occ_arr[i])              
             #ff[:,j] = shielding.get_atomic_ff(k,atomic_density)  
             if type(orb_occ_arr) is np.ndarray:
-                print(ff.shape,shielding.get_atomic_ff(k,atomic_density).shape)
                 ff[:,i] = shielding.get_atomic_ff(k,atomic_density)
             else:
                 ff[i] = shielding.get_atomic_ff(k,atomic_density)  # ff[i] = [f(t_i,q0),f(t_i,q1),...,f(t_i,qn)]
@@ -610,7 +609,6 @@ class Plotter:
                     occ_list[l] = 0
                 occ_list[l] += occ
             occ_arr[j] = np.array(occ_list[:len(occ_list)-occ_list.count(-99)]) 
-        print(occ_arr)
         occ_arr = occ_arr.astype(int)       
         return occ_arr,time_used
 
@@ -1209,7 +1207,6 @@ class SlaterShielding:
         debug_old_ff = "0"
         for i in range(num_subshells):  #TODO vectorise 
             if type(self.shell_occs) == np.ndarray:
-                print(self.get_shell_ff(k,i+1).shape,self.shell_occs.shape,"asadss")
                 ff += self.get_shell_ff(k,i+1)*norm * self.shell_occs[:,i,None,None]   # [atoms,state, qx,qy] [atoms,time,state]
             else: 
                 ff += self.get_shell_ff(k,i+1)*norm*self.shell_occs[i]
