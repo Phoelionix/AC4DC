@@ -271,7 +271,7 @@ class Crystal():
             if i >= num_test_points:
                 break                
             for R in species.coords:
-                test_points[i] = R.get_array()
+                test_points[i] = R
                 i+=1
                 if i >= num_test_points:
                     break      
@@ -333,7 +333,7 @@ class Atomic_Species():
         We do not store additional coordinates, instead storing the symmetries, and an array of atomic states corresponding to each atom, for each symmetry. (so num symmetries * num atoms added)
         '''           
 
-        self.coords.append(vector/ang_per_bohr)
+        self.coords.append(vector.get_array()/ang_per_bohr)
         
     def set_stochastic_states(self):
         '''
@@ -348,7 +348,8 @@ class Atomic_Species():
             raise Exception("num atoms was not same on set_stochastic_states call as when set by set_coord_deviation")
         if self.crystal.is_damaged:
             # Initialise an array that tracks the individual atoms' form factors.
-            self.orb_occs= np.empty(self.num_atoms,dtype = object)    # self.orb_occs[i] is an array of states corresponding to each time. We make the dubious but necessary approximation that an atom's state is independent of its prior states.  
+            orb_occs_shape = (self.num_atoms,) + self.crystal.ff_calculator.random_state_snapshots(self.name)[0].shape
+            self.orb_occs= np.empty(orb_occs_shape)    # self.orb_occs[i] is an array of states corresponding to each time. We make the necessary approximation that an atom's state is independent of its prior states. This approximation is dubious at low unit cell numbers, but at higher numbers, because the contribution from an atom at the same relative cell coordinate and state as another atom will be equivalent, we get the same outcome so long as the probability distribution of states is representative of the actual distribution of states. i.e. tracking state history at the same global position is redundant at high unit cell counts where we can expect the distribution of states at a given coordinate to have a low deviation between species.  
             for idx in range(self.num_atoms):
                 self.orb_occs[idx] = self.crystal.ff_calculator.random_state_snapshots(self.name)[0] 
     def set_coord_deviation(self):
@@ -367,6 +368,7 @@ class Atomic_Species():
         (Is defined by set_scalar_form_factor).
         Returns the form factor multiplied by sqrt(I). f.shape = ( len(times) , ) + momenta.shape  
         
+        atom_idx, int or int array
         q_arr = mom. transfer [1/a0], scalar or array
         '''
         raise Exception("Did not set_scalar_form_factor before calling stochastic f")
@@ -773,30 +775,36 @@ class XFEL():
             if not np.array_equal(times_used,species.times_used):
                 raise Exception("Times used don't match between species.")        
             # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
+            max_atoms_per_loop = 200  # Restrict array size to prevent computer tapping out.
             for s in range(len(self.target.sym_rotations)):
                 print("Working through symmetry",s)
-                for i, R in enumerate(species.coords):
-                        atm_idx = len(species.coords)*s + i
-                        # Rotate to target's current orientation 
-                        R = R.left_multiply(self.z_rot_matrix)  
-                        R = R.left_multiply(self.y_rot_matrix)  
-                        R = R.left_multiply(self.x_rot_matrix)   
-                        coord = self.target.get_sym_xfmed_point(R.get_array(),s)  # TODO R should work vectorised now
-                        # Get spatial factor T
-                        if SPI:
-                            T = self.SPI_interference_factor(phis,coord+species.error[atm_idx],feature)  #[num_G]
-                        else:
-                            T= self.interference_factor(coord,feature,cardan_angles)   # if grid: [phis,qx,qy]  if ring: [phis,q] (unimplemented)
-                            #T = np.expand_dims(T,0)                  
-                        f = species.get_stochastic_f(atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells.
-                        #print(F_sum.shape,T.shape,f.shape) 
-                        if SPI: 
-                            if type(feature) is self.Cell:
-                                F_sum += T[None,...]*f           
-                            if type(feature) is self.Ring:           
-                                F_sum += T[:,None] * f[None,...]       # [?phis?,momenta,None]X[None,times, feature.q.shape]  -> [?phis?,times,feature.q.shape] if q is an array
-                        else:
-                            F_sum += T[None,:] * f                         # [None,num_G]X[times,num_G]  ->[times,num_G] 
+                num_atom_batches = int(len(species.coords)/max_atoms_per_loop)+1
+                for a_batch in range(num_atom_batches):
+                    atm_idx = np.arange(len(species.coords)*s+max_atoms_per_loop*a_batch, len(species.coords)*s + min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
+                    print("atoms",atm_idx[0],"-",atm_idx[-1])
+                    relative_atm_idx = np.arange(max_atoms_per_loop*a_batch, min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
+                    # Rotate to target's current orientation 
+                    # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
+                    R = np.array(species.coords[relative_atm_idx[0]:relative_atm_idx[-1]+1]) 
+                    coord = self.target.get_sym_xfmed_point(R,s)  + species.error[atm_idx] # dim = [ N, 3]
+                    coord = coord @ self.x_rot_matrix  
+                    coord = coord @ self.y_rot_matrix
+                    coord = coord @ self.z_rot_matrix
+                    # Get spatial factor T
+                    if SPI:
+                        T = self.SPI_interference_factor(phis,coord,feature)  #[num_G]
+                    else:
+                        T= self.interference_factor(coord,feature,cardan_angles)   # if grid: [phis,qx,qy]  if ring: [phis,q] (unimplemented)
+                    f = species.get_stochastic_f(atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
+                    #print(F_sum.shape,T.shape,f.shape) 
+                    if SPI: 
+                        if type(feature) is self.Cell:
+                            F_sum += np.sum(T[:,None,...]*f,axis=0)          #[num_atoms,None,qX,qY] X [num_atoms,times,qX,qY]
+                        if type(feature) is self.Ring:           
+                            F_sum += np.sum(T[:,None] * f[None,...],axis=0)        # [?phis?,momenta,None]X[None,times, feature.q.shape]  -> [?phis?,times,feature.q.shape] if q is an array
+                    else:
+                        F_sum += np.sum(T[None,:] * f)                           # [None,num_G]X[times,num_G]  ->[times,num_G] 
+                    #print("s,F_sum",s,F_sum)
         if (times_used[-1] == times_used[0]):   
             raise Exception("Intensity array's final time equals its initial time") #I =  np.square(np.abs(F_sum[:,0]))  # 
         else:
@@ -847,11 +855,11 @@ class XFEL():
 
         return I 
 
-    def interference_factor(self,coord,feature,cardan_angles):
+    def interference_factor(self,coord,feature,cardan_angles,axis=0):
         """ theta = scattering angle relative to z-y plane """ 
         # Rotate our G vector BACK to the real laser orientation relative to the crystal.
         q_vect = self.rotate_G_to_orientation(feature.G.copy(),*cardan_angles,inverse=True)[0]       
-        q_dot_r = np.apply_along_axis(np.dot,0,q_vect,coord) # dim = [num_G]                      
+        q_dot_r = np.apply_along_axis(np.dot,axis,q_vect,coord) # dim = [num_G]                      
         T = np.exp(-1j*q_dot_r)
         return T
 
@@ -870,10 +878,14 @@ class XFEL():
         #print("====="); print(phi_array);print("-----");print(q_z.shape,q_y.shape,q_x.shape)   
         q_vect = np.array([q_x,q_y,q_z])
         q_vect = np.moveaxis(q_vect,0,len(q_vect.shape)-1)    # dim = [qX,qX,3]
-        q_dot_r = np.apply_along_axis(np.dot,len(q_vect.shape)-1,q_vect, coord) # dim = [phis,qX,qY]       q_dot_r = np.tensordot(q_vect,coord,axes=len(q_vect.shape)-1)
-        if type(feature.q) == np.ndarray and q_dot_r.shape != feature.q.shape:
-            raise Exception("Unexpected q_dot_r shape.",q_dot_r.shape)
-        T = np.exp(-1j*q_dot_r)
+        coord = np.moveaxis(coord,0,-1)
+        q_dot_r = np.apply_along_axis(np.matmul,len(q_vect.shape)-1,q_vect,coord) # dim = [phis,qX,qY]       q_dot_r = np.tensordot(q_vect,coord,axes=len(q_vect.shape)-1)
+        q_dot_r = np.moveaxis(q_dot_r,-1,0)
+        coord = np.moveaxis(coord,-1,0)
+        if (type(feature.q) == np.ndarray): 
+            if len(coord.shape) == 2 and q_dot_r.shape != (coord.shape[0],) + feature.q.shape or len(coord.shape) == 1 and q_dot_r.shape != feature.q.shape:
+                raise Exception("Unexpected q_dot_r shape.",q_dot_r.shape)
+        T = np.exp(-1j*q_dot_r) 
         return T   
     def bragg_points(self,crystal, cell_packing, cardan_angles,random_orientation=False):
         ''' 
@@ -1782,7 +1794,7 @@ DEBUG = False
 target_options = ["neutze","hen","tetra"]
 #============------------User params---------==========#
 
-target = "hen" #target_options[2]
+target = "tetra" #target_options[2]
 top_resolution = 2
 bottom_resolution = None#30
 
@@ -1795,9 +1807,9 @@ laser_firing_qwargs = dict(
 )
 ##### Crystal params
 crystal_qwargs = dict(
-    cell_scale = 1,  # for SC: cell_scale^3 unit cells 
+    cell_scale = 2,  # for SC: cell_scale^3 unit cells 
     positional_stdv = 0,#0.2, # RMS in atomic coord position [angstrom]
-    include_symmetries = False,  # should unit cell contain symmetries?
+    include_symmetries = True,  # should unit cell contain symmetries?
     cell_packing = "SC",
     rocking_angle = 0.3,  # (approximating mosaicity)
     orbitals_as_shells = True,

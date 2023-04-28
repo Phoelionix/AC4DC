@@ -538,39 +538,39 @@ class Plotter:
             print("Error, used same times! Choose a different fineness or a larger range.")
             return None
         return orb_occs, times_used
-    
-    def random_states_to_f_snapshots(self,times_used,orb_occs, q, atom):
+        
+    def random_states_to_f_snapshots(self,times_used,orb_occ_arr, q, atom):
         idx = np.searchsorted(self.timeData,times_used)  # SAME AS IN get_average_form_factor()
         if type(q) is np.ndarray:
             if len(q.shape) == 1:
-                form_factors_sqrt_I = self.ff_from_state(times_used,orb_occs,q,atom) * np.sqrt(self.intensityData[idx][...,None])   # (Need to double check working as expected - not using np.vectorise)
+                form_factors_sqrt_I = self.ff_from_state(times_used,orb_occ_arr,q,atom) * np.sqrt(self.intensityData[idx][...,None])   # (Need to double check working as expected - not using np.vectorise)
             elif len(q.shape) == 2:
-                form_factors_sqrt_I = self.ff_from_state(times_used,orb_occs,q,atom) * np.sqrt(self.intensityData[idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
+                form_factors_sqrt_I = self.ff_from_state(times_used,orb_occ_arr,q,atom) * np.sqrt(self.intensityData[idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
             else:
                 raise Exception("unexpected q shape",q.shape)
         else:
-            form_factors_sqrt_I = self.ff_from_state(times_used,orb_occs,q,atom) * np.sqrt(self.intensityData[idx][...])   # (Need to double check working as expected - not using np.vectorise)
+            form_factors_sqrt_I = self.ff_from_state(times_used,orb_occ_arr,q,atom) * np.sqrt(self.intensityData[idx][...])   # (Need to double check working as expected - not using np.vectorise)
         return form_factors_sqrt_I, times_used        
             
-    def ff_from_state(self,time,orboccs,k,atom):
+    def ff_from_state(self,time,orb_occ_arr,k,atom):
         a = atom
         atomic_density = np.sum(self.boundData[a][0, :])
         #ff = np.zeros(shape=(len(np.array(k)),len(time)))
-        ff_shape = (len(time),)
+        ff_shape = ()
+        if type(orb_occ_arr) is np.ndarray:
+            ff_shape += (orb_occ_arr.shape[0],)
+        ff_shape += (len(time),)
         if type(k) is np.ndarray:
             ff_shape += k.shape 
         ff = np.zeros(shape=ff_shape)
-        for i, indiv_time in enumerate(time): #TODO vectorise
-            occ_list = [-99]*10
-            for orb, occ in orboccs[i].items():
-                l = int(orb[0]) - 1
-                if occ_list[l] == -99:
-                    occ_list[l] = 0
-                occ_list[l] += occ
-            occ_list = occ_list[:len(occ_list)-occ_list.count(-99)]
-            shielding = SlaterShielding(self.atomic_numbers[a],occ_list)              
-            #ff[:,j] = shielding.get_atomic_ff(k,atomic_density)  
-            ff[i] = shielding.get_atomic_ff(k,atomic_density)  # ff[i] = [f(t_i,q0),f(t_i,q1),...,f(t_i,qn)]
+        #temp: move time axis to front...
+        #orb_occ_arr = np.moveaxis(orb_occ_arr,1,0)
+        shielding = SlaterShielding(self.atomic_numbers[a],orb_occ_arr)              
+        #ff[:,j] = shielding.get_atomic_ff(k,atomic_density)  
+        if type(orb_occ_arr) is np.ndarray:
+            ff = shielding.get_atomic_ff(k,atomic_density)
+        else:
+            ff = shielding.get_atomic_ff(k,atomic_density)  # ff[i] = [f(t_i,q0),f(t_i,q1),...,f(t_i,qn)]
         return ff      
 
     def get_random_state(self,time,atom):
@@ -598,7 +598,18 @@ class Plotter:
                 if i == len(states) - 1:
                     print("WARNING, cumulative chance check failed (likely a floating point error if this only happened a few times)",atomic_density, self.boundData[a][idx[j], :])
                     orboccs[j] = parse_elecs_from_latex(states[i]) 
-        return orboccs,time_used
+        # convert to an np array format, giving the occupancy at each subshell.
+        occ_arr = np.empty((len(time),len(orboccs[j])))   
+        for j, indiv_time in enumerate(time): 
+            occ_list = [-99]*10
+            for orb, occ in orboccs[j].items():
+                l = int(orb[0]) - 1
+                if occ_list[l] == -99:
+                    occ_list[l] = 0
+                occ_list[l] += occ
+            occ_arr[j] = np.array(occ_list[:len(occ_list)-occ_list.count(-99)]) 
+        occ_arr = occ_arr.astype(int)       
+        return occ_arr,time_used
 
     
 
@@ -1113,52 +1124,115 @@ class SlaterShielding:
         self.shell_occs = shell_occs
         self.s_p_slater_shielding()
     def s_p_slater_shielding(self):
-        self.s = []
-        for n in range(len(self.shell_occs)):  
-            s = 0
-            for m, N_e in enumerate(self.shell_occs): # N_e = num (screening) electrons
-                if m > n:
-                    continue
-                if m == n:
-                    s_factor = 0.35
-                    if n == 0:
-                        s_factor = 0.30
-                    s += s_factor * max(0, N_e - 1)
-                elif m == n - 1:
-                    s += 0.85*N_e
-                else:
-                    s += N_e           
-            self.s.append(s) 
-            if s > self.Z:
-                print("Warning, s =",self.s)        
+        
+        #TODO fix up
+        if type(self.shell_occs) == np.ndarray:
+            self.s = np.empty(shape=self.shell_occs.shape)
+            num_atoms = self.shell_occs.shape[0]; num_times = self.shell_occs.shape[1]; num_subshells = self.shell_occs.shape[2]
+            for n in range(num_subshells): 
+                s = np.zeros(shape=(num_atoms,num_times))
+                for m in range(num_subshells): # N_e = num (screening) electrons
+                    N_e = self.shell_occs[...,m]
+                    if m > n:
+                        continue
+                    if m == n:
+                        s_factor = 0.35
+                        if n == 0:
+                            s_factor = 0.30
+                        #s += s_factor * max(0, N_e - 1)
+                        tmp = N_e - 1; tmp[tmp < 0] = 0
+                        s += s_factor * tmp
+                    elif m == n - 1:
+                        s += 0.85*N_e
+                    else:
+                        s += N_e           
+                self.s[...,n] = s
+                        #if s > self.Z:
+                            #print("Warning, s =",self.s)        
+        else:
+            self.s = []
+            for n in range(len(self.shell_occs)): 
+                s = 0
+                for m, N_e in enumerate(self.shell_occs): # N_e = num (screening) electrons
+                    if m > n:
+                        continue
+                    if m == n:
+                        s_factor = 0.35
+                        if n == 0:
+                            s_factor = 0.30
+                        s += s_factor * max(0, N_e - 1)
+                    elif m == n - 1:
+                        s += 0.85*N_e
+                    else:
+                        s += N_e           
+                self.s.append(s) 
+                if s > self.Z:
+                    print("Warning, s =",self.s)        
                     
-    def get_shell_ff(self, k, shell_num ):
-        lamb = self.Z - self.s[shell_num-1]
+    def get_shell_ff(self, k, shell_num ):    #dim = scalar or [num_atoms]
+        if type(self.s) == np.ndarray:
+            lamb = self.Z - self.s[...,shell_num-1]
+            lamb = lamb[...,None,None]
+        else:
+            lamb = self.Z - self.s[shell_num-1]
         lamb/=shell_num
         D = 4*lamb**2+np.power(k,2)
-        if shell_num == 1:            
+        if shell_num == 1:  
             return 16*lamb**4/np.power(D,2)
         if shell_num == 2:
             return 64*lamb**6*(4*lamb**2-np.power(k,2))/np.power(D,4)
         if shell_num == 3:
             return 128*lamb**7/6*(192*lamb**5-160*lamb**3*np.power(k,2)+12*lamb*np.power(k,4))/np.power(D,6)
         else:
-            print("ERROR! shell_ff")
+            raise Exception("ERROR! shell_ff")
         
     # Gets a single configuration's normalised form factor (* density for purpose of finding average). 
     def get_atomic_ff(self, k, atomic_density,density=None):
         if density == None:
             density = atomic_density
         ff = 0
+        num_subshells = len(self.shell_occs) 
+        ff_shape = () 
+        if type(self.shell_occs) == np.ndarray:
+            num_atoms = self.shell_occs.shape[0]
+            num_times = self.shell_occs.shape[1]
+            num_subshells = self.shell_occs.shape[2]    
+            ff_shape += (num_atoms,num_times,)  # [times, subshells]       
         if type(k) == np.ndarray:
-            ff = np.zeros(k.shape)
-        norm = density/atomic_density   # /self.Z # If perform the normalisation of division by Z ->  for no ionisation at q = 0, form factor = 1. (At t = 0, we have neutral config density = atomic density.)
-        for i in range(len(self.shell_occs)):  #TODO vectorise
-            ff += self.get_shell_ff(k,i+1)*norm*self.shell_occs[i]
+            ff_shape += k.shape  # [times, subshells, qx, qy]
+        if ff_shape != ():
+            ff = np.zeros(ff_shape)
+        norm = density/atomic_density   # /self.Z # If perform the normalisation of division by Z ->  for no ionisation at q = 0, form factor = 1. (no ionisation -> we have neutral config density = atomic density.)
+        # We calculate the form factor for each subshell, then we multiply by the corresponding subshell occupancies to get the form factor.
+        debug_old_ff = "0"
+        for i in range(num_subshells):  
+            if type(self.shell_occs) == np.ndarray:
+                ff += self.get_shell_ff(k,i+1)*norm * self.shell_occs[...,i,None,None]   # [atoms,times, qx,qy] * [atoms,times,subshells]
+            else: 
+                ff += self.get_shell_ff(k,i+1)*norm*self.shell_occs[i]
+            # check atomic ff is below Z.
+            atomic_ff = "{:e}".format(np.array(ff).flatten()[-1])
+            # Sanity check: each electron contributes at most 1 to the form factor (corresponding to free electron scattering)
+            if np.array(ff).flatten()[-1] > self.Z:
+                shell_ff = "{:e}".format(np.array(self.get_shell_ff(k,i+1)).flatten()[-1])
+                if type(self.shell_occs[i]) == int:
+                    shell_occ = "{:e}".format(self.shell_occs[i])
+                else:
+                    shell_occ = str(np.array(self.shell_occs.astype(float)).reshape(-1,np.array(self.shell_occs.astype(float)).shape[-1])[-1][i])
+                raise Exception("Form factor (sample) of " + debug_old_ff + " + " + shell_ff + " x " + str(norm) + " x " + shell_occ + " = " + atomic_ff + " above atomic number " + str(self.Z))
+            debug_old_ff = atomic_ff
         return ff
-    #
-    # def get_atomic_ff_but_now_its_spooky(self,k,density,atomic_density):
-    #     # sample the density distribution to get a random
+
+    # def get_atomic_ff(self, k, atomic_density,density=None):
+    #     if density == None:
+    #         density = atomic_density
+    #     ff = 0
+    #     if type(k) == np.ndarray:
+    #         ff = np.zeros(k.shape)
+    #     norm = 1/atomic_density   # /self.Z # If perform the normalisation of division by Z ->  for no ionisation at q = 0, form factor = 1. (At t = 0, we have neutral config density = atomic density.)
+    #     for i in range(len(self.shell_occs)):  #TODO vectorise
+    #         ff += self.get_shell_ff(k,i+1)*norm*self.shell_occs[i]
+    #     return ff * density
     
 
 if __name__ == "__main__":
