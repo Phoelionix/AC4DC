@@ -1194,8 +1194,7 @@ class SlaterShielding:
             ff_shape += k.shape
         if ff_shape != ():
             ff = np.empty(ff_shape)
-        norm = 1/atomic_density/self.Z # such that at t = 0, form factor = 1. (At t = 0, we have neutral config density = atomic density, and a factor of N where N is the number of shells, since the shell ff is normalised.)
-        
+        norm = 1/atomic_density   # /self.Z # If perform the normalisation of division by Z ->  for no ionisation at q = 0, form factor = 1. (At t = 0, we have neutral config density = atomic density.)
         for i in iter_range:  #TODO vectorise
             ff += self.get_shell_ff(k,i+1)*norm
             if type(self.shell_occs) == np.ndarray:

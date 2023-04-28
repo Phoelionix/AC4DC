@@ -38,7 +38,7 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #LOAD
-Debug_334 //lys_neutze_simple_21 //lys_neutze_simple_2 // Output folder name
+Debug_337 //lys_neutze_simple_21 //lys_neutze_simple_2 // Output folder name
 10   // Point to load time from
 
 #DEBUG
