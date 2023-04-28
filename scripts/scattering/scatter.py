@@ -1794,7 +1794,7 @@ DEBUG = False
 target_options = ["neutze","hen","tetra"]
 #============------------User params---------==========#
 
-target = "tetra" #target_options[2]
+target = "hen" #target_options[2]
 top_resolution = 2
 bottom_resolution = None#30
 
@@ -1807,9 +1807,9 @@ laser_firing_qwargs = dict(
 )
 ##### Crystal params
 crystal_qwargs = dict(
-    cell_scale = 2,  # for SC: cell_scale^3 unit cells 
+    cell_scale = 1,  # for SC: cell_scale^3 unit cells 
     positional_stdv = 0,#0.2, # RMS in atomic coord position [angstrom]
-    include_symmetries = True,  # should unit cell contain symmetries?
+    include_symmetries = False,  # should unit cell contain symmetries?
     cell_packing = "SC",
     rocking_angle = 0.3,  # (approximating mosaicity)
     orbitals_as_shells = True,

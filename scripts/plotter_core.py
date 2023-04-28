@@ -568,7 +568,7 @@ class Plotter:
         shielding = SlaterShielding(self.atomic_numbers[a],orb_occ_arr)              
         #ff[:,j] = shielding.get_atomic_ff(k,atomic_density)  
         if type(orb_occ_arr) is np.ndarray:
-            ff[:] = shielding.get_atomic_ff(k,atomic_density)
+            ff = shielding.get_atomic_ff(k,atomic_density)
         else:
             ff = shielding.get_atomic_ff(k,atomic_density)  # ff[i] = [f(t_i,q0),f(t_i,q1),...,f(t_i,qn)]
         return ff      
@@ -1128,27 +1128,27 @@ class SlaterShielding:
         #TODO fix up
         if type(self.shell_occs) == np.ndarray:
             self.s = np.empty(shape=self.shell_occs.shape)
-            for i, atom_shell_occs in enumerate(self.shell_occs):
-                for n in range(len(atom_shell_occs)): 
-                    s = 0
-                    for m, N_e in enumerate(atom_shell_occs): # N_e = num (screening) electrons
-                        if m > n:
-                            continue
-                        if m == n:
-                            s_factor = 0.35
-                            if n == 0:
-                                s_factor = 0.30
-                            #s += s_factor * max(0, N_e - 1)
-                            tmp = N_e - 1; tmp[tmp < 0] = 0
-                            s += s_factor * tmp
-                        elif m == n - 1:
-                            s += 0.85*N_e
-                        else:
-                            s += N_e           
-                    self.s[i,n] = s
-                    #if s > self.Z:
-                       #print("Warning, s =",self.s)                 
-
+            num_atoms = self.shell_occs.shape[0]; num_times = self.shell_occs.shape[1]; num_subshells = self.shell_occs.shape[2]
+            for n in range(num_subshells): 
+                s = np.zeros(shape=(num_atoms,num_times))
+                for m in range(num_subshells): # N_e = num (screening) electrons
+                    N_e = self.shell_occs[...,m]
+                    if m > n:
+                        continue
+                    if m == n:
+                        s_factor = 0.35
+                        if n == 0:
+                            s_factor = 0.30
+                        #s += s_factor * max(0, N_e - 1)
+                        tmp = N_e - 1; tmp[tmp < 0] = 0
+                        s += s_factor * tmp
+                    elif m == n - 1:
+                        s += 0.85*N_e
+                    else:
+                        s += N_e           
+                self.s[...,n] = s
+                        #if s > self.Z:
+                            #print("Warning, s =",self.s)        
         else:
             self.s = []
             for n in range(len(self.shell_occs)): 
@@ -1202,17 +1202,17 @@ class SlaterShielding:
             ff_shape += k.shape  # [times, subshells, qx, qy]
         if ff_shape != ():
             ff = np.zeros(ff_shape)
-        norm = density/atomic_density   # /self.Z # If perform the normalisation of division by Z ->  for no ionisation at q = 0, form factor = 1. (At t = 0, we have neutral config density = atomic density.)
+        norm = density/atomic_density   # /self.Z # If perform the normalisation of division by Z ->  for no ionisation at q = 0, form factor = 1. (no ionisation -> we have neutral config density = atomic density.)
         # We calculate the form factor for each subshell, then we multiply by the corresponding subshell occupancies to get the form factor.
-        # Since each electron contributes at most 1 to the form factor (corresponding to free electron scattering), we use this fact to check for errors.
         debug_old_ff = "0"
-        for i in range(num_subshells):  #TODO vectorise 
+        for i in range(num_subshells):  
             if type(self.shell_occs) == np.ndarray:
-                ff += self.get_shell_ff(k,i+1)*norm * self.shell_occs[...,i,None,None]   # [times,atoms,subshells, qx,qy] * [times,atoms,subshells]
+                ff += self.get_shell_ff(k,i+1)*norm * self.shell_occs[...,i,None,None]   # [atoms,times, qx,qy] * [atoms,times,subshells]
             else: 
                 ff += self.get_shell_ff(k,i+1)*norm*self.shell_occs[i]
             # check atomic ff is below Z.
             atomic_ff = "{:e}".format(np.array(ff).flatten()[-1])
+            # Sanity check: each electron contributes at most 1 to the form factor (corresponding to free electron scattering)
             if np.array(ff).flatten()[-1] > self.Z:
                 shell_ff = "{:e}".format(np.array(self.get_shell_ff(k,i+1)).flatten()[-1])
                 if type(self.shell_occs[i]) == int:
