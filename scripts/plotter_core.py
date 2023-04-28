@@ -1201,7 +1201,7 @@ class SlaterShielding:
         for i in range(num_subshells):  #TODO vectorise 
             if type(self.shell_occs) == np.ndarray:
                 ff += self.get_shell_ff(k,i+1)*norm * self.shell_occs[:,i,None,None]
-                print(ff)
+                print(self.get_shell_ff(k,i+1))
             else: 
                 ff += self.get_shell_ff(k,i+1)*norm*self.shell_occs[i]
             # check atomic ff is below Z.
