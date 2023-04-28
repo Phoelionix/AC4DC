@@ -564,14 +564,13 @@ class Plotter:
             ff_shape += k.shape 
         ff = np.zeros(shape=ff_shape)
         #temp: move time axis to front...
-        orb_occ_arr = np.moveaxis(orb_occ_arr,1,0)
-        for i, indiv_time in enumerate(time): #TODO vectorise
-            shielding = SlaterShielding(self.atomic_numbers[a],orb_occ_arr[i])              
-            #ff[:,j] = shielding.get_atomic_ff(k,atomic_density)  
-            if type(orb_occ_arr) is np.ndarray:
-                ff[:,i] = shielding.get_atomic_ff(k,atomic_density)
-            else:
-                ff[i] = shielding.get_atomic_ff(k,atomic_density)  # ff[i] = [f(t_i,q0),f(t_i,q1),...,f(t_i,qn)]
+        #orb_occ_arr = np.moveaxis(orb_occ_arr,1,0)
+        shielding = SlaterShielding(self.atomic_numbers[a],orb_occ_arr)              
+        #ff[:,j] = shielding.get_atomic_ff(k,atomic_density)  
+        if type(orb_occ_arr) is np.ndarray:
+            ff[:] = shielding.get_atomic_ff(k,atomic_density)
+        else:
+            ff = shielding.get_atomic_ff(k,atomic_density)  # ff[i] = [f(t_i,q0),f(t_i,q1),...,f(t_i,qn)]
         return ff      
 
     def get_random_state(self,time,atom):
@@ -1139,16 +1138,16 @@ class SlaterShielding:
                             s_factor = 0.35
                             if n == 0:
                                 s_factor = 0.30
-                            s += s_factor * max(0, N_e - 1)
-                            # tmp = N_e - 1; tmp[tmp < 0] = 0
-                            # s += s_factor * tmp
+                            #s += s_factor * max(0, N_e - 1)
+                            tmp = N_e - 1; tmp[tmp < 0] = 0
+                            s += s_factor * tmp
                         elif m == n - 1:
                             s += 0.85*N_e
                         else:
                             s += N_e           
                     self.s[i,n] = s
-                    if s > self.Z:
-                       print("Warning, s =",self.s)                 
+                    #if s > self.Z:
+                       #print("Warning, s =",self.s)                 
 
         else:
             self.s = []
@@ -1172,7 +1171,7 @@ class SlaterShielding:
                     
     def get_shell_ff(self, k, shell_num ):    #dim = scalar or [num_atoms]
         if type(self.s) == np.ndarray:
-            lamb = self.Z - self.s[:,shell_num-1]
+            lamb = self.Z - self.s[...,shell_num-1]
             lamb = lamb[...,None,None]
         else:
             lamb = self.Z - self.s[shell_num-1]
@@ -1195,10 +1194,12 @@ class SlaterShielding:
         num_subshells = len(self.shell_occs) 
         ff_shape = () 
         if type(self.shell_occs) == np.ndarray:
-            ff_shape += (self.shell_occs.shape[0],)
-            num_subshells = len(self.shell_occs[0]) 
+            num_atoms = self.shell_occs.shape[0]
+            num_times = self.shell_occs.shape[1]
+            num_subshells = self.shell_occs.shape[2]    
+            ff_shape += (num_atoms,num_times,)  # [times, subshells]       
         if type(k) == np.ndarray:
-            ff_shape += k.shape
+            ff_shape += k.shape  # [times, subshells, qx, qy]
         if ff_shape != ():
             ff = np.zeros(ff_shape)
         norm = density/atomic_density   # /self.Z # If perform the normalisation of division by Z ->  for no ionisation at q = 0, form factor = 1. (At t = 0, we have neutral config density = atomic density.)
@@ -1207,7 +1208,7 @@ class SlaterShielding:
         debug_old_ff = "0"
         for i in range(num_subshells):  #TODO vectorise 
             if type(self.shell_occs) == np.ndarray:
-                ff += self.get_shell_ff(k,i+1)*norm * self.shell_occs[:,i,None,None]   # [atoms,state, qx,qy] [atoms,time,state]
+                ff += self.get_shell_ff(k,i+1)*norm * self.shell_occs[...,i,None,None]   # [times,atoms,subshells, qx,qy] * [times,atoms,subshells]
             else: 
                 ff += self.get_shell_ff(k,i+1)*norm*self.shell_occs[i]
             # check atomic ff is below Z.

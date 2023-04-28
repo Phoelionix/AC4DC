@@ -775,12 +775,17 @@ class XFEL():
             if not np.array_equal(times_used,species.times_used):
                 raise Exception("Times used don't match between species.")        
             # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
+            max_atoms_per_loop = 200  # Restrict array size to prevent computer tapping out.
             for s in range(len(self.target.sym_rotations)):
-                    print("Working through symmetry",s)
-                    atm_idx = np.arange(len(species.coords)*s, len(species.coords)*(s+1))
+                print("Working through symmetry",s)
+                num_atom_batches = int(len(species.coords)/max_atoms_per_loop)+1
+                for a_batch in range(num_atom_batches):
+                    atm_idx = np.arange(len(species.coords)*s+max_atoms_per_loop*a_batch, len(species.coords)*s + min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
+                    print("atoms",atm_idx[0],"-",atm_idx[-1])
+                    relative_atm_idx = np.arange(max_atoms_per_loop*a_batch, min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
                     # Rotate to target's current orientation 
                     # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
-                    R = np.array(species.coords) 
+                    R = np.array(species.coords[relative_atm_idx[0]:relative_atm_idx[-1]+1]) 
                     coord = self.target.get_sym_xfmed_point(R,s)  + species.error[atm_idx] # dim = [ N, 3]
                     coord = coord @ self.x_rot_matrix  
                     coord = coord @ self.y_rot_matrix
@@ -1802,7 +1807,7 @@ laser_firing_qwargs = dict(
 )
 ##### Crystal params
 crystal_qwargs = dict(
-    cell_scale = 4,  # for SC: cell_scale^3 unit cells 
+    cell_scale = 2,  # for SC: cell_scale^3 unit cells 
     positional_stdv = 0,#0.2, # RMS in atomic coord position [angstrom]
     include_symmetries = True,  # should unit cell contain symmetries?
     cell_packing = "SC",
