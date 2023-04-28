@@ -780,8 +780,8 @@ class XFEL():
                     atm_idx = np.arange(len(species.coords)*s, len(species.coords)*(s+1))
                     # Rotate to target's current orientation 
                     # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
-                    R = species.coords
-                    R = R @ self.z_rot_matrix 
+                    R = species.coords + species.error[atm_idx]
+                    R = R @ self.z_rot_matrix
                     R = R @ self.y_rot_matrix
                     R = R @ self.x_rot_matrix  
                     coord = self.target.get_sym_xfmed_point(R,s)  # dim = [ N, 3]
