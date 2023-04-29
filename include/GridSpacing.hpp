@@ -32,7 +32,9 @@ struct DynamicGridPreset{
     const static char medium_acc = 2;
     const static char high_acc = 3;
     const static char no_dirac = 4;
-    char selected = medium_acc;  
+    const static char training_wheels = 5;
+    const static char unknown = 101;
+    char selected = unknown;  
     double pulse_omega = -1;  // Photon energy [eV]
 };
 
@@ -40,7 +42,7 @@ struct GridSpacing {
     const static char manual = 0;
     const static char dynamic = 1;
     const static char unknown = 101;
-    char mode = dynamic;
+    char mode = unknown;
     unsigned zero_degree_0 = 0; // Number of derivatives to set to zero at the origin
     unsigned zero_degree_inf = 0; // Number of derivatives to set to zero at infinity
 };
@@ -138,6 +140,9 @@ namespace {
             break;    
         case 'n':
             preset.selected = DynamicGridPreset::no_dirac;
+            break;         
+        case 't':
+            preset.selected = DynamicGridPreset::training_wheels;
             break;                      
         default:
             std::cerr<<"Unrecognised grid preset \""<<tmp<<"\", defaulting to medium accuracy..."<<std::endl;

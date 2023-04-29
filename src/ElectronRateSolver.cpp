@@ -117,7 +117,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
                 regimes.dirac_minimums[i] = photo_min + i*(photo_max-photo_min)/regimes.num_dirac_peaks;
                 regimes.dirac_maximums[i] = photo_min + (i+1)*(photo_max-photo_min)/regimes.num_dirac_peaks;
             }
-            Distribution::set_basis(step, input_params.elec_grid_type, param_cutoffs, regimes, input_params.elec_grid_preset, elec_grid_regions);
+            Distribution::set_basis(step, input_params.elec_grid_type, param_cutoffs, regimes, elec_grid_regions, input_params.elec_grid_preset);
         }
         else{ //TODO? reset dirac bounds on first one of these calls (since they are initialised to be very wide) IF shrinkage is to be turned off for dirac regions.
             double old_mb_min = regimes.mb_min, old_mb_max = regimes.mb_max;
@@ -141,6 +141,8 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             transition_energy(step, param_cutoffs.transition_e);
             // More general basis refinement, but disabled because scope.            
             if (y[step].F.seek_basis(_log, input_params.elec_grid_type, step, param_cutoffs)){
+                // failed, use regular method.
+                Distribution::set_basis(step, input_params.elec_grid_type, param_cutoffs, regimes, elec_grid_regions);
                 //_log << "B-spline failed to find convergent basis, using backup dynamic grid."; _log.flush();   Disabled
             }
             else{
@@ -664,7 +666,8 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         << "[ sim ] t="
         << std::left<<std::setfill(' ')<<std::setw(6)
         << this->t[n] * Constant::fs_per_au << " fs\n\r" 
-        << "[ sim ] " <<Distribution::size << " knots currently active\n\r"; 
+        << "[ sim ] " <<Distribution::size << " knots currently active\n\r"
+        << Distribution::get_knot_energies() << "\n\r"; 
         // << flush; 
         Display::show(Display::display_stream);
     }        

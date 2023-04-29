@@ -297,7 +297,9 @@ void BasisSet::set_parameters(const GridSpacing& gt, ManualGridBoundaries& manua
     this -> _region_bndry_energy = manual_elec_grid_regions.bndry_E;   
     this -> _region_powers = manual_elec_grid_regions.powers;   
 
-    initialise_regions(dyn_grid_preset);
+    if (dyn_grid_preset.selected != DynamicGridPreset::unknown)
+        initialise_regions(dyn_grid_preset);
+    assert(regions.size() > 0);
 
     // Idea: Want num_funcs usable B-splines
     // If grid has num_funcs+k+1 points, num_funcs of these are usable splines (num_int = num_funcs + Z_inf - start)

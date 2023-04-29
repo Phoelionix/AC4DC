@@ -42,7 +42,7 @@ SplineIntegral Distribution::basis;
 size_t Distribution::size=0;  
 
 // Psuedo-constructor thing (Maybe not anymore... -S.P.)
-void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, DynamicGridPreset dyn_grid_preset,ManualGridBoundaries elec_grid_regions){
+void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, ManualGridBoundaries elec_grid_regions, DynamicGridPreset dyn_grid_preset){
     // Defines a grid of num_funcs points (if manual, thsi is the total number of free-electron grid points specified in the .mol file.)
     // where num_funcs is the number of non-boundary (i.e. "usable") splines/knots.
     basis.set_parameters(grid_style, elec_grid_regions,regimes,dyn_grid_preset);
