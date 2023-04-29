@@ -112,7 +112,7 @@ public:
      
 private:
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)
-    GridBoundaries elec_grid_regions;
+    ManualGridBoundaries elec_grid_regions;
     Cutoffs param_cutoffs; 
     Pulse pf;
     double timespan_au; // Atomic units
@@ -187,7 +187,7 @@ private:
     void saveBound(const std::string& folder);
     void saveBoundRaw(const std::string& folder);
 
-    void set_grid_regions(GridBoundaries gb);
+    void set_grid_regions(ManualGridBoundaries gb);
     void set_starting_state();
     state_type get_ground_state();
     void update_grid(ofstream& _log, size_t latest_step, bool force_update = false);

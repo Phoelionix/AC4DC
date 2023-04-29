@@ -249,7 +249,7 @@ public:
      * @param max_e max elec energy
      * @param grid_style 
      */
-    static void set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, GridBoundaries elec_grid_regions);
+    static void set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, DynamicGridPreset dyn_grid_preset, ManualGridBoundaries elec_grid_regions);
     /**
      * @brief The setup function.
      * @details Grants the distribution its energy basis, which serves as the knot points for the spline. Assigns CoulombLog_cutoff and Distribution::CoulombDens_min.

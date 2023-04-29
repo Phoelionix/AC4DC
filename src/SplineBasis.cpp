@@ -292,10 +292,12 @@ void BasisSet::manual_set_knot(const GridSpacing& gt){
  * @param gt gt.zero_degree_0: The number of derivatives to set to zero: 0 = open conditions, 1=impose f(0)=0, 2=impose f(0)=f'(0) =0
  * @param  
  */
-void BasisSet::set_parameters(const GridSpacing& gt, GridBoundaries& elec_grid_regions, FeatureRegimes& regimes) {
-    this->_region_bndry_index = elec_grid_regions.bndry_idx;   // TODO: refactor, can replace min and max with array of region start and region ends. -S.P.
-    this -> _region_bndry_energy = elec_grid_regions.bndry_E;   
-    this -> _region_powers = elec_grid_regions.powers;   
+void BasisSet::set_parameters(const GridSpacing& gt, ManualGridBoundaries& manual_elec_grid_regions, FeatureRegimes& regimes,DynamicGridPreset dyn_grid_preset) {
+    this->_region_bndry_index = manual_elec_grid_regions.bndry_idx;   // TODO: refactor, can replace min and max with array of region start and region ends. -S.P.
+    this -> _region_bndry_energy = manual_elec_grid_regions.bndry_E;   
+    this -> _region_powers = manual_elec_grid_regions.powers;   
+
+    initialise_regions(dyn_grid_preset);
 
     // Idea: Want num_funcs usable B-splines
     // If grid has num_funcs+k+1 points, num_funcs of these are usable splines (num_int = num_funcs + Z_inf - start)
@@ -310,8 +312,8 @@ void BasisSet::set_parameters(const GridSpacing& gt, GridBoundaries& elec_grid_r
     this->_min = 0;
 
     if(gt.mode == GridSpacing::manual){    
-        this->_max = elec_grid_regions.bndry_E.back();
-        num_funcs = elec_grid_regions.bndry_idx.back();
+        this->_max = manual_elec_grid_regions.bndry_E.back();
+        num_funcs = manual_elec_grid_regions.bndry_idx.back();
         manual_set_knot(gt);
     }    
     else{

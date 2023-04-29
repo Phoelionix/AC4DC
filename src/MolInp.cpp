@@ -175,6 +175,10 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (n == 3) stream >> elec_grid_regions; //elec_grid_regions.bndry_E
 		if (n == 4) stream >> elec_grid_regions; //elec_grid_regions.powers
 	}
+	for (size_t n = 0; n < FileContent["#DYNAMIC_GRID"].size(); n++) {
+		stringstream stream(FileContent["#DYNAMIC_GRID"][n]);
+		if (n == 0) stream >> elec_grid_preset;
+	}	
 
 	for (size_t n = 0; n < FileContent["#FILTRATION"].size(); n++) {
 		stringstream stream(FileContent["#FILTRATION"][n]);
@@ -182,9 +186,6 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 			filtration_file = "output/__Molecular/" + filtration_file + "/freeDistRaw.csv";
 		}
 	}
-
-
-
 
 	for (size_t n = 0; n < FileContent["#LOAD"].size(); n++) {
 		stringstream stream(FileContent["#LOAD"][n]);
@@ -204,12 +205,13 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	}	
 
 
-	// Get fluence
+	// Get fluence  (if not use_fluence)
 	if (use_count){
 		fluence = -1; // not used
 		throw std::invalid_argument("count not implemented");
 	}
 	if (use_intensity){
+		// TODO Need to test this is working as expected
 		// fluence = I0 * fwhm. I0 = I_avg*timespan/(fwhm). NB: var width = fwhm
 		// if square: Ipeak = I0.  
 		// if gaussian, I_peak = I0/norm. 
@@ -232,6 +234,8 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		}    
 	}
 
+	// Give dynamic grid regions eV pulse energy 
+	elec_grid_preset.pulse_omega = omega;
 
 	// Hardcode the boundary conditions
 	elec_grid_type.zero_degree_inf = 3;
@@ -269,7 +273,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	cout<<bc<<"OMP threads:  "<<clr<<omp_threads<<" threads"<<endl;
 
 	cout<<banner<<endl;
-
+	
 	// Convert to number of photon flux.
 	omega /= Constant::eV_per_Ha;
 	fluence *= 10000/Constant::Jcm2_per_Haa02/omega;
@@ -338,16 +342,6 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P. TODO 
 	if (use_fluence + use_count + use_intensity != 1) {cerr << "ERROR, require exactly one of #USE_FLUENCE, #USE_COUNT, and #USE_INTENSITY to be active ";is_valid = false;}
 	if (omp_threads <= 0) { omp_threads = 4; cerr<<"Defaulting number of OMP threads to 4"; }
 
-	// if (elec_grid_type.mode == GridSpacing::unknown) {
-	// 	cerr<<"ERROR: Grid spacing not recognised - must start with (l)inear, (q)uadratic,";
-	// 	cerr<<" (e)xponential, (h)ybrid or (p)owerlaw"; is_valid=false;
-	// }
-	// if (elec_grid_type.mode == GridSpacing::hybrid || elec_grid_type.mode == GridSpacing::powerlaw) {
-	// 	if (elec_grid_type.num_low <= 0 || elec_grid_type.num_low >= num_elec_points) { 
-	// 		cerr<<"Defaulting number of dense (low-energy) points to "<<num_elec_points/2;
-	// 		elec_grid_type.num_low = num_elec_points/2;
-	// 	}
-	// }
 	if (elec_grid_type.mode == GridSpacing::unknown) {
 	cerr<<"ERROR: Grid type not recognised - param corresponding to use of manual must start with (t)rue or (f)alse,";
 	is_valid=false;

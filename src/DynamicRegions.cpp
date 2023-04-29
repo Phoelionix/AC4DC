@@ -43,108 +43,89 @@ This file is part of AC4DC.
  */
 
 GridRegions::GridRegions(){
+    int pts_per_dirac = 10; 
+} 
+void GridRegions::initialise_regions(DynamicGridPreset preset){
     // Initialise regions
     // Carbon (v. divergent example) good grid:
     // indices  1|30|55|65|85|105|145|150 
-    // energies 4|10|50|200|500|4500|6500|10000   
-    int pts_per_dirac = 30; // per region, often will have much less per photopeak.
-    bool debug = false;
-    // regions = {
-    //     Region(1,5,10,"static"),  // low divergent
-    //     Region(25,10,50, "static"), // low support (MB is very fine early on, grid doesn't let us make it suddenly become super fine.)
-    //     Region(10,50,200,"static"), 
-    //     Region(35,200,600,"static"), // auger
-    //     Region(40,600,6500,"static"),  //TODO change 6500 to be the xray energy.
-    //     Region(10,6500,15000,"static"), // high tail
-    //     Region(35,-1,-1,"mb"), // Maxwell-boltzmann distribution
-    //     // Photoelectron peaks. need to include num regions defined here in FeatureRegimes.
-    //     Region(pts_per_dirac,-1,-1,"dirac"), 
-    //     Region(pts_per_dirac,-1,-1,"dirac"), 
-    //     Region(pts_per_dirac,-1,-1,"dirac"), 
-    //     Region(pts_per_dirac,-1,-1,"dirac"),
-
-    //     Region(1,5,50,"static"),
-    //     Region(1,25,75,"static"), 
-    //     Region(1,50,125,"static"), 
-    //     Region(1,90,180,"static"), 
-    //     Region(1,145,290,"static"), 
-    //     Region(1,200,400,"static"), 
-    //     Region(1,500,1000,"static"), 
-    //     Region(1,750,1500,"static"), 
-    //     Region(1,1200,2400,"static"), 
-    //     Region(1,1800,3600,"static"), 
-    //     Region(1,2700,5400,"static"), 
-    //     Region(1,4000,8000,"static"), 
-    //     Region(1,6000,12000,"static")
-    // };
-
-    
-    if(!debug){    
-        ///// high accuracy
-        // regions = {
-        //     Region(1,5,10,"static"),  // low divergent
-        //     Region(25,10,50, "static"), // low support (MB is very fine early on, grid doesn't let us make it suddenly become super fine.)
-        //     Region(10,50,200,"static"), 
-        //     Region(35,200,600,"static"), // auger
-        //     Region(40,600,6500,"static"),  //TODO change 6500 to be the xray energy.
-        //     Region(10,6500,15000,"static"), // high tail
-        //     Region(35,-1,-1,"mb"), // Maxwell-boltzmann distribution
-        //     // Photoelectron peaks. need to include num regions defined here in FeatureRegimes.
-        //     Region(pts_per_dirac,-1,-1,"dirac"), 
-        //     Region(pts_per_dirac,-1,-1,"dirac"), 
-        //     Region(pts_per_dirac,-1,-1,"dirac"), 
-        //     Region(pts_per_dirac,-1,-1,"dirac") 
-        // };
-        pts_per_dirac = 15;
+    // energies 4|10|50|200|500|4500|6500|10000    
+    int pts_per_dirac = 1;   
+    string preset_name = "None";
+    switch (preset.selected){
+      case DynamicGridPreset::high_acc:
+        preset_name = "High accuracy";
+        pts_per_dirac = 35; // (minimum) per region, will have less contributed per photopeak when region is wide enough that point density is lower than some overlapping static regions. 
         regions = {
             Region(1,5,10,"static"),  // low divergent
-            Region(15,10,50, "static"), // low support (MB is very fine early on, grid doesn't let us make it suddenly become super fine.)
+            Region(25,10,50, "static"), // low support (MB is very fine early on, grid does not do well with sudden transitions in knot density.)
+            Region(10,50,200,"static"), 
+            Region(35,200,600,"static"), // auger
+            Region(40,600,preset.pulse_omega,"static"), 
+            Region(10,preset.pulse_omega,preset.pulse_omega*2,"static"), // high tail. An energy ceiling at least twice the photopeak ensures all non-negligible grid points will obey charge conservation (Sanders).
+            Region(35,-1,-1,"mb"), // Maxwell-boltzmann distribution
+        };
+        break;
+      case DynamicGridPreset::medium_acc:
+      preset_name = "Medium accuracy";
+        pts_per_dirac = 15;  
+        regions = {
+            Region(1,5,10,"static"),  // low divergent
+            Region(15,10,50, "static"), // low support
             Region(10,50,200,"static"), 
             Region(20,200,600,"static"), // auger
-            Region(25,600,6500,"static"),  //TODO change 6500 to be the xray energy.
-            Region(10,6500,15000,"static"), // high tail
+            Region(25,600,preset.pulse_omega,"static"),  
+            Region(10,preset.pulse_omega,preset.pulse_omega*2,"static"), // high tail
             Region(20,-1,-1,"mb"), // Maxwell-boltzmann distribution
-            // Photoelectron peaks. need to include num regions defined here in FeatureRegimes.
-            Region(pts_per_dirac,-1,-1,"dirac"), 
-            Region(pts_per_dirac,-1,-1,"dirac"), 
-            Region(pts_per_dirac,-1,-1,"dirac"), 
-            Region(pts_per_dirac,-1,-1,"dirac") 
         };        
-    }
-    else{
+        break;
+      case DynamicGridPreset::low_acc:
+        preset_name = "Low accuracy";
         pts_per_dirac = 10;
         regions = {
             Region(1,5,10,"static"),  // low divergent
-            Region(10,10,50, "static"), // low support (MB is very fine early on, grid doesn't let us make it suddenly become super fine.)
-            Region(10,50,200,"static"), 
-            Region(10,200,600,"static"), // auger
-            Region(10,600,6500,"static"),  //TODO change 6500 to be the xray energy.
-            Region(10,6500,15000,"static"), // high tail
+            Region(10,10,50, "static"), // low support
+            Region(7,50,200,"static"), 
+            Region(7,200,600,"static"), // auger
+            Region(7,600,preset.pulse_omega,"static"),  
+            Region(7,preset.pulse_omega,preset.pulse_omega*2,"static"), // high tail
+            Region(15,-1,-1,"mb"), // Maxwell-boltzmann distribution
+        };      
+      case DynamicGridPreset::dismal_acc:
+        preset_name = "Dismal accuracy";
+        pts_per_dirac = 5;
+        regions = {
+            Region(1,5,10,"static"),  // low divergent
+            Region(8,10,50, "static"), // low support
+            Region(5,50,200,"static"), 
+            Region(5,200,600,"static"), // auger
+            Region(5,600,preset.pulse_omega,"static"),  
+            Region(5,preset.pulse_omega,preset.pulse_omega*2,"static"), // high tail
             Region(10,-1,-1,"mb"), // Maxwell-boltzmann distribution
-            // Photoelectron peaks. need to include num regions defined here in FeatureRegimes.
-            Region(pts_per_dirac,-1,-1,"dirac"), 
-            Region(pts_per_dirac,-1,-1,"dirac"), 
-            Region(pts_per_dirac,-1,-1,"dirac"), 
-            Region(pts_per_dirac,-1,-1,"dirac") 
         };
+      // Effectively replaces dynamic dirac regions with static 30 points around dirac region
+      case DynamicGridPreset::no_dirac:
+        preset_name = "No dynamic dirac";
+        pts_per_dirac = 1;
+        regions = {
+            Region(1,5,10,"static"),  // low divergent
+            Region(15,10,50, "static"), // low support
+            Region(8,50,200,"static"), 
+            Region(8,200,600,"static"), // auger
+            Region(30,600,preset.pulse_omega*1.1,"static"),  
+            Region(10,preset.pulse_omega*1.1,preset.pulse_omega*2,"static"), // high tail
+            Region(25,-1,-1,"mb"), // Maxwell-boltzmann distribution
+        };                      
     }
-
-
-} 
-/**
- * @brief Updates the regions, then transforms the grid based on the regions' updated properties.
- * @details 
- *  Static regions (named for the feature they are modelling when dynamic region not present):
- * - Low E divergent region
- * - Auger region
- * - Tail region
- * Dynamic regions:
- * - MB region
- * - Photoelectron region
- * @param _log  
- */
-
-
+    std::vector<Region> common_regions = {
+        Region(1,5,10,"static"),  // low divergent
+        // 4 Photoelectron peaks. need to include num regions defined here in FeatureRegimes. TODO fix this issue.
+        Region(pts_per_dirac,-1,-1,"dirac"), Region(pts_per_dirac,-1,-1,"dirac"), 
+        Region(pts_per_dirac,-1,-1,"dirac"), Region(pts_per_dirac,-1,-1,"dirac")
+    };     
+    regions.insert(regions.end(), common_regions.begin(), common_regions.end() );
+    std::cout << "[ Dynamic Grid ] '"<< preset_name << "' preset used to initialise dynamic regions." << endl;
+}
 
 
 /**
@@ -172,7 +153,7 @@ void GridRegions::update_regions(FeatureRegimes rgm){
     assert(rgm.dirac_peaks.size() == peak_idx);
 }
 
-void GridRegions::set_static_energies(vector<double> energy_boundaries){
+void GridRegions::set_static_region_energies(vector<double> energy_boundaries){
 
 }
 

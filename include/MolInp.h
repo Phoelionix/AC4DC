@@ -79,8 +79,9 @@ public:
     void calc_rates(ofstream &_log, bool recalc=true);
 
 	GridSpacing elec_grid_type;
+	DynamicGridPreset elec_grid_preset;
 	Cutoffs param_cutoffs;
-	GridBoundaries elec_grid_regions;
+	ManualGridBoundaries elec_grid_regions;
 	LossGeometry loss_geometry;
 	PulseShape pulse_shape = PulseShape::none;
 

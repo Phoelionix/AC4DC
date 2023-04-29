@@ -24,14 +24,14 @@ public:
      * @param type one of: "static", "dirac", "mb"
      */
     Region(int num_points, double E_min, double E_max, const string type) :
-    num_points{num_points},
-    E_min{E_min/Constant::eV_per_Ha},
-    E_max{E_max/Constant::eV_per_Ha},
-    type{type},
-    power{1}   
-    {
-        num_points_left = num_points;
-    }  
+        num_points{num_points},
+        E_min{E_min/Constant::eV_per_Ha},
+        E_max{E_max/Constant::eV_per_Ha},
+        type{type},
+        power{1}   
+        {
+            num_points_left = num_points;
+        }  
     double get_point_density(){return (E_max-E_min)/num_points;};
     double get_E_min(){return E_min;}
     double get_E_max(){return E_max;}
@@ -63,7 +63,8 @@ public:
     std::vector<Region> regions;
 
 protected:
-    void set_static_energies(vector<double> energy_boundaries);
+    void initialise_regions(DynamicGridPreset preset);
+    void set_static_region_energies(vector<double> energy_boundaries);
     
 
     // GridRegions& operator+=(const GridRegions& other_GR){

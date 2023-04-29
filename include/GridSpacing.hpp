@@ -25,6 +25,17 @@ This file is part of AC4DC.
 #ifndef GRIDSPACING_CXX_H
 #define GRIDSPACING_CXX_H
 
+// Determines GridRegions.regions
+struct DynamicGridPreset{
+    const static char dismal_acc = 0;
+    const static char low_acc = 1;
+    const static char medium_acc = 2;
+    const static char high_acc = 3;
+    const static char no_dirac = 4;
+    char selected = medium_acc;  
+    double pulse_omega = -1;  // Photon energy [eV]
+};
+
 struct GridSpacing {
     const static char manual = 0;
     const static char dynamic = 1;
@@ -47,14 +58,10 @@ struct FeatureRegimes{
     std::vector<double> dirac_maximums = std::vector<double>(num_dirac_peaks); 
 };
 
-// For manual grid mode.
-struct GridBoundaries {
-    // Quick and dirty attachment parameters TODO this should replace num_low, and should fill the role of 
-    // transition_e so it can be split off (as the coulomb log cutoff) along with the coulomb density.
-    // Should also replace num_elec_points, min_elec_e, max_elec_e
+struct ManualGridBoundaries {
     // Note this current implementation includes the energy/index of last grid point.
-    std::vector<int> bndry_idx ={-1};  // TODO rename, but this is the starting index of the region. But it's also uised for upper bound...
-    std::vector<double> bndry_E ={-1.};  // In eV. Again need to rename, as it's used for upper bound too.
+    std::vector<int> bndry_idx ={-1};  
+    std::vector<double> bndry_E ={-1.};  // [eV]
     std::vector<double> powers ={1.};
     int parsed_count = 0; 
 };
@@ -106,8 +113,41 @@ namespace {
         }
         return is;
     }
+    /// Sets dynamic grid regions' preset. TODO replace input with full string.
+    [[maybe_unused]] std::istream& operator>>(std::istream& is, DynamicGridPreset& preset) {
+        std::string tmp;
+        is >> tmp;
+        if (tmp.length() == 0) {
+            std::cerr<<"No dynamic grid preset provided, defaulting to medium accuracy..."<<std::endl;
+            preset.selected = DynamicGridPreset::medium_acc;
+            return is;
+        }
+        switch ((char) tmp[0])
+        {
+        case 'd':
+            preset.selected = DynamicGridPreset::dismal_acc;
+            break;
+        case 'l':
+            preset.selected = DynamicGridPreset::low_acc;
+            break;
+        case 'm':
+            preset.selected = DynamicGridPreset::medium_acc;
+            break;
+        case 'h':
+            preset.selected = DynamicGridPreset::high_acc;
+            break;    
+        case 'n':
+            preset.selected = DynamicGridPreset::no_dirac;
+            break;                      
+        default:
+            std::cerr<<"Unrecognised grid preset \""<<tmp<<"\", defaulting to medium accuracy..."<<std::endl;
+            preset.selected = DynamicGridPreset::medium_acc;
+            break;
+        }
+        return is;
+    }    
     /// Sets region boundaries
-    [[maybe_unused]] std::istream& operator>>(std::istream& is, GridBoundaries& gb) {
+    [[maybe_unused]] std::istream& operator>>(std::istream& is, ManualGridBoundaries& gb) {
         std::string tmp;
         is >> tmp;
         if (tmp.length() == 0) {

@@ -46,6 +46,9 @@ false        // use manual grid? If false, dynamic grid is used.
 4|10|50|200|500|4500|6500|10000       // manual grid boundary energies, with point at 0 excluded. No spaces.
 1|1|1|1|1|1|1 
 
+#DYNAMIC_GRID
+no_dirac              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
+
 
 #LOAD
 //carbon_gauss_3 // Output folder name
