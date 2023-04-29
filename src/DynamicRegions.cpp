@@ -61,7 +61,7 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
             Region(25,10,50, "static"), // low support (MB is very fine early on, grid does not do well with sudden transitions in knot density.)
             Region(10,50,200,"static"), 
             Region(35,200,600,"static"), // auger
-            Region(15,600,preset.pulse_omega/4,"static"), // transition
+            Region(8,600,preset.pulse_omega/4,"static"), // transition
             Region(35,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
             Region(7,preset.pulse_omega*6/4,preset.pulse_omega*2,"static"), // high tail. An energy ceiling at least twice the photopeak ensures all non-negligible grid points will obey charge conservation (Sanders).
             Region(35,-1,-1,"mb"), // Maxwell-boltzmann distribution
@@ -72,10 +72,10 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         pts_per_dirac = 15;  
         regions = {
             Region(1,5,10,"static"),  // low divergent
-            Region(15,10,50, "static"), // low support
+            Region(7,10,20, "static"), Region(8,20,50, "static"),  // low support
             Region(10,50,200,"static"), 
             Region(20,200,600,"static"), // auger
-            Region(10,600,preset.pulse_omega/4,"static"), // transition
+            Region(5,600,preset.pulse_omega/4,"static"), // transition
             Region(25,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
             Region(7,preset.pulse_omega*6/4,preset.pulse_omega*2,"static"), // high tail
             Region(20,-1,-1,"mb"), // Maxwell-boltzmann distribution
@@ -86,27 +86,29 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         pts_per_dirac = 10;
         regions = {
             Region(1,5,10,"static"),  // low divergent
-            Region(10,10,50, "static"), // low support
+            Region(5,10,20, "static"), Region(5,20,50, "static"),  // low support
             Region(7,50,200,"static"), 
             Region(7,200,600,"static"), // auger
-            Region(5,600,preset.pulse_omega/4,"static"), // transition
+            Region(4,600,preset.pulse_omega/4,"static"), // transition
             Region(15,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
             Region(4,preset.pulse_omega*6/4,preset.pulse_omega*2,"static"), // high tail
             Region(15,-1,-1,"mb"), // Maxwell-boltzmann distribution
-        };      
+        };    
+        break;  
       case DynamicGridPreset::dismal_acc:
         preset_name = "Dismal accuracy";
         pts_per_dirac = 5;
         regions = {
             Region(1,5,10,"static"),  // low divergent
-            Region(8,10,50, "static"), // low support
+            Region(4,10,20, "static"), Region(4,20,50, "static"),  // low support
             Region(5,50,200,"static"), 
             Region(5,200,600,"static"), // auger
             Region(3,600,preset.pulse_omega/4,"static"), // transition
             Region(10,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
-            Region(5,preset.pulse_omega,preset.pulse_omega*2,"static"), // high tail
+            Region(4,preset.pulse_omega*6/4,preset.pulse_omega*2,"static"), // high tail
             Region(10,-1,-1,"mb"), // Maxwell-boltzmann distribution
         };
+        break;
       // Effectively replaces dynamic dirac regions with static 30 points around dirac region
       case DynamicGridPreset::no_dirac:
         preset_name = "No dynamic dirac";
@@ -122,7 +124,8 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
             // Region(20,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
             // Region(5,preset.pulse_omega*6/4,preset.pulse_omega*2,"static"), // high tail            
             Region(25,-1,-1,"mb"), // Maxwell-boltzmann distribution
-        };          
+        };     
+        break;     
       // Idea: optimal grid dynamics should look something like noticeably more grid points early than late, as runge's phenomenon is most significant early on.
       // setting dynamic grid point count such that after a few fs their density is comparable to overlapping static region densities forces this.
       case DynamicGridPreset::training_wheels:
@@ -137,7 +140,8 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
             Region(30,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
             Region(5,preset.pulse_omega*6/4,preset.pulse_omega*2,"static"), // high tail
             Region(15,-1,-1,"mb"), // Maxwell-boltzmann distribution
-        };                      
+        };        
+        break;              
     }
     std::vector<Region> common_regions = {
         Region(1,5,10,"static"),  // low divergent
