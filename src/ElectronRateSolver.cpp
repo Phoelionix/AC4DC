@@ -139,7 +139,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
                 }
             }             
             transition_energy(step, param_cutoffs.transition_e);
-            // 
+            // More general basis refinement, but disabled because scope.            
             if (y[step].F.seek_basis(_log, input_params.elec_grid_type, step, param_cutoffs)){
                 //_log << "B-spline failed to find convergent basis, using backup dynamic grid."; _log.flush();   Disabled
             }
@@ -558,7 +558,7 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     }
 
     // clear knot history
-    while(Distribution::knots_history.back().step > n){
+    while(Distribution::knots_history.back().step >= n){
         Distribution::knots_history.pop_back();
     }    
     // the spline factors are untouched, we just need to load the appropriate knots.

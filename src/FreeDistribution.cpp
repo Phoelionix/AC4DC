@@ -58,6 +58,7 @@ void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_
 // Adaptive B-spline implementation
 // step - the index of the distribution calling this function
 int Distribution::seek_basis(ofstream& _log, GridSpacing gt, size_t step, Cutoffs param_cutoffs){
+    return 1
     // Process:
     //1. Convert basis to a low-density one, based on the regimes. Determine what densities would transform to. 
     //2. Repeat with denser knots, see if there's a significant difference with previous step (check each region individually).  
@@ -65,19 +66,19 @@ int Distribution::seek_basis(ofstream& _log, GridSpacing gt, size_t step, Cutoff
     //4. Increase the number of points in the segments with too high errors. (maybe should just do highest?)
     //5. Return to 2.
     
-    // initialise region segments
-    //basis.prep_adapt_knots(regimes);
-    int return_val = 0;
-    if (adapt_knots(true, gt, *this, get_knot_energies()))
-        return_val = 1;
-    knots_history.push_back(indexed_knot{step,get_knot_energies()});
-    Distribution::size=basis.num_funcs;
-    Distribution::CoulombLog_cutoff = basis.i_from_e(param_cutoffs.transition_e);
-    Distribution::CoulombDens_min = param_cutoffs.min_coulomb_density;
-    cout<<"[ Free ] Estimating lnLambda for energies below ";
-    cout<<param_cutoffs.transition_e<<" Ha"<<endl;
-    cout<<"[ Free ] Neglecting electron-electron below density of n = "<<CoulombDens_min<<"au^-3"<<endl;
-    return return_val;
+    // // initialise region segments
+    // //basis.prep_adapt_knots(regimes);
+    // int return_val = 0;
+    // if (adapt_knots(true, gt, *this, get_knot_energies()))
+    //     return_val = 1;
+    // knots_history.push_back(indexed_knot{step,get_knot_energies()});  // ?????? 
+    // Distribution::size=basis.num_funcs;
+    // Distribution::CoulombLog_cutoff = basis.i_from_e(param_cutoffs.transition_e);
+    // Distribution::CoulombDens_min = param_cutoffs.min_coulomb_density;
+    // cout<<"[ Free ] Estimating lnLambda for energies below ";
+    // cout<<param_cutoffs.transition_e<<" Ha"<<endl;
+    // cout<<"[ Free ] Neglecting electron-electron below density of n = "<<CoulombDens_min<<"au^-3"<<endl;
+    // return return_val;
 }
 
 
@@ -556,7 +557,7 @@ size_t Distribution::next_knot_change_idx(size_t step_idx){
 
 std::vector<double> Distribution::get_knots_from_history(size_t step_idx){
     vector<double> loaded_knot;
-    // Find the most recent grid update's knots as of step_idx. 
+    // Find the most recent grid update's knots as of step_idx.  (if knot was changed at step idx will return the knot loaded at that step.)
     for(auto elem: knots_history){
         if (elem.step > step_idx) break;
         loaded_knot = elem.energy;
