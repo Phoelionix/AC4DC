@@ -129,7 +129,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             mb_energy_bounds(step,regimes.mb_max,regimes.mb_min,regimes.mb_peak,false);
             // Check whether we should update
             if (regimes.mb_min == old_mb_min && regimes.mb_max == old_mb_max){
-                if (force_update) _log <<"Forcing grid update"<< endl; // probably will never happen
+                if (force_update) _log <<"Forcing grid update"<< endl; //
                 else{
                     // We must be still at the start of the simulation, it's unnecessary, even detrimental, to update.
                     _log << "SKIPPED grid update as Maxwell-Boltzmann region's grid point range was the same"<<endl;
@@ -182,7 +182,8 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
                 _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
             }
-            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<""  
+            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<"\n"  
+            << "Grid size: "<<Distribution::size<<""
             << endl;
         }        
     }
@@ -543,7 +544,7 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     // REDUCE time step size by factor, then add on extra steps.
     this->dt/=fact;
     assert(remaining_steps > 0 && fact > 1);
-    input_params.num_time_steps = input_params.num_time_steps + (fact - 1)*remaining_steps; // todo separate from input params
+    input_params.num_time_steps = t.size() + (fact - 1)*remaining_steps; // todo separate from input params
     t.resize(n+1); t.resize(input_params.num_time_steps);
     y.resize(n+1); y.resize(input_params.num_time_steps);
     // set basis to the one in use at checkpoint.
@@ -560,7 +561,7 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     }
 
     // clear knot history
-    while(Distribution::knots_history.back().step >= n){
+    while(Distribution::knots_history.back().step > n){
         Distribution::knots_history.pop_back();
     }    
     // the spline factors are untouched, we just need to load the appropriate knots.
@@ -774,7 +775,7 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
         Display::popup_stream << "\nUpdating grid... \n\r"; 
         _log << "[ Dynamic Grid ] Updating grid" << endl;
         Display::show(Display::display_stream,Display::popup_stream);   
-        update_grid(_log,n+1,true);          
+        update_grid(_log,n+1,true);       
     }   
     // move from initial grid to dynamic grid shortly after a fresh simulation's start.
     else if (n-this->order == max(2,(int)(steps_per_grid_transform/10)) && (input_params.Load_Folder() == "") && !grid_initialised){
