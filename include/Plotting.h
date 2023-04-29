@@ -45,5 +45,5 @@ namespace py = pybind11;
 struct Plotting{    
     //py::scoped_interpreter guard{};
     Plotting();
-    void plot_frame(std::vector<double> knot_to_plot, std::vector<double> density);
+    void plot_frame(std::vector<double> energies, std::vector<double> density,std::vector<double> knot_to_plot);
 };

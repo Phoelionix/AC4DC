@@ -46,25 +46,26 @@ Plotting::Plotting(){
         std::cerr << "Error: " << e.what() << std::endl;
         py::module_ sys = py::module_::import("sys");
         py::print("Python path:",sys.attr("path"));
-        throw std::runtime_error("plotting failure1");
+        throw std::runtime_error("plotting failure1. See above for error message from python.");
     }
 
 }
-void Plotting::plot_frame(std::vector<double> knot_to_plot, std::vector<double> density){
-    py::list knot_list = py::cast(knot_to_plot);
-    py::list density_list = py::cast(density);     
+void Plotting::plot_frame(std::vector<double> energies, std::vector<double> density,std::vector<double> knot_to_plot){
+    py::list energy_list = py::cast(energies);
+    py::list density_list = py::cast(density);    
+    py::list knot_to_plot_list = py::cast(knot_to_plot); 
     //auto py_path = PySys_GetObject("path");
     py::module_ sys = py::module_::import("sys");
     try { 
         py::module_::import("scipy"); // test importing
         py::object py_clear_frame = py::module_::import("script_generate_frame").attr("clear_frame_c")();
-        py::object py_plot_frame = py::module_::import("script_generate_frame").attr("plot_frame_from_c")(knot_list,density_list);
+        py::object py_plot_frame = py::module_::import("script_generate_frame").attr("plot_frame_from_c")(energy_list,density_list,knot_to_plot_list);
     } 
     catch (const std::exception& e) {
         Display::close();
         std::cerr << "Error: " << e.what() << std::endl;
         py::print("Python path:",sys.attr("path"));
-        throw std::runtime_error("plotting failure2");
+        throw std::runtime_error("plotting failure2. See above for error message from python.");
         //TODO skip plotting if fail 
     }   
     //py_clear_frame();

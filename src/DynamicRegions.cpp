@@ -123,16 +123,16 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
       // setting dynamic grid point count such that after a few fs their density is comparable to overlapping static region densities forces this.
       case DynamicGridPreset::training_wheels:
         preset_name = "No dynamic dirac";
-        pts_per_dirac = 30;
+        pts_per_dirac = 15;
         regions = {
             Region(1,5,10,"static"),  // low divergent
             Region(10,10,50, "static"), // low support
-            Region(5,50,200,"static"), 
-            Region(5,200,600,"static"), // auger
+            Region(8,50,200,"static"), 
+            Region(8,200,600,"static"), // auger
             Region(5,600,preset.pulse_omega/4,"static"), // transition
-            Region(20,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
+            Region(30,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
             Region(5,preset.pulse_omega*6/4,preset.pulse_omega*2,"static"), // high tail
-            Region(10,-1,-1,"mb"), // Maxwell-boltzmann distribution
+            Region(15,-1,-1,"mb"), // Maxwell-boltzmann distribution
         };                      
     }
     std::vector<Region> common_regions = {

@@ -666,8 +666,8 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         << "[ sim ] t="
         << std::left<<std::setfill(' ')<<std::setw(6)
         << this->t[n] * Constant::fs_per_au << " fs\n\r" 
-        << "[ sim ] " <<Distribution::size << " knots currently active\n\r"
-        << Distribution::get_knot_energies() << "\n\r"; 
+        << "[ sim ] " <<Distribution::size << " knots currently active\n\r";
+        //<< Distribution::get_knot_energies() << "\n\r"; 
         // << flush; 
         Display::show(Display::display_stream);
     }        
@@ -677,7 +677,11 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
     auto t_start_plot = std::chrono::high_resolution_clock::now();
     if ((n-this->order+1)%25 == 0){ // this rate won't be significant except for samples with no heavy elements
         size_t num_pts = 4000;
-        py_plotter.plot_frame(Distribution::get_energies_eV(num_pts),this->y[n].F.get_densities(num_pts,Distribution::get_knot_energies()));
+        py_plotter.plot_frame(
+            Distribution::get_energies_eV(num_pts),
+            this->y[n].F.get_densities(num_pts,Distribution::get_knot_energies()), 
+            Distribution::get_trimmed_knots(Distribution::get_knot_energies())
+        );
     }        
     plot_time += std::chrono::high_resolution_clock::now() - t_start_plot;  
 

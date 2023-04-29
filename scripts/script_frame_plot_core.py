@@ -17,6 +17,8 @@ class Plotter:
     # Example initialisation: Plotter(water)
     # --> expects there to be a control file named water.mol within AC4DC/input/ or a subdirectory.
     def initialise_interactive(self, target, x_args={}, y_args={}):
+        self.x_args = x_args
+        self.y_args = y_args
         self.fig = go.Figure()
         
         self.fig.update_layout(
@@ -24,7 +26,7 @@ class Plotter:
             showlegend=False,
             font=dict(
                 family="Courier New, monospace",
-                size=1,
+                size=20,
                 # color='rgba(0,0,0,0)' # hide tick numbers? Nope.
             ),
             paper_bgcolor= '#F7CAC9', #'#f7dac9' '#F7CAC9'  '#FFD580' "#92A8D1"  lgrey = '#bbbfbf',
@@ -38,7 +40,7 @@ class Plotter:
         self.energyKnot = []
 
         # initialise trace
-        self.fig.add_trace(go.Scatter(x=[0,1],y=[0,1]))
+        self.fig.add_trace(go.Scatter(x=[0,1],y=[0,1],name="density"))
 
     def update_data(self,energies,densities):
         self.density = np.array(densities)
@@ -54,7 +56,21 @@ class Plotter:
             dens /= tot
             dens /= 4*3.14
 
-        self.fig.update_traces(x=E,y=dens*E)            
+        self.fig.update_traces(x=E,y=dens*E)        
+    def plot_the_knot(self,knot_to_plot):
+        print(knot_to_plot)
+        print([0.9]* len(knot_to_plot))
+        #self.fig.add_scattergl(x=knot_to_plot,y = [0.9]* len(knot_to_plot))    
+        self.fig.add_scatter(x=knot_to_plot,y = [10**(self.y_args["range"][0])*1.1]* len(knot_to_plot),mode="markers",marker = dict(color='#e66000',size=8),name="knot")   
+        self.fig.update_layout(
+            showlegend=True,
+            legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01,
+            bgcolor = '#F5F5F5'
+        ))         
 
     def plot_fit(self, fitE, normed=True, **kwargs):
         fit = self.energyKnot.searchsorted(fitE)

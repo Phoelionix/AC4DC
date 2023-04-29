@@ -1125,7 +1125,7 @@ class SlaterShielding:
         self.s_p_slater_shielding()
     def s_p_slater_shielding(self):
         
-        #TODO fix up
+        # Slater's Rules #TODO could just calc a dictionary for each possible config, might be slowing down program currently. 
         if type(self.shell_occs) == np.ndarray:
             self.s = np.empty(shape=self.shell_occs.shape)
             num_atoms = self.shell_occs.shape[0]; num_times = self.shell_occs.shape[1]; num_subshells = self.shell_occs.shape[2]

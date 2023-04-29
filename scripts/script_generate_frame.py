@@ -5,22 +5,24 @@ from IPython.display import clear_output
 import plotly.io as pio
 import plotly.offline as plot_off
 import IPython
+import time
 
+def plot_frame(ipl,energies,densities,knot_to_plot):
 
-def plot_frame(ipl,energies,densities):
-
-    ipl.update_data(energies,densities)   
+    ipl.update_data(energies,densities)
     normalise = True  # TODO make True default, and False an option for cmdline arg.
     ipl.plot_step(normed=normalise)
+    ipl.plot_the_knot(knot_to_plot)   
     # import matplotlib.pyplot as plt
     # plt.pause(2)
 
 
-def plot_frame_from_c(energies,densities):
+def plot_frame_from_c(energies,densities,knot_points):
+    knot_points = [27.211385*e for e in knot_points]  # knots are passed in Ha, sorry.
     pio.renderers.default = "notebook"
     # Axis params
     log_ymin, log_ymax  = 1e-4, 1      
-    xmin, xmax = 1, 1e4    
+    xmin, xmax = 1, energies[np.max(np.nonzero(energies)) - 1]   # from 1 eV to max ignoring upper boundary knot.
     xlabel = 'Energy (eV)'
     ylabel = '$f(\\epsilon) \\Delta \\epsilon$'   #TODO: Get this working on offline file saves somehow.
     x_log_args = {'title': {"text": xlabel + " - log scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
@@ -28,7 +30,7 @@ def plot_frame_from_c(energies,densities):
     #    
     ipl = Plotter()
     ipl.initialise_interactive("Current Distribution", x_log_args,y_log_args) 
-    plot_frame(ipl,energies,densities)
+    plot_frame(ipl,energies,densities,knot_points)
     #plot_off.iplot(ipl.fig)
     #ipl.fig.show()
     #IPython.display.display(ipl.fig);     
