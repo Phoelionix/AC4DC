@@ -58,8 +58,6 @@ class Plotter:
 
         self.fig.update_traces(x=E,y=dens*E)        
     def plot_the_knot(self,knot_to_plot):
-        print(knot_to_plot)
-        print([0.9]* len(knot_to_plot))
         #self.fig.add_scattergl(x=knot_to_plot,y = [0.9]* len(knot_to_plot))    
         self.fig.add_scatter(x=knot_to_plot,y = [10**(self.y_args["range"][0])*1.1]* len(knot_to_plot),mode="markers",marker = dict(color='#e66000',size=8),name="knot")   
         self.fig.update_layout(

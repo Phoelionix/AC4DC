@@ -61,8 +61,9 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
             Region(25,10,50, "static"), // low support (MB is very fine early on, grid does not do well with sudden transitions in knot density.)
             Region(10,50,200,"static"), 
             Region(35,200,600,"static"), // auger
-            Region(40,600,preset.pulse_omega,"static"), 
-            Region(10,preset.pulse_omega,preset.pulse_omega*2,"static"), // high tail. An energy ceiling at least twice the photopeak ensures all non-negligible grid points will obey charge conservation (Sanders).
+            Region(15,600,preset.pulse_omega/4,"static"), // transition
+            Region(35,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
+            Region(7,preset.pulse_omega*6/4,preset.pulse_omega*2,"static"), // high tail. An energy ceiling at least twice the photopeak ensures all non-negligible grid points will obey charge conservation (Sanders).
             Region(35,-1,-1,"mb"), // Maxwell-boltzmann distribution
         };
         break;
@@ -74,8 +75,9 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
             Region(15,10,50, "static"), // low support
             Region(10,50,200,"static"), 
             Region(20,200,600,"static"), // auger
-            Region(25,600,preset.pulse_omega,"static"),  
-            Region(10,preset.pulse_omega,preset.pulse_omega*2,"static"), // high tail
+            Region(10,600,preset.pulse_omega/4,"static"), // transition
+            Region(25,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
+            Region(7,preset.pulse_omega*6/4,preset.pulse_omega*2,"static"), // high tail
             Region(20,-1,-1,"mb"), // Maxwell-boltzmann distribution
         };        
         break;
@@ -87,8 +89,9 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
             Region(10,10,50, "static"), // low support
             Region(7,50,200,"static"), 
             Region(7,200,600,"static"), // auger
-            Region(7,600,preset.pulse_omega,"static"),  
-            Region(7,preset.pulse_omega,preset.pulse_omega*2,"static"), // high tail
+            Region(5,600,preset.pulse_omega/4,"static"), // transition
+            Region(15,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
+            Region(4,preset.pulse_omega*6/4,preset.pulse_omega*2,"static"), // high tail
             Region(15,-1,-1,"mb"), // Maxwell-boltzmann distribution
         };      
       case DynamicGridPreset::dismal_acc:
@@ -99,7 +102,8 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
             Region(8,10,50, "static"), // low support
             Region(5,50,200,"static"), 
             Region(5,200,600,"static"), // auger
-            Region(5,600,preset.pulse_omega,"static"),  
+            Region(3,600,preset.pulse_omega/4,"static"), // transition
+            Region(10,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
             Region(5,preset.pulse_omega,preset.pulse_omega*2,"static"), // high tail
             Region(10,-1,-1,"mb"), // Maxwell-boltzmann distribution
         };
