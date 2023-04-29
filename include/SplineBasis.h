@@ -37,6 +37,7 @@ public:
     BasisSet() : GridRegions::GridRegions() {} 
     void set_parameters(const GridSpacing& gt, GridBoundaries& elec_grid_regions, FeatureRegimes& regimes);
     void set_parameters(std::vector<double> new_grid_knots);
+    void compute_overlap(size_t num_funcs);
     /// Returns S_inverse(deltaf) 
     Eigen::VectorXd Sinv(const Eigen::VectorXd& deltaf);
     /// Returns S_inverse(J)

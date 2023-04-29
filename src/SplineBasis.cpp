@@ -328,7 +328,10 @@ void BasisSet::set_parameters(const GridSpacing& gt, GridBoundaries& elec_grid_r
     // for (double e: knot)
     //     std::cout << e*Constant::eV_per_Ha << ' ';
     // cout << std::endl;
-    
+    compute_overlap(num_funcs);
+}
+
+void BasisSet::compute_overlap(size_t num_funcs){
     std::vector<Eigen::Triplet<double>> tripletList;
     tripletList.reserve(BSPLINE_ORDER*2*num_funcs);
     
@@ -347,8 +350,8 @@ void BasisSet::set_parameters(const GridSpacing& gt, GridBoundaries& elec_grid_r
         tripletList.push_back(Eigen::Triplet<double>(i,i,overlap(i, i)));
         // S(i,i) = overlap(i,i);
     }
-    /// Compute overlap matrix   //s\/ If we use the grid basis (with num_func splines) the splines overlap. S takes us to a spline-independent basis I believe -S.P.
-    Eigen::SparseMatrix<double> S(num_funcs, num_funcs);  //s\/ rows and cols. 
+    /// Compute overlap matrix   //s\/ quick and fast note - if we use the grid basis (with num_func splines) the splines overlap. S takes us to a spline-independent basis I believe -S.P.
+    Eigen::SparseMatrix<double> S(num_funcs, num_funcs);   // (num_funcs rows and cols). 
     S.setFromTriplets(tripletList.begin(), tripletList.end());
     // Precompute the LU decomposition
     linsolver.analyzePattern(S);
@@ -382,64 +385,8 @@ void BasisSet::set_parameters(std::vector<double> new_grid_knots) {
     // for (double e: knot)
     //     std::cout << e*Constant::eV_per_Ha << ' ';
     // cout << std::endl;
-    
-    std::vector<Eigen::Triplet<double>> tripletList;
-    tripletList.reserve(BSPLINE_ORDER*2*num_funcs);
-    
-    // NB: S is -> Eigen::MatrixXd S(num_funcs, num_funcs);
-    for (size_t i=0; i<num_funcs; i++) {
-        for (size_t j=i+1; j<num_funcs; j++) {
-            double tmp=overlap(i, j);
-            if (tmp != 0) {
-                tripletList.push_back(Eigen::Triplet<double>(i,j,tmp));
-                tripletList.push_back(Eigen::Triplet<double>(j,i,tmp));
-                // S(i,j) = tmp;
-                // S(j,i) = tmp;
-            }
-        }
-        // S.insert(i,i) = overlap(i,i);
-        tripletList.push_back(Eigen::Triplet<double>(i,i,overlap(i, i)));
-        // S(i,i) = overlap(i,i);
-    }
-    /// Compute overlap matrix   | If we use the grid basis (with num_func splines) the splines overlap. S takes us to a spline-independent basis I believe -S.P.
-    Eigen::SparseMatrix<double> S(num_funcs, num_funcs);  //s\/ rows and cols. 
-    S.setFromTriplets(tripletList.begin(), tripletList.end());
-    // Precompute the LU decomposition
-    linsolver.analyzePattern(S);
-    linsolver.isSymmetric(true);
-    linsolver.factorize(S);
-    if(linsolver.info()!=Eigen::Success) {
-        throw runtime_error("Factorisation of overlap matrix failed!");
-    }
-
-    avg_e.resize(num_funcs);
-    log_avg_e.resize(num_funcs);
-    areas.resize(num_funcs);
-    for (size_t i = 0; i < num_funcs; i++) {
-        // Chooses the 'center' of the B-spline
-        avg_e[i] = (this->supp_max(i) + this->supp_min(i))/2 ;
-        log_avg_e[i] = log(avg_e[i]);
-        double diff = (this->supp_max(i) - this->supp_min(i))/2;
-        // Widths stores the integral of the j^th B-spline
-        areas[i] = 0;
-        for (size_t j=0; j<10; j++){
-            areas[i] += gaussW_10[j]*(*this)(i, gaussX_10[j]*diff+ avg_e[i]);
-        }
-        areas[i] *= diff;
-    }
+    compute_overlap(num_funcs);
 }
-// void BasisSet::prep_adapt_knots(const FeatureRegimes& regimes){
-//     // clear out regions and replace with segments
-//     std::vector<Region> new_regions;
-//     for(size_t i = 0; i < regions.size();i++){
-//         if((regions[i].get_type() == "dirac") || (regions[i].get_type() == "mb")){
-//             new_regions.push_back(regions[i]);
-//         }
-//     }
-
-
-// }
-
 
 /**
  * @brief Sinv = S inverse. Changes basis of vector deltaf from spline basis to grid basis and vice versa I think? -S.P.

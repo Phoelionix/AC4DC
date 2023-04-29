@@ -58,7 +58,7 @@ void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_
 // Adaptive B-spline implementation
 // step - the index of the distribution calling this function
 int Distribution::seek_basis(ofstream& _log, GridSpacing gt, size_t step, Cutoffs param_cutoffs){
-    return 1
+    return 1;
     // Process:
     //1. Convert basis to a low-density one, based on the regimes. Determine what densities would transform to. 
     //2. Repeat with denser knots, see if there's a significant difference with previous step (check each region individually).  
