@@ -30,7 +30,7 @@ true
 #NUMERICAL
 20000          // Starting number of time steps for rate equation.
 18            // Number of threads in OpenMP.
-0.25          // Grid update period in fs, (dynamic grid only).
+0.25          // Grid update period in fs, (dynamic grid only).  // WARNING currently bugged if need to load checkpoint on first step.
 
 #OUTPUT
 800         // Number of time steps in the output files.
@@ -41,21 +41,21 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #MANUAL_GRID
 false        // use manual grid? If false, dynamic grid is used.
-2000           // Transition energy.  The temperature, and thus coulomb logarithm, is approximated by calculating the equilibrium definition of temperature for the energy distribution below this cutoff.
-1|30|55|65|85|105|145|150                 // manual grid boundary indices, with point at 0 excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
-4|10|50|200|500|4500|6500|10000       // manual grid boundary energies, with point at 0 excluded. No spaces.
-1|1|1|1|1|1|1 
+//2000           // Transition energy.  The temperature, and thus coulomb logarithm, is approximated by calculating the equilibrium definition of temperature for the energy distribution below this cutoff.
+//1|30|55|65|85|105|145|150                 // manual grid boundary indices, with point at 0 excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
+//4|10|50|200|500|4500|6500|10000       // manual grid boundary energies, with point at 0 excluded. No spaces.
+//1|1|1|1|1|1|1 
 
 #DYNAMIC_GRID
-m              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
+l              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
 
 
 #LOAD
-//carbon_gauss_3 // Output folder name
-//1000   // Point to load time from 
+//carbon_gauss_148 // Output folder name
+//99   // Point to load time from 
 
 #DEBUG
--2     // Simulation cutoff time in fs
+99     // Simulation cutoff time in fs
 0    // Interval to update current timestep [fs].
 ####END#####
 

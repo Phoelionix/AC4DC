@@ -1781,7 +1781,7 @@ def res_to_q(d):
 # log doesnt work atm.
 # Get the rings to correspond to actual rings
 
-##%% vvvvvvvvv
+#%% vvvvvvvvv
 ### Simulate
 #TODO
 # have max q, that matches neutze
@@ -1794,13 +1794,13 @@ DEBUG = False
 target_options = ["neutze","hen","tetra"]
 #============------------User params---------==========#
 
-target = "neutze" #target_options[2]
+target = "tetra" #target_options[2]
 top_resolution = 2
 bottom_resolution = None#30
 
 #### Individual experiment arguments 
 start_time = -6
-end_time = 2.8#10 #0#-9.80    
+end_time = 6#10 #0#-9.80    
 laser_firing_qwargs = dict(
     SPI = True,
     pixels_across = 100,  # shld go on xfel params.
@@ -1809,7 +1809,7 @@ laser_firing_qwargs = dict(
 crystal_qwargs = dict(
     cell_scale = 3,  # for SC: cell_scale^3 unit cells 
     positional_stdv = 0.2, # RMS in atomic coord position [angstrom]
-    include_symmetries = False,  # should unit cell contain symmetries?
+    include_symmetries = True,  # should unit cell contain symmetries?
     cell_packing = "SC",
     rocking_angle = 0.3,  # (approximating mosaicity)
     orbitals_as_shells = True,
@@ -1888,7 +1888,7 @@ print("ori set if not random:", orientation_set)  #TODO double check shows when 
 #---------------------------------#
 if target == "neutze": #T4 virus lys
     pdb_path = "/home/speno/AC4DC/scripts/scattering/2lzm.pdb"
-    cell_dim = np.array((61.200 ,  61.200 ,  61.2))#TODO should read this automatically...
+    cell_dim = np.array((61.200 ,  61.200 ,  61.2)) #TODO should read this automatically...
     target_handle = "D_lys_neutze_simple_7"  
     allowed_atoms_1 = ["N_fast","S_fast"]
     #allowed_atoms_2 = ["N_fast","S_fast"]      
@@ -1903,7 +1903,7 @@ elif target == "hen": # egg white lys
 elif target == "tetra": 
     pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb" 
     cell_dim = np.array((4.813 ,  17.151 ,  29.564))
-    target_handle = "carbon_gauss_32"
+    target_handle = "carbon_6keV" #"carbon_12keV" # "carbon_6keV" #"carbon_gauss_32"
     allowed_atoms_1 = ["C_fast"]
     #allowed_atoms_2 = ["C_fast"]      
     CNO_to_N = False

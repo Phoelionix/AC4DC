@@ -1,5 +1,5 @@
 // Carbon (amorphous similar to Hau-Riege). Assumes 100nm cylindrical beam fired into much larger target.
-
+// Confirmed to work with AC4DCv2 (Sanders 2020 thesis).
 #ATOMS
 C 1
 
