@@ -264,7 +264,12 @@ public:
     //void prep_adapt_knots(const FeatureRegimes& regimes);
     int adapt_knots(bool init, GridSpacing gt, Distribution original_distribution, std::vector<double> original_knots, std::vector<double> reference_energies = {}, std::vector<double> prev_Edens = {},size_t iteration = 0);
 
-
+    static double get_min_E(){
+        return basis.min_elec_e();
+    }
+    static double get_max_E(){
+        return basis.max_elec_e();
+    }
 
     static size_t size;
     double my_size(){return f.size();}

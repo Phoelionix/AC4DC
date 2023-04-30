@@ -65,6 +65,8 @@ public:
 protected:
     void initialise_regions(DynamicGridPreset preset);
     void set_static_region_energies(vector<double> energy_boundaries);
+    double dynamic_min_inner_knot();
+    double dynamic_max_inner_knot();
     
 
     // GridRegions& operator+=(const GridRegions& other_GR){

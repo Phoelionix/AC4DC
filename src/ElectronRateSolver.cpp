@@ -177,13 +177,14 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
         if(_log.is_open()){
             double e = Constant::eV_per_Ha;
             _log << "------------------- [ New Knots ] -------------------\n" 
-            "Time: "<<t[step]*Constant::fs_per_au <<" fs\n" 
+            "Time: "<<t[step]*Constant::fs_per_au <<" fs; "<<"Step: "<<step<<"\n" 
             <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
             for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
                 _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
             }
             _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<"\n"  
-            << "Grid size: "<<Distribution::size<<""
+            << "Grid size: "<<Distribution::size<<"\n"
+            << "-----------------------------------------------------" 
             << endl;
         }        
     }
@@ -666,14 +667,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         << "[ sim ] t="
         << std::left<<std::setfill(' ')<<std::setw(6)
         << this->t[n] * Constant::fs_per_au << " fs\n\r" 
-        << "[ sim ] " <<Distribution::size << " knots currently active\n\r"//;
-        << n << "\n\r"
-        << Distribution::get_knots_from_history(n).size() << " " << Distribution::most_recent_knot_change_idx(n) << "\n\r"
-        << Distribution::get_knots_from_history(n-100).size() << " " << Distribution::most_recent_knot_change_idx(n-100) << "\n\r"
-        << Distribution::get_knots_from_history(n-200).size() << " " << Distribution::most_recent_knot_change_idx(n-200) << "\n\r"
-        << Distribution::get_knots_from_history(n-300).size() << " " << Distribution::most_recent_knot_change_idx(n-300) << "\n\r"
-        << Distribution::get_knots_from_history(n-400).size() << " " << Distribution::most_recent_knot_change_idx(n-400) << "\n\r"
-        << Distribution::get_knots_from_history(n-400).size() << " " << Distribution::most_recent_knot_change_idx(n-500) << "\n\r";
+        << "[ sim ] " <<Distribution::size << " knots currently active\n\r";
         //<< Distribution::get_knot_energies() << "\n\r"; 
         // << flush; 
         Display::show(Display::display_stream);
@@ -682,7 +676,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
 
     ////// live plotting ////// 
     auto t_start_plot = std::chrono::high_resolution_clock::now();
-    if ((n-this->order+1)%25 == 0){ // this rate won't be significant except for samples with no heavy elements
+    if ((n-this->order+1)%100 == 0){ // TODO implement minimum time
         size_t num_pts = 4000;
         py_plotter.plot_frame(
             Distribution::get_energies_eV(num_pts),

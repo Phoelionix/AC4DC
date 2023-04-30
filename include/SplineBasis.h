@@ -65,7 +65,7 @@ public:
     }
     std::vector<std::pair<double,double>> knots_between(double bottom, double top) const;
     double min_elec_e() {return _min;};
-    double max_elec_e() {return _max;};
+    double max_elec_e() {return _max;};  
     size_t num_funcs;
     const static int BSPLINE_ORDER = 3; // 1 = rectangles, 2=linear, 3=quadratic
     std::vector<double> avg_e;
@@ -84,8 +84,8 @@ protected:
     
     double _min;
     double _max;
-    std::vector<int> _region_bndry_index;
-    std::vector<double> _region_bndry_energy;
+    std::vector<int> _manual_region_bndry_index;
+    std::vector<double> _manual_region_bndry_energy;
     std::vector<double> _region_powers;
 };
 

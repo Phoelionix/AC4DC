@@ -50,8 +50,8 @@ double ElectronRateSolver::approx_nearest_peak(size_t step, double start_energy,
     // Default values
     if (min < 0)
         min = 0;
-    if(max < 0 || max > elec_grid_regions.bndry_E.back())
-        max = elec_grid_regions.bndry_E.back();
+    if(max < 0 || max > Distribution::get_max_E())
+        max = Distribution::get_max_E();
     // Initialise
     double e = start_energy;
     double local_max = -1;
@@ -97,8 +97,8 @@ double ElectronRateSolver::nearest_inflection(size_t step, double start_energy,d
     // Default values
     if (min < 0)
         min = 0;
-    if(max < 0 || max > elec_grid_regions.bndry_E.back())
-        max = elec_grid_regions.bndry_E.back();
+    if(max < 0 || max > Distribution::get_max_E())
+        max = Distribution::get_max_E();
     // Initialise
     double e = start_energy;
     double inflection = -1;
@@ -231,7 +231,7 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, std::vector<double>& m
     double peak_search_step_size = 10/Constant::eV_per_Ha;
     // Find peaks
     size_t num_sequential_needed = 3;
-    peaks = approx_regime_peaks(step,min_photo_peak_considered,elec_grid_regions.bndry_E.back(),peak_search_step_size,num_peaks,peak_min_density);
+    peaks = approx_regime_peaks(step,min_photo_peak_considered,Distribution::get_max_E(),peak_search_step_size,num_peaks,peak_min_density);
     // Set peaks' region boundaries
     //about halfway between the peak and the neighbouring local minima is sufficient for their mins and maxes
     for(size_t i = 0; i < peaks.size(); i++) {
@@ -302,7 +302,7 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
     std::cout << std::endl;
     //double new_max = 2.3208*kT; // 80% of electrons below this point (lower since not as sharp)
     if(_max < new_max || allow_shrinkage)
-        _max = std::min(new_max,elec_grid_regions.bndry_E.back());
+        _max = std::min(new_max,Distribution::get_max_E());
 }
 
 /**

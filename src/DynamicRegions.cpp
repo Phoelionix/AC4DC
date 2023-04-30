@@ -179,9 +179,25 @@ void GridRegions::update_regions(FeatureRegimes rgm){
     assert(rgm.dirac_peaks.size() == peak_idx);
 }
 
-void GridRegions::set_static_region_energies(vector<double> energy_boundaries){
 
+double GridRegions::dynamic_min_inner_knot(){
+    double min_E = INFINITY;
+    for(Region reg : regions){
+        min_E = min(reg.get_E_min(),min_E);
+    }
+    return min_E;
+ 
 }
+double GridRegions::dynamic_max_inner_knot(){
+    double max_E = -INFINITY;
+    for(Region reg : regions){
+        max_E = max(reg.get_E_max(),max_E);
+    }
+    return max_E;
+}
+// void GridRegions::set_static_region_energies(vector<double> energy_boundaries){
+
+// }
 
 void Region::update_region(double new_centre, double new_min, double new_max){
     assert(type != "static");    
@@ -212,3 +228,4 @@ double Region::get_next_knot(double previous_knot){
     if(E_min > previous_knot) return E_min;
     return -1;
 }
+
