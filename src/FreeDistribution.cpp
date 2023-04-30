@@ -533,24 +533,27 @@ std::vector<double> Distribution::load_knots_from_history(size_t step_idx){
 }
 
 size_t Distribution::most_recent_knot_change_idx(size_t step_idx){
-    size_t most_recent_update;
+    size_t most_recent_update = 0;
     // Find the step of the most recent knot update as of step_idx. (will return same step if given the step of the change.)
     for(auto elem: knots_history){
-        if (elem.step > step_idx) break; 
-            most_recent_update = elem.step;
+        if (elem.step > step_idx){ 
+            break; 
+        }
+        most_recent_update = elem.step;
     }
     return most_recent_update;
 }
 
 
 size_t Distribution::next_knot_change_idx(size_t step_idx){
-    size_t next_knot_update;
-    // Find the step of the most recent knot update as of step_idx. (will return same step if given the step of the change.)
+    size_t next_knot_update = INFINITY;
+    // Find the step of the next knot update as of step_idx. (will return next update idx if given the step of the change.)
     for(auto elem: knots_history){
-        if (elem.step > step_idx) 
+        if (elem.step > step_idx){
             next_knot_update = elem.step;
             break; 
-    }
+        }
+    } 
     return next_knot_update;
 }
 

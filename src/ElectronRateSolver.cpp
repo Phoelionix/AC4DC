@@ -129,7 +129,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             mb_energy_bounds(step,regimes.mb_max,regimes.mb_min,regimes.mb_peak,false);
             // Check whether we should update
             if (regimes.mb_min == old_mb_min && regimes.mb_max == old_mb_max){
-                if (force_update) _log <<"Forcing grid update"<< endl; //
+                if (force_update) _log <<"Forcing grid update"<< endl; // should be unlikely w/o adaptive b spline stuff? 
                 else{
                     // We must be still at the start of the simulation, it's unnecessary, even detrimental, to update.
                     _log << "SKIPPED grid update as Maxwell-Boltzmann region's grid point range was the same"<<endl;
@@ -560,7 +560,7 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
         this->t[i] = this->t[i-1] + this->dt;
     }
 
-    // clear knot history
+    // clear knot history past step
     while(Distribution::knots_history.back().step > n){
         Distribution::knots_history.pop_back();
     }    
@@ -576,10 +576,9 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
         update_grid(_log,n,true);
     }
     else{
-        
-        // update_grid(_log,n,false);
-        // we should always update grid now anyway with the adaptive b splines
-        update_grid(_log,n,true);
+        update_grid(_log,n,false);
+        // (disabled) // we should always update grid now anyway with the adaptive b splines 
+        // update_grid(_log,n,true);
     }
 
     _log <<"Updated grid..."<<endl;
@@ -667,7 +666,14 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         << "[ sim ] t="
         << std::left<<std::setfill(' ')<<std::setw(6)
         << this->t[n] * Constant::fs_per_au << " fs\n\r" 
-        << "[ sim ] " <<Distribution::size << " knots currently active\n\r";
+        << "[ sim ] " <<Distribution::size << " knots currently active\n\r"//;
+        << n << "\n\r"
+        << Distribution::get_knots_from_history(n).size() << " " << Distribution::most_recent_knot_change_idx(n) << "\n\r"
+        << Distribution::get_knots_from_history(n-100).size() << " " << Distribution::most_recent_knot_change_idx(n-100) << "\n\r"
+        << Distribution::get_knots_from_history(n-200).size() << " " << Distribution::most_recent_knot_change_idx(n-200) << "\n\r"
+        << Distribution::get_knots_from_history(n-300).size() << " " << Distribution::most_recent_knot_change_idx(n-300) << "\n\r"
+        << Distribution::get_knots_from_history(n-400).size() << " " << Distribution::most_recent_knot_change_idx(n-400) << "\n\r"
+        << Distribution::get_knots_from_history(n-400).size() << " " << Distribution::most_recent_knot_change_idx(n-500) << "\n\r";
         //<< Distribution::get_knot_energies() << "\n\r"; 
         // << flush; 
         Display::show(Display::display_stream);
@@ -775,7 +781,7 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
         Display::popup_stream << "\nUpdating grid... \n\r"; 
         _log << "[ Dynamic Grid ] Updating grid" << endl;
         Display::show(Display::display_stream,Display::popup_stream);   
-        update_grid(_log,n+1,true);       
+        update_grid(_log,n+1,false);       
     }   
     // move from initial grid to dynamic grid shortly after a fresh simulation's start.
     else if (n-this->order == max(2,(int)(steps_per_grid_transform/10)) && (input_params.Load_Folder() == "") && !grid_initialised){

@@ -99,18 +99,19 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
     float t_fineness = timespan_au  / num_t_points;
     float previous_t = t[0];
     int i = -1; 
-    size_t prev_knot_update = INFINITY;
+    size_t next_knot_update = 0;
     while (i <  static_cast<int>(t.size())-1){
         i++;
-        if (prev_knot_update > i){
+        if (i >= next_knot_update){
             Distribution::load_knots_from_history(i);
-            prev_knot_update = Distribution::most_recent_knot_change_idx(i);
+            next_knot_update = Distribution::next_knot_change_idx(i);
         } 
         if(t[i] < previous_t + t_fineness){
             continue;
         }
         f<<t[i]*Constant::fs_per_au<<" "<<y[i].F.output_densities(this->input_params.Out_F_size(),reference_knots)<<endl;
         previous_t = t[i];
+        
     }
     f.close();
     Distribution::load_knots_from_history(t.size()); // back to original state
@@ -133,11 +134,11 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
 
     assert(y.size() == t.size());
     
-    size_t prev_knot_update = INFINITY;
+    size_t next_knot_update = 0;
     for (size_t i=0; i<t.size(); i++) {
-        if (prev_knot_update > i){
+        if (i >= next_knot_update){
             Distribution::load_knots_from_history(i);
-            prev_knot_update = Distribution::most_recent_knot_change_idx(i);
+            next_knot_update = Distribution::next_knot_change_idx(i);
         } 
         f<<t[i]*Constant::fs_per_au<<" "<<y[i].F<<endl;  // Note that the << operator divides the factors by Constant::eV_per_Ha. -S.P.
     }
