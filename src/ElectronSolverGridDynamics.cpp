@@ -131,6 +131,7 @@ double ElectronRateSolver::nearest_inflection(size_t step, double start_energy,d
     return inflection;    
 }
 
+// min distance in eV
 double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min_distance, double min_inflection_fract, double _min, double _max){
     min_distance /= Constant::eV_per_Ha;
     // Find 0 of second derivative
@@ -253,10 +254,11 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, std::vector<double>& m
         down_e_step = max(down_e_step, -10/Constant::eV_per_Ha);
 
         // Get bounds
+        double min_distance = input_params.elec_grid_preset.pulse_omega/10; // the minimum distance from the peak that the region must cover.
         std::cout << "Inflections of peak at " <<e_peak*Constant::eV_per_Ha <<" are... Lwr:";
-        double lower_bound = approx_regime_bound(step,e_peak, down_e_step, num_sequential_needed,600,1./4.);
+        double lower_bound = approx_regime_bound(step,e_peak, down_e_step, num_sequential_needed,min_distance,1./4.);
         std::cout <<", Upr: ";
-        double upper_bound = approx_regime_bound(step,e_peak, up_e_step, num_sequential_needed,600,1./4.);//peak + 0.912*(peak - lower_bound);  // s.t. if lower_bound is 3/4 peak, upper_bound is 1.1*peak.
+        double upper_bound = approx_regime_bound(step,e_peak, up_e_step, num_sequential_needed,min_distance,1./4.);//peak + 0.912*(peak - lower_bound);  // s.t. if lower_bound is 3/4 peak, upper_bound is 1.1*peak.
         std::cout << std::endl;
         if(allow_shrinkage){
             maximums[i] = -1;
