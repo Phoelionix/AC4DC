@@ -46,17 +46,17 @@ void Display::create_screen(){
 }
 
 /// Screen displays the contents of the stream, and only the contents.
-void Display::show(const std::stringstream& spooky_stream, bool do_erase){
+void Display::show(const std::stringstream& spooky_stream){
+    werase(Display::win); 
     box(win, 0 , 0);
     waddstr(win,spooky_stream.str().c_str());
     wrefresh(win);   
-    if (do_erase) werase(Display::win);
 }
-void Display::show(const std::stringstream& spooky_stream,const std::stringstream& second_stream, bool do_erase){
+void Display::show(const std::stringstream& spooky_stream,const std::stringstream& second_stream){
+    werase(Display::win);  
     box(win, 0 , 0);
     waddstr(win,(spooky_stream.str()+second_stream.str()).c_str());
     wrefresh(win);   
-    if (do_erase) werase(Display::win);
 }
 // void Display::deactivate(){
 //     touchwin(stdscr);

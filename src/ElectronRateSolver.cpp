@@ -39,7 +39,7 @@ This file is part of AC4DC.
 
 
 void ElectronRateSolver::set_starting_state(){
-    this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
+    
     if (input_params.Load_Folder() != ""){ 
         cout << "[ Plasma ] loading sim state from specified files." << endl;
         loadFreeRaw_and_times();
@@ -48,6 +48,7 @@ void ElectronRateSolver::set_starting_state(){
     }
     else{
         cout << "[ Plasma ] Creating ground state" << endl;
+        this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
     }
 }
 
@@ -215,20 +216,17 @@ void ElectronRateSolver::solve(ofstream & _log, const std::string& tmp_data_fold
 
 
     
-
-    // Call hybrid integrator to iterate through the time steps (good state)
-    good_state = true;
+    // generate text to display during simulation run
     std::stringstream plasma_header; 
     const string banner = "================================================================================";
     plasma_header<<banner<<"\n\r";
-    if (steps_per_time_update > 1){
-        plasma_header<< "Updating time every " << steps_per_time_update << " steps." <<"\n\r";
+    if (input_params.time_update_gap > 0){
+        plasma_header<< "Updating display every " <<input_params.time_update_gap*Constant::fs_per_au<<" fs."<<"\n\r";
     }
     if (simulation_resume_time != simulation_start_time){
         plasma_header/*<<"\033[33m"*/<<"Loaded simulation at:  "/*<<"\033[0m"*/<<(simulation_resume_time)*Constant::fs_per_au<<" fs"<<"\n\r";
     }
     plasma_header/*<<"\033[33m"*/<<"Final time step:  "/*<<"\033[0m"*/<<(simulation_end_time)*Constant::fs_per_au<<" fs"<<"\n\r";
-    plasma_header<<banner<<"\n\r";
     
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic)
         plasma_header <<"[ sim ] Grid update period: "<<grid_update_period * Constant::fs_per_au<<" fs"<<"\n\r";
@@ -236,6 +234,8 @@ void ElectronRateSolver::solve(ofstream & _log, const std::string& tmp_data_fold
         plasma_header << "[ sim ] Using static grid" << "\n\r";
 
     plasma_header<<"[ Rate Solver ] Using initial timestep size of "<<this->dt*Constant::fs_per_au<<" fs"<<"\n\r";
+    plasma_header<<banner<<"\n\r";
+
     steps_per_grid_transform =  round(input_params.Num_Time_Steps()*(grid_update_period/timespan_au));
 
 
@@ -244,6 +244,8 @@ void ElectronRateSolver::solve(ofstream & _log, const std::string& tmp_data_fold
     Display::header += plasma_header.str(); // display this in ncurses screen
     //Display::deactivate();
 
+    // Call hybrid integrator to iterate through the time steps (good state)
+    good_state = true;
     this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
 
     
@@ -546,6 +548,7 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     this->dt/=fact;
     assert(remaining_steps > 0 && fact > 1);
     input_params.num_time_steps = t.size() + (fact - 1)*remaining_steps; // todo separate from input params
+    steps_per_time_update = max(1 , (int)(input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
     t.resize(n+1); t.resize(input_params.num_time_steps);
     y.resize(n+1); y.resize(input_params.num_time_steps);
     // set basis to the one in use at checkpoint.
@@ -594,7 +597,6 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     }
     std::cout.clear();
     */
-        
 
     // Remember when time step was decreased, and flag to increase time step size again
     switch (input_params.pulse_shape){
@@ -819,8 +821,8 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
     auto ch = wgetch(Display::win);
     if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127){   
         flushinp(); // flush buffered inputs
-        Display::popup_stream <<"\n\rExiting early... press backspace/del again to confirm or any other key to cancel \n\r";
-        Display::show(Display::display_stream,Display::popup_stream, false);
+        Display::popup_stream <<"\n\rExiting early... press backspace/del again to confirm or any other key to cancel and resume the simulation \n\r";
+        Display::show(Display::display_stream,Display::popup_stream);
         nodelay(Display::win, false);
         ch = wgetch(Display::win);  // note implicitly refreshes screen
         if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127){
@@ -829,13 +831,16 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
             return 1;
         }
         nodelay(Display::win, true);
-        werase(Display::win);
-    }       
+        Display::show(Display::display_stream);
+    }     
+    
+    user_input_time += std::chrono::high_resolution_clock::now() - t_start_usr;  
+    
     if (Display::popup_stream.rdbuf()->in_avail() != 0){
         // clear stream
         Display::popup_stream.str(std::string());
     }   
-    user_input_time += std::chrono::high_resolution_clock::now() - t_start_usr;  
+    
     
     post_ode_time += std::chrono::high_resolution_clock::now() - t_start;    
     return 0;

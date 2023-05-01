@@ -111,6 +111,7 @@ public:
     std::chrono::minutes minutes_per_save{60};
      
 private:
+    double IVP_step_tolerance = 5e-3;
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)
     ManualGridBoundaries elec_grid_regions;
     Cutoffs param_cutoffs; 

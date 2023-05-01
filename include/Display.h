@@ -36,8 +36,9 @@ This file is part of AC4DC.
 
 struct Display{ 
     static void create_screen();
-    static void show(const std::stringstream& str, bool do_erase = true);
-    static void show(const std::stringstream& str1,const std::stringstream& str2, bool do_erase = true);
+    static void show(const std::stringstream& str);
+    static void show(const std::stringstream& str1,const std::stringstream& str2);
+    static void clean();
     static void deactivate();
     static void reactivate();
     static void close();

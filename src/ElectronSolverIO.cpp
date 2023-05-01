@@ -265,7 +265,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
      // Get indices of lines to load
     std::string line;
     float previous_t;
-    float t_fineness = 0.01;  // Fineness should be kept to at least this, so that raw can be kept fine throughout loadings. 
+    float t_fineness = 0.01;  // Fineness should be kept below this, so that raw can be kept fine throughout loadings. 
     vector<int> step_indices;
     int i = -4;
     while (std::getline(infile, line)){
@@ -282,6 +282,30 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             previous_t =  t;
         }
     }     
+    if (input_params.Using_Input_Timestep() == false){   // Get dt at end of simulation.
+        infile.clear();  
+        infile.seekg(0, std::ios::beg);        
+        // last_idx = i
+        int j = -4;
+        float dt = INFINITY;
+        while (std::getline(infile, line)){
+            std::istringstream s(line);
+            string str_time;
+            s >> str_time;
+            j++;
+            if (j == i-1){
+                dt = stod(str_time);     // prev_time
+            }
+            if (j == i){
+                dt = (stod(str_time) - dt)/Constant::fs_per_au; // last_time - prev_time = dt
+            }
+        }
+        assert(dt < timespan_au);
+        input_params.num_time_steps = std::round(this->timespan_au/dt);
+        this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
+    }
+
+
     int num_steps = step_indices.size();    
     // get each raw line
     infile.clear();  
@@ -358,7 +382,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         else{
             // Starting state and knots are made to be same as that given in load file. TODO make tolerance consistent with other call.
             Distribution::set_knot_history(0,saved_knots); // move out of loop
-            this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, 5e-3);
+            this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
         }
         t[i] = saved_time[i];
         i++;

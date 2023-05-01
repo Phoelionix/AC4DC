@@ -194,6 +194,9 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 			load_folder = "output/__Molecular/" + load_folder + "/";
 		}
 		if (n == 1) stream >> simulation_resume_time_max;
+		if (n == 2 && (stream.get() =='t'||stream.get() =='T')){
+			loading_uses_input_timestep = true;
+		} 
 	}
 
 	for (size_t n = 0; n < FileContent["#DEBUG"].size(); n++) {
