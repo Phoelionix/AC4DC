@@ -36,6 +36,7 @@ struct Checkpoint {
     size_t n;
     std::vector<double> knots;
     FeatureRegimes regimes;
+    std::vector<state_type> last_few_states;
 };
 
 namespace ode {
@@ -99,7 +100,7 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const 
     
     bool resume_sim = (t_resume == t_initial) ? false : true;
 
-    checkpoint = {this->order, Distribution::get_knot_energies(), this->regimes};
+    //checkpoint = {this->order, Distribution::get_knot_energies(), this->regimes};
 
     size_t resume_idx = 0;
     if (resume_sim){
@@ -115,7 +116,8 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const 
         npoints -= (resume_idx_if_const_dt + 1);
         npoints += this->t.size(); // 
         // Set checkpoint to be at the starting step
-        checkpoint = {resume_idx, Distribution::get_knot_energies(),this->regimes}; // ATTENTION doesn't work unless loading last knot energies as we don't output the historic knots currently.
+        std::vector<state_type> check_states = std::vector<state_type>(this->y.end() + 1 - this->order, this->y.end());
+        checkpoint = {resume_idx, Distribution::get_knot_energies(),this->regimes,check_states}; // ATTENTION doesn't work unless loading last knot energies as we don't output the historic knots currently.
 
         // bool use_custom_regimes = true;
         // if (use_custom_regimes){
@@ -165,6 +167,8 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         for (size_t n = 0; n < this->order; n++) {
             this->step_rk4(n);
         }
+        std::vector<state_type> check_states = std::vector<state_type>(this->y.begin() + 1, this->y.end());
+        checkpoint = {this->order, Distribution::get_knot_energies(), this->regimes, check_states};
     }
     // Run those steps 
     std::stringstream tol;

@@ -534,6 +534,8 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     std::cout.setstate(std::ios_base::failbit);  // disable character output
     
     size_t n = _checkpoint.n; // index of step to load at 
+    auto saved_knots = _checkpoint.knots;
+    auto saved_states = _checkpoint.last_few_states;
     //std::vector<double> knots = _checkpoint.knots;
     std::vector<double> old_knots = Distribution::get_knot_energies();
 
@@ -550,13 +552,13 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     input_params.num_time_steps = t.size() + (fact - 1)*remaining_steps; // todo separate from input params
     steps_per_time_update = max(1 , (int)(input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
     t.resize(n+1); t.resize(input_params.num_time_steps);
-    y.resize(n+1); y.resize(input_params.num_time_steps);
-    // set basis to the one in use at checkpoint.
-    // y[n].F.transform_basis(knots);
-    // zero_y = this->get_ground_state();    
-    // give the future states the correct sizes that was just set.
-    // state_type::set_P_shape(input_params.Store); 
-    //y.resize(input_params.num_time_steps);
+    // Load distributions (necessary in case we loaded [and transformed] the same point already) and also the previous few states so that we can use runge-kutta if needed.
+    y.resize(n+1-saved_states.size());
+    for(state_type state:saved_states){
+        y.push_back(state);
+    }
+    y.resize(input_params.num_time_steps);    
+    
     steps_per_grid_transform = round(steps_per_grid_transform*fact);
 
     // Set up the t grid       
@@ -564,12 +566,12 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
         this->t[i] = this->t[i-1] + this->dt;
     }
 
-    // clear knot history past step
+    // clear knot history past loaded step
     while(Distribution::knots_history.back().step > n){
         Distribution::knots_history.pop_back();
     }    
-    // the spline factors are untouched, we just need to load the appropriate knots.
-    Distribution::load_knots_from_history(n);
+    // with the states loaded the spline factors are untouched, so now we just need to load the appropriate knots.
+    assert(saved_knots == Distribution::load_knots_from_history(n));
 
     _log <<"Loaded knots..."<<endl;
 
@@ -693,6 +695,9 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
     // store checkpoint
     if ((n-this->order+1)%checkpoint_gap == 0){  // 
         old_checkpoint = checkpoint;
+        ptrdiff_t end_vect_idx = &y[n] - &y[0];  
+        ptrdiff_t start_vect_idx = &y[n-order] - &y[0];  
+        auto check_states = std::vector<int>(start_vect_idx, end_vect_idx+1);
         checkpoint = {n, Distribution::get_knot_energies(),this->regimes};
     }
     if (euler_exceeded || !good_state){     
