@@ -228,7 +228,7 @@ double ElectronRateSolver::approx_regime_trough(size_t step, double lower_bound,
  * to be some point past this.
  */
 void ElectronRateSolver::dirac_energy_bounds(size_t step, std::vector<double>& maximums, std::vector<double>& minimums, std::vector<double>& peaks, bool allow_shrinkage,size_t num_peaks, double peak_min_density) {
-    double min_photo_peak_considered = 1500/Constant::eV_per_Ha;  // An energy that is above auger energies but will catch significant peaks.
+    double min_photo_peak_considered = 1500/Constant::eV_per_Ha;  // An energy that is above auger energies but will catch significant peaks. //TODO replace with transition energy of last regimes?
     double peak_search_step_size = 10/Constant::eV_per_Ha;
     // Find peaks
     size_t num_sequential_needed = 3;
@@ -325,6 +325,8 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
  */
 void ElectronRateSolver::transition_energy(size_t step, double& g_min){
     //TODO assert that this is called after MB and dirac regimes updated.
+
+    // for these functions, if a trough is negative then it defaults to using g_min.
     double new_min = INFINITY;
     for(auto &dirac_peak : regimes.dirac_peaks){
         if (dirac_peak < 0) continue;

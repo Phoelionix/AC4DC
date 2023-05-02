@@ -126,7 +126,11 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             auto old_dirac_mins = regimes.dirac_minimums, old_dirac_maxs = regimes.dirac_maximums;
             
             double last_trans_e = param_cutoffs.transition_e;
-            double dirac_peak_cutoff_density = y[step].F(last_trans_e)*last_trans_e*10;
+            double dirac_peak_cutoff_density = y[step].F(last_trans_e)*last_trans_e*10; 
+            if (last_trans_e <= 600/Constant::eV_per_Ha){
+                // ad hoc fix - early on density at trans_e point in normalised density dist. is a bit higher than rest of sim since transition energy is stuck at default 250 eV 
+                dirac_peak_cutoff_density = y[step].F(last_trans_e)*last_trans_e*1.25; 
+            }
             dirac_energy_bounds(step,regimes.dirac_maximums,regimes.dirac_minimums,regimes.dirac_peaks,true,regimes.num_dirac_peaks,dirac_peak_cutoff_density);
             mb_energy_bounds(step,regimes.mb_max,regimes.mb_min,regimes.mb_peak,false);
             // Check whether we should update
