@@ -254,7 +254,7 @@ void Hybrid<T>::step_stiff_part(unsigned n){
         idx++;
     }
     if(idx==stiff_max_iter){
-        std::cerr<<"Max Euler iterations exceeded, err = "<<diff<<std::endl;
+        //std::cerr<<"Max Euler iterations exceeded, err = "<<diff<<std::endl;
         if (diff > intolerable_stiff_err){
             //std::cerr << "Max error ("<<intolerable_stiff_err<<") exceeded, ending simulation early." <<std::endl; // moved to 
             this->good_state = false;

@@ -137,10 +137,12 @@ public:
 
     /**
      * @brief Replaces non-boundary grid points and their associated density spline basis expansion factors with the ones provided. 
-     * @details An alternative to set_basis() that allows for a specific distribution state to be set.
+     * @details Assumes that these knots are the knots of the simulation and have not changed, in which case it is an alternative to set_basis() that allows for a specific distribution state to be set.
      * @param new_knot new knots (Attention: all knots that are at or below basis._min, or above basis._max, are ignored)
      * @param new_f new density
+     * @attention note due to code updates this function is now misleading, as is described in details.
      * @return Distribution& 
+     * @todo make clearer this is only for static grid case or just put into one function.
      */
     void set_distribution(vector<double> new_knot, vector<double> new_f);
     // loads the knot and appropriately updates params like the overlap matrix as done in set_parameters.
@@ -250,16 +252,7 @@ public:
      * @param grid_style 
      */
     static void set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, ManualGridBoundaries elec_grid_regions, DynamicGridPreset dyn_grid_preset = DynamicGridPreset());
-    /**
-     * @brief The setup function.
-     * @details Grants the distribution its energy basis, which serves as the knot points for the spline. Assigns CoulombLog_cutoff and Distribution::CoulombDens_min.
-     * Uses the regimes given as a starting point to find a good basis.
-     * @param n  Num elec points
-     * @param min_e min elec energy
-     * @param max_e max elec energy
-     * @param grid_style 
-     */    
-    int seek_basis(ofstream& _log, GridSpacing gt, size_t step, Cutoffs param_cutoffs);
+    static void set_basis(size_t step, Cutoffs param_cutoffs, FeatureRegimes regimes, std::vector<double> knots);
     
     //void prep_adapt_knots(const FeatureRegimes& regimes);
     int adapt_knots(bool init, GridSpacing gt, Distribution original_distribution, std::vector<double> original_knots, std::vector<double> reference_energies = {}, std::vector<double> prev_Edens = {},size_t iteration = 0);

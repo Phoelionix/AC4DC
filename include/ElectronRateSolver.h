@@ -95,6 +95,8 @@ public:
     void save(const std::string& folder);
     /// Sets up the rate equations, which requires computing the atomic cross-sections/avg. transition rates to get the coefficients.
     void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0,bool force_update = false); //bool recalc=true);
+    /// creates the tensor of coefficients 
+    void initialise_rates();
     void tokenise(std::string str, std::vector<double> &out, const char delim = ' ');
 
     /// Number of secs taken for simulation to run
@@ -112,7 +114,7 @@ public:
      
 private:
     double IVP_step_tolerance = 5e-3;
-    MolInp input_params;  // (Note this is initialised/constructed in the above constructor)
+    MolInp input_params;  // (Note this is initialised/constructed in the above constructor)  // TODO need to refactor to store variables that we change later rather than alter input_params directly. Currently doing a hybrid of this.
     ManualGridBoundaries elec_grid_regions;
     Cutoffs param_cutoffs; 
     Pulse pf;
@@ -192,6 +194,7 @@ private:
     void set_starting_state();
     state_type get_ground_state();
     void update_grid(ofstream& _log, size_t latest_step, bool force_update = false);
+    void reload_grid(ofstream& _log, size_t latest_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used);
 
     //void high_energy_stability_check();
     string its_dinner_time(std::vector<std::chrono::duration<double, std::milli>> times, std::vector<std::string> tags);

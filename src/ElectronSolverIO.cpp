@@ -302,8 +302,8 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         }
         assert(dt < timespan_au);
         input_params.num_time_steps = std::round(this->timespan_au/dt);
-        this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
     }
+    this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
 
 
     int num_steps = step_indices.size();    

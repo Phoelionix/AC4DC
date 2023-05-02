@@ -54,7 +54,7 @@ void Display::show(const std::stringstream& spooky_stream){
 }
 void Display::show(const std::stringstream& spooky_stream,const std::stringstream& second_stream){
     werase(win);  
-    //box(win, 0 , 0);
+    box(win, 0 , 0);
     waddstr(win,(spooky_stream.str()+second_stream.str()).c_str());
     wrefresh(win);   
 }

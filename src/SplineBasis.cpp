@@ -376,12 +376,10 @@ void BasisSet::compute_overlap(size_t num_funcs){
 }
 
 
-void BasisSet::set_parameters(std::vector<double> new_grid_knots) {
+void BasisSet::set_parameters(FeatureRegimes& regimes, std::vector<double> new_grid_knots) {
     knot = new_grid_knots;
-    // std::cout << "Knots set to: ";
-    // for (double e: knot)
-    //     std::cout << e*Constant::eV_per_Ha << ' ';
-    // cout << std::endl;
+    num_funcs = knot.size()- (BSPLINE_ORDER+1);
+    update_regions(regimes);
     compute_overlap(num_funcs);
 }
 

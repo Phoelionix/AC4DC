@@ -64,6 +64,7 @@ state_type ElectronRateSolver::get_ground_state() {
     initial_condition.F=0;
     // std::cout<<"[ Rate Solver ] initial condition:"<<std::endl;
     // std::cout<<"[ Rate Solver ] "<<initial_condition<<std::endl;
+    // std::cout << endl;
     return initial_condition;
 }
 
@@ -140,15 +141,15 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
                 }
             }             
             transition_energy(step, param_cutoffs.transition_e);
-            // More general basis refinement, but disabled because scope.            
-            if (y[step].F.seek_basis(_log, input_params.elec_grid_type, step, param_cutoffs)){
+            // [More general basis refinement, but disabled because scope.]           
+            //if (y[step].F.seek_basis(_log, input_params.elec_grid_type, step, param_cutoffs)){
                 // failed, use regular method.
-                Distribution::set_basis(step, input_params.elec_grid_type, param_cutoffs, regimes, elec_grid_regions);
+            Distribution::set_basis(step, input_params.elec_grid_type, param_cutoffs, regimes, elec_grid_regions);
                 //_log << "B-spline failed to find convergent basis, using backup dynamic grid."; _log.flush();   Disabled
-            }
-            else{
-                 _log << "B-spline basis successfully converged"; _log.flush();
-            }
+            //}
+            //else{
+            //     _log << "B-spline basis successfully converged"; _log.flush();
+            //}
         } 
         if (old_trans_e != param_cutoffs.transition_e){
             std::cout <<"thermal cutoff energy updated from:\n"
@@ -190,16 +191,8 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
         }        
     }
 
-    // create the tensor of coefficients TODO these aren't constant now - change to lowercase.
-    RATE_EII.resize(input_params.Store.size());
-    RATE_TBR.resize(input_params.Store.size());
-    for (size_t a=0; a<input_params.Store.size(); a++) {
-        size_t N = y[step].F.num_basis_funcs();
-        RATE_EII[a].resize(N);
-        RATE_TBR[a].resize(N*(N+1)/2);
-    }
-    precompute_gamma_coeffs();
-    Distribution::precompute_Q_coeffs(input_params.Store);
+    // create the tensor of coefficients 
+    initialise_rates();
 }
 
 void ElectronRateSolver::set_grid_regions(ManualGridBoundaries gb){
@@ -532,33 +525,28 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot, const dou
 
 size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_t current_n, Checkpoint _checkpoint){    
     std::cout.setstate(std::ios_base::failbit);  // disable character output
-    
+    double fact = 1.5; // factor to increase time step density by (past the checkpoint). TODO need to implement max time steps.
+
     size_t n = _checkpoint.n; // index of step to load at 
     auto saved_knots = _checkpoint.knots;
     auto saved_states = _checkpoint.last_few_states;
-    //std::vector<double> knots = _checkpoint.knots;
-    std::vector<double> old_knots = Distribution::get_knot_energies();
 
     this->regimes = _checkpoint.regimes; // needed for when we next update the regimes (it needs the previous regime for reference)
 
-    int remaining_steps = t.size() - (n+1);
-    double fact = 1.5; // factor to increase time step density by (past the checkpoint). TODO need to implement max time steps.
+    std::vector<double> old_knots = Distribution::get_knot_energies();
+
     const string banner = "================================================================================";
     _log <<banner<<"\nEuler iterations exceeded beyond tolerable error at t="<<t[current_n]*Constant::fs_per_au
     <<". Decreasing remaining time step size from "<<this->dt*Constant::fs_per_au<<" fs to "<< dt/fact*Constant::fs_per_au<<" fs."<<endl;
+
     // REDUCE time step size by factor, then add on extra steps.
     this->dt/=fact;
+    int remaining_steps = t.size() - (n+1);
     assert(remaining_steps > 0 && fact > 1);
     input_params.num_time_steps = t.size() + (fact - 1)*remaining_steps; // todo separate from input params
     steps_per_time_update = max(1 , (int)(input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
     t.resize(n+1); t.resize(input_params.num_time_steps);
-    // Load distributions (necessary in case we loaded [and transformed] the same point already) and also the previous few states so that we can use runge-kutta if needed.
-    y.resize(n+1-saved_states.size());
-    for(state_type state:saved_states){
-        y.push_back(state);
-    }
-    y.resize(input_params.num_time_steps);    
-    
+        
     steps_per_grid_transform = round(steps_per_grid_transform*fact);
 
     // Set up the t grid       
@@ -566,52 +554,39 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
         this->t[i] = this->t[i-1] + this->dt;
     }
 
-    // clear knot history past loaded step
-    while(Distribution::knots_history.back().step > n){
-        Distribution::knots_history.pop_back();
-    }    
-    // with the states loaded the spline factors are untouched, so now we just need to load the appropriate knots.
-    assert(saved_knots == Distribution::load_knots_from_history(n));
+    _log <<"Reloading grid"<<endl;
+    // with the states loaded the spline factors are as they were, we just need to load the appropriate knots.
+    reload_grid(_log, n, saved_knots,saved_states);
+    
 
-    _log <<"Loaded knots..."<<endl;
+    /* [These ideas need a bit of effort and consideration if it is to be implemented, or even better a more effective adaptive step size algo could be implemented. But questionable if worth it.]
+        // It is standard to use a method like fourth-order Runge-Kutta after changing the step size to get us going:
+        // (TODO a lack of ee dynamics currently in this step is slightly off-putting as it is more important than when initialising)
+        // We get indistinguishable results skipping this entirely (for a factor of 1.5 at least).
+        
+        /#
+        n += this->order;
+        for (size_t m = n-this->order; m < n; m++) {
+                this->step_rk4(m);
+        }
+        std::cout.clear();
+        #/ 
+    
 
-    // Possibly temporary, but here we are just updating basis to ensure nothing breaks.
-    // Ideally would just load the grid without affecting when grid updates.
-    if (old_knots != Distribution::get_knot_energies()){
-        // absolutely must update, no matter what!
-        update_grid(_log,n,true);
-    }
-    else{
-        update_grid(_log,n,false);
-        // (disabled) // we should always update grid now anyway with the adaptive b splines 
-        // update_grid(_log,n,true);
-    }
+        // Remember when time step was decreased, and flag to increase time step size again
+        switch (input_params.pulse_shape){
 
-    _log <<"Updated grid..."<<endl;
+        case PulseShape::gaussian:
+            // TODO impact ionisation dominates so we would need a better method to do this. Arguably it's not worth it. 
+            // if (t[n] <= 0){
+            //     times_to_increase_dt.push_back(-t[n]+0.05/Constant::fs_per_au);
+            // }
+            break;
+        case PulseShape::square:
+            break;  
+        }   
 
-    // It is standard to use a method like fourth-order Runge-Kutta after changing the step size to get us going:
-    // (TODO a lack of ee dynamics currently in this step is slightly off-putting as it is more important than when initialising)
-    // We get indistinguishable results skipping this entirely (for a factor of 1.5 at least).
-    /*
-    n += this->order;
-    for (size_t m = n-this->order; m < n; m++) {
-            this->step_rk4(m);
-    }
-    std::cout.clear();
     */
-
-    // Remember when time step was decreased, and flag to increase time step size again
-    switch (input_params.pulse_shape){
-
-    case PulseShape::gaussian:
-        // TODO impact ionisation dominates so we would need a better method to do this. Arguably it's not worth it. 
-        // if (t[n] <= 0){
-        //     times_to_increase_dt.push_back(-t[n]+0.05/Constant::fs_per_au);
-        // }
-        break;
-    case PulseShape::square:
-        break;  
-    }   
 
     _log << "Loaded checkpoint - resuming."<<endl;
     
@@ -695,10 +670,11 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
     // store checkpoint
     if ((n-this->order+1)%checkpoint_gap == 0){  // 
         old_checkpoint = checkpoint;
-        ptrdiff_t end_vect_idx = &y[n] - &y[0];  
-        ptrdiff_t start_vect_idx = &y[n-order] - &y[0];  
-        auto check_states = std::vector<int>(start_vect_idx, end_vect_idx+1);
-        checkpoint = {n, Distribution::get_knot_energies(),this->regimes};
+        std::vector<state_type>::const_iterator start_vect_idx = y.begin() - order + n;  
+        std::vector<state_type>::const_iterator end_vect_idx = y.begin() + n;  
+        
+        std::vector<state_type> check_states = std::vector<state_type>(start_vect_idx, end_vect_idx+1);
+        checkpoint = {n, Distribution::get_knot_energies(),this->regimes,check_states};
     }
     if (euler_exceeded || !good_state){     
         bool store_dt_increase = true;   
@@ -779,14 +755,14 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
     //////  Dynamic grid updater ////// 
     auto t_start_grid = std::chrono::high_resolution_clock::now();
     if ((n-this->order+1)%steps_per_grid_transform == 0){ // TODO would be good to have a variable that this is equal to that is modified to account for changes in time step size. If a dt decreases you push back the grid update. If you increase dt you could miss it.
-        Display::popup_stream << "\nUpdating grid... \n\r"; 
+        Display::popup_stream << "\n\rUpdating grid... \n\r"; 
         _log << "[ Dynamic Grid ] Updating grid" << endl;
         Display::show(Display::display_stream,Display::popup_stream);   
         update_grid(_log,n+1,false);       
     }   
     // move from initial grid to dynamic grid shortly after a fresh simulation's start.
     else if (n-this->order == max(2,(int)(steps_per_grid_transform/10)) && (input_params.Load_Folder() == "") && !grid_initialised){
-        Display::popup_stream << "\n Performing initial grid update... \n\r"; 
+        Display::popup_stream << "\n\rPerforming initial grid update... \n\r"; 
         _log << "[ Dynamic Grid ] Performing initial grid update..." << endl;
         Display::show(Display::display_stream,Display::popup_stream); 
         update_grid(_log,n+1,true); 
@@ -862,8 +838,8 @@ void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool fo
     std::vector<double> new_energies = Distribution::get_knot_energies();
     // zero_y is used as the starting state for each step and represents the ground state, so we need to reset it so it has the right knots.
     zero_y = get_ground_state();
-    cout << endl;            
-    for (size_t m = n+1 - this->order; m < n+1; m++) {
+                
+    for (size_t m = n+1 - this->order; m < n+1; m++) {  // TODO turn off if not new knots??
         // We transform this step to the correct basis, but we also need a few steps to get us going, 
         // so we transform a few previous steps 
         // Kinda goofy but it's necessary due to the static variables. 
@@ -873,3 +849,64 @@ void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool fo
     }  
     // The next containers are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state. 
 } 
+
+// Reloads grid using knots and the states needed for the first step of the ode 
+void ElectronRateSolver::reload_grid(ofstream& _log, size_t latest_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used){
+    size_t n = latest_step;
+   
+    std::cout.setstate(std::ios_base::failbit);  // disable character output
+    // set basis to one given by knots
+    while(Distribution::knots_history.back().step >= n && Distribution::knots_history.size() > 0){
+        Distribution::knots_history.pop_back();
+    }            
+    Distribution::set_basis(latest_step, param_cutoffs, regimes,  knots);
+
+    // Set up the container class to have the correct size
+    state_type::set_P_shape(input_params.Store);
+
+
+    if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
+        if(_log.is_open()){
+            double e = Constant::eV_per_Ha;
+            _log << "------------------- [ Reloaded Knots ] -------------------\n" 
+            "Time: "<<t[latest_step]*Constant::fs_per_au <<" fs; "<<"Step: "<<latest_step<<"\n" 
+            <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
+            for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
+                _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
+            }
+            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<"\n"  
+            << "Grid size: "<<Distribution::size<<"\n"
+            << "-----------------------------------------------------" 
+            << endl;
+        }        
+    }
+    // create the tensor of coefficients 
+    initialise_rates();
+
+    std::cout.clear();
+    
+    zero_y = get_ground_state();
+    // Load distributions and also the previous few states that we need for the first ode step. (Unnecessary now since removed grid updates on checkpoint load, but keeping it here.)
+    assert(next_ode_states_used.size() >= order);
+    y.resize(n+1-next_ode_states_used.size());
+    for(state_type state : next_ode_states_used){
+        y.push_back(state);
+    }
+    y.resize(input_params.num_time_steps);    
+
+    // The next containers are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state. 
+} 
+
+
+void ElectronRateSolver::initialise_rates(){
+    //TODO these aren't constant now - change to lowercase.
+    RATE_EII.resize(input_params.Store.size());
+    RATE_TBR.resize(input_params.Store.size());
+    for (size_t a=0; a<input_params.Store.size(); a++) {
+        size_t N = Distribution::num_basis_funcs();
+        RATE_EII[a].resize(N);
+        RATE_TBR[a].resize(N*(N+1)/2);
+    }
+    precompute_gamma_coeffs();
+    Distribution::precompute_Q_coeffs(input_params.Store);    
+}
