@@ -429,7 +429,8 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         double dirac_peak_cutoff_density = 0; // a peak's density has to be above this to count
         dirac_energy_bounds(y.size()-1,regimes.dirac_maximums,regimes.dirac_minimums,regimes.dirac_peaks,true,regimes.num_dirac_peaks,dirac_peak_cutoff_density);
         mb_energy_bounds(y.size()-1,regimes.mb_max,regimes.mb_min,regimes.mb_peak,false);
-        transition_energy(y.size()-1, param_cutoffs.transition_e);        
+        transition_energy(y.size()-1, param_cutoffs.transition_e);    
+        param_cutoffs.transition_e = max(param_cutoffs.transition_e,2*regimes.mb_max); // mainly for case that transition region continues to dip into negative (in which case the transition region doesn't update).   
     }
 }   
 
