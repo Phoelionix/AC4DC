@@ -1839,12 +1839,12 @@ start_time = -6
 end_time = 6#10 #0#-9.80    
 laser_firing_qwargs = dict(
     SPI = False,
-    pixels_across = 100,  # shld go on xfel params.
+    pixels_across = 100,  # for SPI, shld go on xfel params.
 )
 ##### Crystal params
 crystal_qwargs = dict(
-    cell_scale = 5,  # for SC: cell_scale^3 unit cells 
-    positional_stdv = 0.2, # RMS in atomic coord position [angstrom]
+    cell_scale = 3,  # for SC: cell_scale^3 unit cells 
+    positional_stdv = 0.2, # RMS in atomic coord position [angstrom] (set to 0 below if crystal, since rocking angle handles this aspect)
     include_symmetries = True,  # should unit cell contain symmetries?
     cell_packing = "SC",
     rocking_angle = 0.3,  # (approximating mosaicity)
@@ -1888,6 +1888,9 @@ ax_z = 0
 chosen_root_handle = None # None for new. Else use "tetra_v1", if want to add images under same params to same results.
 #=========================-------------------------===========================#
 
+#----------------------- Turn off stdv for crystal -----------------------#
+if laser_firing_qwargs["SPI"] == False:
+    crystal_qwargs["positional_stdv"] = 0
 #---------------------------Result handle names---------------------------#
 exp1_qualifier = "_real"
 exp2_qualifier = "_ideal"
