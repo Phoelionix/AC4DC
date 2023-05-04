@@ -478,9 +478,7 @@ class XFEL():
         random_orientation overrides the XFEL class's orientation_set, replacing each with a random orientation. (get same number of orientations though at present TODO.) 
         """
         ff_calculator = self.get_ff_calculator(start_time,end_time,damage_output_handle)     
-        target.set_ff_calculator(ff_calculator)
-        for species in target.species_dict.values():
-            species.set_stochastic_states()      
+        target.set_ff_calculator(ff_calculator)    
         self.target = target
 
         
@@ -513,6 +511,9 @@ class XFEL():
                 self.x_rot_matrix = rotaxis2m(self.x_rotation,Bio_Vect(1, 0, 0))      
                 self.y_rotation = 0                 
                 for rot_y in range(self.y_orientations):
+                    for species in target.species_dict.values():
+                        species.set_stochastic_states()   
+                        species.set_coord_deviation()                
                     print("Imaging at x, y, rotations:",self.x_rotation,self.y_rotation)
                     self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))      
                     self.y_rotation += 2*np.pi/self.y_orientations              
@@ -611,6 +612,9 @@ class XFEL():
                 self.x_rot_matrix = rotaxis2m(self.x_rotation,Bio_Vect(1, 0, 0))      
                 #self.y_rotation = 0                 
                 for rot_y in range(self.y_orientations):
+                    for species in target.species_dict.values():
+                        species.set_stochastic_states()   
+                        species.set_coord_deviation()                   
                     print("Imaging at x, y, rotations:",self.x_rotation,self.y_rotation)
                     self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))      
                     self.y_rotation += 2*np.pi/self.y_orientations              
@@ -640,7 +644,9 @@ class XFEL():
         else:
             # Iterate through each orientation of crystal, picklin' up a file for each orientation
             used_orientations = []
-            for j, cardan_angles in enumerate(self.orientation_set):               
+            for j, cardan_angles in enumerate(self.orientation_set):    
+                for species in target.species_dict.values():
+                    species.set_stochastic_states()           
                 print("Imaging orientation",j)
                 bragg_points, miller_indices,cardan_angles = self.bragg_points(target,cell_packing = target.cell_packing, cardan_angles = cardan_angles,random_orientation=random_orientation)
                 used_orientations.append(cardan_angles)
@@ -1840,7 +1846,7 @@ laser_firing_qwargs = dict(
 )
 ##### Crystal params
 crystal_qwargs = dict(
-    cell_scale = 1,  # for SC: cell_scale^3 unit cells 
+    cell_scale = 3,  # for SC: cell_scale^3 unit cells 
     positional_stdv = 0.2, # RMS in atomic coord position [angstrom] (set to 0 below if crystal, since rocking angle handles this aspect)
     include_symmetries = True,  # should unit cell contain symmetries?
     cell_packing = "SC",
