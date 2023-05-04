@@ -75,6 +75,7 @@ class Results():
     def diff(self,other):
         '''
         Get single-point R factors between two images
+        TODO bugged currently random points are present?
         '''
         self.R = np.zeros(self.I.shape)
         for i in range(len(self.q)):
@@ -1158,8 +1159,8 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
         #plt.gcf().set_figwidth(20)         # if not using widget magic
         #plt.gcf().set_figheight(20)        #       
             
-        plt.gcf().set_figwidth(10)
-        plt.gcf().set_figheight(10)                  
+        plt.gcf().set_figwidth(5)
+        plt.gcf().set_figheight(3)                  
     
     if result_handle != None:
         results_dir = "results/"+result_handle+"/"
@@ -1293,7 +1294,8 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 # if (radial_axis[i] > radial_lim):
                 #     unique_values_mask[i] = False
                     
-                # Boolean masks
+                # Average out spots (TODO need to check they are the same for no stochastic variation.)
+                # TODO need to change this to be the bragg indices.
                 matching_rad_idx = np.nonzero(radial_axis == radial_axis[i])  # numpy note: equiv. to np.where(condition). Non-zero part irrelevant.
                 matching_phi_idx = np.nonzero(phi == phi[i])
                 for elem in matching_rad_idx[0]:
@@ -1306,20 +1308,22 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                             matching2 = result2.I[(radial_axis == radial_axis[i])*(phi == phi[i])]
                             for value in matching2:
                                 tmp_I2[i] += value                                                      
+                tmp_I1 /= (identical_count+1)
+                tmp_I2 /= (identical_count+1)
 
                 #processed_copies.append((radial_axis[i],phi[i],result.image_index[i]))
             #print("processed copies:",processed_copies)
 
-
+            # Get the dependent variable.
             result = copy.deepcopy(result1)
             result.I = tmp_I1 
             # get z used for colour of scatter plot.
             if compare_dir != None:
                 result2.I = tmp_I2                    
                 result.diff(result2)
-                z = result.R[unique_values_mask]
+                z = result.R[unique_values_mask]   # Making comparison, set z to be measure of difference 
             else:
-                z = result.I[unique_values_mask]
+                z = result.I[unique_values_mask]   # no comparison, z is intensity
 
             identical_count = identical_count[unique_values_mask]
             # Intensities used for histogram 
@@ -1332,25 +1336,15 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
             if result2 != None:
                 ## Sectors/Fragmented rings ##
                 numerators,denominators = get_sector_histogram_contribution(I1,I2,phi,radial_axis)
-                # # Average over orientations' sector R factors:  # Doesn't work because when sector is empty it reduces the average.
-                # non_zero_denon = denominators.copy()
-                # non_zero_denon[non_zero_denon == 0] = 1
-                # sector_histogram += np.divide(numerators,non_zero_denon)/num_orientations
-                # Alternative: Not averaging:
+                # Add to sum of all orientations' results
                 sector_num_histogram += numerators
                 sector_den_histogram += denominators                
 
                 ## Full rings ## Note: we are filling 2d arrays with same-valued arcs for each radius so that pcolormesh can plot circles. 
                 # The numerators/denominators are effectively tiled, e.g.: numerators = np.tile(numerators,(1,num_arcs))
-                # Average over entire rings.
                 numerators,denominators = get_sector_histogram_contribution(I1,I2,phi,radial_axis,phi_edges = np.array([-np.pi,np.pi]))
-                # non_zero_denon = denominators.copy()
-                # non_zero_denon[non_zero_denon == 0] = 1                
-                # R_histogram += np.divide(numerators,non_zero_denon)/num_orientations # Doesn't work because when sector is empty it reduces the average.
-                # Alternative: Not averaging:
                 R_num_histogram += numerators
                 R_den_histogram += denominators            
-
                 if neutze_R:
                     all_I_real.extend(I1)
                     all_I_ideal.extend(I2)
@@ -1377,7 +1371,6 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
             # use cmap to get colours but with alpha following a specific rule
             COL = MplColorHelper(cmap, 0, 1) 
             alpha_modified_cmap_colours = np.array([[COL.get_rgb(K)[0], COL.get_rgb(K)[1],COL.get_rgb(K)[2],np.clip((K*(max_alpha-min_alpha))/(max_z) + min_alpha,min_alpha,None)] for K in z])
-            #print("THING",thing)
             colours = [(r,g,b,a) for r,g,b,a in alpha_modified_cmap_colours] 
             colours = np.around(colours,10)   
 
@@ -1406,8 +1399,8 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 #print(z)
                 added_colorbar = True
 
-            sc = ax.scatter(phi,radial_axis,c=colours,s=s) #TODO try using alpha = 0.7 or something to guarantee overlapped points not hidden
-            plt.grid(alpha = min(show_grid,0.6),dashes=(5,10)) 
+            sc = ax.scatter(phi,radial_axis,c=colours,s=s)  # TODO this is messing up for difference map for some reason, with points in wrong places
+            plt.grid(alpha = min(show_grid,0.6),dashes=(5,10))   
             #TODO only show first index or something. or have option to switch between image indexes. oof coding.
             if show_labels:
                 for i, miller_indices in enumerate(result.miller_indices[unique_values_mask]):
@@ -1783,13 +1776,17 @@ def stylin(SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None):
 
     # R Sectors
     if not SPI:
-        scatter_scatter_plot(crystal_aligned_frame = False,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-        # Intensity of experiment 1. 
+        scatter_scatter_plot(crystal_aligned_frame = False,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity) 
+        print("----Intensity of experiment 1----")
         scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-        # R Sectors aligned
+        print("----Intensity of experiment 2----")
+        scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+        print("----R Sectors aligned----")
         scatter_scatter_plot(crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-        # Intensity of experiment 1 aligned. 
+        print("----Intensity of experiment 1 aligned----") 
         scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+        print("----Intensity of experiment 2 aligned----")
+        scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
     else:
         #TODO Get the colors to match neutze.
         use_q = True
@@ -1843,11 +1840,11 @@ laser_firing_qwargs = dict(
 )
 ##### Crystal params
 crystal_qwargs = dict(
-    cell_scale = 3,  # for SC: cell_scale^3 unit cells 
+    cell_scale = 1,  # for SC: cell_scale^3 unit cells 
     positional_stdv = 0.2, # RMS in atomic coord position [angstrom] (set to 0 below if crystal, since rocking angle handles this aspect)
     include_symmetries = True,  # should unit cell contain symmetries?
     cell_packing = "SC",
-    rocking_angle = 0.3,  # (approximating mosaicity)
+    rocking_angle = 0.05,  # (approximating mosaicity)
     orbitals_as_shells = True,
     #CNO_to_N = True,   # whether the laser simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
 )
@@ -1855,7 +1852,7 @@ crystal_qwargs = dict(
 #### XFEL params
 tag = "" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
 #TODO make it so reflections don't overwrite same orientation, as stochastic now.
-random_orientation = True # if true, overrides orientation_set with random orientations (only affects non-SPI)
+random_orientation = False # if true, overrides orientation_set with random orientations (only affects non-SPI)
 energy = 12000 # eV
 exp_qwargs = dict(
     detector_distance_mm = 100,
@@ -1873,11 +1870,10 @@ exp_qwargs = dict(
     SPI_y_rotation = 0,
     SPI_z_rotation = 0,
     ######
-    
 )
 
-#orientations
-num_orients = 5
+#crystallographic orientations (not implemented for SPI yet)
+num_orients = 100
 # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.
 ax_x = 1
 ax_y = 1
@@ -1885,7 +1881,7 @@ ax_z = 0
 
 
 # Optional: Choose previous folder for crystal results
-chosen_root_handle = None # None for new. Else use "tetra_v1", if want to add images under same params to same results.
+chosen_root_handle = None # None for new. use e.g. "tetra_v1", if want to add images under same params to same results.
 #=========================-------------------------===========================#
 
 #----------------------- Turn off stdv for crystal -----------------------#
@@ -1914,7 +1910,8 @@ if chosen_root_handle is None:
 else:
     exp_name1 = chosen_root_handle + "_" + exp1_qualifier + "real"
     exp_name2 = chosen_root_handle + "_" + exp2_qualifier + "ideal"  
-    
+
+#exp_name2 = None
 #----------orientation thing that needs to be to XFEL class (TODO)-----------------------#
 
 if ax_x == ax_y == ax_z and ax_z == 0 and random_orientation == False:
@@ -1969,8 +1966,9 @@ if laser_firing_qwargs["SPI"]:
 else:
     exp1_orientations = experiment1.spooky_laser(start_time,end_time,target_handle,crystal, random_orientation = random_orientation, **laser_firing_qwargs)
     create_reflection_file(exp_name1)
-    experiment2.orientation_set = exp1_orientations  # pass in orientations to next sim, random_orientation must be false so not overridden!
-    experiment2.spooky_laser(start_time,end_time,target_handle,crystal_undmged, random_orientation = False, **laser_firing_qwargs)
+    if exp_name2 != None:
+        experiment2.orientation_set = exp1_orientations  # pass in orientations to next sim, random_orientation must be false so not overridden!
+        experiment2.spooky_laser(start_time,end_time,target_handle,crystal_undmged, random_orientation = False, **laser_firing_qwargs)
     stylin()
 
 #%%
