@@ -421,7 +421,7 @@ class XFEL():
             If specified, only bragg points corresponding to momentum transfers at or below this value will be simulated.    
         """
         self.experiment_name = experiment_name
-        self.detector_distance = detector_distance_mm*10e7/ang_per_bohr  # [a0 (bohr)]
+        self.detector_distance = detector_distance_mm*1e7/ang_per_bohr  # [a0 (bohr)]
         self.photon_momentum = 2*np.pi/E_to_lamb(photon_energy)  # atomic units, [a0^-1]. 
         self.photon_energy = photon_energy  #eV Attention: not in atomic units
         self.pixels_per_ring = pixels_per_ring
@@ -561,7 +561,7 @@ class XFEL():
             # res. at edge corner or centre? Surely at centre, for a full ring of information
             screen_width = 2*np.sin(2*max_theta)*screen_distance  # edge centre  # We have placed our screen to have the desired resolution at the "rim".
             #screen_width=  2 * (np.sin(2*max_theta)/np.sqrt(2)) * screen_distance # corner
-            print("Screen width:",round(screen_width*ang_per_bohr/10e7,2),"mm")
+            print("Screen width:",round(screen_width*ang_per_bohr/1e7,2),"mm")
             # X is the distance from the centre of the screen to the point of incidence (flat screen)
             # We know where the cells are, they are equally spaced. We also know the distance from the screen to the detector.
             # This gives us theta.
@@ -1419,7 +1419,7 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
             non_zero_denon_histogram = sector_den_histogram.copy()
             non_zero_denon_histogram[non_zero_denon_histogram== 0] = 1        
             sector_histogram = np.divide(sector_num_histogram,non_zero_denon_histogram)
-            print("Plotting total R factor")
+            print("Plotting total R factor (incorrect, need to normalise I's)")
             plot_sectors(sector_histogram = sector_histogram)
 
             #print("plotting full ring orientation-averaged R factor") # Doesn't work because when sector is empty it reduces the average.
@@ -1429,19 +1429,19 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
             non_zero_denon_histogram = R_den_histogram.copy()
             non_zero_denon_histogram[non_zero_denon_histogram== 0] = 1        
             R_histogram = np.divide(R_num_histogram,non_zero_denon_histogram)       
-            print("plotting full ring total R factor ") 
-            plot_sectors(R_histogram) 
+            print("plotting full ring total R factor (incorrect, need to normalise I's)") 
+            plot_sectors(R_histogram)   
 
             if neutze_R:
-                print("Neutze R:")
+                print("R:")
                 sqrt_ideal = np.sqrt(all_I_ideal)
                 sqrt_real = np.sqrt(all_I_real)
                 inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real) 
                 R = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))
                 print(R)
-                print("Regular R:")
-                R = np.sum(np.abs((sqrt_real - sqrt_ideal)))/np.sum(sqrt_ideal)
-                print(R)
+                # print("R:") (not normalised)
+                # R = np.sum(np.abs((sqrt_real - sqrt_ideal)))/np.sum(sqrt_ideal)
+                # print(R)
                 print("sum of real","{:e}".format(np.sum(sqrt_real)),"sum of ideal","{:e}".format(np.sum(sqrt_ideal)),"sum of abs difference","{:e}".format(np.sum(np.abs((sqrt_real - sqrt_ideal)))))
                 #neutze_histogram = np.histogram2d(phi, radial_axis, weights=R, bins=(np.array([-np.pi,np.pi]), radial_edges))[0]             
                 #plot_sectors(neutze_histogram)
@@ -1494,7 +1494,7 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 z2_map = plt.imshow(z2,vmin=z_min,vmax=z_max,cmap=current_cmap)
                 plt.colorbar(z2_map)
                 plt.show()
-                print("Neutze R: ")
+                print("R: ")
                 fig, ax = plt.subplots()
                 #bg_col = "red"
                 bg = np.full((*z1.shape, 3), 70, dtype=np.uint8)
@@ -1517,23 +1517,23 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 plt.yticks(ticks,ticklabels)
                 plt.show()
 
-                print("Regular R:")
-                fig, ax = plt.subplots()
-                A = np.abs(sqrt_real - sqrt_ideal)
-                R_num = np.sum(A)
-                R_den = np.sum(sqrt_ideal)
-                R = R_num/R_den  
-                print(R)  
-                R_cells = A/R_den 
-                R_cells *= len(R_cells)**2# multiply by num cells (such that R is now the average) 
-                ax.imshow(bg)
-                R_map = ax.imshow(R_cells,vmin=0,vmax=0.4,alpha=alpha,cmap=cmap)     
-                plt.colorbar(R_map)
-                ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
-                ticklabels = ["{:6.2f}".format(q_row_0_el[1]) for q_row_0_el in result1.q_scr_xy[0]]
-                plt.xticks(ticks,ticklabels)
-                plt.yticks(ticks,ticklabels)
-                plt.show()              
+                # print("R:")  (not normalised)
+                # fig, ax = plt.subplots()
+                # A = np.abs(sqrt_real - sqrt_ideal)
+                # R_num = np.sum(A)
+                # R_den = np.sum(sqrt_ideal)
+                # R = R_num/R_den  
+                # print(R)  
+                # R_cells = A/R_den 
+                # R_cells *= len(R_cells)**2# multiply by num cells (such that R is now the average) 
+                # ax.imshow(bg)
+                # R_map = ax.imshow(R_cells,vmin=0,vmax=0.4,alpha=alpha,cmap=cmap)     
+                # plt.colorbar(R_map)
+                # ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
+                # ticklabels = ["{:6.2f}".format(q_row_0_el[1]) for q_row_0_el in result1.q_scr_xy[0]]
+                # plt.xticks(ticks,ticklabels)
+                # plt.yticks(ticks,ticklabels)
+                # plt.show()              
                  
 
                 print("Plotting normalised root difference map")
@@ -1583,15 +1583,15 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 plt.yscale("log")
 
             if result2 != None:
-                print("Neutze R:")
+                print("R:")
                 sqrt_real = np.sqrt(result1.I)
                 sqrt_ideal = np.sqrt(result2.I)
                 inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real) 
                 R = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))
                 print(R)            
-                print("Regular R:")
-                R = np.sum(np.abs((sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))
-                print(R)
+                # print("R: (not normalised)")
+                # R = np.sum(np.abs((sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))
+                # print(R)
 
     def get_orientation_set_of_folder():
         '''Returns a list of orientations present in results subfolder'''
@@ -1841,7 +1841,7 @@ bottom_resolution = None#30
 start_time = -6
 end_time = 6#10 #0#-9.80    
 laser_firing_qwargs = dict(
-    SPI = False,
+    SPI = True,
     pixels_across = 100,  # for SPI, shld go on xfel params.
 )
 ##### Crystal params
@@ -1850,7 +1850,7 @@ crystal_qwargs = dict(
     positional_stdv = 0.2, # RMS in atomic coord position [angstrom] (set to 0 below if crystal, since rocking angle handles this aspect)
     include_symmetries = True,  # should unit cell contain symmetries?
     cell_packing = "SC",
-    rocking_angle = 0.05,  # (approximating mosaicity)
+    rocking_angle = 0.1,  # (approximating mosaicity)
     orbitals_as_shells = True,
     #CNO_to_N = True,   # whether the laser simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
 )
@@ -1858,7 +1858,7 @@ crystal_qwargs = dict(
 #### XFEL params
 tag = "" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
 #TODO make it so reflections don't overwrite same orientation, as stochastic now.
-random_orientation = False # if true, overrides orientation_set with random orientations (only affects non-SPI)
+random_orientation = True # if true, overrides orientation_set with random orientations (only affects non-SPI)
 energy = 12000 # eV
 exp_qwargs = dict(
     detector_distance_mm = 100,
@@ -1879,7 +1879,7 @@ exp_qwargs = dict(
 )
 
 #crystallographic orientations (not implemented for SPI yet)
-num_orients = 100
+num_orients = 15
 # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.
 ax_x = 1
 ax_y = 1
