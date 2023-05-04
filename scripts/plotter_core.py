@@ -1169,10 +1169,13 @@ class SlaterShielding:
                 if s > self.Z:
                     print("Warning, s =",self.s)        
                     
-    def get_shell_ff(self, k, shell_num ):    #dim = scalar or [num_atoms]
+    def get_shell_ff(self, k, shell_num):    #dim = scalar or [num_atoms]
         if type(self.s) == np.ndarray:
             lamb = self.Z - self.s[...,shell_num-1]
-            lamb = lamb[...,None,None]
+            if len(k.shape) == 2:
+                lamb = lamb[...,None,None]
+            elif len(k.shape) == 1:
+                lamb = lamb[...,None]
         else:
             lamb = self.Z - self.s[shell_num-1]
         lamb/=shell_num
@@ -1207,7 +1210,12 @@ class SlaterShielding:
         debug_old_ff = "0"
         for i in range(num_subshells):  
             if type(self.shell_occs) == np.ndarray:
-                ff += self.get_shell_ff(k,i+1)*norm * self.shell_occs[...,i,None,None]   # [atoms,times, qx,qy] * [atoms,times,subshells]
+                if len(k.shape) == 2: # cell case
+                    ff += self.get_shell_ff(k,i+1)*norm * self.shell_occs[...,i,None,None]   # [atoms,times, qx,qy] * [atoms,times,subshells]
+                elif len(k.shape) == 1:
+                    ff += self.get_shell_ff(k,i+1)*norm * self.shell_occs[...,i,None] # [atoms,times, q] * [atoms,times,subshells]
+                else:
+                    raise Exception("unexpected ff shape of " + str(ff.shape))
             else: 
                 ff += self.get_shell_ff(k,i+1)*norm*self.shell_occs[i]
             # check atomic ff is below Z.

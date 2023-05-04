@@ -799,11 +799,11 @@ class XFEL():
                     #print(F_sum.shape,T.shape,f.shape) 
                     if SPI: 
                         if type(feature) is self.Cell:
-                            F_sum += np.sum(T[:,None,...]*f,axis=0)          #[num_atoms,None,qX,qY] X [num_atoms,times,qX,qY]
+                            F_sum += np.sum(T[:,None,...]*f,axis=0)          #[num_atoms,None,qX,qY] X [num_atoms,times,qX,qY] -> [times,qX,qY]
                         if type(feature) is self.Ring:           
-                            F_sum += np.sum(T[:,None] * f[None,...],axis=0)        # [?phis?,momenta,None]X[None,times, feature.q.shape]  -> [?phis?,times,feature.q.shape] if q is an array
+                            F_sum += np.sum(T[:,:,None,:] * f[:,None,:,:],axis=0)        # [num_atoms,phis,None,num_|q|]X[num_atoms,None,times, num_|q|]  -> [phis,times,num_|q|]
                     else:
-                        F_sum += np.sum(T[None,:] * f)                           # [None,num_G]X[times,num_G]  ->[times,num_G] 
+                        F_sum += np.sum(T[:,None,:] * f,axis=0)                           # [num_atoms,None,num_G]X[num_atoms,times,num_G]  ->[times,num_G] 
                     #print("s,F_sum",s,F_sum)
         if (times_used[-1] == times_used[0]):   
             raise Exception("Intensity array's final time equals its initial time") #I =  np.square(np.abs(F_sum[:,0]))  # 
@@ -855,11 +855,15 @@ class XFEL():
 
         return I 
 
-    def interference_factor(self,coord,feature,cardan_angles,axis=0):
+    def interference_factor(self,coord,feature,cardan_angles):
         """ theta = scattering angle relative to z-y plane """ 
         # Rotate our G vector BACK to the real laser orientation relative to the crystal.
         q_vect = self.rotate_G_to_orientation(feature.G.copy(),*cardan_angles,inverse=True)[0]       
-        q_dot_r = np.apply_along_axis(np.dot,axis,q_vect,coord) # dim = [num_G]                      
+        coord = np.moveaxis(coord,0,-1)  #  dim = [xyz,atoms]
+        q_vect = np.moveaxis(q_vect,0,-1) # dim = [momenta,xyz]
+        q_dot_r = np.apply_along_axis(np.dot,len(q_vect.shape)-1,q_vect,coord) # dim = [num_G]  
+        q_dot_r = np.moveaxis(q_dot_r,-1,0)
+        coord = np.moveaxis(coord,-1,0)                            
         T = np.exp(-1j*q_dot_r)
         return T
 
@@ -1492,14 +1496,21 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 plt.colorbar(z2_map)
                 plt.show()
                 print("Neutze R: ")
+                fig, ax = plt.subplots()
+                #bg_col = "red"
+                bg = np.full((*z1.shape, 3), 70, dtype=np.uint8)
+                #alpha = 0*z1+0.0001#z1/z_max
+                alpha = (z2-z_min)/(z_max - z_min)  
+                alpha[np.isnan(alpha)] = 1
                 sqrt_real = np.sqrt(result1.I)
                 sqrt_ideal = np.sqrt(result2.I)
                 inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real) 
                 R_cells = np.abs((inv_K*sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal))
                 R = np.sum(R_cells)
                 print(R) 
+                ax.imshow(bg)
                 R_cells *= len(R_cells)**2# multiply by num cells (such that R is now the average) 
-                R_map = plt.imshow(R_cells,cmap=cmap)     
+                R_map = ax.imshow(R_cells,vmin=0,vmax=0.4,alpha=alpha,cmap=cmap)     
                 plt.colorbar(R_map)
                 ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
                 ticklabels = ["{:6.2f}".format(q_row_0_el[1]) for q_row_0_el in result1.q_scr_xy[0]]
@@ -1508,11 +1519,36 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 plt.show()
 
                 print("Regular R:")
+                fig, ax = plt.subplots()
                 A = np.abs(sqrt_real - sqrt_ideal)
                 R_num = np.sum(A)
                 R_den = np.sum(sqrt_ideal)
-                R = R_num/R_den                
-                print(R)   
+                R = R_num/R_den  
+                print(R)  
+                R_cells = A/R_den 
+                R_cells *= len(R_cells)**2# multiply by num cells (such that R is now the average) 
+                ax.imshow(bg)
+                R_map = ax.imshow(R_cells,vmin=0,vmax=0.4,alpha=alpha,cmap=cmap)     
+                plt.colorbar(R_map)
+                ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
+                ticklabels = ["{:6.2f}".format(q_row_0_el[1]) for q_row_0_el in result1.q_scr_xy[0]]
+                plt.xticks(ticks,ticklabels)
+                plt.yticks(ticks,ticklabels)
+                plt.show()              
+                 
+
+                print("Plotting normalised root difference map")
+                fig, ax = plt.subplots()
+                R_cells = np.abs((sqrt_real - sqrt_ideal)/sqrt_ideal)
+                ax.imshow(bg)
+                R_map = ax.imshow(R_cells,vmin=0,vmax=0.4,alpha=alpha,cmap=cmap)     
+                plt.colorbar(R_map)
+                ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
+                ticklabels = ["{:6.2f}".format(q_row_0_el[1]) for q_row_0_el in result1.q_scr_xy[0]]
+                plt.xticks(ticks,ticklabels)
+                plt.yticks(ticks,ticklabels)
+                plt.show()   
+
                 print("sum of real","{:e}".format(np.sum(sqrt_real)),"sum of ideal","{:e}".format(np.sum(sqrt_ideal)),"sum of abs difference","{:e}".format(R_num))       
         ## Circle grid
         else:
@@ -1802,12 +1838,12 @@ bottom_resolution = None#30
 start_time = -6
 end_time = 6#10 #0#-9.80    
 laser_firing_qwargs = dict(
-    SPI = True,
+    SPI = False,
     pixels_across = 100,  # shld go on xfel params.
 )
 ##### Crystal params
 crystal_qwargs = dict(
-    cell_scale = 3,  # for SC: cell_scale^3 unit cells 
+    cell_scale = 5,  # for SC: cell_scale^3 unit cells 
     positional_stdv = 0.2, # RMS in atomic coord position [angstrom]
     include_symmetries = True,  # should unit cell contain symmetries?
     cell_packing = "SC",
@@ -1820,7 +1856,7 @@ crystal_qwargs = dict(
 tag = "" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
 #TODO make it so reflections don't overwrite same orientation, as stochastic now.
 random_orientation = True # if true, overrides orientation_set with random orientations (only affects non-SPI)
-energy = 6000 # eV
+energy = 12000 # eV
 exp_qwargs = dict(
     detector_distance_mm = 100,
     screen_type = "flat",#"hemisphere"
@@ -1903,7 +1939,7 @@ elif target == "hen": # egg white lys
 elif target == "tetra": 
     pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb" 
     cell_dim = np.array((4.813 ,  17.151 ,  29.564))
-    target_handle = "carbon_6keV" #"carbon_12keV" # "carbon_6keV" #"carbon_gauss_32"
+    target_handle = "carbon_12keV_5" #"carbon_12keV_1" # "carbon_6keV_1" #"carbon_gauss_32"
     allowed_atoms_1 = ["C_fast"]
     #allowed_atoms_2 = ["C_fast"]      
     CNO_to_N = False
@@ -1962,31 +1998,15 @@ plt.scatter(z,y,c=-x,cmap="Blues",s=200)
 plt.xlabel("z (Ang)")
 plt.ylabel("y (Ang)")
 #%%
-### Simulate crambin
-tag += 1
-#  #TODO make this nicer and pop in a function 
-DEBUG = False
-energy =17445   #crambin - from resolutions. in pdb file, need to double check calcs: #q_min=0.11,q_cmaxres = 3.9,  my defaults: pixels_per_ring = 400, num_rings = 200
-
-
-exp_name1 = str(root) + "1_" + str(tag)
-exp_name2 = str(root) + "2_" + str(tag)
-
+#crambin params
+'''
+energy =17445   
 
 
 allowed_atoms_1 = ["C_fast","N_fast","O_fast","S_fast"]
 allowed_atoms_2 = ["C_fast","N_fast","O_fast","S_fast"]
 
-start_time = -10
-end_time = 10#-9.95
-
-#orientation_set = [[5.532278012665244, 1.6378991611963682, 1.3552062099726534]] # Spooky spider orientation
 num_orients = 30
-# [ax_x,ax_y,ax_z] = vector parallel to axis. Overridden if random orientations.
-ax_x = 0
-ax_y = 0
-ax_z = 1
-random_orientation = True  # if true, overrides orientation_set
 
 rock_angle = 0.15 # degrees
 screen_type = "hemisphere"
@@ -1994,104 +2014,4 @@ screen_type = "hemisphere"
 pdb_path = "/home/speno/AC4DC/scripts/scattering/3u7t.pdb" #Crambin
 
 target_handle = "Improved_Lys_mid_6"
-
-q_cutoff = None
-
-test_the_onion = False  # <- a test case I'm familiar with, I'm using it to check if anything breaks.
-#---------------------------------#
-
-
-# if not random:
-orientation_axis = Bio_Vect(ax_x,ax_y,ax_z)
-orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0,2*np.pi,num_orients,endpoint=False)]
-orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
-print(orientation_set)
-
-if test_the_onion:
-    orientation_set = [[0,0,0],[np.pi/4,0,0]]
-    #max_q = 10
-
-experiment1 = XFEL(exp_name1,energy,100, q_cutoff = q_cutoff,screen_type = screen_type, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
-experiment2 = XFEL(exp_name2,energy,100, q_cutoff = q_cutoff,screen_type = screen_type, orientation_set = orientation_set, pixels_per_ring = 400, num_rings = 400,t_fineness=100)
-
-
-crystal_dmged = Crystal(pdb_path,allowed_atoms_1,rocking_angle = rock_angle*np.pi/180,CNO_to_N=False,cell_packing = "SC")
-crystal_dmged.set_cell_dim(22.795 ,  18.826 ,  41.042)
-if test_the_onion:
-   crystal_dmged.set_cell_dim(20,20,20)
-crystal_dmged.add_symmetry(np.array([-1, 1,-1]),np.array([0,0.5,0]))   #2555
-
-crystal_undmged = copy.deepcopy(crystal_dmged)
-crystal_undmged.is_damaged = False
-
-
-SPI = False
-
-exp1_orientations = experiment1.spooky_laser(-10,end_time_1,target_handle,crystal, random_orientation = random_orientation, SPI=SPI)
-create_reflection_file(exp_name1)
-experiment2.orientation_set = exp1_orientations
-experiment2.spooky_laser(-10,end_time_2,target_handle,crystal, random_orientation = False, SPI=SPI)
-
-stylin()
-
-
-
-
-# %%
-#%%
-### Get undamaged lysozyme SPI
-tag += 1
-#  #TODO make this nicer and pop in a function 
-DEBUG = False
-energy = 12000 
-
-allowed_atoms= ["C_fast","N_fast","O_fast","S_fast"]
-
-end_time = -10#-9.95
-
-rock_angle = 0.3 # degrees
-
-pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb" #Lysozyme
-
-target_handle = "Improved_Lys_mid_6"
-
-#---------------------------------#
-
-
-# if not random:
-orientation_axis = Bio_Vect(ax_x,ax_y,ax_z)
-orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0,2*np.pi,num_orients,endpoint=False)]
-orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
-print(orientation_set)
-
-experiment = XFEL("SPI",energy,100, screen_type = "hemisphere_screen", pixels_per_ring = 500, num_rings = 500,t_fineness=100)
-crystal = Crystal(pdb_path,allowed_atoms,CNO_to_N=False,cell_packing = "SC")
-
-SPI = True
-
-SPI_result = experiment.spooky_laser(-10,end_time,target_handle,crystal, SPI=SPI)
-
-#%%
-#TODO Get the colors to match neutze.
-use_q = True
-log_radial = False
-log_I = True
-cutoff_log_intensity = None 
-cmap = "PiYG_r"# "plasma"
-radial_lim = 2
-scatter_scatter_plot(SPI_result,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-
-# get sinc functions with non-infinite crystal
-# 
-# %%
-import numpy as np
-theta = np.arcsin(10/(4*np.pi))
-#Assuming theta > 0:
-delt = 1
-min_err = 5*np.sin(theta - delt/2)
-max_err = 5*np.sin(theta+delt/2)
-err = np.sqrt(5)**2
-min_err <= err <= max_err
-# %%
-stylin()
-# %%
+'''
