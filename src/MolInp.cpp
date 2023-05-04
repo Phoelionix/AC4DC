@@ -210,8 +210,8 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 
 	// Get fluence  (if not use_fluence)
 	if (use_count){
-		fluence = -1; // not used
-		throw std::invalid_argument("count not implemented");
+		double SPOT_RAD = 50; // nm
+		fluence = photon_count*omega*Constant::J_per_eV*1e12 * 1e10/(Constant::Pi*pow(SPOT_RAD,2)); 
 	}
 	if (use_intensity){
 		// TODO Need to test this is working as expected

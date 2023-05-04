@@ -300,9 +300,9 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
     size_t num_sequential_needed = 3; // early times are safeguarded from inflections being too small by disallowing shrinkage
     allow_shrinkage = false; //TODO
     std::cout << "upper inflection of MB is:";
-    double new_max = approx_regime_bound(step,peak, +e_step_size, num_sequential_needed,5,1./2.); 
-    std::cout << std::endl;
+    double new_max = approx_regime_bound(step,peak, +e_step_size, num_sequential_needed,5,1./2.);   // This may be causing issues when MB and photo merge.
     //double new_max = 2.3208*kT; // 80% of electrons below this point (lower since not as sharp)
+    std::cout << std::endl;
     if(_max < new_max || allow_shrinkage)
         _max = std::min(new_max,Distribution::get_max_E());
 }

@@ -115,17 +115,9 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const 
         size_t resume_idx_if_const_dt = (t_resume-t_initial)/this->dt ;
         npoints -= (resume_idx_if_const_dt + 1);
         npoints += this->t.size(); // 
-        // Set checkpoint to be at the starting step
+        // Set checkpoint to be at the starting step (y is just the previous steps currently so call .end())
         std::vector<state_type> check_states = std::vector<state_type>(this->y.end() + 1 - this->order, this->y.end());
         checkpoint = {resume_idx, Distribution::get_knot_energies(),this->regimes,check_states}; // ATTENTION doesn't work unless loading last knot energies as we don't output the historic knots currently.
-
-        // bool use_custom_regimes = true;
-        // if (use_custom_regimes){
-        //     FeatureRegimes CR;
-        //     CR.mb_peak = 171.787; CR.mb_min=100.392; CR.mb_max=453.19;
-        //     CR.dirac_peaks[0] = 5500; CR.dirac_minimums[0] = 1920.65; CR.dirac_maximums[0]=8336.86;            
-        // }
-
     }
     old_checkpoint = checkpoint; 
 
@@ -167,7 +159,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         for (size_t n = 0; n < this->order; n++) {
             this->step_rk4(n);
         }
-        std::vector<state_type> check_states = std::vector<state_type>(this->y.begin() + 1, this->y.end());
+        std::vector<state_type> check_states = std::vector<state_type>(this->y.begin(), this->y.begin()+this->order);
         checkpoint = {this->order, Distribution::get_knot_energies(), this->regimes, check_states};
     }
     // Run those steps 

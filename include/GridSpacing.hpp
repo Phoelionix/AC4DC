@@ -42,7 +42,7 @@ struct GridSpacing {
     const static char manual = 0;
     const static char dynamic = 1;
     const static char unknown = 101;
-    char mode = unknown;
+    char mode = dynamic;  // default is dynamic, since manual grid true/false is contained in manual grid header, which we want to be able to exclude from input file.
     unsigned zero_degree_0 = 0; // Number of derivatives to set to zero at the origin
     unsigned zero_degree_inf = 0; // Number of derivatives to set to zero at infinity
 };
