@@ -57,8 +57,10 @@ for symbol in ATOMS:
 #     return C(idx)
 
 class PlotData:
-    def __init__(self,target_path, mol_name,output_mol_query, max_final_t, max_points):
-        self.p = target_path
+    def __init__(self, abs_molecular_path, mol_name,output_mol_query, max_final_t, max_points):
+        self.molecular_path = abs_molecular_path
+        AC4DC_dir = path.abspath(path.join(__file__ ,"../../"))  + "/"
+        self.input_path = AC4DC_dir + 'input/'
         molfile = self.get_mol_file(mol_name,output_mol_query) 
 
         # Subplot dictionary
@@ -82,7 +84,7 @@ class PlotData:
         
         self.title_colour = "#4d50b3"
         # Directories of target data
-        self.outDir = self.p + "/output/__Molecular/" + mol_name
+        self.outDir = self.molecular_path + mol_name
         self.freeFile = self.outDir+"/freeDist.csv"
         self.intFile = self.outDir + "/intensity.csv"
 
@@ -106,7 +108,7 @@ class PlotData:
                 if reading:
                     a = line.split(' ')[0].strip()
                     if len(a) != 0:
-                        file = self.p + '/input/atoms/' + a + '.inp'
+                        file = self.input_path + 'atoms/' + a + '.inp'
                         self.atomdict[a]={
                             'infile': file,
                             'mtime': path.getmtime(file),
@@ -200,7 +202,7 @@ class PlotData:
         #### Inputs ####
         #Check if .mol file in outputs
         use_input_mol_file = False
-        output_folder  = self.p + 'output/__Molecular/' + mol + '/'
+        output_folder  = self.molecular_path + mol + '/'
         if not os.path.isdir(output_folder):
             raise Exception("\033[91m Cannot find simulation output folder '" + mol + "'\033[0m" + "(" +output_folder + ")" )
         molfile = output_folder + mol + '.mol'
@@ -235,18 +237,18 @@ class PlotData:
                 if output_mol_query != "":
                     print('\033[95m' + "Using \033[94m'" + os.path.basename(molfile) +"'\033[95m found in output." + '\033[0m')
             else:
-                print("Using mol file from " + self.p + 'input/')
+                print("Using mol file from " + self.input_path)
                 use_input_mol_file = True
         else: 
             print("\033[93m[ Missing Mol File ]\033[0m copy of mol file used to generate output not found, searching input/ directory.\033[0m'" )
             use_input_mol_file = True
         if use_input_mol_file:       
-            molfile = self.find_mol_file_from_directory(self.p + 'input/',mol) 
+            molfile = self.find_mol_file_from_directory(self.input_path,mol) 
             print("Using: " + molfile)
         return molfile
     
     def find_mol_file_from_directory(self, input_directory, mol):
-        # Get molfile from all subdirectories in input folder.  Old comment -> #molfile = self.p+"/input/"+mol+".mol"
+        # Get molfile from all subdirectories in input folder.
         molfname_candidates = []
         for dirpath, dirnames, fnames in os.walk(input_directory):
             #if not "input/" in dirpath: continue
@@ -281,14 +283,18 @@ class PlotData:
 class InteractivePlotter:
     # max_final_t, float, end time in femtoseconds. Not equivalent to time duration
     # max_points, int, number of points (within the timespan) for the interactive to have at maximum.
-    def __init__(self, target_names, output_mol_query, max_final_t = 30, max_points = 70):
-        target_path = path.abspath(path.join(__file__ ,"../../")) + "/"
+    def __init__(self, target_names, sim_output_parent_directory, max_final_t = 30, max_points = 70):
+        '''
+        output_parent_directory: absolute path
+        '''
+        self.multi_trace_params = [""]*len(target_names)  # 
+
         self.num_plots = len(target_names)
         self.target_data = []
         lowest_max_t = np.inf
         lowest_max_points = np.inf
         for mol_name in target_names:
-            dat = PlotData(target_path,mol_name,output_mol_query,max_final_t=max_final_t,max_points=max_points)    
+            dat = PlotData(sim_output_parent_directory,mol_name,"y",max_final_t=max_final_t,max_points=max_points)    
             lowest_max_t = min(dat.get_max_t(),lowest_max_t)
             lowest_max_points = min(lowest_max_points, dat.get_num_usable_points())
             self.target_data.append(dat)
@@ -297,22 +303,12 @@ class InteractivePlotter:
             dat.max_points = lowest_max_points
             dat.update_outputs()
 
-
-        #self.autorun=False  
-
-    # def setup_step_axes(self):
-    #     self.fig_steps = py.figure(figsize=(4,3))
-    #     self.ax_steps = self.fig_steps.add_subplot(111)
-    #     self.fig_steps.subplots_adjust(left=0.18,right=0.97, top=0.97, bottom= 0.16)
+    def set_trace_params(self,target_handle_idx,energy,fwhm,photons):
+        self.multi_trace_params[target_handle_idx] = (energy,fwhm,photons)        
 
     def update_inputs(self):
         self.get_atoms()
         self.mol['mtime'] = path.getmtime(self.mol['infile'])
-
-    def rerun_ac4dc(self):
-        cmd = self.p+'/bin/ac4dc2 '+self.mol['infile']
-        print("Running: ", cmd)
-        subprocess.run(cmd, shell=True, check=True)
 
     def check_current(self):
         # Pull most recent atom mod time
@@ -460,7 +456,7 @@ class InteractivePlotter:
 
     #----Widgets----#
     # Time Slider
-    def add_time_slider(self):
+    def add_time_slider(self,simul_step_slider=True):
         self.steps_groups = [] # Stores the steps for each plot separately 
         start_step = 0
         time_slider = []
@@ -488,16 +484,17 @@ class InteractivePlotter:
                 )
                 step["args"][0]["visible"][start_step + i] = True  #  When at this step toggle i'th trace in target's group to "visible"
                 steps.append(step)
-                #   Initialise slider that shows all plots.
-                if g == 0:
-                    simul_step = copy.deepcopy(step)
-                    simul_step["label"] = "  " + "%.2f" % target.timeData[i+1]
-                    simul_steps.append(simul_step)    
-                    simul_step["args"][1]["title"] = allplot_title 
-                #   Add later plots' traces at same step (not necessarily same time...).
-                elif i < len(simul_steps):
-                    simul_steps[i]["args"][0]["visible"][start_step+i] = True    
-                    simul_steps[i]["label"] += "  |  " + "%.2f" % target.timeData[i+1]
+                if simul_step_slider:
+                    #   Initialise slider that shows all plots.
+                    if g == 0:
+                        simul_step = copy.deepcopy(step)
+                        simul_step["label"] = "  " + "%.2f" % target.timeData[i+1]
+                        simul_steps.append(simul_step)    
+                        simul_step["args"][1]["title"] = allplot_title 
+                    #   Add later plots' traces at same step (not necessarily same time...).
+                    elif i < len(simul_steps):
+                        simul_steps[i]["args"][0]["visible"][start_step+i] = True    
+                        simul_steps[i]["label"] += "  |  " + "%.2f" % target.timeData[i+1]
             ###
             self.steps_groups.append(steps)
             start_step += len(steps)
@@ -511,19 +508,43 @@ class InteractivePlotter:
                 steps=steps,
                 #font = {"color":"rgba(0.5,0.5,0.5,1)"}
             ))
-        
-        all_slider = dict(
-            active = 0,
-            tickwidth = 0,
-            currentvalue = {"prefix": "<span style='font-size: 25px; font-family: Roboto; color = white;'>" +"All" + " - Times [fs]: "},
-            pad={"t": 85+90*(g+1),"r": 200,"l":0},
-            steps = simul_steps,
-            #font = {"color":"rgba(0.5,0.5,0.5,1)"}
-        )
-
-        time_slider.append(all_slider)
+        if simul_step_slider:
+            all_slider = dict(
+                active = 0,
+                tickwidth = 0,
+                currentvalue = {"prefix": "<span style='font-size: 25px; font-family: Roboto; color = white;'>" +"All" + " - Times [fs]: "},
+                pad={"t": 85+90*(g+1),"r": 200,"l":0},
+                steps = simul_steps,
+                #font = {"color":"rgba(0.5,0.5,0.5,1)"}
+            )
+            time_slider.append(all_slider)
         
         self.fig.update_layout(sliders=time_slider)    
+
+    # def switching_time_sliders(self):
+    #     ## Add the regular time sliders
+    #     self.add_time_slider(False)    
+    #     # Add buttons to switch sliders
+    #     buttons = []
+    #     for slider_idx, energy, fwhm, photons  in enumerate(self.multi_trace_params):
+    #         vis = False
+    #         if slider_idx == 0:
+    #             vis = True
+    #         button = dict(
+    #             label = 'Show first slider',
+    #             method = 'update',
+    #             args = [
+    #                 {'visible': vis},
+    #                 {'title': "First Slider", 'xaxis': {'title': 'First X axis'}, 'yaxis': {'title': 'First Y Axis'}, 'sliders': sliders,},
+                        
+    #             ],
+    #             args2 = [
+    #                 {'sliders':sliders}
+    #             ]
+    #         )      
+    #         buttons.append(button)    
+        #
+
 
     # Scale Button 
     def add_scale_button(self,x_log_args, x_lin_args, y_log_args,y_lin_args,):      
@@ -615,8 +636,4 @@ class InteractivePlotter:
 #     return ret[n - 1:] / n
 
 if __name__ == "__main__":
-    pl = Plotter(sys.argv[1])
-    # pl.plot_free(log=True,min=1e-7)
-    # pl.plot_all_charges()
-    plt.show()
-
+    raise Exception("No main script")

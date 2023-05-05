@@ -57,18 +57,25 @@ def get_colors(num, seed):
 class Plotter:
     # Example initialisation: Plotter(water)
     # --> expects there to be a control file named water.mol within AC4DC/input/ or a subdirectory.
-    def __init__(self, mol, output_mol_query = ""):
-        self.p = path.abspath(path.join(__file__ ,"../../")) + "/"
+    def __init__(self, mol_name, abs_molecular_path = None, num_subplots=None):
+        '''
+        abs_molecular_path: The path to the folder containing the simulation output folder of interest.
+        '''
+        self.molecular_path = abs_molecular_path
+        if self.molecular_path == None:
+            self.molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
+        AC4DC_dir = path.abspath(path.join(__file__ ,"../../"))  + "/"
+        self.input_path = AC4DC_dir + 'input/'
+        molfile = self.get_mol_file(mol_name,"y") 
 
-        molfile = self.get_mol_file(mol,output_mol_query)
-        self.mol = {'name': mol, 'infile': molfile, 'mtime': path.getmtime(molfile)}        
+        self.mol = {'name': mol_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}        
         
         # Stores the atomic input files read by ac4dc
         self.atomdict = {}
         self.statedict = {}
 
         # Outputs
-        self.outDir = self.p + "/output/__Molecular/" + mol
+        self.outDir = self.molecular_path + mol_name
         self.freeFile = self.outDir +"/freeDist.csv"
         self.intFile = self.outDir + "/intensity.csv"
 
@@ -82,14 +89,15 @@ class Plotter:
         self.get_atoms()
         self.update_outputs()
         self.autorun=False
-        
-        self.setup_step_axes()   
-
+        if num_subplots is not None:
+            self.setup_axes(num_subplots)
+    
+    # Contender for world's most convoluted function.
     def get_mol_file(self, mol,output_mol_query = ""):
         #### Inputs ####
         #Check if .mol file in outputs
         use_input_mol_file = False
-        output_folder  = self.p + 'output/__Molecular/' + mol + '/'
+        output_folder  = self.molecular_path + mol + '/'
         if not os.path.isdir(output_folder):
             raise Exception("\033[91m Cannot find simulation output folder '" + mol + "'\033[0m" + "(" +output_folder + ")" )
         molfile = output_folder + mol + '.mol'
@@ -124,18 +132,18 @@ class Plotter:
                 if output_mol_query != "":
                     print('\033[95m' + "Using \033[94m'" + os.path.basename(molfile) +"'\033[95m found in output." + '\033[0m')
             else:
-                print("Using mol file from " + self.p + 'input/')
+                print("Using mol file from " + self.input_path)
                 use_input_mol_file = True
         else: 
             print("\033[93m[ Missing Mol File ]\033[0m copy of mol file used to generate output not found, searching input/ directory.\033[0m'" )
             use_input_mol_file = True
         if use_input_mol_file:       
-            molfile = self.find_mol_file_from_directory(self.p + 'input/',mol) 
+            molfile = self.find_mol_file_from_directory(self.input_path,mol) 
             print("Using: " + molfile)
         return molfile
     
     def find_mol_file_from_directory(self, input_directory, mol):
-        # Get molfile from all subdirectories in input folder.  Old comment -> #molfile = self.p+"/input/"+mol+".mol"
+        # Get molfile from all subdirectories in input folder.
         molfname_candidates = []
         for dirpath, dirnames, fnames in os.walk(input_directory):
             #if not "input/" in dirpath: continue
@@ -166,11 +174,6 @@ class Plotter:
                     print("Continuing...")
                     selected_file = True
         return molfile    
-
-    def setup_step_axes(self):
-        self.fig_steps = plt.figure(figsize=(4,3))
-        self.ax_steps = self.fig_steps.add_subplot(111)
-        self.fig_steps.subplots_adjust(left=0.18,right=0.97, top=0.97, bottom= 0.16)
         
 
     # Reads the control file specified by self.mol['infile']
@@ -189,7 +192,7 @@ class Plotter:
                 if reading:
                     a = line.split(' ')[0].strip()
                     if len(a) != 0:
-                        file = self.p + '/input/atoms/' + a + '.inp'
+                        file = self.input_path + 'atoms/' + a + '.inp'
                         self.atomdict[a]={
                             'infile': file,
                             'mtime': path.getmtime(file),
@@ -199,10 +202,10 @@ class Plotter:
         self.get_atoms()
         self.mol['mtime'] = path.getmtime(self.mol['infile'])
 
-    def rerun_ac4dc(self):
-        cmd = self.p+'/bin/ac4dc2 '+self.mol['infile']
-        print("Running: ", cmd)
-        subprocess.run(cmd, shell=True, check=True)
+    # def rerun_ac4dc(self):
+    #     cmd = self.p+'/bin/ac4dc2 '+self.mol['infile']
+    #     print("Running: ", cmd)
+    #     subprocess.run(cmd, shell=True, check=True)
 
     def check_current(self):
         # Pull most recent atom mod time
@@ -841,9 +844,7 @@ class Plotter:
             self.update_outputs()
 
     # makes a blank plot showing the intensity curve
-    def setup_axes(self):
-        self.fig = plt.figure(figsize=(3,2.5))
-        ax = self.fig.add_subplot(111)
+    def setup_intensity_plot(self,ax):
         ax2 = ax.twinx()
         ax2.plot(self.timeData, self.intensityData, lw = 1, c = 'black', ls = ':', alpha = 0.7)
         # ax2.set_ylabel('Pulse Intensity (photons cm$^{-2}$ s$^{-1}$)')
@@ -852,79 +853,42 @@ class Plotter:
         ax2.axes.get_yaxis().set_visible(False)
         # ax2.tick_params(None)
         ax.get_xaxis().get_major_formatter().labelOnlyBase = False
+        #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)   
         return (ax, ax2)
+    
+    def setup_axes(self,num_subplots):
+        self.num_plotted = 0 # number of subplots plotted so far.
+        width, height = 3.4, 2.5
+        if num_subplots > 3 :
+            self.fig, self.axs = plt.subplots(int((1+num_subplots)/2),int(1+num_subplots/2),figsize=(width*int((1+num_subplots)/2),height*int((1+num_subplots)/2)))
+        else:
+            self.fig, self.axs = plt.subplots(num_subplots,figsize=(width,height*num_subplots))
 
+    def get_next_ax(self):
+        ax = self.axs.flat[self.num_plotted]
+        self.num_plotted+=1
+        return ax
+        
     def plot_atom_total(self, a):
-        ax, _ax2 = self.setup_axes()
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
         tot = np.sum(self.boundData[a], axis=1)
         ax.plot(self.timeData, tot)
         ax.set_title("Configurational dynamics")
         ax.set_ylabel("Density")
         self.fig.figlegend(loc = (0.11, 0.43))
-        plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
+        #plt.subplots_adjust(left=0.1, right=0.92, top=0.93, bottom=0.1)
         
     def plot_atom_raw(self, a):
-        ax, _ax2 = self.setup_axes()
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
         for i in range(self.boundData[a].shape[1]):
             ax.plot(self.timeData, self.boundData[a][:,i], label = self.statedict[a][i])
         ax.set_title("Configurational dynamics")
         ax.set_ylabel("Density")
-        self.fig.subplots_adjust(left=0.2, right=0.92, top=0.93, bottom=0.1)
-
-    # Seems to plot ffactors through time, "timedata" is where the densities come from - the form factor text file corresponds to specific configurations (vertical axis) at different k (horizontal axis)
-    # In any case, my ffactor function is probably bugged since it doesn't match this. - S.P.
-    def plot_ffactor_get_R_sanders(self, a, num_tsteps = 10, timespan = None, show_avg = True, **kwargs):
-
-        if timespan is None:
-            timespan = (self.timeData[0], self.timeData[-1])
-
-        start_idx = self.timeData.searchsorted(timespan[0])
-        stop_idx = self.timeData.searchsorted(timespan[1])
-
-        ff_path = path.abspath(path.join(__file__ ,"../../output/"+a+"/Xsections/Form_Factor.txt"))
-        fdists = np.genfromtxt(ff_path)
-        # These correspond to the meaning of the FormFactor.txt entries themselves
-        KMIN = 0
-        KMAX = 2
-        dim = len(fdists.shape)
-        kgrid = np.linspace(KMIN,KMAX,fdists.shape[0 if dim == 1 else 1])
-        fig2 = plt.figure()
-        ax = fig2.add_subplot(111)
-        ax.set_xlabel('$q$ (atomic units)')
-        ax.set_ylabel('Form factor (arb. units)')
-        
-        timedata = self.boundData[a][:,:-1] # -1 excludes the bare nucleus
-        temporary_fact = 3/0.994/0.99992  # Just normalising carbon - S.P.
-        dynamic_k = temporary_fact*np.tensordot(fdists.T, timedata.T,axes=1)   # Getting all k points? This has equal spacing -S.P. 
-        step = (stop_idx - start_idx) // num_tsteps
-        cmap=plt.get_cmap('plasma')
-        fbar = np.zeros_like(dynamic_k[:,0])
-
-        n=0
-        for i in range(start_idx, stop_idx, step):
-            ax.plot(kgrid, dynamic_k[:,i], label='%1.1f fs' % self.timeData[i], color=cmap((i-start_idx)/(stop_idx - start_idx)))
-            fbar += dynamic_k[:,i]
-            n += 1
-
-        fbar /= n
-        if show_avg:
-            ax.plot(kgrid, fbar, 'k--', label=r'Effective Form Factor')
-        freal = dynamic_k[:,0]  # Real as in the real structure? - S.P.
-        print("R = ", np.sum(np.abs(fbar - freal))/np.sum(freal))    # Struct fact defn. of R (essentially equivalent to intensity definition)
-        print("freal",freal)
-        print("fbar",fbar)
-        freal /= np.sum(freal)
-        fbar /= np.sum(fbar)
-        print("Normed R = ", np.sum(np.abs(fbar - freal))/np.sum(freal))
-        # print("freal",freal)
-        # print("fbar",fbar)
-        return (fig2, ax)
+        #self.fig.subplots_adjust(left=0.2, right=0.92, top=0.93, bottom=0.1)
 
     def plot_charges(self, ax, a, rseed=404):
         self.aggregate_charges()
-
         #print_idx = np.searchsorted(self.timeData,-7.5)
-
         ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))
         for i in range(self.chargeData[a].shape[1]):
             max_at_zero = np.max(self.chargeData[a][0,:])
@@ -935,9 +899,9 @@ class Plotter:
             #print("Charge: ", i ,", time: ",self.timeData[print_idx], ", density: ",self.chargeData[a][print_idx,i])
         # ax.set_title("Charge state dynamics")
         ax.set_ylabel(r"Density (\AA$^{-3}$)")
-
-        self.fig.legend(loc = "right")
-        self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)
+        
+        #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)
+        ax.legend(loc='upper left',bbox_to_anchor=(1, 1),fontsize=4)
 
     def plot_subshell(self, a, subshell='1s',rseed=404):
         if not hasattr(self, 'ax_subshell'):
@@ -957,9 +921,9 @@ class Plotter:
 
 
     def plot_tot_charge(self, every=1):
-        ax, _ax2 = self.setup_axes()
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
         self.aggregate_charges()
-        self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
+        #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
 
         T = self.timeData[::every]
         self.Q = np.zeros(T.shape[0])
@@ -983,14 +947,13 @@ class Plotter:
 
 
     def plot_all_charges(self, rseed=404):
-        ax, _ax2 = self.setup_axes()
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
         for a in self.atomdict:
             self.plot_charges(ax, a, rseed)
 
     def plot_free(self, N=100, log=False, min = 0, max=None, every = None):
-        self.fig_free = plt.figure(figsize=(3.1,2.5))
-        ax = self.fig_free.add_subplot(111)
-        self.fig_free.subplots_adjust(left=0.12, top=0.96, bottom=0.16,right=0.95)
+        ax = self.get_next_ax()
+        #self.fig_free.subplots_adjust(left=0.12, top=0.96, bottom=0.16,right=0.95)
 
         if every is None:
             Z = self.freeData.T
@@ -1011,13 +974,12 @@ class Plotter:
 
         
         ax.set_facecolor('black')
-
         if log:
             cm = ax.pcolormesh(T, self.energyKnot*1e-3, Z, shading='gouraud',norm=colors.LogNorm(vmin=min, vmax=max),cmap='magma',rasterized=True)
-            cbar = self.fig_free.colorbar(cm)
+            cbar = self.fig.colorbar(cm,ax=ax)
         else:
             cm = ax.contourf(T, self.energyKnot, Z, N, cmap='magma',rasterized=True)
-            cbar = self.fig_free.colorbar(cm)
+            cbar = self.fig.colorbar(cm,ax=ax)
 
         ax.set_ylabel("Energy (keV)")
         ax.set_xlabel("Time (fs)")
@@ -1040,6 +1002,10 @@ class Plotter:
         ax2.get_yaxis().set_visible(False)
 
     # Plots a single point in time.
+    def initialise_step_slices_ax(self):
+        self.ax_steps = self.get_next_ax()
+        self.fig_steps = self.fig
+    
     def plot_step(self, t, normed=True, fitE=None, **kwargs):        
         self.ax_steps.set_xlabel('Energy (eV)')
         self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
@@ -1092,7 +1058,55 @@ class Plotter:
         de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2]) 
         de = de [1:] - de[:-1]
         return np.dot(self.freeData[t_idx, :], de)
+    
+    # Seems to plot ffactors through time, "timedata" is where the densities come from - the form factor text file corresponds to specific configurations (vertical axis) at different k (horizontal axis)
+    # In any case, my ffactor function is probably bugged since it doesn't match this. - S.P.
+    def plot_ffactor_get_R_sanders(self, a, num_tsteps = 10, timespan = None, show_avg = True, **kwargs):
 
+        if timespan is None:
+            timespan = (self.timeData[0], self.timeData[-1])
+
+        start_idx = self.timeData.searchsorted(timespan[0])
+        stop_idx = self.timeData.searchsorted(timespan[1])
+
+        ff_path = path.abspath(path.join(__file__ ,"../../output/"+a+"/Xsections/Form_Factor.txt"))
+        fdists = np.genfromtxt(ff_path)
+        # These correspond to the meaning of the FormFactor.txt entries themselves
+        KMIN = 0
+        KMAX = 2
+        dim = len(fdists.shape)
+        kgrid = np.linspace(KMIN,KMAX,fdists.shape[0 if dim == 1 else 1])
+        fig2 = plt.figure()
+        ax = fig2.add_subplot(111)
+        ax.set_xlabel('$q$ (atomic units)')
+        ax.set_ylabel('Form factor (arb. units)')
+        
+        timedata = self.boundData[a][:,:-1] # -1 excludes the bare nucleus
+        temporary_fact = 3/0.994/0.99992  # Just normalising carbon - S.P.
+        dynamic_k = temporary_fact*np.tensordot(fdists.T, timedata.T,axes=1)   # Getting all k points? This has equal spacing -S.P. 
+        step = (stop_idx - start_idx) // num_tsteps
+        cmap=plt.get_cmap('plasma')
+        fbar = np.zeros_like(dynamic_k[:,0])
+
+        n=0
+        for i in range(start_idx, stop_idx, step):
+            ax.plot(kgrid, dynamic_k[:,i], label='%1.1f fs' % self.timeData[i], color=cmap((i-start_idx)/(stop_idx - start_idx)))
+            fbar += dynamic_k[:,i]
+            n += 1
+
+        fbar /= n
+        if show_avg:
+            ax.plot(kgrid, fbar, 'k--', label=r'Effective Form Factor')
+        freal = dynamic_k[:,0]  # Real as in the real structure? - S.P.
+        print("R = ", np.sum(np.abs(fbar - freal))/np.sum(freal))    # Struct fact defn. of R (essentially equivalent to intensity definition)
+        print("freal",freal)
+        print("fbar",fbar)
+        freal /= np.sum(freal)
+        fbar /= np.sum(fbar)
+        print("Normed R = ", np.sum(np.abs(fbar - freal))/np.sum(freal))
+        # print("freal",freal)
+        # print("fbar",fbar)
+        return (fig2, ax)
         
 
 def fit_maxwell(X, Y):

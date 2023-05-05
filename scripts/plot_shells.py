@@ -33,7 +33,7 @@ plt.rcParams["font.size"] = 8
 
 
 label = handle.replace('_',' ')
-pl = Plotter(handle,"y");
+pl = Plotter(handle)
 # close step axes
 plt.close()
 

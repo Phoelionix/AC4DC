@@ -46,7 +46,7 @@ label = handle +'_'
 
 name = handle.replace('_',' ')
 
-pl = Plotter(handle,"y")
+pl = Plotter(handle)
 plt.close()
 photon_energy = 6000
 q_max = 2#pl.theta_to_q(22,photon_energy) # In units of bohr^-1. 
