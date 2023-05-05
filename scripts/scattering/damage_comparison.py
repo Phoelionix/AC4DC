@@ -1,13 +1,40 @@
-import scatter 
-
+#%%
+from scatter import XFEL,Crystal
+import numpy as np
+import os.path as path
+import os
+import inspect
+import copy
 ### Simulate
     #TODO
     # implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector (or just do SPI)
 def main():
-    target_options = ["neutze","hen","tetra"]
-    #============------------User params---------==========#
 
-    target = "tetra" #target_options[2]
+    #---------------------------------#
+    if target == "neutze": #T4 virus lys
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/2lzm.pdb"
+        cell_dim = np.array((61.200 ,  61.200 ,  61.2)) #TODO should read this automatically... 
+        allowed_atoms_1 = ["N_fast","S_fast"]
+        CNO_to_N = True
+    elif target == "hen": # egg white lys
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb"
+        cell_dim = np.array((79.000  , 79.000  , 38.000))
+        allowed_atoms_1 = ["N_fast","S_fast"]
+        CNO_to_N = True
+    elif target == "tetra": 
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb" 
+        cell_dim = np.array((4.813 ,  17.151 ,  29.564))
+        allowed_atoms_1 = ["N_fast"]
+        CNO_to_N = True
+        #CNO_to_N = False
+    else:
+        raise Exception("'target' invalid")
+    #-------------------------------#
+
+    #============------------User params---------==========#
+    target = "tetra"
+    folder = "tetra"
+    
     top_resolution = 2
     bottom_resolution = None#30
 
@@ -68,93 +95,78 @@ def main():
     if laser_firing_qwargs["SPI"] == False:
         crystal_qwargs["positional_stdv"] = 0
     #---------------------------Result handle names---------------------------#
-    exp1_qualifier = "_real"
-    exp2_qualifier = "_ideal"
-    if chosen_root_handle is None:
-        version_number = 1
-        count = 0
-        while True:
-            if tag != "":
-                tag = "_" + tag
-            if count > 99:
-                raise Exception("could not find valid file in " + str(count) + " loops")
-            results_dir = "results/" # needs to be synced with other functions
-            root_handle = str(target) + tag + "_v" + str(version_number)
-            exp_name1 = root_handle + "_" + exp1_qualifier + "real"
-            exp_name2 = root_handle + "_" + exp2_qualifier + "ideal"    
-            if os.path.exists(os.path.dirname(results_dir + exp_name1 + "/")) or os.path.exists(os.path.dirname(results_dir + exp_name2 + "/")):
-                version_number+=1
-                count+=1
-                continue 
-            break
-    else:
-        exp_name1 = chosen_root_handle + "_" + exp1_qualifier + "real"
-        exp_name2 = chosen_root_handle + "_" + exp2_qualifier + "ideal"  
 
-    #exp_name2 = None
-    #----------orientation thing that needs to be to XFEL class (TODO)-----------------------#
-
-    if ax_x == ax_y == ax_z and ax_z == 0 and random_orientation == False:
-        raise Exception("axis vector has 0 length")
-    # if not random_orientation:
-    orientation_axis = Bio_Vect(ax_x,ax_y,ax_z)
-    orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0,2*np.pi,num_orients,endpoint=False)]
-    orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
-    print("ori set if not random:", orientation_set)  #TODO double check shows when random and if so disable when random
-    #---------------------------------#
-    if target == "neutze": #T4 virus lys
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/2lzm.pdb"
-        cell_dim = np.array((61.200 ,  61.200 ,  61.2)) #TODO should read this automatically...
-        target_handle = "D_lys_neutze_simple_7"  
-        folder = ""
-        allowed_atoms_1 = ["N_fast","S_fast"]
-        CNO_to_N = True
-    elif target == "hen": # egg white lys
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb"
-        cell_dim = np.array((79.000  , 79.000  , 38.000))
-        target_handle = "D_lys_neutze_simple_7"  
-        folder = ""
-        allowed_atoms_1 = ["N_fast","S_fast"]
-        CNO_to_N = True
-    elif target == "tetra": 
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb" 
-        cell_dim = np.array((4.813 ,  17.151 ,  29.564))
-        target_handle = "12-5-2_tetra_2" #"carbon_12keV_1" # "carbon_6keV_1" #"carbon_gauss_32"
-        folder = "tetra"
-        allowed_atoms_1 = ["N_fast"]
-        CNO_to_N = True
-        #CNO_to_N = False
-    else:
-        raise Exception("'target' invalid")
-    #-------------------------------#
-
-    import inspect
     src_file_path = inspect.getfile(lambda: None)
-    parent_directory = path.abspath(path.join(src_file_path ,"../../../output/__Molecular/"+folder)) + "/"
+    results_parent_folder = "results_R_plotting/" # needs to be synced with other functions
+    results_parent_dir = path.abspath(path.join(src_file_path ,"../../../output/__Molecular/"+folder)) + "/"
+    if path.isdir(results_parent_dir):
+        os.remove(results_parent_dir)
+    if path.isfile(results_parent_dir):
+        raise Exception("target directory is existing file's name.")
+    for target_handle in parent_dir:
+        parent_dir = path.abspath(path.join(src_file_path ,"../../../output/__Molecular/"+folder)) + "/"
+
+        exp1_qualifier = "_real"
+        exp2_qualifier = "_ideal"
+        if chosen_root_handle is None:
+            version_number = 1
+            count = 0
+            while True:
+                if tag != "":
+                    tag = "_" + tag
+                if count > 99:
+                    raise Exception("could not find valid file in " + str(count) + " loops")
+                root_handle = str(target) + tag + "_v" + str(version_number)
+                exp_name1 = root_handle + "_" + exp1_qualifier + "real"
+                exp_name2 = root_handle + "_" + exp2_qualifier + "ideal"    
+                if path.exists(path.dirname(results_parent_folder+ exp_name1 + "/")) or path.exists(path.dirname(results_parent_folder + exp_name2 + "/")):
+                    version_number+=1
+                    count+=1
+                    continue 
+                break
+        else:
+            exp_name1 = chosen_root_handle + "_" + exp1_qualifier + "real"
+            exp_name2 = chosen_root_handle + "_" + exp2_qualifier + "ideal"  
+
+        #exp_name2 = None
+        #----------orientation thing that needs to be to XFEL class (TODO)-----------------------#
+
+        if ax_x == ax_y == ax_z and ax_z == 0 and random_orientation == False:
+            raise Exception("axis vector has 0 length")
+        # if not random_orientation:
+        orientation_axis = Bio_Vect(ax_x,ax_y,ax_z)
+        orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0,2*np.pi,num_orients,endpoint=False)]
+        orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
+        print("ori set if not random:", orientation_set)  #TODO double check shows when random and if so disable when random
+
+        import inspect
+        src_file_path = inspect.getfile(lambda: None)
 
 
-    # Set up experiments
-    experiment1 = XFEL(exp_name1,energy,orientation_set = orientation_set,**exp_qwargs)
-    experiment2 = XFEL(exp_name2,energy,orientation_set = orientation_set,**exp_qwargs)
-    # Create Crystals
+        # Set up experiments
+        experiment1 = XFEL(exp_name1,energy,orientation_set = orientation_set,**exp_qwargs)
+        experiment2 = XFEL(exp_name2,energy,orientation_set = orientation_set,**exp_qwargs)
+        # Create Crystals
 
-    crystal = Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=True,CNO_to_N = CNO_to_N, **crystal_qwargs)
-    # The undamaged crystal uses the initial state but still performs the same integration step with the pulse profile weighting.
-    # we copy the other crystal so that it has the same deviations in coords
-    crystal_undmged = copy.deepcopy(crystal)#Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
-    crystal_undmged.is_damaged = False
-    crystal.plot_me(20000)
+        crystal = Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=True,CNO_to_N = CNO_to_N, **crystal_qwargs)
+        # The undamaged crystal uses the initial state but still performs the same integration step with the pulse profile weighting.
+        # we copy the other crystal so that it has the same deviations in coords
+        crystal_undmged = copy.deepcopy(crystal)#Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
+        crystal_undmged.is_damaged = False
+        crystal.plot_me(20000)
 
     if laser_firing_qwargs["SPI"]:
-        SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,parent_directory,crystal, random_orientation = random_orientation, **laser_firing_qwargs)
-        SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,parent_directory,crystal_undmged, random_orientation = False, **laser_firing_qwargs)
+        SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,parent_dir,crystal,results_parent_dir=results_parent_folder, random_orientation = random_orientation, **laser_firing_qwargs)
+        SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,parent_dir,crystal_undmged,results_parent_dir=results_parent_folder, random_orientation = False, **laser_firing_qwargs)
         stylin(SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
     else:
-        exp1_orientations = experiment1.spooky_laser(start_time,end_time,target_handle,parent_directory,crystal, random_orientation = random_orientation, **laser_firing_qwargs)
-        create_reflection_file(exp_name1)
+        exp1_orientations = experiment1.spooky_laser(start_time,end_time,target_handle,parent_dir,crystal, results_parent_dir=results_parent_folder, random_orientation = random_orientation, **laser_firing_qwargs)
+        create_reflection_file(exp_name1,results_parent_dir=results_parent_folder)
         if exp_name2 != None:
             experiment2.orientation_set = exp1_orientations  # pass in orientations to next sim, random_orientation must be false so not overridden!
-            experiment2.spooky_laser(start_time,end_time,target_handle,parent_directory,crystal_undmged, random_orientation = False, **laser_firing_qwargs)
+            experiment2.spooky_laser(start_time,end_time,target_handle,parent_dir,crystal_undmged, results_parent_dir=results_parent_folder,random_orientation = False, **laser_firing_qwargs)
         stylin()
 
+main()
 
+# %%

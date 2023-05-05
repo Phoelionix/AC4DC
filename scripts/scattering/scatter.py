@@ -476,7 +476,7 @@ class XFEL():
         ff_calculator.initialise_coherence_params(start_time,end_time,self.max_q,self.photon_energy,t_fineness=self.t_fineness) # q_fineness isn't used for our purposes.   
         return ff_calculator
     
-    def spooky_laser(self, start_time, end_time, damage_output_handle, parent_dir_path, target, circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False):
+    def spooky_laser(self, start_time, end_time, damage_output_handle, parent_dir_path, target, results_parent_dir = "results/", circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False):
         """ 
         end_time: The end time of the photon capture in femtoseconds. Not a real thing experimentally, but useful for choosing 
         a level of damage. Explicitly, it is used to determine the upper time limit for the integration of the form factor.
@@ -495,7 +495,7 @@ class XFEL():
             raise Exception("Require pixels_across argument for rectangular screen")
         
         # Create output folder for results
-        directory = "results/" + self.experiment_name + "/"
+        directory = results_parent_dir + self.experiment_name + "/"
         print("creating folder:",directory)
         exist_ok = True
         if (os.path.exists(directory)):
@@ -1126,7 +1126,7 @@ def E_to_lamb(photon_energy):
         # q = 4*pi*sin(theta)/lambda = 2pi*u, where q is the momentum in AU (a_0^-1), u is the spatial frequency.
         # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
-def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_result1 = None, SPI_result2 = None, full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, bg_colour = "black",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None):
+def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_result1 = None, SPI_result2 = None, full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, results_parent_dir = "results/", compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, bg_colour = "black",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None):
     ''' (Complete spaghetti at this point.)
     Plots the simulated scattering image.
     result_handle:
@@ -1177,10 +1177,10 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
         plt.gcf().set_figheight(3)                  
     
     if result_handle != None:
-        results_dir = "results/"+result_handle+"/"
+        results_dir = results_parent_dir+result_handle+"/"
         compare_dir = None
         if compare_handle!= None:
-            compare_dir = "results/"+compare_handle+"/"        
+            compare_dir = results_parent_dir+compare_handle+"/"        
         ## Point-like (Crystalline)
         # Initialise R factor sector comparison plot. 
         sector_histogram = np.zeros((num_arcs,num_subdivisions)).T
@@ -1688,12 +1688,12 @@ def get_result(filename,results_dir,compare_dir = None):
 
 import pandas as pd
 import csv
-def create_reflection_file(result_handle,overwrite=False):
+def create_reflection_file(result_handle,results_parent_dir = "results/",overwrite=False):
     print("Creating reflection file for",result_handle)
     directory = "reflections/"
-    results_dir = "results/"+ result_handle+"/"
+    results_dir = results_parent_dir+ result_handle+"/"
     os.makedirs(directory, exist_ok=True) 
-    results_dir = "results/"+result_handle+"/"
+    results_dir = results_parent_dir+result_handle+"/"
     init = False
     for filename in os.listdir(results_dir):
         result = get_result(filename,results_dir)[0]
@@ -1908,11 +1908,11 @@ if __name__ == "__main__":
                 tag = "_" + tag
             if count > 99:
                 raise Exception("could not find valid file in " + str(count) + " loops")
-            results_dir = "results/" # needs to be synced with other functions
+            results_parent_folder = "results/" # needs to be synced with other functions
             root_handle = str(target) + tag + "_v" + str(version_number)
             exp_name1 = root_handle + "_" + exp1_qualifier + "real"
             exp_name2 = root_handle + "_" + exp2_qualifier + "ideal"    
-            if os.path.exists(os.path.dirname(results_dir + exp_name1 + "/")) or os.path.exists(os.path.dirname(results_dir + exp_name2 + "/")):
+            if path.exists(path.dirname(results_parent_folder + exp_name1 + "/")) or path.exists(path.dirname(results_parent_folder + exp_name2 + "/")):
                 version_number+=1
                 count+=1
                 continue 
@@ -1960,7 +1960,7 @@ if __name__ == "__main__":
 
     import inspect
     src_file_path = inspect.getfile(lambda: None)
-    parent_directory = path.abspath(path.join(src_file_path ,"../../../output/__Molecular/"+folder)) + "/"
+    parent_dir = path.abspath(path.join(src_file_path ,"../../../output/__Molecular/"+folder)) + "/"
 
 
     # Set up experiments
@@ -1976,22 +1976,18 @@ if __name__ == "__main__":
     crystal.plot_me(20000)
 
     if laser_firing_qwargs["SPI"]:
-        SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,parent_directory,crystal, random_orientation = random_orientation, **laser_firing_qwargs)
-        SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,parent_directory,crystal_undmged, random_orientation = False, **laser_firing_qwargs)
+        SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,parent_dir,crystal,results_parent_dir=results_parent_folder, random_orientation = random_orientation, **laser_firing_qwargs)
+        SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,parent_dir,crystal_undmged,results_parent_dir=results_parent_folder, random_orientation = False, **laser_firing_qwargs)
         stylin(SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
     else:
-        exp1_orientations = experiment1.spooky_laser(start_time,end_time,target_handle,parent_directory,crystal, random_orientation = random_orientation, **laser_firing_qwargs)
-        create_reflection_file(exp_name1)
+        exp1_orientations = experiment1.spooky_laser(start_time,end_time,target_handle,parent_dir,crystal, results_parent_dir=results_parent_folder, random_orientation = random_orientation, **laser_firing_qwargs)
+        create_reflection_file(exp_name1,results_parent_dir=results_parent_folder)
         if exp_name2 != None:
             experiment2.orientation_set = exp1_orientations  # pass in orientations to next sim, random_orientation must be false so not overridden!
-            experiment2.spooky_laser(start_time,end_time,target_handle,parent_directory,crystal_undmged, random_orientation = False, **laser_firing_qwargs)
+            experiment2.spooky_laser(start_time,end_time,target_handle,parent_dir,crystal_undmged, results_parent_dir=results_parent_folder,random_orientation = False, **laser_firing_qwargs)
         stylin()
 
-#%%
-if laser_firing_qwargs["SPI"]:
-    stylin(SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
-else:
-    stylin()
+
 #^^^^^^^
 # %%
 def plot_recovered_atoms():
