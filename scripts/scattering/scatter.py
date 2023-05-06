@@ -55,6 +55,7 @@ import copy
 import pickle
 import colorcet as cc; import cmasher as cmr
 from mpl_toolkits.mplot3d import Axes3D
+import plotly.graph_objects as go
 
 from IPython import get_ipython
 if __name__ == "__main__":
@@ -108,24 +109,22 @@ class Crystal():
         cell_dim [angstroms]
         '''
         self.cell_packing = cell_packing
-        self.rocking_angle = rocking_angle * np.pi/180
-        self.cell_dim = cell_dim/ang_per_bohr  #np.array([1,1,1],dtype="float")              
+        self.rocking_angle = rocking_angle * np.pi/180            
         self.is_damaged = is_damaged
         self.cell_scale = cell_scale  # TODO allow for non-cubic crystals and non SC cell packing.
         self.pdb_fpath = pdb_fpath
         self.positional_stdv = positional_stdv/ang_per_bohr # RMS error in coord positions, designed for SPI sim only but I guess it wouldn't be detrimental for crystal sim.
         
-        # Symmetry for each asymmetric unit simulated. If non-SPI, this is defining the supercell.
-        self.sym_rotations = []; self.sym_translations = []; 
-        if include_symmetries:
-            self.parse_symmetry_from_pdb() # All asymmetric units in unit cell
-        else:   
-            self.add_symmetry(np.identity(3),np.zeros((3)))  # Only one asymmetric unit per unit cell
+        ## Parameters to be parsed by custom function because I cannot understand Bio.PDB.PDBParser's documentation.
+        self.sym_rotations = []; self.sym_translations = [];   # Symmetry for each asymmetric unit simulated. If non-SPI, this is defining the supercell.
+        self.cell_dim = None   # unit cell length parameters. Angles not implemented yet.
 
-        parser=PDBParser(PERMISSIVE=1)
-        structure_id = os.path.basename(self.pdb_fpath)
-        structure = parser.get_structure(structure_id, self.pdb_fpath)
         
+        self.parse_data_from_pdb() # All asymmetric units in unit cell
+        if not include_symmetries:
+            # Ignore parsed symmetries and use a single asymmetric unit per cell.
+            self.sym_rotations = []; self.sym_translations = []; 
+            self.add_symmetry_to_cells(np.identity(3),np.zeros((3)),"(X,Y,Z)")
         ## Dictionary for going from pdb to ac4dc names.
         # different names
         PDB_to_AC4DC_dict = dict(
@@ -145,9 +144,14 @@ class Crystal():
                 if v not in ["H","He","Sodion","Chloride"]:
                     v = v+"_fast"      
             PDB_to_AC4DC_dict[k] = v  
+        # Get structure using Bio.PDB's parser
+        parser=PDBParser(PERMISSIVE=1)
+        structure_id = os.path.basename(self.pdb_fpath)
+        structure = parser.get_structure(structure_id, self.pdb_fpath)     
+        # Get those cheeky charge clusters
         species_dict = {}
         pdb_atoms = []
-        pdb_atoms_ignored = ""
+        pdb_atoms_ignored = ""           
         for atom in structure.get_atoms():
             # Get ze data
             R = atom.get_vector()
@@ -181,7 +185,10 @@ class Crystal():
     def set_ff_calculator(self,ff_calculator):
         self.ff_calculator = ff_calculator                  
     
-    def add_symmetry(self,symmetry_factor,symmetry_translation,symmetry_label="Symmetry Operation:"):
+    def add_symmetry_to_cells(self,symmetry_factor,symmetry_translation,symmetry_label="Symmetry Operation:"):
+        '''
+        Takes in the symmetry factor and translation of the unit cell, and translates them across each unit cell
+        '''
         symmetry_translation/= ang_per_bohr
         # Simple cubic packing.
         if self.cell_packing == "SC":
@@ -203,9 +210,10 @@ class Crystal():
             #Can just duplicate symmetries if not SPI since equivalent for crystal.
             raise Exception("Lacking implementation")
             
-    def parse_symmetry_from_pdb(target):
+    def parse_data_from_pdb(target):
         '''
         Parses the symmetry transformations from the pdb file into ndarrays and adds each to the crystal.  
+        No unit operations are performed.
         Also returns the parsed matrices. 
         '''
         at_SYMOP = False
@@ -217,13 +225,14 @@ class Crystal():
         with open(target.pdb_fpath) as pdb_file:
             for line in pdb_file:
                 line = line.strip()
-                # End data - Check if left section of symmetry data, marked by the line containing solely "REMARK 290". 
-                if len(line) == 10: 
+                # End data - Check if left section of data; flagged by the line containing solely "REMARK ###". 
+                if len(line) <= 10: 
                     if at_SYMOP:
                         at_SYMOP = False
                     if at_symmetry_xformations: 
-                        # Reached end of data
-                        break
+                        at_symmetry_xformations = False
+                if line[0:4] == "ATOM":
+                    break
                 # Symmetry operators (purely for terminal output - doesn't affect simulation)
                 if at_SYMOP:
                     sym_labels.append(line[17:21]+": ("+line[21:].strip()+")")
@@ -237,16 +246,28 @@ class Crystal():
                         sym_factor[x,y] = element
                     sym_trans[x] = entries[-1]
                     if x == 2:
-                        target.add_symmetry(sym_factor.copy(),sym_trans.copy(),sym_labels.pop(0))
                         sym_mtces_parsed.append([sym_factor.copy(),sym_trans.copy()])
                         
-                
-                # Start data - Check if this line marks the next as the beginning of the desired data.
+
+                ## inline data
+                print(line[0:6])
+                if line[0:6] == "CRYST1":
+                    if target.cell_dim != None:
+                        raise Exception("Cannot handle multiple crystal entries")
+                    entries = line.split()[1:]
+                    target.cell_dim = [float(a)for a in entries[0:3]]
+                    target.cell_dim = np.array(target.cell_dim)/ang_per_bohr 
+
+                ## Start data - Check if this line marks the next as the beginning of a desired data section.                    
+                # Symmetry operators
                 if "NNNMMM   OPERATOR" in line:
                     at_SYMOP = True
                     print("Parsing symmetry operations...")
+                # symmetry matrices
                 if line == "REMARK 290 RELATED MOLECULES.":
                     at_symmetry_xformations = True
+        for sym_factor, sym_trans in sym_mtces_parsed:
+            target.add_symmetry_to_cells(sym_factor.copy(),sym_trans.copy(),sym_labels.pop(0))
         return sym_mtces_parsed
     
     def get_sym_xfmed_point(self,R,symmetry_index):
@@ -257,24 +278,22 @@ class Crystal():
         # Transpose because we've stored the vectors in the 0th axis. 
         return (self.sym_rotations[i] @ R.T).T+ self.sym_translations[i]   # dim = [xyz,xyz] x [xyz,N] or dim = [xyz,xyz] x [xyz,1]
             
-    def plot_me(self,max_points = 500):
+    def plot_me(self,max_points = 100000):
         '''
         plots the symmetry points. Origin is the centre of the base asymmetric unit (not the centre of a unit cell).
         RMS error in positions ('positional_stdv') is not accounted for
         '''
         plt.close()
-        fig = plt.figure(figsize=(4,4))
-        ax = fig.add_subplot(111, projection='3d')
         num_atoms_avail = 0
         for species in self.species_dict.values():
              num_atoms_avail += len(species.coords)
-        num_test_points = max(1,int(max_points/(self.num_cells*len(self.sym_translations))))
+        num_test_points = max(1,int(max_points/(len(self.sym_translations))))
         num_test_points = min(num_atoms_avail,num_test_points)         
         test_points = np.empty((num_test_points,3))
         qualifier = "sample of"
         if num_atoms_avail == len(test_points):
             qualifier = "all" 
-        print("Generating plot with",qualifier,len(test_points),"atoms per asymmetric unit")
+        print("Generating plot with",qualifier,len(test_points),"atoms per asymmetric unit ("+str(len(test_points)*len(self.sym_translations))+" total)")
         i = 0
         for species in self.species_dict.values():
             if i >= num_test_points:
@@ -289,45 +308,91 @@ class Crystal():
             coord_list = self.get_sym_xfmed_point(test_points,i).tolist()
             plot_coords.extend(coord_list)  
         color = np.empty(len(plot_coords),dtype=object) 
-        color.fill('b')
+        color.fill('blue')
 
         for i in range(int(len(self.sym_rotations)/self.num_cells)):           
-            color[i*self.num_cells*len(test_points):i*self.num_cells*len(test_points)+len(test_points)] = 'c'  # atoms in one unit cell  
-        color[:len(test_points)] = 'g'  # atoms in one asym unit       
+            color[i*self.num_cells*len(test_points):i*self.num_cells*len(test_points)+len(test_points)] = 'aquamarine' #'c'  # atoms in one unit cell  
+        color[:len(test_points)] = 'green'  # atoms in one asym unit       
         for i in range(self.num_cells):
             for j in range(len(self.sym_rotations)):
-                color[i*self.num_cells + len(test_points)*j:i*self.num_cells + len(test_points)*j+ 1] = 'y'      # same atom in every asym unit          
-            color[i*len(test_points):i*len(test_points) + 1] = 'r'      # same atom in every same unit cell         
+                color[i*self.num_cells + len(test_points)*j:i*self.num_cells + len(test_points)*j+ 1] = 'yellow'      # same atom in every asym unit          
+            color[i*len(test_points):i*len(test_points) + 1] = 'red'      # same atom in every same unit cell         
         
         plot_coords = np.array(plot_coords)*ang_per_bohr
-        # if np.unique(plot_coords) != plot_coords:
-        #     a, unique_indices = np.apply_along_axis(np.unique,1,plot_coords,return_index=True)
-        #     print(len(np.delete(plot_coords, unique_indices)), "non-unique coords found:")
-        #     print(np.delete(plot_coords, unique_indices))
-        coord_errors = 0  
-        for i, coord in enumerate(plot_coords):
-            for j, coord2 in enumerate(plot_coords):
-                if coord[0] == coord2[0] and coord[1] == coord2[1]  and coord[2] == coord2[2]  and i!=j:
-                    if coord_errors < 50:
-                        print("error duplicate coord found:",coord)
-                    
-                    coord_errors += 1
-        if coord_errors >=50:
-            print("----------")
-            print(coord_errors - 49,"more duplicate coord errors suppressed")
-            print("----------")
+        raise_non_unique_exception = False
+        if np.unique(plot_coords,axis=0).shape != plot_coords.shape:
+            a, unique_indices = np.unique(plot_coords,axis=0,return_index = True)
+            print("WARNING", len(np.delete(plot_coords, unique_indices)), "non-unique coords found:")
+            raise_non_unique_exception = True
+            print(np.delete(plot_coords, unique_indices))  # delete anyway.
                         
         #color[color!='y'] = '#0f0f0f00'   # example to see just one atom type
+        x_range = np.array([np.min(plot_coords[:,0]),np.max(plot_coords[:,0])])
+        y_range = np.array([np.min(plot_coords[:,1]),np.max(plot_coords[:,1])])
+        z_range = np.array([np.min(plot_coords[:,2]),np.max(plot_coords[:,2])])
         print("---")
-        print("x_min/max:",np.min(plot_coords[:,0]),np.max(plot_coords[:,0]))
-        print("y_min/max:",np.min(plot_coords[:,1]),np.max(plot_coords[:,1]))
-        print("z_min/max:",np.min(plot_coords[:,2]),np.max(plot_coords[:,2]))
+        print("x_min/max:",x_range[0],x_range[1])
+        print("y_min/max:",y_range[0],y_range[1])
+        print("z_min/max:",z_range[0],z_range[1])
         print("---")
-        ax.scatter(plot_coords[:,0],plot_coords[:,1],plot_coords[:,2],c=color)
-        ax.set_xlabel('x [$\AA$]')
-        ax.set_ylabel('y [$\AA$]')
-        ax.set_zlabel('z [$\AA$]')
-        plt.show()
+        max_len = 0
+        min_len = np.Infinity
+        for elem in x_range,y_range,z_range:
+            max_len = max(max_len,abs(elem[1]-elem[0]))      
+            min_len = min(min_len,abs(elem[1]-elem[0]))      
+              
+        scatter_points = go.Scatter3d(
+            x=plot_coords[:,0], 
+            y=plot_coords[:,1], 
+            z=plot_coords[:,2], 
+            marker=go.scatter3d.Marker(color=color,size=max(1,500/(min_len+max_len))), 
+            opacity=1, 
+            mode='markers',
+        )
+        fig=go.Figure(data=scatter_points)
+        aspect = np.empty(3)
+        for i, elem in enumerate((x_range,y_range,z_range)):
+            aspect[i] = abs(elem[1]-elem[0])/max_len    
+        zoom = 1.8 # inital zoom      
+        fig.update_layout(
+            margin=dict(l=20,r=20,t=20,b=20),
+            scene = dict(
+                xaxis = {'title': {"text": 'x [$\AA$]'}},
+                yaxis = {'title': {"text": 'y [$\AA$]'}},
+                zaxis = {'title': {"text": 'z [$\AA$]'}},
+                aspectratio = dict(x=aspect[0]*zoom,y=aspect[1]*zoom,z=aspect[2]*zoom),
+                #camera=dict(eye=dict(x=1,y=0,z=0.6))
+            )
+        ) 
+        fig.show()
+
+        if raise_non_unique_exception:
+            raise Exception(str(len(np.delete(plot_coords, unique_indices))) + " non-unique coords found:")
+
+# import pydeck
+# import pandas as pd
+
+# df = pd.read_csv(DATA_URL)
+
+# target = [df.x.mean(), df.y.mean(), df.z.mean()]
+
+# point_cloud_layer = pydeck.Layer(
+#     "PointCloudLayer",
+#     data=DATA_URL,
+#     get_position=["x", "y", "z"],
+#     get_color=["r", "g", "b"],
+#     get_normal=[0, 0, 15],
+#     auto_highlight=True,
+#     pickable=True,
+#     point_size=3,
+# )
+
+# view_state = pydeck.ViewState(target=target, controller=True, rotation_x=15, rotation_orbit=30, zoom=5.3)
+# view = pydeck.View(type="OrbitView", controller=True)
+
+# r = pydeck.Deck(point_cloud_layer, initial_view_state=view_state, views=[view])
+# r.to_html("point_cloud_layer.html", css_background_color="#add8e6")
+
 
 class Atomic_Species():
     def __init__(self,name,crystal):
@@ -1423,7 +1488,7 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
         plt.show()  
         if compare_handle != None:
             #print("Plotting orientation-averaged R factor") # Doesn't work because when sector is empty it reduces the average.
-            #plot_sectors(sector_histogram = sector_histogram)
+            #plot_sectors(sector_histogram h= sector_histogram)
             non_zero_denon_histogram = sector_den_histogram.copy()
             non_zero_denon_histogram[non_zero_denon_histogram== 0] = 1        
             sector_histogram = np.divide(sector_num_histogram,non_zero_denon_histogram)
@@ -1502,7 +1567,7 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 z2_map = plt.imshow(z2,vmin=z_min,vmax=z_max,cmap=current_cmap)
                 plt.colorbar(z2_map)
                 plt.show()
-                print("R: ")
+                print("R:")
                 fig, ax = plt.subplots()
                 #bg_col = "red"
                 bg = np.full((*z1.shape, 3), 70, dtype=np.uint8)
@@ -1516,7 +1581,7 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 R = np.sum(R_cells)
                 print(R) 
                 ax.imshow(bg)
-                R_cells *= len(R_cells)**2# multiply by num cells (such that R is now the average) 
+                R_cells *= len(R_cells)**2# multiply by num cells to give the 'weighted contribution' (such that R is now like the weighted average) 
                 R_map = ax.imshow(R_cells,vmin=0,vmax=0.4,alpha=alpha,cmap=cmap)     
                 plt.colorbar(R_map)
                 ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
@@ -1527,7 +1592,7 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
 
                 R_num = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)))
 
-                # print("R:")  (not normalised)
+                # print("R:")  #(not normalised)
                 # fig, ax = plt.subplots()
                 # A = np.abs(sqrt_real - sqrt_ideal)
                 # R_num = np.sum(A)
@@ -1837,7 +1902,7 @@ if __name__ == "__main__":
     target_options = ["neutze","hen","tetra"]
     #============------------User params---------==========#
 
-    target = "tetra" #target_options[2]
+    target = "hen" #target_options[2]
     top_resolution = 2
     bottom_resolution = None#30
 
@@ -1845,16 +1910,16 @@ if __name__ == "__main__":
     start_time = -6
     end_time = 6#10 #0#-9.80    
     laser_firing_qwargs = dict(
-        SPI = True,
+        SPI = False,
         pixels_across = 100,  # for SPI, shld go on xfel params.
     )
     ##### Crystal params
     crystal_qwargs = dict(
-        cell_scale = 2,  # for SC: cell_scale^3 unit cells 
+        cell_scale = 3,  # for SC: cell_scale^3 unit cells 
         positional_stdv = 0.2, # RMS in atomic coord position [angstrom] (set to 0 below if crystal, since rocking angle handles this aspect)
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
-        rocking_angle = 0.1,  # (approximating mosaicity)
+        rocking_angle = 0.01,  # (approximating mosaicity)
         orbitals_as_shells = True,
         #CNO_to_N = True,   # whether the laser simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
     )
@@ -1875,7 +1940,7 @@ if __name__ == "__main__":
         ####SPI stuff
         num_rings = 20,
         pixels_per_ring = 20,
-        # first image orientation (cardan angles, degrees) 
+        # first image orientation cardan angles [degrees] 
         SPI_x_rotation = 0,
         SPI_y_rotation = 0,
         SPI_z_rotation = 0,
@@ -1949,11 +2014,13 @@ if __name__ == "__main__":
     elif target == "tetra": 
         pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb" 
         cell_dim = np.array((4.813 ,  17.151 ,  29.564))
-        target_handle = "12-5-2_tetra_2" #"carbon_12keV_1" # "carbon_6keV_1" #"carbon_gauss_32"
         folder = "tetra"
-        allowed_atoms_1 = ["N_fast"]
-        CNO_to_N = True
-        #CNO_to_N = False
+        # target_handle = "6-5-2_tetra_3" #"carbon_12keV_1" # "carbon_6keV_1" #"carbon_gauss_32"
+        # allowed_atoms_1 = ["N_fast"]
+        # CNO_to_N = True
+        target_handle = "6-5-2_tetra_CNO_3"
+        allowed_atoms_1 = ["C_fast","N_fast","O_fast"]
+        CNO_to_N = False
     else:
         raise Exception("'target' invalid")
     #-------------------------------#
@@ -1973,7 +2040,7 @@ if __name__ == "__main__":
     # we copy the other crystal so that it has the same deviations in coords
     crystal_undmged = copy.deepcopy(crystal)#Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
     crystal_undmged.is_damaged = False
-    crystal.plot_me(20000)
+    crystal.plot_me(250000)
 
     if laser_firing_qwargs["SPI"]:
         SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,parent_dir,crystal,results_parent_dir=results_parent_folder, random_orientation = random_orientation, **laser_firing_qwargs)
