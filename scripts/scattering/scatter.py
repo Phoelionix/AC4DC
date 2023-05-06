@@ -336,7 +336,7 @@ class Crystal():
         print("z_min/max:",z_range[0],z_range[1])
         print("---")
         max_len = 0
-        min_len = np.Infinity
+        min_len = np.inf
         for elem in x_range,y_range,z_range:
             max_len = max(max_len,abs(elem[1]-elem[0]))      
             min_len = min(min_len,abs(elem[1]-elem[0]))      
@@ -466,7 +466,7 @@ class Atomic_Species():
                     return self.crystal.ff_calculator.random_states_to_f_snapshots(self.times_used,self.orb_occs[atom_idx],q_arr,self.name)[0]  # f has form  [times,momenta]
             self.get_stochastic_f = stoch_f_placeholder
 class XFEL():
-    def __init__(self, experiment_name, photon_energy, detector_distance_mm=100, q_minimum = None, q_cutoff = None, max_triple_miller_idx = None, screen_type = "hemisphere", orientation_set = [[0,0,0],], x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100,SPI_y_rotation = 0,SPI_x_rotation = 0,SPI_z_rotation = 0):
+    def __init__(self, experiment_name, photon_energy, detector_distance_mm=100, q_minimum = None, q_cutoff = None, max_triple_miller_idx = None, screen_type = "hemisphere", num_orients_crys=1, orientation_axis_crys = None, x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100,SPI_y_rotation = 0,SPI_x_rotation = 0,SPI_z_rotation = 0):
         """ #### Initialise the imaging experiment's controlled parameters
         experiment_name:
             String that the output folder will be named.        
@@ -526,15 +526,30 @@ class XFEL():
 
         self.t_fineness = t_fineness
 
-        self.phi_array = np.linspace(0,2*np.pi,self.pixels_per_ring,endpoint=False)  # used only for SPI. Really need to refactor...
+
+        # SPI only... need to refactor
+        self.phi_array = np.linspace(0,2*np.pi,self.pixels_per_ring,endpoint=False)  
         self.z_rotation = SPI_z_rotation *np.pi/180
         self.y_rotation = SPI_y_rotation *np.pi/180 # Current rotation of crystal (y axis currently) (did I mean z axis?)
         self.x_rotation = SPI_x_rotation *np.pi/180# Current rotation of crystal (y axis currently)
         self.z_rot_matrix = rotaxis2m(self.z_rotation,Bio_Vect(0, 0, 1))
         self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))     
-        self.x_rot_matrix = rotaxis2m(self.x_rotation,Bio_Vect(1, 0, 0))        
-        self.orientation_set = orientation_set 
-                      
+        self.x_rot_matrix = rotaxis2m(self.x_rotation,Bio_Vect(1, 0, 0))   
+
+        # crystal only...
+        self.num_orientations =  num_orients_crys
+        if ax_x == ax_y == ax_z and ax_z == 0 and random_orientation == False:
+            raise Exception("axis vector has 0 length")
+        self.orientation_set = None
+        if orientation_axis_crys != None:
+            axis = Bio_Vect(*orientation_axis_crys)
+            ori_set = [rotaxis2m(angle, axis) for angle in np.linspace(0,2*np.pi,self.num_orientations,endpoint=False)]
+            self.set_orientation_set([Rotation.from_matrix(m).as_euler("xyz") for m in ori_set])
+            print("orientation set set:", self.orientation_set)
+    
+    def set_orientation_set(self,orientation_set):
+        self.orientation_set = orientation_set
+        print("orientation set set:", self.orientation_set)
     def get_ff_calculator(self,start_time,end_time,damage_output_handle,parent_dir_path):
         ff_calculator = Plotter(damage_output_handle,parent_dir_path)
         plt.close()
@@ -553,6 +568,9 @@ class XFEL():
         ff_calculator = self.get_ff_calculator(start_time,end_time,damage_output_handle,parent_dir_path)     
         target.set_ff_calculator(ff_calculator)    
         self.target = target
+
+        if random_orientation == True and self.orientation_set != None:
+            raise Exception("Ambiguity: random orientations set to True, but set orientations were provided.")
 
         
 
@@ -717,6 +735,8 @@ class XFEL():
         else:
             # Iterate through each orientation of crystal, picklin' up a file for each orientation
             used_orientations = []
+            if random_orientation:
+                self.orientation_set = [(0,0,0)]*self.num_orientations  # Dummy orientations
             for j, cardan_angles in enumerate(self.orientation_set):    
                 for species in target.species_dict.values():
                     species.set_stochastic_states()           
@@ -1217,12 +1237,22 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 self.scalarMap = cm.ScalarMappable(norm=self.norm, cmap=self.cmap)
 
             def get_rgb(self, val):
+                bad_val = False
+                mod_val = val
                 if compare_handle == None:
                     # Plot actual image!
-                    val = ((val-min_z)/(max_z-min_z))**cmap_power
-                if val < 0 or val > 1:
-                    print("error in val!")
-                return self.scalarMap.to_rgba(val)            
+                    for elem in (val,min_z,max_z,cmap_power):
+                        if elem == -np.inf or elem == None or elem == np.inf:
+                            bad_val = True   
+                    if val < min_z or val > max_z:
+                        bad_val = True
+                    if bad_val:
+                        raise Exception("invalid value within",val,min_z,max_z,cmap_power)
+                    mod_val = ((val-min_z)/(max_z-min_z))**cmap_power
+                
+                if mod_val < 0 or mod_val > 1:
+                    raise Exception("rgb val outside acceptable range")
+                return self.scalarMap.to_rgba(mod_val)            
     else:
         # Broken TODO
         r,g,b = to_rgb(solid_colour)
@@ -1337,7 +1367,9 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
         if log_I:
             max_z = np.log(max_z)
             min_z = np.log(min_z)
-        print("max,min",max_z,min_z)
+            print("log(I) max,min ",max_z,min_z)
+        else:
+            print("I max,min",max_z,min_z)
         # Plot each orientation's scattering pattern/add each to sector histogram
         added_colorbar = False
         for filename in os.listdir(results_dir):
@@ -1381,14 +1413,15 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                     if elem in matching_phi_idx[0]:
                         identical_count[i] += 1
                         matching1 = result1.I[(radial_axis == radial_axis[i])*(phi == phi[i])]
-                        for value in matching1:
-                            tmp_I1[i] += value    
+                        for value1 in matching1:
+                            tmp_I1[i] += value1    
                         if result2 != None:
                             matching2 = result2.I[(radial_axis == radial_axis[i])*(phi == phi[i])]
-                            for value in matching2:
-                                tmp_I2[i] += value                                                      
-                tmp_I1 /= (identical_count+1)
-                tmp_I2 /= (identical_count+1)
+                            for value2 in matching2:
+                                tmp_I2[i] += value2      
+            #print(identical_count)                                                
+            tmp_I1 /= (identical_count)
+            tmp_I2 /= (identical_count)
 
                 #processed_copies.append((radial_axis[i],phi[i],result.image_index[i]))
             #print("processed copies:",processed_copies)
@@ -1449,7 +1482,17 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
 
             # use cmap to get colours but with alpha following a specific rule
             COL = MplColorHelper(cmap, 0, 1) 
-            alpha_modified_cmap_colours = np.array([[COL.get_rgb(K)[0], COL.get_rgb(K)[1],COL.get_rgb(K)[2],np.clip((K*(max_alpha-min_alpha))/(max_z) + min_alpha,min_alpha,None)] for K in z])
+            alpha_modified_cmap_colours = np.empty((len(z),4)) 
+            for i, K in enumerate(z):
+                try:
+                    rgba = COL.get_rgb(K)
+                except Exception as e:
+                    raise Exception("(max/min z:" +str(max_z) + "/" + str(min_z) + ") - val " + str(K) + " did not work for get_rgb().Original error: " + str(e))     
+                #Replace alpha
+                rgba=rgba[0:3] + (np.clip((K*(max_alpha-min_alpha))/(max_z) + min_alpha,min_alpha,None),)
+                alpha_modified_cmap_colours[i] = np.array(rgba)                           
+            
+
             colours = [(r,g,b,a) for r,g,b,a in alpha_modified_cmap_colours] 
             colours = np.around(colours,10)   
 
@@ -1864,9 +1907,9 @@ def stylin(SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None):
         scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
         print("----R Sectors aligned----")
         scatter_scatter_plot(crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-        print("----Intensity of experiment 1 aligned----") 
+        print("----Intensity of experiment 1 (damaged) aligned----") 
         scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-        print("----Intensity of experiment 2 aligned----")
+        print("----Intensity of experiment 2 (undamaged) aligned----")
         scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
     else:
         #TODO Get the colors to match neutze.
@@ -1915,11 +1958,11 @@ if __name__ == "__main__":
     )
     ##### Crystal params
     crystal_qwargs = dict(
-        cell_scale = 3,  # for SC: cell_scale^3 unit cells 
+        cell_scale = 1,  # for SC: cell_scale^3 unit cells 
         positional_stdv = 0.2, # RMS in atomic coord position [angstrom] (set to 0 below if crystal, since rocking angle handles this aspect)
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
-        rocking_angle = 0.01,  # (approximating mosaicity)
+        rocking_angle = 0.1,  # (approximating mosaicity)
         orbitals_as_shells = True,
         #CNO_to_N = True,   # whether the laser simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
     )
@@ -1944,15 +1987,17 @@ if __name__ == "__main__":
         SPI_x_rotation = 0,
         SPI_y_rotation = 0,
         SPI_z_rotation = 0,
+        num_orients_crys=3,
+        orientation_axis_crys = None#[1,1,0]
         ######
     )
 
     #crystallographic orientations (not implemented for SPI yet)
-    num_orients = 15
     # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.
     ax_x = 1
     ax_y = 1
     ax_z = 0
+    
 
 
     # Optional: Choose previous folder for crystal results
@@ -1975,16 +2020,16 @@ if __name__ == "__main__":
                 raise Exception("could not find valid file in " + str(count) + " loops")
             results_parent_folder = "results/" # needs to be synced with other functions
             root_handle = str(target) + tag + "_v" + str(version_number)
-            exp_name1 = root_handle + "_" + exp1_qualifier + "real"
-            exp_name2 = root_handle + "_" + exp2_qualifier + "ideal"    
+            exp_name1 = root_handle + "_" + exp1_qualifier
+            exp_name2 = root_handle + "_" + exp2_qualifier  
             if path.exists(path.dirname(results_parent_folder + exp_name1 + "/")) or path.exists(path.dirname(results_parent_folder + exp_name2 + "/")):
                 version_number+=1
                 count+=1
                 continue 
             break
     else:
-        exp_name1 = chosen_root_handle + "_" + exp1_qualifier + "real"
-        exp_name2 = chosen_root_handle + "_" + exp2_qualifier + "ideal"  
+        exp_name1 = chosen_root_handle + "_" + exp1_qualifier
+        exp_name2 = chosen_root_handle + "_" + exp2_qualifier
 
     #exp_name2 = None
     #----------orientation thing that needs to be to XFEL class (TODO)-----------------------#
@@ -1992,10 +2037,6 @@ if __name__ == "__main__":
     if ax_x == ax_y == ax_z and ax_z == 0 and random_orientation == False:
         raise Exception("axis vector has 0 length")
     # if not random_orientation:
-    orientation_axis = Bio_Vect(ax_x,ax_y,ax_z)
-    orientation_set = [rotaxis2m(angle, orientation_axis) for angle in np.linspace(0,2*np.pi,num_orients,endpoint=False)]
-    orientation_set = [Rotation.from_matrix(m).as_euler("xyz") for m in orientation_set]
-    print("ori set if not random:", orientation_set)  #TODO double check shows when random and if so disable when random
     #---------------------------------#
     if target == "neutze": #T4 virus lys
         pdb_path = "/home/speno/AC4DC/scripts/scattering/2lzm.pdb"
@@ -2031,8 +2072,8 @@ if __name__ == "__main__":
 
 
     # Set up experiments
-    experiment1 = XFEL(exp_name1,energy,orientation_set = orientation_set,**exp_qwargs)
-    experiment2 = XFEL(exp_name2,energy,orientation_set = orientation_set,**exp_qwargs)
+    experiment1 = XFEL(exp_name1,energy,**exp_qwargs)
+    experiment2 = XFEL(exp_name2,energy,**exp_qwargs)
     # Create Crystals
 
     crystal = Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=True,CNO_to_N = CNO_to_N, **crystal_qwargs)
@@ -2050,10 +2091,11 @@ if __name__ == "__main__":
         exp1_orientations = experiment1.spooky_laser(start_time,end_time,target_handle,parent_dir,crystal, results_parent_dir=results_parent_folder, random_orientation = random_orientation, **laser_firing_qwargs)
         create_reflection_file(exp_name1,results_parent_dir=results_parent_folder)
         if exp_name2 != None:
-            experiment2.orientation_set = exp1_orientations  # pass in orientations to next sim, random_orientation must be false so not overridden!
+            experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
             experiment2.spooky_laser(start_time,end_time,target_handle,parent_dir,crystal_undmged, results_parent_dir=results_parent_folder,random_orientation = False, **laser_firing_qwargs)
         stylin()
-
+#%%
+stylin()
 
 #^^^^^^^
 # %%
