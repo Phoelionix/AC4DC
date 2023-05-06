@@ -84,7 +84,6 @@ class Results():
     def diff(self,other):
         '''
         Get single-point R factors between two images
-        TODO bugged currently random points are present?
         '''
         self.R = np.zeros(self.I.shape)
         for i in range(len(self.q)):
@@ -102,11 +101,10 @@ class Results_Grid():
     pass    
 
 class Crystal():
-    def __init__(self, pdb_fpath, allowed_atoms, cell_dim, positional_stdv = 0, is_damaged=True, include_symmetries = True, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True,cell_scale = 1):
+    def __init__(self, pdb_fpath, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = True, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True,cell_scale = 1):
         '''
         rocking_angle [degrees]
         cell_packing ("SC","BCC","FCC","FCC-D")
-        cell_dim [angstroms]
         '''
         self.cell_packing = cell_packing
         self.rocking_angle = rocking_angle * np.pi/180            
@@ -250,7 +248,6 @@ class Crystal():
                         
 
                 ## inline data
-                print(line[0:6])
                 if line[0:6] == "CRYST1":
                     if target.cell_dim != None:
                         raise Exception("Cannot handle multiple crystal entries")
@@ -313,10 +310,11 @@ class Crystal():
         for i in range(int(len(self.sym_rotations)/self.num_cells)):           
             color[i*self.num_cells*len(test_points):i*self.num_cells*len(test_points)+len(test_points)] = 'aquamarine' #'c'  # atoms in one unit cell  
         color[:len(test_points)] = 'green'  # atoms in one asym unit       
+        #Cursed but it works. 
         for i in range(self.num_cells):
-            for j in range(len(self.sym_rotations)):
-                color[i*self.num_cells + len(test_points)*j:i*self.num_cells + len(test_points)*j+ 1] = 'yellow'      # same atom in every asym unit          
-            color[i*len(test_points):i*len(test_points) + 1] = 'red'      # same atom in every same unit cell         
+            for j in range(int(len(self.sym_rotations)/self.num_cells)):
+                color[i*int(len(test_points)*len(self.sym_rotations)/self.num_cells) + j*len(test_points)] = 'yellow'      # same atom in every asym unit.  
+            color[i*len(test_points)] = 'red'      # same atom in every same unit cell         
         
         plot_coords = np.array(plot_coords)*ang_per_bohr
         raise_non_unique_exception = False
@@ -538,8 +536,13 @@ class XFEL():
 
         # crystal only...
         self.num_orientations =  num_orients_crys
-        if ax_x == ax_y == ax_z and ax_z == 0 and random_orientation == False:
-            raise Exception("axis vector has 0 length")
+        if orientation_axis_crys != None:
+            if np.array(orientation_axis_crys).shape != 3:
+                raise Exception("invalid axis", orientation_axis_crys)            
+            if orientation_axis_crys[0] == orientation_axis_crys[1] == orientation_axis_crys[2] == 0:
+                raise Exception("axis vector has 0 length")      
+
+
         self.orientation_set = None
         if orientation_axis_crys != None:
             axis = Bio_Vect(*orientation_axis_crys)
@@ -556,7 +559,7 @@ class XFEL():
         ff_calculator.initialise_coherence_params(start_time,end_time,self.max_q,self.photon_energy,t_fineness=self.t_fineness) # q_fineness isn't used for our purposes.   
         return ff_calculator
     
-    def spooky_laser(self, start_time, end_time, damage_output_handle, parent_dir_path, target, results_parent_dir = "results/", circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False):
+    def spooky_laser(self, start_time, end_time, sim_data_handle, sim_parent_dir_path, target, results_parent_dir = "results/", circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False):
         """ 
         end_time: The end time of the photon capture in femtoseconds. Not a real thing experimentally, but useful for choosing 
         a level of damage. Explicitly, it is used to determine the upper time limit for the integration of the form factor.
@@ -565,7 +568,7 @@ class XFEL():
             Number of unique y axis rotations to sample crystal. x_axis_rotations not implemented (yet?).
         random_orientation overrides the XFEL class's orientation_set, replacing each with a random orientation. (get same number of orientations though at present TODO.) 
         """
-        ff_calculator = self.get_ff_calculator(start_time,end_time,damage_output_handle,parent_dir_path)     
+        ff_calculator = self.get_ff_calculator(start_time,end_time,sim_data_handle,sim_parent_dir_path)     
         target.set_ff_calculator(ff_calculator)    
         self.target = target
 
@@ -1521,9 +1524,8 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 #print(z)
                 added_colorbar = True
 
-            sc = ax.scatter(phi,radial_axis,c=colours,s=s)  # TODO this is messing up for difference map for some reason, with points in wrong places
+            sc = ax.scatter(phi,radial_axis,c=colours,s=s)
             plt.grid(alpha = min(show_grid,0.6),dashes=(5,10))   
-            #TODO only show first index or something. or have option to switch between image indexes. oof coding.
             if show_labels:
                 for i, miller_indices in enumerate(result.miller_indices[unique_values_mask]):
                     ax.annotate("%.0f" % miller_indices[0]+","+"%.0f" % miller_indices[1]+","+"%.0f" % miller_indices[2]+",", (phi[i], radial_axis[i]),ha='center') 
@@ -1561,6 +1563,7 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 print("sum of real","{:e}".format(np.sum(sqrt_real)),"sum of ideal","{:e}".format(np.sum(sqrt_ideal)),"sum of abs difference","{:e}".format(np.sum(np.abs((sqrt_real - sqrt_ideal)))))
                 #neutze_histogram = np.histogram2d(phi, radial_axis, weights=R, bins=(np.array([-np.pi,np.pi]), radial_edges))[0]             
                 #plot_sectors(neutze_histogram)
+                return R
     
     ## Continuous (SPI)
     else:
@@ -1615,8 +1618,11 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 #bg_col = "red"
                 bg = np.full((*z1.shape, 3), 70, dtype=np.uint8)
                 #alpha = 0*z1+0.0001#z1/z_max
-                alpha = (z2-z_min)/(z_max - z_min)  
-                alpha[np.isnan(alpha)] = 1
+                I_tmp = result2.I
+                if log_I:
+                    I_tmp = z2.copy()
+                alpha = (I_tmp-np.nanmin(I_tmp))/(np.nanmax(I_tmp) - np.nanmin(I_tmp))
+                alpha[np.isnan(alpha)] = 0
                 sqrt_real = np.sqrt(result1.I)
                 sqrt_ideal = np.sqrt(result2.I)
                 inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real) 
@@ -1633,40 +1639,26 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 plt.yticks(ticks,ticklabels)
                 plt.show()
 
-                R_num = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)))
+                R_num = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)))        
 
-                # print("R:")  #(not normalised)
-                # fig, ax = plt.subplots()
-                # A = np.abs(sqrt_real - sqrt_ideal)
-                # R_num = np.sum(A)
-                # R_den = np.sum(sqrt_ideal)
-                # R = R_num/R_den  
-                # print(R)  
-                # R_cells = A/R_den 
-                # R_cells *= len(R_cells)**2# multiply by num cells (such that R is now the average) 
-                # ax.imshow(bg)
-                # R_map = ax.imshow(R_cells,vmin=0,vmax=0.4,alpha=alpha,cmap=cmap)     
-                # plt.colorbar(R_map)
-                # ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
-                # ticklabels = ["{:6.2f}".format(q_row_0_el[1]) for q_row_0_el in result1.q_scr_xy[0]]
-                # plt.xticks(ticks,ticklabels)
-                # plt.yticks(ticks,ticklabels)
-                # plt.show()              
-                 
-
-                print("Plotting normalised root difference map")
-                fig, ax = plt.subplots()
-                R_cells = np.abs((sqrt_real - sqrt_ideal)/sqrt_ideal)
-                ax.imshow(bg)
-                R_map = ax.imshow(R_cells,vmin=0,vmax=0.4,alpha=alpha,cmap=cmap)     
-                plt.colorbar(R_map)
-                ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
-                ticklabels = ["{:6.2f}".format(q_row_0_el[1]) for q_row_0_el in result1.q_scr_xy[0]]
-                plt.xticks(ticks,ticklabels)
-                plt.yticks(ticks,ticklabels)
-                plt.show()   
+                norm_root_diff_map = False
+                if norm_root_diff_map:
+                    print("Plotting normalised root difference map (different scale)")
+                    fig, ax = plt.subplots()
+                    R_cells = np.abs((sqrt_real - sqrt_ideal)/sqrt_ideal)
+                    ax.imshow(bg)
+                    R_map = ax.imshow(R_cells,vmin=0,vmax=1,alpha=alpha,cmap=cmap)     
+                    plt.colorbar(R_map)
+                    ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
+                    ticklabels = ["{:6.2f}".format(q_row_0_el[1]) for q_row_0_el in result1.q_scr_xy[0]]
+                    plt.xticks(ticks,ticklabels)
+                    plt.yticks(ticks,ticklabels)
+                    plt.show()   
 
                 print("sum of real","{:e}".format(np.sum(sqrt_real)),"sum of ideal","{:e}".format(np.sum(sqrt_ideal)),"sum of abs difference","{:e}".format(R_num))       
+                
+                return R 
+            
         ## Circle grid
         else:
             if log_I: 
@@ -1706,7 +1698,8 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 sqrt_ideal = np.sqrt(result2.I)
                 inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real) 
                 R = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))
-                print(R)            
+                print(R)    
+                return R         
                 # print("R: (not normalised)")
                 # R = np.sum(np.abs((sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))
                 # print(R)
@@ -1840,7 +1833,7 @@ def create_reflection_file(result_handle,results_parent_dir = "results/",overwri
 
 #####
 # stylin' 
-def stylin(SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None):
+def stylin(exp_name1,exp_name2,q_scr_max,SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None,results_parent_dir = "results/"):
     experiment1_name = exp_name1#"Lys_9.95_random"#exp_name1
     experiment2_name = exp_name2#"lys_9.80_random"#exp_name2 
 
@@ -1879,7 +1872,7 @@ def stylin(SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None):
     # # plottin'
 
     # as q = ksin(theta).  
-    q_scr_max = experiment1.max_q#experiment1.max_q*(1/np.sqrt(2)) # for flat screen. as q_scr = qcos(theta). (q_z = qsin(theta) =ksin^2(theta)), max theta is 45. (Though experimentally ~ 22 as of HR paper)
+    #experiment1.max_q*(1/np.sqrt(2)) # for flat screen. as q_scr = qcos(theta). (q_z = qsin(theta) =ksin^2(theta)), max theta is 45. (Though experimentally ~ 22 as of HR paper)
 
     zoom_to_fit = False
     if not zoom_to_fit:
@@ -1900,17 +1893,18 @@ def stylin(SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None):
 
     # R Sectors
     if not SPI:
-        scatter_scatter_plot(crystal_aligned_frame = False,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity) 
+        print("----R Sectors unaligned----")
+        scatter_scatter_plot(crystal_aligned_frame = False,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True,results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity) 
         print("----Intensity of experiment 1----")
-        scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+        scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
         print("----Intensity of experiment 2----")
-        scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+        scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
         print("----R Sectors aligned----")
-        scatter_scatter_plot(crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+        R = scatter_scatter_plot(crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
         print("----Intensity of experiment 1 (damaged) aligned----") 
-        scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+        scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
         print("----Intensity of experiment 2 (undamaged) aligned----")
-        scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+        scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
     else:
         #TODO Get the colors to match neutze.
         use_q = True
@@ -1919,12 +1913,10 @@ def stylin(SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None):
         cutoff_log_intensity = None # -1 or None
         cmap = "PiYG_r"# "plasma"
         radial_lim = SPI_max_q
-        scatter_scatter_plot(log_I = log_I, cutoff_log_intensity = cutoff_log_intensity, SPI_result1=SPI_result1,SPI_result2=SPI_result2,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap)
+        R = scatter_scatter_plot(log_I = log_I, cutoff_log_intensity = cutoff_log_intensity, SPI_result1=SPI_result1,SPI_result2=SPI_result2,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap)
 
-    #NEED TO CHECK. We have a 1:1 mapping from q to q_parr, but with our miller indices we are generating multiple q_parr with diff q.
-    # So we SHOULD get the same q_parr with different q_z. Which makes sense since we are just doing cosine. But still icky maybe?
-    # Need to double check we get different intensities for same q_parr. Pretty sure that's implemented.
-#stylin()
+
+    return R
 
 def res_to_q(d):
     '''
@@ -1945,7 +1937,7 @@ if __name__ == "__main__":
     target_options = ["neutze","hen","tetra"]
     #============------------User params---------==========#
 
-    target = "hen" #target_options[2]
+    target = "tetra" #target_options[2]
     top_resolution = 2
     bottom_resolution = None#30
 
@@ -1953,8 +1945,9 @@ if __name__ == "__main__":
     start_time = -6
     end_time = 6#10 #0#-9.80    
     laser_firing_qwargs = dict(
-        SPI = False,
+        SPI = True,
         pixels_across = 100,  # for SPI, shld go on xfel params.
+        random_orientation = True,  #TODO refactor to be in same place as other orients...# orientation is synced with second 
     )
     ##### Crystal params
     crystal_qwargs = dict(
@@ -1970,7 +1963,6 @@ if __name__ == "__main__":
     #### XFEL params
     tag = "" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
     #TODO make it so reflections don't overwrite same orientation, as stochastic now.
-    random_orientation = True # if true, overrides orientation_set with random orientations (only affects non-SPI)
     energy = 12000 # eV
     exp_qwargs = dict(
         detector_distance_mm = 100,
@@ -1987,17 +1979,13 @@ if __name__ == "__main__":
         SPI_x_rotation = 0,
         SPI_y_rotation = 0,
         SPI_z_rotation = 0,
+        #crystallographic orientations (not consistent with SPI yet)
+        # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.        
         num_orients_crys=3,
-        orientation_axis_crys = None#[1,1,0]
+        orientation_axis_crys = None,#[1,1,0]
         ######
     )
-
-    #crystallographic orientations (not implemented for SPI yet)
-    # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.
-    ax_x = 1
-    ax_y = 1
-    ax_z = 0
-    
+    same_deviations = True # whether same position deviations between damaged and undamaged crystal (SPI only) 
 
 
     # Optional: Choose previous folder for crystal results
@@ -2032,29 +2020,22 @@ if __name__ == "__main__":
         exp_name2 = chosen_root_handle + "_" + exp2_qualifier
 
     #exp_name2 = None
-    #----------orientation thing that needs to be to XFEL class (TODO)-----------------------#
 
-    if ax_x == ax_y == ax_z and ax_z == 0 and random_orientation == False:
-        raise Exception("axis vector has 0 length")
-    # if not random_orientation:
     #---------------------------------#
     if target == "neutze": #T4 virus lys
         pdb_path = "/home/speno/AC4DC/scripts/scattering/2lzm.pdb"
-        cell_dim = np.array((61.200 ,  61.200 ,  61.2)) #TODO should read this automatically...
-        target_handle = "D_lys_neutze_simple_7"  
+        target_handle = "lys_simple_6keV_14"  
         folder = ""
         allowed_atoms_1 = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
         pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb"
-        cell_dim = np.array((79.000  , 79.000  , 38.000))
         target_handle = "D_lys_neutze_simple_7"  
         folder = ""
         allowed_atoms_1 = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "tetra": 
         pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb" 
-        cell_dim = np.array((4.813 ,  17.151 ,  29.564))
         folder = "tetra"
         # target_handle = "6-5-2_tetra_3" #"carbon_12keV_1" # "carbon_6keV_1" #"carbon_gauss_32"
         # allowed_atoms_1 = ["N_fast"]
@@ -2068,7 +2049,7 @@ if __name__ == "__main__":
 
     import inspect
     src_file_path = inspect.getfile(lambda: None)
-    parent_dir = path.abspath(path.join(src_file_path ,"../../../output/__Molecular/"+folder)) + "/"
+    sim_data_dir = path.abspath(path.join(src_file_path ,"../../../output/__Molecular/"+folder)) + "/"
 
 
     # Set up experiments
@@ -2076,26 +2057,31 @@ if __name__ == "__main__":
     experiment2 = XFEL(exp_name2,energy,**exp_qwargs)
     # Create Crystals
 
-    crystal = Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=True,CNO_to_N = CNO_to_N, **crystal_qwargs)
+    crystal = Crystal(pdb_path,allowed_atoms_1,is_damaged=True,CNO_to_N = CNO_to_N, **crystal_qwargs)
     # The undamaged crystal uses the initial state but still performs the same integration step with the pulse profile weighting.
-    # we copy the other crystal so that it has the same deviations in coords
-    crystal_undmged = copy.deepcopy(crystal)#Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
-    crystal_undmged.is_damaged = False
+    if same_deviations:
+        # we copy the other crystal so that it has the same deviations in coords
+        crystal_undmged = copy.deepcopy(crystal)#Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
+        crystal_undmged.is_damaged = False
+    else:
+        crystal_undmged = Crystal(pdb_path,allowed_atoms_1,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
     crystal.plot_me(250000)
 
     if laser_firing_qwargs["SPI"]:
-        SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,parent_dir,crystal,results_parent_dir=results_parent_folder, random_orientation = random_orientation, **laser_firing_qwargs)
-        SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,parent_dir,crystal_undmged,results_parent_dir=results_parent_folder, random_orientation = False, **laser_firing_qwargs)
-        stylin(SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
+        SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal,results_parent_dir=results_parent_folder, **laser_firing_qwargs)
+        SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged,results_parent_dir=results_parent_folder,  **laser_firing_qwargs)
+        stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
     else:
-        exp1_orientations = experiment1.spooky_laser(start_time,end_time,target_handle,parent_dir,crystal, results_parent_dir=results_parent_folder, random_orientation = random_orientation, **laser_firing_qwargs)
+        exp1_orientations = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal, results_parent_dir=results_parent_folder, **laser_firing_qwargs)
         create_reflection_file(exp_name1,results_parent_dir=results_parent_folder)
         if exp_name2 != None:
+            laser_firing_qwargs["random_orientation"] = False
             experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
-            experiment2.spooky_laser(start_time,end_time,target_handle,parent_dir,crystal_undmged, results_parent_dir=results_parent_folder,random_orientation = False, **laser_firing_qwargs)
-        stylin()
+            experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged, results_parent_dir=results_parent_folder, **laser_firing_qwargs)
+        stylin(exp_name1,exp_name2,experiment1.max_q,)
 #%%
-stylin()
+if __name__ == "__main__":
+    stylin()
 
 #^^^^^^^
 # %%

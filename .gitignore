@@ -33,3 +33,5 @@ MakefileTest
 my_file_test.out
 test_build/
 test_src/
+<ipython*
+__pycache__

@@ -99,7 +99,7 @@ class Plotter:
         use_input_mol_file = False
         output_folder  = self.molecular_path + mol + '/'
         if not os.path.isdir(output_folder):
-            raise Exception("\033[91m Cannot find simulation output folder '" + mol + "'\033[0m" + "(" +output_folder + ")" )
+            raise Exception("\033[91m Cannot find simulation output folder '" + mol + "'\033[0m" + "(In directory: " +output_folder + ")" )
         molfile = output_folder + mol + '.mol'
         # Use same-named mol file in output folder by default
         if path.isfile(molfile):
@@ -186,9 +186,11 @@ class Plotter:
                 if line.startswith("#ATOMS"):
                     reading=True
                     continue
-                elif line.startswith("#"):
+                elif line.startswith("#") or line.startswith("//"):
                     reading=False
                     continue
+                if line.startswith("####END####"):
+                    break
                 if reading:
                     a = line.split(' ')[0].strip()
                     if len(a) != 0:
