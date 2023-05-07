@@ -344,7 +344,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
     bound_t saved_time(num_steps,0);  // this is a mere stand-in for t at best.
     i = 0;
     std::vector<double> saved_f;  // Defined outside of scope so that saved_f will be from the last time step)
-    for(const string elem : time_and_BS_factors){
+    for(const string &elem : time_and_BS_factors){
         // TIME
         std::istringstream s(elem);
         string str_time;

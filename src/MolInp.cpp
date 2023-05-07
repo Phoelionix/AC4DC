@@ -161,8 +161,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 
 		if (n == 0) stream >> num_time_steps;
 		if (n == 1) stream >> omp_threads;
-		if (n == 2) stream >> grid_update_period;
-		if (n == 3) stream >> param_cutoffs.min_coulomb_density;
+		if (n == 2) stream >> param_cutoffs.min_coulomb_density;
 		
 
 	}
@@ -178,6 +177,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	for (size_t n = 0; n < FileContent["#DYNAMIC_GRID"].size(); n++) {
 		stringstream stream(FileContent["#DYNAMIC_GRID"][n]);
 		if (n == 0) stream >> elec_grid_preset;
+		if (n == 1) stream >> grid_update_period;
 	}	
 
 	for (size_t n = 0; n < FileContent["#FILTRATION"].size(); n++) {
