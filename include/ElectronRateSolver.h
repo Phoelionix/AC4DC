@@ -88,7 +88,9 @@ public:
             load_filtration_file();
         }
 
-        time_of_last_save = std::chrono::high_resolution_clock::now(); 
+        #ifndef HPC
+        time_of_last_save = std::chrono::high_resolution_clock::now();
+        #endif 
     }
     /// Solve the rate equations
     void solve(ofstream & _log, const string& tmp_data_folder);
@@ -109,9 +111,11 @@ public:
     pre_tbr_time, eii_time, tbr_time,  // sys_bound
     ee_time, apply_delta_time; //sys_ee 
 
+    #ifndef HPC
     std::chrono::_V2::system_clock::time_point time_of_last_save;   
     std::chrono::minutes minutes_per_save{60};
-     
+    #endif
+
 private:
     double IVP_step_tolerance = 5e-3;
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)  // TODO need to refactor to store variables that we change later rather than alter input_params directly. Currently doing a hybrid of this.
@@ -199,9 +203,10 @@ private:
     //void high_energy_stability_check();
     string its_dinner_time(std::vector<std::chrono::duration<double, std::milli>> times, std::vector<std::string> tags);
     
-    /// Folder that saves data periodically (period determined by minutes_per_save)
-    string data_backup_folder; 
     bool grid_initialised = false;
+
+    /// Folder that saves data periodically (period determined by minutes_per_save)
+    string data_backup_folder;     
 };
 
 

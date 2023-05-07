@@ -20,14 +20,17 @@ This file is part of AC4DC.
     along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
 ===========================================================================*/
 
-#include <Display.h>
+#include "Display.h"
 #include <csignal>
 #include <iostream>
+#include "config.h"
 
 // Initialise static variables.
 WINDOW* Display::win; 
 std::string Display::header; 
 std::stringstream Display::display_stream, Display::popup_stream;
+
+#ifndef HPC
 
 void Display::create_screen(){
     initscr();
@@ -58,15 +61,7 @@ void Display::show(const std::stringstream& spooky_stream,const std::stringstrea
     waddstr(win,(spooky_stream.str()+second_stream.str()).c_str());
     wrefresh(win);   
 }
-// void Display::clean(){
-//     werase(win); 
-// }
-// void Display::deactivate(){
-//     touchwin(stdscr);
-// }
-// void Display::reactivate(){
-//     touchwin(win);
-// }    
+ 
 void Display::close(){
     clrtoeol();
     refresh();
@@ -79,3 +74,19 @@ void Display::signalHandler( int signum ) {
     std::cout << "Window ended successfully after interrupt signal (" << signum << ") received.\n";
     std::exit(signum);  
 }    
+#else 
+void Display::create_screen(){}
+
+void Display::show(const std::stringstream& spooky_stream){
+    std::cout<<spooky_stream.str()<<std::endl;
+}
+void Display::show(const std::stringstream& spooky_stream,const std::stringstream& second_stream){
+    std::cout<<second_stream.str()<<std::endl;    // only the second stream is new.
+}
+ 
+void Display::close(){ }  
+
+// cleans up the terminal on interrupt
+void Display::signalHandler( int signum ) {}   
+
+#endif //HPC

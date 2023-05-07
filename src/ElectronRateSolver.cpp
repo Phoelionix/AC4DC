@@ -642,6 +642,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
     ////// Display info ////// (only the regular stuff seen each step, not "popups" from popup_stream)
     auto t_start_disp = std::chrono::high_resolution_clock::now();
     if ((n-this->order)%steps_per_time_update == 0){
+        #ifndef HPC
         Display::display_stream.str(Display::header); // clear display string
         Display::display_stream<< "\n\r"
         << "--- Press BACKSPACE/DEL to end simulation and save the data ---\n\r"   
@@ -651,8 +652,11 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         << std::left<<std::setfill(' ')<<std::setw(6)
         << this->t[n] * Constant::fs_per_au << " fs\n\r" 
         << "[ sim ] " <<Distribution::size << " knots currently active\n\r";
-        //<< Distribution::get_knot_energies() << "\n\r"; 
-        // << flush; 
+        #else
+        Display::display_stream.str(std::string());
+        Display::display_stream << "t= "<<this->t[n] * Constant::fs_per_au<< " fs, dt= "<<dt*Constant::fs_per_au<<" fs, knots= "<<Distribution::size; //<<std::setprecision(4) 
+        Display::display_stream.flush();  
+        #endif
         Display::show(Display::display_stream);
     }        
     display_time += std::chrono::high_resolution_clock::now() - t_start_disp;  
@@ -730,7 +734,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
     }
     dyn_dt_time += std::chrono::high_resolution_clock::now() - t_start_dt;
     
-    
+    #ifndef HPC
     /// Save data periodically in case of crash (currently need to manually copy mol file from log folder and move folder to output if want to plot). 
     if(std::chrono::duration_cast<std::chrono::minutes>(std::chrono::high_resolution_clock::now() - time_of_last_save) > minutes_per_save){
         auto t_start_backup = std::chrono::high_resolution_clock::now();
@@ -748,7 +752,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
           }          
         backup_time += std::chrono::high_resolution_clock::now() - t_start_backup;
     }
-    
+    #endif //HPC
     
     pre_ode_time += std::chrono::high_resolution_clock::now() - t_start;  
 }
@@ -801,6 +805,7 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
     }
     dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
     
+    #ifndef HPC
     //////  Check if user wants to end simulation early ////// 
     auto t_start_usr = std::chrono::high_resolution_clock::now();
     auto ch = wgetch(Display::win);
@@ -818,8 +823,8 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
         nodelay(Display::win, true);
         Display::show(Display::display_stream);
     }     
-    
     user_input_time += std::chrono::high_resolution_clock::now() - t_start_usr;  
+    #endif //HPC
     
     if (Display::popup_stream.rdbuf()->in_avail() != 0){
         // clear stream

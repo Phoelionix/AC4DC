@@ -28,9 +28,9 @@ This file is part of AC4DC.
 //#include <conio.h>   // key detection for windows 
 
 /**
- * @brief   // Curses implementation..
- * @details  This is purely to allow for ending the simualation with a key press. 
- * @note Keep an eye on effect on computational time. Seems fine currently.
+ * @brief Curses implementation..
+ * @details  This allows for ending the simualation with a key press. 
+ * @note Computation times can sometimes be icky if allow to update every step. Interval of 0.01 fs (set in input mol file) works fine.
  * https://tldp.org/HOWTO/NCURSES-Programming-HOWTO/keys.html
  */
 
@@ -38,9 +38,6 @@ struct Display{
     static void create_screen();
     static void show(const std::stringstream& str);
     static void show(const std::stringstream& str1,const std::stringstream& str2);
-    static void clean();
-    static void deactivate();
-    static void reactivate();
     static void close();
     static constexpr double WIDTH = 30;
     static constexpr double HEIGHT = 10;

@@ -6,6 +6,8 @@
 
 #pragma once
 
+
+
 #ifdef DEBUG
 // #define OUTPUT_TBR_TO_CERR
 // #define OUTPUT_DQDT_TO_CERR
@@ -15,3 +17,5 @@
 //  #define NO_TBR
 //  #define NO_EE #TODO try turning off again
 //  #define NO_EII
+
+#define HPC  // high performance computing mode, turning off display, plotting, and backup saves

@@ -295,7 +295,9 @@ int main(int argc, const char *argv[]) {
     ofstream log(logpath); 
     cout << "\033[1;32mInitialising... \033[0m" <<endl;
     const char* const_path = input_file_path.c_str();
-    pybind11::initialize_interpreter();  
+    #ifndef HPC 
+    pybind11::initialize_interpreter();     
+    #endif
     ElectronRateSolver S(const_path, log); // Contains all of the collision parameters.
     cout << "\033[1;32mComputing cross sections... \033[0m" <<endl;
     S.set_up_grid_and_compute_cross_sections(log, true);
