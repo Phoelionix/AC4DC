@@ -9,13 +9,13 @@ N_fast 30
 none      // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
 
 #PULSE
-6000         // Photon energy in eV.
-10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+12000         // Photon energy in eV.
+5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
 
 #USE_COUNT
 true
-4            // Number of photons in trillions (10^12) in a 100 nm diameter spot.
+2            // Number of photons in trillions (10^12) in a 100 nm diameter spot.
 
 #NUMERICAL
 20000       // Initial guess for number of time step points for rate equation.        If loading time, then the time steps should be whatever gives the time step density at end of sim. (TODO make this automatic or change input to be time step width)

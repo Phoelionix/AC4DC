@@ -9,8 +9,8 @@ N_fast 30
 none      // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
 
 #PULSE
-6000         // Photon energy in eV.
-10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+12000         // Photon energy in eV.
+5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
 
 #USE_COUNT

@@ -1,21 +1,22 @@
-// Template AC4DC input file created (then modified) from 5zck.pdb
-// Ignores salt water
+//Neutze
+
 #ATOMS
-N_fast 30
+N_fast 991
+S_fast 10
 
 #VOLUME
-515.69      // Volume per molecule in Angstrom^3.
-2000      // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
-none      // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
+20000        // Volume per molecule in Angstrom^3.
+300         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
+none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-6000         // Photon energy in eV.
-10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+9000         // Photon energy in eV.
+5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
 
 #USE_COUNT
 true
-4            // Number of photons in trillions (10^12) in a 100 nm diameter spot.
+4  // Number of photons in trillions (10^12) in a 100 nm diameter spot.
 
 #NUMERICAL
 20000       // Initial guess for number of time step points for rate equation.        If loading time, then the time steps should be whatever gives the time step density at end of sim. (TODO make this automatic or change input to be time step width)
@@ -32,15 +33,10 @@ N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
-#LOAD
-//handle_name // Output folder name
-//99   // max point in time to load from
-//false // whether to use input timestep rather than the timestep at point of load.  Experimental - often fails if convergence not achieved on first step.
-
 #DEBUG
-99      // Simulation cutoff time in fs
+99 //10     // Simulation cutoff time in fs
 0.01    // Interval to update current timestep [fs].
 ####END#####
 
 Notes:
-Tetrapeptide with approximation 17C,5N,8O ~ 30N, and ignoring salt water atoms.
+Generating many low acc for R factor gauging
