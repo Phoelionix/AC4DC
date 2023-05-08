@@ -155,12 +155,7 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
         dummy_column_for_size = R_data[:,0]*0+1
     ))
     print(df)
-    # fig = px.scatter_3d(df, x='energy', y='fwhm', z='photons',
-    #           color='R', color_continuous_scale=[(0.1, "green"),(0, "green"), (0.2, "yellow"), (0.4, "red"),(1, "red")],range_color=[0,1])   
-    # fig = px.scatter_3d(df, x='energy', y='fwhm', z='photons',
-    #           color='R',  color_continuous_scale="PuRd", color_continuous_midpoint=0.2) 
-    # fig = px.scatter_3d(df, x='photons', y='fwhm', z='energy',
-    #           color='R',  color_continuous_scale="amp", range_color=[cmin,cmax])'
+    #3D
     fig = px.scatter_3d(df, x='photons', y='fwhm', z='energy',
               color='R',  color_continuous_scale=clr_scale, range_color=[cmin,cmax],**kwargs)
     camera = dict(
@@ -184,8 +179,12 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
     ))      
     fig.show()
 
-    # Dot size represents num photons, 
-    df.sort_values('photon_size_thing')
+    # 'intuitive' plot, where:
+    # Dot size represents num photons
+    # colour is R (damage)
+    # horiz axis is fwhm
+    # vert axis is energy of photons 
+    df = df.sort_values('photon_size_thing',ascending=False)
     fig = px.scatter(df, x='fwhm', y='energy', size='photon_size_thing',
               color='R', color_continuous_scale=clr_scale, range_color=[cmin,cmax],size_max=30,opacity=1,**kwargs)     
     fig.show()    
@@ -232,9 +231,9 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
     '''
 
 print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-plot_that_funky_thing(R_data_crys,0.05,0.25,"temps",template="plotly_dark") #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+plot_that_funky_thing(R_data_crys,0.05,0.20,"temps",template="plotly_dark") #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
 print("-------------------SPI------------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-plot_that_funky_thing(R_data_SPI,0.05,0.25,"temps",template="plotly_dark") #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+plot_that_funky_thing(R_data_SPI,0.05,0.20,"temps",template="plotly_dark") #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
 print("Done")
 
 #TODO store results.
