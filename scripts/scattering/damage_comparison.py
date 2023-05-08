@@ -15,13 +15,18 @@ import colorcet as cc; import cmasher as cmr
 from core_functions import get_sim_params
 import matplotlib.pyplot as plt
 
-PDB_PATHS = dict( # contains the target that should be used for the folder.
-    neutze =  "/home/speno/AC4DC/scripts/scattering/2lzm.pdb",
-    hen = "/home/speno/AC4DC/scripts/scattering/4et8.pdb",
-    tetra = "/home/speno/AC4DC/scripts/scattering/5zck.pdb" ,
-)            
+import inspect
+src_file_path = inspect.getfile(lambda: None)  
+my_dir = path.abspath(path.join(src_file_path ,"../")) + "/"
 
-def multi_damage(batch_handle,params,allowed_atoms_1,CNO_to_N,same_deviations,chosen_folder = None,realistic_crystal_growing_mode = False):
+PDB_PATHS = dict( # contains the target that should be used for the folder.
+    neutze =  my_dir + "2lzm.pdb",
+    hen = my_dir + "4et8.pdb",
+    tetra = my_dir+ "5zck.pdb" ,
+)          
+
+
+def multi_damage(batch_handle,params,allowed_atoms_1,CNO_to_N,same_deviations,chosen_folder = None,realistic_crystal_growing_mode = False,get_R_only=True):
     '''
     
     '''
@@ -34,8 +39,6 @@ def multi_damage(batch_handle,params,allowed_atoms_1,CNO_to_N,same_deviations,ch
     Folder structure:
     ...'root_results_dir'/'results_batch_dir'/<experiment_results>/<orientation>
     """
-    import inspect
-    src_file_path = inspect.getfile(lambda: None)
     sim_data_batch_dir = path.abspath(path.join(src_file_path ,"../../../output/__Molecular/"+batch_handle)) + "/"
     sim_input_dir = path.abspath(path.join(src_file_path ,"../../../input/")) + "/"
     # Folder containing the folders corresponding to each batch of handles.
@@ -109,11 +112,11 @@ def multi_damage(batch_handle,params,allowed_atoms_1,CNO_to_N,same_deviations,ch
             crystal_undmged = Crystal(pdb_path,allowed_atoms_1,is_damaged=False,CNO_to_N = CNO_to_N, **run_params["crystal"])
         if i == 0:
             crystal.plot_me(250000)
-
+    
         if params["laser"]["SPI"]:
             SPI_result1 = experiment1.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal,results_parent_dir=results_batch_dir, **run_params["laser"])
             SPI_result2 = experiment2.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal_undmged,results_parent_dir=results_batch_dir, **run_params["laser"])
-            R = stylin(exp_name1,exp_name2,experiment1.max_q,SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
+            R = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=get_R_only,SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
         else:
             exp1_orientations = experiment1.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal, results_parent_dir=results_batch_dir, **run_params["laser"])
             if exp_name2 != None:
@@ -121,7 +124,7 @@ def multi_damage(batch_handle,params,allowed_atoms_1,CNO_to_N,same_deviations,ch
                 experiment2.set_orientation_set(exp1_orientations)  
                 run_params["laser"]["random_orientation"] = False 
                 experiment2.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal_undmged, results_parent_dir=results_batch_dir, **run_params["laser"])
-            R = stylin(exp_name1,exp_name2,experiment1.max_q,SPI=False,results_parent_dir = results_batch_dir)
+            R = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=get_R_only,SPI=False,results_parent_dir = results_batch_dir)
         R_data.append([energy[i],fwhm[i],photon_count[i],R]) 
     
     print("R_data:",R_data)
@@ -132,11 +135,11 @@ CNO_to_N = True
 same_deviations = True # whether same position deviations between damaged and undamaged crystal (SPI only)
 batch_dir = None # Optional: Specify existing parent folder for batch of results, to add these orientation results to.
 
-R_data = multi_damage("tetra",imaging_params.default_dict,allowed_atoms,CNO_to_N,same_deviations,batch_dir)
+R_data = multi_damage("tetra",imaging_params.tetra_dict,allowed_atoms,CNO_to_N,same_deviations,batch_dir,get_R_only=True)
 
 ##%%
 #%%
-def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3):
+def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
     df = pd.DataFrame(dict(
         photons =       R_data[:,2],
         fwhm =          R_data[:,1],
@@ -149,12 +152,29 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3):
     #           color='R', color_continuous_scale=[(0.1, "green"),(0, "green"), (0.2, "yellow"), (0.4, "red"),(1, "red")],range_color=[0,1])   
     # fig = px.scatter_3d(df, x='energy', y='fwhm', z='photons',
     #           color='R',  color_continuous_scale="PuRd", color_continuous_midpoint=0.2) #px.colors.diverging.Armyrose#"plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
+    # fig = px.scatter_3d(df, x='photons', y='fwhm', z='energy',
+    #           color='R',  color_continuous_scale="amp", range_color=[cmin,cmax]) #px.colors.diverging.Armyrose#"plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
     fig = px.scatter_3d(df, x='photons', y='fwhm', z='energy',
-              color='R',  color_continuous_scale="amp", range_color=[cmin,cmax]) #px.colors.diverging.Armyrose#"plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
+              color='R',  color_continuous_scale=clr_scale, range_color=[cmin,cmax],**kwargs) #px.colors.diverging.Armyrose#"plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
+    camera = dict(
+        up=dict(x=0, y=0, z=1),
+        center=dict(x=0, y=0, z=0),
+        eye=dict(x=1.25, y=-1.25, z=1.25)
+    )
+
+    fig.update_layout(scene_camera=camera)         
     fig.show()    
     
+    # Get min and max for each axis for consistency
+    ranges = {}
+    for col in df:
+        range = df[col].agg(['min','max'])
+        range[0]-=range[1]/10 
+        range[1]+= range[1]/10
+        ranges[col] = range
+
+    #get data frames for each energy
     unique_E = df.energy.unique()
-    #Store data frames
     data_frame_dict = {elem : pd.DataFrame() for elem in unique_E}    
     for key in data_frame_dict.keys():
         data_frame_dict[key] = df[:][df.energy == key]    
@@ -162,7 +182,9 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3):
         df = data_frame_dict[energy] 
         print("Energy:",energy,"eV")
         fig = px.scatter(df,x='photons',y='fwhm',
-            color='R',  color_continuous_scale="amp", range_color=[cmin,cmax], size='dummy_column_for_size',size_max=15,)
+            color='R',  color_continuous_scale=clr_scale, range_color=[cmin,cmax], size='dummy_column_for_size',size_max=15,opacity=1,**kwargs)
+        fig.update_xaxes(range=ranges['photons'])
+        fig.update_yaxes(range=ranges['fwhm'])           
         fig.show()
         # X,Y,Z = df['photons'].to_numpy(), df['fwhm'].to_numpy(),df['R'].to_numpy()
         # Z_mesh = np.empty((len(X),len(Y)))
@@ -179,8 +201,8 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3):
         #         [0, 0.625, 2.5, 5.625, 10]],
         #         colorscale='Electric',
         #     ))
-        # fig.show()    
-plot_that_funky_thing(R_data,0,0.2)
+        # fig.show()                                                       #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
+plot_that_funky_thing(R_data,0.05,0.25,"temps",template="plotly_dark") #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
 print("Done")
 
 # %%

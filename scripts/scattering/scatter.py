@@ -1833,7 +1833,7 @@ def create_reflection_file(result_handle,results_parent_dir = "results/",overwri
 
 #####
 # stylin' 
-def stylin(exp_name1,exp_name2,q_scr_max,SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None,results_parent_dir = "results/"):
+def stylin(exp_name1,exp_name2,q_scr_max,get_R_only = False,SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None,results_parent_dir = "results/"):
     experiment1_name = exp_name1#"Lys_9.95_random"#exp_name1
     experiment2_name = exp_name2#"lys_9.80_random"#exp_name2 
 
