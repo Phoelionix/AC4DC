@@ -21,6 +21,7 @@ import chart_studio.plotly as py
 import plotly.graph_objects as go
 import plotly.io as pio
 import copy
+from core_functions import get_mol_file
 pio.templates.default = "seaborn" #"plotly_dark" # "plotly"
 
 
@@ -57,7 +58,7 @@ for symbol in ATOMS:
 #     return C(idx)
 
 class PlotData:
-    def __init__(self, abs_molecular_path, mol_name,output_mol_query, max_final_t, max_points):
+    def __init__(self, abs_molecular_path, mol_name,output_mol_query, max_final_t, max_points,custom_name = None):
         self.molecular_path = abs_molecular_path
         AC4DC_dir = path.abspath(path.join(__file__ ,"../../"))  + "/"
         self.input_path = AC4DC_dir + 'input/'
@@ -65,6 +66,8 @@ class PlotData:
 
         # Subplot dictionary
         subplot_name = mol_name.replace('_',' ')
+        if custom_name is not None:
+            subplot_name = custom_name
         self.target_mol = {'name': subplot_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}
 
         # Stores the atomic input files read by AC4DC
@@ -203,7 +206,7 @@ class PlotData:
 class InteractivePlotter:
     # max_final_t, float, end time in femtoseconds. Not equivalent to time duration
     # max_points, int, number of points (within the timespan) for the interactive to have at maximum.
-    def __init__(self, target_names, sim_output_parent_directory, max_final_t = 30, max_points = 70):
+    def __init__(self, target_names, sim_output_parent_directory, max_final_t = 30, max_points = 70, custom_names = None):
         '''
         output_parent_directory: absolute path
         '''
@@ -213,8 +216,11 @@ class InteractivePlotter:
         self.target_data = []
         lowest_max_t = np.inf
         lowest_max_points = np.inf
-        for mol_name in target_names:
-            dat = PlotData(sim_output_parent_directory,mol_name,"y",max_final_t=max_final_t,max_points=max_points)    
+        if custom_names is None:
+            custom_names = [None]*self.num_plots
+        for i, mol_name in enumerate(target_names):
+            custom_name = custom_names[i]
+            dat = PlotData(sim_output_parent_directory,mol_name,"y",max_final_t=max_final_t,max_points=max_points,custom_name=custom_name)    
             lowest_max_t = min(dat.get_max_t(),lowest_max_t)
             lowest_max_points = min(lowest_max_points, dat.get_num_usable_points())
             self.target_data.append(dat)
@@ -268,11 +274,11 @@ class InteractivePlotter:
             self.rerun_ac4dc()
             self.update_outputs()
     
-    def initialise_interactive(self, target, x_args={}, y_args={}):
+    def initialise_interactive(self, plot_title, x_args={}, y_args={}):
         self.fig = go.Figure()
         
         self.fig.update_layout(
-            title= target + " - Free-electron distribution",  # Attention: title overwritten by add_time_slider()
+            title= plot_title + " - Free-electron distribution",  # Attention: title overwritten by add_time_slider()
             showlegend=False,
             font=dict(
                 family="Courier New, monospace",
@@ -310,37 +316,33 @@ class InteractivePlotter:
                 a = 1 
                 if len(self.target_data) > 1: a = 0.8
                 if colour_mixup:
-                    # randomish mix thing
-                    # mix = 1- g/len(self.target_data)   
-                    # rgb_intensity = [mix*1,0.68 + (1-mix)*0.5,mix*1]  # max = 1
-                    # rgb_width = [0.4 + (1-mix)*2, 0.6 + (1-mix)*0.3,0.9 + (1-mix)*0.4]
-                    # rgb_bndry = [1,0.6+(1-mix)*0.2,(1-mix)*0.2]
+                    if len(self.target_data) == 2:
+                        # special comparison mode...
+                        if g == 0:
+                        ## blue_grey-mustard
+                            rgb_intensity = [0.6,0.6,0.8]  # max = 1
+                            rgb_width = [1,2,1]
+                            rgb_bndry = [1,1,0]
 
-                    # # temp
-                    # if g == 1:
-                    #     rgb_intensity = [1,0.68,1]
-                    #     rgb_width = [0.4 + 2, 0.6,0.9] 
-                    #     rgb_bndry = [1,0.6,0]
+                            target.title_colour =  "#4d50b3" 
+                        
+                        else:      
+                            target.title_colour =  "#4d50b3"  # "#a44ae8" 
+                            ## blue-purp
+                            # rgb_intensity = [1,0,1]  
+                            # rgb_width = [1,0.5,1]
+                            # rgb_bndry = [1,0.5,0]
 
-                    if g == 0:
-                    ## blue_grey-mustard
-                        rgb_intensity = [0.6,0.6,0.8]  # max = 1
-                        rgb_width = [1,2,1]
-                        rgb_bndry = [1,1,0]
-
-                        target.title_colour =  "#4d50b3" 
-                    
-                    else:      
-                        target.title_colour =  "#4d50b3"  # "#a44ae8" 
-                        ## blue-purp
-                        # rgb_intensity = [1,0,1]  # max = 1
-                        # rgb_width = [1,0.5,1]
-                        # rgb_bndry = [1,0.5,0]
-
-                        ## blue-orange
-                        rgb_intensity = [1,0.68,1]  # max = 1
-                        rgb_width = [0.5,0.6,0.5]
-                        rgb_bndry = [1,0.6,0]                               
+                            ## blue-orange
+                            rgb_intensity = [1,0.68,1]
+                            rgb_width = [0.5,0.6,0.5]
+                            rgb_bndry = [1,0.6,0]
+                    else:
+                        #randomish mix thing
+                        mix = 1- g/len(self.target_data)
+                        rgb_intensity = [mix*1,0.68 + (1-mix)*0.5,mix*1]
+                        rgb_width = [0.4 + (1-mix)*2, 0.6 + (1-mix)*0.3,0.9 + (1-mix)*0.4]
+                        rgb_bndry = [1,0.6+(1-mix)*0.2,(1-mix)*0.2]
                 
                 else:
                     rgb_intensity = [1,0.68,1]  # max = 1
@@ -376,7 +378,11 @@ class InteractivePlotter:
 
     #----Widgets----#
     # Time Slider
-    def add_time_slider(self,simul_step_slider=True):
+    def add_time_slider(self):
+        simul_step_slider=False
+        if self.num_plots > 1:
+            # Slider that displays all simulations at the same time step. The limit of plotly without dash.
+            simul_step_slider=True
         self.steps_groups = [] # Stores the steps for each plot separately 
         start_step = 0
         time_slider = []
@@ -554,88 +560,6 @@ class InteractivePlotter:
 #     ret = np.cumsum(a, dtype=float)
 #     ret[n:] = ret[n:] - ret[:-n]
 #     return ret[n - 1:] / n
-
-def get_mol_file(input_path, molecular_path, mol, output_mol_query = ""):
-    #### Inputs ####
-    #Check if .mol file in outputs
-    use_input_mol_file = False
-    output_folder  = molecular_path + mol + '/'
-    if not os.path.isdir(output_folder):
-        raise Exception("\033[91m Cannot find simulation output folder '" + mol + "'\033[0m" + "(In directory: " +output_folder + ")" )
-    molfile = output_folder + mol + '.mol'
-    # Use same-named mol file in output folder by default
-    if path.isfile(molfile):
-            print("Mol file found in output folder " + output_folder)
-    # Use any mol file in output folder, (allowing for changing folder name).
-    else: 
-        molfile = ""
-        for file in os.listdir(output_folder):
-            if file.endswith(".mol"):
-                if molfile != "": 
-                    molfile = ""
-                    print("\033[91m[ Warning: File Ambiguity ]\033[0m Multiple **.mol files in output folder.")
-                    break
-                molfile = os.path.join(output_folder, file)
-        if molfile != "":
-            print(".mol file found in output folder " + output_folder)
-    
-    if path.isfile(molfile):
-        y_n_index = 2 
-        if output_mol_query != "":
-            y_n_check = output_mol_query
-            unknown_response_qualifier = "argument \033[92m'"   + output_mol_query + "'\033[0m not understood, using default .mol file."
-        else:
-            print('\033[95m' + "Use \033[94m'" + os.path.basename(molfile) +"'\033[95m found in output? ('y' - yes, 'n' - use a mol file from input/ directory.)" + '\033[0m')
-            y_n_check = input("Input: ")
-            unknown_response_qualifier = "Response not understood" + ", using 'y'."
-        if y_n_check.casefold() not in map(str.casefold,["n","no"]):  #  User didn't say to use input\
-            if y_n_check.casefold() not in map(str.casefold,["y","yes"]):
-                print(unknown_response_qualifier)
-            if output_mol_query != "":
-                print('\033[95m' + "Using \033[94m'" + os.path.basename(molfile) +"'\033[95m found in output." + '\033[0m')
-        else:
-            print("Using mol file from " + input_path)
-            use_input_mol_file = True
-    else: 
-        print("\033[93m[ Missing Mol File ]\033[0m copy of mol file used to generate output not found, searching input/ directory.\033[0m'" )
-        use_input_mol_file = True
-    if use_input_mol_file:       
-        molfile = find_mol_file_from_directory(input_path,mol) 
-        print("Using: " + molfile)
-    return molfile
-
-def find_mol_file_from_directory(input_directory, mol):
-    # Get molfile from all subdirectories in input folder.
-    molfname_candidates = []
-    for dirpath, dirnames, fnames in os.walk(input_directory):
-        #if not "input/" in dirpath: continue
-        for molfname in [f for f in fnames if f == mol+".mol"]:
-            molfname_candidates.append(path.join(dirpath, molfname))
-    # No file found
-    if len(molfname_candidates) == 0:
-        print('\033[91m[ Error: File not found ]\033[0m ' + "No '"+ mol + ".mol' input file found in input folders, trying default path anyway.")
-        molfile = input_directory+mol+".mol"
-    elif len(molfname_candidates) == 1:
-        molfile = molfname_candidates[0]
-    # File found in multiple directories
-    else:
-        print('\033[95m' + "Multiple mol files with given name detected. Please input number corresponding to desired directory." + '\033[0m' )
-        for idx, val in enumerate(molfname_candidates):
-            print(idx,val)
-        selected_file = False
-        # Loop until user confirms file
-        while selected_file == False: 
-            molfile = molfname_candidates[int(input("Input directory number: "))]
-            print('\033[95m' + molfile + " selected." + '\033[0m')
-            y_n_check = input("Input 'y'/'n' to continue/select a different file: ")
-            if y_n_check.casefold() not in map(str.casefold,["y","yes"]):
-                if y_n_check.casefold() not in map(str.casefold,["n","no"]):
-                    print("Unknown response, using 'n'.")
-                continue
-            else:
-                print("Continuing...")
-                selected_file = True
-    return molfile    
 
 if __name__ == "__main__":
     raise Exception("No main script")

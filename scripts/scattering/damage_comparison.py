@@ -1,6 +1,5 @@
 #%%
 from scatter import XFEL,Crystal,stylin
-from interactive_core import get_mol_file
 import numpy as np
 import os.path as path
 import os
@@ -13,57 +12,13 @@ import plotly.graph_objects as go
 import pandas as pd
 import plotly.express as px
 import colorcet as cc; import cmasher as cmr
+from ..core_functions import get_sim_params
 
 PDB_PATHS = dict( # contains the target that should be used for the folder.
     neutze =  "/home/speno/AC4DC/scripts/scattering/2lzm.pdb",
     hen = "/home/speno/AC4DC/scripts/scattering/4et8.pdb",
     tetra = "/home/speno/AC4DC/scripts/scattering/5zck.pdb" ,
-)
-
-def get_sim_params(input_path,molecular_path,handle):
-    '''
-    Reads the control file and returns the relevant parameters within
-    '''    
-    molfile = get_mol_file(input_path,molecular_path,handle,"y")
-    outDir = molecular_path + handle 
-    intFile = outDir + "/intensity.csv"
-    raw = np.genfromtxt(intFile, comments='#', dtype=np.float64)
-    #intensityData = raw[:,1]
-    timeData = raw[:, 0]    
-    start_t = timeData[0]; end_t = timeData[-1]
-    with open(molfile, 'r') as f:
-        reading_count = False
-        reading_pulse = False
-        n = 0
-        for line in f:
-            if line.startswith("#PULSE"):
-                reading_pulse=True
-                continue                
-            elif line.startswith("#USE_COUNT"):
-                reading_count=True
-                continue
-            elif line.startswith("#") or line.startswith("//") or len(line.strip()) == 0:
-                reading_count = False
-                reading_pulse = False
-                n = 0
-                continue
-            if line.startswith("####END####"):
-                break
-            if reading_pulse:
-                if n < 2:
-                    val = float(line.split(' ')[0])         
-                if n == 0:
-                    energy = val
-                elif n==1:
-                    fwhm = val
-                n += 1
-            if reading_count:
-                if n == 1:
-                    incoming_photon_count = float(line.split(' ')[0])
-                n += 1
-    print("Time range:",start_t,"-",end_t)
-    print("Energy:", energy)
-    return start_t,end_t, energy, fwhm, incoming_photon_count                
+)            
 
 def multi_damage(batch_handle,params,allowed_atoms_1,CNO_to_N,same_deviations,chosen_folder = None,realistic_crystal_growing_mode = False):
     '''
@@ -112,7 +67,7 @@ def multi_damage(batch_handle,params,allowed_atoms_1,CNO_to_N,same_deviations,ch
     # find shape of array of params
     energy_list = fwhm_list = photon_list = []
     for i, sim_handle in enumerate(os.listdir(sim_data_batch_dir)):
-        start_time,end_time,e,f,p = get_sim_params(sim_input_dir,sim_data_batch_dir,sim_handle)   
+        start_time,end_time,e,f,p,param_dict,unit_dict = get_sim_params(sim_input_dir,sim_data_batch_dir,sim_handle)   
         energy_list.append(e)
         fwhm_list.append(f)
         photon_list.append(p)
@@ -235,7 +190,7 @@ def plot_that_funky_thing(R_data):
 #     R_data = multi_damage("tetra",imaging_params.default_dict,allowed_atoms,CNO_to_N,same_deviations,batch_dir)
 #     plot_that_funky_thing(R_data)
 #     print("Done")
-#%%
+##%%
 allowed_atoms = ["C_fast","N_fast","O_fast","S_fast"]
 CNO_to_N = True
 same_deviations = True # whether same position deviations between damaged and undamaged crystal (SPI only)

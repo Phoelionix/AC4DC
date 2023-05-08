@@ -17,7 +17,7 @@ default_dict = dict(
         positional_stdv = 0.2, # RMS in atomic coord position [angstrom] (set to 0 below if crystal, since rocking angle handles this aspect)
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
-        rocking_angle = 0.15,  # (approximating mosaicity)
+        rocking_angle = 0.5,  # (approximating mosaicity)
         orbitals_as_shells = True,
         #CNO_to_N = True,   # whether the laser simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
     ),
@@ -39,7 +39,7 @@ default_dict = dict(
         SPI_z_rotation = 0,
         #crystallographic orientations (not consistent with SPI yet)
         # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Incompatible with random_orientations      
-        num_orients_crys=4,
+        num_orients_crys=20,
         orientation_axis_crys = None,#[1,1,0]        
     ),
 )

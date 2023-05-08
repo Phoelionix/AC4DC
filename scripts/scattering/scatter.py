@@ -188,8 +188,8 @@ class Crystal():
         Takes in the symmetry factor and translation of the unit cell, and translates them across each unit cell
         '''
         symmetry_translation/= ang_per_bohr
-        # Simple cubic packing.
-        if self.cell_packing == "SC":
+        # Simple cubic packing. (actually it's all rectangular prisms, TODO)
+        if self.cell_packing == "SC":  
             self.num_cells = self.cell_scale**3
             # Generate the coordinates of the cube (performance: defining scaling matrix/cube coords outside of here would be more efficient). But only runs once  \_( '_')_/ ¯\_(ツ)_/¯.
             x, y, z= np.meshgrid(np.arange(0, self.cell_scale), np.arange(0, self.cell_scale), np.arange(0, self.cell_scale))

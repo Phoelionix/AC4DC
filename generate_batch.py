@@ -33,7 +33,7 @@ def main():
   infile_path = sys.argv[1] 
   handle = ''.join(path.basename(infile_path).partition('.')[:-1])[:-1]
   # We create the batch folder
-  batch_dir = batch_folder_parent_dir + handle + "/"
+  batch_dir = batch_folder_parent_dir + "batch_" + handle + "/"
   if not path.exists(batch_dir):
     os.makedirs(batch_dir)
 

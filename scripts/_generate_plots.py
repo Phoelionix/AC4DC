@@ -29,6 +29,12 @@ def main():
     make_some_plots(sys.argv[1],molecular_path,label,dname_Figures,True,True,True,True)
 
 def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, charge_conservation=False,bound_ionisation=False,free=False,free_slices=False):
+    '''
+    Arguments:
+    mol_name: The name of the folder containing the simulation's data (the csv files). (By default this is the stem of the mol file.)
+    sim_data_parent_dir: absolute path to the folder containing the folders specified by target_handles.
+    '''    
+    
     ############
     # File/directory names
     #######  
@@ -136,7 +142,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         #plt.savefig(figure_output_dir + label + fname_HR_style + figures_ext)
     plt.tight_layout()
     plt.savefig(figure_output_dir + label + figures_ext)
-    print("Done! Remember to drink water!")
+    plt.close()
 
 if __name__ == "__main__":
     main()

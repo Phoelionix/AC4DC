@@ -55,9 +55,10 @@ def get_colors(num, seed):
     return C(idx)
 
 class Plotter:
-    # Example initialisation: Plotter(water)
-    # --> expects there to be a control file named water.mol within AC4DC/input/ or a subdirectory.
-    def __init__(self, mol_name, abs_molecular_path = None, num_subplots=None):
+    # Example initialisation: Plotter(water,molecular/path)
+    # --> Data is contained in molecular/path/water. 
+    # Will use mol file within by default, or (with a warning) search input for matching name if none exists.  
+    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None):
         '''
         abs_molecular_path: The path to the folder containing the simulation output folder of interest.
         '''
@@ -66,16 +67,16 @@ class Plotter:
             self.molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
         AC4DC_dir = path.abspath(path.join(__file__ ,"../../"))  + "/"
         self.input_path = AC4DC_dir + 'input/'
-        molfile = self.get_mol_file(mol_name,"y") 
+        molfile = self.get_mol_file(data_folder_name,"y") 
 
-        self.mol = {'name': mol_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}        
+        self.mol = {'name': data_folder_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}        
         
         # Stores the atomic input files read by ac4dc
         self.atomdict = {}
         self.statedict = {}
 
         # Outputs
-        self.outDir = self.molecular_path + mol_name
+        self.outDir = self.molecular_path + data_folder_name
         self.freeFile = self.outDir +"/freeDist.csv"
         self.intFile = self.outDir + "/intensity.csv"
 
@@ -126,8 +127,8 @@ class Plotter:
                 print('\033[95m' + "Use \033[94m'" + os.path.basename(molfile) +"'\033[95m found in output? ('y' - yes, 'n' - use a mol file from input/ directory.)" + '\033[0m')
                 y_n_check = input("Input: ")
                 unknown_response_qualifier = "Response not understood" + ", using 'y'."
-            if y_n_check.casefold() not in map(str.casefold,["n","no"]):  #  User didn't say to use input\
-                if y_n_check.casefold() not in map(str.casefold,["y","yes"]):
+            if y_n_check.casefold() not in map(str.casefold,["n","no"]):  #  if False, user wants to use input mol file
+                if y_n_check.casefold() not in map(str.casefold,["y","yes"]): # if False, user wants to use output mol file
                     print(unknown_response_qualifier)
                 if output_mol_query != "":
                     print('\033[95m' + "Using \033[94m'" + os.path.basename(molfile) +"'\033[95m found in output." + '\033[0m')
