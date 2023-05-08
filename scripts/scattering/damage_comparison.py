@@ -135,10 +135,10 @@ CNO_to_N = True
 same_deviations = True # whether same position deviations between damaged and undamaged crystal (SPI only)
 batch_dir = None # Optional: Specify existing parent folder for batch of results, to add these orientation results to.
 
-R_data = multi_damage("tetra",imaging_params.tetra_dict,allowed_atoms,CNO_to_N,same_deviations,batch_dir,get_R_only=True)
+R_data_crys = multi_damage("tetra",imaging_params.tetra_dict,allowed_atoms,CNO_to_N,same_deviations,batch_dir,get_R_only=True)
+R_data_SPI = multi_damage("tetra",imaging_params.tetra_dict_SPI,allowed_atoms,CNO_to_N,same_deviations,batch_dir,get_R_only=True)
 
 ##%%
-#%%
 def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
     df = pd.DataFrame(dict(
         photons =       R_data[:,2],
@@ -186,23 +186,11 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
         fig.update_xaxes(range=ranges['photons'])
         fig.update_yaxes(range=ranges['fwhm'])           
         fig.show()
-        # X,Y,Z = df['photons'].to_numpy(), df['fwhm'].to_numpy(),df['R'].to_numpy()
-        # Z_mesh = np.empty((len(X),len(Y)))
-        # for i,x in enumerate(X):
-        #         Z_mesh[i,i] = Z[i]
 
-        # plt.contourf([X, Y], Z,  alpha=0.7, cmap=plt.cm.jet)
-        # fig = go.Figure(data =
-        #     go.Contour(
-        #         z=[[10, 10.625, 12.5, 15.625, 20],
-        #         [5.625, 6.25, 8.125, 11.25, 15.625],
-        #         [2.5, 3.125, 5., 8.125, 12.5],
-        #         [0.625, 1.25, 3.125, 6.25, 10.625],
-        #         [0, 0.625, 2.5, 5.625, 10]],
-        #         colorscale='Electric',
-        #     ))
-        # fig.show()                                                       #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-plot_that_funky_thing(R_data,0.05,0.25,"temps",template="plotly_dark") #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
+plot_that_funky_thing(R_data_crys,0.05,0.25,"temps",template="plotly_dark") #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+print("-------------------SPI------------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
+plot_that_funky_thing(R_data_SPI,0.05,0.25,"temps",template="plotly_dark") #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
 print("Done")
 
 # %%

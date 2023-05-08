@@ -1214,7 +1214,7 @@ def E_to_lamb(photon_energy):
         # q = 4*pi*sin(theta)/lambda = 2pi*u, where q is the momentum in AU (a_0^-1), u is the spatial frequency.
         # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
-def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_result1 = None, SPI_result2 = None, full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, results_parent_dir = "results/", compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, bg_colour = "black",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None):
+def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_frame = False ,SPI_result1 = None, SPI_result2 = None, full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, results_parent_dir = "results/", compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, bg_colour = "black",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None):
     ''' (Complete spaghetti at this point.)
     Plots the simulated scattering image.
     result_handle:
@@ -1472,83 +1472,86 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
             #print(identical_count[debug_mask])
             #print(radial_axis[0][debug_mask])
             #print(phi[debug_mask ]*180/np.pi)
-            # Dot size
-            dot_param = z
-            if crystal_pattern_only:
-                dot_param = identical_count
-            if not log_dot:
-                dot_param = np.e**(dot_param)     
-            norm = np.max(dot_param)
-            s = [100*dot_size*x/norm for x in dot_param]
-            if fixed_dot_size:
-                s = [100*dot_size for x in dot_param]
+            if not get_R_only:
+                # Dot size
+                dot_param = z
+                if crystal_pattern_only:
+                    dot_param = identical_count
+                if not log_dot:
+                    dot_param = np.e**(dot_param)     
+                norm = np.max(dot_param)
+                s = [100*dot_size*x/norm for x in dot_param]
+                if fixed_dot_size:
+                    s = [100*dot_size for x in dot_param]
 
-            # use cmap to get colours but with alpha following a specific rule
-            COL = MplColorHelper(cmap, 0, 1) 
-            alpha_modified_cmap_colours = np.empty((len(z),4)) 
-            for i, K in enumerate(z):
-                try:
-                    rgba = COL.get_rgb(K)
-                except Exception as e:
-                    raise Exception("(max/min z:" +str(max_z) + "/" + str(min_z) + ") - val " + str(K) + " did not work for get_rgb().Original error: " + str(e))     
-                #Replace alpha
-                rgba=rgba[0:3] + (np.clip((K*(max_alpha-min_alpha))/(max_z) + min_alpha,min_alpha,None),)
-                alpha_modified_cmap_colours[i] = np.array(rgba)                           
-            
+                # use cmap to get colours but with alpha following a specific rule
+                COL = MplColorHelper(cmap, 0, 1) 
+                alpha_modified_cmap_colours = np.empty((len(z),4)) 
+                for i, K in enumerate(z):
+                    try:
+                        rgba = COL.get_rgb(K)
+                    except Exception as e:
+                        raise Exception("(max/min z:" +str(max_z) + "/" + str(min_z) + ") - val " + str(K) + " did not work for get_rgb().Original error: " + str(e))     
+                    #Replace alpha
+                    rgba=rgba[0:3] + (np.clip((K*(max_alpha-min_alpha))/(max_z) + min_alpha,min_alpha,None),)
+                    alpha_modified_cmap_colours[i] = np.array(rgba)                           
+                
 
-            colours = [(r,g,b,a) for r,g,b,a in alpha_modified_cmap_colours] 
-            colours = np.around(colours,10)   
+                colours = [(r,g,b,a) for r,g,b,a in alpha_modified_cmap_colours] 
+                colours = np.around(colours,10)   
 
-            if not added_colorbar:
-                if compare_dir == None: 
-                    print("Warning, colorbar not working with color power at present. Need to create cmap from COL")
-                    if not normalise_intensity_map:
-                        # Good for debugging
-                        fig.colorbar(cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=np.min(z),vmax=np.max(z)),cmap=cmap),ax=ax)
-                        print("Attention: Not normalising intensities, but still arbitrary units")
-                        print("Warning: not yet taking into account combined dots!! Scale is off!")
+                if not added_colorbar:
+                    if compare_dir == None: 
+                        print("Warning, colorbar not working with color power at present. Need to create cmap from COL")
+                        if not normalise_intensity_map:
+                            # Good for debugging
+                            fig.colorbar(cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=np.min(z),vmax=np.max(z)),cmap=cmap),ax=ax)
+                            print("Attention: Not normalising intensities, but still arbitrary units")
+                            print("Warning: not yet taking into account combined dots!! Scale is off!")
+                        else:
+                            fig.colorbar(cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=0,vmax=1),cmap=cmap),ax=ax) 
                     else:
+                        #TODO get this truncation of bar working https://stackoverflow.com/questions/40982050/matplotlib-how-to-cut-the-unwanted-part-of-a-colorbar
+                        # from matplotlib import colorbar
+                        # colors = cmap(np.linspace(1.-(0.5-0.3)/float(0.5), 1, cmap.N))
+                        # cbar_cmap = matplotlib.colors.LinearSegmentedColormap.from_list(cmap, colors)
+                        # cax,_ = colorbar.make_axes(ax)
+                        # norm= mpl.colors.Normalize(vmin=0,vmax=1)
+                        # cbar = colorbar.ColorbarBase(cax, cmap=cbar_cmap, norm=norm)
+                        # cbar.set_ticks([0.3,0.4,0.5])
+                        # cbar.set_ticklabels([0.3,0.4,0.5])
                         fig.colorbar(cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=0,vmax=1),cmap=cmap),ax=ax) 
-                else:
-                    #TODO get this truncation of bar working https://stackoverflow.com/questions/40982050/matplotlib-how-to-cut-the-unwanted-part-of-a-colorbar
-                    # from matplotlib import colorbar
-                    # colors = cmap(np.linspace(1.-(0.5-0.3)/float(0.5), 1, cmap.N))
-                    # cbar_cmap = matplotlib.colors.LinearSegmentedColormap.from_list(cmap, colors)
-                    # cax,_ = colorbar.make_axes(ax)
-                    # norm= mpl.colors.Normalize(vmin=0,vmax=1)
-                    # cbar = colorbar.ColorbarBase(cax, cmap=cbar_cmap, norm=norm)
-                    # cbar.set_ticks([0.3,0.4,0.5])
-                    # cbar.set_ticklabels([0.3,0.4,0.5])
-                    fig.colorbar(cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=0,vmax=1),cmap=cmap),ax=ax) 
-                         
-                #print(z)
-                added_colorbar = True
+                            
+                    #print(z)
+                    added_colorbar = True
 
-            sc = ax.scatter(phi,radial_axis,c=colours,s=s)
-            plt.grid(alpha = min(show_grid,0.6),dashes=(5,10))   
-            if show_labels:
-                for i, miller_indices in enumerate(result.miller_indices[unique_values_mask]):
-                    ax.annotate("%.0f" % miller_indices[0]+","+"%.0f" % miller_indices[1]+","+"%.0f" % miller_indices[2]+",", (phi[i], radial_axis[i]),ha='center') 
-        add_screen_properties()
-        plt.show()  
+                sc = ax.scatter(phi,radial_axis,c=colours,s=s)
+                plt.grid(alpha = min(show_grid,0.6),dashes=(5,10))   
+                if show_labels:
+                    for i, miller_indices in enumerate(result.miller_indices[unique_values_mask]):
+                        ax.annotate("%.0f" % miller_indices[0]+","+"%.0f" % miller_indices[1]+","+"%.0f" % miller_indices[2]+",", (phi[i], radial_axis[i]),ha='center') 
+        if not get_R_only:
+            add_screen_properties()
+            plt.show()  
         if compare_handle != None:
-            #print("Plotting orientation-averaged R factor") # Doesn't work because when sector is empty it reduces the average.
-            #plot_sectors(sector_histogram h= sector_histogram)
-            non_zero_denon_histogram = sector_den_histogram.copy()
-            non_zero_denon_histogram[non_zero_denon_histogram== 0] = 1        
-            sector_histogram = np.divide(sector_num_histogram,non_zero_denon_histogram)
-            print("Plotting total R factor (incorrect, need to normalise I's)")
-            plot_sectors(sector_histogram = sector_histogram)
+            if not get_R_only:
+                #print("Plotting orientation-averaged R factor") # Doesn't work because when sector is empty it reduces the average.
+                #plot_sectors(sector_histogram h= sector_histogram)
+                non_zero_denon_histogram = sector_den_histogram.copy()
+                non_zero_denon_histogram[non_zero_denon_histogram== 0] = 1        
+                sector_histogram = np.divide(sector_num_histogram,non_zero_denon_histogram)
+                print("Plotting total R factor (incorrect, need to normalise I's)")
+                plot_sectors(sector_histogram = sector_histogram)
 
-            #print("plotting full ring orientation-averaged R factor") # Doesn't work because when sector is empty it reduces the average.
-            #plot_sectors(R_histogram)
+                #print("plotting full ring orientation-averaged R factor") # Doesn't work because when sector is empty it reduces the average.
+                #plot_sectors(R_histogram)
 
-            
-            non_zero_denon_histogram = R_den_histogram.copy()
-            non_zero_denon_histogram[non_zero_denon_histogram== 0] = 1        
-            R_histogram = np.divide(R_num_histogram,non_zero_denon_histogram)       
-            print("plotting full ring total R factor (incorrect, need to normalise I's)") 
-            plot_sectors(R_histogram)   
+                
+                non_zero_denon_histogram = R_den_histogram.copy()
+                non_zero_denon_histogram[non_zero_denon_histogram== 0] = 1        
+                R_histogram = np.divide(R_num_histogram,non_zero_denon_histogram)       
+                print("plotting full ring total R factor (incorrect, need to normalise I's)") 
+                plot_sectors(R_histogram)   
 
             if neutze_R:
                 print("R:")
@@ -1560,9 +1563,10 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
                 # print("R:") (not normalised)
                 # R = np.sum(np.abs((sqrt_real - sqrt_ideal)))/np.sum(sqrt_ideal)
                 # print(R)
-                print("sum of real","{:e}".format(np.sum(sqrt_real)),"sum of ideal","{:e}".format(np.sum(sqrt_ideal)),"sum of abs difference","{:e}".format(np.sum(np.abs((sqrt_real - sqrt_ideal)))))
-                #neutze_histogram = np.histogram2d(phi, radial_axis, weights=R, bins=(np.array([-np.pi,np.pi]), radial_edges))[0]             
-                #plot_sectors(neutze_histogram)
+                if not get_R_only:
+                    print("sum of real","{:e}".format(np.sum(sqrt_real)),"sum of ideal","{:e}".format(np.sum(sqrt_ideal)),"sum of abs difference","{:e}".format(np.sum(np.abs((sqrt_real - sqrt_ideal)))))
+                    #neutze_histogram = np.histogram2d(phi, radial_axis, weights=R, bins=(np.array([-np.pi,np.pi]), radial_edges))[0]             
+                    #plot_sectors(neutze_histogram)
                 return R
     
     ## Continuous (SPI)
@@ -1604,58 +1608,61 @@ def scatter_scatter_plot(neutze_R = True, crystal_aligned_frame = False ,SPI_res
             z_min, z_max = np.nanmin(combined_data), np.nanmax(combined_data)       
             current_cmap = plt.colormaps.get_cmap("viridis")
             current_cmap.set_bad(color='black')
-            z1_map = plt.imshow(z1,vmin=z_min,vmax=z_max,cmap=current_cmap)
-            plt.colorbar(z1_map)
-            plt.show()
-            if result2 != None:
-                print("Result 2 (Undamaged):")
-                print("Total screen-incident intensity:","{:e}".format(np.sum(result2.I)))
-                z2_map = plt.imshow(z2,vmin=z_min,vmax=z_max,cmap=current_cmap)
-                plt.colorbar(z2_map)
+            if not get_R_only:
+                z1_map = plt.imshow(z1,vmin=z_min,vmax=z_max,cmap=current_cmap)
+                plt.colorbar(z1_map)
                 plt.show()
-                print("R:")
-                fig, ax = plt.subplots()
-                #bg_col = "red"
-                bg = np.full((*z1.shape, 3), 70, dtype=np.uint8)
-                #alpha = 0*z1+0.0001#z1/z_max
-                I_tmp = result2.I
-                if log_I:
-                    I_tmp = z2.copy()
-                alpha = (I_tmp-np.nanmin(I_tmp))/(np.nanmax(I_tmp) - np.nanmin(I_tmp))
-                alpha[np.isnan(alpha)] = 0
+            if result2 != None:
+                if not get_R_only:
+                    print("Result 2 (Undamaged):")
+                    print("Total screen-incident intensity:","{:e}".format(np.sum(result2.I)))
+                    z2_map = plt.imshow(z2,vmin=z_min,vmax=z_max,cmap=current_cmap)
+                    plt.colorbar(z2_map)
+                    plt.show()
+                    print("R:")
+                    fig, ax = plt.subplots()
+                    #bg_col = "red"
+                    bg = np.full((*z1.shape, 3), 70, dtype=np.uint8)
+                    #alpha = 0*z1+0.0001#z1/z_max
+                    I_tmp = result2.I
+                    if log_I:
+                        I_tmp = z2.copy()
+                    alpha = (I_tmp-np.nanmin(I_tmp))/(np.nanmax(I_tmp) - np.nanmin(I_tmp))
+                    alpha[np.isnan(alpha)] = 0
                 sqrt_real = np.sqrt(result1.I)
                 sqrt_ideal = np.sqrt(result2.I)
                 inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real) 
                 R_cells = np.abs((inv_K*sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal))
                 R = np.sum(R_cells)
                 print(R) 
-                ax.imshow(bg)
-                R_cells *= len(R_cells)**2# multiply by num cells to give the 'weighted contribution' (such that R is now like the weighted average) 
-                R_map = ax.imshow(R_cells,vmin=0,vmax=0.4,alpha=alpha,cmap=cmap)     
-                plt.colorbar(R_map)
-                ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
-                ticklabels = ["{:6.2f}".format(q_row_0_el[1]) for q_row_0_el in result1.q_scr_xy[0]]
-                plt.xticks(ticks,ticklabels)
-                plt.yticks(ticks,ticklabels)
-                plt.show()
-
-                R_num = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)))        
-
-                norm_root_diff_map = False
-                if norm_root_diff_map:
-                    print("Plotting normalised root difference map (different scale)")
-                    fig, ax = plt.subplots()
-                    R_cells = np.abs((sqrt_real - sqrt_ideal)/sqrt_ideal)
+                if not get_R_only:
                     ax.imshow(bg)
-                    R_map = ax.imshow(R_cells,vmin=0,vmax=1,alpha=alpha,cmap=cmap)     
+                    R_cells *= len(R_cells)**2# multiply by num cells to give the 'weighted contribution' (such that R is now like the weighted average) 
+                    R_map = ax.imshow(R_cells,vmin=0,vmax=0.4,alpha=alpha,cmap=cmap)     
                     plt.colorbar(R_map)
                     ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
                     ticklabels = ["{:6.2f}".format(q_row_0_el[1]) for q_row_0_el in result1.q_scr_xy[0]]
                     plt.xticks(ticks,ticklabels)
                     plt.yticks(ticks,ticklabels)
-                    plt.show()   
+                    plt.show()
 
-                print("sum of real","{:e}".format(np.sum(sqrt_real)),"sum of ideal","{:e}".format(np.sum(sqrt_ideal)),"sum of abs difference","{:e}".format(R_num))       
+                    R_num = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)))        
+
+                    norm_root_diff_map = False
+                    if norm_root_diff_map:
+                        print("Plotting normalised root difference map (different scale)")
+                        fig, ax = plt.subplots()
+                        R_cells = np.abs((sqrt_real - sqrt_ideal)/sqrt_ideal)
+                        ax.imshow(bg)
+                        R_map = ax.imshow(R_cells,vmin=0,vmax=1,alpha=alpha,cmap=cmap)     
+                        plt.colorbar(R_map)
+                        ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
+                        ticklabels = ["{:6.2f}".format(q_row_0_el[1]) for q_row_0_el in result1.q_scr_xy[0]]
+                        plt.xticks(ticks,ticklabels)
+                        plt.yticks(ticks,ticklabels)
+                        plt.show()   
+
+                    print("sum of real","{:e}".format(np.sum(sqrt_real)),"sum of ideal","{:e}".format(np.sum(sqrt_ideal)),"sum of abs difference","{:e}".format(R_num))       
                 
                 return R 
             
@@ -1893,18 +1900,22 @@ def stylin(exp_name1,exp_name2,q_scr_max,get_R_only = False,SPI=False,SPI_max_q=
 
     # R Sectors
     if not SPI:
-        print("----R Sectors unaligned----")
-        scatter_scatter_plot(crystal_aligned_frame = False,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True,results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity) 
-        print("----Intensity of experiment 1----")
-        scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-        print("----Intensity of experiment 2----")
-        scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-        print("----R Sectors aligned----")
-        R = scatter_scatter_plot(crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-        print("----Intensity of experiment 1 (damaged) aligned----") 
-        scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
-        print("----Intensity of experiment 2 (undamaged) aligned----")
-        scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+        if not get_R_only:
+            print("----R Sectors unaligned----")
+            scatter_scatter_plot(crystal_aligned_frame = False,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True,results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity) 
+            print("----Intensity of experiment 1----")
+            scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+            print("----Intensity of experiment 2----")
+            scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+            print("----R Sectors aligned----")
+            R = scatter_scatter_plot(crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+            print("----Intensity of experiment 1 (damaged) aligned----") 
+            scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+            print("----Intensity of experiment 2 (undamaged) aligned----")
+            scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+        else:
+            R = scatter_scatter_plot(get_R_only = True,crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+
     else:
         #TODO Get the colors to match neutze.
         use_q = True
@@ -1913,7 +1924,7 @@ def stylin(exp_name1,exp_name2,q_scr_max,get_R_only = False,SPI=False,SPI_max_q=
         cutoff_log_intensity = None # -1 or None
         cmap = "PiYG_r"# "plasma"
         radial_lim = SPI_max_q
-        R = scatter_scatter_plot(log_I = log_I, cutoff_log_intensity = cutoff_log_intensity, SPI_result1=SPI_result1,SPI_result2=SPI_result2,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap)
+        R = scatter_scatter_plot(get_R_only=get_R_only,log_I = log_I, cutoff_log_intensity = cutoff_log_intensity, SPI_result1=SPI_result1,SPI_result2=SPI_result2,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap)
 
 
     return R
