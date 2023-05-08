@@ -77,7 +77,7 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
             Region(7,10,20, "static"), Region(8,20,50, "static"),  // low support
             Region(10,50,200,"static"), 
             Region(20,200,600,"static"), // auger
-            Region((int)(0.5+ 5*trans_scaling),600,preset.pulse_omega/4,"static"), // transition
+            Region((int)(0.5+ 7*trans_scaling),600,preset.pulse_omega/4,"static"), // transition
             Region(25,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
             Region(7,preset.pulse_omega*6/4,preset.pulse_omega*2.5,"static"), // high tail
             Region(20,-1,-1,"mb"), // Maxwell-boltzmann distribution
@@ -91,7 +91,7 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
             Region(5,10,20, "static"), Region(5,20,50, "static"),  // low support
             Region(7,50,200,"static"), 
             Region(7,200,600,"static"), // auger
-            Region((int)(0.5+ 4*trans_scaling),600,preset.pulse_omega/4,"static"), // transition
+            Region((int)(0.5+ 6*trans_scaling),600,preset.pulse_omega/4,"static"), // transition
             Region(15,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
             Region(4,preset.pulse_omega*6/4,preset.pulse_omega*2.5,"static"), // high tail
             Region(15,-1,-1,"mb"), // Maxwell-boltzmann distribution

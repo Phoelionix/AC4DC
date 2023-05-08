@@ -193,4 +193,6 @@ print("-------------------SPI------------------------")                         
 plot_that_funky_thing(R_data_SPI,0.05,0.25,"temps",template="plotly_dark") #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
 print("Done")
 
+#TODO store results.
+
 # %%
