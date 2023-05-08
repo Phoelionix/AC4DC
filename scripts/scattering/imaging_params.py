@@ -17,7 +17,7 @@ tetra_dict = dict(
     ),
     ##### Crystal params
     crystal = dict(
-        cell_scale = 3,  # for SC: cell_scale^3 unit cells 
+        cell_scale = 1,  # for SC: cell_scale^3 unit cells 
         positional_stdv = 0,#0.2, # RMS in atomic coord position [angstrom] (set to 0 below if crystal, since rocking angle handles this aspect)
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",

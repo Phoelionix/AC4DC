@@ -15,6 +15,7 @@ If two handles provided dotted line is used for first.
 if made with generate_batch.py, batch_lys likely contains files like: lys-1_2, lys-2_2, lys-3_2,... but names do not matter.
 
 (TODO ac4dc doesnt auto put results into a batch folder currently.)
+(TODO need to be able to specify folders containing outputs e.g. to compare a few outputs)
 
 Notes:
 Simulation outputs/batches should be in AC4DC/output/__Molecular/ while this scripts is in AC4DC/scripts
@@ -25,7 +26,7 @@ Simulation outputs/batches should be in AC4DC/output/__Molecular/ while this scr
 
 
 terminal_mode = True
-normalise = True
+normalise = False
 xmin, xmax = 1, 2e4
 
 END_T = 99#10 #0.0

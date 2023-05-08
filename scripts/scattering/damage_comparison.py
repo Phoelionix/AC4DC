@@ -138,10 +138,17 @@ batch_dir = None # Optional: Specify existing parent folder for batch of results
 R_data_crys = multi_damage("tetra",imaging_params.tetra_dict,allowed_atoms,CNO_to_N,same_deviations,batch_dir,get_R_only=True)
 R_data_SPI = multi_damage("tetra",imaging_params.tetra_dict_SPI,allowed_atoms,CNO_to_N,same_deviations,batch_dir,get_R_only=True)
 
-##%%
+#%%
 def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
+    log_photons = np.log(R_data[:,2])-np.min(np.log(R_data[:,2]))
+    log_photons += np.max(log_photons)/2
+    # photon_size_thing = R_data[:,2] + np.max(R_data[:,2])/10
+    photon_size_thing = 1+np.square(np.log(R_data[:,2])-np.min(np.log((R_data[:,2]))))
+
     df = pd.DataFrame(dict(
         photons =       R_data[:,2],
+        log_photons = log_photons,
+        photon_size_thing = photon_size_thing,
         fwhm =          R_data[:,1],
         energy =        R_data[:,0], 
         R =             R_data[:,3],
@@ -151,11 +158,11 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
     # fig = px.scatter_3d(df, x='energy', y='fwhm', z='photons',
     #           color='R', color_continuous_scale=[(0.1, "green"),(0, "green"), (0.2, "yellow"), (0.4, "red"),(1, "red")],range_color=[0,1])   
     # fig = px.scatter_3d(df, x='energy', y='fwhm', z='photons',
-    #           color='R',  color_continuous_scale="PuRd", color_continuous_midpoint=0.2) #px.colors.diverging.Armyrose#"plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
+    #           color='R',  color_continuous_scale="PuRd", color_continuous_midpoint=0.2) 
     # fig = px.scatter_3d(df, x='photons', y='fwhm', z='energy',
-    #           color='R',  color_continuous_scale="amp", range_color=[cmin,cmax]) #px.colors.diverging.Armyrose#"plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
+    #           color='R',  color_continuous_scale="amp", range_color=[cmin,cmax])'
     fig = px.scatter_3d(df, x='photons', y='fwhm', z='energy',
-              color='R',  color_continuous_scale=clr_scale, range_color=[cmin,cmax],**kwargs) #px.colors.diverging.Armyrose#"plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
+              color='R',  color_continuous_scale=clr_scale, range_color=[cmin,cmax],**kwargs)
     camera = dict(
         up=dict(x=0, y=0, z=1),
         center=dict(x=0, y=0, z=0),
@@ -164,7 +171,43 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
 
     fig.update_layout(scene_camera=camera)         
     fig.show()    
-    
+
+    fig = px.scatter(df, x='fwhm', y='R', symbol='energy', size='log_photons',
+              color='R', color_continuous_scale=clr_scale, range_color=[cmin,cmax],size_max=15,opacity=1,**kwargs) 
+    fig.update_layout(
+        showlegend=True,
+        legend=dict(
+        yanchor="top",
+        y=0.98,
+        xanchor="left",
+        x=1.13,
+    ))      
+    fig.show()
+
+    # Dot size represents num photons, 
+    df.sort_values('photon_size_thing')
+    fig = px.scatter(df, x='fwhm', y='energy', size='photon_size_thing',
+              color='R', color_continuous_scale=clr_scale, range_color=[cmin,cmax],size_max=30,opacity=1,**kwargs)     
+    fig.show()    
+        
+    # fig = px.scatter(df, x='fwhm', y='R', symbol='fwhm', size='log_photons',
+    #           color='energy', color_continuous_scale = 'plasma',size_max=15,opacity=1,**kwargs) 
+    # fig.update_layout(
+    #     showlegend=True,
+    #     legend=dict(
+    #     yanchor="top",
+    #     y=0.98,
+    #     xanchor="left",
+    #     x=1.13,
+    # ))     
+    # fig.show()
+    # fig = px.scatter(df, x='fwhm', y='R', size='log_photons',
+    #           color='energy', color_continuous_scale = 'plasma',size_max=15,opacity=1,**kwargs) 
+    # fig.show()    
+
+
+
+    ''' plot separate energies
     # Get min and max for each axis for consistency
     ranges = {}
     for col in df:
@@ -174,7 +217,7 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
         ranges[col] = range
 
     #get data frames for each energy
-    unique_E = df.energy.unique()
+    unique_E = np.sort(df.energy.unique())
     data_frame_dict = {elem : pd.DataFrame() for elem in unique_E}    
     for key in data_frame_dict.keys():
         data_frame_dict[key] = df[:][df.energy == key]    
@@ -186,6 +229,7 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
         fig.update_xaxes(range=ranges['photons'])
         fig.update_yaxes(range=ranges['fwhm'])           
         fig.show()
+    '''
 
 print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
 plot_that_funky_thing(R_data_crys,0.05,0.25,"temps",template="plotly_dark") #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
