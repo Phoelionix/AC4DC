@@ -1085,8 +1085,7 @@ class Plotter:
         ax.set_ylabel('Form factor (arb. units)')
         
         timedata = self.boundData[a][:,:-1] # -1 excludes the bare nucleus
-        temporary_fact = 3/0.994/0.99992  # Just normalising carbon - S.P.
-        dynamic_k = temporary_fact*np.tensordot(fdists.T, timedata.T,axes=1)   # Getting all k points? This has equal spacing -S.P. 
+        dynamic_k = np.tensordot(fdists.T, timedata.T,axes=1)   # Getting all k points? This has equal spacing -S.P. 
         step = (stop_idx - start_idx) // num_tsteps
         cmap=plt.get_cmap('plasma')
         fbar = np.zeros_like(dynamic_k[:,0])
@@ -1132,6 +1131,8 @@ def moving_average(a, n=3) :
     return ret[n - 1:] / n
 
 # Slater form factor
+# TODO On initialisation parse a dictionary from the form factor file from AC4DC which has form factors all stored,
+# then replace this call with (vectorised) dictionary read.
 # Warning: Only for states with exclusively s, p orbitals
 class SlaterShielding:
     # Z:  nuclear charge

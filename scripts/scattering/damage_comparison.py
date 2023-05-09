@@ -146,10 +146,10 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
     photon_size_thing = 1+np.square(np.log(R_data[:,2])-np.min(np.log((R_data[:,2]))))
 
     df = pd.DataFrame(dict(
+        fwhm =          R_data[:,1],
         photons =       R_data[:,2],
         log_photons = log_photons,
         photon_size_thing = photon_size_thing,
-        fwhm =          R_data[:,1],
         energy =        R_data[:,0], 
         R =             R_data[:,3],
         dummy_column_for_size = R_data[:,0]*0+1
@@ -206,7 +206,7 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
 
 
 
-    ''' plot separate energies
+    #plot separate energies
     # Get min and max for each axis for consistency
     ranges = {}
     for col in df:
@@ -223,19 +223,42 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
     for energy in unique_E:
         df = data_frame_dict[energy] 
         print("Energy:",energy,"eV")
-        fig = px.scatter(df,x='photons',y='fwhm',
+        fig = px.scatter(df,x='fwhm',y='photons',
             color='R',  color_continuous_scale=clr_scale, range_color=[cmin,cmax], size='dummy_column_for_size',size_max=15,opacity=1,**kwargs)
-        fig.update_xaxes(range=ranges['photons'])
-        fig.update_yaxes(range=ranges['fwhm'])           
+        fig.update_xaxes(range=ranges['fwhm'])
+        fig.update_yaxes(type="log",range=np.log(ranges['photons']))
         fig.show()
-    '''
-
+    # and do a contour
+    unique_fwhm = np.sort(df.fwhm.unique())
+    unique_photons = np.sort(df.photons.unique())
+    R_mesh = np.empty((len(unique_fwhm),len(unique_photons)))
+    for i, w in enumerate(unique_fwhm):
+        for j, p in enumerate(unique_photons):
+            val = df.query("fwhm=="+str(w) +"& photons=="+str(p))["R"]
+            if len(val) > 0:
+                R_mesh[i,j] = val.iloc[0]
+            else:
+                R_mesh[i,j] = None
+    
+    fig = go.Figure(data =
+        go.Contour(
+            z=R_mesh,
+            x=unique_fwhm, 
+            y=unique_photons,
+            colorscale =clr_scale, #'electric',
+            line_smoothing=0,
+            connectgaps = True,
+        ))
+    fig.update_yaxes(type="log")
+    fig.show()
+    
+##%%
 print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-plot_that_funky_thing(R_data_crys,0.05,0.20,"temps",template="plotly_dark") #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+plot_that_funky_thing(R_data_crys,0,0.20,"temps",template="plotly_dark") # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
 print("-------------------SPI------------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-plot_that_funky_thing(R_data_SPI,0.05,0.20,"temps",template="plotly_dark") #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+plot_that_funky_thing(R_data_SPI,0,0.20,"temps",template="plotly_dark") # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
 print("Done")
 
 #TODO store results.
-
+#TODO use form factor file produced by AC4DC rather than recalc so much.
 # %%

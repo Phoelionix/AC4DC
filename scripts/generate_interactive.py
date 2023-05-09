@@ -16,7 +16,7 @@ if made with generate_batch.py, batch_lys likely contains files like: lys-1_2, l
 
 TODO ac4dc doesnt auto put results into a batch folder currently.
 TODO need to be able to specify folders containing outputs e.g. to compare a few outputs
-TODO add -N flag for normalisation
+TODO add -N flag for normalisation (cld also add normalisation option to plotly to replace sliders with normed trace vrsns.)
 Notes:
 Simulation outputs/batches should be in AC4DC/output/__Molecular/ while this scripts is in AC4DC/scripts
 

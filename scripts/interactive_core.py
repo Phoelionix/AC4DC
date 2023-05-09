@@ -46,6 +46,7 @@ i = 1
 for symbol in ATOMS:
     ATOMNO[symbol] = i
     ATOMNO[symbol + '_fast'] = i
+    #ATOMNO[symbol + '_faster'] = i
     i += 1
 
 
