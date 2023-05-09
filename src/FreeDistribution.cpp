@@ -88,7 +88,7 @@ void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P, co
     for (size_t xi=0; xi<P.size(); xi++) {
         // Loop over configurations that P refers to
         double v_copy [size] = {0};
-        #pragma omp parallel for num_threads(threads) reduction(+ : v_copy)
+        #pragma omp parallel for num_threads(threads) reduction(+ : v_copy) // Do NOT use collapse(2), it's about twice as slow.
         for (size_t J=0; J<size; J++) {
             for (size_t K=0; K<size; K++) {
                 v_copy[J] += P[xi]*f[K]*basis.Q_EII[a][xi][J][K];
@@ -104,7 +104,7 @@ void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P, co
  * 
  * @param v 
  * @param a 
- * @param P d/dt P[i] = \sum_i=1^N W_ij - W_ji ~~~~ P[j] = d/dt(average-atomic-state)
+ * @param P probabilities of each atomic state;  d/dt P[i] = \sum_i=1^N W_ij - W_ji ~~~~ P[j] = d/dt(average-atomic-state)
  */
 // Puts the Q_TBR changes in the supplied vector v
 void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P, const int threads) const {
@@ -112,7 +112,7 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P, co
     assert(P.size() == basis.Q_TBR[a].size());
     double v_copy [size] = {0}; 
     #pragma omp parallel for num_threads(threads) reduction(+ : v_copy) collapse(2)
-    for (size_t eta=0; eta<P.size(); eta++) {          
+    for (size_t eta=0; eta<P.size(); eta++) {          // size = num configurations
         // Loop over configurations that P refers to
         for (size_t J=0; J<size; J++) {                   // size = num grid points
             for (auto& q : basis.Q_TBR[a][eta][J]) {   // Thousands of iterations for each J - S.P.
@@ -141,7 +141,7 @@ void Distribution::get_Q_ee(Eigen::VectorXd& v, const int threads) const {
     for (size_t J=0; J<size; J++) {
         for (size_t K=0; K<size; K++) {
             for (auto& q : basis.Q_EE[J][K]) {
-                 v_copy[J] += q.val * f[K] * f[q.idx] * CoulombLog;
+                 v_copy[J] += q.val * f[K] * f[q.idx] * CoulombLog;   
             }
         }
     }

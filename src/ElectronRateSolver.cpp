@@ -83,7 +83,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
     if (!init && input_params.elec_grid_type.mode != GridSpacing::dynamic){
         return; 
     }
-    // 
+    // recalc being tuned off seems to be broken currently. We only do it once so I'm not bothering to deal with it. -S.P.
     // bool recalc = false;
     // #ifdef RECALC_HARTREE
     // recalc = true;
