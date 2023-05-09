@@ -83,18 +83,18 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
     if (!init && input_params.elec_grid_type.mode != GridSpacing::dynamic){
         return; 
     }
-    //
-    
+    // 
+    // bool recalc = false;
+    // #ifdef RECALC_HARTREE
+    // recalc = true;
+    // #endif
     bool recalc = true;
     if (init ){
-        std::cout << "[ HF ] First computation of rates, logging HF iteration excesses. Future computations will not be logged. " << std::endl;
+        std::cout << "[ HF ] Computing bound rates for species' allowed orbital configurations" << std::endl;
         input_params.calc_rates(_log, recalc);
+        hasRates = true;
     }
-    else{
-        ofstream dummy_log;
-        input_params.calc_rates(dummy_log,recalc); 
-    }
-    hasRates = true;
+    
     
 
     /// Set up the grid
@@ -204,7 +204,7 @@ void ElectronRateSolver::set_grid_regions(ManualGridBoundaries gb){
 }
 
 void ElectronRateSolver::solve(ofstream & _log, const std::string& tmp_data_folder) {
-    assert (hasRates || "No rates found! Use ElectronRateSolver::initialise_grid_with_computed_cross_sections(log)\n");
+    assert (hasRates || "Rates weren't calculated!\n");
     auto start = std::chrono::system_clock::now();
 
     data_backup_folder = tmp_data_folder;

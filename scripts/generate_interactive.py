@@ -14,9 +14,9 @@ If two handles provided dotted line is used for first.
 'python3 generate_interactive.py batch_lys'  
 if made with generate_batch.py, batch_lys likely contains files like: lys-1_2, lys-2_2, lys-3_2,... but names do not matter.
 
-(TODO ac4dc doesnt auto put results into a batch folder currently.)
-(TODO need to be able to specify folders containing outputs e.g. to compare a few outputs)
-
+TODO ac4dc doesnt auto put results into a batch folder currently.
+TODO need to be able to specify folders containing outputs e.g. to compare a few outputs
+TODO add -N flag for normalisation
 Notes:
 Simulation outputs/batches should be in AC4DC/output/__Molecular/ while this scripts is in AC4DC/scripts
 
@@ -179,7 +179,7 @@ def generate(target_handles,sim_data_parent_dir,plot_title,fname_out,normalise,o
     line_1 = {'width': 6,"dash": '10,1'}
     line_2 = {'width': 6,}
     line_kwargs = [line_1,line_2]
-    if len(target_handles) > 2:
+    if len(target_handles) != 2:
         line_kwargs = [line_2 for l in range(len(target_handles))]
     ipl.plot_traces(normed=normalise, line_kwargs=line_kwargs)
     # Add widgets
