@@ -65,7 +65,7 @@ if __name__ == "__main__":
 plt.ioff()  # stops weird vscode stuff
 
 DEBUG = False 
-SEEDED = True # TODO fully implement for all random stuff
+SEEDED = False # TODO fully implement for all random stuff
 c_au = 137.036; eV_per_Ha = 27.211385; ang_per_bohr = 1/1.88973  # > 1 ang = 1.88973 bohr
 
 class Results():
@@ -543,7 +543,7 @@ class XFEL():
         ff_calculator.initialise_coherence_params(start_time,end_time,self.max_q,self.photon_energy,t_fineness=self.t_fineness) # q_fineness isn't used for our purposes.   
         return ff_calculator
     
-    def spooky_laser(self, start_time, end_time, sim_data_handle, sim_parent_dir_path, target, results_parent_dir = "results/", circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False):
+    def spooky_laser(self, start_time, end_time, sim_data_handle, sim_parent_dir_path, target, SPI_resolution = None, results_parent_dir = "results/", circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False):
         """ 
         end_time: The end time of the photon capture in femtoseconds. Not a real thing experimentally, but useful for choosing 
         a level of damage. Explicitly, it is used to determine the upper time limit for the integration of the form factor.
@@ -632,8 +632,15 @@ class XFEL():
             
             ### Geometry
             # In crystallography, for a resolution d we have q = 2*pi/d as lambda=2dsin(theta), q = (4pi/lambda)sin(theta). Possibly a questionable definition for SPI without periodicity, but it is used for consistency, and Nuetze 2000 makes no distinction.
-            d = 2/ang_per_bohr # resolution            
-            max_theta = self.q_to_theta(2*np.pi/d)
+                  
+            # max q represents the actual limit of the change in momentum (at least in a 180 degree arc)
+            # rim_q is the q we want to have at the largest unbroken ring
+            rim_q = self.max_q
+            if SPI_resolution!= None:
+                d = SPI_resolution/ang_per_bohr # resolution
+                rim_q = min(self.max_q,2*np.pi/d)   
+
+            max_theta = self.q_to_theta(rim_q)
             #screen_width = resolution_to_X(d) * 2
             screen_distance = self.detector_distance # screen-target separation [a0]
             # res. at edge corner or centre? Surely at centre, for a full ring of information
@@ -1956,22 +1963,23 @@ if __name__ == "__main__":
     #============------------User params---------==========#
 
     target = "tetra" #target_options[2]
-    top_resolution = 2
-    bottom_resolution = None#30
+    best_resolution = 2   # resolution (determining max q)
+    worst_resolution = None#30 # 'resolution' corresponding to min q
 
     #### Individual experiment arguments 
     start_time = -6
-    end_time = 6#10 #0#-9.80    
+    end_time = -3#10 #0#-9.80    
     laser_firing_qwargs = dict(
         SPI = True,
-        pixels_across = 200,  # for SPI, shld go on xfel params.
+        SPI_resolution = best_resolution,
+        pixels_across = 100,  # for SPI, shld go on xfel params.
         random_orientation = False,  #TODO refactor to be in same place as other orients...# orientation is synced with second 
     )
     ##### Crystal params
     crystal_no_dev = True
     crystal_qwargs = dict(
         cell_scale = 5,  # for SC: cell_scale^3 unit cells 
-        positional_stdv = 0, # RMS in atomic coord position [angstrom] (set to 0 below if crystal, since rocking angle handles this aspect)
+        positional_stdv = 0.2, # RMS in atomic coord position [angstrom] (set to 0 below if crystal, since rocking angle handles this aspect)
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
         rocking_angle = 1,  # (approximating mosaicity)
@@ -1986,8 +1994,8 @@ if __name__ == "__main__":
     exp_qwargs = dict(
         detector_distance_mm = 100,
         screen_type = "flat",#"hemisphere"
-        q_minimum = res_to_q(bottom_resolution),#None #angstrom
-        q_cutoff = res_to_q(top_resolution),#2*np.pi/2
+        q_minimum = res_to_q(worst_resolution),#None #angstrom
+        q_cutoff = res_to_q(best_resolution),#2*np.pi/2
         t_fineness=5,   
         #####crystal stuff
         max_triple_miller_idx = None, # = m, where max momentum given by q with miller indices (m,m,m)
@@ -2004,7 +2012,7 @@ if __name__ == "__main__":
         orientation_axis_crys = [1,0,0],#None,#[1,1,0]
         ######
     )
-    same_deviations = True # whether same position deviations between damaged and undamaged crystal (SPI only) 
+    same_deviations = False # whether same position deviations between damaged and undamaged crystal (SPI only) 
 
 
     # Optional: Choose previous folder for crystal results

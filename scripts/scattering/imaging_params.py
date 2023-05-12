@@ -5,13 +5,14 @@ print("====================")
 print("Refreshed imaging params")
 print("====================")
 
-top_resolution = 2
-bottom_resolution = None
+best_resolution = 2
+worst_resolution = None
 tetra_dict = dict( 
 
     #### Individual experiment arguments
     laser = dict(
         SPI = False,
+        SPI_resolution = best_resolution,
         pixels_across = 100,  # for SPI, shld go on xfel params.
         random_orientation = True,  # NB: orientation is synced with undamaged crystal imaging  (TODO random orientation should not be separate from the other orient params...)
     ),
@@ -29,8 +30,8 @@ tetra_dict = dict(
     experiment = dict(
         detector_distance_mm = 100,
         screen_type = "flat",#"hemisphere"
-        q_minimum = res_to_q(bottom_resolution),#None #angstrom
-        q_cutoff = res_to_q(top_resolution),#2*np.pi/2
+        q_minimum = res_to_q(best_resolution),#None #angstrom
+        q_cutoff = res_to_q(worst_resolution),#2*np.pi/2
         t_fineness=100,   
         #####crystal stuff
         max_triple_miller_idx = None, # = m, where max momentum given by q with miller indices (m,m,m)

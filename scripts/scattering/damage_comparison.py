@@ -24,7 +24,7 @@ my_dir = path.abspath(path.join(src_file_path ,"../")) + "/"
 #TODO rename the diff sims, 'non-SPI' unclear.
 
 mode_dict = {0:'crystal',1:'spi',2:'both'}
-mode = 0
+mode = 1
 NO_CRYSTAL_DEV = False
 
 PDB_PATHS = dict( # contains the target that should be used for the folder.
