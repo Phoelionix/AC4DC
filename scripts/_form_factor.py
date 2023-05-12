@@ -15,6 +15,7 @@ import matplotlib
 matplotlib.rcParams.update({
     "pgf.texsystem": "pdflatex",
     'font.family': 'serif',
+    'font.size': 10,
     'text.usetex': True,
     'pgf.rcfonts': False,
 })
@@ -39,7 +40,7 @@ fname_free = "free"
 fname_HR_style = "HR_style"
 fname_bound_dynamics = "bound_dynamics"  #Was called both _bound and dynamics so I assume it's bound dynamics or something.
 
-handle =  "C_tetrapeptide_4"#"Naive_Lys_mid_21"#"Carbon_294"#"Carbon_Wiggleless_2500_Fluence"#"Carbon_Sanders"""
+handle =  "sulfur_2shell_test_3"#"sulfur_3shell_baseline_3"#"Naive_Lys_mid_21"#"Carbon_294"#"Carbon_Wiggleless_2500_Fluence"#"Carbon_Sanders"""
 #######
 
 label = handle +'_' 
@@ -50,7 +51,7 @@ pl = Plotter(handle)
 plt.close()
 photon_energy = 6000
 q_max = 2#pl.theta_to_q(22,photon_energy) # In units of bohr^-1. 
-pl.initialise_coherence_params(-10,0,q_max,photon_energy,50,100,True)
+pl.initialise_coherence_params(-6,-0.1,q_max,photon_energy,50,100,True)
 
 
 
@@ -61,7 +62,8 @@ pl.initialise_coherence_params(-10,0,q_max,photon_energy,50,100,True)
 
 
 
-pl.plot_form_factor(6) 
+pl.plot_form_factor(6)
+plt.title("Sulfur 2 shell approximation") 
 
 #print(pl.get_A_bar(-10,-7.5,12,12,"C_fast","C_fast",100))
 

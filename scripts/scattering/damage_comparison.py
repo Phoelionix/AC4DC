@@ -19,10 +19,18 @@ import inspect
 src_file_path = inspect.getfile(lambda: None)  
 my_dir = path.abspath(path.join(src_file_path ,"../")) + "/"
 
+# full sim that does point sampling, thus assumes a "smooth" distribution. Thus good for low cell count input. Num cells is entire whole target.
+# Compared with non-SPI (crystal) which assumes crystal and does bragg points. Num cells is supercell.
+#TODO rename the diff sims, 'non-SPI' unclear.
+
+mode_dict = {0:'crystal',1:'spi',2:'both'}
+mode = 0
+NO_CRYSTAL_DEV = False
+
 PDB_PATHS = dict( # contains the target that should be used for the folder.
-    neutze =  my_dir + "2lzm.pdb",
-    hen = my_dir + "4et8.pdb",
-    tetra = my_dir+ "5zck.pdb" ,
+    neutze =  my_dir + "targets/2lzm.pdb",
+    hen = my_dir + "targets/4et8.pdb",
+    tetra = my_dir+ "targets/5zck.pdb" ,
 )          
 
 
@@ -31,7 +39,7 @@ def multi_damage(batch_handle,params,allowed_atoms_1,CNO_to_N,same_deviations,ch
     
     '''
     # Turn off stdv for crystal 
-    if params["laser"]["SPI"] == False:
+    if NO_CRYSTAL_DEV and params["laser"]["SPI"] == False:
         params["crystal"]["positional_stdv"] = 0
     pdb_path = PDB_PATHS[batch_handle]
 
@@ -39,10 +47,10 @@ def multi_damage(batch_handle,params,allowed_atoms_1,CNO_to_N,same_deviations,ch
     Folder structure:
     ...'root_results_dir'/'results_batch_dir'/<experiment_results>/<orientation>
     """
-    sim_data_batch_dir = path.abspath(path.join(src_file_path ,"../../../output/__Molecular/"+batch_handle)) + "/"
-    sim_input_dir = path.abspath(path.join(src_file_path ,"../../../input/")) + "/"
+    sim_data_batch_dir = path.abspath(path.join(my_dir ,"../../output/__Molecular/"+batch_handle)) + "/"
+    sim_input_dir = path.abspath(path.join(my_dir ,"../../input/")) + "/"
     # Folder containing the folders corresponding to each batch of handles.
-    root_results_dir = path.join(src_file_path,"results_R_plotting/")+ "/"
+    root_results_dir = path.join(my_dir,"results_R_plotting/")+ "/"
     if path.isdir(root_results_dir):
         rmtree(root_results_dir)
     if path.isfile(root_results_dir):
@@ -76,6 +84,8 @@ def multi_damage(batch_handle,params,allowed_atoms_1,CNO_to_N,same_deviations,ch
     
     R_data = []
     for i, sim_handle in enumerate(sim_handle_list):
+        if energy[i] != 12000:
+            continue
         run_params = copy.deepcopy(params)
         
         #TODO print properly
@@ -101,9 +111,8 @@ def multi_damage(batch_handle,params,allowed_atoms_1,CNO_to_N,same_deviations,ch
             print("Crystals growing at breakneck speeds...")
             time.sleep(0.3)            
 
+        # The undamaged crystal form factor is constant (the initial state's) but still performs the same integration step with the pulse profile weighting.
         crystal = Crystal(pdb_path,allowed_atoms_1,is_damaged=True,CNO_to_N = CNO_to_N, **run_params["crystal"])
-        # The undamaged crystal uses the initial state but still performs the same integration step with the pulse profile weighting.
-        # we copy the other crystal so that it has the same deviations in coords
         if same_deviations:
             # we copy the other crystal so that it has the same deviations in coords
             crystal_undmged = copy.deepcopy(crystal)
@@ -135,8 +144,10 @@ CNO_to_N = True
 same_deviations = True # whether same position deviations between damaged and undamaged crystal (SPI only)
 batch_dir = None # Optional: Specify existing parent folder for batch of results, to add these orientation results to.
 
-R_data_crys = multi_damage("tetra",imaging_params.tetra_dict,allowed_atoms,CNO_to_N,same_deviations,batch_dir,get_R_only=True)
-R_data_SPI = multi_damage("tetra",imaging_params.tetra_dict_SPI,allowed_atoms,CNO_to_N,same_deviations,batch_dir,get_R_only=True)
+if mode_dict[mode] != "spi":
+    R_data_crys = multi_damage("tetra",imaging_params.tetra_dict,allowed_atoms,CNO_to_N,same_deviations,batch_dir,get_R_only=True)
+if mode_dict[mode] != "crystal":
+    R_data_SPI = multi_damage("tetra",imaging_params.tetra_dict_SPI,allowed_atoms,CNO_to_N,same_deviations,batch_dir,get_R_only=True)
 
 #%%
 def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
@@ -210,13 +221,19 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
     # Get min and max for each axis for consistency
     ranges = {}
     for col in df:
-        range = df[col].agg(['min','max'])
-        range[0]-=range[1]/10 
-        range[1]+= range[1]/10
-        ranges[col] = range
+        #rng = df[col].agg(['min','max'])
+        rng = [df[col].min(),df[col].max()]
+        rng[0]-=rng[1]/10 
+        rng[0] = max(0,rng[0])
+        rng[1]+= rng[1]/10
+        ranges[col] = rng
+    print(ranges['photons'])
 
+    original_df = df
     #get data frames for each energy
     unique_E = np.sort(df.energy.unique())
+    unique_fwhm = np.sort(df.fwhm.unique())
+    unique_photons = np.sort(df.photons.unique())
     data_frame_dict = {elem : pd.DataFrame() for elem in unique_E}    
     for key in data_frame_dict.keys():
         data_frame_dict[key] = df[:][df.energy == key]    
@@ -229,35 +246,98 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
         fig.update_yaxes(type="log",range=np.log(ranges['photons']))
         fig.show()
     # and do a contour
-    unique_fwhm = np.sort(df.fwhm.unique())
-    unique_photons = np.sort(df.photons.unique())
-    R_mesh = np.empty((len(unique_fwhm),len(unique_photons)))
-    for i, w in enumerate(unique_fwhm):
-        for j, p in enumerate(unique_photons):
-            val = df.query("fwhm=="+str(w) +"& photons=="+str(p))["R"]
-            if len(val) > 0:
-                R_mesh[i,j] = val.iloc[0]
-            else:
-                R_mesh[i,j] = None
-    
-    fig = go.Figure(data =
+    df = data_frame_dict[12000]
+    fig = go.Figure(data =  
         go.Contour(
-            z=R_mesh,
-            x=unique_fwhm, 
-            y=unique_photons,
-            colorscale =clr_scale, #'electric',
+            #z=R_mesh,
+            #x=unique_fwhm, 
+            #y=unique_photons,
+            z = df["R"],
+            x = df["fwhm"],
+            y = [1e12*p for p in df["photons"]],
+
+            colorscale = 'amp',#clr_scale, #'electric',
             line_smoothing=0,
             connectgaps = True,
+            zmin = 0, zmax = 0.4,
+            contours = go.contour.Contours(start = 0.05, end= ranges['R'][1], size = 0.05),
+            colorbar = dict(title = "R", tickvals = np.arange(0.05,ranges['R'][1],0.05),)
         ))
-    fig.update_yaxes(type="log")
+    fig.update_xaxes(title="FWHM (fs)",type="log")
+    fig.update_yaxes(title="Photons")
+    fig.update_yaxes(type="log",range=np.log(ranges['photons']),tickvals = [1e10,1e11,1e12,1e13],tickformat = '.0e')
+    fig.update_layout(width = 750, height = 600,)
     fig.show()
+    df = original_df
+
+    #get data frames for 1e12 photon count and do a contour
+    unique_E = np.sort(df.energy.unique())
+    data_frame_dict = {elem : pd.DataFrame() for elem in unique_photons}    
+    for key in data_frame_dict.keys():
+        data_frame_dict[key] = df[:][df.photons == key]    
+    df = data_frame_dict[1]
+
+    fig = go.Figure(data =  
+        go.Contour(
+            #z=R_mesh,
+            #x=unique_fwhm, 
+            #y=unique_photons,
+            z = df["R"],
+            x = df["fwhm"],
+            y = df["energy"],
+
+            colorscale = 'amp',#clr_scale, #'electric',
+            line_smoothing=0,
+            connectgaps = False,
+            zmin = 0, zmax = 0.4,
+            contours = go.contour.Contours(start = 0.05, end= ranges['R'][1], size = 0.05),
+            colorbar = dict(title = "R", tickvals = np.arange(0.05,ranges['R'][1],0.05),)
+        ))
+    fig.update_layout(width = 750, height = 600,)
+    fig.update_xaxes(title="FWHM (fs)",type="log")
+    fig.update_yaxes(title="Energy (eV)")
+
+    fig.show()   
+    df = original_df
+
+    #get data frames for 25 fs fwhm and do a contour
+    unique_E = np.sort(df.energy.unique())
+    data_frame_dict = {elem : pd.DataFrame() for elem in unique_fwhm}    
+    for key in data_frame_dict.keys():
+        data_frame_dict[key] = df[:][df.fwhm == key]    
+    df = data_frame_dict[25]
+
+    fig = go.Figure(data =  
+        go.Contour(
+            #z=R_mesh,
+            #x=unique_fwhm, 
+            #y=unique_photons,
+            z = df["R"],
+            x = df["energy"],
+            y = [1e12*p for p in df["photons"]],
+
+            colorscale = 'amp',#clr_scale, #'electric',
+            line_smoothing=0,
+            connectgaps = False,
+            zmin = 0, zmax = 0.4,
+            contours = go.contour.Contours(start = 0.05, end= ranges['R'][1], size = 0.05),
+            colorbar = dict(title = "R", tickvals = np.arange(0.05,ranges['R'][1],0.05),)
+        ))
+    fig.update_layout(width = 750, height = 600,)
+    fig.update_xaxes(title="Energy (eV)")
+    fig.update_yaxes(title="Photons",type="log",range=np.log(ranges['photons']),tickvals = [1e10,1e11,1e12,1e13],tickformat = '.0e')
+    fig.show()        
+    df = original_df
     
 ##%%
-print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-plot_that_funky_thing(R_data_crys,0,0.20,"temps",template="plotly_dark") # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
-print("-------------------SPI------------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-plot_that_funky_thing(R_data_SPI,0,0.20,"temps",template="plotly_dark") # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+if mode_dict[mode] != "spi":
+    print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
+    plot_that_funky_thing(R_data_crys,0,0.20,"temps",template="plotly_dark") # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+if mode_dict[mode] != "crystal":
+    print("-------------------SPI------------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
+    plot_that_funky_thing(R_data_SPI,0,0.20,"temps",template="plotly_dark") # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
 print("Done")
+
 
 #TODO store results.
 #TODO use form factor file produced by AC4DC rather than recalc so much.

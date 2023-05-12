@@ -65,6 +65,7 @@ if __name__ == "__main__":
 plt.ioff()  # stops weird vscode stuff
 
 DEBUG = False 
+SEEDED = True # TODO fully implement for all random stuff
 c_au = 137.036; eV_per_Ha = 27.211385; ang_per_bohr = 1/1.88973  # > 1 ang = 1.88973 bohr
 
 class Results():
@@ -115,14 +116,16 @@ class Crystal():
         
         ## Parameters to be parsed by custom function because I cannot understand Bio.PDB.PDBParser's documentation.
         self.sym_rotations = []; self.sym_translations = [];   # Symmetry for each asymmetric unit simulated. If non-SPI, this is defining the supercell.
-        self.cell_dim = None   # unit cell length parameters. Angles not implemented yet.
-
-        
+        self.cell_dim = None   # unit cell length parameters. Angles not implemented yet.        
         self.parse_data_from_pdb() # All asymmetric units in unit cell
+
         if not include_symmetries:
             # Ignore parsed symmetries and use a single asymmetric unit per cell.
             self.sym_rotations = []; self.sym_translations = []; 
             self.add_symmetry_to_cells(np.identity(3),np.zeros((3)),"(X,Y,Z)")
+
+        self.supercell_dim = self.cell_dim*cell_scale 
+
         ## Dictionary for going from pdb to ac4dc names.
         # different names
         PDB_to_AC4DC_dict = dict(
@@ -200,7 +203,7 @@ class Crystal():
             print(symmetry_label,"\n",np.c_[symmetry_factor, print_thing ,symmetry_translation],sep="")
             for coord in cube_coords:
                 #print(coord)
-                translation = coord*self.cell_dim + symmetry_translation 
+                translation = coord*self.cell_dim + symmetry_translation
                 self.sym_translations.append(translation)
                 self.sym_rotations.append(symmetry_factor)
                  
@@ -367,30 +370,6 @@ class Crystal():
         if raise_non_unique_exception:
             raise Exception(str(len(np.delete(plot_coords, unique_indices))) + " non-unique coords found:")
 
-# import pydeck
-# import pandas as pd
-
-# df = pd.read_csv(DATA_URL)
-
-# target = [df.x.mean(), df.y.mean(), df.z.mean()]
-
-# point_cloud_layer = pydeck.Layer(
-#     "PointCloudLayer",
-#     data=DATA_URL,
-#     get_position=["x", "y", "z"],
-#     get_color=["r", "g", "b"],
-#     get_normal=[0, 0, 15],
-#     auto_highlight=True,
-#     pickable=True,
-#     point_size=3,
-# )
-
-# view_state = pydeck.ViewState(target=target, controller=True, rotation_x=15, rotation_orbit=30, zoom=5.3)
-# view = pydeck.View(type="OrbitView", controller=True)
-
-# r = pydeck.Deck(point_cloud_layer, initial_view_state=view_state, views=[view])
-# r.to_html("point_cloud_layer.html", css_background_color="#add8e6")
-
 
 class Atomic_Species():
     def __init__(self,name,crystal):
@@ -415,15 +394,19 @@ class Atomic_Species():
         With a hybrid molecular dynamics model informed by AC4DC, the nuclei's states could be tracked properly throughout time, and this function would be replaced
         by a call to the data of the atomic nuclei's states.
         '''
-        self.times_used = self.crystal.ff_calculator.f_undamaged(0,self.name)[1]
+        self.times_used = self.crystal.ff_calculator.get_times_used()
         if self.num_atoms != len(self.crystal.sym_rotations)*len(self.coords):
             raise Exception("num atoms was not same on set_stochastic_states call as when set by set_coord_deviation")
         if self.crystal.is_damaged:
             # Initialise an array that tracks the individual atoms' form factors.
-            orb_occs_shape = (self.num_atoms,) + self.crystal.ff_calculator.random_state_snapshots(self.name)[0].shape
-            self.orb_occs= np.empty(orb_occs_shape)    # self.orb_occs[i] is an array of states corresponding to each time. We make the necessary approximation that an atom's state is independent of its prior states. This approximation is dubious at low unit cell numbers, but at higher numbers, because the contribution from an atom at the same relative cell coordinate and state as another atom will be equivalent, we get the same outcome so long as the probability distribution of states is representative of the actual distribution of states. i.e. tracking state history at the same global position is redundant at high unit cell counts where we can expect the distribution of states at a given coordinate to have a low deviation between species.  
+            orb_occs_shape = (self.num_atoms,len(self.times_used))  # [num atoms,times]
+            # TODO instead of storing lists, replace with indices and a list with corresponding states. Also use index to get ff rather than orbocc list
+            self.orb_occs= np.empty(orb_occs_shape,dtype=list)    # self.orb_occs[i] is an array of states corresponding to each time. We make the necessary approximation that an atom's state is independent of its prior states. This approximation is dubious at low unit cell numbers, but at higher numbers, because the contribution from an atom at the same relative cell coordinate and state as another atom will be equivalent, we get the same outcome so long as the probability distribution of states is representative of the actual distribution of states. i.e. tracking state history at the same global position is redundant at high unit cell counts where we can expect the distribution of states at a given coordinate to have a low deviation between species.  
             for idx in range(self.num_atoms):
-                self.orb_occs[idx] = self.crystal.ff_calculator.random_state_snapshots(self.name)[0] 
+                seed = None
+                if SEEDED:
+                    seed = idx
+                self.orb_occs[idx],_dummy,self.orb_occ_dict = self.crystal.ff_calculator.random_state_snapshots(self.name,seed)                 
     def set_coord_deviation(self):
         self.num_atoms = len(self.crystal.sym_rotations)*len(self.coords)
         self.error = np.empty((self.num_atoms,3))
@@ -461,7 +444,7 @@ class Atomic_Species():
             # Damaged, we 
             else:
                 def stoch_f_placeholder(atom_idx,q_arr): 
-                    return self.crystal.ff_calculator.random_states_to_f_snapshots(self.times_used,self.orb_occs[atom_idx],q_arr,self.name)[0]  # f has form  [times,momenta]
+                    return self.crystal.ff_calculator.random_states_to_f_snapshots(self.times_used,self.orb_occs[atom_idx],q_arr,self.name,self.orb_occ_dict)[0]  # f has form  [times,momenta]
             self.get_stochastic_f = stoch_f_placeholder
 class XFEL():
     def __init__(self, experiment_name, photon_energy, detector_distance_mm=100, q_minimum = None, q_cutoff = None, max_triple_miller_idx = None, screen_type = "hemisphere", num_orients_crys=1, orientation_axis_crys = None, x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100,SPI_y_rotation = 0,SPI_x_rotation = 0,SPI_z_rotation = 0):
@@ -507,15 +490,16 @@ class XFEL():
             self.min_q = q_minimum/1.88973
 
         self.hemisphere_screen = True
+        eps = 0.00000000000001
         if screen_type == "flat": #well a circle
             self.hemisphere_screen = False
-            self.max_q = self.photon_momentum - 0.00000001
+            self.max_q = (1-eps)*self.photon_momentum 
         elif screen_type == "hemisphere":
             # as q = 2ksin(theta), non-inclusive upper bound is 45 degrees(theoretically).  
-            self.max_q = 2*self.photon_momentum/np.sqrt(2)  - 0.00000001
+            self.max_q = (2-eps)*self.photon_momentum/np.sqrt(2)  
 
         elif screen_type == "sphere":
-            self.max_q = 2*self.photon_momentum  - 0.00000001
+            self.max_q = (2-eps)*self.photon_momentum
         else:
             raise Exception("Available screen types are 'flat, 'hemisphere', and 'sphere'")
         if q_cutoff != None:
@@ -537,7 +521,7 @@ class XFEL():
         # crystal only...
         self.num_orientations =  num_orients_crys
         if orientation_axis_crys != None:
-            if np.array(orientation_axis_crys).shape != 3:
+            if np.array(orientation_axis_crys).shape != (3,):
                 raise Exception("invalid axis", orientation_axis_crys)            
             if orientation_axis_crys[0] == orientation_axis_crys[1] == orientation_axis_crys[2] == 0:
                 raise Exception("axis vector has 0 length")      
@@ -878,13 +862,15 @@ class XFEL():
             if not np.array_equal(times_used,species.times_used):
                 raise Exception("Times used don't match between species.")        
             # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
-            max_atoms_per_loop = 200  # Restrict array size to prevent computer tapping out. 
+            max_atoms_per_loop = 200 # Restrict array size to prevent computer tapping out. 
             for s in range(len(self.target.sym_rotations)):
-                print("Working through symmetry",s)
+                #print("Working through symmetry",s)
                 num_atom_batches = int(len(species.coords)/max_atoms_per_loop)+1
                 for a_batch in range(num_atom_batches):
                     atm_idx = np.arange(len(species.coords)*s+max_atoms_per_loop*a_batch, len(species.coords)*s + min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
-                    print("atoms",atm_idx[0],"-",atm_idx[-1])
+                    if len(atm_idx) == 0:
+                        break
+                    print("symmetry:",s,"atoms:",atm_idx[0],"-",atm_idx[-1])
                     relative_atm_idx = np.arange(max_atoms_per_loop*a_batch, min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
                     # Rotate to target's current orientation 
                     # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
@@ -895,10 +881,13 @@ class XFEL():
                     coord = coord @ self.z_rot_matrix
                     # Get spatial factor T
                     if SPI:
-                        T = self.SPI_interference_factor(phis,coord,feature)  #[num_G]
+                        T = self.SPI_interference_factor(phis,coord,feature)  # if grid: [phis,qx,qy]  if ring: [phis,q] (unimplemented)
                     else:
-                        T= self.interference_factor(coord,feature,cardan_angles)   # if grid: [phis,qx,qy]  if ring: [phis,q] (unimplemented)
+                        T= self.interference_factor(coord,feature,cardan_angles)  #[num_G] 
                     f = species.get_stochastic_f(atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
+                    same_each_sym = False
+                    if same_each_sym:
+                        f = species.get_stochastic_f(relative_atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
                     #print(F_sum.shape,T.shape,f.shape) 
                     if SPI: 
                         if type(feature) is self.Cell:
@@ -915,19 +904,18 @@ class XFEL():
             if type(feature) is self.Ring:
                 time_axis = 1
             I = np.trapz(np.square(np.abs(F_sum)),times_used,axis = time_axis) / (times_used[-1]-times_used[0])       #[num_G] for points, or for SPI: [phis,feature.q.shape], corresponding to rings or square grid
-        
+            
+
         # For unpolarised light (as used by Neutze 2000). (1/2)r_e^2(1+cos^2(theta)) is thomson scattering - recovering the correct equation for a lone electron, where |f|^2 = 1 by definition.    
         thet = self.q_to_theta(feature.q)
-        r_e_sqr = 2.83570628e-9        
+        r_e_sqr = 2.83570628e-9      
         I*= r_e_sqr*(1/2)*(1+np.square(np.cos(2*thet)))
-        
-        print("Total screen-incident intensity = ","{:e}".format(np.sum(I)))
 
         if SPI:
             # For crystal we can approximate infinitely small pixels and just consider bragg points. (i.e. The intensity will be the same so long as the pixel isn't covering multiple points.)
             # But for SPI need to take the pixel's size into account. Neutze 2000 makes the following approximation:
             I *=  SPI_proj_solid_angle    # equiv. to *= solid_angle
-        #print(I)
+        print("Total screen-incident intensity = ","{:e}".format(np.sum(I)))
         return I
 
     def illuminate_average(self,feature,phis = None,cardan_angles = None):  # Feature = ring or spot.
@@ -944,7 +932,7 @@ class XFEL():
                         R = R.left_multiply(self.y_rot_matrix)  
                         R = R.left_multiply(self.x_rot_matrix)   
                         # PDB format note: if x axis has dim of X, we have a point between [- X, X].
-                        coord = np.multiply(R.get_array(),self.target.sym_rotations[s]) + np.multiply(self.target.cell_dim,self.target.sym_translations[s])
+                        coord = np.multiply(R.get_array(),self.target.sym_rotations[s]) + np.multiply(self.target.supercell_dim,self.target.sym_translations[s])
                         # Get spatial factor T
                         T = np.zeros(phis.shape,dtype="complex_")
                         if SPI:
@@ -1030,7 +1018,9 @@ class XFEL():
                 a = 0.5*np.array([[-1,1,1],[1,-1,1],[1,1,-1]])
             if cell_packing == "FCC":
                 a = 0.5*np.array([[0,1,1],[1,0,1],[1,1,0]])                
-            a = np.multiply(a,crystal.cell_dim) # idk if this is correct for rhomboids TODO
+            a = np.multiply(a,crystal.supercell_dim)  # I mean... yeah I don't see how this works at all with multiple cells. Crystal sim fails here.
+        if not np.array_equal(crystal.supercell_dim,crystal.cell_dim):
+            raise Exception("Supercells not implemented for simple crystal sim.")
         b1 = np.cross(a[1],a[2])
         b2 = np.cross(a[2],a[0])
         b3 = np.cross(a[0],a[1])
@@ -1273,12 +1263,13 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             
         plt.gcf().set_figwidth(5)
         plt.gcf().set_figheight(3)                  
-    
+
     if result_handle != None:
         results_dir = results_parent_dir+result_handle+"/"
         compare_dir = None
         if compare_handle!= None:
             compare_dir = results_parent_dir+compare_handle+"/"        
+
         ## Point-like (Crystalline)
         # Initialise R factor sector comparison plot. 
         sector_histogram = np.zeros((num_arcs,num_subdivisions)).T
@@ -1314,6 +1305,15 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             return numerators,denominators
 
 
+        def plot_spots(I_ideal,I_real, miller_indices):
+            plt.close()
+            stringified = []
+            for elem in miller_indices:
+                stringified.append(str(elem[0])+str(elem[1])+str(elem[2])) 
+            I_real *= np.sum(I_ideal)/np.sum(I_real) #normalise
+            plt.bar(stringified,np.sqrt(I_ideal),alpha=1)
+            plt.bar(stringified,np.sqrt(I_real),alpha=1,color='r',width=0.4)
+            plt.show()
         def plot_sectors(sector_histogram):            
             plt.close()
             fig = plt.figure()
@@ -1373,6 +1373,9 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             print("log(I) max,min ",max_z,min_z)
         else:
             print("I max,min",max_z,min_z)
+        if max_z == min_z:
+            print("Single intensity detected. Ignoring max/min z")
+            min_z = max_z-1
         # Plot each orientation's scattering pattern/add each to sector histogram
         added_colorbar = False
         for filename in os.listdir(results_dir):
@@ -1386,9 +1389,13 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             if plot_against_q:
                 radial_axis = result1.q        
             radial_axis = radial_axis[0]    
+
+            # Plot spot intensities
+            if result2 != None and crystal_aligned_frame:
+                plot_spots(result2.I.flatten(), result1.I.flatten(),result1.miller_indices)
+
+
             identical_count = np.zeros(result1.I.shape)
-            
-            
             if crystal_aligned_frame:
                 phi = result1.phi_aligned
             else:
@@ -1554,12 +1561,16 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 plot_sectors(R_histogram)   
 
             if neutze_R:
-                print("R:")
                 sqrt_ideal = np.sqrt(all_I_ideal)
                 sqrt_real = np.sqrt(all_I_real)
-                inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real) 
+                inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real)
                 R = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))
-                print(R)
+                # print("sqrt_ideal",sqrt_ideal)
+                # print("-------")
+                # print("-------")
+                # print("sqrt_real normed",sqrt_real*inv_K) 
+
+                print("R: ",R)
                 # print("R:") (not normalised)
                 # R = np.sum(np.abs((sqrt_real - sqrt_ideal)))/np.sum(sqrt_ideal)
                 # print(R)
@@ -1576,20 +1587,20 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
         ## Square grid
         if len(result1.I.shape) > 1:#if type(result1) == Results_Grid:
             if log_I: 
-                z1 = np.log(result1.I)
+                z1 = np.log(result1.I/np.sum(result1.I))   # normalised intensity   
                 z1[result1.I == 0] = None
                 if result2 != None:
-                    z2 = np.log(result2.I)
+                    z2 = np.log(result2.I/np.sum(result2.I))
                     z2[result2.I == 0] = None
             else:
                 #TODO fix up this masked stuff i didnt finish 
                 # z1 -= cutoff_log_intensity
                 # z1[z1<0] = 0
-                z1 = result1.I.copy()        
+                z1 = result1.I.copy()/np.sum(result1.I)    
                 if result2 != None:
                     #z2 -= cutoff_log_intensity
                     #z2[z2<0] = 0
-                    z2 = result2.I.copy()        
+                    z2 = result2.I.copy()/np.sum(result2.I)        
             if log_I and cutoff_log_intensity != None:
                 np.ma.array(z1, mask=(z1<cutoff_log_intensity)*(np.isnan(z2)))
                 if result2 != None:
@@ -1597,8 +1608,6 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             else:
                 z1 = np.ma.array(z1,mask = np.isnan(z1))
                 z2 = np.ma.array(z2,mask = np.isnan(z2)) 
-            print(z1)
-            print(z2)       
             print("Result 1 (Damaged):")
             print("Total screen-incident intensity:","{:e}".format(np.sum(result1.I)))
             if result2 != None:
@@ -1686,9 +1695,6 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             # if crystal_aligned_frame:
             #     phi_mesh = result.phi_aligned_mesh   
             #     print("crystal aligned not implemented for SPI yet")    
-            print(result1.phi.shape)
-            print(radial_axis.shape)
-            print(z.shape) 
             ax.pcolormesh(result1.phi, radial_axis, z,cmap=cmap)
             ax.plot(result1.phi, radial_axis, color = 'k',ls='none')
             plt.grid(alpha=min(show_grid,0.6),dashes=(5,10)) 
@@ -1943,6 +1949,7 @@ def res_to_q(d):
 
 #%% vvvvvvvvv
 DEBUG = False
+
 if __name__ == "__main__":
     ### Simulate
     target_options = ["neutze","hen","tetra"]
@@ -1957,16 +1964,17 @@ if __name__ == "__main__":
     end_time = 6#10 #0#-9.80    
     laser_firing_qwargs = dict(
         SPI = True,
-        pixels_across = 100,  # for SPI, shld go on xfel params.
-        random_orientation = True,  #TODO refactor to be in same place as other orients...# orientation is synced with second 
+        pixels_across = 200,  # for SPI, shld go on xfel params.
+        random_orientation = False,  #TODO refactor to be in same place as other orients...# orientation is synced with second 
     )
     ##### Crystal params
+    crystal_no_dev = True
     crystal_qwargs = dict(
-        cell_scale = 1,  # for SC: cell_scale^3 unit cells 
-        positional_stdv = 0.2, # RMS in atomic coord position [angstrom] (set to 0 below if crystal, since rocking angle handles this aspect)
+        cell_scale = 5,  # for SC: cell_scale^3 unit cells 
+        positional_stdv = 0, # RMS in atomic coord position [angstrom] (set to 0 below if crystal, since rocking angle handles this aspect)
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
-        rocking_angle = 0.1,  # (approximating mosaicity)
+        rocking_angle = 1,  # (approximating mosaicity)
         orbitals_as_shells = True,
         #CNO_to_N = True,   # whether the laser simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
     )
@@ -1980,7 +1988,7 @@ if __name__ == "__main__":
         screen_type = "flat",#"hemisphere"
         q_minimum = res_to_q(bottom_resolution),#None #angstrom
         q_cutoff = res_to_q(top_resolution),#2*np.pi/2
-        t_fineness=100,   
+        t_fineness=5,   
         #####crystal stuff
         max_triple_miller_idx = None, # = m, where max momentum given by q with miller indices (m,m,m)
         ####SPI stuff
@@ -1992,8 +2000,8 @@ if __name__ == "__main__":
         SPI_z_rotation = 0,
         #crystallographic orientations (not consistent with SPI yet)
         # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.        
-        num_orients_crys=3,
-        orientation_axis_crys = None,#[1,1,0]
+        num_orients_crys=1,
+        orientation_axis_crys = [1,0,0],#None,#[1,1,0]
         ######
     )
     same_deviations = True # whether same position deviations between damaged and undamaged crystal (SPI only) 
@@ -2004,7 +2012,7 @@ if __name__ == "__main__":
     #=========================-------------------------===========================#
 
     #----------------------- Turn off stdv for crystal -----------------------#
-    if laser_firing_qwargs["SPI"] == False:
+    if crystal_no_dev and laser_firing_qwargs["SPI"] == False:
         crystal_qwargs["positional_stdv"] = 0
     #---------------------------Result handle names---------------------------#
     exp1_qualifier = "_real"
@@ -2034,24 +2042,25 @@ if __name__ == "__main__":
 
     #---------------------------------#
     if target == "neutze": #T4 virus lys
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/2lzm.pdb"
-        target_handle = "lys_simple_6keV_14"  
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/2lzm.pdb"
+        target_handle = "lys-1_2"  
         folder = ""
         allowed_atoms_1 = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/4et8.pdb"
-        target_handle = "D_lys_neutze_simple_7"  
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
+        target_handle = "lys-1_2"  
         folder = ""
         allowed_atoms_1 = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "tetra": 
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/5zck.pdb" 
-        folder = "tetra"
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/5zck.pdb" 
+        folder = "tetra_CNO"
         # target_handle = "6-5-2_tetra_3" #"carbon_12keV_1" # "carbon_6keV_1" #"carbon_gauss_32"
         # allowed_atoms_1 = ["N_fast"]
         # CNO_to_N = True
         target_handle = "6-5-2_tetra_CNO_3"
+        #allowed_atoms_1 = ["N_fast"]
         allowed_atoms_1 = ["C_fast","N_fast","O_fast"]
         CNO_to_N = False
     else:

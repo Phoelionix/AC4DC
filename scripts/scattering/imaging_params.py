@@ -17,8 +17,8 @@ tetra_dict = dict(
     ),
     ##### Crystal params
     crystal = dict(
-        cell_scale = 1,  # for SC: cell_scale^3 unit cells 
-        positional_stdv = 0,#0.2, # RMS in atomic coord position [angstrom] (set to 0 below if crystal, since rocking angle handles this aspect)
+        cell_scale = 3,  # for SC: cell_scale^3 unit cells 
+        positional_stdv = 0.2,#0.2,#Currently Turned off for crystal as possibly poorly modelled but maybe its fine? Effectively determines lower limit on R. 0.2, # RMS in atomic coord position [angstrom] (set to 0 below if crystal, since rocking angle handles this aspect)
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
         rocking_angle = 1.2,  # (approximating mosaicity)
@@ -36,14 +36,14 @@ tetra_dict = dict(
         max_triple_miller_idx = None, # = m, where max momentum given by q with miller indices (m,m,m)
         ####SPI stuff
         num_rings = 20,
-        pixels_per_ring = 20,
+        pixels_per_ring = 25,
         # first image orientation (cardan angles, degrees) 
         SPI_x_rotation = 0,
         SPI_y_rotation = 0,
         SPI_z_rotation = 0,
         #crystallographic orientations (not consistent with SPI yet)
         # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Incompatible with random_orientations      
-        num_orients_crys=15,
+        num_orients_crys=20,
         orientation_axis_crys = None,#[1,1,0]        
     ),
 )
