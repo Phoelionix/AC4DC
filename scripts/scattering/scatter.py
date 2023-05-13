@@ -869,7 +869,7 @@ class XFEL():
             if not np.array_equal(times_used,species.times_used):
                 raise Exception("Times used don't match between species.")        
             # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
-            max_atoms_per_loop = 200 # Restrict array size to prevent computer tapping out. 
+            max_atoms_per_loop = 500 # Restrict array size to prevent computer explosions. 
             for s in range(len(self.target.sym_rotations)):
                 #print("Working through symmetry",s)
                 num_atom_batches = int(len(species.coords)/max_atoms_per_loop)+1
@@ -1664,7 +1664,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
 
                     R_num = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)))        
 
-                    norm_root_diff_map = False
+                    norm_root_diff_map = True
                     if norm_root_diff_map:
                         print("Plotting normalised root difference map (different scale)")
                         fig, ax = plt.subplots()
@@ -1954,7 +1954,7 @@ def res_to_q(d):
 # log doesnt work atm.
 # Get the rings to correspond to actual rings
 
-#%% vvvvvvvvv
+#%% vvvvv Scattering Playground vvvv
 DEBUG = False
 
 if __name__ == "__main__":
@@ -1962,24 +1962,24 @@ if __name__ == "__main__":
     target_options = ["neutze","hen","tetra"]
     #============------------User params---------==========#
 
-    target = "tetra" #target_options[2]
-    best_resolution = 2   # resolution (determining max q)
+    target = "hen" #target_options[2]
+    best_resolution = 6   # resolution (determining max q)
     worst_resolution = None#30 # 'resolution' corresponding to min q
 
     #### Individual experiment arguments 
     start_time = -6
-    end_time = -3#10 #0#-9.80    
+    end_time = 6#10 #0#-9.80    
     laser_firing_qwargs = dict(
         SPI = True,
         SPI_resolution = best_resolution,
-        pixels_across = 100,  # for SPI, shld go on xfel params.
+        pixels_across = 50,  # for SPI, shld go on xfel params.
         random_orientation = False,  #TODO refactor to be in same place as other orients...# orientation is synced with second 
     )
     ##### Crystal params
     crystal_no_dev = True
     crystal_qwargs = dict(
-        cell_scale = 5,  # for SC: cell_scale^3 unit cells 
-        positional_stdv = 0.2, # RMS in atomic coord position [angstrom] (set to 0 below if crystal, since rocking angle handles this aspect)
+        cell_scale = 3,  # for SC: cell_scale^3 unit cells 
+        positional_stdv = 0,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
         rocking_angle = 1,  # (approximating mosaicity)
@@ -1996,7 +1996,7 @@ if __name__ == "__main__":
         screen_type = "flat",#"hemisphere"
         q_minimum = res_to_q(worst_resolution),#None #angstrom
         q_cutoff = res_to_q(best_resolution),#2*np.pi/2
-        t_fineness=5,   
+        t_fineness=25,   
         #####crystal stuff
         max_triple_miller_idx = None, # = m, where max momentum given by q with miller indices (m,m,m)
         ####SPI stuff
@@ -2057,9 +2057,11 @@ if __name__ == "__main__":
         CNO_to_N = True
     elif target == "hen": # egg white lys
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
-        target_handle = "lys-1_2"  
-        folder = ""
-        allowed_atoms_1 = ["N_fast","S_fast"]
+        target_handle = "6-5-2_lys_1"  
+        folder = "lys"
+        #allowed_atoms_1 = ["N_fast","S_fast"]
+        allowed_atoms_1 = ["N_fast"]
+        #allowed_atoms_1 = ["S_fast"]
         CNO_to_N = True
     elif target == "tetra": 
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/5zck.pdb" 
@@ -2136,21 +2138,3 @@ def plot_recovered_atoms():
     plt.ylabel("y (Ang)")
 if __name__ == "__main__":
     plot_recovered_atoms()    
-#%%
-#crambin params
-'''
-energy =17445   
-
-
-allowed_atoms_1 = ["C_fast","N_fast","O_fast","S_fast"]
-allowed_atoms_2 = ["C_fast","N_fast","O_fast","S_fast"]
-
-num_orients = 30
-
-rock_angle = 0.15 # degrees
-screen_type = "hemisphere"
-
-pdb_path = "/home/speno/AC4DC/scripts/scattering/3u7t.pdb" #Crambin
-
-target_handle = "Improved_Lys_mid_6"
-'''
