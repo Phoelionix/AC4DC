@@ -406,7 +406,9 @@ class Atomic_Species():
                 seed = None
                 if SEEDED:
                     seed = idx
-                self.orb_occs[idx],_dummy,self.orb_occ_dict = self.crystal.ff_calculator.random_state_snapshots(self.name,seed)                 
+                self.orb_occs[idx],_dummy,self.orb_occ_dict = self.crystal.ff_calculator.random_state_snapshots(self.name,seed) 
+        else:
+           self.ground_state = self.crystal.ff_calculator.get_ground_state(self.name)           
     def set_coord_deviation(self):
         self.num_atoms = len(self.crystal.sym_rotations)*len(self.coords)
         self.error = np.empty((self.num_atoms,3))
@@ -439,13 +441,13 @@ class Atomic_Species():
         else:
             # Undamaged case, no stochastic dynamics.
             if not self.crystal.is_damaged: 
-                def stoch_f_placeholder(atom_idx,q_arr): 
-                    return self.crystal.ff_calculator.f_undamaged(q_arr,self.name)[0]
+                def tmp_func(atom_idx,q_arr): 
+                    return self.crystal.ff_calculator.f_undamaged(q_arr,self.name,self.ground_state)[0]
             # Damaged, we 
             else:
-                def stoch_f_placeholder(atom_idx,q_arr): 
+                def tmp_func(atom_idx,q_arr): 
                     return self.crystal.ff_calculator.random_states_to_f_snapshots(self.times_used,self.orb_occs[atom_idx],q_arr,self.name,self.orb_occ_dict)[0]  # f has form  [times,momenta]
-            self.get_stochastic_f = stoch_f_placeholder
+            self.get_stochastic_f = tmp_func
 class XFEL():
     def __init__(self, experiment_name, photon_energy, detector_distance_mm=100, q_minimum = None, q_cutoff = None, max_triple_miller_idx = None, screen_type = "hemisphere", num_orients_crys=1, orientation_axis_crys = None, x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100,SPI_y_rotation = 0,SPI_x_rotation = 0,SPI_z_rotation = 0):
         """ #### Initialise the imaging experiment's controlled parameters
@@ -892,7 +894,7 @@ class XFEL():
                     else:
                         T= self.interference_factor(coord,feature,cardan_angles)  #[num_G] 
                     f = species.get_stochastic_f(atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
-                    same_each_sym = False
+                    same_each_sym = False # (debug)
                     if same_each_sym:
                         f = species.get_stochastic_f(relative_atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
                     #print(F_sum.shape,T.shape,f.shape) 
@@ -1320,6 +1322,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             I_real *= np.sum(I_ideal)/np.sum(I_real) #normalise
             plt.bar(stringified,np.sqrt(I_ideal),alpha=1)
             plt.bar(stringified,np.sqrt(I_real),alpha=1,color='r',width=0.4)
+            plt.ylim(0,np.sqrt(max(np.max(I_ideal),np.max(I_real))))
             plt.show()
         def plot_sectors(sector_histogram):            
             plt.close()
@@ -1647,7 +1650,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     alpha[np.isnan(alpha)] = 0
                 sqrt_real = np.sqrt(result1.I)
                 sqrt_ideal = np.sqrt(result2.I)
-                inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real) 
+                inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real)   # normalises I_real to I_ideal's tot intensity
                 R_cells = np.abs((inv_K*sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal))
                 R = np.sum(R_cells)
                 print(R) 
@@ -1666,9 +1669,9 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
 
                     norm_root_diff_map = True
                     if norm_root_diff_map:
-                        print("Plotting normalised root difference map (different scale)")
+                        print("Plotting normalised root difference map")
                         fig, ax = plt.subplots()
-                        R_cells = np.abs((sqrt_real - sqrt_ideal)/sqrt_ideal)
+                        R_cells = np.abs((inv_K*sqrt_real - sqrt_ideal)/sqrt_ideal)
                         ax.imshow(bg)
                         R_map = ax.imshow(R_cells,vmin=0,vmax=1,alpha=alpha,cmap=cmap)     
                         plt.colorbar(R_map)
@@ -1963,22 +1966,22 @@ if __name__ == "__main__":
     #============------------User params---------==========#
 
     target = "hen" #target_options[2]
-    best_resolution = 6   # resolution (determining max q)
+    best_resolution = 2   # resolution (determining max q)
     worst_resolution = None#30 # 'resolution' corresponding to min q
 
     #### Individual experiment arguments 
-    start_time = -6
-    end_time = 6#10 #0#-9.80    
+    start_time = -18 #-6
+    end_time = 18 #6 #10 #0#-9.80    
     laser_firing_qwargs = dict(
         SPI = True,
         SPI_resolution = best_resolution,
-        pixels_across = 50,  # for SPI, shld go on xfel params.
+        pixels_across = 100,  # for SPI, shld go on xfel params.
         random_orientation = False,  #TODO refactor to be in same place as other orients...# orientation is synced with second 
     )
     ##### Crystal params
     crystal_no_dev = True
     crystal_qwargs = dict(
-        cell_scale = 3,  # for SC: cell_scale^3 unit cells 
+        cell_scale = 1,  # for SC: cell_scale^3 unit cells 
         positional_stdv = 0,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
@@ -1990,7 +1993,7 @@ if __name__ == "__main__":
     #### XFEL params
     tag = "" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
     #TODO make it so reflections don't overwrite same orientation, as stochastic now.
-    energy = 12000 # eV
+    energy = 7100 # eV
     exp_qwargs = dict(
         detector_distance_mm = 100,
         screen_type = "flat",#"hemisphere"
@@ -2013,11 +2016,20 @@ if __name__ == "__main__":
         ######
     )
     same_deviations = False # whether same position deviations between damaged and undamaged crystal (SPI only) 
+    
+    
+
 
 
     # Optional: Choose previous folder for crystal results
     chosen_root_handle = None # None for new. use e.g. "tetra_v1", if want to add images under same params to same results.
     #=========================-------------------------===========================#
+
+    ## DEBUG
+    # WARNING we often assume that first crystal is damaged and second is undamaged when plotting. 
+    first_crystal_is_damaged = True # True  
+    second_crystal_is_damaged = False  # False
+
 
     #----------------------- Turn off stdv for crystal -----------------------#
     if crystal_no_dev and laser_firing_qwargs["SPI"] == False:
@@ -2053,25 +2065,25 @@ if __name__ == "__main__":
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/2lzm.pdb"
         target_handle = "lys-1_2"  
         folder = ""
-        allowed_atoms_1 = ["N_fast","S_fast"]
+        allowed_atoms = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
-        target_handle = "6-5-2_lys_1"  
-        folder = "lys"
-        #allowed_atoms_1 = ["N_fast","S_fast"]
-        allowed_atoms_1 = ["N_fast"]
-        #allowed_atoms_1 = ["S_fast"]
+        target_handle = "lys_nass_2"#"6-5-2_lys_1"  
+        folder = ""#"lys"
+        allowed_atoms = ["N_fast","S_fast"]
+        #allowed_atoms = ["N_fast"]
+        #allowed_atoms = ["S_fast"]
         CNO_to_N = True
     elif target == "tetra": 
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/5zck.pdb" 
         folder = "tetra_CNO"
         # target_handle = "6-5-2_tetra_3" #"carbon_12keV_1" # "carbon_6keV_1" #"carbon_gauss_32"
-        # allowed_atoms_1 = ["N_fast"]
+        # allowed_atoms = ["N_fast"]
         # CNO_to_N = True
         target_handle = "6-5-2_tetra_CNO_3"
-        #allowed_atoms_1 = ["N_fast"]
-        allowed_atoms_1 = ["C_fast","N_fast","O_fast"]
+        #allowed_atoms = ["N_fast"]
+        allowed_atoms = ["C_fast","N_fast","O_fast"]
         CNO_to_N = False
     else:
         raise Exception("'target' invalid")
@@ -2087,16 +2099,16 @@ if __name__ == "__main__":
     experiment2 = XFEL(exp_name2,energy,**exp_qwargs)
     # Create Crystals
 
-    crystal = Crystal(pdb_path,allowed_atoms_1,is_damaged=True,CNO_to_N = CNO_to_N, **crystal_qwargs)
+    crystal = Crystal(pdb_path,allowed_atoms,is_damaged=first_crystal_is_damaged,CNO_to_N = CNO_to_N, **crystal_qwargs)
     # The undamaged crystal uses the initial state but still performs the same integration step with the pulse profile weighting.
     if same_deviations:
         # we copy the other crystal so that it has the same deviations in coords
-        crystal_undmged = copy.deepcopy(crystal)#Crystal(pdb_path,allowed_atoms_1,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
-        crystal_undmged.is_damaged = False
+        crystal_undmged = copy.deepcopy(crystal)#Crystal(pdb_path,allowed_atoms,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
+        crystal_undmged.is_damaged = second_crystal_is_damaged
     else:
-        crystal_undmged = Crystal(pdb_path,allowed_atoms_1,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
+        crystal_undmged = Crystal(pdb_path,allowed_atoms,is_damaged=second_crystal_is_damaged,CNO_to_N = CNO_to_N, **crystal_qwargs)
     crystal.plot_me(250000)
-
+##%%
     if laser_firing_qwargs["SPI"]:
         SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal,results_parent_dir=results_parent_folder, **laser_firing_qwargs)
         SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged,results_parent_dir=results_parent_folder,  **laser_firing_qwargs)

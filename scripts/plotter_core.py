@@ -522,8 +522,7 @@ class Plotter:
         form_factors_sqrt_I,time_steps = np.fromfunction(snapshot,(self.t_fineness,))   # (Need to double check working as expected - not using np.vectorise)
         if len(time_steps) != len(np.unique(time_steps)):
             print("times used:", time_steps)
-            print("Error, used same times! Choose a different fineness or a larger range.")
-            return None
+            raise Exception("Error, used same times! Choose a different fineness or a larger range.")
         return form_factors_sqrt_I, time_steps
     
 
@@ -610,7 +609,7 @@ class Plotter:
 
         return ff,time_steps      
 
-    def f_undamaged(self,q,atom):
+    def f_undamaged(self,q,atom,ground_state):
         '''        
         Compared to f_average, we now include the stochastic contribution by picking the atomic state from the distribution.
         
@@ -626,7 +625,9 @@ class Plotter:
         '''
         # return undamaged form factor, multiplied by sqrt of average pulse intensity
         I_avg, time_steps = self.I_avg()
-        f_sqrt_I = self.get_average_form_factor(q,[atom],self.start_t)[0][...,None] * np.array(np.sqrt(I_avg)*np.ones(len(time_steps)))
+        shielding = SlaterShielding(self.atomic_numbers[atom])             
+        ff = shielding.get_ff("dummy",q,{"dummy":ground_state})
+        f_sqrt_I = ff[...,None] * np.array(np.sqrt(I_avg)*np.ones(len(time_steps)))
         return np.moveaxis(f_sqrt_I,len(f_sqrt_I.shape)-1,0), time_steps                     
     # why did I do thissss
     def get_times_used(self):
@@ -637,8 +638,7 @@ class Plotter:
         time_steps = np.fromfunction(snapshot,(self.t_fineness,))
         if len(time_steps) != len(np.unique(time_steps)):
             print("times used:", time_steps)
-            print("Error, used same times! Choose a different fineness or a larger range.")
-            return None        
+            raise Exception("Error, used same times! Choose a different fineness or a larger range.")
         return time_steps      
     def I_avg(self): # average intensity for pulse 
         def snapshot(idx):
@@ -753,11 +753,9 @@ class Plotter:
         for a in atoms:
             states = self.statedict[a]   
             atomic_density = self.boundData[a][0, 0]
-            atomic_prop = atomic_density/tot_density
             for i in range(len(states)):
                 if n != None:
-                    if n != i+1:
-                        continue
+                    if n != i+1: continue
                 orboccs = parse_elecs_from_latex(states[i])             
                 state_density = self.boundData[a][idx, i]       
                 # Get the form factors for each subshell
@@ -769,11 +767,20 @@ class Plotter:
                     occ_list[l] += occ
                 occ_list = occ_list[:len(occ_list)-occ_list.count(-99)]
                 occ_dict = {1:occ_list}
-                shielding = SlaterShielding(self.atomic_numbers[a])              
-                ff += atomic_prop * shielding.get_ff(1,k,occ_dict)
+                shielding = SlaterShielding(self.atomic_numbers[a])             
+                ff += state_density/tot_density * shielding.get_ff(1,k,occ_dict)
+                #print("FORM FACTOR IDEAL",ff)
         return ff,time_step    
     
-    
+    def get_ground_state(self,atom):
+        orboccs = parse_elecs_from_latex(self.statedict[atom][0])
+        occ_list = [-99]*10
+        for orb, occ in orboccs.items():
+            l = int(orb[0]) - 1
+            if occ_list[l] == -99:
+                occ_list[l] = 0
+            occ_list[l] += occ     
+        return occ_list[:len(occ_list)-occ_list.count(-99)]
 
 
     def print_bound_slice(self,time=-7.5):
