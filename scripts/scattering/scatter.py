@@ -640,7 +640,9 @@ class XFEL():
             rim_q = self.max_q
             if SPI_resolution!= None:
                 d = SPI_resolution/ang_per_bohr # resolution
-                rim_q = min(self.max_q,2*np.pi/d)   
+                rim_q = 2*np.pi/d
+                if self.max_q < rim_q:
+                    raise Exception("Resolution of " + str(SPI_resolution) + " angstroms would require q to go beyond its maximum.")
 
             max_theta = self.q_to_theta(rim_q)
             #screen_width = resolution_to_X(d) * 2
@@ -1673,7 +1675,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                         fig, ax = plt.subplots()
                         R_cells = np.abs((inv_K*sqrt_real - sqrt_ideal)/sqrt_ideal)
                         ax.imshow(bg)
-                        R_map = ax.imshow(R_cells,vmin=0,vmax=1,alpha=alpha,cmap=cmap)     
+                        R_map = ax.imshow(R_cells,vmin=0,vmax=0.4,alpha=alpha,cmap=cmap)     
                         plt.colorbar(R_map)
                         ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
                         ticklabels = ["{:6.2f}".format(q_row_0_el[1]) for q_row_0_el in result1.q_scr_xy[0]]
@@ -1970,12 +1972,12 @@ if __name__ == "__main__":
     worst_resolution = None#30 # 'resolution' corresponding to min q
 
     #### Individual experiment arguments 
-    start_time = -18 #-6
-    end_time = 18 #6 #10 #0#-9.80    
+    start_time = -6 #-6
+    end_time = 6 #6 #10 #0#-9.80    
     laser_firing_qwargs = dict(
         SPI = True,
         SPI_resolution = best_resolution,
-        pixels_across = 100,  # for SPI, shld go on xfel params.
+        pixels_across = 60,  # for SPI, shld go on xfel params.
         random_orientation = False,  #TODO refactor to be in same place as other orients...# orientation is synced with second 
     )
     ##### Crystal params
@@ -1993,7 +1995,7 @@ if __name__ == "__main__":
     #### XFEL params
     tag = "" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
     #TODO make it so reflections don't overwrite same orientation, as stochastic now.
-    energy = 7100 # eV
+    energy = 12000#7100 # eV
     exp_qwargs = dict(
         detector_distance_mm = 100,
         screen_type = "flat",#"hemisphere"
@@ -2069,7 +2071,8 @@ if __name__ == "__main__":
         CNO_to_N = True
     elif target == "hen": # egg white lys
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
-        target_handle = "lys_nass_2"#"6-5-2_lys_1"  
+        target_handle = "lys-1_2"  
+        #target_handle = "lys_nass_2"
         folder = ""#"lys"
         allowed_atoms = ["N_fast","S_fast"]
         #allowed_atoms = ["N_fast"]
@@ -2123,7 +2126,8 @@ if __name__ == "__main__":
         stylin(exp_name1,exp_name2,experiment1.max_q,)
 #%%
 if __name__ == "__main__":
-    stylin()
+    stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
+
 
 #^^^^^^^
 # %%
