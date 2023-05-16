@@ -171,7 +171,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
 
     
     // Set up the container class to have the correct size
-    state_type::set_P_shape(input_params.Store);
+    state_type::set_P_shape(input_params.Store);  // TODO should just do on init?
 
 
     if (init){
@@ -374,6 +374,12 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
     for (size_t a = 0; a < s.atomP.size(); a++) {
         const bound_t& P = s.atomP[a];
         bound_t& Pdot = sdot.atomP[a];
+        
+        #ifdef DEBUG_BOUND
+        for(size_t i=0;i < Pdot.size();i++){
+            assert(Pdot[i] + P[i] >= 0);
+        }
+        #endif
 
         // PHOTOIONISATION
         double J = pf(t); // photon flux in atomic units
@@ -385,14 +391,22 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             sdot.bound_charge +=  tmp;
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
-
+        #ifdef DEBUG_BOUND
+        for(size_t i=0;i < Pdot.size();i++){
+            assert(Pdot[i] + P[i] >= 0);
+        }
+        #endif    
         // FLUORESCENCE
         for ( auto& r : input_params.Store[a].Fluor) {
             Pdot[r.to] += r.val*P[r.from];
             Pdot[r.from] -= r.val*P[r.from];
             // Energy from optical photon assumed lost
         }
-
+        #ifdef DEBUG_BOUND
+        for(size_t i=0;i < Pdot.size();i++){
+            assert(Pdot[i] + P[i] >= 0);
+        }
+        #endif    
         // AUGER
         for ( auto& r : input_params.Store[a].Auger) {
             double tmp = r.val*P[r.from];
@@ -403,6 +417,11 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
             sdot.bound_charge +=  tmp;
         }
+        #ifdef DEBUG_BOUND
+        for(size_t i=0;i < Pdot.size();i++){
+            assert(Pdot[i] + P[i] >= 0);
+        }
+        #endif        
 
         // EII / TBR bound-state dynamics
         double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
@@ -455,6 +474,12 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         // Add parallel containers to their parent containers.
         for(size_t i=0;i < Pdot.size();i++){
             Pdot[i] += Pdot_subst[i];
+            #ifdef DEBUG_BOUND
+            assert(Pdot[i] + P[i] >= 0);
+            // if(Pdot[i] + P[i] < 0){
+            //     Pdot[i]= -P[i]*1.00001;
+            // }
+            #endif
         }
         sdot.bound_charge += sdot_bound_charge_subst;
 
@@ -495,7 +520,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
         good_state = false;
         timestep_reached = t*Constant::fs_per_au;
-    }
+    }    
 }
 
 
@@ -757,6 +782,7 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
     auto t_start = std::chrono::high_resolution_clock::now();
 
     //////  Dynamic grid updater ////// 
+    #ifndef SWITCH_OFF_ALL_DYNAMIC_UPDATES
     auto t_start_grid = std::chrono::high_resolution_clock::now();
     if ((n-this->order+1)%steps_per_grid_transform == 0){ // TODO would be good to have a variable that this is equal to that is modified to account for changes in time step size. If a dt decreases you push back the grid update. If you increase dt you could miss it.
         Display::popup_stream << "\n\rUpdating grid... \n\r"; 
@@ -770,36 +796,12 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
         _log << "[ Dynamic Grid ] Performing initial grid update..." << endl;
         Display::show(Display::display_stream,Display::popup_stream); 
         update_grid(_log,n+1,true); 
-        //////// restart simulation with better grid.
-        /* bugged but I'll fix if I get time.
-        n = order;
-        old_checkpoint.regimes = regimes;
-        old_checkpoint.knots = Distribution::get_knot_energies();
-        old_checkpoint.n = n;
-        checkpoint = old_checkpoint;
-        while (Distribution::knots_history.size() > 0){
-            Distribution::knots_history.pop_back();
-        }
-        Distribution::set_basis(n, input_params.elec_grid_type, param_cutoffs, regimes, elec_grid_regions);
-        y.resize(n+1); y.resize(t.size());
-        t.resize(n+1); t.resize(y.size());
-        // Set up the t grid       
-        for (int i=n+1; i<input_params.num_time_steps; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
-            this->t[i] = this->t[i-1] + this->dt;
-        }
-        // same as from update_grid()
-        std::vector<double> new_energies = Distribution::get_knot_energies();
-        zero_y = get_ground_state();        
-        for (size_t m = n+1 - this->order; m < n+1; m++) {
-            assert(this-> order < steps_per_grid_transform);
-            Distribution::load_knots_from_history(n-1); // the n - 1 is correct. 
-            y[m].F.transform_basis(new_energies);
-        }          
-        grid_initialised = true;
-        */
+        //////// 
+        // TODO restart simulation with this better grid.
         ////////
     }
     dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
+    #endif #SWITCH_OFF_ALL_DYNAMIC_UPDATES
     
     //////  Check if user wants to end simulation early ////// 
     auto t_start_usr = std::chrono::high_resolution_clock::now();
@@ -840,17 +842,25 @@ void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool fo
     std::cout.clear();
     //// We need some previous points needed to perform next ode step, so transform them to new basis ////
     std::vector<double> new_energies = Distribution::get_knot_energies();
-    // zero_y is used as the starting state for each step and represents the ground state, so we need to reset it so it has the right knots.
+    // zero_y is used as the starting state for each step, so we need to reset it so it has the right knots.
     zero_y = get_ground_state();
+    this->zero_y *= 0.; // set it to Z E R O
                 
     for (size_t m = n+1 - this->order; m < n+1; m++) {  // TODO turn off if not new knots??
         // We transform this step to the correct basis, but we also need a few steps to get us going, 
         // so we transform a few previous steps 
         // Kinda goofy but it's necessary due to the static variables. 
         assert(this-> order < steps_per_grid_transform);
-        Distribution::load_knots_from_history(n-1); // the n - 1 is correct. 
+        Distribution::load_knots_from_history(n-1); // the n - 1 is correct. transform_basis takes us to basis at step n.
         y[m].F.transform_basis(new_energies);
-    }  
+
+        #ifdef DEBUG_BOUND
+        for(size_t a = 0; a < y[m].atomP.size();a++)
+            for(size_t i=0;i < y[m].atomP[a].size();i++){
+                assert(y[m].atomP[a][i] >= 0);
+            }        
+        #endif
+    }   
     // The next containers are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state. 
 } 
 

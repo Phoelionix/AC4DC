@@ -28,6 +28,7 @@ This file is part of AC4DC.
 #include <iomanip>
 #include <assert.h>
 #include <stdexcept>
+#include "config.h"
 
 #define ODE_MAX_MEOMRY_USE 4000000000
 
@@ -171,19 +172,33 @@ void Adams_BM<T>::step_nonstiff_part(int n) {
     T tmp, ydot;
     tmp = this->zero_y;
 
+    #ifdef DEBUG_BOUND
+    for(size_t a = 0; a < tmp.atomP.size();a++)
+        for(size_t i=0;i < tmp.atomP[a].size();i++){
+            assert(tmp.atomP[a][i] >= 0);
+        }        
+    #endif 
+
     for (size_t i = 0; i < order; i++) {
         this->sys_bound(this->y[n-i], ydot, this->y_bg[n-i], this->t[n-i]);
         ydot *= b_AB[i];
         tmp += ydot;
-    }
+    }   
 
     // Weird syntax here is done in order to avoid calls to
-    // operator+ and orparator*, which may unnecessarily create large
+    // operator+ and operator*, which may unnecessarily create large
     // local variables.
 
     // y_n+1 = y_n + dt*sum_{i=0}^s-1 b_i f_(n-i)
     tmp *= this->dt;
     tmp += this->y[n];
+
+    #ifdef DEBUG_BOUND
+    for(size_t a = 0; a < tmp.atomP.size();a++)
+        for(size_t i=0;i < tmp.atomP[a].size();i++){
+            assert(tmp.atomP[a][i] >= 0);
+        }        
+    #endif 
 
     // Adams-Moulton corrector step
     // Here, tmp is the y_n+1 guessed in the preceding step, handle i=0 explicitly:
@@ -196,10 +211,18 @@ void Adams_BM<T>::step_nonstiff_part(int n) {
         ydot *= b_AM[i];
         tmp += ydot;
     }
+
     // Store the corrected value
     //this->y[n+1] = this->y[n] + tmp * this->dt;
     tmp *= this->dt;
     tmp += this->y[n];
+
+    #ifdef DEBUG_BOUND
+    for(size_t a = 0; a < tmp.atomP.size();a++)
+        for(size_t i=0;i < tmp.atomP[a].size();i++){
+            assert(tmp.atomP[a][i] >= 0);
+        }        
+    #endif 
     this->y[n+1] = tmp;
 }
 

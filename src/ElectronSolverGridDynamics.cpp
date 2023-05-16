@@ -228,6 +228,9 @@ double ElectronRateSolver::approx_regime_trough(size_t step, double lower_bound,
  * to be some point past this.
  */
 void ElectronRateSolver::dirac_energy_bounds(size_t step, std::vector<double>& maximums, std::vector<double>& minimums, std::vector<double>& peaks, bool allow_shrinkage,size_t num_peaks, double peak_min_density) {
+    #ifdef SWITCH_OFF_DYNAMIC_BOUNDS
+    return;
+    #endif
     double min_photo_peak_considered = 1500/Constant::eV_per_Ha;  // An energy that is above auger energies but will catch significant peaks. //TODO replace with transition energy of last regimes?
     double peak_search_step_size = 10/Constant::eV_per_Ha;
     // Find peaks
@@ -278,15 +281,18 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, std::vector<double>& m
  * @param peak 
  */
 void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _min, double& peak, bool allow_shrinkage) {
+    #ifdef SWITCH_OFF_DYNAMIC_BOUNDS
+    return;
+    #endif
     // Find e_peak = kT/2
     double min_energy = 0;
         // a) Prevent a change if it's too big. At early times, the MB peak may not yet be taller than the auger peak.
         // b) designed to be below photoeletron peaks, TODO make this input-dependent at least.
-    double max_energy = max(10/Constant::eV_per_Ha,min(10*peak,2000/Constant::eV_per_Ha)); 
+    double max_peak_energy = max(10/Constant::eV_per_Ha,min(2*peak,2000/Constant::eV_per_Ha)); // TODO this will start to fail if updating much faster than dynamics does (i.e. low XFEL intensities) - especially since at low intensities low energy peaks become significant! meaning it will double each update. Though it works decently with abdallah neon at 0.25 fs update period.
     // Step size is hundredth of the previous peak past a peak of 1 eV. Note gets stuck on hitch at early times, but not a big deal as the minimum size of new_max lets us get through this. 
     // Alternatively could just implement local max detection for early times.
     double e_step_size = max(1./Constant::eV_per_Ha,peak)/200; 
-    double new_peak = approx_regime_peak(step,min_energy,max_energy,e_step_size);
+    double new_peak = approx_regime_peak(step,min_energy,max_peak_energy,e_step_size);
     peak = new_peak;
 
     double kT = 2*peak;
@@ -297,14 +303,11 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
     }
     //double min_e_seq_range  = 20/Constant::eV_per_Ha;
     //size_t num_sequential_needed = max(min_seq_needed,(int)(min_e_seq_range/e_step_size+0.5)); 
-    allow_shrinkage = false; //TODO
-    std::cout << "upper inflection of MB is:";
     /* Using an inflection to judge regime end may be causing issues when MB and photo merge.
     size_t num_sequential_needed = 3; // early times are safeguarded from inflections being too small by disallowing shrinkage
     double new_max = approx_regime_bound(step,peak, +e_step_size, num_sequential_needed,5,1./2.);
     */
     double new_max = 2.3208*kT; // 80% of electrons below this point (lower since not as sharp)
-    std::cout << std::endl;
     if(_max < new_max || allow_shrinkage)
         _max = std::min(new_max,Distribution::get_max_E());
 }
@@ -326,6 +329,9 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
  * @param g_min 
  */
 void ElectronRateSolver::transition_energy(size_t step, double& g_min){
+    #ifdef SWITCH_OFF_DYNAMIC_BOUNDS
+    return;
+    #endif
     //TODO assert that this is called after MB and dirac regimes updated.
 
     // for these functions, if a trough is negative then it defaults to using g_min.

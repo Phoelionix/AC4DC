@@ -179,9 +179,13 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         // 2. Handle live plotting
         // 3. Handle dynamic updates to dt (and checkpoints, which also handle case of NaN being encountered by solver).
         this->pre_ode_step(_log, n,steps_per_time_update);
-        
         this->step_nonstiff_part(n); 
-        
+        #ifdef DEBUG_BOUND
+        for(size_t a = 0; a < this->y[n+1].atomP.size();a++)
+            for(size_t i=0;i < this->y[n+1].atomP[a].size();i++){
+                assert(this->y[n+1].atomP[a][i] >= 0);
+            }        
+        #endif    
         // this->y[n+1].from_backwards_Euler(this->dt, this->y[n], stiff_rtol, stiff_max_iter);
         this->step_stiff_part(n);
 
@@ -190,6 +194,12 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         if (this->post_ode_step(_log,n) == 1){
             break; // user asked to end the simulation early.
         } 
+        #ifdef DEBUG_BOUND
+        for(size_t a = 0; a < this->y[n+1].atomP.size();a++)
+            for(size_t i=0;i < this->y[n+1].atomP[a].size();i++){
+                assert(this->y[n+1].atomP[a][i] >= 0);
+            }        
+        #endif        
     }
     Display::close();
     std::cout<<"\n";
