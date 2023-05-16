@@ -232,6 +232,7 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, std::vector<double>& m
     return;
     #endif
     double min_photo_peak_considered = 1500/Constant::eV_per_Ha;  // An energy that is above auger energies but will catch significant peaks. //TODO replace with transition energy of last regimes?
+    min_photo_peak_considered = min(0.7*input_params.elec_grid_preset.pulse_omega/Constant::eV_per_Ha,min_photo_peak_considered); // just to better support really low energies, though it's not the intended use.
     double peak_search_step_size = 10/Constant::eV_per_Ha;
     // Find peaks
     size_t num_sequential_needed = 3;

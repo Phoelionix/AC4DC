@@ -161,6 +161,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         }
         std::vector<state_type> check_states = std::vector<state_type>(this->y.begin(), this->y.begin()+this->order);
         checkpoint = {this->order, Distribution::get_knot_energies(), this->regimes, check_states};
+        old_checkpoint = checkpoint;
     }
     // Run those steps 
     std::stringstream tol;
