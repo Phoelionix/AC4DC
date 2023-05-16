@@ -18,7 +18,7 @@ default_dict = dict(
     ),
     ##### Crystal params
     crystal = dict(
-        cell_scale = 1,  # for SC: cell_scale^3 unit cells 
+        cell_scale = 3,  # for SC: cell_scale^3 unit cells 
         positional_stdv = 0, # Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
@@ -31,7 +31,7 @@ default_dict = dict(
         detector_distance_mm = 100,
         screen_type = "flat",#"hemisphere"
         q_minimum = res_to_q(worst_resolution),#None #angstrom
-        q_cutoff = res_to_q(best_resolution),#2*np.pi/2
+        q_cutoff = res_to_q(best_resolution),#2*np.pi/d
         t_fineness=25,   
         #####crystal stuff
         max_triple_miller_idx = None, # = m, where max momentum given by q with miller indices (m,m,m)

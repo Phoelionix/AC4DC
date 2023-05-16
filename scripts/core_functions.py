@@ -13,19 +13,38 @@ def get_sim_params(input_path,molecular_path,handle):
     #intensityData = raw[:,1]
     timeData = raw[:, 0]    
     start_t = timeData[0]; end_t = timeData[-1]
+    # for convenience the input file has multiple options for determining fluence: "Count", "Fluence", or "Intensity"    
+    active_photon_measure_found = False
+    photon_measure = None  
+    reading_photons = False
+    reading_pulse = False    
+    photon_unit = None
+    photon_measure_val = None
+
+    def init_photon_read(param_type,unit):
+        nonlocal reading_photons,photon_measure,photon_unit
+        if active_photon_measure_found != False:
+            raise Exception("two photon measures detected")                
+        reading_photons = True   
+        photon_measure = param_type  
+        photon_unit = unit   
     with open(molfile, 'r') as f:
-        reading_count = False
-        reading_pulse = False
         n = 0
         for line in f:
             if line.startswith("#PULSE"):
                 reading_pulse=True
                 continue                
-            elif line.startswith("#USE_COUNT"):
-                reading_count=True
+            elif line.startswith("#USE_COUNT"): # (incoming photon count)
+                init_photon_read("Count","×10^12")              
                 continue
+            elif line.startswith("#USE_FLUENCE"):
+                init_photon_read("Fluence","×10^4 J/cm^2")              
+                continue
+            elif line.startswith("#USE_INTENSITY"):
+                init_photon_read("Intensity","×10^19 W/cm^2")              
+                continue                        
             elif line.startswith("#") or line.startswith("//") or len(line.strip()) == 0:
-                reading_count = False
+                reading_photons = False
                 reading_pulse = False
                 n = 0
                 continue
@@ -39,15 +58,20 @@ def get_sim_params(input_path,molecular_path,handle):
                 elif n==1:
                     fwhm = val
                 n += 1
-            if reading_count:
+            if reading_photons:
+                if n == 0:
+                    if (line.split(' ')[0][0] not in ["T","t"]):
+                        reading_photons = False; photon_measure = None; photon_unit = None
+                    else:
+                        active_photon_measure_found = True
                 if n == 1:
-                    incoming_photon_count = float(line.split(' ')[0])
+                    photon_measure_val = float(line.split(' ')[0])
                 n += 1
     print("Time range:",start_t,"-",end_t)
     print("Energy:", energy)
-    param_dict = ["Energy","Width","Count"]
-    unit_dict = [" eV"," fs","×10^12"]
-    return start_t,end_t, energy, fwhm, incoming_photon_count, param_dict,unit_dict 
+    param_dict = ["Energy","Width",photon_measure]
+    unit_dict = [" eV"," fs",photon_unit]
+    return start_t,end_t, energy, fwhm, photon_measure_val, param_dict,unit_dict 
 
 def get_mol_file(input_path, molecular_path, mol, output_mol_query = ""):
     #### Inputs ####

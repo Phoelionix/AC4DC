@@ -76,7 +76,7 @@ def main():
         for i, target in enumerate(target_handles):
             if len(sys_argv) > 2:
                 fname_out = target
-            make_some_plots(target,data_parent_dir,fname_out+"_Plt",outdir+plot_subdir,True,True,True,False)            
+            make_some_plots(target,data_parent_dir,fname_out+"_Plt",outdir+plot_subdir,True,False,True,False)   #TODO turning off bound plots for now, they are joined with multiple species.          
     def get_custom_names(target_handles,sim_data_parent_dir):
         custom_names = []
         for handle in target_handles:

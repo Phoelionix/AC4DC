@@ -394,6 +394,7 @@ class Atomic_Species():
         With a hybrid molecular dynamics model informed by AC4DC, the nuclei's states could be tracked properly throughout time, and this function would be replaced
         by a call to the data of the atomic nuclei's states.
         '''
+        print("Creating time-varying states for each atom from plasma simulation's data")
         self.times_used = self.crystal.ff_calculator.get_times_used()
         if self.num_atoms != len(self.crystal.sym_rotations)*len(self.coords):
             raise Exception("num atoms was not same on set_stochastic_states call as when set by set_coord_deviation")
@@ -642,7 +643,8 @@ class XFEL():
                 d = SPI_resolution/ang_per_bohr # resolution
                 rim_q = 2*np.pi/d
                 if self.max_q < rim_q:
-                    raise Exception("Resolution of " + str(SPI_resolution) + " angstroms would require q to go beyond its maximum.")
+                    print ("WARNING: resolution of " + str(SPI_resolution) + " angstroms requires q to go beyond its maximum. Using max_q instead.")
+                    rim_q = self.max_q
 
             max_theta = self.q_to_theta(rim_q)
             #screen_width = resolution_to_X(d) * 2
@@ -1627,7 +1629,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             else: 
                 combined_data = z1
             z_min, z_max = np.nanmin(combined_data), np.nanmax(combined_data)       
-            current_cmap = plt.colormaps.get_cmap("viridis")
+            current_cmap = plt.colormaps.get_cmap("plasma")
             current_cmap.set_bad(color='black')
             if not get_R_only:
                 z1_map = plt.imshow(z1,vmin=z_min,vmax=z_max,cmap=current_cmap)
@@ -1642,9 +1644,6 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     plt.show()
                     print("R:")
                     fig, ax = plt.subplots()
-                    #bg_col = "red"
-                    bg = np.full((*z1.shape, 3), 70, dtype=np.uint8)
-                    #alpha = 0*z1+0.0001#z1/z_max
                     I_tmp = result2.I
                     if log_I:
                         I_tmp = z2.copy()
@@ -1655,10 +1654,17 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real)   # normalises I_real to I_ideal's tot intensity
                 R_cells = np.abs((inv_K*sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal))
                 R = np.sum(R_cells)
-                print(R) 
+                print(R)               
                 if not get_R_only:
+                    min_R_dmg_pixel = 0.15
+                    alpha_prop_to_I = False
+                    bg = np.full((*z1.shape, 3), 0, dtype=np.uint8) #bg = np.full((*z1.shape, 3), 70, dtype=np.uint8)
+
                     ax.imshow(bg)
                     R_cells *= len(R_cells)**2# multiply by num cells to give the 'weighted contribution' (such that R is now like the weighted average) 
+                    alpha[R_cells < min_R_dmg_pixel] = 0  # hide insignificant pixels
+                    if not alpha_prop_to_I:
+                        alpha[alpha != 0] = 1  # override.
                     R_map = ax.imshow(R_cells,vmin=0,vmax=0.4,alpha=alpha,cmap=cmap)     
                     plt.colorbar(R_map)
                     ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
@@ -1968,17 +1974,17 @@ if __name__ == "__main__":
     #============------------User params---------==========#
 
     target = "hen" #target_options[2]
-    best_resolution = 2   # resolution (determining max q)
+    best_resolution = 4   # resolution (determining max q)
     worst_resolution = None#30 # 'resolution' corresponding to min q
 
     #### Individual experiment arguments 
-    start_time = -6 #-6
-    end_time = 6 #6 #10 #0#-9.80    
+    start_time = -18
+    end_time = 18 
     laser_firing_qwargs = dict(
         SPI = True,
         SPI_resolution = best_resolution,
-        pixels_across = 60,  # for SPI, shld go on xfel params.
-        random_orientation = False,  #TODO refactor to be in same place as other orients...# orientation is synced with second 
+        pixels_across = 100,  # for SPI, shld go on xfel params.
+        random_orientation = False, #infinite cryst sim only, TODO refactor to be in same place as other orients...# orientation is synced with second 
     )
     ##### Crystal params
     crystal_no_dev = True
@@ -1989,13 +1995,13 @@ if __name__ == "__main__":
         cell_packing = "SC",
         rocking_angle = 1,  # (approximating mosaicity)
         orbitals_as_shells = True,
-        #CNO_to_N = True,   # whether the laser simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
+        #CNO_to_N = True,   # whether the plasma simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
     )
 
     #### XFEL params
     tag = "" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
     #TODO make it so reflections don't overwrite same orientation, as stochastic now.
-    energy = 12000#7100 # eV
+    energy = 7112#7100 # eV
     exp_qwargs = dict(
         detector_distance_mm = 100,
         screen_type = "flat",#"hemisphere"
@@ -2019,9 +2025,6 @@ if __name__ == "__main__":
     )
     same_deviations = False # whether same position deviations between damaged and undamaged crystal (SPI only) 
     
-    
-
-
 
     # Optional: Choose previous folder for crystal results
     chosen_root_handle = None # None for new. use e.g. "tetra_v1", if want to add images under same params to same results.
@@ -2066,24 +2069,23 @@ if __name__ == "__main__":
     if target == "neutze": #T4 virus lys
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/2lzm.pdb"
         target_handle = "lys-1_2"  
-        folder = ""
+        folder = "lys"
         allowed_atoms = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
-        target_handle = "lys-1_2"  
-        #target_handle = "lys_nass_2"
-        folder = ""#"lys"
+        #target_handle = "lys-1_2"  
+        target_handle = "lys_nass_2"
+        folder = "lys"
+        #//
         allowed_atoms = ["N_fast","S_fast"]
         #allowed_atoms = ["N_fast"]
         #allowed_atoms = ["S_fast"]
+        #//
         CNO_to_N = True
     elif target == "tetra": 
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/5zck.pdb" 
         folder = "tetra_CNO"
-        # target_handle = "6-5-2_tetra_3" #"carbon_12keV_1" # "carbon_6keV_1" #"carbon_gauss_32"
-        # allowed_atoms = ["N_fast"]
-        # CNO_to_N = True
         target_handle = "6-5-2_tetra_CNO_3"
         #allowed_atoms = ["N_fast"]
         allowed_atoms = ["C_fast","N_fast","O_fast"]
@@ -2126,8 +2128,7 @@ if __name__ == "__main__":
         stylin(exp_name1,exp_name2,experiment1.max_q,)
 #%%
 if __name__ == "__main__":
-    stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
-
+    R = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=True,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
 
 #^^^^^^^
 # %%

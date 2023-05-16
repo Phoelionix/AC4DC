@@ -22,15 +22,17 @@ my_dir = path.abspath(path.join(src_file_path ,"../")) + "/"
 # full sim that does point sampling, thus assumes a "smooth" distribution. Thus good for low cell count input. Num cells is entire whole target.
 # Compared with non-SPI (crystal) which assumes crystal and does bragg points. Num cells is supercell.
 #TODO rename the diff sims, 'non-SPI' unclear.
+#TODO currently all cells are used for calculation of R, but we may wish to ignore cells outside the considered radius? Though I haven't see anyone do this, it would depend on what image reconstruction algos do I guess. But we get empty corners with high res. limits so
+
 
 mode_dict = {0:'crystal',1:'spi',2:'both'}
 mode = 1
 NO_CRYSTAL_DEV = False
 
 PDB_PATHS = dict( # contains the target that should be used for the folder.
-    neutze =  my_dir + "targets/2lzm.pdb",
-    hen = my_dir + "targets/4et8.pdb",
-    tetra = my_dir+ "targets/5zck.pdb" ,
+    tetra = my_dir+ "targets/5zck.pdb",
+    lys = my_dir + "targets/4et8.pdb", #"targets/2lzm.pdb",
+    test = my_dir + "targets/4et8.pdb", 
 )          
 
 
@@ -43,10 +45,10 @@ def multi_damage(batch_handle,params,allowed_atoms_1,CNO_to_N,same_deviations,ch
         params["crystal"]["positional_stdv"] = 0
     pdb_path = PDB_PATHS[batch_handle]
 
-    """
+    '''
     Folder structure:
     ...'root_results_dir'/'results_batch_dir'/<experiment_results>/<orientation>
-    """
+    '''
     sim_data_batch_dir = path.abspath(path.join(my_dir ,"../../output/__Molecular/"+batch_handle)) + "/"
     sim_input_dir = path.abspath(path.join(my_dir ,"../../input/")) + "/"
     # Folder containing the folders corresponding to each batch of handles.
@@ -84,8 +86,10 @@ def multi_damage(batch_handle,params,allowed_atoms_1,CNO_to_N,same_deviations,ch
     
     R_data = []
     for i, sim_handle in enumerate(sim_handle_list):
+        """
         if energy[i] != 12000:
             continue
+        """
         run_params = copy.deepcopy(params)
         
         #TODO print properly
@@ -141,13 +145,14 @@ def multi_damage(batch_handle,params,allowed_atoms_1,CNO_to_N,same_deviations,ch
 
 allowed_atoms = ["C_fast","N_fast","O_fast","S_fast"]
 CNO_to_N = True
-same_deviations = True # whether same position deviations between damaged and undamaged crystal (SPI only)
+same_deviations = False # whether same position deviations between damaged and undamaged crystal (SPI only)
 batch_dir = None # Optional: Specify existing parent folder for batch of results, to add these orientation results to.
 
+folder = "lys" #e.g. "lys" or "tetra"
 if mode_dict[mode] != "spi":
-    R_data_crys = multi_damage("tetra",imaging_params.tetra_dict,allowed_atoms,CNO_to_N,same_deviations,batch_dir,get_R_only=True)
+    R_data_crys = multi_damage(folder,imaging_params.default_dict,allowed_atoms,CNO_to_N,same_deviations,batch_dir,get_R_only=True)
 if mode_dict[mode] != "crystal":
-    R_data_SPI = multi_damage("tetra",imaging_params.tetra_dict_SPI,allowed_atoms,CNO_to_N,same_deviations,batch_dir,get_R_only=True)
+    R_data_SPI = multi_damage(folder,imaging_params.default_dict_SPI,allowed_atoms,CNO_to_N,same_deviations,batch_dir,get_R_only=True)
 
 #%%
 def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
@@ -178,7 +183,7 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
     fig.update_layout(scene_camera=camera)         
     fig.show()    
 
-    fig = px.scatter(df, x='fwhm', y='R', symbol='energy', size='log_photons',
+    fig = px.scatter(df, x='fwhm', y='R', symbol='energy', size='photon_size_thing',#'log_photons',
               color='R', color_continuous_scale=clr_scale, range_color=[cmin,cmax],size_max=15,opacity=1,**kwargs) 
     fig.update_layout(
         showlegend=True,
@@ -245,89 +250,90 @@ def plot_that_funky_thing(R_data,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
         fig.update_xaxes(range=ranges['fwhm'])
         fig.update_yaxes(type="log",range=np.log(ranges['photons']))
         fig.show()
-    # and do a contour
-    df = data_frame_dict[12000]
-    fig = go.Figure(data =  
-        go.Contour(
-            #z=R_mesh,
-            #x=unique_fwhm, 
-            #y=unique_photons,
-            z = df["R"],
-            x = df["fwhm"],
-            y = [1e12*p for p in df["photons"]],
+    # and do a contour for 12keV
+    if 12000 in data_frame_dict.keys(): 
+        df = data_frame_dict[12000]
+        fig = go.Figure(data =  
+            go.Contour(
+                #z=R_mesh,
+                #x=unique_fwhm, 
+                #y=unique_photons,
+                z = df["R"],
+                x = df["fwhm"],
+                y = [1e12*p for p in df["photons"]],
 
-            colorscale = 'amp',#clr_scale, #'electric',
-            line_smoothing=0,
-            connectgaps = True,
-            zmin = 0, zmax = 0.4,
-            contours = go.contour.Contours(start = 0.05, end= ranges['R'][1], size = 0.05),
-            colorbar = dict(title = "R", tickvals = np.arange(0.05,ranges['R'][1],0.05),)
-        ))
-    fig.update_xaxes(title="FWHM (fs)",type="log")
-    fig.update_yaxes(title="Photons")
-    fig.update_yaxes(type="log",range=np.log(ranges['photons']),tickvals = [1e10,1e11,1e12,1e13],tickformat = '.0e')
-    fig.update_layout(width = 750, height = 600,)
-    fig.show()
-    df = original_df
+                colorscale = 'amp',#clr_scale, #'electric',
+                line_smoothing=0,
+                connectgaps = False,
+                zmin = 0, zmax = 0.4,
+                contours = go.contour.Contours(start = 0.05, end= ranges['R'][1], size = 0.05),
+                colorbar = dict(title = "R", tickvals = np.arange(0.05,ranges['R'][1],0.05),)
+            ))
+        fig.update_xaxes(title="FWHM (fs)",type="log")
+        fig.update_yaxes(title="Photons")
+        fig.update_yaxes(type="log",range=np.log(ranges['photons']),tickvals = [1e10,1e11,1e12,1e13],tickformat = '.0e')
+        fig.update_layout(width = 750, height = 600,)
+        fig.show()
+        df = original_df
 
     #get data frames for 1e12 photon count and do a contour
-    unique_E = np.sort(df.energy.unique())
-    data_frame_dict = {elem : pd.DataFrame() for elem in unique_photons}    
-    for key in data_frame_dict.keys():
-        data_frame_dict[key] = df[:][df.photons == key]    
-    df = data_frame_dict[1]
+    data_frame_dict = {elem : pd.DataFrame() for elem in unique_photons}   
+    if 1 in data_frame_dict.keys():  
+        for key in data_frame_dict.keys():
+            data_frame_dict[key] = df[:][df.photons == key]    
+        df = data_frame_dict[1]
 
-    fig = go.Figure(data =  
-        go.Contour(
-            #z=R_mesh,
-            #x=unique_fwhm, 
-            #y=unique_photons,
-            z = df["R"],
-            x = df["fwhm"],
-            y = df["energy"],
+        fig = go.Figure(data =  
+            go.Contour(
+                #z=R_mesh,
+                #x=unique_fwhm, 
+                #y=unique_photons,
+                z = df["R"],
+                x = df["fwhm"],
+                y = df["energy"],
 
-            colorscale = 'amp',#clr_scale, #'electric',
-            line_smoothing=0,
-            connectgaps = False,
-            zmin = 0, zmax = 0.4,
-            contours = go.contour.Contours(start = 0.05, end= ranges['R'][1], size = 0.05),
-            colorbar = dict(title = "R", tickvals = np.arange(0.05,ranges['R'][1],0.05),)
-        ))
-    fig.update_layout(width = 750, height = 600,)
-    fig.update_xaxes(title="FWHM (fs)",type="log")
-    fig.update_yaxes(title="Energy (eV)")
+                colorscale = 'amp',#clr_scale, #'electric',
+                line_smoothing=0,
+                connectgaps = False,
+                zmin = 0, zmax = 0.4,
+                contours = go.contour.Contours(start = 0.05, end= ranges['R'][1], size = 0.05),
+                colorbar = dict(title = "R", tickvals = np.arange(0.05,ranges['R'][1],0.05),)
+            ))
+        fig.update_layout(width = 750, height = 600,)
+        fig.update_xaxes(title="FWHM (fs)",type="log")
+        fig.update_yaxes(title="Energy (eV)")
 
-    fig.show()   
-    df = original_df
+        fig.show()   
+        df = original_df
 
     #get data frames for 25 fs fwhm and do a contour
-    unique_E = np.sort(df.energy.unique())
     data_frame_dict = {elem : pd.DataFrame() for elem in unique_fwhm}    
-    for key in data_frame_dict.keys():
-        data_frame_dict[key] = df[:][df.fwhm == key]    
-    df = data_frame_dict[25]
+    if 25 in data_frame_dict.keys(): 
+        for key in data_frame_dict.keys():
+            data_frame_dict[key] = df[:][df.fwhm == key]    
+        df = data_frame_dict[25]
 
-    fig = go.Figure(data =  
-        go.Contour(
-            #z=R_mesh,
-            #x=unique_fwhm, 
-            #y=unique_photons,
-            z = df["R"],
-            x = df["energy"],
-            y = [1e12*p for p in df["photons"]],
+        fig = go.Figure(data =  
+            go.Contour(
+                #z=R_mesh,
+                #x=unique_fwhm, 
+                #y=unique_photons,
+                z = df["R"],
+                x = df["energy"],
+                y = [1e12*p for p in df["photons"]],
 
-            colorscale = 'amp',#clr_scale, #'electric',
-            line_smoothing=0,
-            connectgaps = False,
-            zmin = 0, zmax = 0.4,
-            contours = go.contour.Contours(start = 0.05, end= ranges['R'][1], size = 0.05),
-            colorbar = dict(title = "R", tickvals = np.arange(0.05,ranges['R'][1],0.05),)
-        ))
-    fig.update_layout(width = 750, height = 600,)
-    fig.update_xaxes(title="Energy (eV)")
-    fig.update_yaxes(title="Photons",type="log",range=np.log(ranges['photons']),tickvals = [1e10,1e11,1e12,1e13],tickformat = '.0e')
-    fig.show()        
-    df = original_df
+                colorscale = 'amp',#clr_scale, #'electric',
+                line_smoothing=0,
+                connectgaps = False,
+                zmin = 0, zmax = 0.4,
+                contours = go.contour.Contours(start = 0.05, end= ranges['R'][1], size = 0.05),
+                colorbar = dict(title = "R", tickvals = np.arange(0.05,ranges['R'][1],0.05),)
+            ))
+        fig.update_layout(width = 750, height = 600,)
+        fig.update_xaxes(title="Energy (eV)")
+        fig.update_yaxes(title="Photons",type="log",range=np.log(ranges['photons']),tickvals = [1e10,1e11,1e12,1e13],tickformat = '.0e')
+        fig.show()        
+        df = original_df
     
 ##%%
 if mode_dict[mode] != "spi":
