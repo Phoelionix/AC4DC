@@ -13,7 +13,7 @@ default_dict = dict(
     laser = dict(
         SPI = False,
         SPI_resolution = best_resolution,
-        pixels_across = 100,  # for SPI, shld go on xfel params.
+        pixels_across = 40,  # for SPI, shld go on xfel params.
         random_orientation = True,  # infinite cryst sim only, NB: orientation is synced with undamaged crystal imaging  (TODO random orientation should not be separate from the other orient params...)
     ),
     ##### Crystal params

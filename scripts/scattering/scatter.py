@@ -1277,7 +1277,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
         plt.gcf().set_figwidth(5)
         plt.gcf().set_figheight(3)                  
 
-    if result_handle != None:
+    if result_handle != None: #TODO replace this atrocious way of distinguishing between inf. crystal and finite
         results_dir = results_parent_dir+result_handle+"/"
         compare_dir = None
         if compare_handle!= None:
@@ -1656,7 +1656,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 R = np.sum(R_cells)
                 print(R)               
                 if not get_R_only:
-                    min_R_dmg_pixel = 0.15
+                    min_R_dmg_pixel = 0.1
                     alpha_prop_to_I = False
                     bg = np.full((*z1.shape, 3), 0, dtype=np.uint8) #bg = np.full((*z1.shape, 3), 70, dtype=np.uint8)
 
@@ -1974,12 +1974,12 @@ if __name__ == "__main__":
     #============------------User params---------==========#
 
     target = "hen" #target_options[2]
-    best_resolution = 4   # resolution (determining max q)
+    best_resolution = 2   # resolution (determining max q)
     worst_resolution = None#30 # 'resolution' corresponding to min q
 
     #### Individual experiment arguments 
-    start_time = -18
-    end_time = 18 
+    start_time = -12
+    end_time = 12 
     laser_firing_qwargs = dict(
         SPI = True,
         SPI_resolution = best_resolution,
@@ -1989,7 +1989,7 @@ if __name__ == "__main__":
     ##### Crystal params
     crystal_no_dev = True
     crystal_qwargs = dict(
-        cell_scale = 1,  # for SC: cell_scale^3 unit cells 
+        cell_scale = 2,  # for SC: cell_scale^3 unit cells 
         positional_stdv = 0,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
@@ -2001,7 +2001,7 @@ if __name__ == "__main__":
     #### XFEL params
     tag = "" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
     #TODO make it so reflections don't overwrite same orientation, as stochastic now.
-    energy = 7112#7100 # eV
+    energy = 12000#7100 # eV
     exp_qwargs = dict(
         detector_distance_mm = 100,
         screen_type = "flat",#"hemisphere"
@@ -2074,12 +2074,19 @@ if __name__ == "__main__":
         CNO_to_N = True
     elif target == "hen": # egg white lys
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
-        #target_handle = "lys-1_2"  
-        target_handle = "lys_nass_2"
-        folder = "lys"
+        # target_handle = "lys_nass_2"
+        # folder = "lys"
+        #'''
+        target_handle = "lys-7_1"#"lys-5_3"#" #12keV, 0.1/0.01 count, 10 fs
+        folder = "lys" 
+        #''' 
+        '''
+        target_handle = "lys_no_S_1"#"lys_no_S_2" #12keV, 0.1/0.01 count, 10 fs
+        folder = ""        
+        '''
         #//
-        allowed_atoms = ["N_fast","S_fast"]
-        #allowed_atoms = ["N_fast"]
+        #allowed_atoms = ["N_fast","S_fast"]
+        allowed_atoms = ["N_fast"]
         #allowed_atoms = ["S_fast"]
         #//
         CNO_to_N = True
@@ -2128,7 +2135,7 @@ if __name__ == "__main__":
         stylin(exp_name1,exp_name2,experiment1.max_q,)
 #%%
 if __name__ == "__main__":
-    R = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=True,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
+    stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
 
 #^^^^^^^
 # %%

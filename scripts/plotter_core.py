@@ -534,7 +534,10 @@ class Plotter:
         f is modified from the typical definition is multiplied by the scalar sqrt(I(t)) to deal with gaussian case.
         '''
         occ_dict = {} # dictionary that converts state index to subshell occupation list
-        states = self.statedict[atom]
+        try:
+            states = self.statedict[atom]
+        except:
+            raise Exception("species "+str(atom)+" was passed, but data is only present for "+''.join([k for k in self.statedict.keys()]))
         for i in range(len(states)):
             orboccs = parse_elecs_from_latex(states[i])
             occ_list = [-99]*10
@@ -860,7 +863,7 @@ class Plotter:
     
     def setup_axes(self,num_subplots):
         self.num_plotted = 0 # number of subplots plotted so far.
-        width, height = 3.4, 2.5
+        width, height = 4.5, 2.5  # 4.5,2.5 ~ abdallah
         if num_subplots > 3 :
             self.fig, self.axs = plt.subplots(int((1+num_subplots)/2),int(1+num_subplots/2),figsize=(width*int((1+num_subplots)/2),height*int((1+num_subplots)/2)))
         else:
@@ -888,7 +891,8 @@ class Plotter:
         ax.set_ylabel("Density")
         #self.fig.subplots_adjust(left=0.2, right=0.92, top=0.93, bottom=0.1)
 
-    def plot_charges(self, ax, a, rseed=404):
+    def plot_charges(self, a, rseed=404):
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
         self.aggregate_charges()
         #print_idx = np.searchsorted(self.timeData,-7.5)
         ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))
@@ -936,7 +940,7 @@ class Plotter:
             ax.plot(T, atomic_charge, label = a)
             self.Q += atomic_charge
 
-        de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])
+        de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])   
         de = de [1:] - de[:-1]
         tot_free_Q =-1*np.dot(self.freeData, de)
         ax.plot(T, tot_free_Q[::every], label = 'Free')
@@ -949,9 +953,8 @@ class Plotter:
 
 
     def plot_all_charges(self, rseed=404):
-        ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
         for a in self.atomdict:
-            self.plot_charges(ax, a, rseed)
+            self.plot_charges(a, rseed)
 
     def plot_free(self, N=100, log=False, min = 0, max=None, every = None):
         ax = self.get_next_ax()
@@ -974,7 +977,6 @@ class Plotter:
         # if log:
         #     Z = np.log10(Z)
 
-        
         ax.set_facecolor('black')
         if log:
             cm = ax.pcolormesh(T, self.energyKnot*1e-3, Z, shading='gouraud',norm=colors.LogNorm(vmin=min, vmax=max),cmap='magma',rasterized=True)

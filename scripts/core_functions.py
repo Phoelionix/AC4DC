@@ -69,8 +69,10 @@ def get_sim_params(input_path,molecular_path,handle):
                 n += 1
     print("Time range:",start_t,"-",end_t)
     print("Energy:", energy)
-    param_dict = ["Energy","Width",photon_measure]
-    unit_dict = [" eV"," fs",photon_unit]
+    param_dict = ["Energy","Width",photon_measure,"R"]  #TODO dont call dicts...
+    unit_dict = [" eV"," fs",photon_unit,""]
+
+    #TODO check that time range is satisfied by files.
     return start_t,end_t, energy, fwhm, photon_measure_val, param_dict,unit_dict 
 
 def get_mol_file(input_path, molecular_path, mol, output_mol_query = ""):

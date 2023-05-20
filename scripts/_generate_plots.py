@@ -44,7 +44,9 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
     fname_HR_style = "HR_style"
     fname_bound_dynamics = "bound_dynamics"
 
-    num_subplots = charge_conservation + bound_ionisation + free + free_slices
+    dummy = Plotter(mol_name,sim_output_parent_dir)
+    num_atoms = len(dummy.statedict)
+    num_subplots = charge_conservation + bound_ionisation*num_atoms + free + free_slices
     pl = Plotter(mol_name,sim_output_parent_dir,num_subplots)
 
     if charge_conservation: 
