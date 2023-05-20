@@ -1,25 +1,22 @@
-// AC4DC input file generated from: input/templates/lys.mol
-
 #ATOMS
-S_fast 10
-N_fast 991
+Ar_fast 1
 
 #VOLUME
-20000.00      // Volume per molecule in Angstrom^3.
-2000         // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
-none         // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
+9335000       // Volume per molecule in Angstrom^3.
+3250          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+cylindrical         // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
 
 #PULSE
-12000         // Photon energy in eV.
-25         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
+8300         // Photon energy in eV.
+30         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
 gaussian     // Pulse shape.
 
 #USE_COUNT
 true         // enabled? true/false.
-1.00            // Number of photons in trillions (10^12) in a 100 nm diameter spot.
+0.03927         // Number of photons in trillions (10^12) in a 100 nm diameter spot.
 
 #NUMERICAL
-20000        // Initial guess for number of time step points for rate equation.
+10000        // Initial guess for number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
@@ -33,14 +30,10 @@ N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
-#LOAD
-lys-9-backup-2
-999999
-false
-
 #DEBUG
 999           // Simulation cutoff time in fs (can end before but not after).
 0.01          // Interval to display current timestep [fs].
 ####END####
 
 Notes:
+Modelling isolated argon.

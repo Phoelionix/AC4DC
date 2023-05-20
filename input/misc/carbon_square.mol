@@ -1,22 +1,21 @@
-// AC4DC input file generated from: input/templates/lys.mol
-
+// Carbon (amorphous similar to Hau-Riege). Assumes 100nm cylindrical beam fired into much larger target.
+// Confirmed to work with AC4DCv2 (Sanders 2020 thesis).
 #ATOMS
-S_fast 10
-N_fast 991
+C_fast 1
 
 #VOLUME
-20000.00      // Volume per molecule in Angstrom^3.
-2000         // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
-none         // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
+18.11        // Volume per molecule in Angstrom^3.
+2000         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
+none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-12000         // Photon energy in eV.
-25         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
-gaussian     // Pulse shape.
+6000         // Photon energy in eV.
+10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+square       // Pulse shape
 
-#USE_COUNT
+#USE_FLUENCE
 true         // enabled? true/false.
-1.00            // Number of photons in trillions (10^12) in a 100 nm diameter spot.
+2500         // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
 20000        // Initial guess for number of time step points for rate equation.
@@ -34,13 +33,16 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #LOAD
-lys-9-backup-2
-999999
+carbon_square_1
+99999
 false
 
 #DEBUG
-999           // Simulation cutoff time in fs (can end before but not after).
+0           //
 0.01          // Interval to display current timestep [fs].
 ####END####
 
 Notes:
+
+
+

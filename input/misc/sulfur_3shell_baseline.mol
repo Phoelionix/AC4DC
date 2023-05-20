@@ -1,22 +1,22 @@
-// AC4DC input file generated from: input/templates/lys.mol
+// AC4DC input file generated from: input/templates/tetra.mol
+// Octasulfur
 
 #ATOMS
-S_fast 10
-N_fast 991
+S_fast 8
 
 #VOLUME
-20000.00      // Volume per molecule in Angstrom^3.
+125      // Volume per molecule in Angstrom^3.
 2000         // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
 none         // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
 
 #PULSE
-12000         // Photon energy in eV.
-25         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
+6000         // Photon energy in eV.
+5         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
 gaussian     // Pulse shape.
 
 #USE_COUNT
 true         // enabled? true/false.
-1.00            // Number of photons in trillions (10^12) in a 100 nm diameter spot.
+0.5            // Number of photons in trillions (10^12) in a 100 nm diameter spot.
 
 #NUMERICAL
 20000        // Initial guess for number of time step points for rate equation.
@@ -33,13 +33,8 @@ N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
-#LOAD
-lys-9-backup-2
-999999
-false
-
 #DEBUG
-999           // Simulation cutoff time in fs (can end before but not after).
+0           // Simulation cutoff time in fs (can end before but not after).
 0.01          // Interval to display current timestep [fs].
 ####END####
 

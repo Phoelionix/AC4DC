@@ -1,0 +1,42 @@
+//lysozyme https://files.rcsb.org/pub/pdb/validation_reports/et/4et8/4et8_full_validation.pdf
+
+#ATOMS
+S_fast 10
+N_fast 991
+
+#VOLUME
+20000        // Volume per molecule in Angstrom^3.
+300         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
+none // Spatial boundary shape - options are none, spherical, cylindrical, planar
+
+#PULSE
+6000         // Photon energy in eV.
+5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+gaussian       // Pulse shape
+
+#USE_COUNT
+true
+2  // Number of photons in trillions (10^12) in a 100 nm diameter spot.
+
+#NUMERICAL
+20000       // Initial guess for number of time step points for rate equation.        If loading time, then the time steps should be whatever gives the time step density at end of sim. (TODO make this automatic or change input to be time step width)
+18            // Number of threads in OpenMP.
+
+#DYNAMIC_GRID
+l              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
+0.25            // Grid update period in fs, (dynamic grid only).
+
+#OUTPUT
+800         // Number of time steps in the output files.
+4000        // number of free-electron grid points in output file.
+N            // Write atomic charges in a separate file (Y/N)?
+Y            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
+
+#DEBUG
+99 //10     // Simulation cutoff time in fs
+0.01    // Interval to update current timestep [fs].
+####END#####
+
+Notes:
+Generating many low acc for R factor gauging

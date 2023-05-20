@@ -1,21 +1,24 @@
-// AC4DC input file generated from: input/templates/water_drop.mol
-
+//H fast NOT WORKING
 #ATOMS
-O_fast 1  // Use N_fast if comparing with sim using N as an avg atom for CNO.
+H 959  
+C_fast 613
+N_fast 193
+O_fast 185
+S_fast 10
 
 #VOLUME
-29.90      // Volume per molecule in Angstrom^3.
-20000         // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
-spherical         // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
+20000.00      // Volume per molecule in Angstrom^3.
+2000         // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+none         // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
 
 #PULSE
-12000         // Photon energy in eV.
-25.0         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
+9000         // Photon energy in eV.
+5         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
 gaussian     // Pulse shape.
 
 #USE_COUNT
 true         // enabled? true/false.
-0.01            // Number of photons in trillions (10^12) in a 100 nm diameter spot.
+1.00            // Number of photons in trillions (10^12) in a 100 nm diameter spot.
 
 #NUMERICAL
 20000        // Initial guess for number of time step points for rate equation.
@@ -38,4 +41,3 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 ####END####
 
 Notes:
-Effectively infinite water droplet (2 micrometres). Leaving out H for now since it's bugged and also just not important.
