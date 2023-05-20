@@ -54,11 +54,6 @@ public:
 	int Num_Time_Steps() {return num_time_steps;}
 	double dropl_R() {return radius;}
 
-  	// void Set_Fluence(double new_fluence) {fluence = new_fluence;}
-	bool Write_Charges() {return write_charges; }
-	bool Write_Intensity() {return write_intensity; }
-	bool Write_MD_data() {return write_md_data; }
-
 	int Out_T_size() {return out_T_size; }
 	int Out_F_size() {return out_F_size; }
 
@@ -112,11 +107,6 @@ protected:
 	int out_F_size = 100; // Number of F grid points to use when outputting.
 	double radius = -1; // Droplet radius
 	int omp_threads = 1;
-
-	// Flags for outputting
-	bool write_charges = false;
-	bool write_intensity = false;
-	bool write_md_data = true;
 
 	// unit volume.
 	double unit_V = -1.;

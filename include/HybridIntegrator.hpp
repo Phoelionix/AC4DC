@@ -115,8 +115,11 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const 
         size_t resume_idx_if_const_dt = (t_resume-t_initial)/this->dt ;
         npoints -= (resume_idx_if_const_dt + 1);
         npoints += this->t.size(); // 
-        // Set checkpoint to be at the starting step (y is just the previous steps currently so call .end())
-        std::vector<state_type> check_states = std::vector<state_type>(this->y.end() + 1 - this->order, this->y.end());
+        // Set checkpoint to be at the starting step
+        std::vector<state_type>::const_iterator start_vect_idx = this->y.begin() - this->order + resume_idx;  
+        std::vector<state_type>::const_iterator end_vect_idx = this->y.begin() + resume_idx;  
+        
+        std::vector<state_type> check_states = std::vector<state_type>(start_vect_idx, end_vect_idx+1);
         checkpoint = {resume_idx, Distribution::get_knot_energies(),this->regimes,check_states}; // ATTENTION doesn't work unless loading last knot energies as we don't output the historic knots currently.
     }
     old_checkpoint = checkpoint; 

@@ -289,7 +289,7 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
     double min_energy = 0;
         // a) Prevent a change if it's too big. At early times, the MB peak may not yet be taller than the auger peak.
         // b) designed to be below photoeletron peaks, TODO make this input-dependent at least.
-    double max_peak_energy = max(10/Constant::eV_per_Ha,min(2*peak,2000/Constant::eV_per_Ha)); // TODO this will start to fail if updating much faster than dynamics does (i.e. low XFEL intensities) - especially since at low intensities low energy peaks become significant! meaning it will double each update. Though it works decently with abdallah neon at 0.25 fs update period.
+    double max_peak_energy = max(10/Constant::eV_per_Ha,min(2.5*peak,2000/Constant::eV_per_Ha)); // TODO this will start to fail if updating much faster than dynamics does (i.e. low XFEL intensities) - especially since at low intensities low energy peaks become significant! meaning it will double each update. Though it works decently with abdallah neon at 0.25 fs update period.
     // Step size is hundredth of the previous peak past a peak of 1 eV. Note gets stuck on hitch at early times, but not a big deal as the minimum size of new_max lets us get through this. 
     // Alternatively could just implement local max detection for early times.
     double e_step_size = max(1./Constant::eV_per_Ha,peak)/200; 

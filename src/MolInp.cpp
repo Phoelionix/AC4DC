@@ -101,18 +101,10 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 
 		if (n == 0) stream >> out_T_size;
 		if (n == 1) stream >> out_F_size;
-		if (n == 2) {
-			stream >> tmp;
-			if (tmp == 'Y') write_charges = true;
-		}
-		if (n == 3) {
-			stream >> tmp;
-			if (tmp == 'Y') write_intensity = true;
-		}
-		if (n == 4) {
-			stream >> tmp;
-			if (tmp != 'Y') write_md_data = false;
-		}
+		// if (n == 2) {
+		// 	stream >> tmp;
+		// 	if (tmp == 'Y') write_<placeholder> = true;
+		// }
 	}
 	
 	for (size_t n = 0; n < FileContent["#PULSE"].size(); n++) {  
