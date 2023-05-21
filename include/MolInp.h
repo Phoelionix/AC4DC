@@ -112,7 +112,7 @@ protected:
 	double unit_V = -1.;
 
 	// Simulation loading parameters
-	double simulation_resume_time_max; // will attempt to load closest to this time but not after.
+	double simulation_resume_time_max = INFINITY; // will attempt to load closest to this time but not after.
 	string load_folder = ""; // If "" don't load anything. 
 	string filtration_file = ""; // If "" don't load anything.
 	bool loading_uses_input_timestep = false; // 

@@ -53,7 +53,7 @@ void ElectronRateSolver::save(const std::string& _dir) {
     std::vector<double> fake_t; // TODO double check why I called this fake_t, probably doesn't make sense now. -S.P.
     int num_t_points = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front()) ));
     float t_fineness = timespan_au  / num_t_points;
-    float previous_t = t[0];
+    float previous_t = t[0]-t_fineness;
     int i = -1;
     while (i <  static_cast<int>(t.size())-1){  //TODO make this some constructed function or something -S.P. 
         i++;
@@ -111,7 +111,7 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
     // output at least min_outputted_points, otherwise output with spacing that is unaffected if simulation was cut off early.
     int num_t_points = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front()) ));
     float t_fineness = timespan_au  / num_t_points;
-    float previous_t = t[0];
+    float previous_t = t[0]-t_fineness;
     int i = -1; 
     size_t next_knot_update = 0;
     while (i <  static_cast<int>(t.size())-1){
@@ -184,7 +184,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         // Iterate over time.
         int num_t_points = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front()) ));
         float t_fineness = timespan_au  / num_t_points;
-        float previous_t = t[0];
+        float previous_t = t[0]-t_fineness;
         int i = -1;
         while (i <  static_cast<int>(t.size())-1){
             i++;
