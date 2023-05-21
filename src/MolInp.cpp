@@ -113,6 +113,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (n == 0) stream >> omega;
 		if (n == 1) stream >> width;
 		if (n == 2) stream >> pulse_shape;  // (Note user-defined operators)
+		if (n == 3) stream >> timespan_factor;  // (Note user-defined operators)
 	}
 
 	string tmp = "";

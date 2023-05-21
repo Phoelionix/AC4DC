@@ -80,6 +80,7 @@ public:
 	ManualGridBoundaries elec_grid_regions;
 	LossGeometry loss_geometry;
 	PulseShape pulse_shape = PulseShape::none;
+	double timespan_factor = -1;
 
 	int num_time_steps = -1; // Number of time steps for time dynamics
 

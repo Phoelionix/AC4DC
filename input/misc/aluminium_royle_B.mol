@@ -9,7 +9,8 @@ none    // geometry of sample (may be spherical, cylindrical or planar)
 #PULSE
 1700         // Photon energy in eV.
 80           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). 
-gaussian
+gaussian     // Pulse temporal shape
+2.5           // Total timespan, as a multiple of fwhm
 
 #USE_INTENSITY
 true         // enabled? true/false.

@@ -58,17 +58,21 @@ public:
         pf.set_shape(input_params.pulse_shape);
         pf.set_pulse(input_params.Fluence(), input_params.Width());
         
-        
+        timespan_au = input_params.Width()*input_params.timespan_factor;
         if (input_params.pulse_shape ==  PulseShape::square){  //-FWHM <= t <= 3FWHM (we've squished the pulse into the first FWHM.)
-            timespan_au = input_params.Width()*4; // 4*FWHM, capturing effectively entire pulse.
-            simulation_start_time = -timespan_au/4;
-            simulation_end_time =  3*timespan_au/4; 
+            if (timespan_au <= 0)
+                timespan_au = input_params.Width()*4; // 4*FWHM, capturing effectively entire pulse.
+            simulation_start_time = -input_params.Width();
         } else { //-1.2FWHM <= t <= 1.2 FWHM
-            timespan_au = input_params.Width()*2.4;   // 99% of pulse, (similar to Neutze)
-            std::cout<<"Imaging using -1.2 FWHM to 1.2 FWHM"<<std::endl;
+            if (timespan_au <= 0)
+                timespan_au = input_params.Width()*2.4;   // 99% of pulse, (similar to Neutze)
+            
             simulation_start_time = -timespan_au/2;
-            simulation_end_time = timespan_au/2; 
         }
+        simulation_end_time =   simulation_start_time + timespan_au; 
+        std::cout<<"Imaging from "<<simulation_start_time/input_params.Width() <<" FWHM to " 
+        << simulation_end_time/input_params.Width() <<" FWHM"<<std::endl;
+        
         if (input_params.Cutoff_Inputted()){
             if (input_params.Simulation_Cutoff() > simulation_end_time){
                 std::cout <<"Ignoring cutoff, as cutoff is past the end time."<<endl;
