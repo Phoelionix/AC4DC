@@ -3,25 +3,26 @@ Al_fast 1
 
 #VOLUME
 16.59       // Volume per molecule in Angstrom^3.
-14000          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
-none    // geometry of sample (may be spherical, cylindrical or planar)
+14000          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons. Not sure what radius means for planar... 
+planar    // geometry of sample (may be spherical, cylindrical or planar)
 
 #PULSE
 10000       // Photon energy in eV.
 20          // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). 
-square      // (Bit of a weird one, it's super-gaussian - we use square, so the super gaussian peak intensity will be the const. intensity.)
+gaussian      //
+3           // Total timespan, as a multiple of fwhm
 
 #USE_INTENSITY
 true         // enabled? true/false.
 1            // Maximum intensity in 10^19 * W/cm^2. Will give different fluence between square and gaussian. 
 
 #NUMERICAL
-50000        // Initial guess for number of time step points for rate equation.
+10000        // Initial guess for number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 low          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
-0.5         // Grid update period in fs, (dynamic grid only).
+2.5         // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
 800          // Number of time steps in the output files.
