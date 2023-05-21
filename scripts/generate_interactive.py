@@ -27,6 +27,7 @@ Simulation outputs/batches should be in AC4DC/output/__Molecular/ while this scr
 
 terminal_mode = True
 normalise = False
+ELECTRON_DENSITY = True # if False, use energy density  
 xmin, xmax = 1, 2e4
 
 END_T = 99#10 #0.0
@@ -156,6 +157,8 @@ def set_up_interactive_axes(ipl,plot_title):
     # Axis parameters, these define axis properties depending on what scale is used.
     xlabel = 'Energy (eV)'
     ylabel = '$f(\\epsilon) \\Delta \\epsilon$'   #TODO: Get this working on offline file saves somehow.
+    if ELECTRON_DENSITY:
+        ylabel = '$f(\\epsilon)'
     x_log_args = {'title': {"text": xlabel + " - log scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
     x_lin_args = {'title': {"text": xlabel + " - lin scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "linear", "range" : [xmin,xmax]}
     y_lin_args = {'title': {"text": ylabel + " - lin scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
@@ -173,7 +176,7 @@ def generate(target_handles,sim_data_parent_dir,plot_title,fname_out,normalise,o
     '''
     print("[ Interactive ] Creating electron density interactive figure")
     # Initialises plotter object with data from files.
-    ipl = InteractivePlotter(target_handles,sim_data_parent_dir, max_final_t=END_T,max_points=POINTS,custom_names=custom_names)  
+    ipl = InteractivePlotter(target_handles,sim_data_parent_dir, max_final_t=END_T,max_points=POINTS,custom_names=custom_names,use_electron_density = ELECTRON_DENSITY)  
     scale_button_args = set_up_interactive_axes(ipl,plot_title)
     # The meat of the plotting. Plot line for each point in time
     line_1 = {'width': 6,"dash": '10,1'}

@@ -207,11 +207,13 @@ class PlotData:
 class InteractivePlotter:
     # max_final_t, float, end time in femtoseconds. Not equivalent to time duration
     # max_points, int, number of points (within the timespan) for the interactive to have at maximum.
-    def __init__(self, target_names, sim_output_parent_directory, max_final_t = 30, max_points = 70, custom_names = None):
+    def __init__(self, target_names, sim_output_parent_directory, max_final_t = 30, max_points = 70, custom_names = None,use_electron_density = False):
         '''
         output_parent_directory: absolute path
+        use_electron_density: If True, plot electron density rather than energy density
         '''
         self.multi_trace_params = [""]*len(target_names)  # 
+        self.use_electron_density = use_electron_density
 
         self.num_plots = len(target_names)
         self.target_data = []
@@ -358,6 +360,9 @@ class InteractivePlotter:
                     rgba = tuple(rgb) + (a,)
                 col = "rgba" + str(tuple(rgba))      
                 
+                density_factor = X # energy density
+                if self.use_electron_density:
+                    density_factor = 1 
                 self.fig.add_trace(
                     go.Scatter(
                         visible=False,
@@ -373,7 +378,7 @@ class InteractivePlotter:
                         line=dict(color=col, **line_kwargs[g]),
                         name="t = " + str(t),
                         x=X,
-                        y=data*X))
+                        y=data*density_factor))
         
         self.fig.data[0].visible = True
 
