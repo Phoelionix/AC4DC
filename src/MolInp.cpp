@@ -132,7 +132,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (n == 0) stream >> tmp;
 		if (tmp[0] == 't' || tmp[0] == 'T'){
 			use_intensity = true; 
-			if (n == 1) stream >> max_intensity;
+			if (n == 1) stream >> peak_intensity;
 		}		
 		
 	}
@@ -201,7 +201,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 
 
 	// Get fluence  (if not use_fluence)
-	if (use_count){
+	if (use_count){ // TODO make consistent with the cm^-2 schema intended by Sanders.
 		double SPOT_RAD = 50; // nm
 		fluence = photon_count*omega*Constant::J_per_eV*1e12 * 1e10/(Constant::Pi*pow(SPOT_RAD,2)); 
 	}
@@ -209,18 +209,20 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		// TODO Need to test this is working as expected
 		// fluence = I0 * fwhm. I0 = I_avg*timespan/(fwhm). NB: var width = fwhm
 		// if square: Ipeak = I0.  
-		// if gaussian, I_peak = I0/norm. 
-		double t_units = pow(10,-15);   // Convert to units of input, fluence is 10^4 * J/cm^2.
-		double I_units = pow(10,15);
+		// if gaussian, I_peak = I0/norm, where norm = sqrt(pi/4/log(2)). 
+		
+		// Convert units, Peak intensity is units of 10^19 W/cm^2, fluence is in 10^4 * J/cm^2.
+		double t_units = pow(10,-15);   
+		double I_units = pow(10,15);  //  
 		switch (pulse_shape)
 		{
 		case PulseShape::gaussian:{
 			const double norm = sqrt(Constant::Pi/4/log(2)); // from  Pulse::operator() 
-			fluence = max_intensity*I_units*norm*(width*t_units);
+			fluence = peak_intensity*I_units*norm*(width*t_units);
 			break;
 			}
 		case PulseShape::square:{
-			fluence = max_intensity*I_units*(width*t_units);
+			fluence = peak_intensity*I_units*(width*t_units);
 			break;
 			}
 		default:

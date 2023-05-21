@@ -2,18 +2,18 @@
 Al_fast 1
 
 #VOLUME
-200       // Volume per molecule in Angstrom^3.
-1400          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+16.59       // Volume per molecule in Angstrom^3.
+14000          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
 none    // geometry of sample (may be spherical, cylindrical or planar)
 
 #PULSE
-1700         // Photon energy in eV.
-80           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). 
-gaussian
+10000       // Photon energy in eV.
+20          // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). 
+square      // (Bit of a weird one, it's super-gaussian - we use square, so the super gaussian peak intensity will be the const. intensity.)
 
-#USE_COUNT
+#USE_INTENSITY
 true         // enabled? true/false.
-0.000425            // Number of photons in trillions (10^12) in a 100 nm diameter spot.
+1            // Maximum intensity in 10^19 * W/cm^2. Will give different fluence between square and gaussian. 
 
 #NUMERICAL
 50000        // Initial guess for number of time step points for rate equation.
@@ -21,7 +21,7 @@ true         // enabled? true/false.
 
 #DYNAMIC_GRID
 low          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
-0.25         // Grid update period in fs, (dynamic grid only).
+0.5         // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
 800          // Number of time steps in the output files.
@@ -31,19 +31,14 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-200           // Simulation cutoff time in fs - as done by abdallah.
+999           // Simulation cutoff time in fs 
 0.01          // Interval to display current timestep [fs].
 ####END####
 
 #LOAD
-aluminium_royle_first_part
-99999
-false
+//aluminium_royle_first_part
+//99999
+//false
 
 Notes:
-square pulse, sim ends at end of pulse.
-volume isn't important.
-
-gaussian profile, 1/e = 7 square micrometres 
--> ln(2)*7 = FWHM spot?
--> 10^12 photons in ln(2)*7 micro. diam. spot -> 0.000425 in 100 nm diam.
+From: https://doi.org/10.1103/PhysRevE.95.063203

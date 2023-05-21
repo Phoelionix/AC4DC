@@ -93,10 +93,10 @@ protected:
 
 	bool use_fluence = false;
 	bool use_count = false;
-	bool use_intensity = false;
+	bool use_intensity = false; // peak intensity
 	double fluence = -1; // XFEL pulse fluence, au.
 	double photon_count = -1;
-	double max_intensity = -1;
+	double peak_intensity = -1;
 	
 	// Simulation end time, inputted as fs. Note that simulation (w/ rate equations) temporal width is 4*FWHM.
 	double simulation_cutoff_time = 1; 

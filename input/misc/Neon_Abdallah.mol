@@ -19,7 +19,7 @@ true         // enabled? true/false.
 4            // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
-5000        // Initial guess for number of time step points for rate equation.
+5000         // starting number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID

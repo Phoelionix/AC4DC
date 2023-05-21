@@ -41,6 +41,9 @@ This file is part of AC4DC.
  * - MB region
  * - Photoelectron region
  * transition region has more knots for higher energies (as it becomes quite wide and we already are using a low number of knots).
+ * @todo 
+ * 1. Add a config file for users to provide custom grids. 
+ * 2. Add a dynamic region that will automatically provide support for peaks higher than the photoelectron peaks.
  */
 
 GridRegions::GridRegions(){
@@ -97,6 +100,20 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
             Region(15,-1,-1,"mb"), // Maxwell-boltzmann distribution
         };    
         break;  
+      case DynamicGridPreset::heavy_support:
+        preset_name = "Heavy atom support";
+        pts_per_dirac = 10;
+        regions = {
+            Region(1,5,10,"static"),  // low divergent
+            Region(5,10,20, "static"), Region(5,20,50, "static"),  // low support
+            Region(15,50,200,"static"),  // auger
+            Region(7,200,600,"static"), 
+            Region((int)(0.5+ 6*trans_scaling),600,preset.pulse_omega/4,"static"), // transition
+            Region(15,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
+            Region(4,preset.pulse_omega*6/4,preset.pulse_omega*2.5,"static"), // high tail
+            Region(15,-1,-1,"mb"), // Maxwell-boltzmann distribution
+        };    
+        break;          
       case DynamicGridPreset::dismal_acc:
         preset_name = "Dismal accuracy";
         pts_per_dirac = 5;
