@@ -792,7 +792,7 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
         update_grid(_log,n+1,false);       
     }   
     // move from initial grid to dynamic grid shortly after a fresh simulation's start.
-    /*
+    ///*
     else if (n-this->order == max(2,(int)(steps_per_grid_transform/10)) && (input_params.Load_Folder() == "") && !grid_initialised){  // TODO make this an input param
         Display::popup_stream << "\n\rPerforming initial grid update... \n\r"; 
         _log << "[ Dynamic Grid ] Performing initial grid update..." << endl;
@@ -802,7 +802,7 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
         // TODO restart simulation with this better grid.
         ////////
     }
-    */
+    //*/
     dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
     #endif #SWITCH_OFF_ALL_DYNAMIC_UPDATES
     
