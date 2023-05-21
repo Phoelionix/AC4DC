@@ -1,10 +1,11 @@
 /**
  * @file config.h
- * @author your name (you@domain.com)
  * @brief 
  */
 
 #pragma once
+
+const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  ATTENTION I have not yet gone through and ensured that there are no local redefinitions of the order.
 
 #ifdef DEBUG
 // #define OUTPUT_TBR_TO_CERR

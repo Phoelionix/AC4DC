@@ -43,6 +43,7 @@ void ElectronRateSolver::set_starting_state(){
     if (input_params.Load_Folder() != ""){ 
         cout << "[ Plasma ] loading sim state from specified files." << endl;
         loadFreeRaw_and_times();
+        loadKnots();
         loadBound();
         simulation_resume_time = t.back();
     }
@@ -132,7 +133,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
                 dirac_peak_cutoff_density = y[step].F(last_trans_e)*last_trans_e*1.25; 
             }
             dirac_energy_bounds(step,regimes.dirac_maximums,regimes.dirac_minimums,regimes.dirac_peaks,true,regimes.num_dirac_peaks,dirac_peak_cutoff_density);
-            mb_energy_bounds(step,regimes.mb_max,regimes.mb_min,regimes.mb_peak,false);
+            mb_energy_bounds(step,regimes.mb_max,regimes.mb_min,regimes.mb_peak,true); //TODO make allowing shrinkage an input option?
             // Check whether we should update
             if (regimes.mb_min == old_mb_min && regimes.mb_max == old_mb_max){
                 if (force_update) _log <<"Forcing grid update"<< endl; // should be unlikely w/o adaptive b spline stuff? 
@@ -791,7 +792,7 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
         update_grid(_log,n+1,false);       
     }   
     // move from initial grid to dynamic grid shortly after a fresh simulation's start.
-    else if (n-this->order == max(2,(int)(steps_per_grid_transform/10)) && (input_params.Load_Folder() == "") && !grid_initialised){
+    else if (n-this->order == max(2,(int)(steps_per_grid_transform/10)) && (input_params.Load_Folder() == "") && !grid_initialised){  // TODO make this an input param
         Display::popup_stream << "\n\rPerforming initial grid update... \n\r"; 
         _log << "[ Dynamic Grid ] Performing initial grid update..." << endl;
         Display::show(Display::display_stream,Display::popup_stream); 

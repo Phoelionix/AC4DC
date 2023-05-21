@@ -94,7 +94,7 @@ public:
     void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0,bool force_update = false); //bool recalc=true);
     /// creates the tensor of coefficients 
     void initialise_rates();
-    void tokenise(std::string str, std::vector<double> &out, const char delim = ' ');
+    void tokenise(std::string str, std::vector<double> &out, const size_t start_idx = 0, const char delim = ' ');
 
     /// Number of secs taken for simulation to run
     long secs;
@@ -182,6 +182,9 @@ private:
     void saveFreeRaw(const std::string& fname);
     /// Loads the table of free-electron dynamics at the given time
     void loadFreeRaw_and_times();
+    void saveKnots(const std::string& fname);
+    void loadKnots();
+
     void loadBound();
     /// saves a table of bound-electron dynamics , split by atom, to folder dir.
     void saveBound(const std::string& folder);

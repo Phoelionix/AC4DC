@@ -100,12 +100,10 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const 
     
     bool resume_sim = (t_resume == t_initial) ? false : true;
 
-    //checkpoint = {this->order, Distribution::get_knot_energies(), this->regimes};
-
     size_t resume_idx = 0;
     if (resume_sim){
         for (size_t n=1; n<npoints; n++){
-            if (resume_sim && this->t[n] >= t_resume){
+            if (this->t[n] >= t_resume){
                 resume_idx = n;
                 break;
             }
@@ -162,6 +160,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         for (size_t n = 0; n < this->order; n++) {
             this->step_rk4(n);
         }
+        // Almost guaranteed we did not load a simulation, so set first checkpoint. 
         std::vector<state_type> check_states = std::vector<state_type>(this->y.begin(), this->y.begin()+this->order);
         checkpoint = {this->order, Distribution::get_knot_energies(), this->regimes, check_states};
         old_checkpoint = checkpoint;

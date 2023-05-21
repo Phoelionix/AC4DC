@@ -45,6 +45,7 @@ void ElectronRateSolver::save(const std::string& _dir) {
     std::cout << "[ Output ] \033[95mSaving to output folder \033[94m'"<<dir<<"'\033[95m..."<< std::endl;
     saveFree(dir+"freeDist.csv");
     saveFreeRaw(dir+"freeDistRaw.csv");
+    saveKnots(dir + "knotHistory.csv");
     saveBound(dir);
     saveBoundRaw(dir);
     std::cout <<"\033[0m"<<std::endl;
@@ -76,7 +77,7 @@ void ElectronRateSolver::file_delete_check(const std::string& fname){
     }    
 }
 
-
+/// Save the free electron density distribution
 void ElectronRateSolver::saveFree(const std::string& fname) {
     file_delete_check(fname);
 
@@ -87,14 +88,27 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
     f.open(fname);
     f << "# Free electron dynamics"<<endl;
     f << "# Time (fs) | Density @ energy (eV):" <<endl;
-    std::vector<double> reference_knots = Distribution::load_knots_from_history(t.size());
+    // We need to output to the same energies, so we choose the final knots for reference.
+    std::vector<double> reference_knots = Distribution::load_knots_from_history(t.size()); 
+    /* Alternative: Constant spacing reference knots:
+    std::vector<double> reference_knots;
+    std::vector<double>::iterator x;
+    double max_e = Distribution::get_knots_from_history(0).back(); 
+    double spacing = max_e/100;
+    double val;
+    for (x = reference_knots.begin(), val = 0; x != reference_knots.end(); ++x, val += spacing) {
+        *x = val;
+    }  
+    */  
     f << "#           | "<<Distribution::output_energies_eV(this->input_params.Out_F_size())<<endl;
-    // cout << "[ Dynamic Grid ], writing densities to reference knot energies: \n";
-    // for (double elem : reference_knots) cout << elem *Constant::eV_per_Ha<< ' ';
-    // cout << endl;  
+    #ifdef DEBUG
+    cout << "[ Dynamic Grid ], writing densities to reference knot energies: \n";
+    for (double elem : reference_knots) cout << elem *Constant::eV_per_Ha<< ' ';
+    cout << endl;
+    #endif  
 
     assert(y.size() == t.size());
-    // output at least min_outputted_points, otherwise output with fineness that is consistent regardless of cutoff time.
+    // output at least min_outputted_points, otherwise output with spacing that is unaffected if simulation was cut off early.
     int num_t_points = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front()) ));
     float t_fineness = timespan_au  / num_t_points;
     float previous_t = t[0];
@@ -126,7 +140,7 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     file_delete_check(fname);
 
     ofstream f;
-    cout << "FreeRaw: \033[94m'"<<fname<<"'\033[95m | ";
+    cout << "Free Raw: \033[94m'"<<fname<<"'\033[95m | ";
     f.open(fname);
     f << "# Free electron dynamics"<<endl;
     f << "# Energy Knot: "<< Distribution::output_knots_eV() << endl;
@@ -195,7 +209,7 @@ void ElectronRateSolver::saveBoundRaw(const std::string& dir) {
         file_delete_check(fname);
 
         ofstream f;
-        cout << "BoundRaw: \033[94m'"<<fname<<"'\033[95m | ";
+        cout << "Bound Raw: \033[94m'"<<fname<<"'\033[95m | ";
         f.open(fname);
         f << "# Ionic electron dynamics"<<endl;
         f << "# Time (fs) | State occupancy (Probability times number of atoms)" <<endl;
@@ -213,19 +227,44 @@ void ElectronRateSolver::saveBoundRaw(const std::string& dir) {
     }
 }
 
+
+void ElectronRateSolver::saveKnots(const std::string& fname) {
+    file_delete_check(fname);
+
+    ofstream f;
+    cout << "Knot History: \033[94m'"<<fname<<"'\033[95m | ";
+    f.open(fname);
+    f << "# History of free electron grid's B-spline knot updates"<<endl;
+    f << "# Time set (fs) | Energies"  << endl;
+
+    assert(y.size() == t.size());
+    size_t next_knot_update = 0;
+    for (size_t i=0; i<t.size(); i++) {
+        if (i >= next_knot_update){
+            Distribution::load_knots_from_history(i);
+            next_knot_update = Distribution::next_knot_change_idx(i);
+            f<<t[i]*Constant::fs_per_au<<" "<<Distribution::output_knots_eV()<<endl;
+        } 
+    }
+    f.close();
+    Distribution::load_knots_from_history(t.size()); // back to original state
+}
+
+
 /**
  * @brief 
  * @details destructive
  */
-
-
-void ElectronRateSolver::tokenise(std::string str, std::vector<double> &out, const char delim)
+void ElectronRateSolver::tokenise(std::string str, std::vector<double> &out, const size_t start_idx,const char delim)
 {
     out.resize(0); // clear 
     std::istringstream ss(str);
 
     std::string s;
+    size_t i = 0;
     while (std::getline(ss, s, delim)) {
+        i++;
+        if (i <= start_idx) continue;
         if (s.size() == 0 || (s.size() == 1 && s[0] == '\r')){continue;}  // This or part is just to deal with excel being a pain.
         double d = stold(s); 
         out.push_back(d);
@@ -265,9 +304,9 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
      // Get indices of lines to load
     std::string line;
     float previous_t;
-    float t_fineness = 0.01;  // Fineness should be kept below this, so that raw can be kept fine throughout loadings. 
+    float t_fineness = 0.01; //in fs // Fineness should be kept below this, so that raw can be kept fine throughout loadings. 
     vector<int> step_indices;
-    int i = -4;
+    int i = -GLOBAL_BSPLINE_ORDER - 1;
     while (std::getline(infile, line)){
         i++;
         if(i >= 0){
@@ -380,7 +419,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             y[i].F.transform_basis(new_knots);
         }         
         else{
-            // Starting state and knots are made to be same as that given in load file. TODO make tolerance consistent with other call.
+            // Starting state and knots are made to be same as that given in load file (in case knot history is missing).
             Distribution::set_knot_history(0,saved_knots); // move out of loop
             this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
         }
@@ -407,7 +446,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             y[i].F = 0;
         }
     }  
-    vector<double> new_knots = y.back().F.get_knot_energies();
+    vector<double> starting_knots = Distribution::get_knot_energies(); // The knots this simulation will start with.
     string col = "\033[95m"; string clrline = "\033[0m\n";
     cout <<  col + "Loaded simulation. Param comparisons are as follows:" << clrline
     << "Grid points at simulation resume time (" + col << t.back()*Constant::fs_per_au <<"\033[0m):" << clrline
@@ -418,7 +457,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         cout << "Source gp "<<j <<" | " + col
         << "(" << saved_knots[j] << " , " << saved_f[j] << ")" << clrline
         << "New gp "<<j <<"   | " + col                                              
-        << "(" << new_knots[j] << " , " << y.back().F[j] << ")" 
+        << "(" << starting_knots[j] << " , " << y.back().F[j] << ")" 
         << clrline << "------------------" << clrline;
     }
     cout << endl;
@@ -433,11 +472,73 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         param_cutoffs.transition_e = max(param_cutoffs.transition_e,2*regimes.mb_max); // mainly for case that transition region continues to dip into negative (in which case the transition region doesn't update).   
     }
 }   
+void ElectronRateSolver::loadKnots() {
+    // Ensure clear knot history
+    while (Distribution::knots_history.size() > 0){
+        Distribution::knots_history.pop_back();
+        cout<<"Cleared knot from history"<<endl;
+    }
+
+    const std::string& fname = input_params.Load_Folder() + "knotHistory.csv";
+
+    cout << "\n[ Dynamic Grid ] Loading knots from file path: "<<fname<<"..."<<endl;
+    
+    ifstream infile(fname);
+	if (infile.good())
+        std::cout<<"Opened successfully!"<<endl;
+    else {
+        std::cerr<<"Opening failed."<<endl;
+		exit(EXIT_FAILURE); // Quit with a huff.
+        return;
+    }    
+    
+    string comment = "#";
+    // get each raw line
+    infile.clear();  
+    infile.seekg(0, std::ios::beg);
+    size_t i = -GLOBAL_BSPLINE_ORDER - 1;
+    std::vector<double> saved_knots;
+    //std::vector<indexed_knot> Distribution::knots_history
+	while (!infile.eof())
+	{    
+        i++;
+        string line;
+        getline(infile, line);
+        if (!line.compare(0, 1, comment)) continue;
+        if (!line.compare(0, 1, "")) continue;
+        // TIME
+        std::istringstream s(line);
+        string str_time;
+        s >> str_time;
+        double time = stod(str_time)/Constant::fs_per_au;
+        size_t step;
+        for (size_t n=0; n < this->t.size(); n++){
+            if (this->t[n] == time){
+                step = n;
+                break;
+            }            
+            if (this->t[n] > time && n!= 0){
+                step = n-1;
+                break;
+            }
+        }        
+        // KNOTS
+        // Get grid points (knots)
+        this->tokenise(line,saved_knots,1);
+        // Convert to Atomic units
+        for (size_t k = 0; k < saved_knots.size();k++){
+            saved_knots[k]/=Constant::eV_per_Ha; 
+        }
+        Distribution::knots_history.push_back(indexed_knot{step,saved_knots});
+    }
+}
+
 
 /**
  * @brief Loads all times and free e densities from previous simulation's raw output, and uses that to populate y[i].F, the free distribution.
  * @attention Currently assumes same input states
- * @todo need to change load_bound_path to a map from atom names to the specific bound file (currently just takes 1 bound file)
+ * @todo Should change to use the non-raw file as it costs a lot of space. 
+ * Alternatively one can delete the raw files after simulation since they are only needed for loading at present.
  */
 void ElectronRateSolver::loadBound() {
     cout << "Loading atoms' bound states"<<endl; 
@@ -448,7 +549,7 @@ void ElectronRateSolver::loadBound() {
         // (unimplemented) select atom's bound file  
         const std::string& fname = input_params.Load_Folder() + "dist_" + input_params.Store[a].name + "_Raw.csv";
 
-        cout << "[ Free ] Loading bound states from file. "<<fname<<"..."<<endl;
+        cout << "[ Free ] Loading bound states from file path: "<<fname<<"..."<<endl;
          
         ifstream infile(fname);
         // READ

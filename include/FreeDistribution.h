@@ -41,7 +41,7 @@ This file is part of AC4DC.
 
 struct indexed_knot
 {
-    size_t step; // Step that this grid of knots was set
+    size_t step; // Step that the grid of B-spline knots was set/updated
     std::vector<double> energy; // knots
 };
 
