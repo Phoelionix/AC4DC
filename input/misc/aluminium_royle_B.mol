@@ -4,7 +4,7 @@ Al_fast 1
 #VOLUME
 16.59       // Volume per molecule in Angstrom^3.
 14000          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
-none    // geometry of sample (may be spherical, cylindrical or planar)
+planar    // geometry of sample (may be spherical, cylindrical or planar)
 
 #PULSE
 1700         // Photon energy in eV.
