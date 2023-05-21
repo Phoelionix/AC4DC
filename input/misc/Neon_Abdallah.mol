@@ -1,5 +1,6 @@
-// Neon, taken from J Abdallah Jr et al 2013 J. Phys. B: At. Mol. Opt. Phys. 46 235004
-
+// Reproduces results of higher-intensity pulse from J Abdallah Jr et al 2013 J. Phys. B: At. Mol. Opt. Phys. 46 235004
+// Good for testing - takes about a minute to run.
+// 
 #ATOMS
 Ne_fast 1
 
@@ -15,10 +16,10 @@ square     // as done by abdallah
 
 #USE_FLUENCE
 true         // enabled? true/false.
-8            // Pulse fluence in 10^4 * J/cm^2.   Haven't validated if this is correct yet.
+4            // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
-20000        // Initial guess for number of time step points for rate equation.
+5000        // Initial guess for number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
