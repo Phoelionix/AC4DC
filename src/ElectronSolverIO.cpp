@@ -336,13 +336,14 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
                 dt = stod(str_time);     // prev_time
             }
             if (j == i){
-                dt = (stod(str_time) - dt)/Constant::fs_per_au; // last_time - prev_time = dt
+                dt = (stod(str_time) - dt)/Constant::fs_per_au; // last_time - prev_time
             }
         }
         assert(dt < timespan_au);
         input_params.num_time_steps = std::round(this->timespan_au/dt);
     }
     this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
+    steps_per_time_update = max(1 , (int)(input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
 
 
     int num_steps = step_indices.size();    
@@ -417,10 +418,11 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             // To ensure compatibility, transform old distribution to new grid points.    
             // TODO should remove transforming basis unless last step (and check still works)
             y[i].F.transform_basis(new_knots);
-        }         
+        }      
+        // TODO move out of loop   
         else{
             // Starting state and knots are made to be same as that given in load file (in case knot history is missing).
-            Distribution::set_knot_history(0,saved_knots); // move out of loop
+            Distribution::set_knot_history(0,saved_knots); 
             this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
         }
         t[i] = saved_time[i];
@@ -512,16 +514,21 @@ void ElectronRateSolver::loadKnots() {
         s >> str_time;
         double time = stod(str_time)/Constant::fs_per_au;
         size_t step;
+        bool found_step = false;
         for (size_t n=0; n < this->t.size(); n++){
             if (this->t[n] == time){
                 step = n;
+                found_step = true;
                 break;
             }            
             if (this->t[n] > time && n!= 0){
                 step = n-1;
+                found_step = true;
                 break;
             }
         }        
+        if (!found_step)
+            break;
         // KNOTS
         // Get grid points (knots)
         this->tokenise(line,saved_knots,1);
@@ -531,6 +538,7 @@ void ElectronRateSolver::loadKnots() {
         }
         Distribution::knots_history.push_back(indexed_knot{step,saved_knots});
     }
+    y[i].F.load_knots_from_history(y.size()-1); //TODO TEST
 }
 
 
