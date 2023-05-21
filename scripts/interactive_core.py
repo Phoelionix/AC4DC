@@ -486,12 +486,17 @@ class InteractivePlotter:
                         args=[{'yaxis': y_lin_args, 'xaxis': x_log_args}],
                         label="<br>Lin-Log<br>",
                         method="relayout"    
-                    ),              
+                    ),
+                    dict(
+                        args=[{'yaxis': y_log_args, 'xaxis': x_lin_args}],
+                        label="<br>Log-Lin<br>",
+                        method="relayout"    
+                    ),    
                     dict(
                         args=[{'yaxis': y_lin_args, 'xaxis': x_lin_args}],
                         label="<br>Lin-Lin<br>",
                         method="relayout"              
-                    )  
+                    )
                 ]),
                 type="buttons",
                 direction = "down",
