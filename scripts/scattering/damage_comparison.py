@@ -104,11 +104,13 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,same_deviations,plasma
         # Index parameters of simulation
         start_time[i],end_time[i],energy[i],fwhm[i],photon_count[i],param_dict,unit_dict = get_sim_params(sim_input_dir,sim_data_batch_dir,sim_handle)
     R_data = []
+    names = []
     for i, sim_handle in enumerate(plasma_handles):
-        """
+        #"""
         if energy[i] != 12000:
             continue
-        """
+        #"""
+        names.append(sim_handle)
         run_params = copy.deepcopy(params)
         
         #TODO print properly
@@ -159,7 +161,7 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,same_deviations,plasma
         R_data.append([energy[i],fwhm[i],photon_count[i],R]) 
     
     print("R_data:",R_data)
-    return np.array(R_data,dtype=np.float64), plasma_handles, param_dict
+    return np.array(R_data,dtype=np.float64), names, param_dict
 
 def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
     log_photons = np.log(R_data[:,2])-np.min(np.log(R_data[:,2]))
@@ -361,7 +363,7 @@ if __name__ == "__main__":
     )
 
 
-    batch_mode = False # Just doing this as I want to quickly switch between batches and specific runs.
+    batch_mode = True # Just doing this as I want to quickly switch between batches and specific runs.
 
     mode = 1  #0 -> infinite crystal, 1 -> finite crystal/SPI, 2-> both
     allowed_atoms = ["C_fast","N_fast","O_fast","S_fast"] 

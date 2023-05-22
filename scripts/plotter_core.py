@@ -59,10 +59,12 @@ class Plotter:
     # Example initialisation: Plotter(water,molecular/path)
     # --> Data is contained in molecular/path/water. 
     # Will use mol file within by default, or (with a warning) search input for matching name if none exists.  
-    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None):
+    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False):
         '''
         abs_molecular_path: The path to the folder containing the simulation output folder of interest.
+        use_electron_density: If True, plot electron density rather than energy density
         '''
+        self.use_electron_density = use_electron_density
         self.molecular_path = abs_molecular_path
         if self.molecular_path == None:
             self.molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
@@ -71,7 +73,7 @@ class Plotter:
         molfile = self.get_mol_file(data_folder_name,"y") 
 
         self.mol = {'name': data_folder_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}        
-        
+
         # Stores the atomic input files read by ac4dc
         self.atomdict = {}
         self.statedict = {}
@@ -851,7 +853,7 @@ class Plotter:
     # makes a blank plot showing the intensity curve
     def setup_intensity_plot(self,ax):
         ax2 = ax.twinx()
-        ax2.plot(self.timeData, self.intensityData, lw = 1, c = 'black', ls = ':', alpha = 0.7)
+        ax2.plot(self.timeData, self.intensityData, lw = 2, c = 'black', ls = ':', alpha = 0.7)
         # ax2.set_ylabel('Pulse Intensity (photons cm$^{-2}$ s$^{-1}$)')
         ax.set_xlabel("Time (fs)")
         ax.tick_params(direction='in')
@@ -863,9 +865,9 @@ class Plotter:
     
     def setup_axes(self,num_subplots):
         self.num_plotted = 0 # number of subplots plotted so far.
-        width, height = 4.5, 2.5  # 4.5,2.5 ~ abdallah
+        width, height = 6, 3.3333  # 4.5,2.5 ~ abdallah
         if num_subplots > 3 :
-            self.fig, self.axs = plt.subplots(int((1+num_subplots)/2),int(1+num_subplots/2),figsize=(width*int((1+num_subplots)/2),height*int((1+num_subplots)/2)))
+            self.fig, self.axs = plt.subplots(int(0.999+(num_subplots**0.5)),int(0.999+(num_subplots**0.5)),figsize=(width*int((1+num_subplots)/2),height*int((1+num_subplots)/2)))
         else:
             self.fig, self.axs = plt.subplots(num_subplots,figsize=(width,height*num_subplots))
 
@@ -894,6 +896,10 @@ class Plotter:
     def plot_charges(self, a, rseed=404):
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
         self.aggregate_charges()
+        ion_fract = True
+        norm = 1
+        if ion_fract:
+            norm = 1/self.chargeData[a][0,0]
         #print_idx = np.searchsorted(self.timeData,-7.5)
         ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))
         for i in range(self.chargeData[a].shape[1]):
@@ -901,10 +907,13 @@ class Plotter:
             mask = self.chargeData[a][:,i] > max_at_zero*2
             mask |= self.chargeData[a][:,i] < -max_at_zero*2
             Y = np.ma.masked_where(mask, self.chargeData[a][:,i])
-            ax.plot(self.timeData, Y, label = "%d+" % i)
+            ax.plot(self.timeData, Y*norm, label = "%d+" % i)
             #print("Charge: ", i ,", time: ",self.timeData[print_idx], ", density: ",self.chargeData[a][print_idx,i])
         # ax.set_title("Charge state dynamics")
         ax.set_ylabel(r"Density (\AA$^{-3}$)")
+        if ion_fract:
+            ax.set_ylabel(r"Ion Fraction")
+
         
         #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)
         ax.legend(loc='upper left',bbox_to_anchor=(1, 1),fontsize=4)
@@ -1013,18 +1022,23 @@ class Plotter:
     def plot_step(self, t, normed=True, fitE=None, **kwargs):        
         self.ax_steps.set_xlabel('Energy (eV)')
         self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
+        if self.use_electron_density:
+            self.ax_steps.set_ylabel('$f(\\epsilon)')
         self.ax_steps.loglog()
         # norm = np.sum(self.freeData[n,:])
         n = self.timeData.searchsorted(t)
         data = self.freeData[n,:]
         X = self.energyKnot
+        density_factor = X # energy density
+        if self.use_electron_density:
+            density_factor = 1 
 
         if normed:
             tot = self.get_density(t)
             data /= tot
             data/=4*3.14
         
-        return self.ax_steps.plot(X, data*X, label='%1.1f fs' % t, **kwargs)
+        return self.ax_steps.plot(X, data*density_factor, label='%1.1f fs' % t, **kwargs)
 
     def plot_fit(self, t, fitE, normed=True, **kwargs):
         t_idx = self.timeData.searchsorted(t)
@@ -1035,17 +1049,24 @@ class Plotter:
             data /= tot
             data/=4*3.14
 
+        density_factor = self.energyKnot # energy density
+        if self.use_electron_density:
+            density_factor = 1 
+
         Xdata = self.energyKnot[:fit]
         Ydata = data[:fit]
         mask = np.where(Ydata > 0)
         T, n = fit_maxwell(Xdata, Ydata)
         return self.ax_steps.plot(self.energyKnot, 
-            maxwell(self.energyKnot, T, n)*self.energyKnot,
+            maxwell(self.energyKnot, T, n)*density_factor,
             '--',label='%3.1f eV' % T, **kwargs)
 
     def plot_maxwell(self, kT, n, **kwargs):
+        density_factor = self.energyKnot # energy density
+        if self.use_electron_density:
+            density_factor = 1         
         return self.ax_steps.plot(self.energyKnot, 
-            maxwell(self.energyKnot, kT, n)*self.energyKnot,
+            maxwell(self.energyKnot, kT, n)*density_factor,
             '--',label='%3.1f eV' % kT, **kwargs)
 
 
