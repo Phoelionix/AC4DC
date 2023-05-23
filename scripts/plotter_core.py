@@ -16,6 +16,7 @@ from matplotlib.ticker import LogFormatter
 import random
 from scipy.optimize import curve_fit
 from scipy.stats import linregress
+from core_functions import get_mol_file
 
 #plt.rcParams.update(plt.rcParamsDefault)
 #plt.style.use('seaborn-muted')
@@ -66,11 +67,11 @@ class Plotter:
         '''
         self.use_electron_density = use_electron_density
         self.molecular_path = abs_molecular_path
-        if self.molecular_path == None:
+        if self.molecular_path is None:
             self.molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
         AC4DC_dir = path.abspath(path.join(__file__ ,"../../"))  + "/"
         self.input_path = AC4DC_dir + 'input/'
-        molfile = self.get_mol_file(data_folder_name,"y") 
+        molfile = get_mol_file(self.input_path,self.molecular_path,data_folder_name,"y",out_prefix_text = "Initialising plotting with") 
 
         self.mol = {'name': data_folder_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}        
 
@@ -95,56 +96,6 @@ class Plotter:
         self.autorun=False
         if num_subplots is not None:
             self.setup_axes(num_subplots)
-    
-    # Contender for world's most convoluted function.
-    def get_mol_file(self, mol,output_mol_query = ""):
-        #### Inputs ####
-        #Check if .mol file in outputs
-        use_input_mol_file = False
-        output_folder  = self.molecular_path + mol + '/'
-        if not os.path.isdir(output_folder):
-            raise Exception("\033[91m Cannot find simulation output folder '" + mol + "'\033[0m" + "(In directory: " +output_folder + ")" )
-        molfile = output_folder + mol + '.mol'
-        # Use same-named mol file in output folder by default
-        if path.isfile(molfile):
-             print("Mol file found in output folder " + output_folder)
-        # Use any mol file in output folder, (allowing for changing folder name).
-        else: 
-            molfile = ""
-            for file in os.listdir(output_folder):
-                if file.endswith(".mol"):
-                    if molfile != "": 
-                        molfile = ""
-                        print("\033[91m[ Warning: File Ambiguity ]\033[0m Multiple **.mol files in output folder.")
-                        break
-                    molfile = os.path.join(output_folder, file)
-            if molfile != "":
-                print(".mol file found in output folder " + output_folder)
-        
-        if path.isfile(molfile):
-            y_n_index = 2 
-            if output_mol_query != "":
-                y_n_check = output_mol_query
-                unknown_response_qualifier = "argument \033[92m'"   + output_mol_query + "'\033[0m not understood, using default .mol file."
-            else:
-                print('\033[95m' + "Use \033[94m'" + os.path.basename(molfile) +"'\033[95m found in output? ('y' - yes, 'n' - use a mol file from input/ directory.)" + '\033[0m')
-                y_n_check = input("Input: ")
-                unknown_response_qualifier = "Response not understood" + ", using 'y'."
-            if y_n_check.casefold() not in map(str.casefold,["n","no"]):  #  if False, user wants to use input mol file
-                if y_n_check.casefold() not in map(str.casefold,["y","yes"]): # if False, user wants to use output mol file
-                    print(unknown_response_qualifier)
-                if output_mol_query != "":
-                    print('\033[95m' + "Using \033[94m'" + os.path.basename(molfile) +"'\033[95m found in output." + '\033[0m')
-            else:
-                print("Using mol file from " + self.input_path)
-                use_input_mol_file = True
-        else: 
-            print("\033[93m[ Missing Mol File ]\033[0m copy of mol file used to generate output not found, searching input/ directory.\033[0m'" )
-            use_input_mol_file = True
-        if use_input_mol_file:       
-            molfile = self.find_mol_file_from_directory(self.input_path,mol) 
-            print("Using: " + molfile)
-        return molfile
     
     def find_mol_file_from_directory(self, input_directory, mol):
         # Get molfile from all subdirectories in input folder.

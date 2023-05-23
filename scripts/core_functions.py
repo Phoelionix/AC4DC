@@ -6,7 +6,7 @@ def get_sim_params(input_path,molecular_path,handle):
     '''
     Reads the control file and returns the relevant parameters within
     '''    
-    molfile = get_mol_file(input_path,molecular_path,handle,"y")
+    molfile = get_mol_file(input_path,molecular_path,handle,"y",out_prefix_text = "Reading simulation parameters from")
     outDir = molecular_path + handle 
     intFile = outDir + "/intensity.csv"
     raw = np.genfromtxt(intFile, comments='#', dtype=np.float64)
@@ -71,11 +71,11 @@ def get_sim_params(input_path,molecular_path,handle):
     print("Energy:", energy)
     param_dict = ["Energy","Width",photon_measure,"R"]  #TODO dont call dicts...
     unit_dict = [" eV"," fs",photon_unit,""]
-
     #TODO check that time range is satisfied by files.
     return start_t,end_t, energy, fwhm, photon_measure_val, param_dict,unit_dict 
 
-def get_mol_file(input_path, molecular_path, mol, output_mol_query = ""):
+# Contender for world's most convoluted function.
+def get_mol_file(input_path, molecular_path, mol, output_mol_query = "",out_prefix_text = "Using"):
     #### Inputs ####
     #Check if .mol file in outputs
     use_input_mol_file = False
@@ -108,20 +108,20 @@ def get_mol_file(input_path, molecular_path, mol, output_mol_query = ""):
             print('\033[95m' + "Use \033[94m'" + os.path.basename(molfile) +"'\033[95m found in output? ('y' - yes, 'n' - use a mol file from input/ directory.)" + '\033[0m')
             y_n_check = input("Input: ")
             unknown_response_qualifier = "Response not understood" + ", using 'y'."
-        if y_n_check.casefold() not in map(str.casefold,["n","no"]):  #  User didn't say to use input\
-            if y_n_check.casefold() not in map(str.casefold,["y","yes"]):
+        if y_n_check.casefold() not in map(str.casefold,["n","no"]):  #  If user didn't say to use input...
+            if y_n_check.casefold() not in map(str.casefold,["y","yes"]): # If user didn't say to use output either...
                 print(unknown_response_qualifier)
             if output_mol_query != "":
-                print('\033[95m' + "Using \033[94m'" + os.path.basename(molfile) +"'\033[95m found in output." + '\033[0m')
+                print('\033[95m' + out_prefix_text+" \033[94m'" + os.path.basename(molfile) +"'\033[95m found in output." + '\033[0m')
         else:
             print("Using mol file from " + input_path)
             use_input_mol_file = True
-    else: 
-        print("\033[93m[ Missing Mol File ]\033[0m copy of mol file used to generate output not found, searching input/ directory.\033[0m'" )
+    else: #TODO This case is outdated and useless.
+        print("\033[93m[ Missing Mol File ]\033[0m copy of mol file used to generate output not found, searching " +input_path +"\033[0m'" )  
         use_input_mol_file = True
     if use_input_mol_file:       
         molfile = find_mol_file_from_directory(input_path,mol) 
-        print("Using: " + molfile)
+        print(out_prefix_text+" "+ molfile+" found in input.")
     return molfile
 
 def find_mol_file_from_directory(input_directory, mol):

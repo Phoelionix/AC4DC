@@ -28,7 +28,6 @@ Simulation outputs/batches should be in AC4DC/output/__Molecular/ while this scr
 terminal_mode = True
 normalise = True
 ELECTRON_DENSITY = True # if False, use energy density  
-xmin, xmax = 1, 2e4
 
 END_T = 99#10 #0.0
 POINTS = 70
@@ -153,7 +152,11 @@ def set_up_interactive_axes(ipl,plot_title):
     lin_ymax = 0.03
     lin_ymin = -0.005
     log_ymax = 1
-    log_ymin = 1e-4      
+    log_ymin = 1e-4
+    xmin,xmax = ipl.get_E_lims()      
+    xmin = max(1,xmin)
+    if ELECTRON_DENSITY:
+        log_ymin = 2e-7; log_ymax = 1e-2 
     # Axis parameters, these define axis properties depending on what scale is used.
     xlabel = 'Energy (eV)'
     ylabel = '$f(\\epsilon) \\Delta \\epsilon$'   #TODO: Get this working on offline file saves somehow.
@@ -165,7 +168,7 @@ def set_up_interactive_axes(ipl,plot_title):
     y_log_args = {'title': {"text": ylabel + " - log scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
     
     # Initialises graph object.
-    ipl.initialise_interactive(plot_title, x_log_args,y_log_args) 
+    ipl.initialise_figure(plot_title, x_log_args,y_log_args) 
     return (x_log_args,x_lin_args,y_log_args,y_lin_args)
 
 def generate(target_handles,sim_data_parent_dir,plot_title,fname_out,normalise,outdir,custom_names = None):

@@ -11,6 +11,7 @@ import numpy as np
 from plotter_core import Plotter
 import sys, traceback
 import os.path as path
+import os
 from QoL import set_highlighted_excepthook
 
 ELECTRON_DENSITY = True # energy density if False
@@ -22,13 +23,21 @@ def main():
     # Basic num arguments check
     if  len(sys.argv) < 2:
         print("Usage: python3 generate_plots.py Carbon_1")
+        print({"Pass extra arguments to plot for each"})
         exit()
         
     molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
     dname_Figures = "../../output/_Graphs/plots/"
     dname_Figures = path.abspath(path.join(__file__ ,dname_Figures)) + "/"
-    label = sys.argv[1] +'_Plt'
-    make_some_plots(sys.argv[1],molecular_path,label,dname_Figures,True,True,True,True)
+    valid_folder_names= True
+    for i, data_folder in enumerate(sys.argv[1:]):
+        if not path.isdir(molecular_path+data_folder):
+            valid_folder_names = False
+            print("\033[91mInput error\033[0m (argument \033[91m"+str(i)+ "\033[0m): folder name not found.")
+    assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder."
+    for arg in sys.argv[1:]:
+        label = data_folder +'_Plt'
+        make_some_plots(sys.argv[1],molecular_path,label,dname_Figures,True,True,True,True)
 
 def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, charge_conservation=False,bound_ionisation=False,free=False,free_slices=False):
     '''
@@ -46,10 +55,10 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
     fname_HR_style = "HR_style"
     fname_bound_dynamics = "bound_dynamics"
 
-    dummy = Plotter(mol_name,sim_output_parent_dir)
-    num_atoms = len(dummy.statedict)
+    pl = Plotter(mol_name,sim_output_parent_dir,use_electron_density = ELECTRON_DENSITY)
+    num_atoms = len(pl.statedict)
     num_subplots = charge_conservation + bound_ionisation*num_atoms + free + free_slices
-    pl = Plotter(mol_name,sim_output_parent_dir,num_subplots,use_electron_density=ELECTRON_DENSITY)
+    pl.setup_axes(num_subplots)
 
     if charge_conservation: 
         pl.plot_tot_charge(every=10)
@@ -75,8 +84,16 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         colrs = [cmap(i) for i in range(4)]
 
         #TODO get slices from AC4DC or user input
-        #slices = [-7.5,-5,-2.5,-0.03] # Hau-Riege
-        slices = [-90, -50, 0]  # Royle Sect. C
+        # Hau-Riege
+        #slices = [-7.5,-5,-2.5,0] 
+        
+        # Royle Sect. B
+        thermal_cutoff_energies = [1500,1500,1500,1500]
+        slices = [-90, -50, 0]  
+        # Royle Sect. C
+        thermal_cutoff_energies = [1500,1500,1500,1500]
+        slices = [-15, 0, 15, 30]          
+        
 
         thermal_cutoff_energies = [1500,1500,1500,1500]     # Cutoff energies for fitting MB curves. TODO get from AC4DC
         plot_fits = True # Whether to plot MB curves

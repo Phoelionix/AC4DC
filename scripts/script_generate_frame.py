@@ -29,7 +29,7 @@ def plot_frame_from_c(energies,densities,knot_points):
     y_log_args = {'title': {"text": ylabel + " - log scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
     #    
     ipl = Plotter()
-    ipl.initialise_interactive("Current Distribution", x_log_args,y_log_args) 
+    ipl.initialise_figure("Current Distribution", x_log_args,y_log_args) 
     plot_frame(ipl,energies,densities,knot_points)
     #plot_off.iplot(ipl.fig)
     #ipl.fig.show()
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     y_log_args = {'title': {"text": ylabel + " - log scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
     #    
     ipl = Plotter()
-    ipl.initialise_interactive("Current Distribution", x_log_args,y_log_args) 
+    ipl.initialise_figure("Current Distribution", x_log_args,y_log_args) 
     #plt.ion()
     # Test the frame is shown properly
     plot_frame(ipl,(0,0.5,1,2,3,20,300,3000),(0,0.5,0.3,0.3,0.3,0.3,0.3,0.3))

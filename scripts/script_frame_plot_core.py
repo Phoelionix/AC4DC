@@ -16,7 +16,7 @@ import plotly.graph_objects as go
 class Plotter:
     # Example initialisation: Plotter(water)
     # --> expects there to be a control file named water.mol within AC4DC/input/ or a subdirectory.
-    def initialise_interactive(self, target, x_args={}, y_args={}):
+    def initialise_figure(self, target, x_args={}, y_args={}):
         self.x_args = x_args
         self.y_args = y_args
         self.fig = go.Figure()

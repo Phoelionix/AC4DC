@@ -63,7 +63,7 @@ class PlotData:
         self.molecular_path = abs_molecular_path
         AC4DC_dir = path.abspath(path.join(__file__ ,"../../"))  + "/"
         self.input_path = AC4DC_dir + 'input/'
-        molfile = get_mol_file(self.input_path, self.molecular_path, mol_name,output_mol_query) 
+        molfile = get_mol_file(self.input_path, self.molecular_path, mol_name,output_mol_query,out_prefix_text = "Reading atoms in") 
 
         # Subplot dictionary
         subplot_name = mol_name.replace('_',' ')
@@ -277,7 +277,7 @@ class InteractivePlotter:
             self.rerun_ac4dc()
             self.update_outputs()
     
-    def initialise_interactive(self, plot_title, x_args={}, y_args={}):
+    def initialise_figure(self, plot_title, x_args={}, y_args={}):
         self.fig = go.Figure()
         
         self.fig.update_layout(
@@ -290,6 +290,7 @@ class InteractivePlotter:
             ),
             paper_bgcolor= '#F7CAC9' #'#f7dac9' '#F7CAC9'  '#FFD580' "#92A8D1"  lgrey = '#bbbfbf',
         )
+
         self.fig.update_xaxes(x_args)
         self.fig.update_yaxes(y_args)        
 
@@ -518,7 +519,14 @@ class InteractivePlotter:
             updatemenus = [scale_button]
         )    
 
+    def get_E_lims(self):
+        Emax = -np.inf; Emin = np.inf
+        for target in self.target_data:
+            Emax = max(Emax,np.max(target.energyKnot))
+            Emin = min(Emin,np.min(target.energyKnot))
+        return Emin,Emax
             
+    # Potential for automatic fitting of MB curve:
     # def plot_fit(self, t, fitE, normed=True, **kwargs):
     #     t_idx = self.timeData.searchsorted(t)
     #     fit = self.energyKnot.searchsorted(fitE)
