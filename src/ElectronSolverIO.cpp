@@ -541,7 +541,7 @@ void ElectronRateSolver::loadBound() {
 
     for (size_t a=0; a<input_params.Store.size(); a++) {
         // (unimplemented) select atom's bound file  
-        const std::string& fname = input_params.Load_Folder() + "dist_" + input_params.Store[a].name + "_Raw.csv"; 
+        const std::string& fname = input_params.Load_Folder() + "dist_" + input_params.Store[a].name + ".csv"; 
 
         cout << "[ Free ] Loading bound states from file path: "<<fname<<"..."<<endl;
          
