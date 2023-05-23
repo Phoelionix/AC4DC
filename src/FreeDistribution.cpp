@@ -37,7 +37,7 @@ This file is part of AC4DC.
 size_t Distribution::CoulombLog_cutoff=0;
 double Distribution::CoulombDens_min=0;
 std::vector<indexed_knot> Distribution::knots_history;
-// These variables are modified by set_distribution and by dynamic grid updates when set_basis is called.
+// These variables are modified by set_distribution_STATIC_ONLY or by dynamic grid updates when set_basis is called.
 SplineIntegral Distribution::basis; 
 size_t Distribution::size=0;  
 
@@ -69,7 +69,10 @@ void Distribution::set_basis(size_t step, Cutoffs param_cutoffs, FeatureRegimes 
     cout<<"[ Free ] Neglecting electron-electron below density of n = "<<CoulombDens_min<<"au^-3"<<endl;
 }
 
-void Distribution::set_distribution(vector<double> new_knot, vector<double> new_spline_factors) {
+void Distribution::set_spline_factors(vector<double> new_spline_factors){
+    f = new_spline_factors; 
+}
+void Distribution::set_distribution_STATIC_ONLY(vector<double> new_knot, vector<double> new_spline_factors) {
     f = new_spline_factors; 
     load_knot(new_knot);
     f.resize(size);
@@ -196,7 +199,7 @@ void Distribution::transform_basis(std::vector<double> new_knots){
     }
     // Change distribution to empty one in new basis.    
     vector<double> new_f(num_new_splines,0);
-    set_distribution(new_knots,new_f);
+    set_distribution_STATIC_ONLY(new_knots,new_f);
     // Add densities in new basis.
     add_density_distribution(new_densities);
 }

@@ -117,7 +117,7 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const 
         std::vector<state_type>::const_iterator end_vect_idx = this->y.begin() + resume_idx;  
         
         std::vector<state_type> check_states = std::vector<state_type>(start_vect_idx, end_vect_idx+1);
-        checkpoint = {resume_idx, Distribution::get_knot_energies(),this->regimes,check_states}; // ATTENTION doesn't work unless loading last knot energies as TODO loadKnots doesn't currently use loaded knot history to set current knots. 
+        checkpoint = {resume_idx, Distribution::get_knot_energies(),this->regimes,check_states};
     }
     old_checkpoint = checkpoint; 
 

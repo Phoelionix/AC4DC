@@ -144,7 +144,8 @@ public:
      * @return Distribution& 
      * @todo make clearer this is only for static grid case or just put into one function.
      */
-    void set_distribution(vector<double> new_knot, vector<double> new_f);
+    void set_distribution_STATIC_ONLY(vector<double> new_knot, vector<double> new_f);
+    void set_spline_factors(vector<double> new_f);
     // loads the knot and appropriately updates params like the overlap matrix as done in set_parameters.
     static void load_knot(vector<double> loaded_knot);
 

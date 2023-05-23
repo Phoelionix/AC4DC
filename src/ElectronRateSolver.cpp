@@ -43,7 +43,8 @@ void ElectronRateSolver::set_starting_state(){
     if (input_params.Load_Folder() != ""){ 
         cout << "[ Plasma ] loading sim state from specified files." << endl;
         loadFreeRaw_and_times();
-        loadKnots();
+        if (input_params.elec_grid_type.mode == GridSpacing::dynamic)
+            loadKnots();
         loadBound();
         simulation_resume_time = t.back();
     }

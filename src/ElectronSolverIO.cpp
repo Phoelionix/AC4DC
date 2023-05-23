@@ -325,7 +325,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         assert(dt < timespan_au);
         input_params.num_time_steps = std::round(this->timespan_au/dt);
     }
-    this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
+    this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance); // Set up so we can load, then in loadBound we will set it correctly for the step we load from.
     steps_per_time_update = max(1 , (int)(input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
 
 
@@ -392,21 +392,17 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         // FREE DISTRIBUTION   
         std::vector<double> new_knots;
         if (input_params.elec_grid_type.mode != GridSpacing::dynamic){
-           new_knots =  y[0].F.get_knot_energies();  
-        }    
-        y[i].F.set_distribution(saved_knots,saved_f);        
-
-        if (input_params.elec_grid_type.mode != GridSpacing::dynamic){
+            new_knots =  y[0].F.get_knot_energies();  
+            y[i].F.set_distribution_STATIC_ONLY(saved_knots,saved_f);  
             // Set knots manually
             // To ensure compatibility, transform old distribution to new grid points.    
             // TODO should remove transforming basis unless last step (and check still works)
-            y[i].F.transform_basis(new_knots);
-        }      
-        // TODO move out of loop   
+            y[i].F.transform_basis(new_knots); 
+        }    
         else{
-            // Starting state and knots are made to be same as that given in load file (in case knot history is missing).
-            Distribution::set_knot_history(0,saved_knots); 
-            this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
+            y[i].F.set_spline_factors(saved_f);
+            Distribution::size = saved_f.size();
+            // Starting knots are given by loadKnots()
         }
         t[i] = saved_time[i];
         i++;
@@ -425,27 +421,30 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             y.resize(y.size()-1);
             t.resize(t.size()-1);
     }
-    // Clear obviously divergent F
-    for(size_t i = 0;i++;i < y.size()){
-        if (too_large(y) || too_small(y)){
-            y[i].F = 0;
+    // // Clear obviously divergent F
+    // for(size_t i = 0;i++;i < y.size()){
+    //     if (too_large(y) || too_small(y)){
+    //         y[i].F = 0;
+    //     }
+    // }  
+
+    if (input_params.elec_grid_type.mode != GridSpacing::dynamic){ //TODO for this to work for dynamic will need to integrate knot loading with this function rather than be separate.
+        vector<double> starting_knots = Distribution::get_knot_energies(); // The knots this simulation will start with.
+        string col = "\033[95m"; string clrline = "\033[0m\n";
+        cout <<  col + "Loaded simulation. Param comparisons are as follows:" << clrline
+        << "Grid points at simulation resume time (" + col << t.back()*Constant::fs_per_au <<"\033[0m):" << clrline
+        << "gp i        | (energy , spline factor)  " << clrline;
+        vector<size_t> out_idxs = {0,1, 10,100};
+        for(size_t j : out_idxs){
+            if (j >= y.size()) continue;  //use setw
+            cout << "Source gp "<<j <<" | " + col
+            << "(" << saved_knots[j] << " , " << saved_f[j] << ")" << clrline
+            << "New gp "<<j <<"   | " + col                                              
+            << "(" << starting_knots[j] << " , " << y.back().F[j] << ")" 
+            << clrline << "------------------" << clrline;
         }
-    }  
-    vector<double> starting_knots = Distribution::get_knot_energies(); // The knots this simulation will start with.
-    string col = "\033[95m"; string clrline = "\033[0m\n";
-    cout <<  col + "Loaded simulation. Param comparisons are as follows:" << clrline
-    << "Grid points at simulation resume time (" + col << t.back()*Constant::fs_per_au <<"\033[0m):" << clrline
-    << "gp i        | (energy , spline factor)  " << clrline;
-    vector<size_t> out_idxs = {0,1, 10,100};
-    for(size_t j : out_idxs){
-        if (j >= y.size()) continue;  //use setw
-        cout << "Source gp "<<j <<" | " + col
-        << "(" << saved_knots[j] << " , " << saved_f[j] << ")" << clrline
-        << "New gp "<<j <<"   | " + col                                              
-        << "(" << starting_knots[j] << " , " << y.back().F[j] << ")" 
-        << clrline << "------------------" << clrline;
+        cout << endl;
     }
-    cout << endl;
 
     // Detect transition energy (in lieu of it not currently being in output file)
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
@@ -481,7 +480,7 @@ void ElectronRateSolver::loadKnots() {
     // get each raw line
     infile.clear();  
     infile.seekg(0, std::ios::beg);
-    size_t i = -GLOBAL_BSPLINE_ORDER - 1;
+    int i = -GLOBAL_BSPLINE_ORDER - 1;
     std::vector<double> saved_knots;
     //std::vector<indexed_knot> Distribution::knots_history
 	while (!infile.eof())
@@ -521,7 +520,7 @@ void ElectronRateSolver::loadKnots() {
         }
         Distribution::knots_history.push_back(indexed_knot{step,saved_knots});
     }
-    y[i].F.load_knots_from_history(y.size()-1); //TODO TEST
+    Distribution::load_knots_from_history(INFINITY);
 }
 
 
@@ -604,4 +603,5 @@ void ElectronRateSolver::loadBound() {
             throw std::runtime_error("No bound state found for the final loaded step (assuming program lded free distribution)."); 
         }
     }
+    this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
 }
