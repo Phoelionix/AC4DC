@@ -190,9 +190,8 @@ private:
     void loadKnots();
 
     void loadBound();
-    /// saves a table of bound-electron dynamics , split by atom, to folder dir.
+    /// For each atom, saves a table of bound-electron dynamics to folder dir.
     void saveBound(const std::string& folder);
-    void saveBoundRaw(const std::string& folder);
 
     void set_grid_regions(ManualGridBoundaries gb);
     void set_starting_state();

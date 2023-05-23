@@ -47,17 +47,16 @@ void ElectronRateSolver::save(const std::string& _dir) {
     saveFreeRaw(dir+"freeDistRaw.csv");
     saveKnots(dir + "knotHistory.csv");
     saveBound(dir);
-    saveBoundRaw(dir);
     std::cout <<"\033[0m"<<std::endl;
 
-    std::vector<double> fake_t; // TODO double check why I called this fake_t, probably doesn't make sense now. -S.P.
+    std::vector<double> fake_t; // TODO double check why I called this fake_t, probably doesn't make sense now. 
     int num_t_points = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front()) ));
     float t_fineness = timespan_au  / num_t_points;
     float previous_t = t[0]-t_fineness;
     int i = -1;
-    while (i <  static_cast<int>(t.size())-1){  //TODO make this some constructed function or something -S.P. 
+    while (i <  static_cast<int>(t.size())-1){  //TODO make this some constructed function or something
         i++;
-        if(t[i] < previous_t + t_fineness){
+        if(t[i] < previous_t + t_fineness && i!= t.size()-1){
             continue;
         }        
         fake_t.push_back(t[i]);
@@ -120,7 +119,7 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
             Distribution::load_knots_from_history(i);
             next_knot_update = Distribution::next_knot_change_idx(i);
         } 
-        if(t[i] < previous_t + t_fineness){
+        if(t[i] < previous_t + t_fineness && i!= t.size()-1){
             continue;
         }
         f<<t[i]*Constant::fs_per_au<<" "<<y[i].F.output_densities(this->input_params.Out_F_size(),reference_knots)<<endl;
@@ -133,11 +132,12 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
 
 /**
  * @brief Saves each time and corresponding B-spline coefficients. 
- * @todo This doesn't work with dynamic grid yet,only the last points will be correct, as the prior knot layouts won't match the header.
  * @param fname 
  */
 void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     file_delete_check(fname);
+
+    double min_outputted_points = 25;
 
     ofstream f;
     cout << "Free Raw: \033[94m'"<<fname<<"'\033[95m | ";
@@ -145,16 +145,25 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     f << "# Free electron dynamics"<<endl;
     f << "# Energy Knot: "<< Distribution::output_knots_eV() << endl;
     f << "# Time (fs) | Expansion Coeffs (not density)"  << endl;
-
-    assert(y.size() == t.size());
     
+    assert(y.size() == t.size());
+    // output at least min_outputted_points, otherwise output with spacing that is unaffected if simulation was cut off early.
+    int num_t_points = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front()) ));
+    float t_fineness = timespan_au  / num_t_points;
+    float previous_t = t[0]-t_fineness;
+    int i = -1; 
     size_t next_knot_update = 0;
-    for (size_t i=0; i<t.size(); i++) {
+    while (i <  static_cast<int>(t.size())-1){
+        i++;
         if (i >= next_knot_update){
             Distribution::load_knots_from_history(i);
             next_knot_update = Distribution::next_knot_change_idx(i);
         } 
-        f<<t[i]*Constant::fs_per_au<<" "<<y[i].F<<endl;  // Note that the << operator divides the factors by Constant::eV_per_Ha. -S.P.
+        if(t[i] < previous_t + t_fineness && i!= t.size()-1){
+            continue;
+        }
+        f<<t[i]*Constant::fs_per_au<<" "<<y[i].F<<endl;  // Note that the << operator divides the factors by Constant::eV_per_Ha.
+        previous_t = t[i];
     }
     f.close();
     Distribution::load_knots_from_history(t.size()); // back to original state
@@ -188,7 +197,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         int i = -1;
         while (i <  static_cast<int>(t.size())-1){
             i++;
-            if(t[i] < previous_t + t_fineness){
+            if(t[i] < previous_t + t_fineness && i!= t.size()-1){
                 continue;
             }            
             // Make sure all "natom-dimensioned" objects are the size expected
@@ -196,32 +205,6 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
             
             f<<t[i]*Constant::fs_per_au << ' ' << y[i].atomP[a]<<endl;   // prob. multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au
             previous_t = t[i];
-        }
-        f.close();
-    }
-}
-
-
-
-void ElectronRateSolver::saveBoundRaw(const std::string& dir) {
-    for (size_t a=0; a<input_params.Store.size(); a++) {
-        string fname = dir+"dist_"+input_params.Store[a].name+"_Raw.csv";
-        file_delete_check(fname);
-
-        ofstream f;
-        cout << "Bound Raw: \033[94m'"<<fname<<"'\033[95m | ";
-        f.open(fname);
-        f << "# Ionic electron dynamics"<<endl;
-        f << "# Time (fs) | State occupancy (Probability times number of atoms)" <<endl;
-        f << "#           | ";
-        // Index, Max_occ inherited from MolInp
-        for (auto& cfgname : input_params.Store[a].index_names) {
-            f << cfgname << " ";
-        }
-        f<<endl;        
-        for (size_t i=0; i<t.size(); i++) {
-            assert(input_params.Store.size() == y[i].atomP.size());
-            f<<t[i]*Constant::fs_per_au << ' ' << y[i].atomP[a]<<endl;
         }
         f.close();
     }
@@ -381,7 +364,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
     // Populate solver with distributions at each time step
     t.resize(num_steps,0);  
     y.resize(num_steps,y[0]);    
-    bound_t saved_time(num_steps,0);  // this is a mere stand-in for t at best.
+    bound_t saved_time(num_steps,0);  // this is a mere stand-in for t at best.  // WHaT doES THIS MeaN?
     i = 0;
     std::vector<double> saved_f;  // Defined outside of scope so that saved_f will be from the last time step)
     for(const string &elem : time_and_BS_factors){
@@ -435,7 +418,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             t[i] += simulation_start_time - saved_time[0];
         }
     }
-    // Shave off end until get a non-obviously-divergent starting point.
+    // Shave off end until get a starting point that isn't obviously divergent.
     auto too_large = [](vector<state_type>& y){return y.end()[-1].F(0) > y.end()[-2].F(0);};
     auto too_small = [](vector<state_type>& y){return y.end()[-1].F(0) > 0;};
     while (too_large(y) || too_small(y)){
@@ -545,17 +528,15 @@ void ElectronRateSolver::loadKnots() {
 /**
  * @brief Loads all times and free e densities from previous simulation's raw output, and uses that to populate y[i].F, the free distribution.
  * @attention Currently assumes same input states
- * @todo Should change to use the non-raw file as it costs a lot of space. 
- * Alternatively one can delete the raw files after simulation since they are only needed for loading at present.
  */
 void ElectronRateSolver::loadBound() {
-    cout << "Loading atoms' bound states"<<endl; 
+    cout << "Loading atoms' orbital states"<<endl; 
     cout << "[ Caution ] Ensure same atoms and corresponding .inp files are used!"<<endl; 
 
 
     for (size_t a=0; a<input_params.Store.size(); a++) {
         // (unimplemented) select atom's bound file  
-        const std::string& fname = input_params.Load_Folder() + "dist_" + input_params.Store[a].name + "_Raw.csv";
+        const std::string& fname = input_params.Load_Folder() + "dist_" + input_params.Store[a].name + ".csv";
 
         cout << "[ Free ] Loading bound states from file path: "<<fname<<"..."<<endl;
          
