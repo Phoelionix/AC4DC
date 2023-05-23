@@ -287,7 +287,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
      // Get indices of lines to load
     std::string line;
     float previous_t;
-    float t_fineness = 0.01; //in fs // Fineness should be kept below this, so that raw can be kept fine throughout loadings. 
+    float t_fineness = 0;//0.01; //in fs // Fineness should be kept below this, so that raw can be kept fine throughout loadings. 
     vector<int> step_indices;
     int i = -GLOBAL_BSPLINE_ORDER - 1;
     while (std::getline(infile, line)){
