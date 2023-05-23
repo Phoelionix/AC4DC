@@ -153,8 +153,9 @@ def set_up_interactive_axes(ipl,plot_title):
     lin_ymin = -0.005
     log_ymax = 1
     log_ymin = 1e-4
-    xmin,xmax = ipl.get_E_lims()      
+    xmin,xmax = ipl.get_E_lims()
     xmin = max(1,xmin)
+    xmax/=2.4 # Cut off tail
     if ELECTRON_DENSITY:
         log_ymin = 2e-7; log_ymax = 1e-2 
     # Axis parameters, these define axis properties depending on what scale is used.
