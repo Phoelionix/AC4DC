@@ -27,7 +27,7 @@ Simulation outputs/batches should be in AC4DC/output/__Molecular/ while this scr
 
 terminal_mode = True
 normalise = True
-ELECTRON_DENSITY = True # if False, use energy density  
+ELECTRON_DENSITY = False # if False, use energy density  
 
 END_T = 99#10 #0.0
 POINTS = 70

@@ -56,7 +56,7 @@ void ElectronRateSolver::save(const std::string& _dir) {
     int i = -1;
     while (i <  static_cast<int>(t.size())-1){  //TODO make this some constructed function or something
         i++;
-        if(t[i] < previous_t + t_fineness && i!= t.size()-1){
+        if(t[i] < previous_t + t_fineness && i<= t.size()-10){ // Save last few points
             continue;
         }        
         fake_t.push_back(t[i]);
@@ -119,7 +119,7 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
             Distribution::load_knots_from_history(i);
             next_knot_update = Distribution::next_knot_change_idx(i);
         } 
-        if(t[i] < previous_t + t_fineness && i!= t.size()-1){
+        if(t[i] < previous_t + t_fineness && i<= t.size()-10){ // Save last few points
             continue;
         }
         f<<t[i]*Constant::fs_per_au<<" "<<y[i].F.output_densities(this->input_params.Out_F_size(),reference_knots)<<endl;
@@ -159,7 +159,7 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
             Distribution::load_knots_from_history(i);
             next_knot_update = Distribution::next_knot_change_idx(i);
         } 
-        if(t[i] < previous_t + t_fineness && i!= t.size()-1){
+        if(t[i] < previous_t + t_fineness && i<= t.size()-10){ // Save last few points
             continue;
         }
         f<<t[i]*Constant::fs_per_au<<" "<<y[i].F<<endl;  // Note that the << operator divides the factors by Constant::eV_per_Ha.
@@ -197,7 +197,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         int i = -1;
         while (i <  static_cast<int>(t.size())-1){
             i++;
-            if(t[i] < previous_t + t_fineness && i!= t.size()-1){
+            if(t[i] < previous_t + t_fineness && i<= t.size()-10){ // Save last few points
                 continue;
             }            
             // Make sure all "natom-dimensioned" objects are the size expected
@@ -287,7 +287,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
      // Get indices of lines to load
     std::string line;
     float previous_t;
-    float t_fineness = 0;//0.01; //in fs // Fineness should be kept below this, so that raw can be kept fine throughout loadings. 
+    float t_fineness = 0.01;//0.000001;//0.01; //in fs // Fineness should be kept below this, so that raw can be kept fine throughout loadings. (Effectively turned off now except for extremely large datasets.)
     vector<int> step_indices;
     int i = -GLOBAL_BSPLINE_ORDER - 1;
     while (std::getline(infile, line)){
@@ -297,13 +297,16 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             string str_time;
             s >> str_time;    
             float t = stod(str_time);          
-            if(i >= 1 && t < previous_t + t_fineness){
+            if(i >= 1 && t < previous_t + t_fineness){ // && t < input_params.Load_Time_Max()*Constant::fs_per_au-20*t_fineness){
                 continue;
             }        
             step_indices.push_back(i);
-            previous_t =  t;
+            previous_t = t;
+            if (t > input_params.Load_Time_Max()*Constant::fs_per_au)
+                break;
         }
     }     
+
     if (input_params.Using_Input_Timestep() == false){   // Get dt at end of simulation.
         infile.clear();  
         infile.seekg(0, std::ios::beg);        
@@ -372,7 +375,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         std::istringstream s(elem);
         string str_time;
         s >> str_time;
-        saved_time[i] = stod(str_time);
+        saved_time[i] = stod(str_time);                
         // Convert to right units (based on saveFreeRaw)
         saved_time[i] /= Constant::fs_per_au;
 
@@ -389,7 +392,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         for(size_t j = 0; j < saved_f.size();j++){
             saved_f[j] *= Constant::eV_per_Ha;
         }
-        // FREE DISTRIBUTION   
+        // FREE DISTRIBUTION    
         std::vector<double> new_knots;
         if (input_params.elec_grid_type.mode != GridSpacing::dynamic){
             new_knots =  y[0].F.get_knot_energies();  
@@ -399,9 +402,11 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             // TODO should remove transforming basis unless last step (and check still works)
             y[i].F.transform_basis(new_knots); 
         }    
+        
         else{
             y[i].F.set_spline_factors(saved_f);
-            Distribution::size = saved_f.size();
+            //Distribution::set_knot_history(0,saved_knots);
+            //this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
             // Starting knots are given by loadKnots()
         }
         t[i] = saved_time[i];
@@ -418,8 +423,9 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
     auto too_large = [](vector<state_type>& y){return y.end()[-1].F(0) > y.end()[-2].F(0);};
     auto too_small = [](vector<state_type>& y){return y.end()[-1].F(0) > 0;};
     while (too_large(y) || too_small(y)){
-            y.resize(y.size()-1);
-            t.resize(t.size()-1);
+        assert(y.size()>0);
+        y.resize(y.size()-1);
+        t.resize(t.size()-1);
     }
     // // Clear obviously divergent F
     // for(size_t i = 0;i++;i < y.size()){
@@ -445,16 +451,16 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         }
         cout << endl;
     }
-
-    // Detect transition energy (in lieu of it not currently being in output file)
-    if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
-        // todo make a func
-        double dirac_peak_cutoff_density = 0; // a peak's density has to be above this to count
-        dirac_energy_bounds(y.size()-1,regimes.dirac_maximums,regimes.dirac_minimums,regimes.dirac_peaks,true,regimes.num_dirac_peaks,dirac_peak_cutoff_density);
-        mb_energy_bounds(y.size()-1,regimes.mb_max,regimes.mb_min,regimes.mb_peak,false);
-        transition_energy(y.size()-1, param_cutoffs.transition_e);    
-        param_cutoffs.transition_e = max(param_cutoffs.transition_e,2*regimes.mb_max); // mainly for case that transition region continues to dip into negative (in which case the transition region doesn't update).   
+    else{
+        string col = "\033[95m"; string clrline = "\033[0m\n";
+        cout <<  col + "Loaded simulation. Param comparisons are as follows:" << clrline
+        << "Grid points at simulation resume time (" + col << t.back()*Constant::fs_per_au <<"\033[0m):" << clrline
+        << "gp i        | (energy , spline factor)  " << clrline
+        << "<Not yet implemented for dynamic grid>"
+        << clrline << "------------------" << clrline 
+        << endl;        
     }
+
 }   
 void ElectronRateSolver::loadKnots() {
     // Ensure clear knot history
@@ -520,7 +526,7 @@ void ElectronRateSolver::loadKnots() {
         }
         Distribution::knots_history.push_back(indexed_knot{step,saved_knots});
     }
-    Distribution::load_knots_from_history(INFINITY);
+    y[i].F.load_knots_from_history(y.size()-1);
 }
 
 
@@ -535,7 +541,7 @@ void ElectronRateSolver::loadBound() {
 
     for (size_t a=0; a<input_params.Store.size(); a++) {
         // (unimplemented) select atom's bound file  
-        const std::string& fname = input_params.Load_Folder() + "dist_" + input_params.Store[a].name + ".csv";
+        const std::string& fname = input_params.Load_Folder() + "dist_" + input_params.Store[a].name + "_Raw.csv"; 
 
         cout << "[ Free ] Loading bound states from file path: "<<fname<<"..."<<endl;
          
@@ -600,8 +606,32 @@ void ElectronRateSolver::loadBound() {
         //y.resize(matching_idx + 1);
         //t.resize(matching_idx + 1);
         if(t.size() != matching_idx + 1){
-            throw std::runtime_error("No bound state found for the final loaded step (assuming program lded free distribution)."); 
+            throw std::runtime_error("No bound state found for the final loaded step or times mismatched in files."); 
         }
     }
-    this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
+
+    size_t n = t.size()-1;
+    // ofstream dummy_log;
+    // std::vector<state_type>::const_iterator start_vect_idx = this->y.end() - this->order - 1;  
+    // std::vector<state_type>::const_iterator end_vect_idx = this->y.end() - 1;  
+    // std::vector<state_type> saved_states = std::vector<state_type>(start_vect_idx, end_vect_idx + 1);
+    //reload_grid(dummy_log, n, Distribution::get_knots_from_history(n),saved_states);
+
+    // Set up the container class to have the correct size
+
+    
+    if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
+        // Detect transition energy (in lieu of it not currently being in output file)
+        // todo make a func
+        double dirac_peak_cutoff_density = 0; // a peak's density has to be above this to count
+        dirac_energy_bounds(n,regimes.dirac_maximums,regimes.dirac_minimums,regimes.dirac_peaks,true,regimes.num_dirac_peaks,dirac_peak_cutoff_density);
+        mb_energy_bounds(n,regimes.mb_max,regimes.mb_min,regimes.mb_peak,false);
+        transition_energy(n, param_cutoffs.transition_e);    
+        param_cutoffs.transition_e = max(param_cutoffs.transition_e,2*regimes.mb_max); // mainly for case that transition region continues to dip into negative (in which case the transition region doesn't update).   
+        // Set basis
+        Distribution::set_basis(n, param_cutoffs, regimes,  Distribution::get_knots_from_history(n));
+        state_type::set_P_shape(input_params.Store);
+        this->zero_y = get_ground_state();
+        this->zero_y *= 0.; // set it to Z E R O          
+    }    
 }

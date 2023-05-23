@@ -160,7 +160,11 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
             n++;
         }
         // Almost guaranteed we did not load a simulation, so set first checkpoint. 
-        std::vector<state_type> check_states = std::vector<state_type>(this->y.begin(), this->y.begin()+this->order);
+        //std::vector<state_type> check_states = std::vector<state_type>(this->y.begin(), this->y.begin()+this->order);
+        std::vector<state_type>::const_iterator start_vect_idx = this->y.begin();  
+        std::vector<state_type>::const_iterator end_vect_idx = this->y.begin() + this->order;  
+        std::vector<state_type> check_states = std::vector<state_type>(start_vect_idx, end_vect_idx+1);
+
         checkpoint = {this->order, Distribution::get_knot_energies(), this->regimes, check_states};
         old_checkpoint = checkpoint;
     }
@@ -179,7 +183,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
 
     // Run hybrid multistepping (nonstiff -> bound dynamics, stiff -> free dynamics). 
     while (n < this->t.size()-1) {
-        if (this->t[n] <= t_resume) {n++;continue;} // Start with n = last step.
+        if (this->t[n] < t_resume) {n++;continue;} // Start with n = last step with data.
 
         // 1. Display general information
         // 2. Handle live plotting

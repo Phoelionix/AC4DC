@@ -3,7 +3,7 @@ Al_fast 1
 
 #VOLUME
 16.59       // Volume per molecule in Angstrom^3.
-14000          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons. Not sure what radius means for planar... doesnt seem to matter anyway.
+14000          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.  Not sure what radius means for planar... doesnt seem to matter anyway.
 planar    // geometry of sample (may be spherical, cylindrical or planar)
 
 #PULSE
@@ -17,12 +17,12 @@ true         // enabled? true/false.
 0.0136            // Maximum intensity in 10^19 * W/cm^2. Will give different fluence between square and gaussian. 
 
 #NUMERICAL
-200000        // Initial guess for number of time step points for rate equation.
+20000        // Initial guess for number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
-A - heavy         // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
-8         // Grid update period in fs, (dynamic grid only).
+low        // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
+30         // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
 800          // Number of time steps in the output files.
@@ -31,15 +31,21 @@ N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
+#LOAD
+aluminium_royle_Bpt2_9 
+//-90
+//false  // Nope turning this on didn't help (at -75 fs) // use input time steps
+
 #DEBUG
 999           // Simulation cutoff time in fs 
 0.01          // Interval to display current timestep [fs].
+
 ####END####
 
-#LOAD
-//aluminium_royle_first_part
-//99999
-//false
+
 
 Notes:
+TESTING IMPACT OF GRID UPDATE
+
 From: https://doi.org/10.1103/PhysRevE.95.063203
+A part 2 saves time, as the ~100 eV support is not needed past a few fs.

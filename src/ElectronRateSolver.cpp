@@ -69,6 +69,7 @@ state_type ElectronRateSolver::get_ground_state() {
     // std::cout << endl;
     return initial_condition;
 }
+//state_type ElectronRateSolver::set_zero_y(){zero_y = 0*get_ground_state();}
 
 // grid initilisation call order as of 3/04/23 TODO make clearer
 // set_up_grid_and_compute_cross_sections(init = true) is called first
@@ -847,7 +848,7 @@ void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool fo
     //// We need some previous points needed to perform next ode step, so transform them to new basis ////
     std::vector<double> new_energies = Distribution::get_knot_energies();
     // zero_y is used as the starting state for each step, so we need to reset it so it has the right knots.
-    zero_y = get_ground_state();
+    this->zero_y = get_ground_state();
     this->zero_y *= 0.; // set it to Z E R O
                 
     for (size_t m = n+1 - this->order; m < n+1; m++) {  // TODO turn off if not new knots??
@@ -869,6 +870,7 @@ void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool fo
 } 
 
 // Reloads grid using knots and the states needed for the first step of the ode 
+// next_ode_states_used - includes current step
 void ElectronRateSolver::reload_grid(ofstream& _log, size_t latest_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used){
     size_t n = latest_step;
    
@@ -903,9 +905,10 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t latest_step, std::ve
 
     std::cout.clear();
     
-    zero_y = get_ground_state();
-    // Load distributions and also the previous few states that we need for the first ode step. (Unnecessary now since removed grid updates on checkpoint load, but keeping it here.)
-    assert(next_ode_states_used.size() >= order);
+    this->zero_y = get_ground_state();
+    this->zero_y *= 0.; // set it to Z E R O
+    // Load distributions and also the previous few states that we need for the first ode step. (Unnecessary now since removed grid updates on checkpoint load, but keeping it here in case we go back to that.)
+    assert(next_ode_states_used.size() > order);  // Order previous states + present state
     y.resize(n+1-next_ode_states_used.size());
     for(state_type state : next_ode_states_used){
         y.push_back(state);
