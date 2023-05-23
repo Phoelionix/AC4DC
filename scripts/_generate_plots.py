@@ -35,9 +35,9 @@ def main():
             valid_folder_names = False
             print("\033[91mInput error\033[0m (argument \033[91m"+str(i)+ "\033[0m): folder name not found.")
     assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder."
-    for arg in sys.argv[1:]:
+    for data_folder in sys.argv[1:]:
         label = data_folder +'_Plt'
-        make_some_plots(sys.argv[1],molecular_path,label,dname_Figures,True,True,True,True)
+        make_some_plots(data_folder,molecular_path,label,dname_Figures,True,True,True,True)
 
 def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, charge_conservation=False,bound_ionisation=False,free=False,free_slices=False):
     '''
