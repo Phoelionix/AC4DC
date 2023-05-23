@@ -89,7 +89,6 @@ template<typename T>
 // t_resume = the time to resume simulation from if loading a sim. -S.P.
 // _log only used for cross-section recalcs atm.
 void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const double t_resume, const int steps_per_time_update) {
-
     if (this->dt < 1E-16) {
         std::cerr<<"WARN: step size "<<this->dt<<"is smaller than machine precision"<<std::endl;
     } else if (this->dt < 0) {
@@ -118,7 +117,7 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const 
         std::vector<state_type>::const_iterator end_vect_idx = this->y.begin() + resume_idx;  
         
         std::vector<state_type> check_states = std::vector<state_type>(start_vect_idx, end_vect_idx+1);
-        checkpoint = {resume_idx, Distribution::get_knot_energies(),this->regimes,check_states}; // ATTENTION doesn't work unless loading last knot energies as we don't output the historic knots currently.
+        checkpoint = {resume_idx, Distribution::get_knot_energies(),this->regimes,check_states}; // ATTENTION doesn't work unless loading last knot energies as TODO loadKnots doesn't currently use loaded knot history to set current knots. 
     }
     old_checkpoint = checkpoint; 
 
@@ -152,20 +151,24 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     assert(this->y.size() == this->t.size());
     assert(this->t.size() >= this->order);
 
-    // activate the display
-    //Display::reactivate();
-
+    size_t n = 0; // Current step index.
     if (t_resume < this->t[this->order]){
+        // 4th Order Runge-Kutta 
         // initialise enough points for multistepping to get going
-        for (size_t n = 0; n < this->order; n++) {
+        while(n < this->order) {
             this->step_rk4(n);
+            n++;
         }
         // Almost guaranteed we did not load a simulation, so set first checkpoint. 
         std::vector<state_type> check_states = std::vector<state_type>(this->y.begin(), this->y.begin()+this->order);
         checkpoint = {this->order, Distribution::get_knot_energies(), this->regimes, check_states};
         old_checkpoint = checkpoint;
     }
-    // Run those steps 
+    else{
+        n+=this->order;
+    }
+    
+    // Set up display
     std::stringstream tol;
     tol << "[ sim ] Implicit solver uses relative tolerance "<<stiff_rtol<<", max iterations "<<stiff_max_iter<<"\n\r";
     std::cout << tol.str();  // Display in regular terminal even after ncurses screen is gone.
@@ -173,10 +176,10 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     Display::display_stream = std::stringstream(Display::header, ios_base::app | ios_base::out); // text shown that updates with frequency 1/steps_per_time_update.
     Display::popup_stream = std::stringstream(std::string(), ios_base::app | ios_base::out);  // text displayed during step of special events like grid updates
     Display::create_screen(); 
-    size_t n = this->order - 1; // define here w/ a while loop so that n can decrease if load checkpoint.
-    while (n+1 < this->t.size() -1) {
-        n++;
-        if (this->t[n+1] <= t_resume) continue; // Start with n = last step.
+
+    // Run hybrid multistepping (nonstiff -> bound dynamics, stiff -> free dynamics). 
+    while (n < this->t.size()-1) {
+        if (this->t[n] <= t_resume) {n++;continue;} // Start with n = last step.
 
         // 1. Display general information
         // 2. Handle live plotting
@@ -202,7 +205,8 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
             for(size_t i=0;i < this->y[n+1].atomP[a].size();i++){
                 assert(this->y[n+1].atomP[a][i] >= 0);
             }        
-        #endif        
+        #endif   
+        n++;     
     }
     Display::close();
     std::cout<<"\n";
