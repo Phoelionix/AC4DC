@@ -43,25 +43,23 @@ namespace ode {
 template<typename T>
 class Hybrid : public Adams_BM<T>{
     public:
-    Hybrid<T>(unsigned int order=4, double rtol=1e-5, unsigned max_iter = 50): 
+    Hybrid<T>(unsigned int order=4, double rtol=1e-5, unsigned max_iter = 2000): 
         Adams_BM<T>(order), stiff_rtol(rtol), stiff_max_iter(max_iter){};
     const static unsigned MAX_BEULER_ITER = 50;  // unused?
     FeatureRegimes regimes;
     double timestep_reached = 0;       
     private:
-    virtual void sys_ee(const T& q, T& qdot) =0;
+    virtual void sys_ee(const T& q, T& qdot, double t) =0;
     // virtual void Jacobian2(const T& q, T& qdot, double t) =0; 
     protected:
 
     double stiff_rtol = 1e-4;
+    double intolerable_stiff_err =0;//0.5;
     unsigned stiff_max_iter = 300;//200; 
-    double intolerable_stiff_divergence =0;//0.5; // allowed divergence if stiff_max_iter exceeded
     
-    // stiff ode intermediate steps (i.e. steps it does without the nonstiff part)
-    int msi;
-    int num_stiff_ministeps = 500;
 
-    // Grid/timestep dynamics    
+
+    // Grid/timestep dynamics
     size_t steps_per_grid_transform;    
     Checkpoint old_checkpoint; // the checkpoint that is loaded.
     Checkpoint checkpoint; 
@@ -78,15 +76,13 @@ class Hybrid : public Adams_BM<T>{
     
     void run_steps(ofstream& _log, const double t_resume, const int steps_per_time_update);  // TODO clean up bootstrapping. -S.P.
     void iterate(ofstream& _log, double t_initial, double t_final, const double t_resume, const int steps_per_time_update);
-    void initialise_transient_y(int n); // Approximates initial stiff intermediate steps
-    std::vector<T> transient_y; // stores transient/intermediate steps for stiff solver
+    /// Unused
+    void backward_Euler(unsigned n); 
+    void step_stiff_part(unsigned n);
     // More virtual funcs defined by ElectronRateSolver:
     virtual state_type get_ground_state()=0;
     virtual void pre_ode_step(ofstream& _log, size_t& n,const int steps_per_time_update)=0;
     virtual int post_ode_step(ofstream& _log, size_t& n)=0;
-    /// Unused
-    void backward_Euler(unsigned n); 
-    void step_stiff_part(unsigned n);
 };
 
 template<typename T>
@@ -175,8 +171,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     else{
         n+=this->order;
     }
-    initialise_transient_y((int)n); // Initialise intermediate steps needed for stiff solver to get going.
-
+    
     // Set up display
     std::stringstream tol;
     tol << "[ sim ] Implicit solver uses relative tolerance "<<stiff_rtol<<", max iterations "<<stiff_max_iter<<"\n\r";
@@ -230,113 +225,57 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
  */
 template<typename T>
 void Hybrid<T>::step_stiff_part(unsigned n){
-    if(!good_state) return;
-    
-    // Loop explanation:
-    // msi == 'ministep' index (that was *last* updated)
-    // transient_y contains the ministeps needed for next step's calculation.
-    // transient_y = [1,2,3,4] for cubic splines  (order elements)
-    // We use the order=3 most recent elements, and replace the oldest element with the newest
-    double mini_dt = this->dt/(double)num_stiff_ministeps;
-    // Hence we are targeting (msi+1)%(order) in Adams-Moulton step
-    T old;
-    int old_msi = msi;
-    // 'rel idx' = relative index within transient y
-    int last_rel_idx = msi%(this->order);
-    int next_rel_idx; 
-    // Store bound contribution to y dot
-    old = this->y[n];
+    T old = this->y[n];
     old *= -1.;
-    old += this->y[n+1];  
+    old += this->y[n+1];
 
-    #ifdef DEBUG
-    assert(this->y[n].F[3] == transient_y[last_rel_idx].F[3]);
-    #endif
+    if(!good_state) return;
 
-    while (msi < old_msi + num_stiff_ministeps){  // msi = n if num_stiff_ministeps = 1. maybe call mini_n?
-        
-        // Adams-Moulton step I believe -S.P.
-        T tmp;
-        tmp *= 0;
-        // tmp acts as an aggregator
-        for (int i = 1; i < this->order; i++){  // work through last N=order-1 ministeps
-            T ydot; // ydot stores the change this loop.
-            this->sys_ee(transient_y[(1-i+msi)%(this->order)], ydot); 
-            ydot *= this->b_AM[i];
-            tmp += ydot;
-        }
-        //this->y[n+1] = this->y[n] + tmp * dt;
-        tmp *= mini_dt;
-        tmp += transient_y[last_rel_idx];
-
-        // tmp now stores the additive constant:  y_n+1 = tmp + h b0 f(y_n+1, t_n+1)
-
-        // Picard iteration
-        next_rel_idx = (msi+1)%(this->order); 
-        T prev;
-        double diff = stiff_rtol*2;
-        unsigned idx=0;
-        while (diff > stiff_rtol && idx < stiff_max_iter){
-            // solve by Picard iteration
-            prev = transient_y[next_rel_idx];
-            prev *= -1;
-            T dydt;
-            this->sys_ee(transient_y[next_rel_idx], dydt);
-            dydt *= this->b_AM[0]*(mini_dt);
-            transient_y[next_rel_idx] = tmp;
-            transient_y[next_rel_idx] += dydt;
-            prev += transient_y[next_rel_idx];
-            diff = prev.norm()/transient_y[next_rel_idx].norm(); // Seeking convergence
-            idx++;
-        }
-        if(idx==stiff_max_iter){
-            //std::cerr<<"Max Euler iterations exceeded, err = "<<diff<<std::endl;
-            if (diff > intolerable_stiff_divergence){
-                //std::cerr << "Max error ("<<intolerable_stiff_divergence<<") exceeded, ending simulation early." <<std::endl; // moved to 
-                this->good_state = false;
-                this->timestep_reached = this->t[n+1]*Constant::fs_per_au; // t[n+1] is equiv. to t in bound !good_state case, where error condition this is modelled off is found.
-                this->euler_exceeded = true;  
-            }
-        }
-        msi++;
-        last_rel_idx = msi%(this->order);
-    }
-    transient_y[next_rel_idx] += old;
-    this->y[n+1] = transient_y[next_rel_idx];
-    
-}
-
-template<typename T>
-void Hybrid<T>::initialise_transient_y(int n) {
-    transient_y.resize(this->order);
-
-    msi = this->order-1; // last index of simulation's first "loop" of transient y. 
-    if (this->order/num_stiff_ministeps <= 1){
-        // Approximate intermediate steps with change between last time steps.
-        // We store y[n] and flag it as the most recent ministep updated. 
+    // Adams-Moulton step - (Same as one called for end of good part of system).
+    // Here, tmp is the y_n+1 guessed in the preceding step, handle i=0 explicitly:
+    T tmp;
+    // Now tmp goes back to being an aggregator
+    tmp *= 0;
+    for (int i = 1; i < this->order; i++) {
         T ydot;
-        ydot = this->y[n-1];
-        ydot*= -1.;
-        ydot += this->y[n];
-        ydot *= 1./(double)num_stiff_ministeps;    
-        for(int i = 0; i < this->order; i++){  // Technically we don't need to fill the first idx but we may as well.
-            // y[n-i] = y[n] - ydot*i
-            transient_y[msi-i] = this->y[n];
-            T tmp;
-            tmp = ydot; tmp*=-i;
-            transient_y[msi-i] += tmp;
-        }
+        this->sys_ee(this->y[1+n-i], ydot, this->t[1+n-i]);
+        ydot *= this->b_AM[i];
+        tmp += ydot;
     }
-    // else if <can get a whole number of steps>{
+    
+    //this->y[n+1] = this->y[n] + tmp * this->dt;
+    tmp *= this->dt;
+    tmp += this->y[n];
 
-    //}
-    else{
-        // Not enough ministeps to remain within a single step.
-        for(int i = 0; i < this->order; i++){
-            transient_y[msi-i] = this->y[n-i];
+    // tmp now stores the additive constant for y_n+1 = tmp + h b0 f(y_n+1, t_n+1)
+
+    // Picard iteration
+    T prev;
+    double diff = stiff_rtol*2;
+    unsigned idx=0;
+    while (diff > stiff_rtol && idx < stiff_max_iter){
+        // solve by Picard iteration
+        prev = this->y[n+1];
+        prev *= -1;
+        T dydt;
+        this->sys_ee(this->y[n+1], dydt, this->t[n+1]);
+        dydt *= this->b_AM[0]*this->dt;
+        this->y[n+1] = tmp;
+        this->y[n+1] += dydt;
+        prev += this->y[n+1];
+        diff = prev.norm()/this->y[n+1].norm();
+        idx++;
+    }
+    if(idx==stiff_max_iter){
+        //std::cerr<<"Max Euler iterations exceeded, err = "<<diff<<std::endl;
+        if (diff > intolerable_stiff_err){
+            //std::cerr << "Max error ("<<intolerable_stiff_err<<") exceeded, ending simulation early." <<std::endl; // moved to 
+            this->good_state = false;
+            this->timestep_reached = this->t[n+1]*Constant::fs_per_au; // t[n+1] is equiv. to t in bound !good_state case, where error condition this is modelled off is found.
+            this->euler_exceeded = true;  
         }
     }
-    assert(this->y[n].F[3] == transient_y[msi].F[3]);
+    this->y[n+1] += old;
 }
 
 template<typename T>
@@ -350,7 +289,7 @@ void Hybrid<T>::backward_Euler(unsigned n){
     //old caches the step from the regular part
 
     // Guess. (Naive Euler)
-    sys_ee(this->y[n+1], this->y[n+1]);
+    sys_ee(this->y[n+1], this->y[n+1], this->t[n+1]);
     this->y[n+1] *= this->dt;
     this->y[n+1] += this->y[n]; 
 
@@ -358,7 +297,7 @@ void Hybrid<T>::backward_Euler(unsigned n){
     double diff = stiff_rtol*2;
     while (diff > stiff_rtol && idx < stiff_max_iter){ // TODO more efficient mapping to use by considering known form of equation  c.f. ELENDIF
         T tmp = this->y[n+1];
-        sys_ee(tmp, this->y[n+1]);
+        sys_ee(tmp, this->y[n+1], this->t[n+1]);
         this->y[n+1] *= this->dt;
         this->y[n+1] += this->y[n];
         

@@ -529,7 +529,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
 
 
 // 'badly-behaved' i.e. stiff part of the system. Electron-electron interactions.
-void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot, const double t) {
+void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot) {
     sdot=0;
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
     
@@ -678,7 +678,6 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         << "[ sim ] Next data backup in "<<(minutes_per_save - std::chrono::duration_cast<std::chrono::minutes>(std::chrono::high_resolution_clock::now() - time_of_last_save)).count()<<" minute(s).\n\r"  
         << "[ sim ] Current timestep size = "<<this->dt*Constant::fs_per_au<<" fs\n\r"   
         << "[ sim ] t="
-        << std::left<<std::setfill(' ')<<std::setw(6)
         << this->t[n] * Constant::fs_per_au << " fs\n\r" 
         << "[ sim ] " <<Distribution::size << " knots currently active\n\r";
         //<< Distribution::get_knot_energies() << "\n\r"; 
@@ -730,6 +729,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         Display::show(Display::display_stream,Display::popup_stream);
         // Reload at checkpoint's n, updating the n step, and decreasing time step length
         n = load_checkpoint_and_decrease_dt(_log,n,old_checkpoint);  // virtual function overridden by ElectronRateSolver
+        
         if (!store_dt_increase){
             // remove the extra time added.   
             times_to_increase_dt.pop_back();           
@@ -868,6 +868,8 @@ void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool fo
             }        
         #endif
     }   
+    //TODO rk4 (with sys_ee added) here? 
+    initialise_transient_y((int)latest_step);
     // The next containers are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state. 
 } 
 
@@ -915,7 +917,9 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t latest_step, std::ve
     for(state_type state : next_ode_states_used){
         y.push_back(state);
     }
-    y.resize(input_params.num_time_steps);    
+    y.resize(input_params.num_time_steps);  
+    initialise_transient_y((int)latest_step);
+
 
     // The next containers are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state. 
 } 

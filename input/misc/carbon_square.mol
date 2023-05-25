@@ -18,7 +18,7 @@ true         // enabled? true/false.
 2500         // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
-20000        // Initial guess for number of time step points for rate equation.
+5000        // Initial guess for number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
@@ -33,12 +33,10 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #LOAD
-carbon_square_1
-99999
-false
+//carbon_square_1
 
 #DEBUG
-0           //
+-7.5          // time to end at
 0.01          // Interval to display current timestep [fs].
 ####END####
 

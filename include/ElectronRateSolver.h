@@ -53,7 +53,7 @@ class ElectronRateSolver : private ode::Hybrid<state_type>
 {
 public:
     ElectronRateSolver(const char* filename, ofstream& log) :
-    Hybrid(3), input_params(filename, log), pf() // (order Adams method)
+    Hybrid(3), input_params(filename, log), pf() // (order Adams method), argument of Hybrid = order.
     {
         pf.set_shape(input_params.pulse_shape);
         pf.set_pulse(input_params.Fluence(), input_params.Width());
@@ -166,7 +166,7 @@ private:
     /// general dynamics (uses explicit method)
     void sys_bound(const state_type& s, state_type& sdot, state_type& s_bg, const double t); 
     /// electron-electron (uses implicit method)
-    void sys_ee(const state_type& s, state_type& sdot, const double t); 
+    void sys_ee(const state_type& s, state_type& sdot); 
     /**
      * @brief 
      * @details 1. Handles dynamic grid updates 
