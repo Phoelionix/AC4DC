@@ -191,7 +191,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         }
         f<<endl;
         // Iterate over time.
-        int num_t_points = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front()) ));
+        int num_t_points = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front()) ));  // This looks funky because num_t_points refers to number of points we would have IF we had not ended the simulation early.
         float t_fineness = timespan_au  / num_t_points;
         float previous_t = t[0]-t_fineness;
         int i = -1;
@@ -287,7 +287,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
      // Get indices of lines to load
     std::string line;
     float previous_t;
-    float t_fineness = 0.01;//0.000001;//0.01; //in fs // Fineness should be kept below this, so that raw can be kept fine throughout loadings. (Effectively turned off now except for extremely large datasets.)
+    float t_fineness = 1e-9;// Maximum fineness allowed, since saved simulations restrict output step fineness up until last few steps, this is effectively turned off unless last few steps are incredibly fine. 
     vector<int> step_indices;
     int i = -GLOBAL_BSPLINE_ORDER - 1;
     while (std::getline(infile, line)){
