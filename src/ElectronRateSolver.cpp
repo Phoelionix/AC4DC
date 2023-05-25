@@ -169,6 +169,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
     }
     else{
         _log << "[ Manual Grid ] Setting static grid" <<endl;
+        std::runtime_error("Needs reimplemenation");
     }
 
 
@@ -575,8 +576,9 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     this->dt/=fact;
     int remaining_steps = t.size() - (n+1);
     assert(remaining_steps > 0 && fact > 1);
-    input_params.num_time_steps = t.size() + (fact - 1)*remaining_steps; // todo separate from input params
-    steps_per_time_update = max(1 , (int)(input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
+    // Set time steps, and add an extra step to ensure we reach at least the end time.
+    input_params.num_time_steps = (int)(1+t.size() + (fact - 1)*remaining_steps); // todo separate num steps from input params
+    steps_per_time_update = max(1 , (int)(0.5+input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
     t.resize(n+1); t.resize(input_params.num_time_steps);
         
     steps_per_grid_transform = round(steps_per_grid_transform*fact);
