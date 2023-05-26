@@ -298,7 +298,7 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
 
     double kT = 2*peak;
     // CDF = Γ(3/2)γ(3/2,E/kT)
-    double new_min = 0.2922*kT;  // 90% of electrons above this point
+    double new_min = max(first_gp_min_E,0.2922*kT);  // simulation min (TODO put in variable) , 90% of electrons above this point
     if(_min < new_min || allow_shrinkage){
         _min = new_min;
     }

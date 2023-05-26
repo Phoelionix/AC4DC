@@ -12,13 +12,14 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 6000         // Photon energy in eV.
 10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 square       // Pulse shape
+2           // simulation total timespan, as a multiple of fwhm
 
 #USE_FLUENCE
 true         // enabled? true/false.
 2500         // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
-5000        // Initial guess for number of time step points for rate equation.
+1000  //120000      // Initial guess for number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
@@ -36,7 +37,7 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 //carbon_square_1
 
 #DEBUG
--7.5          // time to end at
+0          // time to end at
 0.01          // Interval to display current timestep [fs].
 ####END####
 
