@@ -38,31 +38,34 @@ This file is part of AC4DC.
 
 // IO functions
 void ElectronRateSolver::save(const std::string& _dir) {
-    double min_outputted_points = 25;
     string dir = _dir; // make a copy of the const value
     dir = (dir.back() == '/') ? dir : dir + "/";
 
     std::cout << "[ Output ] \033[95mSaving to output folder \033[94m'"<<dir<<"'\033[95m..."<< std::endl;
+    
+    // output at least min_outputted_points, and above that output with spacing that is unaffected if simulation was cut off early.
+    // (assumes t and y have been truncated to last point calculated when save() is called.)
+    num_steps_out = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front())));
     saveFree(dir+"freeDist.csv");
     saveFreeRaw(dir+"freeDistRaw.csv");
     saveKnots(dir + "knotHistory.csv");
     saveBound(dir);
     std::cout <<"\033[0m"<<std::endl;
 
-    std::vector<double> fake_t; // TODO double check why I called this fake_t, probably doesn't make sense now. 
-    int num_t_points = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front()) ));
-    float t_fineness = timespan_au  / num_t_points;
-    float previous_t = t[0]-t_fineness;
+    // Save intensity
+    std::vector<double> times;
+    double t_fineness = timespan_au  / num_steps_out;
+    double previous_t = t[0]-t_fineness;
     int i = -1;
-    while (i <  static_cast<int>(t.size())-1){  //TODO make this some constructed function or something
+    while (i < static_cast<int>(t.size())-1){  //TODO make this some constructed function or something
         i++;
-        if(t[i] < previous_t + t_fineness && i<= t.size()-10){ // Save last few points
+        if(t[i] < previous_t + t_fineness && i<= t.size()-extra_fine_steps_out){
             continue;
         }        
-        fake_t.push_back(t[i]);
+        times.push_back(t[i]);
         previous_t = t[i];
     }
-    pf.save(fake_t,dir+"intensity.csv");
+    pf.save(times,dir+"intensity.csv");
 }
 
 void ElectronRateSolver::file_delete_check(const std::string& fname){
@@ -107,10 +110,9 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
     #endif  
 
     assert(y.size() == t.size());
-    // output at least min_outputted_points, otherwise output with spacing that is unaffected if simulation was cut off early.
-    int num_t_points = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front()) ));
-    float t_fineness = timespan_au  / num_t_points;
-    float previous_t = t[0]-t_fineness;
+    
+    double t_fineness = timespan_au  / num_steps_out;
+    double previous_t = t[0]-t_fineness;
     int i = -1; 
     size_t next_knot_update = 0;
     while (i <  static_cast<int>(t.size())-1){
@@ -119,10 +121,10 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
             Distribution::load_knots_from_history(i);
             next_knot_update = Distribution::next_knot_change_idx(i);
         } 
-        if(t[i] < previous_t + t_fineness && i<= t.size()-10){ // Save last few points
+        if(t[i] < previous_t + t_fineness && i<= t.size()-extra_fine_steps_out){
             continue;
         }
-        f<<t[i]*Constant::fs_per_au<<" "<<y[i].F.output_densities(this->input_params.Out_F_size(),reference_knots)<<endl;
+        f<<round_time(t[i]*Constant::fs_per_au)<<" "<<y[i].F.output_densities(this->input_params.Out_F_size(),reference_knots)<<endl;
         previous_t = t[i];
         
     }
@@ -148,9 +150,8 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     
     assert(y.size() == t.size());
     // output at least min_outputted_points, otherwise output with spacing that is unaffected if simulation was cut off early.
-    int num_t_points = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front()) ));
-    float t_fineness = timespan_au  / num_t_points;
-    float previous_t = t[0]-t_fineness;
+    double t_fineness = timespan_au  / num_steps_out;
+    double previous_t = t[0]-t_fineness;
     int i = -1; 
     size_t next_knot_update = 0;
     while (i <  static_cast<int>(t.size())-1){
@@ -159,10 +160,10 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
             Distribution::load_knots_from_history(i);
             next_knot_update = Distribution::next_knot_change_idx(i);
         } 
-        if(t[i] < previous_t + t_fineness && i<= t.size()-10){ // Save last few points
+        if(t[i] < previous_t + t_fineness && i<= t.size()-extra_fine_steps_out){
             continue;
         }
-        f<<t[i]*Constant::fs_per_au<<" "<<y[i].F<<endl;  // Note that the << operator divides the factors by Constant::eV_per_Ha.
+        f<<round_time(t[i]*Constant::fs_per_au)<<" "<<y[i].F<<endl;  // Note that the << operator divides the factors by Constant::eV_per_Ha.
         previous_t = t[i];
     }
     f.close();
@@ -191,13 +192,12 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         }
         f<<endl;
         // Iterate over time.
-        int num_t_points = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front()) ));  // This looks funky because num_t_points refers to number of points we would have IF we had not ended the simulation early.
-        float t_fineness = timespan_au  / num_t_points;
-        float previous_t = t[0]-t_fineness;
+        double t_fineness = timespan_au  / num_steps_out;
+        double previous_t = t[0]-t_fineness;
         int i = -1;
         while (i <  static_cast<int>(t.size())-1){
             i++;
-            if(t[i] < previous_t + t_fineness && i<= t.size()-10){ // Save last few points
+            if(t[i] < previous_t + t_fineness && i<= t.size()-extra_fine_steps_out){ 
                 continue;
             }            
             // Make sure all "natom-dimensioned" objects are the size expected
@@ -286,8 +286,8 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         
      // Get indices of lines to load
     std::string line;
-    float previous_t;
-    float t_fineness = pow(10,-loading_t_precision);// Maximum fineness allowed, since saved simulations restrict output step fineness up until last few steps, this is effectively turned off unless last few steps are incredibly fine. 
+    double previous_t;
+    double t_fineness = pow(10,-loading_t_precision);// Maximum fineness allowed, since saved simulations restrict output step fineness up until last few steps, this is effectively turned off unless last few steps are incredibly fine. 
     vector<int> step_indices;
     int i = -GLOBAL_BSPLINE_ORDER - 1;
     while (std::getline(infile, line)){
@@ -296,7 +296,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             std::istringstream s(line);
             string str_time;
             s >> str_time;    
-            float t = convert_str_time(str_time);     
+            double t = convert_str_time(str_time);     
             if(i >= 1 && t < previous_t + t_fineness){ // && t < input_params.Load_Time_Max()*Constant::fs_per_au-20*t_fineness){
                 continue;
             }        
@@ -312,7 +312,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         infile.seekg(0, std::ios::beg);        
         // last_idx = i
         int j = -4;
-        float dt = INFINITY;
+        double dt = INFINITY;
         while (std::getline(infile, line)){
             std::istringstream s(line);
             string str_time;
@@ -413,6 +413,9 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
 
     // Translate time to match input of THIS run. 
     if (simulation_start_time != saved_time[0]){
+        #ifndef TIME_TRANSLATION_LOADING_ALLOWED
+        std::runtime_error("Start time set for this simulation doesn't match first time in data of simulation state being loaded.");
+        #endif
         for(size_t i = 0; i < saved_time.size(); i++){
             t[i] += simulation_start_time - saved_time[0];
         }
@@ -533,13 +536,12 @@ double ElectronRateSolver::convert_str_time(string str_time){
     double time = stod(str_time);
     // Convert to right units (based on saveFreeRaw)
     time /= Constant::fs_per_au;
-    // Dodge floating point error
+    // Dodge floating point errors
+    return round_time(time);
+}
+double ElectronRateSolver::round_time(double time){
     double P = pow(10,loading_t_precision);
     return std::round(time * P)/P;
-}
-void ElectronRateSolver::round_time(double & time){
-    double P = pow(10,loading_t_precision);
-    time = std::round(time * P)/P;
 }
 
 /**
@@ -598,7 +600,7 @@ void ElectronRateSolver::loadBound() {
             }            
             matching_idx = find(t.begin(),t.end(),elem_time) - t.begin(); 
             if (matching_idx >= t.size()){
-                continue;
+                continue;  // Error! Couldn't find a corresponding point...
             }
             else{
                 std::vector<double> occ_density;
@@ -612,7 +614,7 @@ void ElectronRateSolver::loadBound() {
                 y[matching_idx].atomP[a] = occ_density;
             }
         }
-        // // Shave time and state containers to last matching state.
+        // // Shave time and state containers to last matching state. (Disabled, this shouldn't happen now.)
         //y.resize(matching_idx + 1);
         //t.resize(matching_idx + 1);
         if(t.size() != matching_idx + 1){

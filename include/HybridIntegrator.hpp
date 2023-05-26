@@ -59,10 +59,10 @@ class Hybrid : public Adams_BM<T>{
     
     // stiff ode intermediate steps (i.e. steps it does without the nonstiff part)
     int msi;
-    #ifndef NO_EE
-    int num_stiff_ministeps = 500;
-    #else
+    #if defined NO_EE || defined NO_MINISTEPS
     int num_stiff_ministeps = 1;
+    #else
+    int num_stiff_ministeps = 400;
     #endif
 
     // Grid/timestep dynamics    

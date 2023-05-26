@@ -55,6 +55,8 @@ public:
     ElectronRateSolver(const char* filename, ofstream& log) :
     Hybrid(3), input_params(filename, log), pf() // (order Adams method), argument of Hybrid = order.
     {
+        log_config_settings(log);
+        
         pf.set_shape(input_params.pulse_shape);
         pf.set_pulse(input_params.Fluence(), input_params.Width());
         
@@ -79,7 +81,10 @@ public:
             }
             simulation_end_time = min(input_params.Simulation_Cutoff(),simulation_end_time); 
         }
-        simulation_resume_time = simulation_start_time;
+        simulation_start_time = round_time(simulation_start_time);
+        simulation_resume_time = simulation_start_time;  // If loading simulation, is overridden by ElectronRateSolver::set_starting_state();
+         
+
         set_grid_regions(input_params.elec_grid_regions);
 
         grid_update_period = input_params.Grid_Update_Period();  // TODO the grid update period should be made to be at least 3x (probably much more) longer with a gaussian pulse, since early times need it to be updated far less often to avoid instability for such a pulse. 
@@ -178,8 +183,16 @@ private:
 
     bool hasRates = false; // flags whether Store has been populated yet.
     void copyInput(const std::string& src,const std::string& dir);
+    /// Log macros defined in config.h
+    void log_config_settings(ofstream& _log);
 
-    // handling deletion of present file
+    //// Saving/Loading
+    /// Number of steps outputted, maximum determined by input_params.Out_T_size()
+    double min_outputted_points = 25;
+    int num_steps_out;
+    /// We save last few steps so we can load simulations. This member determines how many of those sequential last steps are outputted
+    const int extra_fine_steps_out = 10;
+    /// handles deletion of given file
     void file_delete_check(const std::string& fname);
     /// Saves a table of free-electron dynamics to file fname
     void saveFree(const std::string& file);
@@ -192,6 +205,8 @@ private:
     void loadBound();
     /// For each atom, saves a table of bound-electron dynamics to folder dir.
     void saveBound(const std::string& folder);
+    static double convert_str_time(string str_time);// Helper function to convert string from input file to time.
+    static double round_time(double time);
 
     void set_grid_regions(ManualGridBoundaries gb);
     void set_starting_state();
