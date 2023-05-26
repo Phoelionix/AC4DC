@@ -160,15 +160,15 @@ public:
      * This seems correct, given that dfdt is inputted for the spline basis's Sinv (S_inverse * <VectorXd input>) function, which names the input deltaf.
      * @param v deltaf
      */
-    void applyDeltaF(const Eigen::VectorXd& dfdt);
+    void applyDeltaF(const Eigen::VectorXd& dfdt, const int & threads);
     
 
     // Q functions
     // Computes the dfdt vector v based on internal f
     // e.g. dfdt v; F.calc_Qee(v);
-    void get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P, const int threads) const;
-    void get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P, const int threads) const;
-    void get_Q_ee  (Eigen::VectorXd& v, const int threads) const;
+    void get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const;
+    void get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const;
+    void get_Q_ee  (Eigen::VectorXd& v, const int & threads) const;
 
     void get_Jac_ee (Eigen::MatrixXd& J) const; // Returns the Jacobian of Qee
     

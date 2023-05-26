@@ -299,7 +299,7 @@ void ElectronRateSolver::solve(ofstream & _log, const std::string& tmp_data_fold
     "display", "live plotting", "dt updates", "data backups", "pre_ode()",
     "dynamic grid updates", "user input detection", "post_ode()",
     "misc bound processes", "get_Q_eii()", "get_Q_tbr()",
-    "get_Q_ee()", "apply_delta()"
+    "get_Q_ee()", "applyDeltaF()"
     };
     
     stringstream solver_times;
@@ -510,7 +510,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
     }
 
     // Add change to distribution
-    sdot.F.applyDeltaF(vec_dqdt);
+    sdot.F.applyDeltaF(vec_dqdt,threads);
     // if(input_params.Filtration_File() == "")
     //     // No background, use geometric-dependent loss.
     //     sdot.F.addLoss(s.F, input_params.loss_geometry, s.bound_charge);
@@ -532,21 +532,21 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
 void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot) {
     sdot=0;
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
-    
+    const int threads = input_params.Plasma_Threads(); 
     // compute the dfdt vector
     #ifdef NO_EE
     #warning No electron-electron interactions
     #else
     // Electron-electon repulsions
     auto t5 = std::chrono::high_resolution_clock::now();
-    s.F.get_Q_ee(vec_dqdt, input_params.Plasma_Threads()); 
+    s.F.get_Q_ee(vec_dqdt, threads); 
     auto t6 = std::chrono::high_resolution_clock::now();
     ee_time += t6 - t5;
     #endif
     // 
     // Add change to distribution
     auto t7 = std::chrono::high_resolution_clock::now();
-    sdot.F.applyDeltaF(vec_dqdt);
+    sdot.F.applyDeltaF(vec_dqdt,threads);
     auto t8 = std::chrono::high_resolution_clock::now();
     apply_delta_time += t8 - t7;
 }
@@ -688,7 +688,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
 
     ////// live plotting ////// 
     auto t_start_plot = std::chrono::high_resolution_clock::now();
-    if ((n-this->order+1)%100 == 0){ // TODO implement minimum time
+    if ((n-this->order+1)%20 == 0){ // TODO implement minimum time. also shld depend on num ministeps
         size_t num_pts = 4000;
         py_plotter.plot_frame(
             Distribution::get_energies_eV(num_pts),

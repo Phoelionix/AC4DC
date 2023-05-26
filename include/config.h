@@ -13,13 +13,22 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 // #define OUTPUT_DFDT_TO_CERR
 #endif
 
-#define NO_TBR
-#define NO_EE
-#define NO_EII
+//#define NO_TBR
+//#define NO_EE
+//#define NO_EII
 
-#define NO_MINISTEPS
+//#define NO_MINISTEPS
+#define NO_MINISTEP_UPDATING  // ministep updates not working atm, possibly as lagrange polynomial is a bad thing to use here and I should just use linear interpolation.
 
 //#define DEBUG_BOUND
 //#define SWITCH_OFF_DYNAMIC_BOUNDS
 //#define SWITCH_OFF_ALL_DYNAMIC_UPDATES  // should be equivalent (or almost equivalent, I can't remember if gaussian quadrature will make a difference here) to switching off dynamic bounds if working properly
 
+/////////////
+
+
+#ifdef NO_MINISTEPS 
+    #ifndef NO_MINISTEP_UPDATING
+    #define NO_MINISTEP_UPDATING
+    #endif
+#endif

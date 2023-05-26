@@ -84,7 +84,7 @@ void Distribution::load_knot(vector<double> loaded_knot) {
 }
 
 // Adds Q_eii to the parent Distribution
-void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P, const int threads) const {
+void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const {
     assert(basis.has_Qeii());
     assert(P.size() == basis.Q_EII[a].size());
     assert((unsigned) v.size() == size);
@@ -110,7 +110,7 @@ void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P, co
  * @param P probabilities of each atomic state;  d/dt P[i] = \sum_i=1^N W_ij - W_ji ~~~~ P[j] = d/dt(average-atomic-state)
  */
 // Puts the Q_TBR changes in the supplied vector v
-void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P, const int threads) const {
+void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const {
     assert(basis.has_Qtbr());
     assert(P.size() == basis.Q_TBR[a].size());
     double v_copy [size] = {0}; 
@@ -127,7 +127,7 @@ void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P, co
 }
 
 // Puts the Q_EE changes in the supplied vector v
-void Distribution::get_Q_ee(Eigen::VectorXd& v, const int threads) const {
+void Distribution::get_Q_ee(Eigen::VectorXd& v, const int & threads) const {
     assert(basis.has_Qee());
     double CoulombLog = this->CoulombLogarithm();
     // double CoulombLog = 3.4;
@@ -437,9 +437,10 @@ void Distribution::addDeltaSpike(double e, double N) {
  * @details NOT applying a dirac delta. 
  * @param v 
  */
-void Distribution::applyDeltaF(const Eigen::VectorXd& v) {
+void Distribution::applyDeltaF(const Eigen::VectorXd& v,const int & threads) {
     Eigen::VectorXd u(size);
     u= (this->basis.Sinv(v)); 
+    #pragma omp for schedule(dynamic) nowait
     for (size_t i=0; i<size; i++) {
         f[i] += u[i];
     }

@@ -658,4 +658,9 @@ void ElectronRateSolver::log_config_settings(ofstream& _log){
     #ifdef NO_EII
     _log << "[ Config ] Electron-Impact ionisation disabled in config.h" << endl;
     #endif
+    #ifdef NO_MINISTEPS
+    _log << "[ Config ] Stiff solver intermediate steps disabled in config.h" << endl;
+    #elif defined NO_MINISTEP_UPDATING
+    _log << "[ Config ] Stiff solver intermediate step updated disabled" << endl;
+    #endif
 }

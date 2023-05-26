@@ -53,17 +53,21 @@ class Hybrid : public Adams_BM<T>{
     // virtual void Jacobian2(const T& q, T& qdot, double t) =0; 
     protected:
 
-    double stiff_rtol = 1e-4;
+    double stiff_rtol = 1e-4;  // relative tolerance
     unsigned stiff_max_iter = 300;//200; 
-    double intolerable_stiff_divergence =0;//0.5; // allowed divergence if stiff_max_iter exceeded
+    double intolerable_stiff_divergence =0;//0.5; // allowed (relative) divergence  if stiff_max_iter exceeded
     
     // stiff ode intermediate steps (i.e. steps it does without the nonstiff part)
-    int msi;
+    int mini_n;
+    int old_mini_n;
     #if defined NO_EE || defined NO_MINISTEPS
     int num_stiff_ministeps = 1;
+    #elif defined NO_MINISTEP_UPDATING
+    int num_stiff_ministeps = 500;
     #else
-    int num_stiff_ministeps = 400;
+    int num_stiff_ministeps = 50;
     #endif
+    double mini_dt;
 
     // Grid/timestep dynamics    
     size_t steps_per_grid_transform;    
@@ -83,7 +87,16 @@ class Hybrid : public Adams_BM<T>{
     void run_steps(ofstream& _log, const double t_resume, const int steps_per_time_update);  // TODO clean up bootstrapping. -S.P.
     void iterate(ofstream& _log, double t_initial, double t_final, const double t_resume, const int steps_per_time_update);
     void initialise_transient_y(int n); // Approximates initial stiff intermediate steps
-    std::vector<T> transient_y; // stores transient/intermediate steps for stiff solver
+    void initialise_transient_y_v2(int n); // Uses lagrange interpolation to approximate initial stiff intermediate steps
+    void modify_ministeps(const int n,const int num_ministeps);
+    #ifdef NO_MINISTEP_UPDATING
+    int max_ministep_reductions = 0;
+    #else
+    int max_ministep_reductions = 5;
+    #endif
+    std::vector<T> lagrange_interpolate(const std::vector<double> x, const std::vector<T> f, const std::vector<double> new_x);
+    std::vector<T> y_transient; // stores transient/intermediate steps for stiff solver
+    std::vector<T> old_y_transient; // stores final transient/intermediate steps of last step. 
     // More virtual funcs defined by ElectronRateSolver:
     virtual state_type get_ground_state()=0;
     virtual void pre_ode_step(ofstream& _log, size_t& n,const int steps_per_time_update)=0;
@@ -239,16 +252,14 @@ void Hybrid<T>::step_stiff_part(unsigned n){
     if(!good_state) return;
     
     // Loop explanation:
-    // msi == 'ministep' index (that was *last* updated)
-    // transient_y contains the ministeps needed for next step's calculation.
-    // transient_y = [1,2,3,4] for cubic splines  (order elements)
+    // mini_n == 'ministep' index (that was *last* updated)
+    // y_transient contains the ministeps needed for next step's calculation.
+    // y_transient = [1,2,3,4] for cubic splines  (order elements)
     // We use the order=3 most recent elements, and replace the oldest element with the newest
-    double mini_dt = this->dt/(double)num_stiff_ministeps;
-    // Hence we are targeting (msi+1)%(order) in Adams-Moulton step
+    // Hence we are targeting (mini_n+1)%(order) in Adams-Moulton step
     T old;
-    int old_msi = msi;
     // 'rel idx' = relative index within transient y
-    int last_rel_idx = msi%(this->order);
+    int last_rel_idx = mini_n%(this->order);
     int next_rel_idx; 
     // Store bound contribution to y dot
     old = this->y[n];
@@ -256,10 +267,15 @@ void Hybrid<T>::step_stiff_part(unsigned n){
     old += this->y[n+1];  
 
     #ifdef DEBUG
-    assert(this->y[n].F[3] == transient_y[last_rel_idx].F[3]);
+    assert(this->y[n].F[3] == y_transient[last_rel_idx].F[3]);
     #endif
 
-    while (msi < old_msi + num_stiff_ministeps){  // msi = n if num_stiff_ministeps = 1. maybe call mini_n?
+    int excess_count = 0;
+    int under_count = 0;
+    int num_ministep_reductions = 0;
+    old_mini_n = mini_n;
+    old_y_transient = y_transient; // Stores final ministeps of step n-1.
+    while (mini_n < old_mini_n + num_stiff_ministeps){  // mini_n = n if num_stiff_ministeps = 1.
         
         // Adams-Moulton step I believe -S.P.
         T tmp;
@@ -267,58 +283,80 @@ void Hybrid<T>::step_stiff_part(unsigned n){
         // tmp acts as an aggregator
         for (int i = 1; i < this->order; i++){  // work through last N=order-1 ministeps
             T ydot; // ydot stores the change this loop.
-            this->sys_ee(transient_y[(1-i+msi)%(this->order)], ydot); 
+            this->sys_ee(y_transient[(1-i+mini_n)%(this->order)], ydot); 
             ydot *= this->b_AM[i];
             tmp += ydot;
         }
         //this->y[n+1] = this->y[n] + tmp * dt;
         tmp *= mini_dt;
-        tmp += transient_y[last_rel_idx];
+        tmp += y_transient[last_rel_idx];
 
         // tmp now stores the additive constant:  y_n+1 = tmp + h b0 f(y_n+1, t_n+1)
 
         // Picard iteration
-        next_rel_idx = (msi+1)%(this->order); 
+        next_rel_idx = (mini_n+1)%(this->order); 
         T prev;
         double diff = stiff_rtol*2;
         unsigned idx=0;
-        while (diff > stiff_rtol && idx < stiff_max_iter){
+        while (diff > stiff_rtol/num_stiff_ministeps && idx < stiff_max_iter){ //stiff_rtol is for the full step, so ministeps have smaller tolerance. 
             // solve by Picard iteration
-            prev = transient_y[next_rel_idx];
+            prev = y_transient[next_rel_idx];
             prev *= -1;
             T dydt;
-            this->sys_ee(transient_y[next_rel_idx], dydt);
+            this->sys_ee(y_transient[next_rel_idx], dydt);
             dydt *= this->b_AM[0]*(mini_dt);
-            transient_y[next_rel_idx] = tmp;
-            transient_y[next_rel_idx] += dydt;
-            prev += transient_y[next_rel_idx];
-            diff = prev.norm()/transient_y[next_rel_idx].norm(); // Seeking convergence
+            y_transient[next_rel_idx] = tmp;
+            y_transient[next_rel_idx] += dydt;
+            prev += y_transient[next_rel_idx];
+            diff = prev.norm()/y_transient[next_rel_idx].norm(); // Seeking convergence
             idx++;
         }
         if(idx==stiff_max_iter){
+            if (num_ministep_reductions < max_ministep_reductions){
+                // Try again with more ministeps
+                modify_ministeps(n,min(num_stiff_ministeps*2,1000));
+                mini_n = old_mini_n;
+                num_ministep_reductions++;
+            }
             //std::cerr<<"Max Euler iterations exceeded, err = "<<diff<<std::endl;
-            if (diff > intolerable_stiff_divergence){
+            else if (diff > intolerable_stiff_divergence){
                 //std::cerr << "Max error ("<<intolerable_stiff_divergence<<") exceeded, ending simulation early." <<std::endl; // moved to 
                 this->good_state = false;
                 this->timestep_reached = this->t[n+1]*Constant::fs_per_au; // t[n+1] is equiv. to t in bound !good_state case, where error condition this is modelled off is found.
                 this->euler_exceeded = true;  
+                break;
             }
         }
-        msi++;
-        last_rel_idx = msi%(this->order);
+        #ifndef NO_MINISTEP_UPDATING
+        else if (idx >= stiff_max_iter/4){
+            excess_count++;
+        }
+        else if (idx == 1){
+            under_count++;
+        }
+        #endif 
+        mini_n++;
+        last_rel_idx = mini_n%(this->order);
     }
-    transient_y[next_rel_idx] += old;
-    this->y[n+1] = transient_y[next_rel_idx];
+    #ifndef NO_MINISTEP_UPDATING
+    if (excess_count > under_count)
+        modify_ministeps(n,min((int)(num_stiff_ministeps*1.5),1000));
+    else if (excess_count*2 < under_count)
+        modify_ministeps(n,max((int)(this->order-1),(int)(num_stiff_ministeps*0.9)));
+    #endif
+    y_transient[next_rel_idx] += old;
+    this->y[n+1] = y_transient[next_rel_idx];
     
 }
 
 /// Initialises intermediate steps needed for stiff solver to get going.
 template<typename T>
 void Hybrid<T>::initialise_transient_y(int n) {
-    transient_y.resize(this->order);
-
-    msi = this->order-1; // last index of simulation's first "loop" of transient y. 
-    if (this->order/num_stiff_ministeps <= 1){
+    y_transient.resize(this->order);
+    
+    mini_n = this->order-1; // last index of simulation's first "loop" of transient y. 
+    if ((this->order-1)/num_stiff_ministeps <= 1){
+        mini_dt = this->dt/(double)num_stiff_ministeps; 
         // Approximate intermediate steps with change between last time steps.
         // We store y[n] and flag it as the most recent ministep updated. 
         T ydot;
@@ -328,23 +366,149 @@ void Hybrid<T>::initialise_transient_y(int n) {
         ydot *= 1./(double)num_stiff_ministeps;    
         for(int i = 0; i < this->order; i++){  // Technically we don't need to fill the first idx but we may as well.
             // y[n-i] = y[n] - ydot*i
-            transient_y[msi-i] = this->y[n];
+            y_transient[mini_n-i] = this->y[n];
             T tmp;
             tmp = ydot; tmp*=-i;
-            transient_y[msi-i] += tmp;
+            y_transient[mini_n-i] += tmp;
         }
     }
     // else if <can get a whole number of steps>{
 
     //}
     else{
+        mini_dt = this->dt;
         // Not enough ministeps to remain within a single step.
         for(int i = 0; i < this->order; i++){
-            transient_y[msi-i] = this->y[n-i];
+            y_transient[mini_n-i] = this->y[n-i];
         }
     }
-    assert(this->y[n].F[3] == transient_y[msi].F[3]);
+    assert(this->y[n].F[3] == y_transient[mini_n].F[3]);
 }
+
+
+// TODO generalise with lagrange polynomial and larger y_transient?
+/**
+ * @brief Interpolates f(x) to points given by new_x using barycentric form of lagrange polynomial
+ * @note Questionable if worth it. 
+ */
+
+template<typename T>
+std::vector<T> Hybrid<T>::lagrange_interpolate(const std::vector<double> x,  const std::vector<T> y, const std::vector<double> new_x){
+    // y(x) = sum(wn/(x-x_n).y_n)/D, where D = sum(w_n/(x-x_n))
+    double D = 0; 
+    std::vector<T> new_y(new_x.size()); 
+    // Compute (inverse) weights
+    std::vector<double> inv_w(new_x.size()); 
+    assert(new_x.size()>1);
+    for (size_t n = 0; n < new_x.size(); n++){
+        inv_w[n] = 1;
+        for(size_t m = 0; m < new_x.size(); m++){
+            if (m == n) continue;
+            inv_w[n] *= (x[n]-x[m]);
+        }
+    }
+    for(size_t i = 0; i < new_x.size(); i++){
+        bool found_node = false;
+        for (size_t n = 0; n < new_x.size(); n++){
+            // if seek value at a node, return value at that node.
+            if (new_x[i] == x[n]){
+                new_y[i] = y[n]; 
+                found_node = true;
+                break;
+            }
+        }
+        if (found_node) continue;
+        // Calculate W = sum w_n/(x-x_n).y_n, and M  = sum w_n/(x-x_n)
+        T W = this->zero_y;
+        double M = 0;
+        for (size_t k = 0; k < inv_w.size();k++){
+            double M_k = 1/((new_x[i]-x[k])*inv_w[k]);
+            T W_k = y[k];
+            W_k*=M_k;
+            W += W_k;
+            M += M_k;
+        }
+        new_y[i] = W;
+        new_y[i]*= (1/M);
+    }
+    return new_y;
+}
+
+/**
+ * @brief 
+ * @details Assumes that the time steps between transient y is indeed mini_dt.
+ * @tparam T 
+ * @param n 
+ * @param num_ministeps 
+ */
+template<typename T>
+void Hybrid<T>::modify_ministeps(const int n,const int num_ministeps){     
+    #ifdef NO_MINISTEP_UPDATING
+    std::runtime_error("Unexpected call to ministep modification when ministep updating was turned off");
+    #else
+    assert(this->y[n].F[3] == old_y_transient[(old_mini_n)%(this->order)].F[3]);
+    
+    double old_mini_dt = mini_dt;
+
+    num_stiff_ministeps = num_ministeps;
+    if ((this->order-1)/num_stiff_ministeps <= 1){
+        mini_dt = this->dt/(double)num_stiff_ministeps;  
+        std::vector<double> old_times(old_y_transient.size());
+        std::vector<double> new_times(old_y_transient.size());
+        std::vector<T> old_y(old_y_transient.size());
+        
+        for(int i = 0; i < this->order; i++){ 
+            // unwind last few ministeps of last step (in old_y_transient)
+            int old_idx = (old_mini_n-i)%(this->order);
+            int new_idx = (mini_n-i)%(this->order);
+            old_y[old_idx] = old_y_transient[old_idx];
+            // old_times correspond to same indices as old_y
+            old_times[old_idx] = this->t[n] - old_mini_dt*i; 
+            new_times[new_idx] = this->t[n] - mini_dt*i;
+        }
+        y_transient.resize(this->order);
+        y_transient = lagrange_interpolate(old_times,old_y,new_times);
+    }
+    else{
+        // Not enough ministeps to remain within a single step.
+        mini_dt = this->dt;
+        for(int i = 0; i < this->order; i++){
+            y_transient[(mini_n-i)%(this->order)] = this->y[n-i];
+        }        
+    }
+    assert(this->y[n].F[3] == y_transient[(mini_n)%(this->order)].F[3]); // test it
+    #endif
+}
+template<typename T>
+void Hybrid<T>::initialise_transient_y_v2(int n){ 
+    mini_n = this->order-1;
+    if ((this->order-1)/num_stiff_ministeps <= 1){
+        mini_dt = this->dt/(double)num_stiff_ministeps; 
+        std::vector<double> old_times(y_transient.size());
+        std::vector<double> new_times(y_transient.size());    
+
+        for(int i = 0; i < this->order; i++){ 
+            old_times[mini_n-i] = this->t[n-i];
+            new_times[mini_n-i] = this->t[n] - mini_dt*i;
+        }
+
+        y_transient.resize(this->order);
+        y_transient = lagrange_interpolate();
+    }
+    // else if <can get a whole number of steps>{
+
+    //}    
+    else{
+        // Not enough ministeps to remain within a single step.
+        mini_dt = this->dt;
+        for(int i = 0; i < this->order; i++){
+            y_transient[mini_n-i] = this->y[n-i];
+        }
+    }
+    assert(this->y[n].F[3] == y_transient[(mini_n)%(this->order)].F[3]);  
+}
+
+
 
 template<typename T>
 void Hybrid<T>::backward_Euler(unsigned n){
