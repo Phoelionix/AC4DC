@@ -287,7 +287,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
      // Get indices of lines to load
     std::string line;
     float previous_t;
-    float t_fineness = 1e-9;// Maximum fineness allowed, since saved simulations restrict output step fineness up until last few steps, this is effectively turned off unless last few steps are incredibly fine. 
+    float t_fineness = pow(10,-loading_t_precision);// Maximum fineness allowed, since saved simulations restrict output step fineness up until last few steps, this is effectively turned off unless last few steps are incredibly fine. 
     vector<int> step_indices;
     int i = -GLOBAL_BSPLINE_ORDER - 1;
     while (std::getline(infile, line)){
@@ -296,13 +296,13 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             std::istringstream s(line);
             string str_time;
             s >> str_time;    
-            float t = stod(str_time);          
+            float t = convert_str_time(str_time);     
             if(i >= 1 && t < previous_t + t_fineness){ // && t < input_params.Load_Time_Max()*Constant::fs_per_au-20*t_fineness){
                 continue;
             }        
             step_indices.push_back(i);
             previous_t = t;
-            if (t > input_params.Load_Time_Max()*Constant::fs_per_au)
+            if (t > input_params.Load_Time_Max())
                 break;
         }
     }     
@@ -375,9 +375,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         std::istringstream s(elem);
         string str_time;
         s >> str_time;
-        saved_time[i] = stod(str_time);                
-        // Convert to right units (based on saveFreeRaw)
-        saved_time[i] /= Constant::fs_per_au;
+        saved_time[i] = convert_str_time(str_time);                
 
         if(saved_time[i] > input_params.Load_Time_Max() || i >= y.size()){
             // time is past the maximum
@@ -500,7 +498,7 @@ void ElectronRateSolver::loadKnots() {
         std::istringstream s(line);
         string str_time;
         s >> str_time;
-        double time = stod(str_time)/Constant::fs_per_au;
+        double time = convert_str_time(str_time);
         size_t step;
         bool found_step = false;
         for (size_t n=0; n < this->t.size(); n++){
@@ -529,6 +527,20 @@ void ElectronRateSolver::loadKnots() {
     y[i].F.load_knots_from_history(y.size()-1);
 }
 
+/// Ensuring we have consistent removal of decimal places (should need to be called for loadFreeRaw, loadBound, and loadKnots)
+/// Necessary due to high precision of Constant::fs_per_au
+double ElectronRateSolver::convert_str_time(string str_time){
+    double time = stod(str_time);
+    // Convert to right units (based on saveFreeRaw)
+    time /= Constant::fs_per_au;
+    // Dodge floating point error
+    double P = pow(10,loading_t_precision);
+    return std::round(time * P)/P;
+}
+void ElectronRateSolver::round_time(double & time){
+    double P = pow(10,loading_t_precision);
+    time = std::round(time * P)/P;
+}
 
 /**
  * @brief Loads all times and free e densities from previous simulation's raw output, and uses that to populate y[i].F, the free distribution.
@@ -580,9 +592,7 @@ void ElectronRateSolver::loadBound() {
             double elem_time;
             string str_time;
             s >> str_time;            
-            elem_time = stod(str_time);
-            // Convert to right units (based on saveFreeRaw)
-            elem_time /= Constant::fs_per_au;
+            elem_time = convert_str_time(str_time);
             if(elem_time > t.back()){
                 break;
             }            
@@ -634,4 +644,16 @@ void ElectronRateSolver::loadBound() {
         this->zero_y = get_ground_state();
         this->zero_y *= 0.; // set it to Z E R O          
     }    
+}
+
+void ElectronRateSolver::log_config_settings(ofstream& _log){
+    #ifdef NO_TBR
+    _log << "[ Config ] Three Body Recombination disabled in config.h" << endl;
+    #endif
+    #ifdef NO_EE
+    _log << "[ Config ] Electron-Electron interactions disabled in config.h" << endl;
+    #endif
+    #ifdef NO_EII
+    _log << "[ Config ] Electron-Impact ionisation disabled in config.h" << endl;
+    #endif
 }

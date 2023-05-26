@@ -307,7 +307,7 @@ int main(int argc, const char *argv[]) {
         S.solve(log, backup_dir);
         try_mkdir(outdir);
         S.save(outdir);    
-        //pybind11::finalize_interpreter(); just never call finalize (via this or scoped_interpreter) since it crashes due to a missing pointer for whatever reason.
+        //pybind11::finalize_interpreter(); Commented out so is never called (via this or scoped_interpreter) since it crashes due to a missing pointer for whatever reason.
     }
     move_mol_file(tmp_molfile,outdir,name); 
     move_log_file(logpath,outdir,name);
