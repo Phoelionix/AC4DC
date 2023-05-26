@@ -59,7 +59,11 @@ class Hybrid : public Adams_BM<T>{
     
     // stiff ode intermediate steps (i.e. steps it does without the nonstiff part)
     int msi;
+    #ifndef NO_EE
     int num_stiff_ministeps = 500;
+    #else
+    int num_stiff_ministeps = 1;
+    #endif
 
     // Grid/timestep dynamics    
     size_t steps_per_grid_transform;    
@@ -175,7 +179,11 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     else{
         n+=this->order;
     }
-    initialise_transient_y((int)n); // Initialise intermediate steps needed for stiff solver to get going.
+
+    // Start with n = last step with data.
+    while(this->t[n] < t_resume)
+        n++;
+    initialise_transient_y((int)n);
 
     // Set up display
     std::stringstream tol;
@@ -188,8 +196,6 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
 
     // Run hybrid multistepping (nonstiff -> bound dynamics, stiff -> free dynamics). 
     while (n < this->t.size()-1) {
-        if (this->t[n] < t_resume) {n++;continue;} // Start with n = last step with data.
-
         // 1. Display general information
         // 2. Handle live plotting
         // 3. Handle dynamic updates to dt (and checkpoints, which also handle case of NaN being encountered by solver).
@@ -306,6 +312,7 @@ void Hybrid<T>::step_stiff_part(unsigned n){
     
 }
 
+/// Initialises intermediate steps needed for stiff solver to get going.
 template<typename T>
 void Hybrid<T>::initialise_transient_y(int n) {
     transient_y.resize(this->order);
