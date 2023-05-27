@@ -38,7 +38,7 @@ PDB_PATHS = dict( # <value:> the target that should be used for <key:> the name 
 )          
 
 
-def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,same_deviations,plasma_batch_handle = "", plasma_handles = None, sctr_results_batch_dir = None, get_R_only=True, realistic_crystal_growing_mode = False):
+def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations,plasma_batch_handle = "", plasma_handles = None, sctr_results_batch_dir = None, get_R_only=True, realistic_crystal_growing_mode = False,specific_energy = None):
     '''
     NB: "Plasma" is used a shortened way to refer to the output of the damage simulation  
     parameters:
@@ -98,18 +98,16 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,same_deviations,plasma
     for i, sim_handle in enumerate(plasma_handles):
         # Check some of the expected files are present (not checking for existence of bound state files at present.) 
         plasma_output = sim_data_batch_dir + sim_handle
-        assert path.isdir(plasma_output)
+        assert path.isdir(plasma_output), "Directory not found for "+plasma_output
         for dat_file in necessary_files: 
-            assert path.isfile(plasma_output + "/" +dat_file)
+            assert path.isfile(plasma_output + "/" +dat_file), "Missing "+dat_file+" in "+plasma_output
         # Index parameters of simulation
         start_time[i],end_time[i],energy[i],fwhm[i],photon_count[i],param_dict,unit_dict = get_sim_params(sim_input_dir,sim_data_batch_dir,sim_handle)
     R_data = []
     names = []
     for i, sim_handle in enumerate(plasma_handles):
-        #"""
-        if energy[i] != 12000:
+        if specific_energy is not None and energy[i] != specific_energy:
             continue
-        #"""
         names.append(sim_handle)
         run_params = copy.deepcopy(params)
         
@@ -136,13 +134,13 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,same_deviations,plasma
             time.sleep(0.3)            
 
         # The undamaged crystal form factor is constant (the initial state's) but still performs the same integration step with the pulse profile weighting.
-        crystal = Crystal(pdb_path,allowed_atoms_1,is_damaged=True,CNO_to_N = CNO_to_N, **run_params["crystal"])
+        crystal = Crystal(pdb_path,allowed_atoms_1,is_damaged=True,CNO_to_N = CNO_to_N, S_to_N = S_to_N, **run_params["crystal"])
         if same_deviations:
             # we copy the other crystal so that it has the same deviations in coords
             crystal_undmged = copy.deepcopy(crystal)
             crystal_undmged.is_damaged = False
         else:
-            crystal_undmged = Crystal(pdb_path,allowed_atoms_1,is_damaged=False,CNO_to_N = CNO_to_N, **run_params["crystal"])
+            crystal_undmged = Crystal(pdb_path,allowed_atoms_1,is_damaged=False,CNO_to_N = CNO_to_N,S_to_N = S_to_N, **run_params["crystal"])
         if i == 0:
             crystal.plot_me(250000)
     
@@ -363,7 +361,7 @@ if __name__ == "__main__":
     )
 
 
-    batch_mode = True # Just doing this as I want to quickly switch between batches and specific runs.
+    batch_mode = False # Just doing this as I want to quickly switch between batches and specific runs.
 
     mode = 1  #0 -> infinite crystal, 1 -> finite crystal/SPI, 2-> both
     allowed_atoms = ["C_fast","N_fast","O_fast","S_fast"] 
@@ -372,20 +370,24 @@ if __name__ == "__main__":
     
     if batch_mode:
         CNO_to_N = True
+        S_to_N = False
         batch_handle = "tetra" 
         kwargs["plasma_batch_handle"] = batch_handle
         batch_dir = None # Optional: Specify existing parent folder for batch of results, to add these orientation results to.
         pdb_path = PDB_PATHS[batch_handle]
     else:
-        CNO_to_N = False
+        CNO_to_N = True
+        S_to_N = False
         kwargs["plasma_batch_handle"] = ""
-        kwargs["plasma_handles"] = ["carbon_square_2","carbon_redux_4"]
-        pdb_path = PDB_PATHS["fcc"]
+        #kwargs["plasma_handles"] = ["lys_nass_3","lys_nass_no_S_1"]    #Note that S_to_N must be true to compare effect on nitrogen R factor. Comparing S_to_N true with nitrogen only sim, then S_to_N false with nitrogen+sulfur sim, let's us compare the true effect of sulfur on R facator.
+        kwargs["plasma_handles"] = ["lys_nass_3"]  
+        #pdb_path = PDB_PATHS["fcc"]
+        pdb_path = PDB_PATHS["lys"]
 
     if MODE_DICT[mode] != "spi":
-        scatter_data = multi_damage(imaging_params.default_dict,pdb_path,allowed_atoms,CNO_to_N,same_deviations,**kwargs)
+        scatter_data = multi_damage(imaging_params.default_dict,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
     if MODE_DICT[mode] != "crystal":
-        scatter_data = multi_damage(imaging_params.default_dict_SPI,pdb_path,allowed_atoms,CNO_to_N,same_deviations,**kwargs)
+        scatter_data = multi_damage(imaging_params.default_dict_SPI,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
 
 
 #--------------------------------------

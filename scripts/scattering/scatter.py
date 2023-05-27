@@ -102,7 +102,7 @@ class Results_Grid():
     pass    
 
 class Crystal():
-    def __init__(self, pdb_fpath, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = True, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True,cell_scale = 1):
+    def __init__(self, pdb_fpath, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = True, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True,cell_scale = 1,S_to_N=False):
         '''
         rocking_angle [degrees]
         cell_packing ("SC","BCC","FCC","FCC-D")
@@ -139,7 +139,10 @@ class Crystal():
             # Light atom approximation. 
             if CNO_to_N:
                 if v in ["C","O"]: 
-                    v = "N"                    
+                    v = "N"        
+            if S_to_N:
+                if v == "S":
+                    v = "N"            
             # Orbital approximation.
             if orbitals_as_shells:
                 if v not in ["H","He","Sodion","Chloride"]:

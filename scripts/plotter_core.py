@@ -364,7 +364,7 @@ class Plotter:
         try:
             states = self.statedict[atom]
         except:
-            raise Exception("species "+str(atom)+" was passed, but data is only present for "+''.join([k for k in self.statedict.keys()]))
+            raise Exception("species "+str(atom)+" was passed, but data is only present for "+''.join([k + " " for k in self.statedict.keys()]))
         for i in range(len(states)):
             orboccs = parse_elecs_from_latex(states[i])
             occ_list = [-99]*10
