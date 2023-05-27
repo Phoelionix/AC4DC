@@ -539,9 +539,15 @@ double ElectronRateSolver::convert_str_time(string str_time){
     // Dodge floating point errors
     return round_time(time);
 }
-double ElectronRateSolver::round_time(double time){
+double ElectronRateSolver::round_time(double time,const bool ceil, const bool floor){
+    assert(!(ceil && floor));
     double P = pow(10,loading_t_precision);
+    if (ceil)
+        return std::ceil(time * P)/P;
+    if (floor)
+        return std::floor(time * P)/P;
     return std::round(time * P)/P;
+
 }
 
 /**
@@ -623,14 +629,6 @@ void ElectronRateSolver::loadBound() {
     }
 
     size_t n = t.size()-1;
-    // ofstream dummy_log;
-    // std::vector<state_type>::const_iterator start_vect_idx = this->y.end() - this->order - 1;  
-    // std::vector<state_type>::const_iterator end_vect_idx = this->y.end() - 1;  
-    // std::vector<state_type> saved_states = std::vector<state_type>(start_vect_idx, end_vect_idx + 1);
-    //reload_grid(dummy_log, n, Distribution::get_knots_from_history(n),saved_states);
-
-    // Set up the container class to have the correct size
-
     
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
         // Detect transition energy (in lieu of it not currently being in output file)

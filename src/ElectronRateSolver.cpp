@@ -252,10 +252,7 @@ void ElectronRateSolver::solve(ofstream & _log, const std::string& tmp_data_fold
     
     
     // 12-04 leaving this for now since I'm using it to catch really bad errors, but it now serves no more than that in practice.
-    // Using finer time steps to attempt to resolve NaN encountered in ODE solving. 
-    /* Redoes the ENTIRE simulation. As it seems to be intended to, it should be fixed to start from timestep_reached. 
-    // But really it should start from earlier than timestep_reached since bad states tend start before they appear, in a snowball-like effect. -S.P.
-    */
+    // (original: Uses finer time steps to attempt to resolve NaN encountered in ODE solving.) 
     double time = this->t[0];
     int retries = 0;  // int retries = 1;  <---- Turned off for now
     while (!good_state) {
@@ -590,12 +587,13 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
 
     _log <<"Reloading grid"<<endl;
     // with the states loaded the spline factors are as they were, we just need to load the appropriate knots.
+    assert(saved_knots == Distribution::get_knots_from_history(n));
     reload_grid(_log, n, saved_knots,saved_states);
     
 
     /* [These ideas need a bit of effort and consideration if it is to be implemented, or even better a more effective adaptive step size algo could be implemented. But questionable if worth it.]
         // It is standard to use a method like fourth-order Runge-Kutta after changing the step size to get us going:
-        // (TODO a lack of ee dynamics currently in this step is slightly off-putting as it is more important than when initialising)
+        // (TODO RK4 needs to have free electron dynamics added though).
         // We get indistinguishable results skipping this entirely (for a factor of 1.5 at least).
         
         /#
@@ -738,6 +736,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         euler_exceeded = false;
         checkpoint = old_checkpoint;
     }
+    /* Disabled for now.
     else if (!times_to_increase_dt.empty() && times_to_increase_dt.back() < t[n]){
         Display::popup_stream <<"\nAttempting to increase dt\n\r";
         Display::show(Display::display_stream,Display::popup_stream);
@@ -758,6 +757,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
             increasing_dt = num_steps_to_check;
         }
     }
+    */
     dyn_dt_time += std::chrono::high_resolution_clock::now() - t_start_dt;
     
     

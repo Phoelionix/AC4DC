@@ -63,15 +63,15 @@ public:
         timespan_au = input_params.Width()*input_params.timespan_factor;
         if (input_params.pulse_shape ==  PulseShape::square){  //-FWHM <= t <= 3FWHM (we've squished the pulse into the first FWHM.)
             if (timespan_au <= 0)
-                timespan_au = input_params.Width()*4; // 4*FWHM, capturing effectively entire pulse.
+                timespan_au = round_time(input_params.Width()*4,true); // 4*FWHM, capturing effectively entire pulse.
             simulation_start_time = -input_params.Width();
         } else { //-1.2FWHM <= t <= 1.2 FWHM
             if (timespan_au <= 0)
-                timespan_au = input_params.Width()*2.4;   // 99% of pulse, (similar to Neutze)
+                timespan_au = round_time(input_params.Width()*2.4,true);   // 99% of pulse, (similar to Neutze)
             
             simulation_start_time = -timespan_au/2;
         }
-        simulation_end_time =   simulation_start_time + timespan_au; 
+        simulation_end_time =  simulation_start_time + timespan_au; 
         std::cout<<"Imaging from "<<simulation_start_time/input_params.Width() <<" FWHM to " 
         << simulation_end_time/input_params.Width() <<" FWHM"<<std::endl;
         
@@ -81,7 +81,6 @@ public:
             }
             simulation_end_time = min(input_params.Simulation_Cutoff(),simulation_end_time); 
         }
-        simulation_start_time = round_time(simulation_start_time);
         simulation_resume_time = simulation_start_time;  // If loading simulation, is overridden by ElectronRateSolver::set_starting_state();
          
 
@@ -207,7 +206,7 @@ private:
     /// For each atom, saves a table of bound-electron dynamics to folder dir.
     void saveBound(const std::string& folder);
     static double convert_str_time(string str_time);// Helper function to convert string from input file to time.
-    static double round_time(double time);
+    static double round_time(double time, const bool ceil = false, const bool floor = false);
 
     void set_grid_regions(ManualGridBoundaries gb);
     void set_starting_state();
