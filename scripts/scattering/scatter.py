@@ -543,7 +543,7 @@ class XFEL():
     def get_ff_calculator(self,start_time,end_time,damage_output_handle,parent_dir_path):
         ff_calculator = Plotter(damage_output_handle,parent_dir_path)
         plt.close()
-        ff_calculator.initialise_coherence_params(start_time,end_time,self.max_q,self.photon_energy,t_fineness=self.t_fineness) # q_fineness isn't used for our purposes.   
+        ff_calculator.initialise_form_factor_params(start_time,end_time,self.max_q,self.photon_energy,t_fineness=self.t_fineness) # q_fineness isn't used for our purposes.   
         return ff_calculator
     
     def spooky_laser(self, start_time, end_time, sim_data_handle, sim_parent_dir_path, target, SPI_resolution = None, results_parent_dir = "results/", circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False):
@@ -931,33 +931,33 @@ class XFEL():
         print("Total screen-incident intensity = ","{:e}".format(np.sum(I)))
         return I
 
-    def illuminate_average(self,feature,phis = None,cardan_angles = None):  # Feature = ring or spot.
-        """Returns the intensity at q. Not crystalline yet."""
-        if phis == None:
-            phis = self.phi_array
-        F = np.zeros(phis.shape,dtype="complex_")
-        for species in self.target.species_dict.values():
-            species.set_scalar_form_factor(feature.q)
-            # iterate through each symmetry of unit cell (each asymmetric unit)
-            for s in range(len(self.target.sym_rotations)):
-                for R in species.coords:
-                        # Rotate to crystal's current orientation 
-                        R = R.left_multiply(self.y_rot_matrix)  
-                        R = R.left_multiply(self.x_rot_matrix)   
-                        # PDB format note: if x axis has dim of X, we have a point between [- X, X].
-                        coord = np.multiply(R.get_array(),self.target.sym_rotations[s]) + np.multiply(self.target.supercell_dim,self.target.sym_translations[s])
-                        # Get spatial factor T
-                        T = np.zeros(phis.shape,dtype="complex_")
-                        if SPI:
-                            T = self.SPI_interference_factor(phis,coord,feature)
-                        else:
-                            T= self.interference_factor(coord,feature,cardan_angles)
-                        F += species.ff_average*T   
-                        # Rotate atom for next sample            
-        I = np.square(np.abs(F))        
+    # def illuminate_average(self,feature,phis = None,cardan_angles = None):  # Feature = ring or spot.
+    #     """Returns the intensity at q. Not crystalline yet."""
+    #     if phis == None:
+    #         phis = self.phi_array
+    #     F = np.zeros(phis.shape,dtype="complex_")
+    #     for species in self.target.species_dict.values():
+    #         species.set_scalar_form_factor(feature.q)
+    #         # iterate through each symmetry of unit cell (each asymmetric unit)
+    #         for s in range(len(self.target.sym_rotations)):
+    #             for R in species.coords:
+    #                     # Rotate to crystal's current orientation 
+    #                     R = R.left_multiply(self.y_rot_matrix)  
+    #                     R = R.left_multiply(self.x_rot_matrix)   
+    #                     # PDB format note: if x axis has dim of X, we have a point between [- X, X].
+    #                     coord = np.multiply(R.get_array(),self.target.sym_rotations[s]) + np.multiply(self.target.supercell_dim,self.target.sym_translations[s])
+    #                     # Get spatial factor T
+    #                     T = np.zeros(phis.shape,dtype="complex_")
+    #                     if SPI:
+    #                         T = self.SPI_interference_factor(phis,coord,feature)
+    #                     else:
+    #                         T= self.interference_factor(coord,feature,cardan_angles)
+    #                     F += species.ff_average*T   
+    #                     # Rotate atom for next sample            
+    #     I = np.square(np.abs(F))        
         
 
-        return I 
+    #     return I 
 
     def interference_factor(self,coord,feature,cardan_angles):
         """ theta = scattering angle relative to z-y plane """ 

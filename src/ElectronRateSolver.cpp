@@ -573,8 +573,7 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     this->dt/=fact;
     int remaining_steps = t.size() - (n+1);
     assert(remaining_steps > 0 && fact > 1);
-    // Set time steps, and add an extra step to ensure we reach at least the end time.
-    input_params.num_time_steps = (int)(1+t.size() + (fact - 1)*remaining_steps); // todo separate num steps from input params
+    input_params.num_time_steps = ceil(t.size() + (fact - 1)*remaining_steps); // todo separate num steps from input params
     steps_per_time_update = max(1 , (int)(0.5+input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
     t.resize(n+1); t.resize(input_params.num_time_steps);
         

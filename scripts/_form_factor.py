@@ -30,8 +30,8 @@ import numpy as np
 set_highlighted_excepthook()
 
 handle =  "lys_nass_no_S_1"#"sulfur_3shell_baseline_3"#"Naive_Lys_mid_21"#"Carbon_294"#"Carbon_Wiggleless_2500_Fluence"#"Carbon_Sanders"""
-handle =  "lys_nass_3"#
-handle =  "lys_nass_2"#
+#handle =  "lys_nass_3"#
+#handle =  "lys_nass_2"#
 
 #######
 
@@ -44,13 +44,12 @@ plt.close()
 photon_energy = 6000
 # q_max is in units of bohr^-1 (atomic units). 
 q_max = 20*0.529177# 20 angstrom. 
-pl.initialise_coherence_params(-17.9,17.9,q_max,photon_energy,50,100,True)
-
-
-
+pl.initialise_form_factor_params(-10,17.5,q_max,photon_energy,50,100,True)
 
 # form factors dependent on q 
-for atom in pl.atomdict:
+#atoms = pl.atomdict
+atoms = ["N_fast"]
+for atom in atoms:
     pl.plot_ffactor_get_R_sanders(atom)
     # Atomic form factor at time as a function of q
 

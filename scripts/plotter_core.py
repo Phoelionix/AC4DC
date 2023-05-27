@@ -243,7 +243,7 @@ class Plotter:
     
 
 
-    def initialise_coherence_params(self, start_t,end_t, q_max, photon_energy, q_fineness=50,t_fineness=50,naive=False):
+    def initialise_form_factor_params(self, start_t,end_t, q_max, photon_energy, q_fineness=50,t_fineness=50,naive=False):
         args = locals()
         self.__dict__ .update(args)  # Is this a coding sin?  ...yes.
  
@@ -267,20 +267,6 @@ class Plotter:
         return 180/np.pi*np.arcsin(q*wavelength/(4*np.pi))     
 
 
-    def get_A_bar_matrix(self,atom1,atom2,ideal=False): #TODO change to getting just A_bar vector, since q's are the same.
-        # Matrix constructor to be vectorised and passed to np.fromfunction
-        def A_maker(i,j,atom1,atom2):
-            # Transform indices to desired k
-            q1 = i*self.k_max/self.q_fineness
-            q2 = j*self.k_max/self.q_fineness
-            if self.naive == False:
-                return self.get_A_bar(self.start_t,self.end_t,q1,q2,atom1,atom2,self.t_fineness)
-            elif self.naive == True:
-                return self.get_naive_A_bar(self.start_t,self.end_t,q1,q2,atom1,atom2,self.t_fineness,ideal=ideal)         
-                   
-        #A_norm = 1/A_maker(0,0,atom1,atom2) WHYYYYYYY DID YOU DO THISSS
-        A_norm = 1
-        return A_norm*np.fromfunction(np.vectorize(A_maker),(self.q_fineness,self.q_fineness,),atom1=atom1,atom2=atom2)
     
     def plot_R_factor(self, atoms_subset=None):   #TODO Would be best to integrate with Sanders' code since that uses the simulation's calculated struct. factors which are presumably more accurate.
         atoms = atoms_subset
@@ -341,77 +327,6 @@ class Plotter:
         ax2.set_xticks(top_tick_locations)
         ax2.set_xlabel(top_label)
         
-    
-
-    def plot_A_map(self, atom1, atom2, vmin=0.,vmax=1.,title=r"Foreground coherence $\bar{A}$"): #TODO Remove this.
-        q_fineness = self.q_fineness
-        
-        A_matrix = self.get_A_bar_matrix(atom1,atom2)
-
-        fig_size = 5
-        self.fig = plt.figure(figsize=(fig_size,fig_size))
-        ax = self.fig.add_subplot(111)
-        ax.set_title(title)
-        ax.set_xlabel("$k_{1}$",fontsize=12)
-        ax.set_ylabel("$k_{2}$", rotation=0,labelpad = 7,fontsize=12)
-        ax.set_xlim(0,q_fineness-1)  
-        ax.set_ylim(0,q_fineness-1)  
-        ticks = np.linspace(0,q_fineness-1,5)
-        ticklabels = ["{:6.2f}".format(i) for i in ticks/(q_fineness-1)*self.k_max/(2*np.pi)]
-        
-        
-        ax.set_xticks(ticks)
-        ax.set_xticklabels(ticklabels)
-        ax.set_yticks(ticks)
-        ax.set_yticklabels(ticklabels)  
-
-        im = ax.imshow(
-            A_matrix,
-            cmap = plt.get_cmap('PiYG'),
-            vmin=vmin,
-            vmax=vmax,
-        )
-        cbar = self.fig.colorbar(im, ax=ax, extend='both')
-        cbar.minorticks_on()
-        
-
-    # Get the foreground coherence matrix A bar.(Martin A.V. & Quiney H.M., 2016)
-    # a1, str, atomic name key
-    # a2, str, other atomic name key
-    def get_A_bar(self, start_t, end_t, q1, q2, atom1, atom2, t_fineness = 50):
-        # f_1 = scattering factor of atomic species 1.
-        #Integrand = <(f_1)(f_2)*> = (f_Z1)(f_Z2) since real scatt. factors   TODO check where imaginary f may be relevant
-        
-        def integrand(idx):
-            # We pass in indices from 0 to fineness-1, transform to time:
-            t = start_t + idx/t_fineness*(end_t-start_t) 
-            val = self.get_average_form_factor(q1,[atom1],t)*self.get_average_form_factor(q2,[atom2],t)
-            return val
-        form_factor_product = np.fromfunction(integrand,(t_fineness,))   # Happily it works without using np.vectorise, which is far more costly.
-        time = np.linspace(start_t,end_t,t_fineness)
-        #Approximate integral with composite trapezoidal rule.
-        A_bar = np.trapz(form_factor_product,time)/(time[-1]-time[0])    
-        return A_bar
-
-    def get_naive_A_bar(self, start_t, end_t, q1, q2, atom1, atom2, t_fineness = 50, ideal=False):
-        if ideal: 
-            actual_end_t = end_t
-            end_t = start_t
-        time = np.linspace(start_t,end_t,t_fineness)
-        form_factor_1 = self.get_average_form_factor(q1,[atom1],time)  
-        form_factor_2 = self.get_average_form_factor(q2,[atom2],time)
-        
-        #Average form factors 
-        average_form_factor_1 = np.average(form_factor_1)
-        average_form_factor_2 = np.average(form_factor_2)
-        form_factor_product = average_form_factor_1 * average_form_factor_2
-        # Integrate via same method as get_A_bar to ensure same scale. (Alternatively could divide get_A_bar output by the timespan)
-        form_factor_product = np.tile(form_factor_product, (t_fineness))
-        if ideal:
-            time = np.linspace(start_t,actual_end_t,t_fineness)
-        A_bar = np.trapz(form_factor_product,time)/(time[-1]-time[0])
-        return A_bar        
-
 
     def f_snapshots(self,q,atom,stochastic=False):
         '''
@@ -585,25 +500,7 @@ class Plotter:
         form_factors_sqrt_I, time_steps = self.f_snapshots(q,atom)
         #Approximate integral with composite trapezoidal rule.
         f_avg = np.trapz(form_factors_sqrt_I,time_steps)/(time_steps[-1]-time_steps[0])
-        return f_avg 
-
-
-    # Coherence stuff, relevant for when have different atomic species (Martin A. Quiney H.M. 2016).  Assuming I haven't misunderstood notation.
-    # Useful under the assumption of the nuclei being static. (i.e. the spatial component T(q) is not time dependent)
-    def get_A_bar(self, start_t, end_t, q1, q2, atom1, atom2, t_fineness = 50):
-        # f_1 = scattering factor of atomic species 1.
-        #Integrand = <(f_1)(f_2)*> = (f_Z1)(f_Z2) since real scatt. factors   TODO check where imaginary f may be relevant
-        
-        def integrand(idx):
-            # We pass in indices from 0 to fineness-1, transform to time:
-            t = start_t + idx/t_fineness*(end_t-start_t) 
-            val = self.get_average_form_factor(q1,[atom1],t)[0]*self.get_average_form_factor(q2,[atom2],t)[0]
-            return val
-        form_factor_product = np.fromfunction(integrand,(t_fineness,))   # Happily it works without using np.vectorise, which is far more costly.
-        time = np.linspace(start_t,end_t,t_fineness)
-        #Approximate integral with composite trapezoidal rule.
-        A_bar = np.trapz(form_factor_product,time)/(time[-1]-time[0])    
-        return A_bar        
+        return f_avg         
 
     def plot_form_factor(self,num_snapshots = 8, atoms=None):  # k = 4*np.pi = 2*q. c.f. Sanders plot.
         
@@ -996,7 +893,7 @@ class Plotter:
     def plot_ffactor_get_R_sanders(self, a, num_tsteps = 10, timespan = None, show_avg = True, **kwargs):
 
         if timespan is None:
-            timespan = (self.timeData[0], self.timeData[-1])
+            timespan = (self.start_t,self.end_t)#(self.timeData[0], self.timeData[-1])
 
         start_idx = self.timeData.searchsorted(timespan[0])
         stop_idx = self.timeData.searchsorted(timespan[1])
@@ -1032,6 +929,7 @@ class Plotter:
         if show_avg:
             ax.plot(kgrid, fbar, 'k--', label=r'Effective Form Factor')
         freal = dynamic_k[:,0]  # Real as in the real structure? - S.P.
+        print("Warning, does not account for altering time step sizes.")
         print("R = ", np.sum(np.abs(fbar - freal))/np.sum(freal))    # Struct fact defn. of R (essentially equivalent to intensity definition)
         print("freal",freal)
         print("fbar",fbar)

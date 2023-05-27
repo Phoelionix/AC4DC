@@ -256,9 +256,8 @@ size_t Distribution::most_recent_knot_change_idx(size_t step_idx){
     size_t most_recent_update = 0;
     // Find the step of the most recent knot update as of step_idx. (will return same step if given the step of the change.)
     for(auto elem: knots_history){
-        if (elem.step > step_idx){ 
+        if (elem.step > step_idx) 
             break; 
-        }
         most_recent_update = elem.step;
     }
     return most_recent_update;
@@ -282,7 +281,8 @@ std::vector<double> Distribution::get_knots_from_history(size_t step_idx){
     vector<double> loaded_knot;
     // Find the most recent grid update's knots as of step_idx.  (if knot was changed at step idx will return the knot loaded at that step.)
     for(auto elem: knots_history){
-        if (elem.step > step_idx) break;
+        if (elem.step > step_idx) 
+            break;
         loaded_knot = elem.energy;
     }
     return loaded_knot;

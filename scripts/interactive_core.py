@@ -94,6 +94,8 @@ class PlotData:
 
         self.get_atoms()
 
+        self.raw_int = np.genfromtxt(self.intFile, comments='#', dtype=np.float64) # We reuse this a few times so store it.
+
         #self.update_outputs()
 
    # Reads the control file specified by self.mol['infile']
@@ -119,23 +121,22 @@ class PlotData:
                             'infile': file,
                             'mtime': path.getmtime(file),
                             'outfile': self.outDir+"/dist_%s.csv"%a}        
-    def get_max_t(self):
+    def get_max_time_range(self):
+        return min(self.max_final_t,self.raw_int[-1,0]) - self.raw_int[0,0]
+    def set_max_t(self,time_range):
         raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
-        # Get samples of steps separated by the same times. TODO need to fix AC4DC saving points to the nonraw file when loading sim so that the loaded part isnt empty.   
-        return min(self.max_final_t,raw[-1,0]) 
+        self.max_final_t = (self.raw_int[0,0] + time_range)//1e-6/1e6  # Truncate past 6 d.p. (millionth of an fs) to Avoid floating point error
     def get_num_usable_points(self):
-        raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
-        return min(len(raw), self.max_points)
+        return min(len(self.raw_int), self.max_points)
 
     def update_outputs(self):
-        raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
-        # Get samples of steps separated by the same times. TODO need to fix AC4DC saving points to the nonraw file when loading sim so that the loaded part isnt empty.
-        times = np.linspace(raw[0,0],self.max_final_t,self.max_points)
-        indices = np.searchsorted(raw[:,0],times) 
+        # Get samples of steps separated by the same times.
+        times = np.linspace(self.raw_int[0,0],self.max_final_t,self.max_points)
+        indices = np.searchsorted(self.raw_int[:,0],times) 
 
         np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
-        print("Times plotted:\n",raw[indices,0])
-        raw = raw[indices]
+        raw = self.raw_int[indices]
+        print("Times plotted:\n",raw[:,0])
         
         self.intensityData = raw[:,1]
         self.timeData = raw[:, 0]       
@@ -217,18 +218,18 @@ class InteractivePlotter:
 
         self.num_plots = len(target_names)
         self.target_data = []
-        lowest_max_t = np.inf
+        minimum_time_range = np.inf
         lowest_max_points = np.inf
         if custom_names is None:
             custom_names = [None]*self.num_plots
         for i, mol_name in enumerate(target_names):
             custom_name = custom_names[i]
             dat = PlotData(sim_output_parent_directory,mol_name,"y",max_final_t=max_final_t,max_points=max_points,custom_name=custom_name)    
-            lowest_max_t = min(dat.get_max_t(),lowest_max_t)
+            minimum_time_range = min(dat.get_max_time_range(),minimum_time_range)
             lowest_max_points = min(lowest_max_points, dat.get_num_usable_points())
             self.target_data.append(dat)
         for dat in self.target_data:
-            dat.max_final_t = lowest_max_t
+            dat.set_max_t(minimum_time_range)
             dat.max_points = lowest_max_points
             dat.update_outputs()
 

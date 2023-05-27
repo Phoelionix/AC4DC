@@ -29,7 +29,7 @@ terminal_mode = True
 normalise = True
 ELECTRON_DENSITY = False # if False, use energy density  
 
-END_T = 99#10 #0.0
+END_T = 9999  # Put at value to cutoff times early.
 POINTS = 70
 #####
 
