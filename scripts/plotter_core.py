@@ -246,10 +246,9 @@ class Plotter:
     def initialise_coherence_params(self, start_t,end_t, q_max, photon_energy, q_fineness=50,t_fineness=50,naive=False):
         args = locals()
         self.__dict__ .update(args)  # Is this a coding sin?  ...yes.
-        self.k_max = 2*np.pi * self.q_max  # Change to wavenumber.
  
     
-    # k in units of bohr^-1
+    # q in units of bohr^-1
     def theta_to_q(self,scattering_angle_deg,photon_energy=None):
         if photon_energy == None:
             photon_energy = self.photon_energy
@@ -258,14 +257,14 @@ class Plotter:
         wavelength =  h*c_nm/photon_energy
         wavelength *= bohr_per_nm
         return 4*np.pi*np.sin(theta)/wavelength
-    # k in units of bohr^-1
-    def q_to_theta(self,k,photon_energy=None):
+    # q in units of bohr^-1
+    def q_to_theta(self,q,photon_energy=None):
         if photon_energy == None:
             photon_energy = self.photon_energy        
         bohr_per_nm = 18.8973; c_nm = 2.99792458e17; h = 6.582119569e-16 *2 *np.pi
         wavelength =  h*c_nm/photon_energy   
         wavelength *= bohr_per_nm
-        return 180/np.pi*np.arcsin(k*wavelength/(4*np.pi))     
+        return 180/np.pi*np.arcsin(q*wavelength/(4*np.pi))     
 
 
     def get_A_bar_matrix(self,atom1,atom2,ideal=False): #TODO change to getting just A_bar vector, since q's are the same.
@@ -285,55 +284,16 @@ class Plotter:
     
     def plot_R_factor(self, atoms_subset=None):   #TODO Would be best to integrate with Sanders' code since that uses the simulation's calculated struct. factors which are presumably more accurate.
         atoms = atoms_subset
-        if atoms_subset == None:
+        if atoms == None:
             atoms = self.atomdict
 
-        I_real = None
-        I_ideal = None
-
-        ### I_real
-        for atom1 in atoms:
-            for atom2 in atoms:
-                A_matrix = self.get_A_bar_matrix(atom1,atom2)
-                if I_real == None:
-                    I_real = A_matrix
-                else:
-                    I_real += A_matrix
-        ### I_ideal.
-        # Intensity corresponding to no damage, A_bar will be intensity squared, scaled by the same factor as I_real is due to integration.
-        old_naive = self.naive
-        self.naive = True
-        for atom1 in atoms:
-            for atom2 in atoms:
-                A_matrix_ideal = self.get_A_bar_matrix(atom1,atom2,ideal = True)
-                if I_ideal == None:
-                    I_ideal = A_matrix_ideal
-                else:
-                    I_ideal += A_matrix_ideal
-        self.naive = old_naive
-        
         # Plot R over different k ranges, up to k_max which corresponds to the best resolution but should have the lowest R-factor.
 
-        k_points = np.linspace(0,self.k_max,self.q_fineness-1)  #TODO make better and don't try and do in head...     
+        q_points = np.linspace(0,self.q_max,self.q_fineness-1)  #TODO make better and don't try and do in head...     
 
         R_factor = []
-        # Compute single term of R's sum
-        def get_R_num_term(idx):
-            I_r = I_real[idx][idx]
-            I_i = I_ideal[idx][idx]
-            return abs(np.sqrt(I_r)-np.sqrt(I_i))
-        def get_R_den_term(idx):
-            I_i = I_ideal[idx][idx]    
-            return np.sqrt(I_i)        
-        #Get R for each q_length
-        cumulative_R_num = 0
-        cumulative_R_den = 0
-        # for i,k in enumerate(k_points): 
-        #     cumulative_R_num += get_R_num_term(i)
-        #     cumulative_R_den += get_R_den_term(i)
-        #     R_factor.append(cumulative_R_num/cumulative_R_den)  
-        for i,k in enumerate(k_points): 
-            R_factor.append(get_R_num_term(i)/get_R_den_term(i))    
+        for q in q_points:
+           self.get_average_form_factor() 
 
         F_i = []
         F_r = []
@@ -345,8 +305,7 @@ class Plotter:
 
       
         
-        #q_resolution = np.array([[3.2,1],[0.032,100]])  #TODO
-        q_points = k_points/2/np.pi    
+        #q_resolution = np.array([[3.2,1],[0.032,100]])  #TODO   
         q_theta = []
         for i, q in enumerate(q_points):
             if i%(int(self.q_fineness/5)) == 1:
@@ -646,11 +605,9 @@ class Plotter:
         A_bar = np.trapz(form_factor_product,time)/(time[-1]-time[0])    
         return A_bar        
 
-    def plot_form_factor(self,num_plots = 8,k_max = None, atoms=None):  # k = 4*np.pi = 2*q. c.f. Sanders plot.
+    def plot_form_factor(self,num_snapshots = 8, atoms=None):  # k = 4*np.pi = 2*q. c.f. Sanders plot.
         
-        times = np.linspace(self.start_t,self.end_t,num_plots)
-        if k_max == None:  #TODO check if can remove argument entirely.
-            k_max = self.k_max
+        times = np.linspace(self.start_t,self.end_t,num_snapshots)
         if atoms == None:
             atoms = self.atomdict  # All atoms
 
@@ -658,10 +615,7 @@ class Plotter:
 
 
         #TODO figure out overlaying.
-        k = np.linspace(0,k_max,self.q_fineness)  # Wavenumber
-        q = k/2/np.pi
-        q_max = self.q_max 
-        if self.q_max != k_max /2/np.pi: (print("Warning q_max does not match with k_max."))
+        q = np.linspace(0,self.q_max,self.q_fineness)
 
         self.fig = plt.figure(figsize=(3,2.5))
         ax = self.fig.add_subplot(111)
@@ -675,17 +629,19 @@ class Plotter:
 
         f_avg =[]
         print(times)
+        ang_per_bohr = 0.529177
+        angstrom_mom = [k/ang_per_bohr for k in q]
         for time in times:
-            f = [self.get_average_form_factor(x,atoms,time=time)[0] for x in k]
+            f = [self.get_average_form_factor(x,atoms,time=time)[0] for x in q]
             f_avg.append(f)
-            ax.plot(q, f,label="t = " + str(time)+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))     
+            ax.plot(angstrom_mom, f,label="t = " + str(time)+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))     
         f_avg = np.average(f_avg,axis=0)
-        ax.plot(q, f_avg,'k--',label="Average")  
+        ax.plot(angstrom_mom, f_avg,'k--',label="Average")  
 
         ax.set_title("")
-        ax.set_xlabel("q")
-        ax.set_ylabel("Form factor (normed)")
-        ax.set_xlim(0,q_max)   
+        ax.set_xlabel("q (angstrom)")
+        ax.set_ylabel("Form factor")
+        ax.set_xlim(0,self.q_max/ang_per_bohr)   
         ax.legend()
         self.fig.set_size_inches(6,5)           
 
@@ -1054,7 +1010,7 @@ class Plotter:
         kgrid = np.linspace(KMIN,KMAX,fdists.shape[0 if dim == 1 else 1])
         fig2 = plt.figure()
         ax = fig2.add_subplot(111)
-        ax.set_xlabel('$q$ (atomic units)')
+        ax.set_xlabel('$u$ (spatial frequency, atomic units)')
         ax.set_ylabel('Form factor (arb. units)')
         
         timedata = self.boundData[a][:,:-1] # -1 excludes the bare nucleus
@@ -1064,11 +1020,14 @@ class Plotter:
         fbar = np.zeros_like(dynamic_k[:,0])
 
         n=0
+        times_used = []
         for i in range(start_idx, stop_idx, step):
+            times_used.append(self.timeData[i])
             ax.plot(kgrid, dynamic_k[:,i], label='%1.1f fs' % self.timeData[i], color=cmap((i-start_idx)/(stop_idx - start_idx)))
             fbar += dynamic_k[:,i]
             n += 1
 
+        print("Times used:",times_used)
         fbar /= n
         if show_avg:
             ax.plot(kgrid, fbar, 'k--', label=r'Effective Form Factor')

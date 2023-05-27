@@ -29,18 +29,10 @@ import numpy as np
 
 set_highlighted_excepthook()
 
-############
-# File/directory names
-#######  
-dname_Figures = "../../AC4DC_Figures/"
-figures_ext = "" #.png
-dname_Box_Sync = "~/Box Sync/" 
-fname_charge_conservation = "charge_conservation"
-fname_free = "free"
-fname_HR_style = "HR_style"
-fname_bound_dynamics = "bound_dynamics"  #Was called both _bound and dynamics so I assume it's bound dynamics or something.
+handle =  "lys_nass_no_S_1"#"sulfur_3shell_baseline_3"#"Naive_Lys_mid_21"#"Carbon_294"#"Carbon_Wiggleless_2500_Fluence"#"Carbon_Sanders"""
+handle =  "lys_nass_3"#
+handle =  "lys_nass_2"#
 
-handle =  "sulfur_2shell_test_3"#"sulfur_3shell_baseline_3"#"Naive_Lys_mid_21"#"Carbon_294"#"Carbon_Wiggleless_2500_Fluence"#"Carbon_Sanders"""
 #######
 
 label = handle +'_' 
@@ -50,20 +42,24 @@ name = handle.replace('_',' ')
 pl = Plotter(handle)
 plt.close()
 photon_energy = 6000
-q_max = 2#pl.theta_to_q(22,photon_energy) # In units of bohr^-1. 
-pl.initialise_coherence_params(-6,-0.1,q_max,photon_energy,50,100,True)
+# q_max is in units of bohr^-1 (atomic units). 
+q_max = 20*0.529177# 20 angstrom. 
+pl.initialise_coherence_params(-17.9,17.9,q_max,photon_energy,50,100,True)
 
 
 
 
 # form factors dependent on q 
-#pl.plot_ffactor_get_R_sanders("C_fast")
-# Atomic form factor at time as a function of q
+for atom in pl.atomdict:
+    pl.plot_ffactor_get_R_sanders(atom)
+    # Atomic form factor at time as a function of q
 
 
 
+    pl.plot_form_factor(6,[atom])
+    plt.title(handle+" - "+atom) 
 pl.plot_form_factor(6)
-plt.title("Sulfur 2 shell approximation") 
+plt.title(handle+" - combined") 
 
 #print(pl.get_A_bar(-10,-7.5,12,12,"C_fast","C_fast",100))
 
