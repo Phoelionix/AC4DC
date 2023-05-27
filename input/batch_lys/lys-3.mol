@@ -19,12 +19,12 @@ true         // enabled? true/false.
 0.1            // Number of photons in trillions (10^12) in a 100 nm diameter spot.
 
 #NUMERICAL
-20000        // Initial guess for number of time step points for rate equation.
+1000        // Initial guess for number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 low          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
-0.25         // Grid update period in fs, (dynamic grid only).
+0.5         // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
 800          // Number of time steps in the output files.

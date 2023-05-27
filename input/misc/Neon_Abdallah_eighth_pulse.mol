@@ -11,13 +11,13 @@ cylindrical    // geometry of sample (may be spherical, cylindrical or planar)
 
 #PULSE
 1070         // Photon energy in eV.
-40           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). 
+5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). 
 square     // as done by abdallah
-1           // (1) simulation total timespan, as a multiple of fwhm 
+8           // (1) simulation total timespan, as a multiple of fwhm 
 
 #USE_FLUENCE
 true         // enabled? true/false.
-4            // Pulse fluence in 10^4 * J/cm^2.
+0.5            // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
 5000         // starting number of time step points for rate equation.

@@ -23,7 +23,7 @@ true         // enabled? true/false.
 
 #DYNAMIC_GRID
 low          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
-0.25         // Grid update period in fs, (dynamic grid only).
+2         // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
 800          // Number of time steps in the output files.
@@ -35,8 +35,6 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #LOAD
 //lsas-backup
-//99999
-//false
 
 
 #DEBUG

@@ -16,7 +16,7 @@ true         // enabled? true/false.
 ??0.000425            // Number of photons in trillions (10^12) in a 100 nm diameter spot.
 
 #NUMERICAL
-10000        // Initial guess for number of time step points for rate equation.
+5000        // Initial guess for number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID

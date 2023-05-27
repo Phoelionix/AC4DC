@@ -24,7 +24,7 @@ true         // enabled? true/false.
 
 #DYNAMIC_GRID
 low          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
-0.25         // Grid update period in fs, (dynamic grid only).
+2          // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
 800          // Number of time steps in the output files.

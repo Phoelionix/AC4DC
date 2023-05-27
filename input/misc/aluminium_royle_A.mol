@@ -16,7 +16,7 @@ true         // enabled? true/false.
 0.01            // Maximum intensity in 10^19 * W/cm^2. Will give different fluence between square and gaussian. 
 
 #NUMERICAL
-500000        // starting number of time step points for rate equation.
+5000         // starting number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID

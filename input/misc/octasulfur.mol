@@ -1,4 +1,5 @@
 // Assumes 100nm cylindrical beam fired into much larger target.
+// OUTDATED
 #ATOMS
 S_fast 8
 
