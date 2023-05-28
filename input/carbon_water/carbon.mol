@@ -13,7 +13,7 @@ gaussian       // Pulse shape
 
 #USE_COUNT
 true
-0.05            // Photon density (x10^12 ph.cm-2)
+0.05            // Photon density (x10^12 ph.µm-2)
 
 #NUMERICAL
 20000       // Initial guess for number of time step points for rate equation.        If loading time, then the time steps should be whatever gives the time step density at end of sim. (TODO make this automatic or change input to be time step width)

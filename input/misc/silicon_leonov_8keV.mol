@@ -12,9 +12,9 @@ none   // geometry of sample (may be spherical, cylindrical or planar)
 gaussian    //
 3.077       // simulation total timespan, as a multiple of fwhm
 
-#USE_COUNT
+#USE_FLUENCE
 true         // enabled? true/false.
-1            // Photon density (x10^12 ph.cm-2)
+16          // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
 5000        // Initial guess for number of time step points for rate equation.
