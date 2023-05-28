@@ -2,7 +2,7 @@
 
 #ATOMS
 S_fast 10
-N_fast 991
+N 991
 
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.
