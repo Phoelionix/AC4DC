@@ -15,9 +15,18 @@ import os
 
 def main():
   # https://www.xfel.eu/sites/sites_custom/site_xfel/content/e35165/e46561/e46876/e179573/e179574/xfel_file179576/19042023_Parameters_factsheet_2024-01_Final_eng.pdf
-  ENERGIES = [6000,9000,12000]  # 6-12keV is general operating range of EXFEL, 15keV is max.~ 9300 comes up in papers/specs repeatedly. 
-  FWHMS = [5,15,25]  # Prefer to explore outside capability just for now, snce this will be biggest effect on sim time.
-  PHOTON_COUNTS = [0.01,0.1,1]   # 10^12 per 100 nm diameter spot. Upper limit seems to be around the limit of EXFEL.
+  #ENERGIES = [6000,9000,12000]  # 6-12keV is general operating range of EXFEL, 15keV is max.~ 9300 comes up in papers/specs repeatedly. 
+  # FWHMS = [5,15,25]  # Prefer to explore outside capability just for now, snce this will be biggest effect on sim time.
+  # PHOTON_COUNTS = [0.01,0.1,1]   # 10^12 per 100 nm diameter spot. Upper limit seems to be around the limit of EXFEL.
+ 
+  ENERGIES = [12000]   
+  FWHMS = [5,10,25] 
+  PHOTON_COUNTS = [0.1,1,10,100,1000]  
+  #'''
+  ENERGIES = [6000,9000,15000]
+  FWHMS = [5,10,25] 
+  PHOTON_COUNTS = [1]  
+  #'''
   
   batch_folder_parent_dir = "input/"
 
@@ -38,11 +47,10 @@ def main():
     os.makedirs(batch_dir)
 
   atoms, volume = copy_params(infile_path,handle)
-  i = 0
-  for energy in ENERGIES:
-    for fwhm in FWHMS:
-      for photon_count in PHOTON_COUNTS:
-        i+=1
+  i = 1
+  for fwhm in FWHMS:
+    for photon_count in PHOTON_COUNTS:
+      for energy in ENERGIES:
         feedin_dict = {
           'atoms' : atoms,
           'volume' : volume,
@@ -50,8 +58,11 @@ def main():
           'fwhm' : fwhm,
           'photon_count' : photon_count,
         }    
-        outfile_name = handle + "-" + str(i)
-        outfile_path = batch_dir + outfile_name + '.mol'
+        outfile_path = None
+        while outfile_path == None or path.exists(outfile_path):
+          outfile_name = handle + "-" + str(i)
+          outfile_path = batch_dir + outfile_name + '.mol'
+          i+=1
         make_mol_file(infile_path, outfile_path,**feedin_dict)
 
   return 0
@@ -119,10 +130,10 @@ def make_mol_file(fname, outfile, **incoming_params):
 
   plasma_file.write("""\n#USE_COUNT\n""")
   plasma_file.write("""true         // enabled? true/false.\n""")
-  plasma_file.write("""%.2f            // Number of photons in trillions (10^12) in a 100 nm diameter spot.\n""" %photon_count)
+  plasma_file.write("""%.2f            // Photon density (x10^12 ph.µm-2)\n""" %photon_count)
 
   plasma_file.write("""\n#NUMERICAL\n""")
-  plasma_file.write("""20000        // Initial guess for number of time step points for rate equation.\n""")
+  plasma_file.write("""1000        // Initial guess for number of time step points for rate equation.\n""")
   plasma_file.write("""18           // Number of threads in OpenMP.\n""")
 
   plasma_file.write("""\n#DYNAMIC_GRID\n""")
@@ -131,10 +142,7 @@ def make_mol_file(fname, outfile, **incoming_params):
 
   plasma_file.write("""\n#OUTPUT\n""")
   plasma_file.write("""800          // Number of time steps in the output files.\n""")
-  plasma_file.write("""4000         // Number of free-electron grid points in output file.\n""")  
-  plasma_file.write("""N            // Write atomic charges in a separate file (Y/N)?\n""")
-  plasma_file.write("""Y            // Write intensity in a separate file (Y/N)?\n""")
-  plasma_file.write("""Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?\n""")
+  plasma_file.write("""4000         // Number of free-electron grid points in output file.\n""")
 
   plasma_file.write("""\n#DEBUG\n""")
   plasma_file.write("""999           // Simulation cutoff time in fs (can end before but not after).\n""")
