@@ -15,7 +15,7 @@ gaussian     // Pulse shape.
 
 #USE_COUNT
 true         // enabled? true/false.
-10.00            // Number of photons in trillions (10^12) in a 100 nm diameter spot.
+10.00            // Photon density (x10^12 ph.cm-2)
 
 #NUMERICAL
 20000        // Initial guess for number of time step points for rate equation.

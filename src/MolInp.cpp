@@ -201,11 +201,16 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	}	
 
 
-	// Get fluence  (if not use_fluence)
-	if (use_count){ // TODO make consistent with the cm^-2 schema intended by Sanders.
-		double SPOT_RAD = 50; // nm
-		fluence = photon_count*omega*Constant::J_per_eV*1e12 * 1e10/(Constant::Pi*pow(SPOT_RAD,2)); 
-	}
+	// Get fluence (in 10^4 * J.cm^-2).
+	// if (use_count){ // 10^12 photons in 100 nm diam. spot
+	// 	double SPOT_RAD = 50; // nm
+	// 	fluence = photon_count*omega*Constant::J_per_eV*1e12; J in spot
+	// 	fluence *= 1e-4/(Constant::Pi*pow(SPOT_RAD*1e-7,2)); // 10^4 J cm^-2 
+	// }
+	if (use_count){  // [10^12 ph.cm^-2]
+		fluence = photon_count*omega*Constant::J_per_eV*1e12; // J cm^-2
+		fluence *= 1e-4;  // 10^4 J cm^-2
+	}	
 	if (use_intensity){
 		// TODO Need to test this is working as expected
 		// fluence = I0 * fwhm. I0 = I_avg*timespan/(fwhm). NB: var width = fwhm
@@ -231,6 +236,10 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 			break;
 		}    
 	}
+	if (use_fluence){
+		// already set.
+	}
+
 
 	// Give dynamic grid regions eV pulse energy 
 	elec_grid_preset.pulse_omega = omega;
