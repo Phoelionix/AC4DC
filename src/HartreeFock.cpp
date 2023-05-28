@@ -101,7 +101,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 			//std::cout << "Slater orbital energy is: " << Orbitals[i].Energy << " (x2)Ry"<<endl;
 		}
 	}
-	// Quick and dirty approximation of shells to a 2p orbital. TODO
+	// Quick and dirty approximation of shells to a p orbital. TODO
 	for (int i = 0; i < Orbitals.size();i++){
 		if(Orbitals[i].L() == -10){ 
 			Orbitals[i].set_L(1,false);  
