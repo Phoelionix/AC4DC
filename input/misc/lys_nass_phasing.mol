@@ -1,5 +1,9 @@
 #ATOMS
-N 1001
+Kr_fast 2
+S_fast 10
+N 991
+
+
 
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.
@@ -16,12 +20,12 @@ true    // active (using count)?
 3.5  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
-1000       // Initial guess for number of time step points for rate equation.  
+1000      // Initial guess for number of time step points for rate equation.
 18            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 l              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
-5.05           // Grid update period in fs, (dynamic grid only).
+5.05            // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
 800         // Number of time steps in the output files.
@@ -36,6 +40,8 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 ####END#####
 
 Notes:
+Krypton is a stand-in for gadolinium, to place a lower bound on effect of heavy atoms.
+
 Parameters approximate (pump) pulse used in Nass et al 2020 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7156470/
 Hen egg-white lysozyme https://files.rcsb.org/pub/pdb/validation_reports/et/4et8/4et8_full_validation.pdf
 Ignores:

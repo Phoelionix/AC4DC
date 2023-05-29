@@ -33,9 +33,7 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 
 #LOAD
-aluminium_royle_C_51_not_compressed
-29.8922
-//false
+//aluminium_royle_C_1
 
 #DEBUG
 999           // Simulation cutoff time in fs 

@@ -2,7 +2,7 @@
 
 #ATOMS
 S_fast 10
-N 991
+N_fast 991
 
 #VOLUME
 20000.00      // Volume per molecule in Angstrom^3.
@@ -10,13 +10,13 @@ N 991
 none         // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
 
 #PULSE
-12000         // Photon energy in eV.
+9000         // Photon energy in eV.
 5         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
 gaussian     // Pulse shape.
 
 #USE_COUNT
 true         // enabled? true/false.
-100.00            // Photon density (x10^12 ph.µm-2)
+1.00            // Photon density (x10^12 ph.µm-2)
 
 #NUMERICAL
 1000        // Initial guess for number of time step points for rate equation.
@@ -24,11 +24,14 @@ true         // enabled? true/false.
 
 #DYNAMIC_GRID
 low          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
-0.25         // Grid update period in fs, (dynamic grid only).
+0.5         // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
 800          // Number of time steps in the output files.
 4000         // Number of free-electron grid points in output file.
+N            // Write atomic charges in a separate file (Y/N)?
+Y            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
 999           // Simulation cutoff time in fs (can end before but not after).

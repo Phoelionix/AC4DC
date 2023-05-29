@@ -11,12 +11,12 @@ none         // Spatial boundary shape - options are none (confined system), sph
 
 #PULSE
 12000         // Photon energy in eV.
-5         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
+25         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
 gaussian     // Pulse shape.
 
 #USE_COUNT
 true         // enabled? true/false.
-100.00            // Photon density (x10^12 ph.µm-2)
+0.10            // Photon density (x10^12 ph.µm-2)
 
 #NUMERICAL
 1000        // Initial guess for number of time step points for rate equation.

@@ -17,7 +17,7 @@ true         // enabled? true/false.
 16          // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
-5000        // Initial guess for number of time step points for rate equation.
+20000        // Initial guess for number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
@@ -39,4 +39,5 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 
 Notes:
-From: https://doi.org/10.1103/PhysRevE.95.063203
+From: https://doi.org/10.1107/S2052252514018156
+Designed for build with ministeps off.

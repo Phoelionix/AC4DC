@@ -7,17 +7,17 @@ Si_fast 8
 none   // geometry of sample (may be spherical, cylindrical or planar)
 
 #PULSE
-4000       // Photon energy in eV.
+8000       // Photon energy in eV.
 13          // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). 
 gaussian    //
 3.077       // simulation total timespan, as a multiple of fwhm
 
 #USE_FLUENCE
 true         // enabled? true/false.
-8           // Pulse fluence in 10^4 * J/cm^2.
+16          // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
-5000        // Initial guess for number of time step points for rate equation.
+1000        // Initial guess for number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
@@ -39,4 +39,4 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 
 Notes:
-From: https://doi.org/10.1103/PhysRevE.95.063203
+From: https://doi.org/10.1107/S2052252514018156
