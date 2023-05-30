@@ -142,7 +142,8 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
         else:
             crystal_undmged = Crystal(pdb_path,allowed_atoms_1,is_damaged=False,CNO_to_N = CNO_to_N,S_to_N = S_to_N, **run_params["crystal"])
         if i == 0:
-            crystal.plot_me(250000)
+            #crystal.plot_me(250000)
+            crystal.plot_me(25000)
     
         if params["laser"]["SPI"]:
             SPI_result1 = experiment1.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal, **run_params["laser"])
@@ -295,7 +296,7 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
     data_frame_dict = {elem : pd.DataFrame() for elem in unique_photons}   
     if 1 in data_frame_dict.keys():  
         for key in data_frame_dict.keys():
-            data_frame_dict[key] = df[:][df.photons == key]    
+            data_frame_dict[key] = df[:][df[photon_measure] == key]    
         df = data_frame_dict[1]
 
         fig = go.Figure(data =  
@@ -361,26 +362,28 @@ if __name__ == "__main__":
     )
 
 
-    batch_mode = False # Just doing this as I want to quickly switch between batches and specific runs.
+    batch_mode = True # Just doing this as I want to quickly switch between batches and specific runs.
 
     mode = 1  #0 -> infinite crystal, 1 -> finite crystal/SPI, 2-> both
-    allowed_atoms = ["C_fast","N_fast","O_fast","S_fast"] 
+    #allowed_atoms = ["C_fast","N_fast","O_fast","S_fast"] 
+    #allowed_atoms = ["N"]; S_to_N = True
+    allowed_atoms = ["N", "S_fast"]; S_to_N = False
     
     same_deviations = False # whether same position deviations between damaged and undamaged crystal (SPI only)
     
     if batch_mode:
         CNO_to_N = True
-        S_to_N = False
-        batch_handle = "tetra" 
+        batch_handle = "lys" 
         kwargs["plasma_batch_handle"] = batch_handle
         batch_dir = None # Optional: Specify existing parent folder for batch of results, to add these orientation results to.
         pdb_path = PDB_PATHS[batch_handle]
     else:
         CNO_to_N = True
-        S_to_N = False
+        
         kwargs["plasma_batch_handle"] = ""
         #kwargs["plasma_handles"] = ["lys_nass_3","lys_nass_no_S_1"]    #Note that S_to_N must be true to compare effect on nitrogen R factor. Comparing S_to_N true with nitrogen only sim, then S_to_N false with nitrogen+sulfur sim, let's us compare the true effect of sulfur on R facator.
-        kwargs["plasma_handles"] = ["lys_nass_3"]  
+        kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_6","lys_nass_Gd_12"]  
+        #kwargs["plasma_handles"] = ["lys_nass_6","lys_nass_Gd_12"]  
         #pdb_path = PDB_PATHS["fcc"]
         pdb_path = PDB_PATHS["lys"]
 
