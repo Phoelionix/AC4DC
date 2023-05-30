@@ -170,18 +170,23 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
 
     assert param_dict[3] == "R"
     photon_measure = param_dict[2]
+    if photon_measure == "Count":
+        photon_data = [1e12*p for p in R_data[:,2]]
+    else:
+        photon_data = [p for p in R_data[:,2]] #TODO implement other measures
+
     df = pd.DataFrame({
         "name": names, 
         "energy": R_data[:,0],
         "fwhm": R_data[:,1],
-        photon_measure: R_data[:,2],
+        photon_measure: photon_data,
         "R": R_data[:,3],
         #"log_photons": log_photons,
         "photon_size_thing": photon_size_thing, 
         "_": R_data[:,0]*0+1, # dummy column for size.
     })
     print(df)
-    #3D
+    #3D - no idea why x axis is bugged.
     fig = px.scatter_3d(df, x=photon_measure, y='fwhm', z='energy',
               color='R',  color_continuous_scale=clr_scale, range_color=[cmin,cmax],**kwargs)
     camera = dict(
@@ -189,26 +194,24 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
         center=dict(x=0, y=0, z=0),
         eye=dict(x=1.25, y=-1.25, z=1.25)
     )
-
-    fig.update_layout(scene_camera=camera)         
+    fig.update_layout(scene_camera=camera)      
     fig.show()    
 
-    label_col = 'name' 
-    if len(df['name']) > 10:
-        print("Turning off labels due to high number of points")
-        label_col = None    
-    fig = px.scatter(df, text=label_col,x='fwhm', y='R', symbol='energy', size='photon_size_thing',#'log_photons',
-              color='R', color_continuous_scale=clr_scale, range_color=[cmin,cmax],size_max=15,opacity=1,**kwargs) 
-    fig.update_layout(
-        showlegend=True,
-        legend=dict(
-        yanchor="top",
-        y=0.98,
-        xanchor="left",
-        x=1.13,
-    ))      
-    fig.update_traces(textposition='top center')
-    fig.show()
+    # Plot designed for small number of simulations to compare.
+    if len(df['name']) <= 10:
+        label_col = 'name'   
+        fig = px.scatter(df, text=label_col,x='fwhm', y='R', symbol='energy', size='photon_size_thing',#'log_photons',
+                color='R', color_continuous_scale=clr_scale, range_color=[cmin,cmax],size_max=15,opacity=1,**kwargs) 
+        fig.update_layout(
+            showlegend=True,
+            legend=dict(
+            yanchor="top",
+            y=0.98,
+            xanchor="left",
+            x=1.13,
+        ))      
+        fig.update_traces(textposition='top center')
+        fig.show()
 
     # 'intuitive' plot, where:
     # Dot size represents num photons
@@ -276,7 +279,7 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
                 #y=unique_photons,
                 z = df["R"],
                 x = df["fwhm"],
-                y = [1e12*p for p in df[photon_measure]],
+                y = [p for p in df[photon_measure]],
 
                 colorscale = 'amp',#clr_scale, #'electric',
                 line_smoothing=0,
@@ -286,18 +289,18 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
                 colorbar = dict(title = "R", tickvals = np.arange(0.05,ranges['R'][1],0.05),)
             ))
         fig.update_xaxes(title="FWHM (fs)",type="log")
-        fig.update_yaxes(title="Photons")
-        fig.update_yaxes(type="log",range=np.log10(ranges[photon_measure]),tickvals = [1e10,1e11,1e12,1e13],tickformat = '.0e')
+        fig.update_yaxes(title=photon_measure)
+        fig.update_yaxes(type="log",range=np.log10(ranges[photon_measure]),tickvals = [1e10,1e11,1e12,1e13,1e14,1e15],tickformat = '.0e')
         fig.update_layout(width = 750, height = 600,)
         fig.show()
         df = original_df
 
     #get data frames for 1e12 photon count and do a contour
     data_frame_dict = {elem : pd.DataFrame() for elem in unique_photons}   
-    if 10 in data_frame_dict.keys():  
+    if 10e12 in data_frame_dict.keys():  
         for key in data_frame_dict.keys():
             data_frame_dict[key] = df[:][df[photon_measure] == key]    
-        df = data_frame_dict[10]
+        df = data_frame_dict[10e12]
         print(df)
 
         fig = go.Figure(data =  
@@ -337,7 +340,7 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
                 #y=unique_photons,
                 z = df["R"],
                 x = df["energy"],
-                y = [1e12*p for p in df[photon_measure]],
+                y = [p for p in df[photon_measure]],
 
                 colorscale = 'amp',#clr_scale, #'electric',
                 line_smoothing=0,
@@ -348,7 +351,7 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
             ))
         fig.update_layout(width = 750, height = 600,)
         fig.update_xaxes(title="Energy (eV)")
-        fig.update_yaxes(title="Photons",type="log",range=np.log10(ranges[photon_measure]),tickvals = [1e10,1e11,1e12,1e13],tickformat = '.0e')
+        fig.update_yaxes(title=photon_measure,type="log",range=np.log10(ranges[photon_measure]),tickvals = [1e10,1e11,1e12,1e13],tickformat = '.0e')
         fig.show()        
         df = original_df
 #%%
