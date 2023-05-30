@@ -280,7 +280,7 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
 
                 colorscale = 'amp',#clr_scale, #'electric',
                 line_smoothing=0,
-                connectgaps = True,
+                connectgaps = False,
                 zmin = 0, zmax = 0.4,
                 contours = go.contour.Contours(start = 0.05, end= ranges['R'][1], size = 0.05),
                 colorbar = dict(title = "R", tickvals = np.arange(0.05,ranges['R'][1],0.05),)
@@ -294,10 +294,11 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
 
     #get data frames for 1e12 photon count and do a contour
     data_frame_dict = {elem : pd.DataFrame() for elem in unique_photons}   
-    if 1 in data_frame_dict.keys():  
+    if 10 in data_frame_dict.keys():  
         for key in data_frame_dict.keys():
             data_frame_dict[key] = df[:][df[photon_measure] == key]    
-        df = data_frame_dict[1]
+        df = data_frame_dict[10]
+        print(df)
 
         fig = go.Figure(data =  
             go.Contour(
@@ -310,7 +311,7 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
 
                 colorscale = 'amp',#clr_scale, #'electric',
                 line_smoothing=0,
-                connectgaps = True,
+                connectgaps = False,
                 zmin = 0, zmax = 0.4,
                 contours = go.contour.Contours(start = 0.05, end= ranges['R'][1], size = 0.05),
                 colorbar = dict(title = "R", tickvals = np.arange(0.05,ranges['R'][1],0.05),)
@@ -340,7 +341,7 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
 
                 colorscale = 'amp',#clr_scale, #'electric',
                 line_smoothing=0,
-                connectgaps = True,
+                connectgaps = False,
                 zmin = 0, zmax = 0.4,
                 contours = go.contour.Contours(start = 0.05, end= ranges['R'][1], size = 0.05),
                 colorbar = dict(title = "R", tickvals = np.arange(0.05,ranges['R'][1],0.05),)
