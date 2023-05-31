@@ -4,6 +4,7 @@ import argparse
 import os.path as path
 import os
 
+#TODO need to adjust num time steps and grid update period based on fwhm
 
 # parser = argparse.ArgumentParser(description = "Empty Description")
 # parser.add_argument("infile_path")
@@ -20,12 +21,12 @@ def main():
   # PHOTON_COUNTS = [0.01,0.1,1]   # 10^12 per 100 nm diameter spot. Upper limit seems to be around the limit of EXFEL.
  
   ENERGIES = [12000]   
-  FWHMS = [5,10,25] 
+  FWHMS = [50,100] 
   PHOTON_COUNTS = [0.1,1,10,100,1000]  
   #'''
-  ENERGIES = [6000,9000,15000]
-  FWHMS = [5,10,25] 
-  PHOTON_COUNTS = [1]  
+  ENERGIES = [6000,9000,12000,15000]
+  FWHMS = [5,10,25,50,100] 
+  PHOTON_COUNTS = [10]  
   #'''
   
   batch_folder_parent_dir = "input/"
@@ -133,12 +134,12 @@ def make_mol_file(fname, outfile, **incoming_params):
   plasma_file.write("""%.2f            // Photon density (x10^12 ph.µm-2)\n""" %photon_count)
 
   plasma_file.write("""\n#NUMERICAL\n""")
-  plasma_file.write("""1000        // Initial guess for number of time step points for rate equation.\n""")
+  plasma_file.write("""2000        // Initial guess for number of time step points for rate equation.\n""")
   plasma_file.write("""18           // Number of threads in OpenMP.\n""")
 
   plasma_file.write("""\n#DYNAMIC_GRID\n""")
   plasma_file.write("""low          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).\n""")
-  plasma_file.write("""0.25         // Grid update period in fs, (dynamic grid only).\n""")
+  plasma_file.write("""5         // Grid update period in fs, (dynamic grid only).\n""")
 
   plasma_file.write("""\n#OUTPUT\n""")
   plasma_file.write("""800          // Number of time steps in the output files.\n""")

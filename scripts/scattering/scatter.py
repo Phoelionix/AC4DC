@@ -132,8 +132,8 @@ class Crystal():
             NA = "Sodion", CL = "Chloride",
         )
         # Same names
-        for elem in ["H","He","C","N","O","P","S"]:
-            PDB_to_AC4DC_dict[elem] = elem
+        for elem in ["H","He","C","N","O","P","S","Gd"]:
+            PDB_to_AC4DC_dict[elem] = elem  #TODO need to get _fast suffix in to keys again.
         # Modify the dictionary according to arguments.
         for k,v in PDB_to_AC4DC_dict.items():
             # Light atom approximation. 
@@ -142,12 +142,8 @@ class Crystal():
                     v = "N"        
             if S_to_N:
                 if v == "S":
-                    v = "N"            
-            # Orbital approximation.
-            if orbitals_as_shells:
-                if v not in ["H","He","Sodion","Chloride"]:
-                    v = v+"_fast"      
-            PDB_to_AC4DC_dict[k] = v  
+                    v = "N"               
+            PDB_to_AC4DC_dict[k] = v       
         # Get structure using Bio.PDB's parser
         parser=PDBParser(PERMISSIVE=1)
         structure_id = os.path.basename(self.pdb_fpath)
@@ -155,15 +151,24 @@ class Crystal():
         # Get those cheeky charge clusters
         species_dict = {}
         pdb_atoms = []
-        pdb_atoms_ignored = ""           
+        pdb_atoms_ignored = ""
+        #TODO change to just reading data folder and only excluding atoms that are specified, rather than requiring user to pass in all allowed atoms.       
+        for ac4dc_atom in allowed_atoms:
+            if ac4dc_atom + "_fast" in allowed_atoms:
+                #TODO read data folder to resolve ambiguity.
+                raise Exception("Ambiguity, both "+ac4dc_atom+" and "+ac4dc_atom+"_fast were given in allowed_atoms.") 
         for atom in structure.get_atoms():
             # Get ze data
             R = atom.get_vector()
             name = PDB_to_AC4DC_dict.get(atom.element)
             # Pop into our desired format
-            if name == None or name not in allowed_atoms:
+            if name == None:
                 pdb_atoms_ignored += atom.element + " "
                 continue
+            if name not in allowed_atoms: 
+                name+= "_fast"
+                if (name not in allowed_atoms or orbitals_as_shells == False): 
+                    continue
             if name not in species_dict.keys():
                 species_dict[name] = Atomic_Species(name,self) 
                 pdb_atoms.append(atom.element)
@@ -322,7 +327,7 @@ class Crystal():
                 color[i*int(len(test_points)*len(self.sym_rotations)/self.num_cells) + j*len(test_points)] = 'yellow'      # same atom in every asym unit.  
             color[i*len(test_points)] = 'red'      # same atom in every same unit cell         
         
-        plot_coords = np.array(plot_coords)*ang_per_bohr
+        plot_coords = np.array(plot_coords)*ang_per_bohr # convert to angstrom
         raise_non_unique_exception = False
         if np.unique(plot_coords,axis=0).shape != plot_coords.shape:
             a, unique_indices = np.unique(plot_coords,axis=0,return_index = True)
@@ -481,7 +486,7 @@ class XFEL():
             If specified, only bragg points corresponding to momentum transfers at or below this value will be simulated.    
         """
         self.experiment_name = experiment_name
-        self.detector_distance = detector_distance_mm*1e7/ang_per_bohr  # [a0 (bohr)]
+        self.detector_distance = detector_distance_mm*1e7/ang_per_bohr  # [converts to a0 (bohr)]
         self.photon_momentum = 2*np.pi/E_to_lamb(photon_energy)  # atomic units, [a0^-1]. 
         self.photon_energy = photon_energy  #eV Attention: not in atomic units
         self.pixels_per_ring = pixels_per_ring
@@ -493,7 +498,7 @@ class XFEL():
 
         self.min_q = 0
         if q_minimum!=None:
-            self.min_q = q_minimum/1.88973
+            self.min_q = q_minimum*ang_per_bohr
 
         self.hemisphere_screen = True
         eps = 0.00000000000001
@@ -509,7 +514,7 @@ class XFEL():
         else:
             raise Exception("Available screen types are 'flat, 'hemisphere', and 'sphere'")
         if q_cutoff != None:
-            self.max_q = min(self.max_q,q_cutoff/1.88973) # convert to atomic units 
+            self.max_q = min(self.max_q,q_cutoff*ang_per_bohr) # convert to atomic units 
 
 
         self.t_fineness = t_fineness
@@ -726,9 +731,9 @@ class XFEL():
                     result.I*=mask
                 self.x_rotation += 2*np.pi/self.x_orientations             
             # convert to angstrom
-            result.xy /= ang_per_bohr
-            result.cell_width /= ang_per_bohr
-            result.q_scr_xy *= ang_per_bohr
+            result.xy *= ang_per_bohr
+            result.cell_width *= ang_per_bohr
+            result.q_scr_xy /= ang_per_bohr
             # Average out intensity # NOTE intensities aren't aligned. Shouldn't be using R factor directly on result from multiple orientations for SPI.
             # TODO Intensity should really be a list of results.
             result.I /= (self.y_orientations*self.x_orientations)
@@ -1084,7 +1089,7 @@ class XFEL():
             max_g_vect = get_G(np.full((1,3),m))[0][0]
             self.max_q = min(self.max_q,np.sqrt(((max_g_vect[0])**2+(max_g_vect[1])**2+(max_g_vect[2])**2)))
         
-        print("using q range of ", self.min_q*1.88973,"-",self.max_q*1.88973," angstrom-1")
+        print("using q range of ", self.min_q/ang_per_bohr,"-",self.max_q/ang_per_bohr," angstrom-1")
         min_max_q_rule = lambda g: self.min_q <= np.sqrt(((g[0])**2+(g[1])**2+(g[2])**2)) <= self.max_q
         #max_q_rule = lambda f: np.sqrt(((f[0]*np.average(cell_dim))**2+(f[1]*np.average(cell_dim))**2+(f[2]*np.average(cell_dim))**2))<= self.max_q
         q0 = self.photon_momentum
