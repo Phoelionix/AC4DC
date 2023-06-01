@@ -207,9 +207,9 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	// 	fluence = photon_count*omega*Constant::J_per_eV*1e12; J in spot
 	// 	fluence *= 1e-4/(Constant::Pi*pow(SPOT_RAD*1e-7,2)); // 10^4 J cm^-2 
 	// }
-	if (use_count){  // [10^12 ph.cm^-2]
-		fluence = photon_count*omega*Constant::J_per_eV*1e12; // J cm^-2
-		fluence *= 1e-4;  // 10^4 J cm^-2
+	if (use_count){  // [10^12 ph.µm^-2]
+		fluence = photon_count*omega*Constant::J_per_eV*1e12; // J µm^-2
+		fluence *= 1e4;  // 10^4 J cm^-2
 	}	
 	if (use_intensity){
 		// TODO Need to test this is working as expected
@@ -384,7 +384,7 @@ void MolInp::calc_rates(ofstream &_log, bool recalc) {
 		vector<int> max_occ(Orbits[a].size(), 0);
 		vector<bool> shell_check(Orbits[a].size(),0); // Store the indices of shell-approximated orbitals
 		for (size_t i = 0; i < Orbits[a].size(); i++) {
-			if (fabs(Orbits[a][i].Energy) > Omega()) final_occ[i] = Orbits[a][i].occupancy();
+			if (fabs(Orbits[a][i].Energy) > Omega()) final_occ[i] = Orbits[a][i].occupancy();  // TODO what about continuum lowering/IPD? -S.P.
 			max_occ[i] = Orbits[a][i].occupancy();
 			shell_check[i] = Orbits[a][i].is_shell();
 		}

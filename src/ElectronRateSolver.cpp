@@ -371,8 +371,8 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
 
     if (!good_state) return;
-    auto t9 = std::chrono::high_resolution_clock::now();
     for (size_t a = 0; a < s.atomP.size(); a++) {
+        auto t9 = std::chrono::high_resolution_clock::now();
         const bound_t& P = s.atomP[a];
         bound_t& Pdot = sdot.atomP[a];
         
@@ -576,13 +576,13 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     input_params.num_time_steps = ceil(t.size() + (fact - 1)*remaining_steps); // todo separate num steps from input params
     steps_per_time_update = max(1 , (int)(0.5+input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
     t.resize(n+1); t.resize(input_params.num_time_steps);
-        
-    steps_per_grid_transform = round(steps_per_grid_transform*fact);
 
+    //TODO implement: size_t npoints = (t_final - t_initial)/this->dt + 1; input_params.num_time_steps is for the full number, not what we want.
     // Set up the t grid       
     for (size_t i=n+1; i<input_params.num_time_steps; i++){   // TODO check potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
         this->t[i] = this->t[i-1] + this->dt;
     }
+    steps_per_grid_transform = round(steps_per_grid_transform*fact);
 
     _log <<"Reloading grid"<<endl;
     // with the states loaded the spline factors are as they were, we just need to load the appropriate knots.
@@ -653,6 +653,7 @@ void ElectronRateSolver::increase_dt(ofstream &_log, size_t current_n){
     y.resize(n+1); y.resize(input_params.num_time_steps);
     steps_per_grid_transform = round(steps_per_grid_transform/fact);
 
+    //TODO implement: size_t npoints = (t_final - t_initial)/this->dt + 1; input_params.num_time_steps is for the full number, not what we want.
     // Set up the t grid       
     for (int i=n+1; i<input_params.num_time_steps; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
         this->t[i] = this->t[i-1] + this->dt;
@@ -772,7 +773,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
           save(data_backup_folder);
           y.resize(old_size); t.resize(old_size);
           // re-set the future t values       
-          for (int i=n+1; i<input_params.num_time_steps; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
+          for (int i=n+1; i<old_size; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
               this->t[i] = this->t[i-1] + this->dt;
           }          
         backup_time += std::chrono::high_resolution_clock::now() - t_start_backup;
