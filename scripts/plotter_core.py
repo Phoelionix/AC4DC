@@ -38,7 +38,7 @@ def parse_elecs_from_latex(latexlike):
     return qdict
 
 
-ATOMS = 'H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'.split()
+ATOMS = 'H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Gd'.split()
 ATOMNO = {}
 i = 1
 for symbol in ATOMS:
@@ -364,7 +364,7 @@ class Plotter:
         try:
             states = self.statedict[atom]
         except:
-            raise Exception("species "+str(atom)+" was passed, but data is only present for "+''.join([k + " " for k in self.statedict.keys()]))
+            raise Exception("species "+str(atom)+" data is is missing - data is only present for "+''.join([k + " " for k in self.statedict.keys()]))
         for i in range(len(states)):
             orboccs = parse_elecs_from_latex(states[i])
             occ_list = [-99]*10
@@ -422,7 +422,7 @@ class Plotter:
                     orboccs[j] = i 
                     break
                 if i == len(states) - 1:
-                    print("WARNING, cumulative chance topped below 1 (likely insignificant if only happened a few times)",atomic_density, self.boundData[a][idx[j], :])
+                    print("WARNING, cumulative chance topped below 1 (likely insignificant if only happened a few times). Atomic density:", atomic_density, "state densities:",self.boundData[a][idx[j], :])
                     orboccs[j] = i      
         return orboccs,time_steps
 
@@ -697,20 +697,19 @@ class Plotter:
         ax.set_ylabel("Density")
         #self.fig.subplots_adjust(left=0.2, right=0.92, top=0.93, bottom=0.1)
 
-    def plot_charges(self, a, rseed=404):
+    def plot_charges(self, a, ion_fract = True, rseed=404):
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
         self.aggregate_charges()
-        ion_fract = True
-        norm = 1
-        if ion_fract:
-            norm = 1/self.chargeData[a][0,0]
         #print_idx = np.searchsorted(self.timeData,-7.5)
         ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))
         for i in range(self.chargeData[a].shape[1]):
-            max_at_zero = np.max(self.chargeData[a][0,:])
+            max_at_zero = np.max(self.chargeData[a][0,:])            
             mask = self.chargeData[a][:,i] > max_at_zero*2
             mask |= self.chargeData[a][:,i] < -max_at_zero*2
             Y = np.ma.masked_where(mask, self.chargeData[a][:,i])
+            norm = 1
+            if ion_fract:
+                norm = 1/max_at_zero            
             ax.plot(self.timeData, Y*norm, label = "%d+" % i)
             #print("Charge: ", i ,", time: ",self.timeData[print_idx], ", density: ",self.chargeData[a][print_idx,i])
         # ax.set_title("Charge state dynamics")
@@ -765,9 +764,9 @@ class Plotter:
         return ax
 
 
-    def plot_all_charges(self, rseed=404):
+    def plot_all_charges(self, ion_fract = True, rseed=404):
         for a in self.atomdict:
-            self.plot_charges(a, rseed)
+            self.plot_charges(a, ion_fract, rseed)
 
     def plot_free(self, N=100, log=False, min = 0, max=None, every = None):
         ax = self.get_next_ax()
