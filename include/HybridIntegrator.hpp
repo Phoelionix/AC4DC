@@ -261,19 +261,17 @@ void Hybrid<T>::step_stiff_part(unsigned n){
     // 'rel idx' = relative index within transient y
     int last_rel_idx = mini_n%(this->order);
     int next_rel_idx; 
-    // Interpolate bound contribution to y dot so that we can approximate the bound contribution at each intermediate step.
+
     
-    // TODO finish implementing
     delta_bound = this->y[n];
     delta_bound *= -1.;
     delta_bound += this->y[n+1];    
+    // Interpolate bound contribution to y dot so that we can approximate the bound contribution at each intermediate step.
     std::vector<T> delta_bound_interpolated(num_stiff_ministeps);
-    T cumulative = this->zero_y;
     for (int i = 0; i < num_stiff_ministeps;i++){
         T tmp = delta_bound;
-        tmp *= (1/num_stiff_ministeps); 
-        cumulative += tmp;
-        delta_bound_interpolated[i] += cumulative;
+        tmp *= ((i+1)/num_stiff_ministeps); 
+        delta_bound_interpolated[i] += tmp;
     }
 
     #ifdef DEBUG
