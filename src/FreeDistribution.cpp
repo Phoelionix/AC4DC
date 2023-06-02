@@ -138,7 +138,7 @@ void Distribution::get_Q_ee(Eigen::VectorXd& v, const int & threads) const {
     // if (isnan(LnLambdaD)) LnLambdaD = 11;
     // cerr<<"LnDebLen = "<<LnLambdaD<<endl;
     // A guess. This should only happen when density is zero, so Debye length is infinity.
-    // Guess the sample size is about 10^5 Bohr. This shouldn't ultimately matter much.   /// Attention - S.P.
+    // Guess the sample size is about 10^5 Bohr. This shouldn't ultimately matter much.   /// Attention - S.P. // Actually it seems this isn't active? Something something fences on roads.
     double v_copy [size] = {0}; 
     #pragma omp parallel for num_threads(threads) reduction(+ : v_copy)  collapse(2)       
     for (size_t J=0; J<size; J++) {

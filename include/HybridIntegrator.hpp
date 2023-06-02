@@ -257,14 +257,24 @@ void Hybrid<T>::step_stiff_part(unsigned n){
     // y_transient = [1,2,3,4] for cubic splines  (order elements)
     // We use the order=3 most recent elements, and replace the oldest element with the newest
     // Hence we are targeting (mini_n+1)%(order) in Adams-Moulton step
-    T old;
+    T delta_bound;
     // 'rel idx' = relative index within transient y
     int last_rel_idx = mini_n%(this->order);
     int next_rel_idx; 
-    // Store bound contribution to y dot
-    old = this->y[n];
-    old *= -1.;
-    old += this->y[n+1];  
+    // Interpolate bound contribution to y dot so that we can approximate the bound contribution at each intermediate step.
+    
+    // TODO finish implementing
+    delta_bound = this->y[n];
+    delta_bound *= -1.;
+    delta_bound += this->y[n+1];    
+    std::vector<T> delta_bound_interpolated(num_stiff_ministeps);
+    T cumulative = this->zero_y;
+    for (int i = 0; i < num_stiff_ministeps;i++){
+        T tmp = delta_bound;
+        tmp *= (1/num_stiff_ministeps); 
+        cumulative += tmp;
+        delta_bound_interpolated[i] += cumulative;
+    }
 
     #ifdef DEBUG
     assert(this->y[n].F[3] == y_transient[last_rel_idx].F[3]);
@@ -279,7 +289,7 @@ void Hybrid<T>::step_stiff_part(unsigned n){
         
         // Adams-Moulton step I believe -S.P.
         T tmp;
-        tmp *= 0;
+        tmp = this->zero_y;
         // tmp acts as an aggregator
         for (int i = 1; i < this->order; i++){  // work through last N=order-1 ministeps
             T ydot; // ydot stores the change this loop.
@@ -327,6 +337,7 @@ void Hybrid<T>::step_stiff_part(unsigned n){
                 break;
             }
         }
+        y_transient[next_rel_idx] += delta_bound_interpolated[mini_n-old_mini_n];  // Add interpolated bound state contribution
         #ifndef NO_MINISTEP_UPDATING
         else if (idx >= stiff_max_iter/4){
             excess_count++;
@@ -344,7 +355,6 @@ void Hybrid<T>::step_stiff_part(unsigned n){
     else if (excess_count*2 < under_count)
         modify_ministeps(n,max((int)(this->order-1),(int)(num_stiff_ministeps*0.9)));
     #endif
-    y_transient[next_rel_idx] += old;
     this->y[n+1] = y_transient[next_rel_idx];
     
 }
