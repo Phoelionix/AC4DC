@@ -702,14 +702,14 @@ class Plotter:
         self.aggregate_charges()
         #print_idx = np.searchsorted(self.timeData,-7.5)
         ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))
+        max_at_zero = np.max(self.chargeData[a][0,:]) 
+        norm = 1
+        if ion_fract:
+            norm = 1/max_at_zero             
         for i in range(self.chargeData[a].shape[1]):
-            max_at_zero = np.max(self.chargeData[a][0,:])            
             mask = self.chargeData[a][:,i] > max_at_zero*2
             mask |= self.chargeData[a][:,i] < -max_at_zero*2
-            Y = np.ma.masked_where(mask, self.chargeData[a][:,i])
-            norm = 1
-            if ion_fract:
-                norm = 1/max_at_zero            
+            Y = np.ma.masked_where(mask, self.chargeData[a][:,i])           
             ax.plot(self.timeData, Y*norm, label = "%d+" % i)
             #print("Charge: ", i ,", time: ",self.timeData[print_idx], ", density: ",self.chargeData[a][print_idx,i])
         # ax.set_title("Charge state dynamics")

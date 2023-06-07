@@ -37,6 +37,7 @@ struct Checkpoint {
     std::vector<double> knots;
     FeatureRegimes regimes;
     std::vector<state_type> last_few_states;
+    std::vector<double> last_few_times;
 };
 
 namespace ode {
@@ -134,11 +135,19 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const 
         npoints -= (resume_idx_if_const_dt + 1);
         npoints += this->t.size(); // 
         // Set checkpoint to be at the starting step
-        std::vector<state_type>::const_iterator start_vect_idx = this->y.begin() - this->order + resume_idx;  
-        std::vector<state_type>::const_iterator end_vect_idx = this->y.begin() + resume_idx;  
-        
-        std::vector<state_type> check_states = std::vector<state_type>(start_vect_idx, end_vect_idx+1);
-        checkpoint = {resume_idx, Distribution::get_knot_energies(),this->regimes,check_states};
+        std::vector<state_type> check_states;
+        std::vector<double> check_times;
+        {
+            std::vector<state_type>::const_iterator start_vect_idx = this->y.begin() - this->order + resume_idx;  
+            std::vector<state_type>::const_iterator end_vect_idx = this->y.begin() + resume_idx;  
+            check_states = std::vector<state_type>(start_vect_idx, end_vect_idx+1);
+        }
+        {
+            std::vector<double>::const_iterator start_vect_idx = this->t.begin() - this->order + resume_idx;  
+            std::vector<double>::const_iterator end_vect_idx = this->t.begin() + resume_idx;  
+            check_times = std::vector<double>(start_vect_idx, end_vect_idx+1);   
+        }
+        checkpoint = {resume_idx, Distribution::get_knot_energies(),this->regimes,check_states,check_times};
     }
     old_checkpoint = checkpoint; 
 
@@ -182,11 +191,20 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         }
         // Almost guaranteed we did not load a simulation, so set first checkpoint. 
         //std::vector<state_type> check_states = std::vector<state_type>(this->y.begin(), this->y.begin()+this->order);
-        std::vector<state_type>::const_iterator start_vect_idx = this->y.begin();  
-        std::vector<state_type>::const_iterator end_vect_idx = this->y.begin() + this->order;  
-        std::vector<state_type> check_states = std::vector<state_type>(start_vect_idx, end_vect_idx+1);
+        std::vector<state_type> check_states;
+        std::vector<double> check_times;
+        {
+            std::vector<state_type>::const_iterator start_vect_idx = this->y.begin();  
+            std::vector<state_type>::const_iterator end_vect_idx = this->y.begin() + this->order;  
+            check_states = std::vector<state_type>(start_vect_idx, end_vect_idx+1);
+        }
+        {
+            std::vector<double>::const_iterator start_vect_idx = this->t.begin();  
+            std::vector<double>::const_iterator end_vect_idx = this->t.begin() + this->order;  
+            check_times = std::vector<double>(start_vect_idx, end_vect_idx+1);
+        }        
 
-        checkpoint = {this->order, Distribution::get_knot_energies(), this->regimes, check_states};
+        checkpoint = {this->order, Distribution::get_knot_energies(), this->regimes, check_states,check_times};
         old_checkpoint = checkpoint;
     }
     else{

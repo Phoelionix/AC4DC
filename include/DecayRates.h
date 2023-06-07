@@ -37,6 +37,8 @@ class DecayRates
 public:
 	DecayRates(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Input);
 
+	static void set_Max_occ(vector<int> & Max_occ, vector<RadialWF> orbitals);
+
 	vector<photo> Photo_Ion(double omega, ofstream & log); // All photoinonization crossections. Position in vector indicates orbital
 	vector<fluor> Fluor(); // Fluorescence rates for all channels.
 	vector<auger> Auger(vector<int> Max_occ, ofstream & log); // Auger decay rates for all channels.

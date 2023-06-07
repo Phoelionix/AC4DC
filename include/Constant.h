@@ -102,6 +102,22 @@ namespace CustomDataType
 		vector<double> Dipoles; // Reduced transition dipole matrix elements form 'reference' to 'excited'.
 		int index = 0;
 	};
+
+	struct bound_transport //
+	{
+		int from_heavy; // Index of configuration of heavy atom.
+		int from_light; // Index of configuration of light atom.
+		int to_heavy; // Index of configuration for heavy atom corresponding to allowed configuration with lowest energy for the complex
+		int to_light; // Index of configuration for light atom corresponding to allowed configuration with lowest energy for the complex
+	};	
+	// Idea: If donate electron, go to donator_index. If receive electron, go to receiver index. 
+	struct energy_config
+	{
+		int index;
+		double valence_energy; // Energy of valence electron - for our bound transport correction the electron automatically chooses to hop in to a valence orbital if its binding energy is stronger.
+		int receiver_index;
+		int donator_index;
+	};	
 }
 
 typedef std::vector<double> bound_t; // TODO I'm debating removing this since there are lots of std::vector<double> declarations that this makes confusing -S.P.
@@ -169,6 +185,8 @@ namespace RateData {
 		vector<RateData::Rate> Fluor = vector<RateData::Rate>(0);
 		vector<RateData::Rate> Auger = vector<RateData::Rate>(0);
 		vector<RateData::EIIdata> EIIparams = vector<RateData::EIIdata>(0);
+		// Tacked on energy_config here.
+		vector<CustomDataType::energy_config> EnergyConfig = vector<CustomDataType::energy_config>(0);
 	};
 
 	bool ReadRates(const string & input, vector<RateData::Rate> & PutHere);

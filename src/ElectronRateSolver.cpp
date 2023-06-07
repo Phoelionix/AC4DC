@@ -418,6 +418,10 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
             sdot.bound_charge +=  tmp;
         }
+        // CHARGE TRANSPORT
+        // Every heavy atom state is moved (or not moved) in ratios corresponding to the population of light atom states, and divided by the user-defined charge transport timescale.
+        // average charge transferred to heavy atoms is tracked. this charge, divided by the user-defined number of light atom neighbours, is a first order approximation for the local drainage of electrons. 
+        // If the local drainage of electrons is 1, then we modify the ratios by assigning the population of a light atom state to the light atom state with 1 less valence electron. If it's 1.5, then we do the same, and then move half of those down to the state corresponding to 2 less valence electrons. (we just go to next orbital if we run out of valence electrons)
         #ifdef DEBUG_BOUND
         for(size_t i=0;i < Pdot.size();i++){
             assert(Pdot[i] + P[i] >= 0);
@@ -558,8 +562,9 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     double fact = 1.5; // factor to increase time step density by (past the checkpoint). TODO need to implement max time steps.
 
     size_t n = _checkpoint.n; // index of step to load at 
-    auto saved_knots = _checkpoint.knots;
-    auto saved_states = _checkpoint.last_few_states;
+    std::vector<double> saved_knots = _checkpoint.knots;
+    std::vector<state_type> saved_states = _checkpoint.last_few_states;
+    std::vector<double> saved_times = _checkpoint.last_few_times;
 
     this->regimes = _checkpoint.regimes; // needed for when we next update the regimes (it needs the previous regime for reference)
 
@@ -587,7 +592,38 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     _log <<"Reloading grid"<<endl;
     // with the states loaded the spline factors are as they were, we just need to load the appropriate knots.
     assert(saved_knots == Distribution::get_knots_from_history(n));
-    reload_grid(_log, n, saved_knots,saved_states);
+    // Linearly interpolate the previous states as a first order correction. (We should use 4th order Runge-Kutta, but I don't have time to get that working with sys_ee incorporated)
+    // last element of saved_states is y[n], so we just iterate up to y[n-1]
+    std::vector<state_type> interpolated_states = saved_states;
+    for(size_t i = 0; i < saved_states.size() - 1; i++){
+        assert(saved_times.back()==t[n]);
+        double intra_time = t[n] - (saved_states.size()-1 - i)*dt; 
+        size_t loop_step = n;
+        while(1){
+            int rel_idx = saved_states.size() - (n - loop_step) - 1;
+            if(saved_times[rel_idx] == intra_time){
+                interpolated_states[i] = saved_states[rel_idx];
+                break;
+            }
+            if(saved_times[rel_idx] < intra_time){
+                // if t' = t(n) + u 
+                // y(t') = y(n) + [y(n+1) - y(n)] * u/[t(n+1)-t(n)]  = y(n) + dy
+                // find dy
+                interpolated_states[i] = saved_states[rel_idx];
+                interpolated_states[i] *= -1;
+                interpolated_states[i] += saved_states[rel_idx +1];
+                interpolated_states[i] *= (intra_time-saved_times[rel_idx])/(saved_times[rel_idx+1]-saved_times[rel_idx]);
+                // add y(n) to get y(t')
+                interpolated_states[i] += saved_states[rel_idx];
+                break;
+            }
+            if (loop_step == 0)
+                throw runtime_error("Unexpected error, could not interpolate times when loading checkpoint.");
+            loop_step--;
+        }
+    }
+
+    reload_grid(_log, n, saved_knots,interpolated_states);  // TODO!!!! We need to interpolate from the saved states (linear will do since it's only the first few steps) so that the time step size is correct. 
     
 
     /* [These ideas need a bit of effort and consideration if it is to be implemented, or even better a more effective adaptive step size algo could be implemented. But questionable if worth it.]
@@ -701,11 +737,20 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
     // store checkpoint
     if ((n-this->order+1)%checkpoint_gap == 0){  // 
         old_checkpoint = checkpoint;
-        std::vector<state_type>::const_iterator start_vect_idx = y.begin() - order + n;  
-        std::vector<state_type>::const_iterator end_vect_idx = y.begin() + n;  
-        
-        std::vector<state_type> check_states = std::vector<state_type>(start_vect_idx, end_vect_idx+1);
-        checkpoint = {n, Distribution::get_knot_energies(),this->regimes,check_states};
+        std::vector<state_type> check_states;
+        std::vector<double> check_times;
+        {
+            std::vector<state_type>::const_iterator start_vect_idx = y.begin() - order + n;  
+            std::vector<state_type>::const_iterator end_vect_idx = y.begin() + n;  
+            check_states = std::vector<state_type>(start_vect_idx, end_vect_idx+1);
+        }
+        {
+            std::vector<double>::const_iterator start_vect_idx = t.begin() - order + n;  
+            std::vector<double>::const_iterator end_vect_idx = t.begin() + n;  
+            check_times = std::vector<double>(start_vect_idx, end_vect_idx+1);
+        }        
+
+        checkpoint = {n, Distribution::get_knot_energies(),this->regimes,check_states,check_times};
     }
     if (euler_exceeded || !good_state){     
         bool store_dt_increase = true;   

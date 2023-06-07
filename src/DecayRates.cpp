@@ -235,6 +235,14 @@ vector<fluor> DecayRates::Fluor()
 	return Result;
 }
 
+void DecayRates::set_Max_occ(vector<int> & Max_occ, vector<RadialWF> orbitals){
+	if (Max_occ.size() != orbitals.size()) {
+		Max_occ.resize(orbitals.size());
+		for (size_t i = 0; i < orbitals.size(); i++) {
+			Max_occ[i] = max(4*orbitals[i].L() + 2,orbitals[i].occupancy()); // The second term in the max() function in case of shell approximation. We assume a user would never want to start a simulation with electrons missing from any shell other than the valence one, and this also assumes that electrons being excited into higher shells is insignificant.
+		}
+	}
+}
 
 vector<auger> DecayRates::Auger(vector<int> Max_occ, ofstream & log)
 {
@@ -242,13 +250,7 @@ vector<auger> DecayRates::Auger(vector<int> Max_occ, ofstream & log)
 	auger Tmp;
 	int N_h;
 	double N_fe, E_cont, V_tmp, Infinity;
-	if (Max_occ.size() != orbitals.size()) {
-		Max_occ.resize(orbitals.size());
-		for (int i = 0; i < Max_occ.size(); i++) {
-			Max_occ[i] = 4*orbitals[i].L() + 2;
-		}
-	}
-
+	assert(Max_occ.size() == orbitals.size());
 	//Create new lattice, core and potential suitable for continuum states
 	double k = 0;
 	for (int i = 0; i < orbitals.size(); i++)//find k that corresponds to shortest wavelength

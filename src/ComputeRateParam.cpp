@@ -40,8 +40,11 @@ using namespace CustomDataType;
 int ComputeRateParam::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
 {
 	// Calculates cross sections needed to solve rate equations.
-	// Final_occ defines the lowest possible occupancies for the initiall orbital.
+	// Final_occ defines the lowest possible occupancies for the initial orbital.
 	// Intermediate orbitals are recalculated to obtain the corresponding rates.
+
+	assert(Max_occ.size() == orbitals.size());
+	//DecayRates::set_Max_occ(Max_occ,orbitals);  // used when max_occ isn't valid. 
 
 	if (!SetupIndex(Max_occ, Final_occ, runlog)) return 1;
 
@@ -260,6 +263,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		vector<RateData::Rate> LocalFluor(0);
 		vector<RateData::Rate> LocalAuger(0);
 		vector<ffactor> LocalFF(0);
+		vector<energy_config> LocalEnergyConfig(0); 
 		// Electron impact ionization orbital enerrgy storage.
 		RateData::EIIdata tmpEIIparams;
 		int MaxBindInd = 0;
@@ -279,7 +283,8 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 
 	  	#pragma omp parallel default(none) num_threads(input.Num_Threads())\
 		shared(cout, runlog, shell_check, MaxBindInd, have_Aug, have_Flr, have_Pht, saveFF) \
-		private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor, LocalEIIparams, tmpEIIparams, LocalFF)
+		private(Tmp, LocalPhoto, LocalAuger, LocalFluor, LocalEnergyConfig, LocalEIIparams, tmpEIIparams, LocalFF) \
+		firstprivate(Max_occ)  // I believe this should be shared, but it was in private() before (which I believe is a mistake, since this meant the value of max_occ was lost) so I'm putting it here to be safe. -S.P.
 		{
 			#pragma omp for schedule(dynamic) nowait
 			for (size_t i = 0;i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
@@ -321,6 +326,52 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				}
 				LocalEIIparams.push_back(tmpEIIparams);
 
+				bool calc_bound_transport = true;
+				if (calc_bound_transport){
+					assert(Max_occ.size() == Orbitals.size());
+					size = 0;
+					double valence_energy = 0;
+					for (int j = MaxBindInd; j < Orbitals.size(); j++) {
+						if (Orbitals[j].occupancy() == 0) continue;
+						valence_energy = tmpEIIparams.ionB[size];
+						size++;
+					}
+					int receiver_orbital = -1;
+					int donator_orbital = -1;
+					int receiver_occupancy= -1;
+					int donator_occupancy = -1;
+					for (int j = MaxBindInd; j < Orbitals.size(); j++) {
+						if (Orbitals[j].occupancy() == 0) continue;
+						donator_orbital = j;
+						receiver_orbital = j;
+					}				
+					if (Max_occ[receiver_orbital] == Orbitals[receiver_orbital].occupancy())
+						receiver_orbital += 1;
+					int donator_idx;
+					int receiver_idx;
+					// Find index of config after electron is transported to this config
+					if (receiver_orbital >= Orbitals.size())
+						// maximum orbital is filled - Transport is disallowed.
+						receiver_idx = -1;
+					else{
+						int old_occ = Orbitals[receiver_orbital].occupancy();
+						Orbitals[receiver_orbital].set_occupancy(old_occ +1);
+						receiver_idx = mapOccInd(Orbitals);
+						Orbitals[receiver_orbital].set_occupancy(old_occ);
+					}
+					// Find index of config after electron is transported away.
+					if (donator_orbital == -1){
+						// Empty shells - Transport is disallowed (I don't think such a config would be passed in this loop anyway).
+						donator_idx = -1;
+					}
+					else{
+						int old_occ = Orbitals[donator_orbital].occupancy();
+						Orbitals[donator_orbital].set_occupancy(old_occ - 1);
+						donator_idx = mapOccInd(Orbitals);
+						Orbitals[donator_orbital].set_occupancy(old_occ);
+					}
+					LocalEnergyConfig.push_back(energy_config{(int)i,valence_energy,receiver_idx,donator_idx});  // if valence energy of atom 1 at receiver_idx + valence energy of atom 2 at donator_idx  << current valence energies, transport occurs.
+				}
 				DecayRates Transit(lattice, Orbitals, u, input);
 
 				if (saveFF) LocalFF.push_back({i, Transit.FT_density()});
@@ -373,6 +424,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				Store.Auger.insert(Store.Auger.end(), LocalAuger.begin(), LocalAuger.end());
 				Store.EIIparams.insert(Store.EIIparams.end(), LocalEIIparams.begin(), LocalEIIparams.end());
 				FF.insert(FF.end(), LocalFF.begin(), LocalFF.end());
+				Store.EnergyConfig.insert(Store.EnergyConfig.end(), LocalEnergyConfig.begin(), LocalEnergyConfig.end());
 			}
 		}
 
@@ -526,12 +578,6 @@ bool ComputeRateParam::SetupIndex(vector<int> Max_occ, vector<int> Final_occ, of
 	{
 		runlog << "Final occupancies should be provided for all orbitals." << endl;
 		return false;
-	}
-	if (Max_occ.size() != orbitals.size()) {
-		Max_occ.resize(orbitals.size());
-		for (size_t i = 0;i < orbitals.size(); i++) {
-			Max_occ[i] = 4*orbitals[i].L() + 2;
-		}
 	}
 	// Work out the number of allowed configurations
 	dimension = 1;
