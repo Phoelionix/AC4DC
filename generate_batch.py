@@ -20,15 +20,24 @@ def main():
   # FWHMS = [5,15,25]  # Prefer to explore outside capability just for now, snce this will be biggest effect on sim time.
   # PHOTON_COUNTS = [0.01,0.1,1]   # 10^12 per 100 nm diameter spot. Upper limit seems to be around the limit of EXFEL.
  
-  ENERGIES = [12000]   
-  FWHMS = [50,100] 
-  PHOTON_COUNTS = [0.1,1,10,100,1000]  
-  #'''
-  ENERGIES = [6000,9000,12000,15000]
-  FWHMS = [5,10,25,50,100] 
-  PHOTON_COUNTS = [10]  
-  #'''
-  
+  # ENERGIES = [12000]   
+  # FWHMS = [5,10,15,25,50,100] 
+  # PHOTON_COUNTS = [0.1,1,10,100,1000]  
+  # #'''
+  # ENERGIES = [6000,9000,12000,15000]
+  # FWHMS = [5,10,25,50,100] 
+  # PHOTON_COUNTS = [10]  
+  # #'''
+  # ENERGIES = [6000,9000,12000,15000]
+  # FWHMS = [25] 
+  # PHOTON_COUNTS = [0.1,1,10,100,1000]  
+
+
+  ENERGIES = [6000,9000,12000,15000,18000]
+  FWHMS = [7.5,10,15,25,50,100] 
+  PHOTON_COUNTS = [0.01,0.1,1,10,100]  
+
+
   batch_folder_parent_dir = "input/"
 
   if len(sys.argv) < 2:
@@ -112,6 +121,9 @@ def make_mol_file(fname, outfile, **incoming_params):
   fwhm = incoming_params.get('fwhm')
   photon_count = incoming_params.get('photon_count')
 
+  update_period = fwhm/3
+  num_steps = max(1000,round(fwhm*50))
+
   # Creare plasma input file
   plasma_file = open(outfile, 'w')
   plasma_file.write("""// AC4DC input file generated from: """ + fname + """\n\n""")
@@ -126,7 +138,7 @@ def make_mol_file(fname, outfile, **incoming_params):
 
   plasma_file.write("""\n#PULSE\n""")
   plasma_file.write("""%.0f         // Photon energy in eV.\n""" % energy)
-  plasma_file.write("""%.0f         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.\n""" % fwhm)
+  plasma_file.write("""%.1f         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.\n""" % fwhm)
   plasma_file.write("""gaussian     // Pulse shape.\n""")
 
   plasma_file.write("""\n#USE_COUNT\n""")
@@ -134,12 +146,12 @@ def make_mol_file(fname, outfile, **incoming_params):
   plasma_file.write("""%.2f            // Photon density (x10^12 ph.µm-2)\n""" %photon_count)
 
   plasma_file.write("""\n#NUMERICAL\n""")
-  plasma_file.write("""2000        // Initial guess for number of time step points for rate equation.\n""")
+  plasma_file.write("""%.0f        // Initial guess for number of time step points for rate equation.\n""" %num_steps)
   plasma_file.write("""18           // Number of threads in OpenMP.\n""")
 
   plasma_file.write("""\n#DYNAMIC_GRID\n""")
   plasma_file.write("""low          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).\n""")
-  plasma_file.write("""5         // Grid update period in fs, (dynamic grid only).\n""")
+  plasma_file.write("""%.2f         // Grid update period in fs, (dynamic grid only).\n""" %update_period)
 
   plasma_file.write("""\n#OUTPUT\n""")
   plasma_file.write("""800          // Number of time steps in the output files.\n""")
