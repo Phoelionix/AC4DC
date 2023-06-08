@@ -411,14 +411,14 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         i++;
     }
 
-    // Translate time to match input of THIS run. 
-    if (simulation_start_time != saved_time[0]){
-        #ifndef TIME_TRANSLATION_LOADING_ALLOWED
+    // Translate time to match input of THIS run. Disabled since it isn't implemented in the bound state loading.
+    if ( !( simulation_start_time - pow(10,loading_t_precision) <= saved_time[0] && saved_time[0] <= simulation_start_time + pow(10,loading_t_precision) ) ){
+        //#ifndef TIME_TRANSLATION_LOADING_ALLOWED
         std::runtime_error("Start time set for this simulation doesn't match first time in data of simulation state being loaded.");
-        #endif
-        for(size_t i = 0; i < saved_time.size(); i++){
-            t[i] += simulation_start_time - saved_time[0];
-        }
+        //#endif
+        // for(size_t i = 0; i < saved_time.size(); i++){
+        //     t[i] += simulation_start_time - saved_time[0];
+        // }
     }
     // Shave off end until get a starting point that isn't obviously divergent.
     auto too_large = [](vector<state_type>& y){return y.end()[-1].F(0) > y.end()[-2].F(0);};

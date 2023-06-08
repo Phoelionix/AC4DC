@@ -71,6 +71,7 @@ public:
             
             simulation_start_time = -timespan_au/2;
         }
+        simulation_start_time = round_time(simulation_start_time);
         simulation_end_time =  simulation_start_time + timespan_au; 
         std::cout<<"Imaging from "<<simulation_start_time/input_params.Width() <<" FWHM to " 
         << simulation_end_time/input_params.Width() <<" FWHM"<<std::endl;

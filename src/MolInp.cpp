@@ -66,7 +66,11 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 			if ( FileContent.find(line) == FileContent.end() ) {
 				FileContent[line] = vector<string>(0);
 			}
+			while (line.back() == ' '){
+				line.resize(line.size()-1);
+			}
 			curr_key = line;
+			
 		// An input
 		} else {
 			FileContent[curr_key].push_back(line);
