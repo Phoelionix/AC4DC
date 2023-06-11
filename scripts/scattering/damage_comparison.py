@@ -162,7 +162,7 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
     print("R_data:",R_data)
     return np.array(R_data,dtype=np.float64), names, param_dict
 
-def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="amp",**kwargs):
+def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="amp",use_neutze_units=False,check_batch_nums = True,**kwargs):
     log_photons = np.log(R_data[:,2])-np.min(np.log(R_data[:,2]))
     log_photons += np.max(log_photons)/2
     # photon_size_thing = R_data[:,2] + np.max(R_data[:,2])/10
@@ -172,9 +172,15 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
     photon_measure = param_dict[2]
     if photon_measure == "Count":
         photon_data = [1e12*p for p in R_data[:,2]]
+        if use_neutze_units:
+            photon_data = [7.854e-3*p for p in photon_data] # square micrometre to 100 nm diameter spot
+            photon_measure = "Count - 100 nm spot"
+        else:
+            photon_measure = "Count - um^2"
     else:
-        photon_data = [p for p in R_data[:,2]] #TODO implement other measures
-
+        photon_data = [p for p in R_data[:,2]] #TODO implement other measures (peak intensity and fluence) properly
+        if use_neutze_units:
+            raise Exception("Neutze units only implemented for photon count measure.")
     df = pd.DataFrame({
         "name": names, 
         "energy": R_data[:,0],
@@ -186,6 +192,21 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
         "_": R_data[:,0]*0+1, # dummy column for size.
     })
     print(df)
+    # Check if missing any files.
+    if check_batch_nums:
+        nums = []
+        for elem in df["name"]:
+            elem = elem[4:].split('_')[0]
+            nums.append(int(elem))
+        nums.sort()
+        print("R values found for",len(nums),"simulations.")
+        for i, elem in enumerate(nums):
+            if i == 0: 
+                if elem != 1: 
+                    print("mising file number 1?")
+            elif nums[i-1] != elem -1:
+                print("Missing file? File number",elem,"was found after",nums[i-1])
+
     #3D - no idea why x axis is bugged.
     fig = px.scatter_3d(df, x=photon_measure, y='fwhm', z='energy',
               color='R',  color_continuous_scale=clr_scale, range_color=[cmin,cmax],**kwargs)
@@ -290,17 +311,22 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
             ))
         fig.update_xaxes(title="FWHM (fs)",type="log")
         fig.update_yaxes(title=photon_measure)
-        fig.update_yaxes(type="log",range=np.log10(ranges[photon_measure]),tickvals = [1e10,1e11,1e12,1e13,1e14,1e15],tickformat = '.0e')
+        fig.update_yaxes(type="log",range=np.log10(ranges[photon_measure]),tickvals = [1e8,1e9,1e10,1e11,1e12,1e13,1e14,1e15],tickformat = '.0e')
         fig.update_layout(width = 750, height = 600,)
         fig.show()
         df = original_df
+        
 
+        
     #get data frames for 1e12 photon count and do a contour
     data_frame_dict = {elem : pd.DataFrame() for elem in unique_photons}   
-    if 10e12 in data_frame_dict.keys():  
+    photon_key = 1e14
+    if use_neutze_units:
+        photon_key *=7.854e-3
+    if photon_key in data_frame_dict.keys():  
         for key in data_frame_dict.keys():
             data_frame_dict[key] = df[:][df[photon_measure] == key]    
-        df = data_frame_dict[10e12]
+        df = data_frame_dict[photon_key]
         print(df)
 
         fig = go.Figure(data =  
@@ -351,7 +377,7 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
             ))
         fig.update_layout(width = 750, height = 600,)
         fig.update_xaxes(title="Energy (eV)")
-        fig.update_yaxes(title=photon_measure,type="log",range=np.log10(ranges[photon_measure]),tickvals = [1e10,1e11,1e12,1e13],tickformat = '.0e')
+        fig.update_yaxes(title=photon_measure,type="log",range=np.log10(ranges[photon_measure]),tickvals = [1e8,1e9,1e10,1e11,1e12,1e13,1e14,1e15],tickformat = '.0e')
         fig.show()        
         df = original_df
 #%%
@@ -368,26 +394,25 @@ if __name__ == "__main__":
 
     batch_mode = True # Just doing this as I want to quickly switch between batches and specific runs.
 
-    mode = 1  #0 -> infinite crystal, 1 -> finite crystal/SPI, 2-> both
-    #allowed_atoms = ["C_fast","N_fast","O_fast","S_fast"] 
-    #allowed_atoms = ["N"]; S_to_N = True
-    allowed_atoms = ["N", "S_fast"]; S_to_N = False
-    
+    mode = 1  #0 -> infinite crystal, 1 -> finite crystal/SPI, 2-> both  
     same_deviations = False # whether same position deviations between damaged and undamaged crystal (SPI only)
     
     if batch_mode:
+        allowed_atoms = ["C","N","O","S_fast"] 
         CNO_to_N = True
+        S_to_N = False
         batch_handle = "lys" 
         kwargs["plasma_batch_handle"] = batch_handle
         batch_dir = None # Optional: Specify existing parent folder for batch of results, to add these orientation results to.
         pdb_path = PDB_PATHS[batch_handle]
     else:
+        #allowed_atoms = ["N"]; S_to_N = True
+        allowed_atoms = ["N", "S_fast"]; S_to_N = False
         CNO_to_N = True
-        
         kwargs["plasma_batch_handle"] = ""
         #kwargs["plasma_handles"] = ["lys_nass_3","lys_nass_no_S_1"]    #Note that S_to_N must be true to compare effect on nitrogen R factor. Comparing S_to_N true with nitrogen only sim, then S_to_N false with nitrogen+sulfur sim, let's us compare the true effect of sulfur on R facator.
-        kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_6","lys_nass_Gd_12"]  
-        #kwargs["plasma_handles"] = ["lys_nass_6","lys_nass_Gd_12"]  
+        #kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_6","lys_nass_Gd_16"]  
+        kwargs["plasma_handles"] = ["lys_nass_6","lys_nass_Gd_16"]  
         #pdb_path = PDB_PATHS["fcc"]
         pdb_path = PDB_PATHS["lys"]
 
@@ -401,12 +426,13 @@ if __name__ == "__main__":
 #%%
 #------------Plot----------------------
 if __name__ == "__main__":
+    neutze = True
     if MODE_DICT[mode] != "spi":
         print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-        plot_that_funky_thing(*scatter_data,0,0.20,"temps",template="plotly_dark") # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+        plot_that_funky_thing(*scatter_data,0,0.20,"temps",template="plotly_dark",use_neutze_units = neutze,check_batch_nums=batch_mode) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
     if MODE_DICT[mode] != "crystal":
         print("-------------------SPI------------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-        plot_that_funky_thing(*scatter_data,0,0.20,"temps",template="plotly_dark") # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+        plot_that_funky_thing(*scatter_data,0,0.20,"temps",template="plotly_dark",use_neutze_units=neutze,check_batch_nums=batch_mode) # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
     print("Done")
 
 #--------------------------------------

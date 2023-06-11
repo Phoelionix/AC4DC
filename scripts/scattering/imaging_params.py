@@ -13,17 +13,16 @@ default_dict = dict(
     laser = dict(
         SPI = False,
         SPI_resolution = best_resolution,
-        pixels_across = 80,  # for SPI, shld go on xfel params.
+        pixels_across = 50,  # for SPI, shld go on xfel params.
         random_orientation = True,  # infinite cryst sim only, NB: orientation is synced with undamaged crystal imaging  (TODO random orientation should not be separate from the other orient params...)
     ),
     ##### Crystal params
     crystal = dict(
-        cell_scale = 2,  # for SC: cell_scale^3 unit cells 
+        cell_scale = 1,  # for SC: cell_scale^3 unit cells 
         positional_stdv = 0, # Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
-        include_symmetries = True,  # should unit cell contain symmetries?
+        include_symmetries = False,  # should unit cell contain symmetries?
         cell_packing = "SC",
         rocking_angle = 1.2,  # (approximating mosaicity, infinite crystal sim only)
-        orbitals_as_shells = True,
         #CNO_to_N = True,   # whether the laser simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
     ),
     #### XFEL params    

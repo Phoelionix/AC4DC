@@ -102,7 +102,7 @@ class Results_Grid():
     pass    
 
 class Crystal():
-    def __init__(self, pdb_fpath, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = True, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, orbitals_as_shells = True,cell_scale = 1,S_to_N=False):
+    def __init__(self, pdb_fpath, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = True, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, cell_scale = 1,S_to_N=False):
         '''
         rocking_angle [degrees]
         cell_packing ("SC","BCC","FCC","FCC-D")
@@ -167,7 +167,7 @@ class Crystal():
                 continue
             if name not in allowed_atoms: 
                 name+= "_fast"
-                if (name not in allowed_atoms or orbitals_as_shells == False): 
+                if (name not in allowed_atoms): 
                     continue
             if name not in species_dict.keys():
                 species_dict[name] = Atomic_Species(name,self) 
@@ -2002,7 +2002,6 @@ if __name__ == "__main__":
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
         rocking_angle = 1,  # (approximating mosaicity)
-        orbitals_as_shells = True,
         #CNO_to_N = True,   # whether the plasma simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
     )
 

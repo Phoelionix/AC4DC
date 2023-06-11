@@ -37,7 +37,7 @@ def main():
     assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder."
     for data_folder in sys.argv[1:]:
         label = data_folder +'_Plt'
-        make_some_plots(data_folder,molecular_path,label,dname_Figures,True,True,True,True)
+        make_some_plots(data_folder,molecular_path,label,dname_Figures,True,True,True,False)
 
 def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, charge_conservation=False,bound_ionisation=False,free=False,free_slices=False):
     '''
@@ -89,9 +89,9 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         ###
 
         #TODO get slices from AC4DC or user input           
-        # Hau-Riege (Sanders results)
-        thermal_cutoff_energies = [200, 500, 500, 1000]
-        slices = [-7.5,-5,-2.5,0]         
+        # # Hau-Riege (Sanders results)
+        # thermal_cutoff_energies = [200, 500, 500, 1000]
+        # slices = [-7.5,-5,-2.5,0]         
         # # -7.5 fs Hau-Riege
         # thermal_cutoff_energies = [200]
         # slices = [-7.5] 
@@ -99,9 +99,9 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         # # Royle Sect. B
         # thermal_cutoff_energies = [1500,1500,1500,1500]
         # slices = [-90, -50, 0]  
-        # # Royle Sect. C
-        # thermal_cutoff_energies = [500,500,600,1000]
-        # slices = [-15, 0, 15, 30]          
+        # Royle Sect. C
+        thermal_cutoff_energies = [500,500,600,1000]
+        slices = [-15, 0, 15, 30]
 
         colrs = [cmap(i) for i in range(len(slices))]
 
