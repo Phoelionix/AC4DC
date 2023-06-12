@@ -36,7 +36,6 @@ struct SparsePair
     double val;
     SparsePair() {idx=0; val=0;};
     SparsePair( int i, double v ) : idx(i), val(v) {};
-    ~SparsePair() {};
     SparsePair& operator=(SparsePair tup) {
         idx = tup.idx;
         val = tup.val;
@@ -82,6 +81,7 @@ typedef std::vector<std::vector<SparsePair> > eiiGraph;
 
 struct SparseTriple
 {
+    //SparseTriple() : K(0), L(0), val(0) {} // go away undefined behaviour.
     int K;
     int L;
     double val;

@@ -40,7 +40,7 @@ public:
     bool operator < (Region& other){
         return E_max  < (other.get_E_min());
     }    
-    double get_next_knot(double previous_knot);
+    double get_next_knot(double previous_knot, bool first_non_zero);
     void update_region(double new_centre,double new_min, double new_max);
     void set_num_points(int n){num_points = n;}
     int get_num_points(){return num_points;}

@@ -97,12 +97,12 @@ int BasisSet::lower_i_from_e(double e) {
  * @param gt grid type, also referred to as grid_style. Only used for zero_degree_0 and zero_degree_inf. TODO really need to refactor around how we are using gt.
  */
 
-std::vector<double> BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rgm, bool trial, bool do_not_update_regions){
+std::vector<double> BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rgm, bool trial, bool do_not_update_regions){ // 'trial' isn't used by program currently
     if (!do_not_update_regions){
         update_regions(rgm);
     }
-    int Z_0 = gt.zero_degree_0;
-    int Z_inf = gt.zero_degree_inf;
+    Z_0 = gt.zero_degree_0;
+    Z_inf = gt.zero_degree_inf;
     if( BSPLINE_ORDER - Z_0 < 0){
         std::cerr <<"Failed to set boundary condition at 0, defaulting to "<<0<<std::endl;
         Z_0 = 0;
@@ -122,7 +122,7 @@ std::vector<double> BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rg
     std::cout<<"[ Dynamic Knot ] (i.e. piecewise polynomial has leading order x^"<<BSPLINE_ORDER-1<<")"<<std::endl;
 
     std::vector<double> new_knots;
-    new_knots.reserve(170+BSPLINE_ORDER+1);
+    new_knots.reserve(400+BSPLINE_ORDER+1);
 
     // Set the k - zero_deg repeated knots
     for (size_t i=0; i<start; i++) {
@@ -138,7 +138,7 @@ std::vector<double> BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rg
         // Find the smallest grid point that regions that the point is within want.
         double next_point = INFINITY;
         for (size_t r = 0; r < regions.size(); r ++){
-            double point =  regions[r].get_next_knot(new_knots[i-1]);
+            double point =  regions[r].get_next_knot(new_knots[i-1],i==start+1); // If first non_zero point, we get the minimum of the regions since it is safe to do so (we don't do it at other points so that no knots are closer together than the regions it is within/neighbouring.)
             if (point > new_knots[i-1]){
                 next_point = min(next_point,point);
             }
@@ -176,8 +176,8 @@ std::vector<double> BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rg
 
 
 void BasisSet::manual_set_knot(const GridSpacing& gt){
-    int Z_0 = gt.zero_degree_0;
-    int Z_inf = gt.zero_degree_inf;
+    Z_0 = gt.zero_degree_0;
+    Z_inf = gt.zero_degree_inf;
     if( BSPLINE_ORDER - Z_0 < 0){
         std::cerr <<"Failed to set boundary condition at 0, defaulting to "<<0<<std::endl;
         Z_0 = 0;
@@ -377,9 +377,11 @@ void BasisSet::compute_overlap(size_t num_funcs){
 
 
 void BasisSet::set_parameters(FeatureRegimes& regimes, std::vector<double> new_grid_knots) {
-    knot = new_grid_knots;
-    num_funcs = knot.size()- (BSPLINE_ORDER+1);
+    assert(Z_0 !=-1 && "Z_0 hasn't been set");
+    assert( BSPLINE_ORDER - Z_0 >= 0);      
     update_regions(regimes);
+    knot = new_grid_knots;
+    num_funcs = knot.size()-(BSPLINE_ORDER-Z_0)-1; //knot.size()- (BSPLINE_ORDER+1); 
     compute_overlap(num_funcs);
 }
 

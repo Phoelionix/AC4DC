@@ -273,7 +273,8 @@ public:
     static std::vector<double> get_knots_from_history(size_t step_idx);
     static void set_knot_history(size_t i, std::vector<double> replacement_knot){knots_history[i]={i,replacement_knot};}
     // history of grid points (for dynamic grid)
-    static std::vector<indexed_knot> knots_history;    
+    static std::vector<indexed_knot> knots_history;  
+    int container_size(){return f.size();}  
 private:
     std::vector<double> f;  // Spline expansion factors
     static SplineIntegral basis;

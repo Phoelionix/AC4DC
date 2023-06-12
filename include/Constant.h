@@ -127,6 +127,8 @@ namespace RateData {
 
 	struct EIIdata
 	{
+		//EIIdata() : init(0), fin(vector<int>(0)), occ(vector<int>(0)),ionB(vector<float>(0)),kin(vector<float>(0)) {}
+
 		int init; // initial state
 		vector<int> fin; // final states
 		vector<int> occ; // occupancy of state

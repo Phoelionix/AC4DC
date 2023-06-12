@@ -70,7 +70,9 @@ void SplineIntegral::precompute_QTBR_coeffs(vector<RateData::Atom>& Atoms) {
         for (size_t eta=0; eta<Atoms[a].num_conf; eta++) {
             Q_TBR[a][eta].resize(num_funcs);
             for (auto& QaJ : Q_TBR[a][eta]) {
-                    QaJ.resize(0); // thse are the sparse lists
+                    //QaJ.resize(0); // thse are the sparse lists
+                    //QaJ = sparse_matrix(0);
+                    QaJ.clear(); // these are the sparse lists
             }
         }
         // NOTE: length of EII vector is generally shorter than length of P
@@ -113,7 +115,8 @@ void SplineIntegral::precompute_QEE_coeffs() {
 }
 
 void SplineIntegral::Gamma_eii( std::vector<SparsePair>& Gamma_xi, const RateData::EIIdata& eii, size_t K) const{
-    Gamma_xi.resize(0);
+    //Gamma_xi.resize(0);
+    Gamma_xi.clear();
     for (size_t eta = 0; eta < eii.fin.size(); eta++) {
         // double a = max((float) this->supp_min(K), eii.ionB[eta]);
         double a = this->supp_min(K);
@@ -172,7 +175,9 @@ void SplineIntegral::Gamma_eii( std::vector<SparsePair>& Gamma_xi, const RateDat
 void SplineIntegral::Gamma_tbr( std::vector<SparsePair>& Gamma_xi, const RateData::InverseEIIdata& tbr, size_t K, size_t L) const {
     // Naming convention is unavoidably confusing.
     // init and fin correspond to initial and final states for the three-body process, i.e. 
-    Gamma_xi.resize(0);
+    //Gamma_xi.resize(0);
+    Gamma_xi.clear();
+    Gamma_xi.reserve(tbr.fin.size());
     for (size_t eta = 0; eta<tbr.fin.size(); eta++) {
         double tmp=0;
         double B=tbr.ionB[eta];
@@ -208,7 +213,9 @@ void SplineIntegral::Gamma_tbr( std::vector<SparsePair>& Gamma_xi, const RateDat
 
 void SplineIntegral::Gamma_eii(eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eiiVec, size_t K) const {
     // 4pi*sqrt(2) \int_0^\inf e^1/2 phi_k(e) sigma(e) de
-    Gamma.resize(0);
+    //Gamma.resize(0);
+    Gamma.clear();
+    Gamma.reserve(eiiVec.size());
     for (size_t init=0; init<eiiVec.size(); init++) {
         assert((unsigned) eiiVec[init].init == init);
         std::vector<SparsePair> Gamma_xi(0);
@@ -218,7 +225,12 @@ void SplineIntegral::Gamma_eii(eiiGraph& Gamma, const std::vector<RateData::EIId
 }
 
 void SplineIntegral::Gamma_tbr(eiiGraph& Gamma, const std::vector<RateData::InverseEIIdata>& eiiVec, size_t K, size_t L) const {
-    Gamma.resize(0);
+    //Gamma.resize(0);
+    //Gamma = eiiGraph(0);
+    //eiiGraph tmp;
+    //Gamma.swap(tmp);
+    Gamma.clear();
+    Gamma.reserve(eiiVec.size());
     for (size_t init=0; init<eiiVec.size(); init++) {
         assert((unsigned) eiiVec[init].init == init);
         std::vector<SparsePair> Gamma_xi(0);

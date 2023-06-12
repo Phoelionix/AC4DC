@@ -121,33 +121,40 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const 
     
     bool resume_sim = (t_resume == t_initial) ? false : true;
 
-    size_t resume_idx = 0;
+    size_t resume_n = 0;
     if (resume_sim){
         for (size_t n=1; n<npoints; n++){
             if (this->t[n] >= t_resume){
-                resume_idx = n;
+                resume_n = n;
                 break;
             }
         }
         // The time step size does not depend on previous run's time step size. i.e. step size is same as if there was no loading.
         // TODO implement assertion that density isn't empty.
-        size_t resume_idx_if_const_dt = (t_resume-t_initial)/this->dt ;
-        npoints -= (resume_idx_if_const_dt + 1);
+        size_t resume_n_if_const_dt = (t_resume-t_initial)/this->dt ;
+        npoints -= (resume_n_if_const_dt + 1);
         npoints += this->t.size(); // 
-        // Set checkpoint to be at the starting step
+        // Try to set checkpoint to be at the starting step 
+        // Check if need to set it before the last knot change.
+        size_t checkpoint_n = resume_n;
+        while (Distribution::most_recent_knot_change_idx(checkpoint_n) > resume_n - this->order){
+            checkpoint_n--;
+            assert(checkpoint_n > this->order);
+            assert(checkpoint_n > resume_n - this->order); // may trigger if knot changes too close together.
+        }        
         std::vector<state_type> check_states;
         std::vector<double> check_times;
         {
-            std::vector<state_type>::const_iterator start_vect_idx = this->y.begin() - this->order + resume_idx;  
-            std::vector<state_type>::const_iterator end_vect_idx = this->y.begin() + resume_idx;  
+            std::vector<state_type>::const_iterator start_vect_idx = this->y.begin() - this->order + checkpoint_n;  
+            std::vector<state_type>::const_iterator end_vect_idx = this->y.begin() + checkpoint_n;  
             check_states = std::vector<state_type>(start_vect_idx, end_vect_idx+1);
         }
         {
-            std::vector<double>::const_iterator start_vect_idx = this->t.begin() - this->order + resume_idx;  
-            std::vector<double>::const_iterator end_vect_idx = this->t.begin() + resume_idx;  
+            std::vector<double>::const_iterator start_vect_idx = this->t.begin() - this->order + checkpoint_n;  
+            std::vector<double>::const_iterator end_vect_idx = this->t.begin() + checkpoint_n;  
             check_times = std::vector<double>(start_vect_idx, end_vect_idx+1);   
         }
-        checkpoint = {resume_idx, Distribution::get_knot_energies(),this->regimes,check_states,check_times};
+        checkpoint = {checkpoint_n, Distribution::get_knot_energies(),this->regimes,check_states,check_times};
     }
     old_checkpoint = checkpoint; 
 
@@ -161,7 +168,7 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const 
     this->t[0] = t_initial;
 
     for (size_t n=1; n<npoints; n++){
-        if (resume_sim && n <= resume_idx){
+        if (resume_sim && n <= resume_n){
             continue; // Don't reset already simulated states
         }
         this->t[n] = this->t[n-1] + this->dt;
@@ -183,14 +190,14 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
 
     size_t n = 0; // Current step index.
     if (t_resume < this->t[this->order]){
+        assert(t_resume == this->t[0]);
         // 4th Order Runge-Kutta 
         // initialise enough points for multistepping to get going
         while(n < this->order) {
             this->step_rk4(n);
             n++;
         }
-        // Almost guaranteed we did not load a simulation, so set first checkpoint. 
-        //std::vector<state_type> check_states = std::vector<state_type>(this->y.begin(), this->y.begin()+this->order);
+        // Set first checkpoint. 
         std::vector<state_type> check_states;
         std::vector<double> check_times;
         {
@@ -208,6 +215,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         old_checkpoint = checkpoint;
     }
     else{
+        // Loaded simulation
         n+=this->order;
     }
 
@@ -307,7 +315,7 @@ void Hybrid<T>::step_stiff_part(unsigned n){
         T tmp;
         tmp = this->zero_y;
         // tmp acts as an aggregator
-        for (int i = 1; i < this->order; i++){  // work through last N=order-1 ministeps
+        for (int i = 1; i < this->order; i++){  // work through last N=order-1 ministeps. i.e. Order = 3 corresponds to 2 step method.
             T ydot; // ydot stores the change this loop.
             this->sys_ee(y_transient[(1-i+mini_n)%(this->order)], ydot); 
             ydot *= this->b_AM[i];
@@ -376,23 +384,26 @@ void Hybrid<T>::step_stiff_part(unsigned n){
 }
 
 /// Initialises intermediate steps needed for stiff solver to get going.
+// For order 3, transient y is indexed as: [mini_n-3,mini_n-2,mini_n-1,mini_n]
 template<typename T>
 void Hybrid<T>::initialise_transient_y(int n) {
+    assert(this->y[n-1].F.container_size() == this->y[n].F.container_size());
+
     y_transient.resize(this->order);
-    
     mini_n = this->order-1; // last index of simulation's first "loop" of transient y. 
     if ((this->order-1)/num_stiff_ministeps <= 1){
         mini_dt = this->dt/(double)num_stiff_ministeps; 
-        // Approximate intermediate steps with change between last time steps.
-        // We store y[n] and flag it as the most recent ministep updated. 
+        // Approximate intermediate steps with by interpolating between n and n - 1.
+        // We store y[n] and flag it as the most recent ministep. 
         T ydot;
-        ydot = this->y[n-1];
+        ydot = this->y.at(n-1);
         ydot*= -1.;
-        ydot += this->y[n];
+        ydot += this->y.at(n);
         ydot *= 1./(double)num_stiff_ministeps;    
-        for(int i = 0; i < this->order; i++){  // Technically we don't need to fill the first idx but we may as well.
-            // y[n-i] = y[n] - ydot*i
-            y_transient[mini_n-i] = this->y[n];
+        // Set transient_y  = [y[n]-3*ydot,y[n]-2*ydot,y[n]-ydot,y[n]] for order 3. Value at the first index will be given the value at the next ministep, and so on.
+        for(int i = 0; i < this->order; i++){  // Technically we don't need to fill the first idx, but we may as well.
+            // y[n-i] = y[n] - ydot*i   (here y and n refer to the intermediate steps)
+            y_transient.at(mini_n-i) = this->y[n];
             T tmp;
             tmp = ydot; tmp*=-i;
             y_transient[mini_n-i] += tmp;
@@ -408,7 +419,12 @@ void Hybrid<T>::initialise_transient_y(int n) {
             y_transient[mini_n-i] = this->y[n-i];
         }
     }
-    assert(this->y[n].F[3] == y_transient[mini_n].F[3]);
+    // sample to catch the error of y(n) != y_transient(mini_n).
+    assert(this->y[n].F[0] == y_transient[mini_n].F[0]);
+    if (this->y[n].F.container_size() > 3)
+        assert(this->y[n].F[3] == y_transient[mini_n].F[3]);
+    if (this->y[n].F.container_size() > 5)
+        assert(this->y[n].F[5] == y_transient[mini_n].F[5]);
 }
 
 

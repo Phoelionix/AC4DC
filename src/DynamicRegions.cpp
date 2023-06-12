@@ -62,7 +62,6 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         preset_name = "High accuracy";
         pts_per_dirac = 35; // (minimum) per region, will have less contributed per photopeak when region is wide enough that point density is lower than some overlapping static regions. 
         regions = {
-            Region(1,5,10,"static"),  // low divergent
             Region(25,10,50, "static"), // low support (MB is very fine early on, grid does not do well with sudden transitions in knot density.)
             Region(10,50,200,"static"), 
             Region(35,200,600,"static"), // auger
@@ -76,7 +75,6 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
       preset_name = "Medium accuracy";
         pts_per_dirac = 15;  
         regions = {
-            Region(1,5,10,"static"),  // low divergent
             Region(7,10,20, "static"), Region(8,20,50, "static"),  // low support
             Region(10,50,200,"static"), 
             Region(20,200,600,"static"), // auger
@@ -90,7 +88,6 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         preset_name = "Low accuracy";
         pts_per_dirac = 10;
         regions = {
-            Region(1,5,10,"static"),  // low divergent
             Region(5,10,20, "static"), Region(5,20,50, "static"),  // low support
             Region(7,50,200,"static"), 
             Region(7,200,600,"static"), // auger
@@ -104,7 +101,6 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         preset_name = "Heavy atom support";
         pts_per_dirac = 10;
         regions = {
-            Region(1,5,10,"static"),  // low divergent
             Region(5,10,20, "static"), Region(5,20,50, "static"),  // low support
             Region(15,50,200,"static"),  // auger
             Region(7,200,600,"static"), 
@@ -118,7 +114,6 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         preset_name = "Dismal accuracy";
         pts_per_dirac = 5;
         regions = {
-            Region(1,5,10,"static"),  // low divergent
             Region(4,10,20, "static"), Region(4,20,50, "static"),  // low support
             Region(5,50,200,"static"), 
             Region(5,200,600,"static"), // auger
@@ -133,7 +128,6 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         preset_name = "No dynamic dirac";
         pts_per_dirac = 1;
         regions = {
-            Region(1,5,10,"static"),  // low divergent
             Region(15,10,50, "static"), // low support
             Region(8,50,200,"static"), 
             Region(8,200,600,"static"), // auger
@@ -151,7 +145,6 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         preset_name = "No dynamic dirac";
         pts_per_dirac = 15;
         regions = {
-            Region(1,5,10,"static"),  // low divergent
             Region(10,10,50, "static"), // low support
             Region(8,50,200,"static"), 
             Region(8,200,600,"static"), // auger
@@ -163,7 +156,7 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         break;              
     }
     std::vector<Region> common_regions = {
-        Region(1,5,10,"static"),  // low divergent
+        Region(1,5,10,"static"),  // low divergent (purpose is just placing a point at 5 eV. Below this is unnecessarily costly, and sometimes breaks - either because I have brittle code or it's fundamentally untenable.)
         // 4 Photoelectron peaks. need to include num regions defined here in FeatureRegimes. TODO fix this issue.
         Region(pts_per_dirac,-1,-1,"dirac"), Region(pts_per_dirac,-1,-1,"dirac"), 
         Region(pts_per_dirac,-1,-1,"dirac"), Region(pts_per_dirac,-1,-1,"dirac")
@@ -238,12 +231,17 @@ void Region::update_region(double new_centre, double new_min, double new_max){
  * @param previous_knot 
  * @return double 
  */
-double Region::get_next_knot(double previous_knot){
+double Region::get_next_knot(double previous_knot, bool first_non_zero){
+    if (first_non_zero){
+        return E_min;
+    }
     if(power != 1){std::cout << "WARNING powers not implemented for dynamic grid" <<std::endl;}
+    // We get the knot that is lowest relative to the previous knot + the knot density and above E_min
     double next_knot = previous_knot + get_point_density();
     if ((E_min <= next_knot && next_knot <= E_max)){
         return next_knot;
     }
+    // ... Or if the next knot would be below the region, the lowest knot that is the first point of this region instead.
     if(E_min > previous_knot) return E_min;
     return -1;
 }

@@ -53,7 +53,7 @@ class ElectronRateSolver : private ode::Hybrid<state_type>
 {
 public:
     ElectronRateSolver(const char* filename, ofstream& log) :
-    Hybrid(3), input_params(filename, log), pf() // (order Adams method), argument of Hybrid = order.
+    Hybrid(3), input_params(filename, log), pf() // (order Adams method), argument of Hybrid = order. num steps used for implicit adams-moulton = order - 1.
     {
         log_config_settings(log);
         
@@ -116,8 +116,12 @@ public:
     ee_time, apply_delta_time; //sys_ee 
 
     std::chrono::_V2::system_clock::time_point time_of_last_save;   
+    #ifndef NO_BACKUP_SAVING
     std::chrono::minutes minutes_per_save{60};
-     
+    #else
+    std::chrono::minutes minutes_per_save{99999999};
+    #endif
+
 private:
     double IVP_step_tolerance = 5e-3;
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)  // TODO need to refactor to store variables that we change later rather than alter input_params directly. Currently doing a hybrid of this.

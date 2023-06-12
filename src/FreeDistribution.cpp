@@ -230,7 +230,7 @@ void Distribution::add_density_distribution(vector<vector<double>> densities){
 }
 
 std::vector<double> Distribution::get_trimmed_knots(std::vector<double> knots){
-    // Remove boundary knots
+    // Remove boundary knots  // TODO CRITICAL this is possibly BAD as it might not work with non-default Z_0 and Z_inf?
     while(knots[0] <= basis.min_elec_e() && knots.size() > 0){
         knots.erase(knots.begin());
     }        

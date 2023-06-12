@@ -592,9 +592,15 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     _log <<"Reloading grid"<<endl;
     // with the states loaded the spline factors are as they were, we just need to load the appropriate knots.
     assert(saved_knots == Distribution::get_knots_from_history(n));
+    for(auto elem : saved_states){
+        assert(elem.F.container_size() == saved_states.back().F.container_size());
+    }
     // Linearly interpolate the previous states as a first order correction. (We should use 4th order Runge-Kutta, but I don't have time to get that working with sys_ee incorporated)
     // last element of saved_states is y[n], so we just iterate up to y[n-1]
-    std::vector<state_type> interpolated_states = saved_states;
+    std::vector<state_type> interpolated_states(saved_states.size());
+    for(size_t i = 0; i < saved_states.size();i++){
+        interpolated_states[i]=saved_states[i];
+    }
     for(size_t i = 0; i < saved_states.size() - 1; i++){
         assert(saved_times.back()==t[n]);
         double intra_time = t[n] - (saved_states.size()-1 - i)*dt; 
@@ -609,17 +615,18 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
                 // if t' = t(n) + u 
                 // y(t') = y(n) + [y(n+1) - y(n)] * u/[t(n+1)-t(n)]  = y(n) + dy
                 // find dy
-                interpolated_states[i] = saved_states[rel_idx];
+                assert(rel_idx < saved_times.size());
+                interpolated_states.at(i) = saved_states.at(rel_idx);
                 interpolated_states[i] *= -1;
-                interpolated_states[i] += saved_states[rel_idx +1];
+                interpolated_states[i] += saved_states.at(rel_idx +1);
                 interpolated_states[i] *= (intra_time-saved_times[rel_idx])/(saved_times[rel_idx+1]-saved_times[rel_idx]);
                 // add y(n) to get y(t')
                 interpolated_states[i] += saved_states[rel_idx];
                 break;
             }
-            if (loop_step == 0)
-                throw runtime_error("Unexpected error, could not interpolate times when loading checkpoint.");
             loop_step--;
+            if (saved_states.size() < (n-loop_step)-1)
+                throw runtime_error("Unexpected error, could not interpolate times when loading checkpoint.");
         }
     }
 
@@ -733,24 +740,32 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
     plot_time += std::chrono::high_resolution_clock::now() - t_start_plot;  
 
     ////// Dynamic time updates //////
-    auto t_start_dt = std::chrono::high_resolution_clock::now();
+    auto t_start_dyn_dt = std::chrono::high_resolution_clock::now();
     // store checkpoint
-    if ((n-this->order+1)%checkpoint_gap == 0){  // 
+    if ((n-this->order+1)%checkpoint_gap == 0){  //
         old_checkpoint = checkpoint;
+
+        // Find the nearest streak of states in the same knot basis.
+        size_t checkpoint_n = n;
+        while (Distribution::most_recent_knot_change_idx(checkpoint_n) > n - this->order){
+            checkpoint_n--;
+            assert(checkpoint_n > this->order);
+            assert(checkpoint_n > n - this->order); // may trigger if knot changes too close together.
+        }           
         std::vector<state_type> check_states;
         std::vector<double> check_times;
         {
-            std::vector<state_type>::const_iterator start_vect_idx = y.begin() - order + n;  
-            std::vector<state_type>::const_iterator end_vect_idx = y.begin() + n;  
+            std::vector<state_type>::const_iterator start_vect_idx = y.begin() - order + checkpoint_n;  
+            std::vector<state_type>::const_iterator end_vect_idx = y.begin() + checkpoint_n;  
             check_states = std::vector<state_type>(start_vect_idx, end_vect_idx+1);
         }
         {
-            std::vector<double>::const_iterator start_vect_idx = t.begin() - order + n;  
-            std::vector<double>::const_iterator end_vect_idx = t.begin() + n;  
+            std::vector<double>::const_iterator start_vect_idx = t.begin() - order + checkpoint_n;  
+            std::vector<double>::const_iterator end_vect_idx = t.begin() + checkpoint_n;  
             check_times = std::vector<double>(start_vect_idx, end_vect_idx+1);
         }        
 
-        checkpoint = {n, Distribution::get_knot_energies(),this->regimes,check_states,check_times};
+        checkpoint = {checkpoint_n, Distribution::get_knot_energies(),this->regimes,check_states,check_times};
     }
     if (euler_exceeded || !good_state){     
         bool store_dt_increase = true;   
@@ -803,7 +818,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         }
     }
     */
-    dyn_dt_time += std::chrono::high_resolution_clock::now() - t_start_dt;
+    dyn_dt_time += std::chrono::high_resolution_clock::now() - t_start_dyn_dt;
     
     
     /// Save data periodically in case of crash (currently need to manually copy mol file from log folder and move folder to output if want to plot). 
@@ -902,7 +917,7 @@ void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool fo
         // We transform this step to the correct basis, but we also need a few steps to get us going, 
         // so we transform a few previous steps 
         // Kinda goofy but it's necessary due to the static variables. 
-        assert(this-> order < steps_per_grid_transform);
+        assert(this-> order*2 < steps_per_grid_transform); // *2 factor is to guarantee loading works.
         Distribution::load_knots_from_history(n-1); // the n - 1 is correct. transform_basis takes us to basis at step n.
         y[m].F.transform_basis(new_energies);
 
@@ -949,10 +964,7 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t latest_step, std::ve
             << endl;
         }        
     }
-    // create the tensor of coefficients 
-    initialise_rates();
 
-    std::cout.clear();
     
     this->zero_y = get_ground_state();
     this->zero_y *= 0.; // set it to Z E R O
@@ -964,6 +976,10 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t latest_step, std::ve
     }
     y.resize(input_params.num_time_steps);  
     initialise_transient_y((int)latest_step);
+    
+    std::cout.clear();
+    // create the tensor of coefficients 
+    initialise_rates();    
 
 
     // The next containers are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state. 
@@ -972,10 +988,14 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t latest_step, std::ve
 
 void ElectronRateSolver::initialise_rates(){
     //TODO these aren't constant now - change to lowercase.
+    RATE_EII.clear();
+    RATE_TBR.clear();    
     RATE_EII.resize(input_params.Store.size());
     RATE_TBR.resize(input_params.Store.size());
     for (size_t a=0; a<input_params.Store.size(); a++) {
         size_t N = Distribution::num_basis_funcs();
+        RATE_EII[a].clear();
+        RATE_TBR[a].clear();
         RATE_EII[a].resize(N);
         RATE_TBR[a].resize(N*(N+1)/2);
     }

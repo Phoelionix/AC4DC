@@ -83,6 +83,8 @@ protected:
     
     void manual_set_knot(const GridSpacing& gt); 
     
+    int Z_0 = -1;
+    int Z_inf = -1;
     double _min;
     double _max;
     std::vector<int> _manual_region_bndry_index;
