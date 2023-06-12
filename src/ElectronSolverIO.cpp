@@ -203,7 +203,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
             // Make sure all "natom-dimensioned" objects are the size expected
             assert(input_params.Store.size() == y[i].atomP.size());
             
-            f<<t[i]*Constant::fs_per_au << ' ' << y[i].atomP[a]<<endl;   // prob. multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au
+            f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i].atomP[a]<<endl;   // prob. multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au
             previous_t = t[i];
         }
         f.close();
@@ -606,7 +606,8 @@ void ElectronRateSolver::loadBound() {
             }            
             matching_idx = find(t.begin(),t.end(),elem_time) - t.begin(); 
             if (matching_idx >= t.size()){
-                continue;  // Error! Couldn't find a corresponding point...
+                std::cerr << "Warning, mismatch in points between bound and free files!" << std::endl;
+                continue;  //Error! Couldn't find a corresponding point...
             }
             else{
                 std::vector<double> occ_density;
