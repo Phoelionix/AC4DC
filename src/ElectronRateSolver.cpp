@@ -977,10 +977,10 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t latest_step, std::ve
     y.resize(input_params.num_time_steps);  
     initialise_transient_y((int)latest_step);
     
-    std::cout.clear();
     // create the tensor of coefficients 
     initialise_rates();    
 
+    std::cout.clear();
 
     // The next containers are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state. 
 } 
