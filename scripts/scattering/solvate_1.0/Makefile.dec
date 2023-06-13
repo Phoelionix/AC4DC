@@ -1,0 +1,3 @@
+solvate:
+	cc -O2 -o solvate solvate.c -lm
+

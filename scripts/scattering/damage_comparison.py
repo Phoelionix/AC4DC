@@ -106,6 +106,10 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
     R_data = []
     names = []
     for i, sim_handle in enumerate(plasma_handles):
+        # TODO
+        # if params["laser"]["SPI"]:
+        #     def apply_background():
+
         if specific_energy is not None and energy[i] != specific_energy:
             continue
         names.append(sim_handle)
@@ -148,6 +152,7 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
         if params["laser"]["SPI"]:
             SPI_result1 = experiment1.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal, **run_params["laser"])
             SPI_result2 = experiment2.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal_undmged, **run_params["laser"])
+            #TODO apply_background([SPI_result1,SPI_result2])
             R = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=get_R_only,SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
         else:
             exp1_orientations = experiment1.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal, results_parent_dir=sctr_results_batch_dir, **run_params["laser"])
@@ -157,6 +162,7 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
                 run_params["laser"]["random_orientation"] = False 
                 experiment2.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal_undmged, results_parent_dir=sctr_results_batch_dir, **run_params["laser"])
             R = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=get_R_only,SPI=False,results_parent_dir = sctr_results_batch_dir)
+        
         R_data.append([energy[i],fwhm[i],photon_count[i],R]) 
     
     print("R_data:",R_data)

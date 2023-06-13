@@ -18,7 +18,7 @@ default_dict = dict(
     ),
     ##### Crystal params
     crystal = dict(
-        cell_scale = 1,  # for SC: cell_scale^3 unit cells 
+        cell_scale = 2,  # for SC: cell_scale^3 unit cells 
         positional_stdv = 0, # Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
         include_symmetries = False,  # should unit cell contain symmetries?
         cell_packing = "SC",
@@ -46,4 +46,13 @@ default_dict = dict(
         orientation_axis_crys = None,#[1,1,0]   # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Incompatible with random_orientations   
     ),
 )
-default_dict_SPI = copy.deepcopy(default_dict); default_dict_SPI["laser"]["SPI"] = True
+default_dict_SPI = copy.deepcopy(default_dict)
+default_dict_SPI["laser"]["SPI"] = True 
+# Water background
+background_dict = copy.deepcopy(default_dict_SPI)
+#background_dict["crystal"]["positional_stdv"] = 10  ### Idea: When we average over the distributions, this will form a background. 
+background_dict["crystal"]["positional_stdv"] = 0  ### Idea:  generate multiple solvents
+background_dict["crystal"]["cell_scale"] = 1
+background_dict["crystal"]["include_symmetries"] = False 
+background_dict["experiment"]["t_fineness"] = 10  # We don't need to be as accurate with this.
+##

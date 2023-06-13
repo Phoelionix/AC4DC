@@ -38,7 +38,13 @@ import os.path as path
 from Bio.PDB.vectors import Vector as Bio_Vect
 from Bio.PDB.vectors import homog_trans_mtx, set_homog_trans_mtx
 from Bio.PDB.vectors import rotaxis2m
-from Bio.PDB.PDBParser import PDBParser
+#from Bio.PDB.PDBParser import PDBParser
+#from Bio.PDB.PDBIO import PDBIO
+#from Bio.PDB.StructureBuilder import StructureBuilder
+from xpdb import sloppyparser as xPDBParser
+from xpdb import SloppyPDBIO as xPDBIO
+from xpdb import SloppyStructureBuilder as xStructureBuilder  # Hack, enables atom counts over 10,000
+from Bio.PDB.Atom import Atom as PDB_Atom
 #from sympy.utilities.iterables import multiset_permutations
 import itertools
 import matplotlib.pyplot as plt
@@ -65,7 +71,7 @@ if __name__ == "__main__":
 plt.ioff()  # stops weird vscode stuff
 
 DEBUG = False 
-SEEDED = False # TODO fully implement for all random stuff
+SEEDED = False# TODO fully implement for all random stuff
 c_au = 137.036; eV_per_Ha = 27.211385; ang_per_bohr = 1/1.88973  # > 1 ang = 1.88973 bohr
 
 class Results():
@@ -145,7 +151,7 @@ class Crystal():
                     v = "N"               
             PDB_to_AC4DC_dict[k] = v       
         # Get structure using Bio.PDB's parser
-        parser=PDBParser(PERMISSIVE=1)
+        parser=copy.deepcopy(xPDBParser)
         structure_id = os.path.basename(self.pdb_fpath)
         structure = parser.get_structure(structure_id, self.pdb_fpath)     
         # Get those cheeky charge clusters
@@ -286,7 +292,55 @@ class Crystal():
         # Transpose because we've stored the vectors in the 0th axis. 
         return (self.sym_rotations[i] @ R.T).T+ self.sym_translations[i]   # dim = [xyz,xyz] x [xyz,N] or dim = [xyz,xyz] x [xyz,1]
             
-    def plot_me(self,max_points = 100000):
+    def save_structure(self,dir="targets"):
+        '''
+        Saves the full structure in a pdb file format for use with Solvate1.0 
+        Stdv not included.
+        I have not tested if using it for over 1e5 atoms (when xpdb alters things so it doesn't break) works when plugged into SOLVATE
+        TODO need to add boilerplate (replace HETATM with 'ATOM  ', add symmetries and cell dimensions to start of file.)
+        '''
+        #Load it
+        # parser=PDBParser(PERMISSIVE=1)
+        # structure_id = os.path.basename(self.pdb_fpath)
+        # structure = parser.get_structure(structure_id, self.pdb_fpath)       
+
+        #Initialsie structure
+        structure = xStructureBuilder()
+        structure.init_structure("full_struct")
+        structure.init_model("M")
+        structure.init_seg("")
+
+        # Add atoms
+        serial_number = 1
+        structure.init_chain("C")
+        for i in range(len(self.sym_rotations)):
+            residue_name = "L"+str(i); r_args = (" ",i+1,"r")
+            print(structure.chain.child_dict)
+            #residue_id = (r_args[0]+"_"+residue_name,r_args[1],r_args[2])  # use if set r_args[0] to "H"
+            residue_id = r_args
+            structure.init_residue(residue_name,*r_args)
+            print(structure.chain.child_dict)
+            residue = structure.chain[residue_id] 
+            for species in self.species_dict.values():
+                points = np.array(species.coords)                    
+                coord_list = self.get_sym_xfmed_point(points,i).tolist()
+                for j, coord in enumerate(coord_list):
+                    coord=tuple([c*ang_per_bohr for c in coord])
+                    name = ' '+species.name+str(j)+' '
+                    residue.add(PDB_Atom(name= name, coord=coord, bfactor=0., occupancy=1., altloc=' ', fullname=name, serial_number=serial_number,element=species.name))                
+                    serial_number+=1
+        # TODO boiler plate
+        # structure.set_symmetry("P 1", "1")
+        
+        # Save it
+        io=xPDBIO()
+        io.set_structure(structure.get_structure())  # StructureBuilder object is not Structure object
+        fname = path.basename(self.pdb_fpath)[:-4]+"_full_struct.pdb"
+        io.save(dir+"/"+fname)     
+
+    def plot_me(self,max_points = 100000,water_index = None):
+        if water_index != None:
+            assert self.cell_scale == 1 and len(self.sym_rotations) == 1, "Plotting water with a unit cell symmetry not supported."
         '''
         plots the symmetry points. Origin is the centre of the base asymmetric unit (not the centre of a unit cell).
         RMS error in positions ('positional_stdv') is not accounted for
@@ -315,17 +369,25 @@ class Crystal():
         for i in range(len(self.sym_rotations)):
             coord_list = self.get_sym_xfmed_point(test_points,i).tolist()
             plot_coords.extend(coord_list)  
-        color = np.empty(len(plot_coords),dtype=object) 
-        color.fill('blue')
 
-        for i in range(int(len(self.sym_rotations)/self.num_cells)):           
-            color[i*self.num_cells*len(test_points):i*self.num_cells*len(test_points)+len(test_points)] = 'aquamarine' #'c'  # atoms in one unit cell  
-        color[:len(test_points)] = 'green'  # atoms in one asym unit       
-        #Cursed but it works. 
-        for i in range(self.num_cells):
-            for j in range(int(len(self.sym_rotations)/self.num_cells)):
-                color[i*int(len(test_points)*len(self.sym_rotations)/self.num_cells) + j*len(test_points)] = 'yellow'      # same atom in every asym unit.  
-            color[i*len(test_points)] = 'red'      # same atom in every same unit cell         
+        #Colors 
+        if water_index == None:
+            color = np.empty(len(plot_coords),dtype=object) 
+            color.fill('blue')
+            for i in range(int(len(self.sym_rotations)/self.num_cells)):           
+                color[i*self.num_cells*len(test_points):i*self.num_cells*len(test_points)+len(test_points)] = 'aquamarine' #'c'  # atoms in one unit cell  
+            color[:len(test_points)] = 'green'  # atoms in one asym unit       
+            #Cursed but it works. 
+            for i in range(self.num_cells):
+                for j in range(int(len(self.sym_rotations)/self.num_cells)):
+                    color[i*int(len(test_points)*len(self.sym_rotations)/self.num_cells) + j*len(test_points)] = 'yellow'      # same atom in every asym unit.  
+                color[i*len(test_points)] = 'red'      # same atom in every same unit cell         
+        else:
+            kernel_color = np.empty(water_index+1,dtype=object) 
+            bg_color = np.empty(len(plot_coords)-(water_index+1),dtype=object)
+            kernel_color.fill ('green')
+            bg_color.fill('aqua')
+            color = np.concatenate((kernel_color,bg_color))
         
         plot_coords = np.array(plot_coords)*ang_per_bohr # convert to angstrom
         raise_non_unique_exception = False
@@ -333,9 +395,9 @@ class Crystal():
             a, unique_indices = np.unique(plot_coords,axis=0,return_index = True)
             print("WARNING", len(np.delete(plot_coords, unique_indices)), "non-unique coords found:")
             raise_non_unique_exception = True
-            print(np.delete(plot_coords, unique_indices))  # delete anyway.
-                        
-        #color[color!='y'] = '#0f0f0f00'   # example to see just one atom type
+            print(np.delete(plot_coords, unique_indices))  # delete anyway.            
+                            
+            #color[color!='y'] = '#0f0f0f00'   # example to see just one atom type
         x_range = np.array([np.min(plot_coords[:,0]),np.max(plot_coords[:,0])])
         y_range = np.array([np.min(plot_coords[:,1]),np.max(plot_coords[:,1])])
         z_range = np.array([np.min(plot_coords[:,2]),np.max(plot_coords[:,2])])
@@ -1997,9 +2059,9 @@ if __name__ == "__main__":
     ##### Crystal params
     crystal_no_dev = True
     crystal_qwargs = dict(
-        cell_scale = 2,  # for SC: cell_scale^3 unit cells 
+        cell_scale = 1,  # for SC: cell_scale^3 unit cells 
         positional_stdv = 0,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
-        include_symmetries = True,  # should unit cell contain symmetries?
+        include_symmetries = False,  # should unit cell contain symmetries?
         cell_packing = "SC",
         rocking_angle = 1,  # (approximating mosaicity)
         #CNO_to_N = True,   # whether the plasma simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
@@ -2080,20 +2142,24 @@ if __name__ == "__main__":
         allowed_atoms = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8_full_struct.pdb"      # "/home/speno/AC4DC/scripts/scattering/targets/lys_water/sol_4et8-1.pdb"
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"      # "/home/speno/AC4DC/scripts/scattering/targets/lys_water/sol_4et8-1.pdb"
         # target_handle = "lys_nass_2"
         # folder = "lys"
         #'''
-        target_handle = "lys-7_1"#"lys-5_3"#" #12keV, 0.1/0.01 count, 10 fs
-        folder = "lys" 
+        target_handle = "lys_nass_15"#"lys-5_3"#" #12keV, 0.1/0.01 count, 10 fs
+        #folder = "lys" 
+        folder = "" 
+        background_targets = "lys_water"
         #''' 
         '''
         target_handle = "lys_no_S_1"#"lys_no_S_2" #12keV, 0.1/0.01 count, 10 fs
         folder = ""        
         '''
         #//
-        #allowed_atoms = ["N_fast","S_fast"]
-        allowed_atoms = ["N_fast"]
+        allowed_atoms = ["N","S_fast"]
+        #allowed_atoms = ["N_fast"]
         #allowed_atoms = ["S_fast"]
         #//
         CNO_to_N = True
@@ -2126,7 +2192,7 @@ if __name__ == "__main__":
         crystal_undmged.is_damaged = second_crystal_is_damaged
     else:
         crystal_undmged = Crystal(pdb_path,allowed_atoms,is_damaged=second_crystal_is_damaged,CNO_to_N = CNO_to_N, **crystal_qwargs)
-    crystal.plot_me(250000)
+    crystal.plot_me(300000,water_index = 69632)
 ##%%
     if laser_firing_qwargs["SPI"]:
         SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal,results_parent_dir=results_parent_folder, **laser_firing_qwargs)
@@ -2145,6 +2211,24 @@ if __name__ == "__main__":
     stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
 
 #^^^^^^^
+
+#%%
+# Save full structures in pdb format for Solute1.0
+if __name__ == "__main__":
+    ##### Crystal params
+    pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
+    crystal_qwargs = dict(
+        cell_scale = 3,  # for SC: cell_scale^3 unit cells
+        positional_stdv = 0,  # Not used
+        include_symmetries = True,  # should unit cell contain symmetries?
+        cell_packing = "SC",
+        rocking_angle = 1,  # (approximating mosaicity)
+        CNO_to_N = False,
+    )
+    allowed_atoms = ["C","N","O","S"]
+    crystal = Crystal(pdb_path,allowed_atoms,is_damaged=False, **crystal_qwargs)
+    crystal.save_structure()
+
 # %%
 def plot_recovered_atoms():
     # Plot atoms retrieved from Superflip/EDMA

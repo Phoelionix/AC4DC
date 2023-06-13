@@ -35,3 +35,4 @@ test_build/
 test_src/
 <ipython*
 __pycache__
+scripts/scattering/*.xpdb

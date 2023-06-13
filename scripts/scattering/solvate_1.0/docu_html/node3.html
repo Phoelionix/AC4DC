@@ -1,0 +1,103 @@
+<!DOCTYPE HTML PUBLIC "-//W3O//DTD W3 HTML 2.0//EN">
+<!Converted with LaTeX2HTML 95.1 (Fri Jan 20 1995) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds >
+<HR>
+<CENTER>
+<A href="t0_l.gif"><IMG ALIGN=MIDDLE ALT=" " SRC="t0_ss.gif"></A>
+<IMG ALIGN=MIDDLE ALT=" " SRC="solvate.gif">
+<A href="t8_l.gif"><IMG ALIGN=MIDDLE ALT=" " SRC="t8_ss.gif"></A><BR>
+</CENTER>
+<HR>
+<HEAD>
+<TITLE> Purpose</TITLE>
+</HEAD>
+<BODY>
+<meta name="description" value=" Purpose">
+<meta name="keywords" value="docu">
+<meta name="resource-type" value="document">
+<meta name="distribution" value="global">
+<P>
+<H1><A NAME=SECTION00030000000000000000> Purpose</A></H1>
+<P>
+Molecular dynamics (MD) studies of biological macromolecules
+(such as proteins or DNA) require a large amount
+of computations, mainly due to the large number of atoms 
+(typically several thousands) such molecules consist of.
+Even when using supercomputers, this computational complexity
+limits such simulations to very short
+time scales, typically a few nanoseconds.
+<P>
+Furthermore, just considering the macromolecule of interest
+is not enough, for the physiological environment of the
+molecule (e.g., for globular proteins, water solvent and salt ions)
+strongly interacts with the dissolved macromolecule. Therefore,
+also part of that environment has to be included within the simulation 
+system, which then usually contains several tens of thousands of 
+atoms [<A HREF="node6.html#Heller93a">1</A>,<A HREF="node6.html#Grubmuller95b">2</A>].
+Obviously, one wishes to include only as many solvent molecules
+within the simulation system as <em> really</em> necessary, while
+keeping the influence of the (artificial) system boundary (the surface
+of the solvent) onto the dissolved macromolecule as small as
+possible. <tt> SOLVATE</tt> serves this purpose.
+<P>
+<tt> SOLVATE</tt> is a program to construct an atomic model
+of a solvent environment for a given atomic macromolecule model
+(solute). Its main feature is that it can create <em> irregularly</em>-shaped
+solvent volumes specifically adapted to the (mostly also irregular) 
+shape of the solute. As a result, the number of atoms
+that have to be considered in the MD-simulation is significantly
+reduced in comparison to the usual box- or sphere-shaped
+volumes, so that the simulations run considerably faster.
+<P>
+<tt> SOLVATE</tt> accepts pdb-files (Brookhaven Data Bank/X-PLOR format)
+of the solute as input; the output
+is a pdb-file of the solute plus a number of water molecules and,
+optionally, sodium and chloride ions placed in accordance with a 
+Debye-H&#252;ckel-distribution. To generate ions, an
+X-PLOR protein structure (psf-)file of the solute (which contains
+the partial charges of the solute atoms) is 
+required in addition to the pdb-file.
+An X-PLOR-script to create a protein structure file of the
+solute/water/ion-system can be generated. 
+Note that the output structure is <em> not</em> equilibrated,
+since this can be done with the usual programs, e.g., CHARMm [<A HREF="node6.html#Brooks83">3</A>],
+X-PLOR [<A HREF="node6.html#XPLOR">4</A>], or
+<A NAME=tex2html6 HREF="http://www.imo.physik.uni-muenchen.de/ego.html">EGO</A> [<A HREF="node6.html#Eichinger95b">5</A>].
+<P>
+Clearly, just creating solute-adapted solvent volumes is not an art ---
+it can easily be done, e.g., with the <tt> around</tt>-function of X-PLOR.
+However, just to have such a solvent/solute-system is not
+enough for an MD-simulation. Rather, water molecules near the surface 
+of the solvent volume must be subjected to
+`boundary-forces' in order
+to prevent these water molecules from evaporating into the vacuum.
+Ideally, these forces should substitute all those forces (e.g., electrostatic
+interactions and van der Waals contacts), which would originate from
+solvent molecules <em> outside</em> the simulation system.
+The socalled `stochastic boundary'-approach [<A HREF="node6.html#Brooks83a">6</A>,<A HREF="node6.html#Bruenger85">7</A>] provides
+such forces in a simple approximation by use of a suitable
+boundary potential.
+<P>
+Such boundary potentials are generally functions of the distance
+between the particle, onto which the force acts, and
+the boundary of the simulation system. Hence, for an efficient
+computation of the forces derived from this potential, it should be
+of simple analytic form. This is the reason why, typically, box-
+or sphere-shaped solvent-volumes are used.
+<P>
+<tt> SOLVATE</tt> provides an (almost) arbitrarily-shaped solvent volume
+<em> and</em> a simple analytic description of its boundary using
+few multivariate gaussian functions. That choice of description
+enables efficient computation of distances
+between water molecules and the boundary
+during subsequent MD-simulations. The necessary algorithms will soon be
+implemented into the MD-program 
+<A NAME=tex2html7 HREF="http://www.imo.physik.uni-muenchen.de/ego.html">EGO</A>, 
+but they can
+also easily be implemented within CHARMm or X-PLOR.
+<P>
+<BR> <HR>
+<P><ADDRESS>
+<I>Helmut Grubmueller <BR>
+Wed Jun 19 19:00:00 MET DST 1996</I>
+</ADDRESS>
+</BODY>

@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3O//DTD W3 HTML 2.0//EN">
+<!Converted with LaTeX2HTML 95.1 (Fri Jan 20 1995) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds >
+<HR>
+<CENTER>
+<A href="t0_l.gif"><IMG ALIGN=MIDDLE ALT=" " SRC="t0_ss.gif"></A>
+<IMG ALIGN=MIDDLE ALT=" " SRC="solvate.gif">
+<A href="t8_l.gif"><IMG ALIGN=MIDDLE ALT=" " SRC="t8_ss.gif"></A><BR>
+</CENTER>
+<HR>
+<HEAD>
+<TITLE> Distance Computation in MD-Simulations</TITLE>
+</HEAD>
+<BODY>
+<meta name="description" value=" Distance Computation in MD-Simulations">
+<meta name="keywords" value="docu">
+<meta name="resource-type" value="document">
+<meta name="distribution" value="global">
+<P>
+<H1><A NAME=SECTION00070000000000000000> Distance Computation in MD-Simulations</A></H1>
+<P>
+<A NAME=secdistanceestimate>&#160;</A>
+Once a density function <IMG  ALIGN=MIDDLE ALT="" SRC="img59.gif"> is computed by <tt> SOLVATE</tt> and the
+parameters defining <b>f</b> are stored in the file <tt> boundary.lis</tt>,
+any MD-program can access that file and use <b>f</b> to compute
+boundary forces acting on water molecules near the surface of the
+solute/solvent system. This force is always a function of the
+distance to that surface, which therefore must be computed efficiently.
+In this section we describe how this can be done to an accuracy
+sufficient for most purposes.
+<P>
+For the computation of the distance <b>r</b> between the location of a water
+molecule, <IMG  ALIGN=MIDDLE ALT="" SRC="img60.gif">, and the surface point closest to
+<IMG  ALIGN=MIDDLE ALT="" SRC="img61.gif"> we first have to find 
+that surface point. We assume that, from the construction of <b>f</b>
+as a sum of few gaussians, this surface point is sufficiently
+close to the intersection
+of a line through <IMG  ALIGN=MIDDLE ALT="" SRC="img62.gif">, the direction of which is given by the
+gradient <IMG  ALIGN=MIDDLE ALT="" SRC="img63.gif">, with the surface 
+<IMG  ALIGN=MIDDLE ALT="" SRC="img64.gif">. So we have to compute that intersection point.
+<P>
+<A href="f_l.gif"><IMG ALIGN=RIGHT ALT=" " SRC="f_s.gif"></A><BR>
+
+Since this cannot be done analytically, and to avoid a possible (but slow)
+iterative method, we approximate <b>f</b> for points on the line defined above
+beween <IMG  ALIGN=MIDDLE ALT="" SRC="img65.gif"> and the intersection point. In that region, 
+<b>f</b> (solid white line) is
+by construction (a sum of gaussians, red, dashed lines)
+dominated by the gaussian next to <IMG  ALIGN=MIDDLE ALT="" SRC="img66.gif"> (thin, vertical line) and thus
+can be approximated by a simple (one-dimensional) gaussian function <b>g</b>
+(white dashed line),
+<P><IMG  ALIGN=BOTTOM ALT="" SRC="img67.gif"><P>
+The parameters <b>k</b>, 
+<b>a</b>, and 
+<IMG  ALIGN=BOTTOM ALT="" SRC="img68.gif">, which define 
+<b>g</b>, are obtained
+from the value <IMG  ALIGN=MIDDLE ALT="" SRC="img69.gif">, 
+the gradient <IMG  ALIGN=MIDDLE ALT="" SRC="img70.gif">,
+as well as the second derivative along the gradient,
+<IMG  ALIGN=MIDDLE ALT="" SRC="img71.gif">
+(where <b>J</b> 
+is the Jacobian matrix of 
+<b>f</b> at 
+<IMG  ALIGN=MIDDLE ALT="" SRC="img72.gif">),
+<P><IMG  ALIGN=BOTTOM ALT="" SRC="img73.gif"><P>
+The intersection point <IMG  ALIGN=MIDDLE ALT="" SRC="img74.gif">, approximated by 
+requiring <IMG  ALIGN=MIDDLE ALT="" SRC="img75.gif">,
+can now be calculated analytically, and the distance <b>r</b> we are interested in
+reads
+<P><IMG  ALIGN=BOTTOM ALT="" SRC="img76.gif"><P>
+<P>
+As a rule of thumb, all distances required in an MD-simulation are
+computed with an error smaller than 0.2 &#197;, which becomes even smaller
+(0.02 &#197;) for water molecules close to the surface.
+<P>
+Through a similar approximation, also the average curvature 
+of the solvent at the intersection point, which may enter the
+boundary forces as a second parameter, can be obtained.
+<P>
+<BR> <HR>
+<P><ADDRESS>
+<I>Helmut Grubmueller <BR>
+Wed Jun 19 19:00:00 MET DST 1996</I>
+</ADDRESS>
+</BODY>
