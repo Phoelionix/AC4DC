@@ -362,9 +362,12 @@ class InteractivePlotter:
                     rgba = tuple(rgb) + (a,)
                 col = "rgba" + str(tuple(rgba))      
                 
+
+                # Choose dependent variable factor depending on if using energy density or electron density.
                 density_factor = X # energy density
                 if self.use_electron_density:
                     density_factor = 1 
+                # Add the trace
                 self.fig.add_trace(
                     go.Scatter(
                         visible=False,

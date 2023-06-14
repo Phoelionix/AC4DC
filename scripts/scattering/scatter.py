@@ -340,7 +340,7 @@ class Crystal():
 
     def plot_me(self,max_points = 100000,water_index = None,**layout_kwargs):
         if water_index != None:
-            assert self.cell_scale == 1 and len(self.sym_rotations) == 1, "Plotting water with a unit cell symmetry not supported."
+            assert self.cell_scale == 1 and len(self.sym_rotations) == 1, "Plotting water with an added intra-cell or crystal symmetry is not supported."
         '''
         plots the symmetry points. Origin is the centre of the base asymmetric unit (not the centre of a unit cell).
         RMS error in positions ('positional_stdv') is not accounted for
@@ -349,6 +349,7 @@ class Crystal():
         num_atoms_avail = 0
         for species in self.species_dict.values():
              num_atoms_avail += len(species.coords)
+        assert water_index is None or water_index < num_atoms_avail
         num_test_points = max(1,int(max_points/(len(self.sym_translations))))
         num_test_points = min(num_atoms_avail,num_test_points)         
         test_points = np.empty((num_test_points,3))
@@ -413,7 +414,19 @@ class Crystal():
         for elem in x_range,y_range,z_range:
             max_len = max(max_len,abs(elem[1]-elem[0]))      
             min_len = min(min_len,abs(elem[1]-elem[0]))      
-              
+
+        # data for custom axis centred in the space
+        ranges = np.array([np.max(plot_coords[:,i]) - np.min(plot_coords[:,i]) for i in range(3)])
+        print("RANGES",ranges)
+        avg_range = np.sum(ranges)/3
+        step_size = max(1, 10**(np.log10(avg_range) - ((np.log10(avg_range)-1)%1)))
+        # Translate to be centred on axis ticks
+        plot_coords -= np.array([np.mean(plot_coords[:,i]) for i in range(3)])        
+        centre_x = centre_y = centre_z = 0
+        #centre_x = np.mean(plot_coords[:,0]); centre_y = np.mean(plot_coords[:,1]); centre_z = np.mean(plot_coords[:,2])
+
+        #centre_x -= centre_x%step_size; centre_y -= centre_y%step_size; centre_z -= centre_z%step_size 
+        
         scatter_points = go.Scatter3d(
             x=plot_coords[:,0], 
             y=plot_coords[:,1], 
@@ -423,6 +436,8 @@ class Crystal():
             mode='markers',
         )
         fig=go.Figure(data=scatter_points)
+        
+        # Setup 3D scene stuff
         aspect = np.empty(3)
         for i, elem in enumerate((x_range,y_range,z_range)):
             aspect[i] = abs(elem[1]-elem[0])/max_len    
@@ -438,6 +453,69 @@ class Crystal():
             ),
             
         ) 
+        # Remove default axis
+        axis_args = dict(showgrid = False, zeroline = False, showticklabels = False, title = dict(text = ""))
+        fig.update_layout(scene = dict(zaxis=axis_args,yaxis=axis_args,xaxis=axis_args))      
+        # Add custom axis centred in the space
+        print(avg_range)
+        print(step_size)
+        x_tickvals = np.append(
+            np.flip(np.arange(centre_x,np.min(plot_coords[:,0])+abs(np.min(plot_coords[:,0]))%step_size-step_size*3/4,-step_size)),
+            np.arange(centre_x,np.max(plot_coords[:,0])-abs(np.max(plot_coords[:,0]))%step_size+step_size*3/4,step_size)
+        )
+        y_tickvals = np.append(
+            np.flip(np.arange(centre_y,np.min(plot_coords[:,1])+abs(np.min(plot_coords[:,1]))%step_size-step_size*3/4,-step_size)),
+            np.arange(centre_y,np.max(plot_coords[:,1])-abs(np.max(plot_coords[:,1]))%step_size+step_size*3/4,step_size)
+        )
+        z_tickvals = np.append(
+            np.flip(np.arange(centre_z,np.min(plot_coords[:,2])+abs(np.min(plot_coords[:,2]))%step_size-step_size*3/4,-step_size)),
+            np.arange(centre_z,np.max(plot_coords[:,2])-abs(np.max(plot_coords[:,2]))%step_size+step_size*3/4,step_size)
+        )
+        x_tickvals = np.round(x_tickvals,0)
+        y_tickvals = np.round(y_tickvals,0)
+        z_tickvals = np.round(z_tickvals,0)
+        print(np.flip(np.arange(centre_y,np.min(plot_coords[:,1])+abs(np.min(plot_coords[:,1]))%step_size,-step_size)))
+        line_width = 10
+        marker_size = 10
+        fontsize = 20
+        xaxis_line =go.Scatter3d(
+                        x = x_tickvals,
+                        y = (centre_y,)*len(x_tickvals),
+                        z = (centre_z,)*len(x_tickvals),
+                        mode = "lines+markers+text",
+                        marker = dict(size=marker_size),
+                        line = dict(width = line_width),
+                        text=x_tickvals,
+                        textfont=dict(size=fontsize),
+                        )
+        yaxis_line =go.Scatter3d(
+                        y = y_tickvals,
+                        z = (centre_z,)*len(y_tickvals),
+                        x = (centre_x,)*len(y_tickvals),
+                        mode = "lines+markers+text",
+                        marker = dict(size=marker_size),
+                        line = dict(width = line_width),
+                        text=y_tickvals,
+                        textfont=dict(size=fontsize),
+                        )
+        zaxis_line =go.Scatter3d(
+                        z = z_tickvals,
+                        x = (centre_x,)*len(z_tickvals),
+                        y = (centre_y,)*len(z_tickvals),
+                        mode = "lines+markers+text",
+                        marker = dict(size=marker_size),
+                        line = dict(width = line_width),
+                        text=z_tickvals,
+                        textfont=dict(size=fontsize),
+                        )                
+        centre_ball = go.Scatter3d(x = (centre_x,centre_x), 
+                                   y = (centre_y,centre_y), 
+                                   z = (centre_z,centre_z), 
+                                   mode = "markers", 
+                                   hoverinfo = "skip", 
+                                   marker = dict(size = 8))
+        fig.add_traces([xaxis_line,yaxis_line,zaxis_line,centre_ball])
+
         # Update the kwargs separately so that we can call arguments used above without conflict.
         fig.update_layout(**layout_kwargs)
         fig.show()
@@ -2141,6 +2219,7 @@ if __name__ == "__main__":
     #exp_name2 = None
 
     #---------------------------------#
+    water_index = None # TODO automate
     if target == "neutze": #T4 virus lys
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/2lzm.pdb"
         target_handle = "lys-1_2"  
@@ -2148,9 +2227,10 @@ if __name__ == "__main__":
         allowed_atoms = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8_full_struct.pdb"      # "/home/speno/AC4DC/scripts/scattering/targets/lys_water/sol_4et8-1.pdb"
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"      # "/home/speno/AC4DC/scripts/scattering/targets/lys_water/sol_4et8-1.pdb"
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"; water_index = None
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8_full_struct.pdb" 
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"; water_index = None
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
         # target_handle = "lys_nass_2"
         # folder = "lys"
         #'''
@@ -2198,7 +2278,7 @@ if __name__ == "__main__":
         crystal_undmged.is_damaged = second_crystal_is_damaged
     else:
         crystal_undmged = Crystal(pdb_path,allowed_atoms,is_damaged=second_crystal_is_damaged,CNO_to_N = CNO_to_N, **crystal_qwargs)
-    crystal.plot_me(300000,water_index = 69632,template="plotly_dark")
+    crystal.plot_me(300000,water_index = water_index,template="plotly_dark")
 ##%%
     if laser_firing_qwargs["SPI"]:
         SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal,results_parent_dir=results_parent_folder, **laser_firing_qwargs)
