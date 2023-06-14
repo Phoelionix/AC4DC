@@ -5,6 +5,8 @@ set -x
 #Idea: Each unit cell corresponds to a unique water drop. We use a slightly different size to randomise.
 # Note that water *inside* is generated too
 # Ions are not included currently. Need to make a psf file and use -ion... though it will only include salt. And probably insignificant to scattering pattern regardless.
+
+
 PDB="4et8"
 OUTFOLDER="lys_water"
 NUM=15

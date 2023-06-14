@@ -995,8 +995,9 @@ class XFEL():
             
 
         # For unpolarised light (as used by Neutze 2000). (1/2)r_e^2(1+cos^2(theta)) is thomson scattering - recovering the correct equation for a lone electron, where |f|^2 = 1 by definition.    
+        # Generally not important due to small angles involved.
         thet = self.q_to_theta(feature.q)
-        r_e_sqr = 2.83570628e-9      
+        r_e_sqr = 2.83570628e-9
         I*= r_e_sqr*(1/2)*(1+np.square(np.cos(2*thet)))
 
         if SPI:
@@ -2218,7 +2219,13 @@ if __name__ == "__main__":
 #^^^^^^^
 
 #%%
-# Save full structures in pdb format for Solute1.0
+# Save full structures in pdb format for SOLVATE
+# Using this structure is not amazing practice, it takes a lot of time and potentially memory!
+# SOLVATE allows for generating just the water with the solute removed. So an alternative method might 
+# be generating the water for an individual unit cell with different distributions (seems possible by using slightly different thickness), 
+# stitching them together, and removing atoms that are outside the Wigner–Seitz cell.
+# We then calculate the form factor for the crystal, followed by the form factor for each of N water cells by defining water_background = Crystal(water_background_N,allowed_atoms).
+# Finally, the rest of the water drop could be calculated by generating a large distribution of water, then scaling its contribution to the form factor.
 if __name__ == "__main__":
     ##### Crystal params
     pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
