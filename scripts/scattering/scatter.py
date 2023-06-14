@@ -338,7 +338,7 @@ class Crystal():
         fname = path.basename(self.pdb_fpath)[:-4]+"_full_struct.pdb"
         io.save(dir+"/"+fname)     
 
-    def plot_me(self,max_points = 100000,water_index = None):
+    def plot_me(self,max_points = 100000,water_index = None,**layout_kwargs):
         if water_index != None:
             assert self.cell_scale == 1 and len(self.sym_rotations) == 1, "Plotting water with a unit cell symmetry not supported."
         '''
@@ -372,6 +372,7 @@ class Crystal():
 
         #Colors 
         if water_index == None:
+            alpha = None
             color = np.empty(len(plot_coords),dtype=object) 
             color.fill('blue')
             for i in range(int(len(self.sym_rotations)/self.num_cells)):           
@@ -383,11 +384,12 @@ class Crystal():
                     color[i*int(len(test_points)*len(self.sym_rotations)/self.num_cells) + j*len(test_points)] = 'yellow'      # same atom in every asym unit.  
                 color[i*len(test_points)] = 'red'      # same atom in every same unit cell         
         else:
-            kernel_color = np.empty(water_index+1,dtype=object) 
-            bg_color = np.empty(len(plot_coords)-(water_index+1),dtype=object)
-            kernel_color.fill ('green')
-            bg_color.fill('aqua')
+            kernel_color = np.empty(water_index+1,dtype=object);# kernel_alpha =  np.empty(water_index+1,dtype=np.double)
+            bg_color = np.empty(len(plot_coords)-(water_index+1),dtype=object); #bg_alpha = np.empty(len(plot_coords)-(water_index+1),dtype=np.double)
+            kernel_color.fill('rgba(92,169,4,1)'); #kernel_alpha.fill(1) 
+            bg_color.fill('rgba(0,30,255,0.1)'); #bg_alpha.fill(0.7)
             color = np.concatenate((kernel_color,bg_color))
+            #alpha = np.concatenate((kernel_alpha,bg_alpha))
         
         plot_coords = np.array(plot_coords)*ang_per_bohr # convert to angstrom
         raise_non_unique_exception = False
@@ -417,7 +419,7 @@ class Crystal():
             y=plot_coords[:,1], 
             z=plot_coords[:,2], 
             marker=go.scatter3d.Marker(color=color,size=max(1,500/(min_len+max_len))), 
-            opacity=1, 
+            #opacity=1, 
             mode='markers',
         )
         fig=go.Figure(data=scatter_points)
@@ -433,8 +435,11 @@ class Crystal():
                 zaxis = {'title': {"text": 'z [$\AA$]'}},
                 aspectratio = dict(x=aspect[0]*zoom,y=aspect[1]*zoom,z=aspect[2]*zoom),
                 #camera=dict(eye=dict(x=1,y=0,z=0.6))
-            )
+            ),
+            
         ) 
+        # Update the kwargs separately so that we can call arguments used above without conflict.
+        fig.update_layout(**layout_kwargs)
         fig.show()
 
         if raise_non_unique_exception:
@@ -2192,7 +2197,7 @@ if __name__ == "__main__":
         crystal_undmged.is_damaged = second_crystal_is_damaged
     else:
         crystal_undmged = Crystal(pdb_path,allowed_atoms,is_damaged=second_crystal_is_damaged,CNO_to_N = CNO_to_N, **crystal_qwargs)
-    crystal.plot_me(300000,water_index = 69632)
+    crystal.plot_me(300000,water_index = 69632,template="plotly_dark")
 ##%%
     if laser_firing_qwargs["SPI"]:
         SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal,results_parent_dir=results_parent_folder, **laser_firing_qwargs)
