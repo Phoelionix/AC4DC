@@ -13,7 +13,7 @@ gaussian       // Pulse shape
 
 #USE_COUNT
 true    // active (using count)?
-3.5  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
+1.75  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
 1000       // Initial guess for number of time step points for rate equation.  

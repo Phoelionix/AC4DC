@@ -738,31 +738,38 @@ class Plotter:
         self.fig.subplots_adjust(left=0.2, right=0.95, top=0.95, bottom=0.2)
 
 
-    def plot_tot_charge(self, every=1):
+    def plot_tot_charge(self, every=1,densities = False):
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
         self.aggregate_charges()
         #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
 
         T = self.timeData[::every]
-        self.Q = np.zeros(T.shape[0])
+        self.Q = np.zeros(T.shape[0]) # total charge
         for a in self.atomdict:
             atomic_charge = np.zeros(T.shape[0])
             for i in range(self.chargeData[a].shape[1]):
                 atomic_charge += self.chargeData[a][::every,i]*i
+            if not densities:
+                atomic_charge /= np.sum(self.chargeData[a][0])
             ax.plot(T, atomic_charge, label = a)
             self.Q += atomic_charge
 
-        de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])   
-        de = de [1:] - de[:-1]
-        tot_free_Q =-1*np.dot(self.freeData, de)
-        ax.plot(T, tot_free_Q[::every], label = 'Free')
-        ax.set_ylabel("Charge density ($e$ \AA$^{-3}$)")
-        self.Q += tot_free_Q[::every]
-        # ax.set_title("Charge Conservation")
-        ax.plot(T, self.Q, label='total')
+        # Free data
+        if densities:
+            de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])   
+            de = de [1:] - de[:-1]
+            tot_free_Q =-1*np.dot(self.freeData, de)
+            ax.plot(T, tot_free_Q[::every], label = 'Free')
+            ax.set_ylabel("Charge density ($e$ \AA$^{-3}$)")
+            self.Q += tot_free_Q[::every]
+            # ax.set_title("Charge Conservation")
+            ax.plot(T, self.Q, label='total')
+        else:
+            ax.set_ylabel("Average charge")
+        
         ax.legend(loc = 'upper left')
         return ax
-
+        
 
     def plot_all_charges(self, ion_fract = True, rseed=404):
         for a in self.atomdict:

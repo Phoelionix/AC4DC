@@ -417,9 +417,8 @@ class Crystal():
 
         # data for custom axis centred in the space
         ranges = np.array([np.max(plot_coords[:,i]) - np.min(plot_coords[:,i]) for i in range(3)])
-        print("RANGES",ranges)
         avg_range = np.sum(ranges)/3
-        step_size = max(1, 10**(np.log10(avg_range) - ((np.log10(avg_range)-1)%1)))
+        step_size = max(1, 2.5*10**(np.log10(avg_range/10) - ((np.log10(avg_range/10)-1)%1)))
         # Translate to be centred on axis ticks
         plot_coords -= np.array([np.mean(plot_coords[:,i]) for i in range(3)])        
         centre_x = centre_y = centre_z = 0
@@ -457,8 +456,6 @@ class Crystal():
         axis_args = dict(showgrid = False, zeroline = False, showticklabels = False, title = dict(text = ""))
         fig.update_layout(scene = dict(zaxis=axis_args,yaxis=axis_args,xaxis=axis_args))      
         # Add custom axis centred in the space
-        print(avg_range)
-        print(step_size)
         x_tickvals = np.append(
             np.flip(np.arange(centre_x,np.min(plot_coords[:,0])+abs(np.min(plot_coords[:,0]))%step_size-step_size*3/4,-step_size)),
             np.arange(centre_x,np.max(plot_coords[:,0])-abs(np.max(plot_coords[:,0]))%step_size+step_size*3/4,step_size)
@@ -476,7 +473,7 @@ class Crystal():
         z_tickvals = np.round(z_tickvals,0)
         print(np.flip(np.arange(centre_y,np.min(plot_coords[:,1])+abs(np.min(plot_coords[:,1]))%step_size,-step_size)))
         line_width = 10
-        marker_size = 10
+        marker_size = 3
         fontsize = 20
         xaxis_line =go.Scatter3d(
                         x = x_tickvals,
