@@ -247,7 +247,8 @@ void ElectronRateSolver::solve(ofstream & _log, const std::string& tmp_data_fold
 
     // Call hybrid integrator to iterate through the time steps (good state)
     good_state = true;
-    this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
+    size_t npoints = (simulation_end_time - simulation_start_time)/this->dt + 1;
+    this->iterate(_log,simulation_start_time, npoints, simulation_resume_time, steps_per_time_update); // Inherited from ABM
 
     
     
@@ -256,27 +257,7 @@ void ElectronRateSolver::solve(ofstream & _log, const std::string& tmp_data_fold
     double time = this->t[0];
     int retries = 0;  // int retries = 1;  <---- Turned off for now
     while (!good_state) {
-        if(_log.is_open()){
-            cout << " Logging."<<endl;
-            _log << endl << "[ Rate Solver ] "<< "Stopped at bad state encountered at t = " << timestep_reached << " fs"  << endl;
-            _log.flush();
-        }        
-        std::cerr<<"\033[93;1m[ Rate Solver ] Halving timestep...\033[0m"<<std::endl;  // Would be ideal to go back e.g. 0.1 fs and increase time steps, except currently a fair few bad states caused by too few time steps get through detection.
-        good_state = true;
-        input_params.num_time_steps *= 2;           // todo separate from input params
-        if (input_params.num_time_steps > MAX_T_PTS){
-            std::cerr<<"\033[31;1m[ Rate Solver ] Exceeded maximum T size. Skipping remaining iteration."<<std::endl;
-            break;
-        }
-        if (timestep_reached - time < 0 || retries == 0){
-            std::cerr<<"\033[31;1m[ Rate Solver ] Shorter timestep failed to improve convergence. Skipping remaining iteration."<<std::endl;
-            break;
-        } else {  // I don't think this is working properly? Seems to restart entirely -S.P.
-            time = timestep_reached;
-        }
-        retries--;
-        set_starting_state(); //TODO this would be broken by dynamic grid
-        this->iterate(_log,simulation_start_time, simulation_end_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
+        throw std::runtime_error("For an unexpected reason, a bad state was not or ceased being attempted to be resolved with finer timesteps.");
     }
 
     auto end = chrono::system_clock::now();

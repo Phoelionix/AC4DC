@@ -117,7 +117,8 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (n == 0) stream >> omega;
 		if (n == 1) stream >> width;
 		if (n == 2) stream >> pulse_shape;  // (Note user-defined operators)
-		if (n == 3) stream >> timespan_factor;  // (Note user-defined operators)
+		if (n == 3) stream >> timespan_factor;
+		if (n == 4) stream >> negative_timespan_factor;
 	}
 
 	string tmp = "";
@@ -205,6 +206,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	}	
 
 
+
 	// Get fluence (in 10^4 * J.cm^-2).
 	// if (use_count){ // 10^12 photons in 100 nm diam. spot
 	// 	double SPOT_RAD = 50; // nm
@@ -245,6 +247,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	}
 
 
+
 	// Give dynamic grid regions eV pulse energy 
 	elec_grid_preset.pulse_omega = omega;
 
@@ -252,6 +255,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	elec_grid_type.zero_degree_inf = 3;
 	elec_grid_type.zero_degree_0 = 0;
 
+	// TODO update this.
 	const string bc = "\033[33m"; // begin colour escape code
 	const string clr = "\033[0m"; // clear escape code
 	// 80 equals signs
@@ -350,6 +354,10 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P. TODO 
 	if (out_T_size <= 0) { cerr<<"ERROR: system set to output zero timesteps"; is_valid=false; }
 	if (out_F_size <= 0) { cerr<<"ERROR: system set to output zero energy grid points"; is_valid=false; }
 	if (loss_geometry.L0 <= 0) { cerr<<"ERROR: radius must be positive"; is_valid=false; }
+	if (timespan_factor < 0 || negative_timespan_factor < 0) {cerr << "ERROR, timespan factors must be postive"; is_valid = false;}
+	if (timespan_factor < negative_timespan_factor){cerr << "ERROR, the timespan factor for the negative times must be smaller than the full timespan factor";is_valid=false;}
+	if (pulse_shape == PulseShape::square && timespan_factor < 4){cerr << "ERROR, timespan too short to capture full square pulse";is_valid=false;}
+	if (pulse_shape == PulseShape::square && negative_timespan_factor != 0){cerr << "ERROR, timespan for negative times cannot be specified with square pulse";is_valid=false;}
 	if (use_fluence + use_count + use_intensity != 1) {cerr << "ERROR, require exactly one of #USE_FLUENCE, #USE_COUNT, and #USE_INTENSITY to be active ";is_valid = false;}
 	if (omp_threads <= 0) { omp_threads = 4; cerr<<"Defaulting number of OMP threads to 4"; }
 

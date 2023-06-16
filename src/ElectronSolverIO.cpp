@@ -83,7 +83,6 @@ void ElectronRateSolver::file_delete_check(const std::string& fname){
 void ElectronRateSolver::saveFree(const std::string& fname) {
     file_delete_check(fname);
 
-    double min_outputted_points = 25;
     // Saves a table of free-electron dynamics to file fname
     ofstream f;
     cout << "Free: \033[94m'"<<fname<<"'\033[95m | ";
@@ -139,7 +138,6 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
 void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     file_delete_check(fname);
 
-    double min_outputted_points = 25;
 
     ofstream f;
     cout << "Free Raw: \033[94m'"<<fname<<"'\033[95m | ";
@@ -149,7 +147,6 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     f << "# Time (fs) | Expansion Coeffs (not density)"  << endl;
     
     assert(y.size() == t.size());
-    // output at least min_outputted_points, otherwise output with spacing that is unaffected if simulation was cut off early.
     double t_fineness = timespan_au  / num_steps_out;
     double previous_t = t[0]-t_fineness;
     int i = -1; 
@@ -172,7 +169,6 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
 
 
 void ElectronRateSolver::saveBound(const std::string& dir) {
-    double min_outputted_points = 25;
     // saves a table of bound-electron dynamics , split by atom, to folder dir.
     assert(y.size() == t.size());
     // Iterate over atom types
@@ -328,7 +324,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         assert(dt < timespan_au);
         input_params.num_time_steps = std::round(this->timespan_au/dt);
     }
-    this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance); // Set up so we can load, then in loadBound we will set it correctly for the step we load from.
+    this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance); // Set up so we can load, but in load_bound we set zero_y to the correct basis.
     steps_per_time_update = max(1 , (int)(input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
 
 

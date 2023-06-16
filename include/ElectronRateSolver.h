@@ -60,21 +60,23 @@ public:
         pf.set_shape(input_params.pulse_shape);
         pf.set_pulse(input_params.Fluence(), input_params.Width());
         
-        timespan_au = input_params.Width()*input_params.timespan_factor;
+        timespan_au = input_params.timespan_factor*input_params.Width();
         if (input_params.pulse_shape ==  PulseShape::square){  //-FWHM <= t <= 3FWHM (we've squished the pulse into the first FWHM.)
-            if (timespan_au <= 0)
+            if (timespan_au <= 0)  // 0 by default
                 timespan_au = round_time(input_params.Width()*4,true); // 4*FWHM, capturing effectively entire pulse.
-            simulation_start_time = -input_params.Width();
+            simulation_start_time = -input_params.Width(); // e.g. if the timespan_au is 10 fwhm, the first fwhm is the pulse.
         } else { //-1.2FWHM <= t <= 1.2 FWHM
-            if (timespan_au <= 0)
-                timespan_au = round_time(input_params.Width()*2.4,true);   // 99% of pulse, (similar to Neutze)
+            if (timespan_au <= 0) // 0 by default
+                timespan_au = round_time(input_params.Width()*2.4,true);   // > 99% of pulse, (similar to Neutze)
             
             simulation_start_time = -timespan_au/2;
+            if (input_params.negative_timespan_factor != 0)
+                simulation_start_time = -input_params.negative_timespan_factor*input_params.Width();
         }
         simulation_start_time = round_time(simulation_start_time);
         simulation_end_time =  simulation_start_time + timespan_au; 
-        std::cout<<"Imaging from "<<simulation_start_time/input_params.Width() <<" FWHM to " 
-        << simulation_end_time/input_params.Width() <<" FWHM"<<std::endl;
+        std::cout<<"\033[33m"<<"Imaging from "<<simulation_start_time/input_params.Width() <<" FWHM to " 
+        << simulation_end_time/input_params.Width() <<" FWHM"<<"\033[0m"<<std::endl;
         
         if (input_params.Cutoff_Inputted()){
             if (input_params.Simulation_Cutoff() > simulation_end_time){

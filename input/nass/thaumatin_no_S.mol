@@ -12,14 +12,15 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 7114         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
-4 // total sim time in fwhm
+8 // total sim time in fwhm
+2 // total sim time pre-centre of pulse (not allowed for square pulse) 
 
 #USE_COUNT
 true    // active (using count)?
 2.2  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
-1000      // Initial guess for number of time step points for rate equation.
+2000      // Initial guess for number of time step points for rate equation.
 18            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
@@ -33,6 +34,9 @@ N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
+#LOAD
+thaumatin_no_S_3
+
 #DEBUG
 99 //10     // Simulation cutoff time in fs
 0.01    // Interval to update current timestep [fs].
@@ -41,5 +45,5 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 Notes:
 Medium XMDYN probe pulse params for thaumatin used in Nass et al 2020 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7156470/
 PDB: https://www.rcsb.org/structure/5FGX
-Probe pulse only, 
+Probe pulse only.
 Closer to xmdyn charge state results than when S is included (~2.5 charge for light atoms at 30 fs, as opposed to 3.5).

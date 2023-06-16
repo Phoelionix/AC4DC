@@ -86,7 +86,7 @@ class Hybrid : public Adams_BM<T>{
     std::vector<double> times_to_increase_dt;  
     
     void run_steps(ofstream& _log, const double t_resume, const int steps_per_time_update);  // TODO clean up bootstrapping. -S.P.
-    void iterate(ofstream& _log, double t_initial, double t_final, const double t_resume, const int steps_per_time_update);
+    void iterate(ofstream& _log, double t_initial, size_t npoints_initial, const double t_resume, const int steps_per_time_update);
     void initialise_transient_y(int n); // Approximates initial stiff intermediate steps
     void initialise_transient_y_v2(int n); // Uses lagrange interpolation to approximate initial stiff intermediate steps
     void modify_ministeps(const int n,const int num_ministeps);
@@ -110,14 +110,21 @@ class Hybrid : public Adams_BM<T>{
 template<typename T>
 // t_resume = the time to resume simulation from if loading a sim. -S.P.
 // _log only used for cross-section recalcs atm.
-void Hybrid<T>::iterate(ofstream& _log, double t_initial, double t_final, const double t_resume, const int steps_per_time_update) {
+/**
+ * @brief 
+ * 
+ * @param _log 
+ * @param t_initial 
+ * @param npoints Initial number of time steps, defining the end time along with this->dt. Thus allows flexibility in chosen end time. 
+ * @param t_resume 
+ * @param steps_per_time_update 
+ */
+void Hybrid<T>::iterate(ofstream& _log, double t_initial, size_t npoints, const double t_resume, const int steps_per_time_update) {
     if (this->dt < 1E-16) {
         std::cerr<<"WARN: step size "<<this->dt<<"is smaller than machine precision"<<std::endl;
     } else if (this->dt < 0) {
         throw std::runtime_error("Step size is negative!");
     }
-
-    size_t npoints = (t_final - t_initial)/this->dt + 1;
     
     bool resume_sim = (t_resume == t_initial) ? false : true;
 

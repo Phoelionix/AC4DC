@@ -80,7 +80,9 @@ public:
 	ManualGridBoundaries elec_grid_regions;
 	LossGeometry loss_geometry;
 	PulseShape pulse_shape = PulseShape::none;
-	double timespan_factor = -1;
+	// Gaussian modifications
+	double timespan_factor = 0;  // if set, is the total simulated timespan in units of the pulse width (fwhm) 
+	double negative_timespan_factor = 0; // if set, the total simulated timespan of the pulse before the t=0 point.
 
 	int num_time_steps = -1; // Number of time steps for time dynamics
 
