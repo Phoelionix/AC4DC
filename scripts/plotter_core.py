@@ -727,9 +727,7 @@ class Plotter:
         if ion_fract:
             ax.set_ylabel(r"Ion Fraction")
 
-        num_cols = 1+int(num_traces/30-num_traces%30/30)
-        print(num_traces)
-        print(num_cols)
+        num_cols = 1+round(num_traces/30-num_traces%30/30)
         #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)
         ax.legend(loc='upper left',bbox_to_anchor=(1, 1),fontsize=4,ncol=num_cols)
 
@@ -750,7 +748,7 @@ class Plotter:
         self.fig.subplots_adjust(left=0.2, right=0.95, top=0.95, bottom=0.2)
 
 
-    def plot_tot_charge(self, every=1,densities = False):
+    def plot_tot_charge(self, every=1,densities = True):
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
         self.aggregate_charges(True)
         #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)

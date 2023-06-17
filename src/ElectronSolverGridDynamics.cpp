@@ -346,7 +346,7 @@ void ElectronRateSolver::transition_energy(size_t step, double& g_min){
         new_min = min(new_min,approx_regime_trough(step,regimes.mb_peak,input_params.Omega(),2/Constant::eV_per_Ha)); 
     }
     // if(allow_decrease) 
-    //     g_min = new_min;
+    g_min = new_min;  
     // else               
-    g_min = max(g_min,new_min); // if the previous transition energy was higher, use that (good way to wait out instability).
+    //g_min = max(g_min,new_min); // if the previous transition energy was higher, use that.  (Can be quite bad at low fluences, as it can lead to a higher cutoff for photopeaks than there should be, leading to the transition energy in the next step going higher than the photopeaks, leading to much higher temperature at low temperature regime.)
 }
