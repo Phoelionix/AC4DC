@@ -1,5 +1,5 @@
 #ATOMS
-Gd_fast 2
+Gd_galli 2
 S_fast 10
 N 991
 
@@ -11,20 +11,20 @@ N 991
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-8480         // Photon energy in eV.
+7112         // Photon energy in eV.
 40           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
 
 #USE_COUNT
 true    // active (using count)?
-7.8  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
+0.13  // Photon density (x10^12 ph.µm-2)
 
 #NUMERICAL
 4000      // Initial guess for number of time step points for rate equation.
 18            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
-l              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
+l           //support for 50-200 eV   // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
 10.05            // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
@@ -35,11 +35,11 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-99 //10  // Simulation cutoff time in fs
+99 //10     // Simulation cutoff time in fs
 0.01    // Interval to update current timestep [fs].
 ####END#####
 
 Notes:
-Requires a very large amount of memory as the second shell is able to be ionised.
-Saturated fluence
-
+Reduced to below L edges (energies of nass), to test effect of locking those out, as was the case in Nass's work.
+The null hypothesis is that the damage should increase as energy decreases, with photon count held constant (fluence decreases). 
+Predict that, since the L edge provides a large number of auger energy/'cold' photoelectrons, damage will be noticeably delayed.

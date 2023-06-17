@@ -38,7 +38,7 @@ def parse_elecs_from_latex(latexlike):
     return qdict
 
 
-ATOMS = 'H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Gd'.split()
+ATOMS = 'H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'.split()
 ATOMNO = {}
 i = 1
 for symbol in ATOMS:
@@ -46,6 +46,9 @@ for symbol in ATOMS:
     ATOMNO[symbol + '_fast'] = i
     ATOMNO[symbol + '_faster'] = i
     i += 1
+ATOMNO["Gd"] = 64
+ATOMNO["Gd_galli"] = 64 
+ATOMNO["Gd_fast"] = 64
 
 
 def get_colors(num, seed):
@@ -620,7 +623,7 @@ class Plotter:
             print("Average occupancy:",average_occupancy)
             print("Atomic density:", atomic_density)
 
-    def aggregate_charges(self):
+    def aggregate_charges(self,charge_difference=False):
         # populates self.chargeData based on contents of self.boundData
         for a in self.atomdict:
             states = self.statedict[a]
@@ -629,10 +632,13 @@ class Plotter:
                 msg += ' (got %d, expected %d)' % (len(states), self.boundData[a].shape[1])
                 raise RuntimeError(msg)
 
+            initial_charge = 0
+            if charge_difference:
+                initial_charge = ATOMNO[a] - sum(parse_elecs_from_latex(states[0]).values()) 
             self.chargeData[a] = np.zeros((self.boundData[a].shape[0], ATOMNO[a]+1))
             for i in range(len(states)):
                 orboccs = parse_elecs_from_latex(states[i])
-                charge = ATOMNO[a] - sum(orboccs.values())
+                charge = ATOMNO[a] - sum(orboccs.values()) - initial_charge 
                 self.chargeData[a][:, charge] += self.boundData[a][:, i]
 
 
@@ -705,21 +711,27 @@ class Plotter:
         max_at_zero = np.max(self.chargeData[a][0,:]) 
         norm = 1
         if ion_fract:
-            norm = 1/max_at_zero             
+            norm = 1/max_at_zero            
+        num_traces = 0 
         for i in range(self.chargeData[a].shape[1]):
             mask = self.chargeData[a][:,i] > max_at_zero*2
             mask |= self.chargeData[a][:,i] < -max_at_zero*2
-            Y = np.ma.masked_where(mask, self.chargeData[a][:,i])           
+            Y = np.ma.masked_where(mask, self.chargeData[a][:,i])     
+            if np.sum(Y) == 0:
+                continue                 
             ax.plot(self.timeData, Y*norm, label = "%d+" % i)
+            num_traces+=1 
             #print("Charge: ", i ,", time: ",self.timeData[print_idx], ", density: ",self.chargeData[a][print_idx,i])
         # ax.set_title("Charge state dynamics")
         ax.set_ylabel(r"Density (\AA$^{-3}$)")
         if ion_fract:
             ax.set_ylabel(r"Ion Fraction")
 
-        
+        num_cols = 1+int(num_traces/30-num_traces%30/30)
+        print(num_traces)
+        print(num_cols)
         #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)
-        ax.legend(loc='upper left',bbox_to_anchor=(1, 1),fontsize=4)
+        ax.legend(loc='upper left',bbox_to_anchor=(1, 1),fontsize=4,ncol=num_cols)
 
     def plot_subshell(self, a, subshell='1s',rseed=404):
         if not hasattr(self, 'ax_subshell'):
@@ -740,7 +752,7 @@ class Plotter:
 
     def plot_tot_charge(self, every=1,densities = False):
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
-        self.aggregate_charges()
+        self.aggregate_charges(True)
         #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
 
         T = self.timeData[::every]
@@ -765,7 +777,7 @@ class Plotter:
             # ax.set_title("Charge Conservation")
             ax.plot(T, self.Q, label='total')
         else:
-            ax.set_ylabel("Average charge")
+            ax.set_ylabel("Charge difference")  # Sometimes we start with charged states.
         
         ax.legend(loc = 'upper left')
         return ax

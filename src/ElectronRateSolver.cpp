@@ -114,7 +114,8 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             double photo_peak = -1, photo_min = 1e9, photo_max = -1e9; 
             for(auto& atom : input_params.Store) {
                 for(auto& r : atom.Photo) {      
-                    photo_min = min(photo_min,r.energy*5/6);
+                    //photo_min = min(photo_min,r.energy*5/6);
+                    photo_min = max(100*e,min(photo_min,r.energy*5/6));
                     photo_max = max(photo_max,r.energy*7/6);
                 }
             }

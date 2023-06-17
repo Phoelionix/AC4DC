@@ -32,7 +32,8 @@ set_highlighted_excepthook()
 #handle =  "lys_nass_no_S_2"#"sulfur_3shell_baseline_3"#"Naive_Lys_mid_21"#"Carbon_294"#"Carbon_Wiggleless_2500_Fluence"#"Carbon_Sanders"""
 #handle =  "lys_nass_6"#
 #handle =  "lys_nass_Gd_12"#
-handles = ["lys_nass_no_S_2","lys_nass_6","lys_nass_Gd_16"]
+#handles = ["lys_nass_no_S_2","lys_nass_6","lys_nass_Gd_16"]
+handles = ["lys_nass_Gd_16"]
 #######
 for handle in handles:
     label = handle +'_' 
@@ -48,7 +49,7 @@ for handle in handles:
 
     # form factors dependent on q 
     #atoms = pl.atomdict
-    atoms = ["N"]
+    atoms = ["N","Gd_fast"]
     for atom in atoms:
         pl.plot_ffactor_get_R_sanders(atom)
         # Atomic form factor at time as a function of q
@@ -57,8 +58,9 @@ for handle in handles:
 
         pl.plot_form_factor(6,[atom])
         plt.title(handle+" - "+atom) 
-    #pl.plot_form_factor(6)
-    plt.title(handle+" - combined") 
+    if len(atoms) > 1:
+        pl.plot_form_factor(6)
+        plt.title(handle+" - combined") 
 
     #print(pl.get_A_bar(-10,-7.5,12,12,"C_fast","C_fast",100))
 

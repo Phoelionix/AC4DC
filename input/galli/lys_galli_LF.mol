@@ -11,7 +11,7 @@ N 991
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-8000         // Photon energy in eV.
+8480         // Photon energy in eV.
 40           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
 
@@ -24,7 +24,7 @@ true    // active (using count)?
 18            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
-A           //support for 50-200 eV   // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
+L           //support for 50-200 eV   // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
 10.05            // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
@@ -40,6 +40,5 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 ####END#####
 
 Notes:
-Reduced to below L edges, to test effect of locking those out, as was the case in Nass's work.
-The null hypothesis is that the damage should increase at lower energies, with constant photon count. 
-Predict that, since the L edge provides a large number of auger energy/'cold' photoelectrons, damage will be noticeably delayed.
+Requires a very large amount of memory as the second shell is able to be ionised.
+Pulse set so that theoretical average of 1 photoionisation event per Gd 

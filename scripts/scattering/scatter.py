@@ -1839,6 +1839,20 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                         plt.xticks(ticks,ticklabels)
                         plt.yticks(ticks,ticklabels)
                         plt.show()   
+                    print ("Plotting ")
+                    I1 = result1.I
+                    I2 = result2.I
+                    log_ratio = np.log((I1/I1[int(len(I1)/2)][int(len(I1)/2)])/(I2/I2[int(len(I2)/2)][int(len(I2)/2)]))
+                    fig, ax = plt.subplots()
+                    ax.imshow(bg)
+                    I_map = ax.imshow(log_ratio,vmin=-0.5,vmax=0.5,cmap="plasma")#"nipy_spectral_r")
+                    plt.colorbar(I_map)
+                    ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
+                    ticklabels = ["{:6.2f}".format(q_row_0_el[1]) for q_row_0_el in result1.q_scr_xy[0]]
+                    plt.xticks(ticks,ticklabels)
+                    plt.yticks(ticks,ticklabels)
+                    plt.show()                      
+
 
                     print("sum of real","{:e}".format(np.sum(sqrt_real)),"sum of ideal","{:e}".format(np.sum(sqrt_ideal)),"sum of abs difference","{:e}".format(R_num))       
                 
@@ -2224,10 +2238,10 @@ if __name__ == "__main__":
         allowed_atoms = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"; water_index = None
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"; water_index = None
         #pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8_full_struct.pdb" 
         #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"; water_index = None
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
         # target_handle = "lys_nass_2"
         # folder = "lys"
         #'''

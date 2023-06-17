@@ -34,9 +34,6 @@ N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
-#LOAD
-thaumatin_no_S_3
-
 #DEBUG
 99 //10     // Simulation cutoff time in fs
 0.01    // Interval to update current timestep [fs].

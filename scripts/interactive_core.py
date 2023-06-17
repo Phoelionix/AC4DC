@@ -48,6 +48,10 @@ for symbol in ATOMS:
     ATOMNO[symbol + '_fast'] = i
     #ATOMNO[symbol + '_faster'] = i
     i += 1
+ATOMNO["Gd"] = i 
+ATOMNO["Gd_galli"] = i 
+ATOMNO["Gd_fast"] = i
+i+= 1
 
 
 # def get_colors(num, seed):
