@@ -1,9 +1,9 @@
 //lysozyme https://files.rcsb.org/pub/pdb/validation_reports/et/4et8/4et8_full_validation.pdf
 #ATOMS
-C_fast 613
-N_fast 193
-O_fast 185
-S_fast 10
+C 613
+N 193
+O 185
+S 10
 
 #VOLUME
 20000.00      // Volume per molecule in Angstrom^3.
