@@ -13,7 +13,7 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 // #define OUTPUT_DFDT_TO_CERR
 #endif
 
-//#define NO_TBR
+#define NO_TBR
 //#define NO_EE   // This can break the dynamic grid late in the simulation at low energies.
 //#define NO_EII
 
@@ -26,6 +26,8 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 
 //#define NO_PLOTTING
 //#define NO_BACKUP_SAVING
+
+//#define BOUND_GD_HACK
 /////////////
 
 

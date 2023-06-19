@@ -114,7 +114,7 @@ public:
     std::chrono::duration<double, std::milli> 
     display_time, plot_time, dyn_dt_time, backup_time, pre_ode_time, // pre_ode
     dyn_grid_time, user_input_time, post_ode_time,  // post_ode
-    pre_tbr_time, eii_time, tbr_time,  // sys_bound
+    pre_tbr_time, transport_time, eii_time, tbr_time,  // sys_bound
     ee_time, apply_delta_time; //sys_ee 
 
     std::chrono::_V2::system_clock::time_point time_of_last_save;   
@@ -227,6 +227,15 @@ private:
     /// Folder that saves data periodically (period determined by minutes_per_save)
     string data_backup_folder; 
     bool grid_initialised = false;
+
+
+    // Rates tracking: (this should be a class esp. due to checkpoint loading but I don't have time to do this properly)
+    std::vector<double> bound_transport_rate;
+    std::vector<double> photo_rate;
+    std::vector<double> fluor_rate;
+    std::vector<double> auger_rate;
+    std::vector<double> eii_rate;
+    std::vector<double> tbr_rate;
 };
 
 

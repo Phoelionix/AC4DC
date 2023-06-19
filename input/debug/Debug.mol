@@ -1,45 +1,39 @@
+// AC4DC input file generated from: input/templates/lys_all_light.mol
+
 #ATOMS
-Gd_galli 2
-S_fast 10
-N 991
-
-
+C_fast 613
+N_fast 193
+O_fast 185
 
 #VOLUME
-20000        // Volume per molecule in Angstrom^3.
-500         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons (assumes surrounded by a void).
-none // Spatial boundary shape - options are none, spherical, cylindrical, planar
+20000.00      // Volume per molecule in Angstrom^3.
+2000         // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+none         // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
 
 #PULSE
-8000         // Photon energy in eV.
-40           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-gaussian       // Pulse shape
+12000         // Photon energy in eV.
+7.5         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
+gaussian     // Pulse shape.
 
 #USE_COUNT
-true    // active (using count)?
-0.13  // Photon density (x10^12 ph.µm-2)
+true         // enabled? true/false.
+1.00            // Photon density (x10^12 ph.µm-2)
 
 #NUMERICAL
-4000      // Initial guess for number of time step points for rate equation.
-18            // Number of threads in OpenMP.
+1000        // Initial guess for number of time step points for rate equation.
+18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
-A           //support for 50-200 eV   // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
-10.05            // Grid update period in fs, (dynamic grid only).
+low          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
+2.50         // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
-800         // Number of time steps in the output files.
-4000        // number of free-electron grid points in output file.
-N            // Write atomic charges in a separate file (Y/N)?
-Y            // Write intensity in a separate file (Y/N)?
-Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
+800          // Number of time steps in the output files.
+4000         // Number of free-electron grid points in output file.
 
 #DEBUG
-99 //10     // Simulation cutoff time in fs
-0.01    // Interval to update current timestep [fs].
-####END#####
+999           // Simulation cutoff time in fs (can end before but not after).
+0.01          // Interval to display current timestep [fs].
+####END####
 
 Notes:
-Reduced to below L edges, to test effect of locking those out, as was the case in Nass's work.
-The null hypothesis is that the damage should increase at lower energies, with constant photon count. 
-Predict that, since the L edge provides a large number of auger energy/'cold' photoelectrons, damage will be noticeably delayed.

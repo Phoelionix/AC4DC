@@ -272,13 +272,13 @@ void ElectronRateSolver::solve(ofstream & _log, const std::string& tmp_data_fold
     std::vector<std::chrono::duration<double, std::milli>> times{
     display_time, plot_time, dyn_dt_time, backup_time, pre_ode_time,
     dyn_grid_time, user_input_time, post_ode_time,
-    pre_tbr_time, eii_time, tbr_time,
+    pre_tbr_time, transport_time, eii_time, tbr_time,
     ee_time, apply_delta_time
     };
     std::vector<std::string> tags{
     "display", "live plotting", "dt updates", "data backups", "pre_ode()",
     "dynamic grid updates", "user input detection", "post_ode()",
-    "misc bound processes", "get_Q_eii()", "get_Q_tbr()",
+    "misc bound processes", "bound-e transport", "get_Q_eii()", "get_Q_tbr()",
     "get_Q_ee()", "applyDeltaF()"
     };
     
@@ -353,6 +353,12 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
     sdot=0;
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
 
+    photo_rate.push_back(0); 
+    fluor_rate.push_back(0); 
+    auger_rate.push_back(0); 
+    bound_transport_rate.push_back(0);
+    tbr_rate.push_back(0); 
+    eii_rate.push_back(0); 
     if (!good_state) return;
     for (size_t a = 0; a < s.atomP.size(); a++) {
         auto t9 = std::chrono::high_resolution_clock::now();
@@ -375,6 +381,8 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             sdot.bound_charge +=  tmp;
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
+        photo_rate.back() += sdot.bound_charge;
+        double old_bound_charge = sdot.bound_charge;
         #ifdef DEBUG_BOUND
         for(size_t i=0;i < Pdot.size();i++){
             assert(Pdot[i] + P[i] >= 0);
@@ -382,8 +390,10 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         #endif    
         // FLUORESCENCE
         for ( auto& r : input_params.Store[a].Fluor) {
-            Pdot[r.to] += r.val*P[r.from];
-            Pdot[r.from] -= r.val*P[r.from];
+            double tmp = r.val*P[r.from];
+            Pdot[r.to] += tmp;
+            Pdot[r.from] -= tmp;
+            fluor_rate.back() +=tmp;
             // Energy from optical photon assumed lost
         }
         #ifdef DEBUG_BOUND
@@ -401,10 +411,46 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
             sdot.bound_charge +=  tmp;
         }
-        // CHARGE TRANSPORT
+        auger_rate.back() += sdot.bound_charge - old_bound_charge;
+        old_bound_charge = sdot.bound_charge;
+        /// CHARGE TRANSPORT
+        auto t_transport = std::chrono::high_resolution_clock::now();
         // Every heavy atom state is moved (or not moved) in ratios corresponding to the population of light atom states, and divided by the user-defined charge transport timescale.
         // average charge transferred to heavy atoms is tracked. this charge, divided by the user-defined number of light atom neighbours, is a first order approximation for the local drainage of electrons. 
         // If the local drainage of electrons is 1, then we modify the ratios by assigning the population of a light atom state to the light atom state with 1 less valence electron. If it's 1.5, then we do the same, and then move half of those down to the state corresponding to 2 less valence electrons. (we just go to next orbital if we run out of valence electrons)
+        /// Upper bound quick hack version, taking first index, transferring to next 3 indices. Should be relatively accurate for low fluences like in Galli 2015.
+        #ifdef BOUND_GD_HACK
+        size_t heavy_idx = 0;  // Gd
+        std::vector<double> light_fractions = {0,0,0.5,0.5,0}; // Fraction of complex light atoms make up, in index order ({Gd,C,N, O, S} in this case)
+        if (a == heavy_idx){
+            for (auto& r : input_params.Store[a].EnergyConfig){
+                if (r.receiver_index < 0) continue;
+
+                for (size_t a2 = 0; a2 < s.atomP.size(); a2++) {
+                    if (light_fractions[a2] == 0 || a2 == a) 
+                        continue;
+                    double transfer_factor = light_fractions[a2]*P[r.index]/y[0].atomP[a2][0]/dt;
+                    // Iterate through each donor state
+                    // valence energy is *negative*
+                    for (auto& r2 : input_params.Store[a2].EnergyConfig){
+                        if (r.valence_energy >= r2.valence_energy || r2.donator_index < 0) 
+                            continue;
+                        double tmp = s.atomP[a2][r2.index]*transfer_factor;
+                        // Donor state loses an electron
+                        sdot.atomP[a2][r2.index] -= tmp; 
+                        sdot.atomP[a2][r2.donator_index] += tmp;
+                        // Receiver state gains an electron
+                        Pdot[r.receiver_index] += tmp;
+                        Pdot[r.index] -= tmp;             
+                        // track rate
+                        bound_transport_rate.back()+=tmp;                   
+                    }
+                }            
+            }
+        }
+        #endif  //BOUND_GD_HACK
+        transport_time += std::chrono::high_resolution_clock::now() - t_transport;        
+
         #ifdef DEBUG_BOUND
         for(size_t i=0;i < Pdot.size();i++){
             assert(Pdot[i] + P[i] >= 0);
@@ -413,9 +459,10 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
 
         // EII / TBR bound-state dynamics
         double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
-        double sdot_bound_charge_subst = 0; 
+        double sdot_bound_charge_eii_subst = 0; 
+        double sdot_bound_charge_tbr_subst = 0; 
         size_t N = Distribution::size; 
-        #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_subst)     
+        #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_eii_subst,sdot_bound_charge_tbr_subst)     
         for (size_t n=0; n<N; n++) {
             double tmp=0; // aggregator
             
@@ -425,7 +472,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
                     tmp = finPair.val*s.F[n]*P[init];
                     Pdot_subst[finPair.idx] += tmp;
                     Pdot_subst[init] -= tmp;
-                    sdot_bound_charge_subst += tmp;   //TODO Not a minus sign like others, double check that's intentional. -S.P.
+                    sdot_bound_charge_eii_subst += tmp;   //TODO Not a minus sign like others, double check that's intentional. -S.P.
                 }
             }
             #endif
@@ -443,7 +490,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
                         tmp = finPair.val*s.F[n]*s.F[m]*P[init]*2;
                         Pdot_subst[finPair.idx] += tmp;
                         Pdot_subst[init] -= tmp;
-                        sdot_bound_charge_subst -= tmp;
+                        sdot_bound_charge_tbr_subst -= tmp;
                     }
                 }
             }
@@ -454,7 +501,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
                     tmp = finPair.val*s.F[n]*s.F[n]*P[init];
                     Pdot_subst[finPair.idx] += tmp;
                     Pdot_subst[init] -= tmp;
-                    sdot_bound_charge_subst -= tmp;
+                    sdot_bound_charge_tbr_subst -= tmp;
                 }
             }
             #endif
@@ -469,7 +516,9 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             // }
             #endif
         }
-        sdot.bound_charge += sdot_bound_charge_subst;
+        sdot.bound_charge += sdot_bound_charge_eii_subst + sdot_bound_charge_tbr_subst;
+        eii_rate.back() += sdot_bound_charge_eii_subst;
+        tbr_rate.back() += sdot_bound_charge_tbr_subst;
 
         auto t10 = std::chrono::high_resolution_clock::now();
         pre_tbr_time += t10 - t9;
@@ -612,7 +661,11 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
                 throw runtime_error("Unexpected error, could not interpolate times when loading checkpoint.");
         }
     }
-
+    photo_rate.resize(n); 
+    fluor_rate.resize(n); 
+    auger_rate.resize(n); 
+    tbr_rate.resize(n); 
+    eii_rate.resize(n); 
     reload_grid(_log, n, saved_knots,interpolated_states);  // TODO!!!! We need to interpolate from the saved states (linear will do since it's only the first few steps) so that the time step size is correct. 
     
 
@@ -918,6 +971,7 @@ void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool fo
 
 // Reloads grid using knots and the states needed for the first step of the ode 
 // next_ode_states_used - includes current step
+// Does not resize containers
 void ElectronRateSolver::reload_grid(ofstream& _log, size_t latest_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used){
     size_t n = latest_step;
    

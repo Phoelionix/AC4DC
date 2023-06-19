@@ -333,7 +333,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 					double valence_energy = 0;
 					for (int j = MaxBindInd; j < Orbitals.size(); j++) {
 						if (Orbitals[j].occupancy() == 0) continue;
-						valence_energy = tmpEIIparams.ionB[size];
+						valence_energy = -tmpEIIparams.ionB[size];
 						size++;
 					}
 					int receiver_orbital = -1;
@@ -370,6 +370,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 						donator_idx = mapOccInd(Orbitals);
 						Orbitals[donator_orbital].set_occupancy(old_occ);
 					}
+					assert(valence_energy < 0);
 					LocalEnergyConfig.push_back(energy_config{(int)i,valence_energy,receiver_idx,donator_idx});  // if valence energy of atom 1 at receiver_idx + valence energy of atom 2 at donator_idx  << current valence energies, transport occurs.
 				}
 				DecayRates Transit(lattice, Orbitals, u, input);

@@ -172,11 +172,11 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
     // saves a table of bound-electron dynamics , split by atom, to folder dir.
     assert(y.size() == t.size());
     // Iterate over atom types
+    ofstream f;    
     for (size_t a=0; a<input_params.Store.size(); a++) {
         string fname = dir+"dist_"+input_params.Store[a].name+".csv";
         file_delete_check(fname);
         
-        ofstream f;
         cout << "Bound: \033[94m'"<<fname<<"'\033[95m | ";
         f.open(fname);
         f << "# Ionic electron dynamics"<<endl;
@@ -202,8 +202,31 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
             f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i].atomP[a]<<endl;   // prob. multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au
             previous_t = t[i];
         }
-        f.close();
+        f.close();           
     }
+    // save rates
+    string fname = dir+"rates.csv";
+    f.open(fname);
+    f << "# Densities transferred over each time period (previous_time;time]" <<endl;
+    f << "# Time (fs) | photo|fluor|auger|transport|eii|tbr" <<endl;
+    double t_fineness = timespan_au  / num_steps_out;
+    double previous_t = t[0]-t_fineness;
+    std::vector<double> density = {0,0,0,0,0,0};
+    int i = -1;
+    i++;
+    while (i <  static_cast<int>(t.size())-1){
+        i++;      
+        // sum up the densities over the time gap. Rate at step i-1 corresponds to change added to step i.
+        std::vector<double> tmp {photo_rate[i],fluor_rate[i],auger_rate[i],bound_transport_rate[i],eii_rate[i],tbr_rate[i]};
+        for (size_t j = 0; j < density.size();j++)
+            density[j] += tmp[j]*(t[i]-t[i-1]);            
+        if(t[i] < previous_t + t_fineness && i<= t.size()-extra_fine_steps_out){ 
+            continue;
+        }
+        f<<round_time(t[i]*Constant::fs_per_au) << ' ' << density<<endl;
+        density = {0,0,0,0,0,0};       
+    }
+    f.close(); 
 }
 
 

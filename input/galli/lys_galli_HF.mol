@@ -1,8 +1,9 @@
 #ATOMS
 Gd_galli 2
-S_fast 10
-N 991
-
+C 613
+N 193
+O 185
+S 10
 
 
 #VOLUME
@@ -24,7 +25,7 @@ true    // active (using count)?
 18            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
-L              // support for 50-200 eV //Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
+l              // support for 50-200 eV //Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
 10.05            // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
