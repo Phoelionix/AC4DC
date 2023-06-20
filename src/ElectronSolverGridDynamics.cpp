@@ -325,7 +325,7 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
 
 /**
  * @brief A basic quantifier of the ill-defined transition region
- * @details While this is a terrible approximation at later times,(it's unclear how to define the transition region as the peaks merge),
+ * @details While this is a terrible approximation for the transition energy at later times,(it's unclear how to define the transition region as the peaks merge),
  * a) the dln(Λ)/dT < 1 as ln(Λ) propto ln(T_e^(3/2)), i.e. an accurate measure at low T is most important (kind of, at very low T transport coefficients dominate).
  * b) The coulomb logarithm is capped to 23.5 for ee collisions, which is where it is used. [and get_Q_ee limits it to approx. half of this cap though I need to determine why)
  * See https://www.nrl.navy.mil/ppd/content/nrl-plasma-formulary.
@@ -338,18 +338,22 @@ void ElectronRateSolver::transition_energy(size_t step, double& g_min){
     #endif
     //TODO assert that this is called after MB and dirac regimes updated.
 
+    double upper_bound = 1.5*g_min; // ?Fix? for low fluence, but just set to infinity to get old behaviour that works fine for standard fluences.
     // for these functions, if a trough is negative then it defaults to using g_min.
     double new_min = INFINITY;
     for(auto &dirac_peak : regimes.dirac_peaks){
+        upper_bound = min(upper_bound,0.9*dirac_peak);
         if (dirac_peak < 0) continue;
-        new_min = min(new_min,approx_regime_trough(step,regimes.mb_peak,0.9*dirac_peak,2/Constant::eV_per_Ha)); 
+        new_min = min(new_min,approx_regime_trough(step,regimes.mb_peak,upper_bound,2/Constant::eV_per_Ha)); 
     }
     // no peaks left, we just look for minimum between mb peak and photon energy. 
     if (new_min == INFINITY){
-        new_min = min(new_min,approx_regime_trough(step,regimes.mb_peak,input_params.Omega(),2/Constant::eV_per_Ha)); 
+        upper_bound = min(upper_bound,input_params.Omega());
+        new_min = min(new_min,approx_regime_trough(step,regimes.mb_peak,upper_bound,2/Constant::eV_per_Ha)); 
     }
     // if(allow_decrease) 
     g_min = max(250/Constant::eV_per_Ha,max(g_min*0.5,new_min));  // As a stopgap, prevents decreases of transition energy over half the previous.
+    
     // else               
     //g_min = max(g_min,new_min); // if the previous transition energy was higher, use that.  (Can be quite bad at low fluences, as it can lead to a higher cutoff for photopeaks than there should be, leading to the transition energy in the next step going higher than the photopeaks, leading to much higher temperature at low temperature regime.)
 }
