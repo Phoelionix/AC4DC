@@ -289,7 +289,9 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
     double min_peak_energy = 0.5*peak;
         // a) Prevent a change if it's too big. At early times, the MB peak may not yet be taller than the auger peak.
         // b) designed to be below photoeletron peaks, TODO make this input-dependent at least.
-    double max_peak_energy = max(10/Constant::eV_per_Ha,min(2*peak,2000/Constant::eV_per_Ha)); // TODO make this an input option -> TODO this will start to fail if updating much faster than dynamics does (i.e. low XFEL intensities) - especially since at low intensities low energy peaks become significant! meaning it will double each update. Though it works decently with abdallah neon at 0.25 fs update period.
+    double max_mb_peak_considered = 0.7*input_params.elec_grid_preset.pulse_omega/Constant::eV_per_Ha; // Same as min photopeak
+    // Have to restrict peak from increasing too fast. This is very rough and will need to be altered to consider pulse parameters.
+    double max_peak_energy = max(10/Constant::eV_per_Ha,min(5*peak,max_mb_peak_considered)); // TODO make this an input option -> TODO this will start to fail if updating much faster than dynamics does (i.e. low XFEL intensities) - especially since at low intensities low energy peaks become significant!
     // Step size is hundredth of the previous peak past a peak of 1 eV. Note gets stuck on hitch at early times, but not a big deal as the minimum size of new_max lets us get through this. 
     // Alternatively could just implement local max detection for early times.
     double e_step_size = max(1./Constant::eV_per_Ha,peak)/200; 
@@ -298,7 +300,7 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
 
     double kT = 2*peak;
     // CDF = Γ(3/2)γ(3/2,E/kT)
-    double new_min = max(first_gp_min_E,0.2922*kT);  // simulation min (TODO put in variable) , 90% of electrons above this point
+    double new_min = max(first_gp_min_E,Distribution::get_mb_min()*kT);
     if(_min < new_min || allow_shrinkage){
         _min = new_min;
     }
@@ -308,8 +310,9 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
     size_t num_sequential_needed = 3; // early times are safeguarded from inflections being too small by disallowing shrinkage
     double new_max = approx_regime_bound(step,peak, +e_step_size, num_sequential_needed,5,1./2.);
     */
-    double new_max = 2.3208*kT; // 80% of electrons below this point (lower since not as sharp)
-    if(_max < new_max || allow_shrinkage)
+
+    double new_max = Distribution::get_mb_max()*kT; // 
+    if(_max < new_max || allow_shrinkage)    // Allowing it to fall and allowing it to rise can both run into issues,
         _max = std::min(new_max,Distribution::get_max_E());
 }
 
@@ -346,7 +349,7 @@ void ElectronRateSolver::transition_energy(size_t step, double& g_min){
         new_min = min(new_min,approx_regime_trough(step,regimes.mb_peak,input_params.Omega(),2/Constant::eV_per_Ha)); 
     }
     // if(allow_decrease) 
-    g_min = max(250/Constant::eV_per_Ha,new_min);  
+    g_min = max(250/Constant::eV_per_Ha,max(g_min*0.5,new_min));  // As a stopgap, prevents decreases of transition energy over half the previous.
     // else               
     //g_min = max(g_min,new_min); // if the previous transition energy was higher, use that.  (Can be quite bad at low fluences, as it can lead to a higher cutoff for photopeaks than there should be, leading to the transition energy in the next step going higher than the photopeaks, leading to much higher temperature at low temperature regime.)
 }

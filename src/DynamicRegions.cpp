@@ -33,7 +33,7 @@ This file is part of AC4DC.
 /**
  * @brief 
  * @details  
- * Static regions (named for the feature they are modelling when dynamic region not present):
+ * Static regions (named for the feature they are fitting when dynamic region not present):
  * - Low E divergent region
  * - Auger region
  * - Tail region
@@ -48,6 +48,9 @@ This file is part of AC4DC.
 
 GridRegions::GridRegions(){
     int pts_per_dirac = 10; 
+    // Defaults for Maxwell-Boltzmann (thermalised electrons) region bounds, but overwritten in some presets.
+    mb_min_over_kT =  0.2922; //  90% of electrons above this point
+    mb_max_over_kT =  2.3208; //  80% of electrons below this point (lower since not as sharp)
 } 
 void GridRegions::initialise_regions(DynamicGridPreset preset){
     // Initialise regions
@@ -98,6 +101,7 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         };    
         break;  
       case DynamicGridPreset::heavy_support:
+        mb_max_over_kT = 2.3208*2;  
         preset_name = "Heavy atom support";
         pts_per_dirac = 10;
         regions = {
@@ -107,7 +111,7 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
             Region((int)(0.5+ 6*trans_scaling),600,preset.pulse_omega/4,"static"), // transition
             Region(15,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
             Region(4,preset.pulse_omega*6/4,preset.pulse_omega*2.5,"static"), // high tail
-            Region(15,-1,-1,"mb"), // Maxwell-boltzmann distribution
+            Region(15*2,-1,-1,"mb"), // Maxwell-boltzmann distribution
         };    
         break;          
       case DynamicGridPreset::dismal_acc:

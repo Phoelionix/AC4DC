@@ -61,6 +61,8 @@ public:
     GridRegions(size_t num_static);
     void update_regions(FeatureRegimes rgm);
     std::vector<Region> regions;
+    double mb_min_over_kT; // min of MB region = mb_min_over_kT*kT;
+    double mb_max_over_kT; // max of MB region = mb_min_over_kT*kT;
 
 protected:
     void initialise_regions(DynamicGridPreset preset);

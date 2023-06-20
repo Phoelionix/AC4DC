@@ -264,7 +264,12 @@ public:
     static double get_max_E(){
         return basis.max_elec_e();
     }
-
+    static double get_mb_min(){
+        return basis.mb_min_over_kT;
+    }
+    static double get_mb_max(){
+        return basis.mb_max_over_kT;
+    }
     static size_t size;
     double my_size(){return f.size();}
     static std::vector<double> load_knots_from_history(size_t step_idx);
