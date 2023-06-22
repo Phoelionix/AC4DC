@@ -353,12 +353,14 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
     sdot=0;
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
 
-    photo_rate.push_back(0); 
-    fluor_rate.push_back(0); 
-    auger_rate.push_back(0); 
-    bound_transport_rate.push_back(0);
-    tbr_rate.push_back(0); 
-    eii_rate.push_back(0); 
+    // Incorrect currently, Need to implement this with the ODE solver somehow :/
+    photo_rate = fluor_rate = auger_rate = bound_transport_rate = tbr_rate = eii_rate = {0}; 
+    // photo_rate.push_back(0); 
+    // fluor_rate.push_back(0); 
+    // auger_rate.push_back(0); 
+    // bound_transport_rate.push_back(0);
+    // tbr_rate.push_back(0); 
+    // eii_rate.push_back(0); 
     if (!good_state) return;
     for (size_t a = 0; a < s.atomP.size(); a++) {
         auto t9 = std::chrono::high_resolution_clock::now();
@@ -429,7 +431,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
                 for (size_t a2 = 0; a2 < s.atomP.size(); a2++) {
                     if (light_fractions[a2] == 0 || a2 == a) 
                         continue;
-                    double transfer_factor = light_fractions[a2]*P[r.index]/y[0].atomP[a2][0]/dt;
+                    double transfer_factor = light_fractions[a2]*P[r.index]/y[0].atomP[a2][0]/dt/10; // VERY lazy OOM approximation corresponding to a very conservatively overestimated lifetime of 0.24 fs.
                     // Iterate through each donor state
                     // valence energy is *negative*
                     for (auto& r2 : input_params.Store[a2].EnergyConfig){

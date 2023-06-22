@@ -101,17 +101,18 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         };    
         break;  
       case DynamicGridPreset::heavy_support:
-        mb_max_over_kT = 2.3208*2;  
+        mb_max_over_kT = 2.3208*4/3;  
         preset_name = "Heavy atom support";
         pts_per_dirac = 10;
         regions = {
+            //Region(1,1.2,5,"static"),
             Region(5,10,20, "static"), Region(5,20,50, "static"),  // low support
-            Region(15,50,200,"static"),  // auger
-            Region(7,200,600,"static"), 
+            Region(12,50,200,"static"),  // auger
+            Region(12,200,600,"static"), 
             Region((int)(0.5+ 6*trans_scaling),600,preset.pulse_omega/4,"static"), // transition
             Region(15,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
             Region(4,preset.pulse_omega*6/4,preset.pulse_omega*2.5,"static"), // high tail
-            Region(15*2,-1,-1,"mb"), // Maxwell-boltzmann distribution
+            Region(20,-1,-1,"mb"), // Maxwell-boltzmann distribution
         };    
         break;          
       case DynamicGridPreset::dismal_acc:

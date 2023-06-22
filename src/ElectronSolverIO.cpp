@@ -204,7 +204,8 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         }
         f.close();           
     }
-    // save rates
+    // save rates. // DISABLED as rates not integrated with solver properly yet.
+    /*
     string fname = dir+"rates.csv";
     f.open(fname);
     f << "# Densities transferred over each time period (previous_time;time]" <<endl;
@@ -227,6 +228,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         density = {0,0,0,0,0,0};       
     }
     f.close(); 
+    */
 }
 
 
@@ -676,9 +678,12 @@ void ElectronRateSolver::log_config_settings(ofstream& _log){
     #ifdef NO_EII
     _log << "[ Config ] Electron-Impact ionisation disabled in config.h" << endl;
     #endif
+    #ifdef BOUND_GD_HACK
+    _log << "[ Config ] hacky bound transport enabled" << endl;
+    #endif
     #ifdef NO_MINISTEPS
     _log << "[ Config ] Stiff solver intermediate steps disabled in config.h" << endl;
     #elif defined NO_MINISTEP_UPDATING
-    _log << "[ Config ] Stiff solver intermediate step updated disabled" << endl;
+    _log << "[ Config ] Stiff solver's (experimental) intermediate step size updating disabled" << endl;
     #endif
 }
