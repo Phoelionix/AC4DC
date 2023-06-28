@@ -1021,7 +1021,6 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t latest_step, std::ve
     
     // update the tensor of coefficients 
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic)
-        
         initialise_rates();    
 
     std::cout.clear();

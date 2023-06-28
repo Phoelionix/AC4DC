@@ -306,10 +306,10 @@ void BasisSet::set_parameters(const GridSpacing& gt, ManualGridBoundaries& manua
     // Neumann boundary:
     // t0=t1=...=tk-3, tn+3=...=tn+k
     
-    // boundary at minimm energy enforces energy conservation 
+    // boundary at minimum energy enforces energy conservation 
     this->_min = 0;
     if (gt.mode == GridSpacing::dynamic){
-        if (dyn_grid_preset.selected != DynamicGridPreset::unknown); // This will only be true on initial run - a preset is not passed when updating the grid.
+        if (dyn_grid_preset.selected != DynamicGridPreset::unknown) // By default this will be False, only on initialisation of sim do we pass the preset to this function.
             initialise_regions(dyn_grid_preset);
         assert(regions.size() > 0);
         this->_max = dynamic_max_inner_knot();  
