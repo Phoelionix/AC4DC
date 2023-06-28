@@ -297,10 +297,6 @@ void BasisSet::set_parameters(const GridSpacing& gt, ManualGridBoundaries& manua
     this -> _manual_region_bndry_energy = manual_elec_grid_regions.bndry_E;   
     this -> _region_powers = manual_elec_grid_regions.powers;   
 
-    if (dyn_grid_preset.selected != DynamicGridPreset::unknown)
-        initialise_regions(dyn_grid_preset);
-    assert(regions.size() > 0);
-
     // Idea: Want num_funcs usable B-splines
     // If grid has num_funcs+k+1 points, num_funcs of these are usable splines (num_int = num_funcs + Z_inf - start)
     // grid layout for open boundary:
@@ -312,21 +308,26 @@ void BasisSet::set_parameters(const GridSpacing& gt, ManualGridBoundaries& manua
     
     // boundary at minimm energy enforces energy conservation 
     this->_min = 0;
-    if(gt.mode == GridSpacing::manual){    
+    if (gt.mode == GridSpacing::dynamic){
+        if (dyn_grid_preset.selected != DynamicGridPreset::unknown); // This will only be true on initial run - a preset is not passed when updating the grid.
+            initialise_regions(dyn_grid_preset);
+        assert(regions.size() > 0);
+        this->_max = dynamic_max_inner_knot();  
+        set_knot(gt,regimes);        
+    }
+    else{    
+        assert(gt.mode == GridSpacing::manual);
         this->_max = manual_elec_grid_regions.bndry_E.back();
         num_funcs = manual_elec_grid_regions.bndry_idx.back();
         manual_set_knot(gt);
     }    
-    else{
-        this->_max = dynamic_max_inner_knot();  
-        set_knot(gt,regimes);
-    }
     // std::cout << "Knots set to: ";
     // for (double e: knot)
     //     std::cout << e*Constant::eV_per_Ha << ' ';
     // cout << std::endl;
     compute_overlap(num_funcs);
 }
+
 
 void BasisSet::compute_overlap(size_t num_funcs){
     std::vector<Eigen::Triplet<double>> tripletList;

@@ -13,13 +13,13 @@ S 10
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-7520         // Photon energy in eV.
+7620         // Photon energy in eV.
 40           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
 
 #USE_COUNT
 true    // active (using count)?
-0.13  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
+7.8  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
 8000   //30000      // Initial guess for number of time step points for rate equation.
@@ -36,8 +36,6 @@ N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
-
-
 #DEBUG
 99 //10  // Simulation cutoff time in fs
 0.01    // Interval to update current timestep [fs].
@@ -50,7 +48,3 @@ Due to approximations (such as removing the 5th shell) and without relativistic 
 Thus to explore the effect we reduce the energy to match the L-edge to photon energy gap of 103 eV.
 
 
-#LOAD
-lys_galli_LF_L_edge_17
--27
-true

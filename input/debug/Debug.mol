@@ -1,39 +1,48 @@
-// AC4DC input file generated from: input/templates/lys_all_light.mol
-
+// Carbon (amorphous similar to Hau-Riege). Assumes 100nm cylindrical beam fired into much larger target.
+// Confirmed to work with AC4DCv2 - Totally Non Thermal (Sanders 2020 thesis).
 #ATOMS
-C_fast 613
-N_fast 193
-O_fast 185
+C 1
 
 #VOLUME
-20000.00      // Volume per molecule in Angstrom^3.
-2000         // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
-none         // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
+18.11        // Volume per molecule in Angstrom^3.
+2000         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
+none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-12000         // Photon energy in eV.
-7.5         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
-gaussian     // Pulse shape.
+6000         // Photon energy in eV.
+10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+square       // Pulse shape
+1           // simulation total timespan, as a multiple of fwhm
 
-#USE_COUNT
+#USE_FLUENCE
 true         // enabled? true/false.
-1.00            // Photon density (x10^12 ph.µm-2)
+2500         // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
-1000        // Initial guess for number of time step points for rate equation.
-18           // Number of threads in OpenMP.
+1000           //  Original: 200000          // Initial guess for number of time step points for rate equation.
+18            // Number of threads in OpenMP.
 
-#DYNAMIC_GRID
-low          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
-2.50         // Grid update period in fs, (dynamic grid only).
+#MANUAL_GRID
+true        // use manual grid? If false, dynamic grid is used.
+2000           // Transition energy.  The temperature, and thus coulomb logarithm, is approximated by calculating the equilibrium definition of temperature for the energy distribution below this cutoff.
+1|35|100                 // manual grid boundary indices, with point at 0 excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
+2.8571|2000|10000       // manual grid boundary energies, with point at 0 excluded. No spaces.
+1|1
 
 #OUTPUT
-800          // Number of time steps in the output files.
-4000         // Number of free-electron grid points in output file.
+800         // Number of time steps in the output files.
+4000        // number of free-electron grid points in output file.
+N            // Write atomic charges in a separate file (Y/N)?
+Y            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
+
 
 #DEBUG
-999           // Simulation cutoff time in fs (can end before but not after).
+999           // end time [fs].
 0.01          // Interval to display current timestep [fs].
 ####END####
 
 Notes:
+
+
+

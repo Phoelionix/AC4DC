@@ -171,7 +171,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
     }
     else{
         _log << "[ Manual Grid ] Setting static grid" <<endl;
-        std::runtime_error("Needs reimplemenation");
+        Distribution::set_basis(step, input_params.elec_grid_type, param_cutoffs, regimes, elec_grid_regions);
     }
 
 
@@ -668,7 +668,7 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     auger_rate.resize(n); 
     tbr_rate.resize(n); 
     eii_rate.resize(n); 
-    reload_grid(_log, n, saved_knots,interpolated_states);  // TODO!!!! We need to interpolate from the saved states (linear will do since it's only the first few steps) so that the time step size is correct. 
+    reload_grid(_log, n, saved_knots,interpolated_states);
     
 
     /* [These ideas need a bit of effort and consideration if it is to be implemented, or even better a more effective adaptive step size algo could be implemented. But questionable if worth it.]
@@ -887,7 +887,7 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
     //////  Dynamic grid updater ////// 
     #ifndef SWITCH_OFF_ALL_DYNAMIC_UPDATES
     auto t_start_grid = std::chrono::high_resolution_clock::now();
-    if ((n-this->order+1)%steps_per_grid_transform == 0){ // TODO would be good to have a variable that this is equal to that is modified to account for changes in time step size. If a dt decreases you push back the grid update. If you increase dt you could miss it.
+    if (input_params.elec_grid_type.mode == GridSpacing::dynamic && (n-this->order+1)%steps_per_grid_transform == 0){ // TODO would be good to have a variable that this is equal to that is modified to account for changes in time step size. If a dt decreases you push back the grid update. If you increase dt you could miss it.
         Display::popup_stream << "\n\rUpdating grid... \n\r"; 
         _log << "[ Dynamic Grid ] Updating grid" << endl;
         Display::show(Display::display_stream,Display::popup_stream);   
@@ -978,11 +978,13 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t latest_step, std::ve
     size_t n = latest_step;
    
     std::cout.setstate(std::ios_base::failbit);  // disable character output
-    // set basis to one given by knots
-    while(Distribution::knots_history.back().step >= n && Distribution::knots_history.size() > 0){
-        Distribution::knots_history.pop_back();
-    }            
-    Distribution::set_basis(latest_step, param_cutoffs, regimes,  knots);
+    if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
+        // set basis to one given by knots
+        while(Distribution::knots_history.back().step >= n && Distribution::knots_history.size() > 0){
+            Distribution::knots_history.pop_back();
+        }            
+        Distribution::set_basis(latest_step, param_cutoffs, regimes,  knots);
+    }
 
     // Set up the container class to have the correct size
     state_type::set_P_shape(input_params.Store);
@@ -1016,8 +1018,11 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t latest_step, std::ve
     y.resize(input_params.num_time_steps);  
     initialise_transient_y((int)latest_step);
     
-    // create the tensor of coefficients 
-    initialise_rates();    
+    
+    // update the tensor of coefficients 
+    if (input_params.elec_grid_type.mode == GridSpacing::dynamic)
+        
+        initialise_rates();    
 
     std::cout.clear();
 

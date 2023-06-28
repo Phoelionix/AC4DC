@@ -19,12 +19,12 @@ true         // enabled? true/false.
 2500         // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
-120000        // Initial guess for number of time step points for rate equation.
+1000        // Initial guess for number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
-low          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
-0.25         // Grid update period in fs, (dynamic grid only).
+medium          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
+1         // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
 800          // Number of time steps in the output files.
@@ -34,7 +34,7 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #LOAD
-carbon_classic_dynamic_9
+//carbon_classic_dynamic_9
 
 #DEBUG
 99           // end time
