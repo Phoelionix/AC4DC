@@ -60,7 +60,7 @@ public:
         pf.set_shape(input_params.pulse_shape);
         pf.set_pulse(input_params.Fluence(), input_params.Width());
         
-        timespan_au = input_params.timespan_factor*input_params.Width();
+        timespan_au = round_time(input_params.timespan_factor*input_params.Width());
         if (input_params.pulse_shape ==  PulseShape::square){  //-FWHM <= t <= 3FWHM (we've squished the pulse into the first FWHM.)
             if (timespan_au <= 0)  // 0 by default
                 timespan_au = round_time(input_params.Width()*4,true); // 4*FWHM, capturing effectively entire pulse.
