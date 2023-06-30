@@ -219,6 +219,17 @@ void BasisSet::manual_set_knot(const GridSpacing& gt){
         
         hyb_powlaw_factor[rgn] = (E_N - E_M)/pow(n_N-n_M, p);
     }
+    // classic power law
+    bool classic_mode = true;
+    double p_powlaw;
+    double A_powlaw;
+    if (classic_mode){
+        double transition_e  = 2000/Constant::eV_per_Ha;
+        size_t num_low = 35;
+        size_t M = num_low + 1;
+        p_powlaw = (log(_max-_min) - log(transition_e - _min))/(log(1.*num_funcs/M));
+        A_powlaw = (_max - _min)/pow(num_funcs, p_powlaw);
+    }
 
     std::cout<<"[ Manual Knot ] Using splines of "<<BSPLINE_ORDER<<"th order "<<std::endl;
     std::cout<<"[ Manual Knot ] (i.e. piecewise polynomial has leading order x^"<<BSPLINE_ORDER-1<<")"<<std::endl;
@@ -250,22 +261,30 @@ void BasisSet::manual_set_knot(const GridSpacing& gt){
 
     // Keep in mind: At i=0, the value of knot will still be _min
     bool used_good_grid = false;
+
     for(size_t i=start; i<=num_funcs + Z_inf; i++) {
-        // Generalised custom spacing
-        //  Get the index of the region (rgn) that this point is part of.
-        size_t rgn = 0;
-        for( ; rgn < _region_powers.size(); rgn++){
-            if( i - start < _manual_region_bndry_index[rgn+1]
-                || rgn == _region_powers.size() - 1){
-                break;
-                }
+        if (!classic_mode){
+            used_good_grid = true;        
+            // Generalised custom spacing
+            //  Get the index of the region (rgn) that this point is part of.
+            size_t rgn = 0;
+            for( ; rgn < _region_powers.size(); rgn++){
+                if( i - start < _manual_region_bndry_index[rgn+1]
+                    || rgn == _region_powers.size() - 1){
+                    break;
+                    }
+            }
+            n_M = _manual_region_bndry_index[rgn];
+            E_M = _manual_region_bndry_energy[rgn];
+            p = _region_powers[rgn];            
+            // Calculate the knot energy
+            knot[i] = hyb_powlaw_factor[rgn] * pow(i - n_M - start, p) + E_M;
         }
-        n_M = _manual_region_bndry_index[rgn];
-        E_M = _manual_region_bndry_energy[rgn];
-        p = _region_powers[rgn];            
-        // Calculate the knot energy
-        knot[i] = hyb_powlaw_factor[rgn] * pow(i - n_M - start, p) + E_M;
+        else{
+            knot[i] = A_powlaw * pow(i-start, p_powlaw) + _min;
+        }        
     }
+
     if(!used_good_grid) std::cout << "WARNING, this grid type is obsolete, if a dynamic grid is not possible, using a targeted grid is favourable. See README." <<std::endl; 
     // t_{n+1+z_infinity} has been set now. Repeat it until the end.
     for (size_t i= num_funcs + 1 + Z_inf; i< num_funcs+BSPLINE_ORDER; i++) {

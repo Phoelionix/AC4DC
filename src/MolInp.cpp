@@ -167,7 +167,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		stringstream stream(FileContent["#MANUAL_GRID"][n]);
 		if (n == 0) stream >> elec_grid_type; // "true" for manual.		
 		//#GRID ,
-		if (n == 1) stream >> param_cutoffs.transition_e;
+		if (n == 1) stream >> param_cutoffs.transition_e; 
 		if (n == 2) stream >> elec_grid_regions; //elec_grid_regions.bndry_idx
 		if (n == 3) stream >> elec_grid_regions; //elec_grid_regions.bndry_E
 		if (n == 4) stream >> elec_grid_regions; //elec_grid_regions.powers

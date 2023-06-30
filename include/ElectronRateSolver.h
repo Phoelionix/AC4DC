@@ -56,6 +56,8 @@ public:
     Hybrid(3), input_params(filename, log), pf() // (order Adams method), argument of Hybrid = order. num steps used for implicit adams-moulton = order - 1.
     {
         log_config_settings(log);
+
+        param_cutoffs = input_params.param_cutoffs;
         
         pf.set_shape(input_params.pulse_shape);
         pf.set_pulse(input_params.Fluence(), input_params.Width());
