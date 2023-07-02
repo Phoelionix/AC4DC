@@ -351,6 +351,9 @@ class Crystal():
         RMS error in positions ('positional_stdv') is not accounted for
         '''
         plt.close()
+        view_width = 1000
+        view_height = 800
+
         num_atoms_avail = 0
         for species in self.species_dict.values():
              num_atoms_avail += len(species.coords)
@@ -376,24 +379,40 @@ class Crystal():
             coord_list = self.get_sym_xfmed_point(test_points,i).tolist()
             plot_coords.extend(coord_list)  
 
-        #Colors 
+        #Colors - which to highlight (root atom is first atom of cell)
+        c_first_root_atom = True # red
+        c_first_unit = True # pink
+        c_first_cell = True # aquamarine
+        c_all_root_atoms = True # yellow
+
+        top_atom_index = 0 # index of atom that has highest z
+        max_height = -np.inf
+        for i,coord in enumerate(test_points):
+            if coord[2] > max_height:
+                max_height = coord[2]
+                top_atom_index = i 
         if water_index == None:
             alpha = None
             color = np.empty(len(plot_coords),dtype=object) 
-            color.fill('blue')
-            for i in range(int(len(self.sym_rotations)/self.num_cells)):           
-                color[i*self.num_cells*len(test_points):i*self.num_cells*len(test_points)+len(test_points)] = 'aquamarine' #'c'  # atoms in one unit cell  
-            color[:len(test_points)] = 'green'  # atoms in one asym unit       
+            color.fill('green')
+            if c_first_cell:
+                for i in range(int(len(self.sym_rotations)/self.num_cells)):           
+                    color[i*self.num_cells*len(test_points):i*self.num_cells*len(test_points)+len(test_points)] = 'aquamarine' #'c'  # atoms in one unit cell  
+            if c_first_unit:
+                color[:len(test_points)] = 'pink'  # atoms in one asym unit       
             #Cursed but it works. 
+           
             for i in range(self.num_cells):
-                for j in range(int(len(self.sym_rotations)/self.num_cells)):
-                    color[i*int(len(test_points)*len(self.sym_rotations)/self.num_cells) + j*len(test_points)] = 'yellow'      # same atom in every asym unit.  
-                color[i*len(test_points)] = 'red'      # same atom in every same unit cell         
+                if c_all_root_atoms:
+                    for j in range(int(len(self.sym_rotations)/self.num_cells)):
+                        color[i*int(len(test_points)*len(self.sym_rotations)/self.num_cells) + j*len(test_points) + top_atom_index] = 'yellow'      # same atom in every asym unit.  
+                if c_first_root_atom:
+                    color[i*len(test_points)+top_atom_index] = 'red'      # same atom in every same unit cell         
         else:
             kernel_color = np.empty(water_index+1,dtype=object);# kernel_alpha =  np.empty(water_index+1,dtype=np.double)
             bg_color = np.empty(len(plot_coords)-(water_index+1),dtype=object); #bg_alpha = np.empty(len(plot_coords)-(water_index+1),dtype=np.double)
             kernel_color.fill('rgba(92,169,4,1)'); #kernel_alpha.fill(1) 
-            bg_color.fill('rgba(0,30,255,0.1)'); #bg_alpha.fill(0.7)
+            bg_color.fill('rgba(0,30,255,0.2)'); #bg_alpha.fill(0.7)
             color = np.concatenate((kernel_color,bg_color))
             #alpha = np.concatenate((kernel_alpha,bg_alpha))
         
@@ -420,13 +439,13 @@ class Crystal():
             max_len = max(max_len,abs(elem[1]-elem[0]))      
             min_len = min(min_len,abs(elem[1]-elem[0]))      
 
-        titles = [{"text": ax+'$ [\AA]$'} for ax in ['x','z','y']]
+        titles = [{"text": ax+'$ [\AA]$'} for ax in ['x','y','z']]
         xaxis,yaxis,zaxis = [{'title': title} for title in titles]
         ##
         custom_axes = False #(i.e. we won't use the axis variables above)
+        ranges = np.array([np.max(plot_coords[:,i]) - np.min(plot_coords[:,i]) for i in range(3)])
         if custom_axes:
             # data for custom axis centred in the space
-            ranges = np.array([np.max(plot_coords[:,i]) - np.min(plot_coords[:,i]) for i in range(3)])
             avg_range = np.sum(ranges)/3
             step_size = max(1, 2.5*10**(np.log10(avg_range/10) - ((np.log10(avg_range/10)-1)%1)))
             # Translate to be centred on axis ticks
@@ -435,36 +454,77 @@ class Crystal():
             #centre_x = np.mean(plot_coords[:,0]); centre_y = np.mean(plot_coords[:,1]); centre_z = np.mean(plot_coords[:,2])
 
             #centre_x -= centre_x%step_size; centre_y -= centre_y%step_size; centre_z -= centre_z%step_size 
-        origin_on_corner = True
+        origin_on_corner = True  
+        #size = 5.5*max(1,500/(min_len+max_len))   # asym unit
+        #size = 7.5*max(1,500/(min_len+max_len))   # unit
+        size = 10*max(1,500/(min_len+max_len))   #solvated crystal
+        #angular_aperture = np.pi*0.6 # asym unit / crystal unit cell
+        angular_aperture = np.pi*0.7 # Solvated crystal        
+        #dot_lw = 1 # asym
+        #dot_lw = 0.1 # unit
+        dot_lw = 0 # cryst        
         if origin_on_corner:
+            max_num_ticks = 7
             minima = np.array([np.min(plot_coords[:,i]) for i in range(3)])
             
             #Translate origin to corner.
             plot_coords -= minima  
+            minima = np.array([np.min(plot_coords[:,i]) for i in range(3)])
             maxima = np.array([np.max(plot_coords[:,i]) for i in range(3)])
-            addendums = [dict(tickfont=dict(size=15), nticks=4, range=[0,maximi]) for maximi in maxima]
+            tick_spacing = 10
+            addendums = [dict(tickfont=dict(size=15), showbackground=False,mirror="all", nticks=1+max(1,round(m*1.4/tick_spacing)), range=[0,m*1.4]) for m in maxima] #nticks=max(2,round(m/max(maxima)*max_num_ticks))
+            addendums[1]["range"] = [0,maxima[1]] #pull back wall in
+            addendums[1]["nticks"] = 1+max(1,round(maxima[1]/tick_spacing))
             for i, axis in enumerate([xaxis,yaxis,zaxis]):
                 axis |= addendums[i]
             
-            
+
+            # Calculate size relative to view from camera that is capturing full width of structure.
+            # Hacky as I am assuming camera is at a certain position.
+            r = size  # some arbitrary 'radius' of visible atom that is equivalent to the largest possible pixel width. 
+            #width = view_width/r
+            # a guess (increase to make fall off more slowly)
+
+            target_length = np.sqrt(np.sum([range**2 for range in ranges]))
+            distance_to_full_capture = np.tan(angular_aperture/2)*(target_length/2)
+            psi = -np.pi/4; thet=np.pi/4 #Camera position relative to target's centre
+            #psi = -np.pi/2; thet=np.pi/6 # cryst alternate angle
+            camera_pos = [distance_to_full_capture*np.sin(thet)*np.cos(psi),distance_to_full_capture*np.sin(thet)*np.sin(psi),distance_to_full_capture*np.cos(thet)]
+            max_atom_angle = np.arctan(r/(target_length/2))
+            atom_distances = [np.sqrt(np.sum([(val-camera_pos[i])**2 for i, val in enumerate(coord)])) for coord in plot_coords]
+            #r*angle/max_angle
+            size = [r*np.arctan(r/(distance_to_full_capture + d))/max_atom_angle for d in atom_distances]
+        #size = max(1,500/(min_len+max_len))  
+
 
         scatter_points = go.Scatter3d(
             x=plot_coords[:,0], 
             y=plot_coords[:,1], 
             z=plot_coords[:,2], 
-            marker=go.scatter3d.Marker(color=color,size=max(1,500/(min_len+max_len))), 
-            #opacity=1, 
+            marker=go.scatter3d.Marker(color=color,size=size,line=dict(width=dot_lw,color='black'),opacity=1), 
             mode='markers',
         )
         fig=go.Figure(data=scatter_points)
-        
+        # def sphere(x, y, z, radius, resolution=4):
+        #     """Return the coordinates for plotting a sphere centered at (x,y,z)"""
+        #     u, v = np.mgrid[0:2*np.pi:resolution*2j, 0:np.pi:resolution*1j]
+        #     X = radius * np.cos(u)*np.sin(v) + x
+        #     Y = radius * np.sin(u)*np.sin(v) + y
+        #     Z = radius * np.cos(v) + z
+        #     return (X, Y, Z)
+        # scatter_spheres = []
+        # for point in plot_coords:
+        #     (x_pns_surface, y_pns_surface, z_pns_surface) = sphere(*point,max(1,500/(min_len+max_len)))
+        #     scatter_spheres.append(go.Surface(x=x_pns_surface, y=y_pns_surface, z=z_pns_surface, opacity=0.5))
+        #fig=go.Figure(data=scatter_spheres)
         # Setup 3D scene stuff
         aspect = np.empty(3)
-        for i, elem in enumerate((x_range,y_range,z_range)):
+        for i, elem in enumerate((x_range*1.4,y_range,z_range*1.4)):
             aspect[i] = abs(elem[1]-elem[0])/max_len    
         zoom = 1.8 # inital zoom      
         fig.update_layout(
             margin=dict(l=20,r=20,t=20,b=20),
+            width=view_width, height=view_height,
             scene = dict(
                 xaxis = xaxis,
                 yaxis = yaxis,
@@ -2262,7 +2322,6 @@ if __name__ == "__main__":
         CNO_to_N = True
     elif target == "hen": # egg white lys
         #pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8_full_struct.pdb" 
         #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"
         pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
         # target_handle = "lys_nass_2"
@@ -2346,7 +2405,7 @@ if __name__ == "__main__":
     crystal_qwargs = dict(
         cell_scale = 3,  # for SC: cell_scale^3 unit cells
         positional_stdv = 0,  # Not used
-        include_symmetries = True,  # should unit cell contain symmetries?
+        include_symmetries = False,  # should unit cell contain symmetries?
         cell_packing = "SC",
         rocking_angle = 1,  # (approximating mosaicity)
         CNO_to_N = False,
