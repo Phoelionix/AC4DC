@@ -62,11 +62,16 @@ import pickle
 import colorcet as cc; import cmasher as cmr
 from mpl_toolkits.mplot3d import Axes3D
 import plotly.graph_objects as go
-
+import plotly.offline as pltly_offline
+from IPython.display import display, HTML
 from IPython import get_ipython
 if __name__ == "__main__":
     get_ipython().run_line_magic('colors', 'nocolor')
     get_ipython().run_line_magic('matplotlib', 'widget')
+    # pltly_offline.init_notebook_mode()
+    # display(HTML(
+    #     '<script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-MML-AM_SVG"></script>'
+    # ))    
 
 plt.ioff()  # stops weird vscode stuff
 
@@ -356,7 +361,7 @@ class Crystal():
         qualifier = "sample of"
         if num_atoms_avail == len(test_points):
             qualifier = "all" 
-        print("Generating plot with",qualifier,len(test_points),"atoms per asymmetric unit ("+str(len(test_points)*len(self.sym_translations))+" total)")
+        print("Generating plot with",qualifier,len(test_points),"atoms per asymmetric unit (plotting"+str(len(test_points)*len(self.sym_translations))+" in total)")
         i = 0
         for species in self.species_dict.values():
             if i >= num_test_points:
@@ -415,17 +420,34 @@ class Crystal():
             max_len = max(max_len,abs(elem[1]-elem[0]))      
             min_len = min(min_len,abs(elem[1]-elem[0]))      
 
-        # data for custom axis centred in the space
-        ranges = np.array([np.max(plot_coords[:,i]) - np.min(plot_coords[:,i]) for i in range(3)])
-        avg_range = np.sum(ranges)/3
-        step_size = max(1, 2.5*10**(np.log10(avg_range/10) - ((np.log10(avg_range/10)-1)%1)))
-        # Translate to be centred on axis ticks
-        plot_coords -= np.array([np.mean(plot_coords[:,i]) for i in range(3)])        
-        centre_x = centre_y = centre_z = 0
-        #centre_x = np.mean(plot_coords[:,0]); centre_y = np.mean(plot_coords[:,1]); centre_z = np.mean(plot_coords[:,2])
+        titles = [{"text": ax+'$ [\AA]$'} for ax in ['x','z','y']]
+        xaxis,yaxis,zaxis = [{'title': title} for title in titles]
+        ##
+        custom_axes = False #(i.e. we won't use the axis variables above)
+        if custom_axes:
+            # data for custom axis centred in the space
+            ranges = np.array([np.max(plot_coords[:,i]) - np.min(plot_coords[:,i]) for i in range(3)])
+            avg_range = np.sum(ranges)/3
+            step_size = max(1, 2.5*10**(np.log10(avg_range/10) - ((np.log10(avg_range/10)-1)%1)))
+            # Translate to be centred on axis ticks
+            plot_coords -= np.array([np.mean(plot_coords[:,i]) for i in range(3)])        
+            centre_x = centre_y = centre_z = 0
+            #centre_x = np.mean(plot_coords[:,0]); centre_y = np.mean(plot_coords[:,1]); centre_z = np.mean(plot_coords[:,2])
 
-        #centre_x -= centre_x%step_size; centre_y -= centre_y%step_size; centre_z -= centre_z%step_size 
-        
+            #centre_x -= centre_x%step_size; centre_y -= centre_y%step_size; centre_z -= centre_z%step_size 
+        origin_on_corner = True
+        if origin_on_corner:
+            minima = np.array([np.min(plot_coords[:,i]) for i in range(3)])
+            
+            #Translate origin to corner.
+            plot_coords -= minima  
+            maxima = np.array([np.max(plot_coords[:,i]) for i in range(3)])
+            addendums = [dict(tickfont=dict(size=15), nticks=4, range=[0,maximi]) for maximi in maxima]
+            for i, axis in enumerate([xaxis,yaxis,zaxis]):
+                axis |= addendums[i]
+            
+            
+
         scatter_points = go.Scatter3d(
             x=plot_coords[:,0], 
             y=plot_coords[:,1], 
@@ -444,78 +466,79 @@ class Crystal():
         fig.update_layout(
             margin=dict(l=20,r=20,t=20,b=20),
             scene = dict(
-                xaxis = {'title': {"text": 'x [$\AA$]'}},
-                yaxis = {'title': {"text": 'y [$\AA$]'}},
-                zaxis = {'title': {"text": 'z [$\AA$]'}},
+                xaxis = xaxis,
+                yaxis = yaxis,
+                zaxis = zaxis,
                 aspectratio = dict(x=aspect[0]*zoom,y=aspect[1]*zoom,z=aspect[2]*zoom),
                 #camera=dict(eye=dict(x=1,y=0,z=0.6))
             ),
-            
         ) 
-        # Remove default axis
-        axis_args = dict(showgrid = False, zeroline = False, showticklabels = False, title = dict(text = ""))
-        fig.update_layout(scene = dict(zaxis=axis_args,yaxis=axis_args,xaxis=axis_args))      
-        # Add custom axis centred in the space
-        x_tickvals = np.append(
-            np.flip(np.arange(centre_x,np.min(plot_coords[:,0])+abs(np.min(plot_coords[:,0]))%step_size-step_size*3/4,-step_size)),
-            np.arange(centre_x,np.max(plot_coords[:,0])-abs(np.max(plot_coords[:,0]))%step_size+step_size*3/4,step_size)
-        )
-        y_tickvals = np.append(
-            np.flip(np.arange(centre_y,np.min(plot_coords[:,1])+abs(np.min(plot_coords[:,1]))%step_size-step_size*3/4,-step_size)),
-            np.arange(centre_y,np.max(plot_coords[:,1])-abs(np.max(plot_coords[:,1]))%step_size+step_size*3/4,step_size)
-        )
-        z_tickvals = np.append(
-            np.flip(np.arange(centre_z,np.min(plot_coords[:,2])+abs(np.min(plot_coords[:,2]))%step_size-step_size*3/4,-step_size)),
-            np.arange(centre_z,np.max(plot_coords[:,2])-abs(np.max(plot_coords[:,2]))%step_size+step_size*3/4,step_size)
-        )
-        x_tickvals = np.round(x_tickvals,0)
-        y_tickvals = np.round(y_tickvals,0)
-        z_tickvals = np.round(z_tickvals,0)
-        print(np.flip(np.arange(centre_y,np.min(plot_coords[:,1])+abs(np.min(plot_coords[:,1]))%step_size,-step_size)))
-        line_width = 10
-        marker_size = 3
-        fontsize = 20
-        xaxis_line =go.Scatter3d(
-                        x = x_tickvals,
-                        y = (centre_y,)*len(x_tickvals),
-                        z = (centre_z,)*len(x_tickvals),
-                        mode = "lines+markers+text",
-                        marker = dict(size=marker_size),
-                        line = dict(width = line_width),
-                        text=x_tickvals,
-                        textfont=dict(size=fontsize),
-                        )
-        yaxis_line =go.Scatter3d(
-                        y = y_tickvals,
-                        z = (centre_z,)*len(y_tickvals),
-                        x = (centre_x,)*len(y_tickvals),
-                        mode = "lines+markers+text",
-                        marker = dict(size=marker_size),
-                        line = dict(width = line_width),
-                        text=y_tickvals,
-                        textfont=dict(size=fontsize),
-                        )
-        zaxis_line =go.Scatter3d(
-                        z = z_tickvals,
-                        x = (centre_x,)*len(z_tickvals),
-                        y = (centre_y,)*len(z_tickvals),
-                        mode = "lines+markers+text",
-                        marker = dict(size=marker_size),
-                        line = dict(width = line_width),
-                        text=z_tickvals,
-                        textfont=dict(size=fontsize),
-                        )                
-        centre_ball = go.Scatter3d(x = (centre_x,centre_x), 
-                                   y = (centre_y,centre_y), 
-                                   z = (centre_z,centre_z), 
-                                   mode = "markers", 
-                                   hoverinfo = "skip", 
-                                   marker = dict(size = 8))
-        fig.add_traces([xaxis_line,yaxis_line,zaxis_line,centre_ball])
+        if custom_axes:
+            # Remove default axis
+            axis_args = dict(showgrid = False, zeroline = False, showticklabels = False, title = dict(text = ""))
+            fig.update_layout(scene = dict(zaxis=axis_args,yaxis=axis_args,xaxis=axis_args))      
+            # Add custom axis centred in the space
+            x_tickvals = np.append(
+                np.flip(np.arange(centre_x,np.min(plot_coords[:,0])+abs(np.min(plot_coords[:,0]))%step_size-step_size*3/4,-step_size)),
+                np.arange(centre_x,np.max(plot_coords[:,0])-abs(np.max(plot_coords[:,0]))%step_size+step_size*3/4,step_size)
+            )
+            y_tickvals = np.append(
+                np.flip(np.arange(centre_y,np.min(plot_coords[:,1])+abs(np.min(plot_coords[:,1]))%step_size-step_size*3/4,-step_size)),
+                np.arange(centre_y,np.max(plot_coords[:,1])-abs(np.max(plot_coords[:,1]))%step_size+step_size*3/4,step_size)
+            )
+            z_tickvals = np.append(
+                np.flip(np.arange(centre_z,np.min(plot_coords[:,2])+abs(np.min(plot_coords[:,2]))%step_size-step_size*3/4,-step_size)),
+                np.arange(centre_z,np.max(plot_coords[:,2])-abs(np.max(plot_coords[:,2]))%step_size+step_size*3/4,step_size)
+            )
+            x_tickvals = np.round(x_tickvals,0)
+            y_tickvals = np.round(y_tickvals,0)
+            z_tickvals = np.round(z_tickvals,0)
+            print(np.flip(np.arange(centre_y,np.min(plot_coords[:,1])+abs(np.min(plot_coords[:,1]))%step_size,-step_size)))
+            line_width = 10
+            marker_size = 3
+            fontsize = 20
+            xaxis_line =go.Scatter3d(
+                            x = x_tickvals,
+                            y = (centre_y,)*len(x_tickvals),
+                            z = (centre_z,)*len(x_tickvals),
+                            mode = "lines+markers+text",
+                            marker = dict(size=marker_size),
+                            line = dict(width = line_width),
+                            text=x_tickvals,
+                            textfont=dict(size=fontsize),
+                            )
+            yaxis_line =go.Scatter3d(
+                            y = y_tickvals,
+                            z = (centre_z,)*len(y_tickvals),
+                            x = (centre_x,)*len(y_tickvals),
+                            mode = "lines+markers+text",
+                            marker = dict(size=marker_size),
+                            line = dict(width = line_width),
+                            text=y_tickvals,
+                            textfont=dict(size=fontsize),
+                            )
+            zaxis_line =go.Scatter3d(
+                            z = z_tickvals,
+                            x = (centre_x,)*len(z_tickvals),
+                            y = (centre_y,)*len(z_tickvals),
+                            mode = "lines+markers+text",
+                            marker = dict(size=marker_size),
+                            line = dict(width = line_width),
+                            text=z_tickvals,
+                            textfont=dict(size=fontsize),
+                            )                
+            centre_ball = go.Scatter3d(x = (centre_x,centre_x), 
+                                    y = (centre_y,centre_y), 
+                                    z = (centre_z,centre_z), 
+                                    mode = "markers", 
+                                    hoverinfo = "skip", 
+                                    marker = dict(size = 8))
+            fig.add_traces([xaxis_line,yaxis_line,zaxis_line,centre_ball])
 
         # Update the kwargs separately so that we can call arguments used above without conflict.
         fig.update_layout(**layout_kwargs)
-        fig.show()
+        fig.show()       
+        #fig.write_html("Structure.html")
 
         if raise_non_unique_exception:
             raise Exception(str(len(np.delete(plot_coords, unique_indices))) + " non-unique coords found:")
@@ -2238,10 +2261,10 @@ if __name__ == "__main__":
         allowed_atoms = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"; water_index = None
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
         #pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8_full_struct.pdb" 
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"; water_index = None
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
         # target_handle = "lys_nass_2"
         # folder = "lys"
         #'''
@@ -2290,7 +2313,7 @@ if __name__ == "__main__":
     else:
         crystal_undmged = Crystal(pdb_path,allowed_atoms,is_damaged=second_crystal_is_damaged,CNO_to_N = CNO_to_N, **crystal_qwargs)
     crystal.plot_me(300000,water_index = water_index,template="plotly_dark")
-##%%
+#%%
     if laser_firing_qwargs["SPI"]:
         SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal,results_parent_dir=results_parent_folder, **laser_firing_qwargs)
         SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged,results_parent_dir=results_parent_folder,  **laser_firing_qwargs)
