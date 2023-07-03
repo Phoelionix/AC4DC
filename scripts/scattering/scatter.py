@@ -349,7 +349,7 @@ class Crystal():
         '''
         plots the symmetry points. Origin is the centre of the base asymmetric unit (not the centre of a unit cell).
         RMS error in positions ('positional_stdv') is not accounted for
-        '''
+        ''' 
         plt.close()
         view_width = 1000
         view_height = 800
@@ -364,7 +364,7 @@ class Crystal():
         qualifier = "sample of"
         if num_atoms_avail == len(test_points):
             qualifier = "all" 
-        print("Generating plot with",qualifier,len(test_points),"atoms per asymmetric unit (plotting"+str(len(test_points)*len(self.sym_translations))+" in total)")
+        print("Generating plot with",qualifier,len(test_points),"atoms per asymmetric unit (plotting "+str(len(test_points)*len(self.sym_translations))+" in total)")
         i = 0
         for species in self.species_dict.values():
             if i >= num_test_points:
@@ -380,10 +380,10 @@ class Crystal():
             plot_coords.extend(coord_list)  
 
         #Colors - which to highlight (root atom is first atom of cell)
-        c_first_root_atom = True # red
-        c_first_unit = True # pink
+        c_first_root_atom = False # red
+        c_first_unit = False # pink
         c_first_cell = True # aquamarine
-        c_all_root_atoms = True # yellow
+        c_all_root_atoms = False # yellow
 
         top_atom_index = 0 # index of atom that has highest z
         max_height = -np.inf
@@ -455,14 +455,19 @@ class Crystal():
 
             #centre_x -= centre_x%step_size; centre_y -= centre_y%step_size; centre_z -= centre_z%step_size 
         origin_on_corner = True  
-        #size = 5.5*max(1,500/(min_len+max_len))   # asym unit
-        #size = 7.5*max(1,500/(min_len+max_len))   # unit
-        size = 10*max(1,500/(min_len+max_len))   #solvated crystal
-        #angular_aperture = np.pi*0.6 # asym unit / crystal unit cell
-        angular_aperture = np.pi*0.7 # Solvated crystal        
-        #dot_lw = 1 # asym
-        #dot_lw = 0.1 # unit
-        dot_lw = 0 # cryst        
+        # asym unit
+        size = 5.5*max(1,500/(min_len+max_len))   
+        angular_aperture = np.pi*0.6 
+        dot_lw = 1
+        # unit cell
+        # size = 7.5*max(1,500/(min_len+max_len))   
+        # angular_aperture = np.pi*0.6
+        # dot_lw = 0.1 # unit
+        #2x2x2 Crystal
+        # size = 10*max(1,500/(min_len+max_len))   #solvated crystal
+        # angular_aperture = np.pi*0.7 # Solvated crystal        
+        # dot_lw = 0 # cryst    
+
         if origin_on_corner:
             max_num_ticks = 7
             minima = np.array([np.min(plot_coords[:,i]) for i in range(3)])
@@ -487,8 +492,8 @@ class Crystal():
 
             target_length = np.sqrt(np.sum([range**2 for range in ranges]))
             distance_to_full_capture = np.tan(angular_aperture/2)*(target_length/2)
-            psi = -np.pi/4; thet=np.pi/4 #Camera position relative to target's centre
-            #psi = -np.pi/2; thet=np.pi/6 # cryst alternate angle
+            #psi = -np.pi/4; thet=np.pi/4 #Camera position relative to target's centre
+            psi = -np.pi/2; thet=np.pi/6 # cryst alternate angle
             camera_pos = [distance_to_full_capture*np.sin(thet)*np.cos(psi),distance_to_full_capture*np.sin(thet)*np.sin(psi),distance_to_full_capture*np.cos(thet)]
             max_atom_angle = np.arctan(r/(target_length/2))
             atom_distances = [np.sqrt(np.sum([(val-camera_pos[i])**2 for i, val in enumerate(coord)])) for coord in plot_coords]
@@ -874,47 +879,57 @@ class XFEL():
             rim_q = self.max_q
             if SPI_resolution!= None:
                 d = SPI_resolution/ang_per_bohr # resolution
-                rim_q = 2*np.pi/d
+                rim_q = res_to_q(d)
                 if self.max_q < rim_q:
                     print ("WARNING: resolution of " + str(SPI_resolution) + " angstroms requires q to go beyond its maximum. Using max_q instead.")
                     rim_q = self.max_q
+            print("rim q:",rim_q)
 
             max_theta = self.q_to_theta(rim_q)
             #screen_width = resolution_to_X(d) * 2
             screen_distance = self.detector_distance # screen-target separation [a0]
-            # res. at edge corner or centre? Surely at centre, for a full ring of information
-            screen_width = 2*np.sin(2*max_theta)*screen_distance  # edge centre  # We have placed our screen to have the desired resolution at the "rim".
-            #screen_width=  2 * (np.sin(2*max_theta)/np.sqrt(2)) * screen_distance # corner
-            print("Screen width:",round(screen_width*ang_per_bohr/1e7,2),"mm")
+            
             # X is the distance from the centre of the screen to the point of incidence (flat screen)
             # We know where the cells are, they are equally spaced. We also know the distance from the screen to the detector.
-            # This gives us theta.
-            
+            # This gives us theta. 
             def X_to_theta(x):
                 '''
                 Assumes screen distance in same units as x (a0)
                 '''
                 return 0.5*np.arctan2(x,screen_distance)
+            def theta_to_X(theta):
+                '''
+                Assumes screen distance in same units as x (a0)
+                '''
+                return screen_distance*np.tan(2*theta)
+            
             # We must determine q at each point for finding I
             def X_to_q(x):
                 '''
                 Returns q [1/a0]
                 '''
                 theta = X_to_theta(x)
-                lamb = E_to_lamb(self.photon_energy)
-                return 4*np.pi*np.abs(np.sin(theta))/lamb
+                k0 = self.photon_momentum #2*np.pi/E_to_lamb(photon_energy)
+                return 2*k0*np.sin(theta)   
             # To get a geometry-independent plot, we may want to switch from x coords to the q component parallel to the screen.
-            # We can determine this q_scr component since we know the photon momentum and theta            
+            # tan(2theta) = q_scr/k0 = X/screen_distance.       
             def X_to_q_scr(x):
                 ''' 
                 Returns component of q parallel to screen [1/a0]
                 '''
                 theta = X_to_theta(x)
-                k0 = self.photon_momentum
-                return k0*np.sin(2*theta)
+                k0 = self.photon_momentum 
+                return k0*np.tan(2*theta)
+            
+            # res. at edge corner or centre? Surely at centre, for a full ring of information
+            screen_width = 2*theta_to_X(max_theta)  # edge centre  # We have placed our screen to have the desired resolution at the "rim".
+            #screen_width=  2 * (np.sin(2*max_theta)/np.sqrt(2)) * screen_distance # corner
+            print("Screen width:",round(screen_width*ang_per_bohr/1e7,2),"mm")            
+            # Trig consistency check
+            assert round(X_to_q(screen_width/2),2) == round(rim_q,2)
 
             ## Calculate q for each cell.
-            max_q = X_to_q(np.sqrt(2*screen_width**2))
+            corner_q = X_to_q(np.sqrt(2*(screen_width/2)**2))
             result.cell_width = screen_width/len(cell)
             q_grid = np.empty(cell.shape)
             result.xy = np.empty(cell.shape+(2,))
@@ -1314,6 +1329,7 @@ class XFEL():
             m = self.max_triple_miller_idx
             max_g_vect = get_G(np.full((1,3),m))[0][0]
             self.max_q = min(self.max_q,np.sqrt(((max_g_vect[0])**2+(max_g_vect[1])**2+(max_g_vect[2])**2)))
+        print("max q (i.e. rim q):",self.max_q)
         
         print("using q range of ", self.min_q/ang_per_bohr,"-",self.max_q/ang_per_bohr," angstrom-1")
         min_max_q_rule = lambda g: self.min_q <= np.sqrt(((g[0])**2+(g[1])**2+(g[2])**2)) <= self.max_q
@@ -1444,7 +1460,7 @@ class XFEL():
     #     return self.q_to_q_scr(q)
 
 def E_to_lamb(photon_energy):
-    """Energy to wavelength in A.U."""
+    """Energy (eV) to wavelength in A.U."""
     E = photon_energy  # eV
     return 2*np.pi*c_au/(E/eV_per_Ha)
         #
@@ -1498,7 +1514,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
         r,g,b = to_rgb(solid_colour)
         colours = [(r,g,b,a) for a in np.clip(z/max_z,min_alpha,max_alpha)]
     
-    def add_screen_properties():
+    def add_screen_properties(fig_width=10,fig_height=6):
         if radial_lim:
             bottom,top = plt.ylim()
             plt.ylim(bottom,radial_lim)
@@ -1508,10 +1524,15 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
         #plt.gcf().set_figwidth(20)         # if not using widget magic
         #plt.gcf().set_figheight(20)        #       
             
-        plt.gcf().set_figwidth(5)
-        plt.gcf().set_figheight(3)                  
+        plt.gcf().set_figwidth(fig_width)
+        plt.gcf().set_figheight(fig_height)                  
 
     if result_handle != None: #TODO replace this atrocious way of distinguishing between inf. crystal and finite
+        if plot_against_q:
+            radial_lim /= ang_per_bohr
+        else:
+            radial_lim*= ang_per_bohr        
+        
         results_dir = results_parent_dir+result_handle+"/"
         compare_dir = None
         if compare_handle!= None:
@@ -1633,9 +1654,9 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             if result1 == None:
                 break         
             # get points at same position on screen.
-            radial_axis = result1.r
+            radial_axis = result1.r*ang_per_bohr
             if plot_against_q:
-                radial_axis = result1.q        
+                radial_axis = result1.q/ang_per_bohr
             radial_axis = radial_axis[0]    
 
             # Plot spot intensities
@@ -1922,7 +1943,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                         plt.xticks(ticks,ticklabels)
                         plt.yticks(ticks,ticklabels)
                         plt.show()   
-                    print ("Plotting ")
+                    print ("Plotting log ratio")
                     I1 = result1.I
                     I2 = result2.I
                     log_ratio = np.log((I1/I1[int(len(I1)/2)][int(len(I1)/2)])/(I2/I2[int(len(I2)/2)][int(len(I2)/2)]))
@@ -2125,7 +2146,7 @@ def stylin(exp_name1,exp_name2,q_scr_max,get_R_only = False,SPI=False,SPI_max_q=
 
     plt.rc('font', **font)
 
-    use_q = True
+    use_q = True # alternative is broken - TODO remove this option.
     log_radial = False
     log_I = True
     cutoff_log_intensity = -1#-1
@@ -2221,17 +2242,17 @@ if __name__ == "__main__":
     target_options = ["neutze","hen","tetra"]
     #============------------User params---------==========#
 
-    target = "hen" #target_options[2]
+    target = "tetra" #target_options[2]
     best_resolution = 2   # resolution (determining max q)
     worst_resolution = None#30 # 'resolution' corresponding to min q
 
     #### Individual experiment arguments 
-    start_time = -12
-    end_time = 12 
+    start_time = -6
+    end_time = 6
     laser_firing_qwargs = dict(
         SPI = True,
         SPI_resolution = best_resolution,
-        pixels_across = 100,  # for SPI, shld go on xfel params.
+        pixels_across = 250,  # for SPI, shld go on xfel params.
         random_orientation = False, #infinite cryst sim only, TODO refactor to be in same place as other orients...# orientation is synced with second 
     )
     ##### Crystal params
@@ -2239,7 +2260,7 @@ if __name__ == "__main__":
     crystal_qwargs = dict(
         cell_scale = 1,  # for SC: cell_scale^3 unit cells 
         positional_stdv = 0,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
-        include_symmetries = False,  # should unit cell contain symmetries?
+        include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
         rocking_angle = 1,  # (approximating mosaicity)
         #CNO_to_N = True,   # whether the plasma simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
@@ -2253,7 +2274,7 @@ if __name__ == "__main__":
         detector_distance_mm = 100,
         screen_type = "flat",#"hemisphere"
         q_minimum = res_to_q(worst_resolution),#None #angstrom
-        q_cutoff = res_to_q(best_resolution),#2*np.pi/2
+        q_cutoff = res_to_q(best_resolution), #(best_resolution),#2*np.pi/2
         t_fineness=25,   
         #####crystal stuff
         max_triple_miller_idx = None, # = m, where max momentum given by q with miller indices (m,m,m)
@@ -2267,7 +2288,7 @@ if __name__ == "__main__":
         #crystallographic orientations (not consistent with SPI yet)
         # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.        
         num_orients_crys=1,
-        orientation_axis_crys = [1,0,0],#None,#[1,1,0]
+        orientation_axis_crys = [0,0,1],#None,#[1,1,0]
         ######
     )
     same_deviations = False # whether same position deviations between damaged and undamaged crystal (SPI only) 
@@ -2321,9 +2342,9 @@ if __name__ == "__main__":
         allowed_atoms = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
         #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
         # target_handle = "lys_nass_2"
         # folder = "lys"
         #'''
@@ -2372,7 +2393,7 @@ if __name__ == "__main__":
     else:
         crystal_undmged = Crystal(pdb_path,allowed_atoms,is_damaged=second_crystal_is_damaged,CNO_to_N = CNO_to_N, **crystal_qwargs)
     crystal.plot_me(300000,water_index = water_index,template="plotly_dark")
-#%%
+#%
     if laser_firing_qwargs["SPI"]:
         SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal,results_parent_dir=results_parent_folder, **laser_firing_qwargs)
         SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged,results_parent_dir=results_parent_folder,  **laser_firing_qwargs)
