@@ -135,9 +135,8 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
         # xmin1,xmax2 = 10,1e4
         # ylim2 = 0.25
         slices = [-9.5,-8.5,-7.5]
-        #xmin1,xmax2 = 3,1e4
         xmin1,xmax2 = 10,1e4
-        ylim2 = 0.043            
+        ylim2 = 0.046            
         # slices = [-9.5,-8.5,-7.5,-6.5]
         # #xmin1,xmax2 = 3,1e4
         # xmin1,xmax2 = 10,1e4
@@ -161,21 +160,22 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
             def sigma(E,transition):
                 V = transitions[transition]
                 I = V[0]; A = V[1:6]; rms = V[6]
-                if E < I: 
+                if E <= I: 
                     return 0
                 return 10e-13/(I*E)*(A[0]*np.log(E/I)+np.sum( [A[i]*(1-I/E)**(i) for i in range(1,len(A))] ))
-            E = np.logspace(1,4,200)
+            E = np.logspace(1,4,2000)
             # can't simply vectorise for whatever reason.
             y = []
             for e in E:
-                y.append(sigma(e,"0,1"))
+                y.append(sigma(e,"0,1")/np.sqrt(e))   # f(e)*sqrt(e) = cross-section, so need to divide by sqrt(e) to see effecto f f(e)*e
             y = np.array(y)
-            # Make height 90% of y limit.)
-            print(np.max(y))
-            y*= (ylim2*0.9)/np.max(y)
+            #y*= (ylim2*0.95)/np.max(y)
             print(y)
-            pl1.ax_steps.plot(E,y,color="black",alpha=0.8)
-
+            ax_eii = pl1.ax_steps.twinx()
+            ax_eii.tick_params(axis='y', colors='blue')
+            ax_eii.set_ylabel("$\sigma_{eii}(\epsilon) \epsilon^{-1/2}$",color="blue")
+            ax_eii.plot(E[y>=0],y[y>=0],color="black",linestyle="dotted")
+            ax_eii.set_ylim(0)
 
         cmap = plt.get_cmap("tab10")
         colrs = [cmap(i) for i in range(len(slices))] # (needlessly generalised)        

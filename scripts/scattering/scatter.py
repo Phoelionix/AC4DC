@@ -381,10 +381,10 @@ class Crystal():
             plot_coords.extend(coord_list)  
 
         #Colors - which to highlight (root atom is first atom of cell)
-        c_first_root_atom = False # red
-        c_first_unit = False # pink
+        c_first_root_atom = True # red
+        c_first_unit = True # pink
         c_first_cell = True # aquamarine
-        c_all_root_atoms = False # yellow
+        c_all_root_atoms = True # yellow
 
         top_atom_index = 0 # index of atom that has highest z
         max_height = -np.inf
@@ -457,9 +457,9 @@ class Crystal():
             #centre_x -= centre_x%step_size; centre_y -= centre_y%step_size; centre_z -= centre_z%step_size 
         origin_on_corner = True  
         # asym unit
-        size = 5.5*max(1,500/(min_len+max_len))   
-        angular_aperture = np.pi*0.6 
-        dot_lw = 1
+        # size = 5.5*max(1,500/(min_len+max_len))   
+        # angular_aperture = np.pi*0.6 
+        # dot_lw = 1
         # unit cell
         # size = 7.5*max(1,500/(min_len+max_len))   
         # angular_aperture = np.pi*0.6
@@ -469,6 +469,9 @@ class Crystal():
         # angular_aperture = np.pi*0.7 # Solvated crystal        
         # dot_lw = 0 # cryst    
 
+        # non camera perspective:
+        size = max(1,500/(min_len+max_len))
+        dot_lw = 0 
         if origin_on_corner:
             max_num_ticks = 7
             minima = np.array([np.min(plot_coords[:,i]) for i in range(3)])

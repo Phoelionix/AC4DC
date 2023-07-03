@@ -147,7 +147,7 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
             crystal_undmged = Crystal(pdb_path,allowed_atoms_1,is_damaged=False,CNO_to_N = CNO_to_N,S_to_N = S_to_N, **run_params["crystal"])
         if i == 0:
             #crystal.plot_me(250000)
-            crystal.plot_me(25000)
+            crystal.plot_me(25000,template="plotly_dark")
     
         if params["laser"]["SPI"]:
             SPI_result1 = experiment1.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal, **run_params["laser"])
@@ -399,14 +399,14 @@ if __name__ == "__main__":
     )
 
 
-    batch_mode = False # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
+    batch_mode = True # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
 
     mode = 1  #0 -> infinite crystal, 1 -> finite crystal/SPI, 2-> both  
     same_deviations = False # whether same position deviations between damaged and undamaged crystal (SPI only)
     
     if batch_mode:
         allowed_atoms = ["C","N","O","S"] 
-        CNO_to_N = True
+        CNO_to_N = False
         S_to_N = False
         batch_handle = "lys_full" 
         kwargs["plasma_batch_handle"] = batch_handle
