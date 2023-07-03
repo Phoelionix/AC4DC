@@ -885,7 +885,7 @@ class XFEL():
                     rim_q = self.max_q
             print("rim q:",rim_q)
 
-            max_theta = self.q_to_theta(rim_q)
+            max_theta = self.q_to_theta(rim_q) # maximum theta of full ring.
             #screen_width = resolution_to_X(d) * 2
             screen_distance = self.detector_distance # screen-target separation [a0]
             
@@ -946,6 +946,15 @@ class XFEL():
                     result.xy[i,j] = np.array([x,y])
             result.q_scr_xy = X_to_q_scr(result.xy)
 
+            # Store a mask for the values that we should ignore.
+            mask = copy.deepcopy(q_grid)
+            mask[mask < self.min_q] = 0; mask[mask > self.max_q] = 0
+            mask[mask != 0] = 1
+
+            #print("MASK",mask)
+            #result.I[mask == 0] = None
+            result.full_ring_mask = mask
+            #result.I*=mask
             # Calculate I for each cell from q (need to vectorise q)
             for rot_x in range(self.x_orientations):
                 self.x_rot_matrix = rotaxis2m(self.x_rotation,Bio_Vect(1, 0, 0))      
@@ -958,17 +967,7 @@ class XFEL():
                     self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))      
                     self.y_rotation += 2*np.pi/self.y_orientations              
                     result.I += self.generate_cell_intensity(q_grid,result.xy)
-                    #mask = (q_grid < self.min_q) + (q_grid > self.max_q)
-                    #mask = np.zeros(q_grid.shape,dtype=bool)
-                    #mask[q_grid < self.min_q] = True; mask[q_grid > self.max_q] = True
 
-                    mask = q_grid
-                    mask[mask < self.min_q] = 0; mask[mask > self.max_q] = 0
-                    mask[mask != 0] = 1
-
-                    #print("MASK",mask)
-                    #result.I[mask == 0] = None
-                    result.I*=mask
                 self.x_rotation += 2*np.pi/self.x_orientations             
             # convert to angstrom
             result.xy *= ang_per_bohr
@@ -1467,7 +1466,7 @@ def E_to_lamb(photon_energy):
         # q = 4*pi*sin(theta)/lambda = 2pi*u, where q is the momentum in AU (a_0^-1), u is the spatial frequency.
         # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
-def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_frame = False ,SPI_result1 = None, SPI_result2 = None, full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, results_parent_dir = "results/", compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, bg_colour = "black",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None):
+def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_frame = False ,SPI_result1 = None, SPI_result2 = None, full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, results_parent_dir = "results/", compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, bg_colour = "black",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None,spi_full_rings_only=True):
     ''' (Complete spaghetti at this point.)
     Plots the simulated scattering image.
     result_handle:
@@ -1851,10 +1850,15 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
     
     ## Continuous (SPI)
     else:
-        result1 = SPI_result1
-        result2 = SPI_result2        
+        result1 = copy.deepcopy(SPI_result1)
+        result2 = copy.deepcopy(SPI_result2)     
         ## Square grid
         if len(result1.I.shape) > 1:#if type(result1) == Results_Grid:
+            if spi_full_rings_only:
+                # for calculating R we remove the non-full rings - we represent this visually:
+                result1.I *=  (result1.full_ring_mask + 0.1)/1.1         
+                result2.I *= (result2.full_ring_mask+0.1)/1.1 
+
             if log_I: 
                 z1 = np.log(result1.I/np.sum(result1.I))   # normalised intensity   
                 z1[result1.I == 0] = None
@@ -1877,6 +1881,14 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             else:
                 z1 = np.ma.array(z1,mask = np.isnan(z1))
                 z2 = np.ma.array(z2,mask = np.isnan(z2)) 
+
+            if spi_full_rings_only:
+                # Now remove the non-full rings
+                result1.I *=  result1.full_ring_mask          
+                result2.I *= result2.full_ring_mask 
+
+            if result2 != None:
+                alpha2 = (result2.full_ring_mask + 1)/2             
             print("Result 1 (Damaged):")
             print("Total screen-incident intensity:","{:e}".format(np.sum(result1.I)))
             if result2 != None:
@@ -2258,7 +2270,7 @@ if __name__ == "__main__":
     ##### Crystal params
     crystal_no_dev = True
     crystal_qwargs = dict(
-        cell_scale = 1,  # for SC: cell_scale^3 unit cells 
+        cell_scale = 15,  # for SC: cell_scale^3 unit cells 
         positional_stdv = 0,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
