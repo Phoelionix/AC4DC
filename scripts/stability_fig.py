@@ -52,17 +52,15 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
     fname_HR_style = "HR_style"
     fname_bound_dynamics = "bound_dynamics"
 
-    cmap = plt.get_cmap("tab10")
-    num_slices = 1
-    all_colrs = [cmap(i) for i in range(num_slices*len(mol_names))] # (needlessly generalised)
-
     
     if FULL_FIG:
         fig_steps, (ax_steps1) = plt.subplots(1, 1, sharey=False, facecolor='w')
     else:
         fig_steps, (ax_steps1,ax_steps2) = plt.subplots(1, 2, sharey=False, facecolor='w')
+
+    dashes = ["dashed","solid",]#"dotted"]
+    assert len(mol_names) <= 2
     for m, mol_name in enumerate(mol_names):           
-        colrs = all_colrs[m*num_slices:(m+1)*num_slices]
         pl1 = Plotter(mol_name,sim_output_parent_dir,use_electron_density = ELECTRON_DENSITY)
         pl2 = Plotter(mol_name,sim_output_parent_dir,use_electron_density = ELECTRON_DENSITY)      
        
@@ -133,10 +131,55 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
         # ylim1 = 0.03; ylim2 = 0.3
 
         # full plot
-        slices = [-0.01]
+        # slices = [0]
+        # xmin1,xmax2 = 10,1e4
+        # ylim2 = 0.25
+        slices = [-9.5,-8.5,-7.5]
+        #xmin1,xmax2 = 3,1e4
         xmin1,xmax2 = 10,1e4
-        ylim2 = 0.25
+        ylim2 = 0.043            
+        # slices = [-9.5,-8.5,-7.5,-6.5]
+        # #xmin1,xmax2 = 3,1e4
+        # xmin1,xmax2 = 10,1e4
+        # ylim2 = 0.06       
 
+        if m == 0:
+            # CARBON EII CROSS-SECTION
+            # Plot the electron-impact ionisation cross-section from Suno&Kato https://doi.org/10.1016/j.adt.2006.01.001
+            # fit parameters for each transition ("0,1" means from charge of 0 to charge of 1)
+            transitions =  dict()
+            # charge                I      A1        A2        A3        A4        A5      rms 
+            transitions["0,1"] =  "10.6 1.829E+0 -1.975E+0  1.149E+0 -3.583E+0  2.451E+0   0.61".split()
+            transitions["1,2"] =  "24.4 8.390E-1 -7.950E-1  3.263E+0 -5.382E+0  3.476E+0   0.24".split()  
+            for key,val in transitions.items():
+                transitions[key] = [float(s) for s in val] 
+            print(transitions)
+            # sigma = {}
+            # for key, V in transitions.items():
+            #     I = V[0]; A = V[1:6]; rms = V[6]
+            #     sigma[key] = lambda E: 10e-13/(I*E)*(A[0]*np.log(E/I)+np.sum( [A[i]*(1-I/E)**(i) for i in range(1,len(A))] ))
+            def sigma(E,transition):
+                V = transitions[transition]
+                I = V[0]; A = V[1:6]; rms = V[6]
+                if E < I: 
+                    return 0
+                return 10e-13/(I*E)*(A[0]*np.log(E/I)+np.sum( [A[i]*(1-I/E)**(i) for i in range(1,len(A))] ))
+            E = np.logspace(1,4,200)
+            # can't simply vectorise for whatever reason.
+            y = []
+            for e in E:
+                y.append(sigma(e,"0,1"))
+            y = np.array(y)
+            # Make height 90% of y limit.)
+            print(np.max(y))
+            y*= (ylim2*0.9)/np.max(y)
+            print(y)
+            pl1.ax_steps.plot(E,y,color="black",alpha=0.8)
+
+
+        cmap = plt.get_cmap("tab10")
+        colrs = [cmap(i) for i in range(len(slices))] # (needlessly generalised)        
+        linestyle = dashes[m]
 
         thermal_cutoff_energies = [1000]*len(slices)
         if FULL_FIG:
@@ -158,7 +201,7 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
         for i, pl in enumerate(plotters):
             lw = 1.5
             for (t, e, col ) in zip(slices, thermal_cutoff_energies, colrs):
-                    lines = pl.plot_step(t, normed=NORMED, color = col, lw=lw)
+                    lines = pl.plot_step(t, normed=NORMED, color = col, lw=lw,linestyle=linestyle)
                     if plot_fits:
                         T = pl.plot_fit(t, e, normed=NORMED, color=col, lw=lw,alpha=0.7)
             if plot_custom_fits:
@@ -192,8 +235,9 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
             pl.ax_steps.ticklabel_format(axis='y', style='sci',scilimits=(0,0))
     pl.fig_steps.set_figheight(5)
     pl.fig_steps.set_figwidth(16) 
+
     plt.tight_layout()
-    plt.savefig(figure_output_dir + label + figures_ext)
+    plt.savefig(figure_output_dir + label +"_"+ str(slices[0]) + figures_ext)
     plt.close()
     
 
