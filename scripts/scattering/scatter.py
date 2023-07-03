@@ -364,6 +364,7 @@ class Crystal():
         qualifier = "sample of"
         if num_atoms_avail == len(test_points):
             qualifier = "all" 
+        print("Number of atoms in structure:",num_atoms_avail)
         print("Generating plot with",qualifier,len(test_points),"atoms per asymmetric unit (plotting "+str(len(test_points)*len(self.sym_translations))+" in total)")
         i = 0
         for species in self.species_dict.values():
@@ -483,22 +484,24 @@ class Crystal():
             for i, axis in enumerate([xaxis,yaxis,zaxis]):
                 axis |= addendums[i]
             
+            # INCREDIBLY LAZY implementation to provide some sense of distance in png snapshots.
+            hack_snapshots = False
+            if hack_snapshots:
+                # Calculate size relative to view from camera that is capturing full width of structure.
+                # Hacky as I am assuming camera is at a certain position.
+                r = size  # some arbitrary 'radius' of visible atom that is equivalent to the largest possible pixel width. 
+                #width = view_width/r
+                # a guess (increase to make fall off more slowly)
 
-            # Calculate size relative to view from camera that is capturing full width of structure.
-            # Hacky as I am assuming camera is at a certain position.
-            r = size  # some arbitrary 'radius' of visible atom that is equivalent to the largest possible pixel width. 
-            #width = view_width/r
-            # a guess (increase to make fall off more slowly)
-
-            target_length = np.sqrt(np.sum([range**2 for range in ranges]))
-            distance_to_full_capture = np.tan(angular_aperture/2)*(target_length/2)
-            #psi = -np.pi/4; thet=np.pi/4 #Camera position relative to target's centre
-            psi = -np.pi/2; thet=np.pi/6 # cryst alternate angle
-            camera_pos = [distance_to_full_capture*np.sin(thet)*np.cos(psi),distance_to_full_capture*np.sin(thet)*np.sin(psi),distance_to_full_capture*np.cos(thet)]
-            max_atom_angle = np.arctan(r/(target_length/2))
-            atom_distances = [np.sqrt(np.sum([(val-camera_pos[i])**2 for i, val in enumerate(coord)])) for coord in plot_coords]
-            #r*angle/max_angle
-            size = [r*np.arctan(r/(distance_to_full_capture + d))/max_atom_angle for d in atom_distances]
+                target_length = np.sqrt(np.sum([range**2 for range in ranges]))
+                distance_to_full_capture = np.tan(angular_aperture/2)*(target_length/2)
+                #psi = -np.pi/4; thet=np.pi/4 #Camera position relative to target's centre
+                psi = -np.pi/2; thet=np.pi/6 # cryst alternate angle
+                camera_pos = [distance_to_full_capture*np.sin(thet)*np.cos(psi),distance_to_full_capture*np.sin(thet)*np.sin(psi),distance_to_full_capture*np.cos(thet)]
+                max_atom_angle = np.arctan(r/(target_length/2))
+                atom_distances = [np.sqrt(np.sum([(val-camera_pos[i])**2 for i, val in enumerate(coord)])) for coord in plot_coords]
+                #r*angle/max_angle
+                size = [r*np.arctan(r/(distance_to_full_capture + d))/max_atom_angle for d in atom_distances]
         #size = max(1,500/(min_len+max_len))  
 
 

@@ -203,6 +203,7 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
         nums = []
         for elem in df["name"]:
             elem = elem[4:].split('_')[0]
+            elem = elem.split('-')[-1]
             nums.append(int(elem))
         nums.sort()
         print("R values found for",len(nums),"simulations.")
@@ -398,27 +399,27 @@ if __name__ == "__main__":
     )
 
 
-    batch_mode = True # Just doing this as I want to quickly switch between batches and specific runs.
+    batch_mode = False # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
 
     mode = 1  #0 -> infinite crystal, 1 -> finite crystal/SPI, 2-> both  
     same_deviations = False # whether same position deviations between damaged and undamaged crystal (SPI only)
     
     if batch_mode:
-        allowed_atoms = ["C","N","O","S_fast"] 
+        allowed_atoms = ["C","N","O","S"] 
         CNO_to_N = True
         S_to_N = False
-        batch_handle = "lys" 
+        batch_handle = "lys_full" 
         kwargs["plasma_batch_handle"] = batch_handle
         batch_dir = None # Optional: Specify existing parent folder for batch of results, to add these orientation results to.
-        pdb_path = PDB_PATHS[batch_handle]
-    else:
+        pdb_path = PDB_PATHS["lys"]
+    else: # Compare specific simulations
         #allowed_atoms = ["N"]; S_to_N = True
         allowed_atoms = ["N", "S_fast"]; S_to_N = False
         CNO_to_N = True
         kwargs["plasma_batch_handle"] = ""
         #kwargs["plasma_handles"] = ["lys_nass_3","lys_nass_no_S_1"]    #Note that S_to_N must be true to compare effect on nitrogen R factor. Comparing S_to_N true with nitrogen only sim, then S_to_N false with nitrogen+sulfur sim, let's us compare the true effect of sulfur on R facator.
         #kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_6","lys_nass_Gd_16"]  
-        kwargs["plasma_handles"] = ["lys_nass_6","lys_nass_Gd_16"]  
+        kwargs["plasma_handles"] = ["lys_nass_HF","lys_nass_Gd_HF"]  
         #pdb_path = PDB_PATHS["fcc"]
         pdb_path = PDB_PATHS["lys"]
 

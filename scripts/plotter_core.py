@@ -748,7 +748,7 @@ class Plotter:
         self.fig.subplots_adjust(left=0.2, right=0.95, top=0.95, bottom=0.2)
 
 
-    def plot_tot_charge(self, every=1,densities = True):
+    def plot_tot_charge(self, every=1,densities = False):
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
         self.aggregate_charges(True)
         #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
@@ -776,7 +776,8 @@ class Plotter:
             ax.plot(T, self.Q, label='total')
         else:
             ax.set_ylabel("Charge difference")  # Sometimes we start with charged states.
-        
+        # ax.set_xlim(None,-18.6)
+        # ax.set_ylim(0,5)
         ax.legend(loc = 'upper left')
         return ax
         
