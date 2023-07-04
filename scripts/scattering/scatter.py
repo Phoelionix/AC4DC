@@ -1287,7 +1287,7 @@ class XFEL():
                 a = 0.5*np.array([[0,1,1],[1,0,1],[1,1,0]])                
             a = np.multiply(a,crystal.supercell_dim)  # I mean... yeah I don't see how this works at all with multiple cells. Crystal sim fails here.
         if not np.array_equal(crystal.supercell_dim,crystal.cell_dim):
-            raise Exception("Supercells not implemented for simple crystal sim.")
+            print("Warning: This code samples the intensity at the miller indices, and thus does not capture peak broadening - consider using the SPI imaging mode instead.")
         b1 = np.cross(a[1],a[2])
         b2 = np.cross(a[2],a[0])
         b3 = np.cross(a[0],a[1])
@@ -2260,23 +2260,23 @@ if __name__ == "__main__":
     target_options = ["neutze","hen","tetra"]
     #============------------User params---------==========#
 
-    target = "tetra" #target_options[2]
+    target = "glycine" #target_options[2]
     best_resolution = 2   # resolution (determining max q)
     worst_resolution = None#30 # 'resolution' corresponding to min q
 
     #### Individual experiment arguments 
-    start_time = -6
-    end_time = 6
+    start_time = -12#-6
+    end_time = 12#6
     laser_firing_qwargs = dict(
-        SPI = True,
+        SPI = False,
         SPI_resolution = best_resolution,
-        pixels_across = 250,  # for SPI, shld go on xfel params.
+        pixels_across = 100,  # for SPI, shld go on xfel params.
         random_orientation = False, #infinite cryst sim only, TODO refactor to be in same place as other orients...# orientation is synced with second 
     )
     ##### Crystal params
     crystal_no_dev = True
     crystal_qwargs = dict(
-        cell_scale = 15,  # for SC: cell_scale^3 unit cells 
+        cell_scale = 10,  # for SC: cell_scale^3 unit cells 
         positional_stdv = 0,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
@@ -2387,6 +2387,12 @@ if __name__ == "__main__":
         target_handle = "6-5-2_tetra_CNO_3"
         #allowed_atoms = ["N_fast"]
         allowed_atoms = ["C_fast","N_fast","O_fast"]
+        CNO_to_N = False
+    elif target == "glycine":
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/glycine.pdb" 
+        folder = "" 
+        target_handle = "glycine_abdullah_4"
+        allowed_atoms = ["C","N","O"]
         CNO_to_N = False
     else:
         raise Exception("'target' invalid")
