@@ -220,7 +220,10 @@ void BasisSet::manual_set_knot(const GridSpacing& gt){
         hyb_powlaw_factor[rgn] = (E_N - E_M)/pow(n_N-n_M, p);
     }
     // classic power law
-    bool classic_mode = true;
+    bool classic_mode = false;
+    #ifdef CLASSIC_MANUAL_GRID
+        classic_mode = true;
+    #endif
     double p_powlaw;
     double A_powlaw;
     if (classic_mode){

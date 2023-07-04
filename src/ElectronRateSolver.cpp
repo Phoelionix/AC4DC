@@ -788,7 +788,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         while (Distribution::most_recent_knot_change_idx(checkpoint_n) > n - this->order){
             checkpoint_n--;
             assert(checkpoint_n > this->order);
-            assert(checkpoint_n > n - this->order); // may trigger if knot changes too close together.
+            assert(int(checkpoint_n) > int(n) - this->order-1); // may trigger if knot changes too close together.
         }           
         std::vector<state_type> check_states;
         std::vector<double> check_times;
