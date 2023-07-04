@@ -1285,8 +1285,9 @@ class XFEL():
             if cell_packing == "BCC":
                 a = 0.5*np.array([[-1,1,1],[1,-1,1],[1,1,-1]])
             if cell_packing == "FCC":
-                a = 0.5*np.array([[0,1,1],[1,0,1],[1,1,0]])                
-            a = np.multiply(a,crystal.supercell_dim)  # I mean... yeah I don't see how this works at all with multiple cells. Crystal sim fails here.
+                a = 0.5*np.array([[0,1,1],[1,0,1],[1,1,0]])
+            a = np.multiply(a,crystal.cell_dim) 
+        else raise Exception("Unknown cell packing type")
         if not np.array_equal(crystal.supercell_dim,crystal.cell_dim):
             print("Warning: This code samples the intensity at the miller indices, and thus does not capture peak broadening - consider using the SPI imaging mode instead.")
         b1 = np.cross(a[1],a[2])
@@ -1337,7 +1338,7 @@ class XFEL():
             m = self.max_triple_miller_idx
             max_g_vect = get_G(np.full((1,3),m))[0][0]
             self.max_q = min(self.max_q,np.sqrt(((max_g_vect[0])**2+(max_g_vect[1])**2+(max_g_vect[2])**2)))
-            def miller_selection_rule(G): # Probably unnecessary 
+            def miller_selection_rule(G): # Probably unnecessary I'm just making sure...
                 return  (G[0] <= m and G[1] <= m and G[2] <= m)
         print("max q (i.e. rim q):",self.max_q)
         
@@ -2292,7 +2293,7 @@ if __name__ == "__main__":
         positional_stdv = 0,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
-        rocking_angle = 0.1,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
+        rocking_angle = 1,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         #CNO_to_N = True,   # whether the plasma simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
     )
 
@@ -2317,7 +2318,7 @@ if __name__ == "__main__":
         SPI_z_rotation = 0,
         #crystallographic orientations (not consistent with SPI yet)
         # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.        
-        num_orients_crys=20, # Miller indices orientations
+        num_orients_crys=10, # Miller indices orientations
         orientation_axis_crys = None,#[0,0,1],#None,#[1,1,0]
         ######
     )
