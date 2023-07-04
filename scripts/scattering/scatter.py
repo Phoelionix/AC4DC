@@ -805,7 +805,8 @@ class XFEL():
 
         if random_orientation == True and self.orientation_set != None:
             raise Exception("Ambiguity: random orientations set to True, but set orientations were provided.")
-
+        if random_orientation == False and self.orientation_set == None:
+            raise Exception("Providing an axis of orientation (e.g. format: [0,0,1] for z axis) or enabling random orientations is required")
         
 
         if pixels_across == None and circle_grid == False and SPI:
@@ -1330,19 +1331,26 @@ class XFEL():
         # If we used a random orientation, we now lock in the orientations just generated and contained in cardan_angles.
         random_orientation = False 
 
+        def miller_selection_rule():
+            return None
         if self.max_triple_miller_idx != None:
             m = self.max_triple_miller_idx
             max_g_vect = get_G(np.full((1,3),m))[0][0]
             self.max_q = min(self.max_q,np.sqrt(((max_g_vect[0])**2+(max_g_vect[1])**2+(max_g_vect[2])**2)))
+            def miller_selection_rule(G): # Probably unnecessary 
+                return  (G[0] <= m and G[1] <= m and G[2] <= m)
         print("max q (i.e. rim q):",self.max_q)
         
         print("using q range of ", self.min_q/ang_per_bohr,"-",self.max_q/ang_per_bohr," angstrom-1")
-        min_max_q_rule = lambda g: self.min_q <= np.sqrt(((g[0])**2+(g[1])**2+(g[2])**2)) <= self.max_q
+        def min_max_q_rule(g):
+            return self.min_q <= np.sqrt(((g[0])**2+(g[1])**2+(g[2])**2)) <= self.max_q
         #max_q_rule = lambda f: np.sqrt(((f[0]*np.average(cell_dim))**2+(f[1]*np.average(cell_dim))**2+(f[2]*np.average(cell_dim))**2))<= self.max_q
         q0 = self.photon_momentum
         
         # Catch the miller indices with a boolean mask
         mask = np.apply_along_axis(selection_rule,1,indices)*np.apply_along_axis(min_max_q_rule,1,G_temp)*np.apply_along_axis(self.mosaic_elastic_condition,1,G_temp)
+        if self.max_triple_miller_idx != None:
+            mask*=np.apply_along_axis(miller_selection_rule,1,G_temp)
         indices = indices[mask]
 
         print("Cardan angles:",cardan_angles)
@@ -1472,7 +1480,7 @@ def E_to_lamb(photon_energy):
         # q = 4*pi*sin(theta)/lambda = 2pi*u, where q is the momentum in AU (a_0^-1), u is the spatial frequency.
         # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
-def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_frame = False ,SPI_result1 = None, SPI_result2 = None, full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, results_parent_dir = "results/", compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, bg_colour = "black",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None,spi_full_rings_only=True):
+def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_frame = False ,SPI_result1 = None, SPI_result2 = None, full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, results_parent_dir = "results/", compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, bg_colour = "grey",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None,spi_full_rings_only=True):
     ''' (Complete spaghetti at this point.)
     Plots the simulated scattering image.
     result_handle:
@@ -1665,8 +1673,10 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             radial_axis = radial_axis[0]    
 
             # Plot spot intensities
-            if result2 != None and crystal_aligned_frame:
-                plot_spots(result2.I.flatten(), result1.I.flatten(),result1.miller_indices)
+            plot_all_the_spots = False
+            if plot_all_the_spots:
+                if result2 != None and crystal_aligned_frame:
+                    plot_spots(result2.I.flatten(), result1.I.flatten(),result1.miller_indices)
 
 
             identical_count = np.zeros(result1.I.shape)
@@ -2261,17 +2271,19 @@ if __name__ == "__main__":
     #============------------User params---------==========#
 
     target = "glycine" #target_options[2]
-    best_resolution = 2   # resolution (determining max q)
+    best_resolution = 1.58 #(abdullah) # 2   # resolution (determining max q)
     worst_resolution = None#30 # 'resolution' corresponding to min q
 
     #### Individual experiment arguments 
     start_time = -12#-6
     end_time = 12#6
     laser_firing_qwargs = dict(
+        # ab initio
         SPI = False,
         SPI_resolution = best_resolution,
         pixels_across = 100,  # for SPI, shld go on xfel params.
-        random_orientation = False, #infinite cryst sim only, TODO refactor to be in same place as other orients...# orientation is synced with second 
+        # miller
+        random_orientation = True, #infinite cryst sim only, TODO refactor to be in same place as other orients...# orientation is synced with second 
     )
     ##### Crystal params
     crystal_no_dev = True
@@ -2280,7 +2292,7 @@ if __name__ == "__main__":
         positional_stdv = 0,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
-        rocking_angle = 1,  # (approximating mosaicity)
+        rocking_angle = 0.1,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         #CNO_to_N = True,   # whether the plasma simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
     )
 
@@ -2294,9 +2306,9 @@ if __name__ == "__main__":
         q_minimum = res_to_q(worst_resolution),#None #angstrom
         q_cutoff = res_to_q(best_resolution), #(best_resolution),#2*np.pi/2
         t_fineness=25,   
-        #####crystal stuff
-        max_triple_miller_idx = None, # = m, where max momentum given by q with miller indices (m,m,m)
-        ####SPI stuff
+        #####crystal stuff (miller)
+        max_triple_miller_idx = 6, #None, # = m, where max momentum given by q with miller indices (m,m,m)
+        ####SPI stuff ( ab initio)
         num_rings = 20,
         pixels_per_ring = 20,
         # first image orientation cardan angles [degrees] 
@@ -2305,8 +2317,8 @@ if __name__ == "__main__":
         SPI_z_rotation = 0,
         #crystallographic orientations (not consistent with SPI yet)
         # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.        
-        num_orients_crys=1,
-        orientation_axis_crys = [0,0,1],#None,#[1,1,0]
+        num_orients_crys=20, # Miller indices orientations
+        orientation_axis_crys = None,#[0,0,1],#None,#[1,1,0]
         ######
     )
     same_deviations = False # whether same position deviations between damaged and undamaged crystal (SPI only) 
@@ -2433,7 +2445,7 @@ if __name__ == "__main__":
 #%%
 if __name__ == "__main__":
     stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
-
+    #stylin("glycine_v11__real","glycine_v11__ideal",1.58)
 #^^^^^^^
 
 #%%
@@ -2448,11 +2460,11 @@ if __name__ == "__main__":
     ##### Crystal params
     pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
     crystal_qwargs = dict(
-        cell_scale = 3,  # for SC: cell_scale^3 unit cells
+        cell_scale = 2,  # for SC: cell_scale^3 unit cells
         positional_stdv = 0,  # Not used
-        include_symmetries = False,  # should unit cell contain symmetries?
+        include_symmetries = True,  # should unit cell contain symmetries or just one asymmetric unit?
         cell_packing = "SC",
-        rocking_angle = 1,  # (approximating mosaicity)
+        rocking_angle = 0.1,  # (approximating mosaicity - use 0.02 for proper, use a high value, like 1, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         CNO_to_N = False,
     )
     allowed_atoms = ["C","N","O","S"]
