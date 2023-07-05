@@ -33,7 +33,7 @@ default_dict = dict(
         q_cutoff = res_to_q(best_resolution),#2*np.pi/d
         t_fineness=25,   
         #####crystal stuff
-        max_triple_miller_idx = None, # = m, where max momentum given by q with miller indices (m,m,m)
+        max_miller_idx = None, # = m, where max momentum given by q with miller indices (m,m,m)
         ####SPI stuff
         num_rings = 20,
         pixels_per_ring = 25,

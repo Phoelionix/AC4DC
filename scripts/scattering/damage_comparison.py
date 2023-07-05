@@ -170,7 +170,7 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
     print("R_data:",R_data)
     return np.array(R_data,dtype=np.float64), names, param_dict
 
-def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="amp",use_neutze_units=False,check_batch_nums = True,name_of_set="",energy_key=9000,photon_key=1e14,fwhm_key=50,**kwargs):
+def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="amp",use_neutze_units=False,check_batch_nums = True,name_of_set="",energy_key=9000,photon_key=1e14,fwhm_key=50,cmin_contour=0,cmax_contour=0.4,**kwargs):
     out_folder = "R_plots"
     os.makedirs(out_folder,exist_ok=True)
     ext = ".svg"
@@ -209,8 +209,8 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
     if check_batch_nums:
         nums = []
         for elem in df["name"]:
-            elem = elem[4:].split('_')[0]
             elem = elem.split('-')[-1]
+            elem = elem.split('_')[0]
             nums.append(int(elem))
         nums.sort()
         print("R values found for",len(nums),"simulations.")
@@ -296,6 +296,17 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
         rng[1]+= rng[1]/10
         ranges[col] = rng
 
+    cmax_contour = max(cmax_contour,ranges['R'][1])
+
+    contour_args = dict(
+        colorscale = 'amp',#clr_scale, #'electric',
+        line_smoothing=0,
+        connectgaps = False,
+        zmin = 0, zmax = 0.4,
+        #contours_coloring='heatmap',
+        contours = go.contour.Contours(start = 0.05, end= cmax_contour, size = 0.05),
+        colorbar = dict(title = "R", tickvals = np.arange(0.05,cmax_contour+0.001,0.05)),
+    )
     original_df = df
     #get data frames for each energy
     unique_E = np.sort(df.energy.unique())
@@ -325,12 +336,7 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
                 x = df["fwhm"],
                 y = [p for p in df[photon_measure]],
 
-                colorscale = 'amp',#clr_scale, #'electric',
-                line_smoothing=0,
-                connectgaps = False,
-                zmin = 0, zmax = 0.4,
-                contours = go.contour.Contours(start = 0.05, end= ranges['R'][1], size = 0.05),
-                colorbar = dict(title = "R", tickvals = np.arange(0.05,ranges['R'][1],0.05),)
+                **contour_args,
             ))
         fig.update_xaxes(title="FWHM (fs)",type="log")
         fig.update_yaxes(title=photon_measure)
@@ -362,14 +368,8 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
                 #y=unique_photons,
                 z = df["R"],
                 x = df["fwhm"],
-                y = df["energy"],
-
-                colorscale = 'amp',#clr_scale, #'electric',
-                line_smoothing=0,
-                connectgaps = False,
-                zmin = 0, zmax = 0.4,
-                contours = go.contour.Contours(start = 0.05, end= ranges['R'][1], size = 0.05),
-                colorbar = dict(title = "R", tickvals = np.arange(0.05,ranges['R'][1],0.05),)
+                y = df["energy"]
+                **contour_args,
             ))
         fig.update_layout(width = 750, height = 600)
         fig.update_layout(title = name_of_set + ", " +str(photon_key_for_title)+" " +photon_measure)
@@ -385,7 +385,7 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
     if fwhm_key in data_frame_dict.keys(): 
         for key in data_frame_dict.keys():
             data_frame_dict[key] = df[:][df.fwhm == key]    
-        df = data_frame_dict[25]
+        df = data_frame_dict[fwhm_key]
 
         fig = go.Figure(data =  
             go.Contour(
@@ -395,13 +395,7 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
                 z = df["R"],
                 x = df["energy"],
                 y = [p for p in df[photon_measure]],
-
-                colorscale = 'amp',#clr_scale, #'electric',
-                line_smoothing=0,
-                connectgaps = False,
-                zmin = 0, zmax = 0.4,
-                contours = go.contour.Contours(start = 0.05, end= ranges['R'][1], size = 0.05),
-                colorbar = dict(title = "R", tickvals = np.arange(0.05,ranges['R'][1],0.05),)
+               **contour_args,
             ))
         fig.update_layout(width = 750, height = 600,)
         fig.update_layout(title=name_of_set + ", FWHM = "+str(fwhm_key)+" fs")
@@ -422,7 +416,7 @@ if __name__ == "__main__":
     )
 
 
-    batch_mode = False # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
+    batch_mode = True # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
 
     mode = 1  #0 -> infinite crystal, 1 -> finite crystal/SPI, 2-> both  
     same_deviations = False # whether same position deviations between damaged and undamaged crystal (SPI only)
@@ -430,8 +424,8 @@ if __name__ == "__main__":
     if batch_mode:
         allowed_atoms = ["C","N","O","S"] 
         CNO_to_N = False
-        S_to_N = False
-        batch_handle = "lys_full" 
+        S_to_N = True
+        batch_handle = "lys_all_light" 
         kwargs["plasma_batch_handle"] = batch_handle
         batch_dir = None # Optional: Specify existing parent folder for batch of results, to add these orientation results to.
         pdb_path = PDB_PATHS["lys"]
@@ -459,10 +453,10 @@ if __name__ == "__main__":
 #------------Plot----------------------
 if __name__ == "__main__":
     if batch_mode:
-        name_of_set = batch_handle
+        name_of_set = batch_handle+"draft"
     else:
         name_of_set = ""
-    plot_2D_constants = dict(energy_key = 12000, photon_key = 1e14,fwhm_key = 50)
+    plot_2D_constants = dict(energy_key = 18000, photon_key = 1e15,fwhm_key = 100)
     neutze = True
     if MODE_DICT[mode] != "spi":
         print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"

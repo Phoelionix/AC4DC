@@ -694,7 +694,7 @@ class Atomic_Species():
                     return self.crystal.ff_calculator.random_states_to_f_snapshots(self.times_used,self.orb_occs[atom_idx],q_arr,self.name,self.orb_occ_dict)[0]  # f has form  [times,momenta]
             self.get_stochastic_f = tmp_func
 class XFEL():
-    def __init__(self, experiment_name, photon_energy, detector_distance_mm=100, q_minimum = None, q_cutoff = None, max_triple_miller_idx = None, screen_type = "hemisphere", num_orients_crys=1, orientation_axis_crys = None, x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100,SPI_y_rotation = 0,SPI_x_rotation = 0,SPI_z_rotation = 0):
+    def __init__(self, experiment_name, photon_energy, detector_distance_mm=100, q_minimum = None, q_cutoff = None, max_miller_idx = None, screen_type = "hemisphere", num_orients_crys=1, orientation_axis_crys = None, x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100,SPI_y_rotation = 0,SPI_x_rotation = 0,SPI_z_rotation = 0):
         """ #### Initialise the imaging experiment's controlled parameters
         experiment_name:
             String that the output folder will be named.        
@@ -716,8 +716,8 @@ class XFEL():
         orientation_set:
             contains each set of cardan angles for each orientation to images. Crystal only. 
             Overriden for imagings with random orientations. TODO replace x_orientations and y_orientations with this.
-        max_triple_miller_idx:
-            If specified, the maximum momentum transfer is set to that corresponding to (m,m,m), where m = max_triple_miller_idx
+        max_miller_idx:
+            If specified, the maximum momentum transfer is set to that corresponding to (m,m,m), where m = max_miller_idx
         q_cutoff [1/angstrom]:
             If specified, only bragg points corresponding to momentum transfers at or below this value will be simulated.    
         """
@@ -729,7 +729,7 @@ class XFEL():
         self.num_rings = num_rings
         self.x_orientations = x_orientations
         self.y_orientations = y_orientations
-        self.max_triple_miller_idx = max_triple_miller_idx
+        self.max_miller_idx = max_miller_idx
 
 
         self.min_q = 0
@@ -1137,7 +1137,8 @@ class XFEL():
                     atm_idx = np.arange(len(species.coords)*s+max_atoms_per_loop*a_batch, len(species.coords)*s + min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
                     if len(atm_idx) == 0:
                         break
-                    print("symmetry:",s,"atoms:",atm_idx[0],"-",atm_idx[-1])
+                    if len(self.target.sym_rotations) < 50 or (len(self.target.sym_rotations) < 2000 and s%100 == 0)  or s%1000 == 0:
+                        print("symmetry:",s,"atoms:",atm_idx[0],"-",atm_idx[-1])
                     relative_atm_idx = np.arange(max_atoms_per_loop*a_batch, min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
                     # Rotate to target's current orientation 
                     # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
@@ -1287,7 +1288,8 @@ class XFEL():
             if cell_packing == "FCC":
                 a = 0.5*np.array([[0,1,1],[1,0,1],[1,1,0]])
             a = np.multiply(a,crystal.cell_dim) 
-        else raise Exception("Unknown cell packing type")
+        else: 
+            raise Exception("Unknown cell packing type")
         if not np.array_equal(crystal.supercell_dim,crystal.cell_dim):
             print("Warning: This code samples the intensity at the miller indices, and thus does not capture peak broadening - consider using the SPI imaging mode instead.")
         b1 = np.cross(a[1],a[2])
@@ -1334,12 +1336,12 @@ class XFEL():
 
         def miller_selection_rule():
             return None
-        if self.max_triple_miller_idx != None:
-            m = self.max_triple_miller_idx
+        if self.max_miller_idx != None:
+            m = self.max_miller_idx
             max_g_vect = get_G(np.full((1,3),m))[0][0]
             self.max_q = min(self.max_q,np.sqrt(((max_g_vect[0])**2+(max_g_vect[1])**2+(max_g_vect[2])**2)))
-            def miller_selection_rule(G): # Probably unnecessary I'm just making sure...
-                return  (G[0] <= m and G[1] <= m and G[2] <= m)
+            def miller_selection_rule(indices): # Probably unnecessary I'm just making sure...
+                return  (abs(indices[0]) <= m and abs(indices[1]) <= m and abs(indices[2]) <= m)
         print("max q (i.e. rim q):",self.max_q)
         
         print("using q range of ", self.min_q/ang_per_bohr,"-",self.max_q/ang_per_bohr," angstrom-1")
@@ -1350,8 +1352,8 @@ class XFEL():
         
         # Catch the miller indices with a boolean mask
         mask = np.apply_along_axis(selection_rule,1,indices)*np.apply_along_axis(min_max_q_rule,1,G_temp)*np.apply_along_axis(self.mosaic_elastic_condition,1,G_temp)
-        if self.max_triple_miller_idx != None:
-            mask*=np.apply_along_axis(miller_selection_rule,1,G_temp)
+        if self.max_miller_idx != None:
+            mask*=np.apply_along_axis(miller_selection_rule,1,indices)
         indices = indices[mask]
 
         print("Cardan angles:",cardan_angles)
@@ -1737,7 +1739,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             I1 = tmp_I1[unique_values_mask]
             I2 = tmp_I2[unique_values_mask]
             radial_axis = radial_axis[unique_values_mask]
-            phi = phi[unique_values_mask]
+            phi = phi[unique_values_mask] + np.pi/2 # to align with the SPI pixel plot
 
             #sector_histogram += get_histogram_contribution(z,result.phi,radial_axis)
             if result2 != None:
@@ -2279,21 +2281,21 @@ if __name__ == "__main__":
     start_time = -12#-6
     end_time = 12#6
     laser_firing_qwargs = dict(
-        # ab initio
+        # ab initio pixels
         SPI = False,
         SPI_resolution = best_resolution,
-        pixels_across = 100,  # for SPI, shld go on xfel params.
+        pixels_across = 250,  # for SPI, shld go on xfel params.
         # miller
-        random_orientation = True, #infinite cryst sim only, TODO refactor to be in same place as other orients...# orientation is synced with second 
+        random_orientation = False, #infinite cryst sim only, TODO refactor to be in same place as other orients...# orientation is synced with second 
     )
     ##### Crystal params
     crystal_no_dev = True
     crystal_qwargs = dict(
-        cell_scale = 10,  # for SC: cell_scale^3 unit cells 
-        positional_stdv = 0,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
+        cell_scale = 18,  # for SC: cell_scale^3 unit cells 
+        positional_stdv = 0.2,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
-        rocking_angle = 1,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
+        rocking_angle = 30,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         #CNO_to_N = True,   # whether the plasma simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
     )
 
@@ -2308,7 +2310,7 @@ if __name__ == "__main__":
         q_cutoff = res_to_q(best_resolution), #(best_resolution),#2*np.pi/2
         t_fineness=25,   
         #####crystal stuff (miller)
-        max_triple_miller_idx = 6, #None, # = m, where max momentum given by q with miller indices (m,m,m)
+        max_miller_idx = 6, #None, # = m, [thus max q given by q with miller indices (m,m,m)]
         ####SPI stuff ( ab initio)
         num_rings = 20,
         pixels_per_ring = 20,
@@ -2318,8 +2320,9 @@ if __name__ == "__main__":
         SPI_z_rotation = 0,
         #crystallographic orientations (not consistent with SPI yet)
         # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.        
-        num_orients_crys=10, # Miller indices orientations
-        orientation_axis_crys = None,#[0,0,1],#None,#[1,1,0]
+        num_orients_crys=1, # Miller indices orientations
+        #orientation_axis_crys = None,
+        orientation_axis_crys = [0,0,1],#None,#[1,1,0]
         ######
     )
     same_deviations = False # whether same position deviations between damaged and undamaged crystal (SPI only) 
@@ -2442,11 +2445,12 @@ if __name__ == "__main__":
             laser_firing_qwargs["random_orientation"] = False
             experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
             experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged, results_parent_dir=results_parent_folder, **laser_firing_qwargs)
-        stylin(exp_name1,exp_name2,experiment1.max_q,)
+        stylin(exp_name1,exp_name2,experiment1.max_q,) # Note we are passing the max q, not max q_scr.
 #%%
 if __name__ == "__main__":
-    stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
-    #stylin("glycine_v11__real","glycine_v11__ideal",1.58)
+    #stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
+    #stylin("glycine_v36__real","glycine_v36__ideal",2.3)
+    stylin(exp_name1,exp_name2,3)
 #^^^^^^^
 
 #%%
@@ -2461,7 +2465,7 @@ if __name__ == "__main__":
     ##### Crystal params
     pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
     crystal_qwargs = dict(
-        cell_scale = 2,  # for SC: cell_scale^3 unit cells
+        cell_scale = 3,  # for SC: cell_scale^3 unit cells
         positional_stdv = 0,  # Not used
         include_symmetries = True,  # should unit cell contain symmetries or just one asymmetric unit?
         cell_packing = "SC",
