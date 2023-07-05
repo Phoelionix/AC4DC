@@ -113,7 +113,7 @@ class Results_Grid():
     pass    
 
 class Crystal():
-    def __init__(self, pdb_fpath, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = True, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, cell_scale = 1,S_to_N=False):
+    def __init__(self, pdb_fpath, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = True, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, cell_scale = 1,num_supercells=1, supercell_simulations = 1, S_to_N=False,):
         '''
         rocking_angle [degrees]
         cell_packing ("SC","BCC","FCC","FCC-D")
@@ -122,9 +122,12 @@ class Crystal():
         self.rocking_angle = rocking_angle * np.pi/180            
         self.is_damaged = is_damaged
         self.cell_scale = cell_scale  # TODO allow for non-cubic crystals and non SC cell packing.
+        self.num_supercells = num_supercells
+        self.supercell_simulations = supercell_simulations
         self.pdb_fpath = pdb_fpath
         self.positional_stdv = positional_stdv/ang_per_bohr # RMS error in coord positions, designed for SPI sim only but I guess it wouldn't be detrimental for crystal sim.
         
+        assert self.supercell_simulations <= num_supercells
         ## Parameters to be parsed by custom function because I cannot understand Bio.PDB.PDBParser's documentation.
         self.sym_rotations = []; self.sym_translations = [];   # Symmetry for each asymmetric unit simulated. If non-SPI, this is defining the supercell.
         self.cell_dim = None   # unit cell length parameters. Angles not implemented yet.        
@@ -364,7 +367,7 @@ class Crystal():
         qualifier = "sample of"
         if num_atoms_avail == len(test_points):
             qualifier = "all" 
-        print("Number of atoms in structure:",num_atoms_avail)
+        print("Number of atoms in supercell:",num_atoms_avail*len(self.sym_translations))
         print("Generating plot with",qualifier,len(test_points),"atoms per asymmetric unit (plotting "+str(len(test_points)*len(self.sym_translations))+" in total)")
         i = 0
         for species in self.species_dict.values():
@@ -836,10 +839,7 @@ class XFEL():
             for rot_x in range(self.x_orientations):
                 self.x_rot_matrix = rotaxis2m(self.x_rotation,Bio_Vect(1, 0, 0))      
                 self.y_rotation = 0                 
-                for rot_y in range(self.y_orientations):
-                    for species in target.species_dict.values():
-                        species.set_stochastic_states()   
-                        species.set_coord_deviation()                
+                for rot_y in range(self.y_orientations):              
                     print("Imaging at x, y, rotations:",self.x_rotation,self.y_rotation)
                     self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))      
                     self.y_rotation += 2*np.pi/self.y_orientations              
@@ -966,10 +966,7 @@ class XFEL():
             for rot_x in range(self.x_orientations):
                 self.x_rot_matrix = rotaxis2m(self.x_rotation,Bio_Vect(1, 0, 0))      
                 #self.y_rotation = 0                 
-                for rot_y in range(self.y_orientations):
-                    for species in target.species_dict.values():
-                        species.set_stochastic_states()   
-                        species.set_coord_deviation()                   
+                for rot_y in range(self.y_orientations):                  
                     print("Imaging at x, y, rotations:",self.x_rotation,self.y_rotation)
                     self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))      
                     self.y_rotation += 2*np.pi/self.y_orientations              
@@ -991,9 +988,7 @@ class XFEL():
             used_orientations = []
             if random_orientation:
                 self.orientation_set = [(0,0,0)]*self.num_orientations  # Dummy orientations
-            for j, cardan_angles in enumerate(self.orientation_set):    
-                for species in target.species_dict.values():
-                    species.set_stochastic_states()           
+            for j, cardan_angles in enumerate(self.orientation_set):             
                 print("Imaging orientation",j)
                 bragg_points, miller_indices,cardan_angles = self.bragg_points(target,cell_packing = target.cell_packing, cardan_angles = cardan_angles,random_orientation=random_orientation)
                 used_orientations.append(cardan_angles)
@@ -1104,11 +1099,6 @@ class XFEL():
         elif type(feature) in [self.Cell,self.Ring]:
             SPI = True
 
-        times_used = None
-        for species in self.target.species_dict.values():
-            species.set_scalar_form_factor()
-            times_used = species.times_used
-
         F_shape = tuple()
         if type(feature) is self.Spot:
             F_shape += (self.t_fineness,)           
@@ -1120,58 +1110,80 @@ class XFEL():
             F_shape += (self.t_fineness,)# [?phis?,times]
             if type(feature.q) is np.ndarray:
                 F_shape += feature.q.shape          # [?phis?,times,feature.q.shape]
-                
-        # Technically sum of F(t)*sqrt(J(t)), where F = sum(f(q,t)*T(q)), and J(t) is the incident intensity, thus accounting for the pulse profile.
-        F_sum = np.zeros(F_shape,dtype="complex_")  
-        for species in self.target.species_dict.values():
-            print("------------------------------------------------------------")
-            print("Getting contribution to integrand from species",species.name)
-            if not np.array_equal(times_used,species.times_used):
-                raise Exception("Times used don't match between species.")        
-            # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
-            max_atoms_per_loop = 500 # Restrict array size to prevent computer explosions. 
-            for s in range(len(self.target.sym_rotations)):
-                #print("Working through symmetry",s)
-                num_atom_batches = int(len(species.coords)/max_atoms_per_loop)+1
-                for a_batch in range(num_atom_batches):
-                    atm_idx = np.arange(len(species.coords)*s+max_atoms_per_loop*a_batch, len(species.coords)*s + min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
-                    if len(atm_idx) == 0:
-                        break
-                    if len(self.target.sym_rotations) < 50 or (len(self.target.sym_rotations) < 2000 and s%100 == 0)  or s%1000 == 0:
-                        print("symmetry:",s,"atoms:",atm_idx[0],"-",atm_idx[-1])
-                    relative_atm_idx = np.arange(max_atoms_per_loop*a_batch, min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
-                    # Rotate to target's current orientation 
-                    # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
-                    R = np.array(species.coords[relative_atm_idx[0]:relative_atm_idx[-1]+1]) 
-                    coord = self.target.get_sym_xfmed_point(R,s)  + species.error[atm_idx] # dim = [ N, 3]
-                    coord = coord @ self.x_rot_matrix  
-                    coord = coord @ self.y_rot_matrix
-                    coord = coord @ self.z_rot_matrix
-                    # Get spatial factor T
-                    if SPI:
-                        T = self.SPI_interference_factor(phis,coord,feature)  # if grid: [phis,qx,qy]  if ring: [phis,q] (unimplemented)
-                    else:
-                        T= self.interference_factor(coord,feature,cardan_angles)  #[num_G] 
-                    f = species.get_stochastic_f(atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
-                    same_each_sym = False # (debug)
-                    if same_each_sym:
-                        f = species.get_stochastic_f(relative_atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
-                    #print(F_sum.shape,T.shape,f.shape) 
-                    if SPI: 
-                        if type(feature) is self.Cell:
-                            F_sum += np.sum(T[:,None,...]*f,axis=0)          #[num_atoms,None,qX,qY] X [num_atoms,times,qX,qY] -> [times,qX,qY]
-                        if type(feature) is self.Ring:           
-                            F_sum += np.sum(T[:,:,None,:] * f[:,None,:,:],axis=0)        # [num_atoms,phis,None,num_|q|]X[num_atoms,None,times, num_|q|]  -> [phis,times,num_|q|]
-                    else:
-                        F_sum += np.sum(T[:,None,:] * f,axis=0)                           # [num_atoms,None,num_G]X[num_atoms,times,num_G]  ->[times,num_G] 
-                    #print("s,F_sum",s,F_sum)
-        if (times_used[-1] == times_used[0]):   
-            raise Exception("Intensity array's final time equals its initial time") #I =  np.square(np.abs(F_sum[:,0]))  # 
-        else:
-            time_axis = 0
-            if type(feature) is self.Ring:
-                time_axis = 1
-            I = np.trapz(np.square(np.abs(F_sum)),times_used,axis = time_axis) / (times_used[-1]-times_used[0])       #[num_G] for points, or for SPI: [phis,feature.q.shape], corresponding to rings or square grid
+        F_supercells = np.zeros(self.target.supercell_simulations,dtype="object")
+        for S in range(self.target.supercell_simulations):   
+            times_used = None
+            for species in self.target.species_dict.values():
+                species.set_stochastic_states()   
+                species.set_coord_deviation()             
+                species.set_scalar_form_factor()
+                times_used = species.times_used
+            if (times_used[-1] == times_used[0]):   
+                raise Exception("Intensity array's final time equals its initial time")                  
+            # Technically sum of F(t)*sqrt(J(t)), where F = sum(f(q,t)*T(q)), and J(t) is the incident intensity, thus accounting for the pulse profile.
+            F_sum = np.zeros(F_shape,dtype="complex_")  
+            for species in self.target.species_dict.values():
+                print("------------------------------------------------------------")
+                print("Getting contribution to integrand from species",species.name)
+                if not np.array_equal(times_used,species.times_used):
+                    raise Exception("Times used don't match between species.")        
+                # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
+                max_atoms_per_loop = 500 # Restrict array size to prevent computer explosions. 
+                for s in range(len(self.target.sym_rotations)):
+                    #print("Working through symmetry",s)
+                    num_atom_batches = int(len(species.coords)/max_atoms_per_loop)+1
+                    for a_batch in range(num_atom_batches):
+                        atm_idx = np.arange(len(species.coords)*s+max_atoms_per_loop*a_batch, len(species.coords)*s + min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
+                        if len(atm_idx) == 0:
+                            break
+                        if len(self.target.sym_rotations) < 50 or (len(self.target.sym_rotations) < 2000 and s%100 == 0)  or s%1000 == 0:
+                            print("symmetry:",s,"atoms:",atm_idx[0],"-",atm_idx[-1])
+                        relative_atm_idx = np.arange(max_atoms_per_loop*a_batch, min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
+                        # Rotate to target's current orientation 
+                        # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
+                        R = np.array(species.coords[relative_atm_idx[0]:relative_atm_idx[-1]+1]) 
+                        coord = self.target.get_sym_xfmed_point(R,s)  + species.error[atm_idx] # dim = [ N, 3], where N is number of coords.
+                        coord = coord @ self.x_rot_matrix  
+                        coord = coord @ self.y_rot_matrix
+                        coord = coord @ self.z_rot_matrix
+                        # Get spatial factor T
+                        if SPI:
+                            T = self.SPI_interference_factor(phis,coord,feature)  # if grid: [phis,qx,qy]  if ring: [phis,q] (unimplemented)
+                        else:
+                            T= self.interference_factor(coord,feature,cardan_angles)  #[num_G] 
+                        f = species.get_stochastic_f(atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
+                        same_each_sym = False # (debug)
+                        if same_each_sym:
+                            f = species.get_stochastic_f(relative_atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
+                        #print(F_sum.shape,T.shape,f.shape) 
+                        if SPI: 
+                            if type(feature) is self.Cell:
+                                F_sum += np.sum(T[:,None,...]*f,axis=0)          #[num_atoms,None,qX,qY] X [num_atoms,times,qX,qY] -> [times,qX,qY]
+                            if type(feature) is self.Ring:           
+                                F_sum += np.sum(T[:,:,None,:] * f[:,None,:,:],axis=0)        # [num_atoms,phis,None,num_|q|]X[num_atoms,None,times, num_|q|]  -> [phis,times,num_|q|]
+                        else:
+                            F_sum += np.sum(T[:,None,:] * f,axis=0)                           # [num_atoms,None,num_G]X[num_atoms,times,num_G]  ->[times,num_G] 
+                        #print("s,F_sum",s,F_sum)
+                                                                            #I =  np.square(np.abs(F_sum[:,0]))  # 
+            F_supercells[S] = F_sum
+        # Add supercells
+        F_cry = np.zeros(F_shape,dtype="complex_")
+        length = np.ceil(self.target.num_supercells**(1/3)) 
+        x, y, z= np.meshgrid(np.arange(0, length), np.arange(0, length), np.arange(0, length))
+        super_cube_coords = np.stack([ y.flatten(), x.flatten(), z.flatten()], axis = -1) # sadly not dimensionally-transcendental enough to be prefixed "hyper"        
+        for k in range(self.target.num_supercells):
+            super_coord = np.empty((1,3))  
+            super_coord[0] = super_cube_coords[k]*self.target.supercell_dim
+            if SPI:
+                T_supercell = self.SPI_interference_factor(phis,super_coord,feature)
+            else:
+                T_supercell = self.interference_factor(coord,super_coord,cardan_angles)
+            F_cry += np.random.choice(F_supercells)*T_supercell[0]
+        # Integrate over time to get the intensity
+        time_axis = 0
+        if type(feature) is self.Ring:
+            time_axis = 1
+        I = np.trapz(np.square(np.abs(F_cry)),times_used,axis = time_axis) / (times_used[-1]-times_used[0])       #[num_G] for points, or for SPI: [phis,feature.q.shape], corresponding to rings or square grid
             
 
         # For unpolarised light (as used by Neutze 2000). (1/2)r_e^2(1+cos^2(theta)) is thomson scattering - recovering the correct equation for a lone electron, where |f|^2 = 1 by definition.    
@@ -2282,7 +2294,7 @@ if __name__ == "__main__":
     end_time = 12#6
     laser_firing_qwargs = dict(
         # ab initio pixels
-        SPI = False,
+        SPI = True,
         SPI_resolution = best_resolution,
         pixels_across = 250,  # for SPI, shld go on xfel params.
         # miller
@@ -2291,8 +2303,10 @@ if __name__ == "__main__":
     ##### Crystal params
     crystal_no_dev = True
     crystal_qwargs = dict(
-        cell_scale = 18,  # for SC: cell_scale^3 unit cells 
-        positional_stdv = 0.2,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
+        cell_scale = 5,  # for SC: cell_scale^3 unit cells 
+        num_supercells = 100,
+        supercell_simulations = 5,
+        positional_stdv = 0,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
         rocking_angle = 30,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )

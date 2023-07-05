@@ -33,7 +33,7 @@ PDB_PATHS = dict( # <value:> the target that should be used for <key:> the name 
     lys = my_dir + "targets/4et8.pdb", #"targets/2lzm.pdb",
     test = my_dir + "targets/4et8.pdb", 
     lys_tmp = my_dir + "targets/4et8.pdb",
-    
+    lys_solvated = my_dir + "solvate_1.0/lys_8_cell.xpdb",
     fcc = "targets/FCC.pdb",
     glycine = "targets/glycine.pdb",
 )          
@@ -416,7 +416,7 @@ if __name__ == "__main__":
     )
 
 
-    batch_mode = True # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
+    batch_mode = False # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
 
     mode = 1  #0 -> infinite crystal, 1 -> finite crystal/SPI, 2-> both  
     same_deviations = False # whether same position deviations between damaged and undamaged crystal (SPI only)
@@ -431,16 +431,18 @@ if __name__ == "__main__":
         pdb_path = PDB_PATHS["lys"]
     else: # Compare specific simulations
         # allowed_atoms = ["C","N","O"]; S_to_N = True
-        allowed_atoms = ["C","N","O","S"]; S_to_N = False
+        allowed_atoms = ["C","N","O","S"]; S_to_N = True
         CNO_to_N = False
         kwargs["plasma_batch_handle"] = ""
         #kwargs["plasma_handles"] = ["lys_nass_3","lys_nass_no_S_1"]    #Note that S_to_N must be true to compare effect on nitrogen R factor. Comparing S_to_N true with nitrogen only sim, then S_to_N false with nitrogen+sulfur sim, let's us compare the true effect of sulfur on R facator.
         #kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_6","lys_nass_Gd_16"]  
         #kwargs["plasma_handles"] = ["lys_nass_HF","lys_nass_Gd_HF"]  
-        kwargs["plasma_handles"] = ["glycine_abdullah_4"]  
+        kwargs["plasma_handles"] = ["lys_full-typical","lys_all_light-typical"]  
+        #kwargs["plasma_handles"] = ["glycine_abdullah_4"]  
         #pdb_path = PDB_PATHS["fcc"]
         #pdb_path = PDB_PATHS["lys"]
-        pdb_path = PDB_PATHS["glycine"]
+        pdb_path = PDB_PATHS["lys_solvated"]
+        #pdb_path = PDB_PATHS["glycine"]
 
     if MODE_DICT[mode] != "spi":
         scatter_data = multi_damage(imaging_params.default_dict,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
