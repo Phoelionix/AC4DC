@@ -26,7 +26,6 @@ my_dir = path.abspath(path.join(src_file_path ,"../")) + "/"
 
 
 MODE_DICT = {0:'crystal',1:'spi',2:'both'}
-NO_CRYSTAL_DEV = False
 
 PDB_PATHS = dict( # <value:> the target that should be used for <key:> the name of simulation output batch folder.
     tetra = my_dir+ "targets/5zck.pdb",
@@ -38,6 +37,8 @@ PDB_PATHS = dict( # <value:> the target that should be used for <key:> the name 
     glycine = "targets/glycine.pdb",
 )          
 
+DATA_FOLDER = "dmg_data/"
+PLOT_FOLDER = "R_plots/"
 
 def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations,plasma_batch_handle = "", plasma_handles = None, sctr_results_batch_dir = None, get_R_only=True, realistic_crystal_growing_mode = False,specific_energy = None):
     '''
@@ -50,10 +51,6 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
     '''
     if plasma_batch_handle == "":
         assert plasma_handles is not None
-
-    # Turn off stdv for crystal  #TODO tackle this better
-    if NO_CRYSTAL_DEV and params["laser"]["SPI"] == False:
-        params["crystal"]["positional_stdv"] = 0
 
     if params["laser"]["SPI"] == False:  
         # Folder structure:
@@ -105,7 +102,8 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
             assert path.isfile(plasma_output + "/" +dat_file), "Missing "+dat_file+" in "+plasma_output
         # Index parameters of simulation
         start_time[i],end_time[i],energy[i],fwhm[i],photon_count[i],param_dict,unit_dict = get_sim_params(sim_input_dir,sim_data_batch_dir,sim_handle)
-    R_data = []
+    dmg_data = []
+    pulse_params=[]
     names = []
     for i, sim_handle in enumerate(plasma_handles):
         # TODO
@@ -155,7 +153,7 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
             SPI_result1 = experiment1.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal, **run_params["laser"])
             SPI_result2 = experiment2.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal_undmged, **run_params["laser"])
             #TODO apply_background([SPI_result1,SPI_result2])
-            R = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=get_R_only,SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
+            R,cc = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=get_R_only,SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
         else:
             exp1_orientations = experiment1.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal, results_parent_dir=sctr_results_batch_dir, **run_params["laser"])
             if exp_name2 != None:
@@ -163,46 +161,43 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
                 experiment2.set_orientation_set(exp1_orientations)  
                 run_params["laser"]["random_orientation"] = False 
                 experiment2.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal_undmged, results_parent_dir=sctr_results_batch_dir, **run_params["laser"])
-            R = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=get_R_only,SPI=False,results_parent_dir = sctr_results_batch_dir)
-        
-        R_data.append([energy[i],fwhm[i],photon_count[i],R]) 
+            R,cc = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=get_R_only,SPI=False,results_parent_dir = sctr_results_batch_dir)
+        dmg_data.append([R,cc]) 
+        pulse_params.append([energy[i],fwhm[i],photon_count[i]])
     
-    print("R_data:",R_data)
-    return np.array(R_data,dtype=np.float64), names, param_dict
+    return np.array(pulse_params,dtype=float),np.array(dmg_data,dtype=object), names, param_dict
 
-def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="amp",use_neutze_units=False,check_batch_nums = True,name_of_set="",energy_key=9000,photon_key=1e14,fwhm_key=50,cmin_contour=0,cmax_contour=0.4,**kwargs):
-    out_folder = "R_plots"
-    os.makedirs(out_folder,exist_ok=True)
-    ext = ".svg"
+import pickle
+def save_data(fname, data):
+    os.makedirs(DATA_FOLDER,exist_ok=True)
+
+    with open(DATA_FOLDER+fname+".pickle", 'wb') as file: 
+        pickle.dump(data, file)
+
     
-    log_photons = np.log(R_data[:,2])-np.min(np.log(R_data[:,2]))
+def load_df(fname, resolution_idx,check_batch_nums=True):
+    with open(DATA_FOLDER+fname +".pickle", "rb") as file:
+        pulse_params, dmg_data,names,param_dict = pickle.load(file) 
+    
+    dmg_data = dmg_data[...,resolution_idx].astype(float)
+    log_photons = np.log(pulse_params[:,2])-np.min(np.log(pulse_params[:,2]))
     log_photons += np.max(log_photons)/2
-    # photon_size_thing = R_data[:,2] + np.max(R_data[:,2])/10
-    photon_size_thing = 1+np.square(np.log(R_data[:,2])-np.min(np.log((R_data[:,2]))))
+    # photon_size_thing = dmg_data[:,2] + np.max(dmg_data[:,2])/10
+    photon_size_thing = 1+np.square(np.log(pulse_params[:,2])-np.min(np.log((pulse_params[:,2]))))
 
     assert param_dict[3] == "R"
     photon_measure = param_dict[2]
-    if photon_measure == "Count":
-        photon_data = [1e12*p for p in R_data[:,2]]
-        if use_neutze_units:
-            photon_data = [7.854e-3*p for p in photon_data] # square micrometre to 100 nm diameter spot
-            photon_measure = "Count - 100 nm spot"
-        else:
-            photon_measure = "Count - um^2"
-    else:
-        photon_data = [p for p in R_data[:,2]] #TODO implement other measures (peak intensity and fluence) properly
-        if use_neutze_units:
-            print("Neutze units only implemented for photon count measure. Disabled.")
-            use_neutze_units = False
+    photon_data = [1e12*p for p in pulse_params[:,2]]
     df = pd.DataFrame({
         "name": names, 
-        "energy": R_data[:,0],
-        "fwhm": R_data[:,1],
+        "energy": pulse_params[:,0],
+        "fwhm": pulse_params[:,1],
         photon_measure: photon_data,
-        "R": R_data[:,3],
+        "R": dmg_data[:,0],
+        "cc": dmg_data[:,1],
         #"log_photons": log_photons,
         "photon_size_thing": photon_size_thing, 
-        "_": R_data[:,0]*0+1, # dummy column for size.
+        "_": pulse_params[:,0]*0+1, # dummy column for size.
     })
     print(df)
     # Check if missing any files.
@@ -219,8 +214,27 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
                 if elem != 1: 
                     print("mising file number 1?")
             elif nums[i-1] != elem -1:
-                print("Missing file? File number",elem,"was found after",nums[i-1])
+                print("Missing file? File number",elem,"was found after",nums[i-1])  
+    return df   
+    
+def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="amp",use_neutze_units=False,name_of_set="",energy_key=9000,photon_key=1e14,fwhm_key=50,cmin_contour=0,cmax_contour=0.4,**kwargs):
+    out_folder = PLOT_FOLDER
+    os.makedirs(out_folder,exist_ok=True)
+    ext = ".svg"
+    photon_measure = df.columns[3]
 
+    if photon_measure[:5] == "Count":
+        if use_neutze_units:
+            df[photon_measure] = [7.854e-3*p for p in df[photon_measure]] # square micrometre to 100 nm diameter spot
+            photon_measure = "Count - 100 nm spot"
+        else:
+            photon_measure = "Count - um^2"
+        df.rename(columns=dict(Count=photon_measure),inplace=True)
+        print(df)
+    else:
+        if use_neutze_units:
+            print("Neutze units only implemented for photon count measure. Disabled.")
+            use_neutze_units = False    
     #3D - no idea why x axis is bugged.
     fig = px.scatter_3d(df, x=photon_measure, y='fwhm', z='energy',
               color='R',  color_continuous_scale=clr_scale, range_color=[cmin,cmax],**kwargs)
@@ -233,7 +247,7 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
     fig.update_layout(title=name_of_set+"-3D")      
     fig.show()    
     #print(inspect.getmembers(fig["layout"]["title"]),dir(fig["layout"]["title"]),type(fig["layout"]["title"]))
-    fig.write_html(out_folder+"/"+fig["layout"]["title"]["text"]+".html")
+    fig.write_html(out_folder+fig["layout"]["title"]["text"]+".html")
 
     # Plot designed for small number of simulations to compare.
     if len(df['name']) <= 10:
@@ -251,7 +265,7 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
         fig.update_traces(textposition='top center')
         fig.update_layout(title=name_of_set+df['name'][0]+''.join(df['name'][:min(2,len(df['name']))]) + "-comparison")  
         fig.show()
-        fig.write_image(out_folder+"/"+fig["layout"]["title"]["text"]+ext)
+        fig.write_image(out_folder+fig["layout"]["title"]["text"]+ext)
 
     # 'intuitive' plot, where:
     # Dot size represents num photons
@@ -264,27 +278,9 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
               **kwargs)
     fig.update_layout(title=name_of_set+"-Flat")     
     fig.show()    
-    fig.write_image(out_folder+"/"+fig["layout"]["title"]["text"]+ext)
-        
-    # fig = px.scatter(df, x='fwhm', y='R', symbol='fwhm', size='log_photons',
-    #           color='energy', color_continuous_scale = 'plasma',size_max=15,opacity=1,**kwargs) 
-    # fig.update_layout(
-    #     showlegend=True,
-    #     legend=dict(
-    #     yanchor="top",
-    #     y=0.98,
-    #     xanchor="left",
-    #     x=1.13,
-    # ))     
-    # fig.show()
-    # fig = px.scatter(df, x='fwhm', y='R', size='log_photons',
-    #           color='energy', color_continuous_scale = 'plasma',size_max=15,opacity=1,**kwargs) 
-    # fig.show()    
+    fig.write_image(out_folder+fig["layout"]["title"]["text"]+ext)
 
 
-
-    #plot separate energies
-    # Get min and max to use for axes here, so we can be consistent.
     ranges = {}
     for col in df:
         if col == "name":
@@ -315,6 +311,10 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
     data_frame_dict = {elem : pd.DataFrame() for elem in unique_E}    
     for key in data_frame_dict.keys():
         data_frame_dict[key] = df[:][df.energy == key]    
+
+    #plot separate energies
+    # Get min and max to use for axes here, so we can be consistent.
+    """
     for energy in unique_E:
         df = data_frame_dict[energy] 
         fig = px.scatter(df,x='fwhm',y=photon_measure,
@@ -323,8 +323,9 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
         fig.update_yaxes(type="log",range=np.log10(ranges[photon_measure]))
         fig.update_layout(title = name_of_set + ", E = "+str(energy)+" eV")
         fig.show()
-        fig.write_image(out_folder+"/"+fig["layout"]["title"]["text"]+"-Sctr"+ext)
-    # and do a contour for specified energy
+        fig.write_image(out_folder+fig["layout"]["title"]["text"]+"-Sctr"+ext)
+    """
+    # Contour: Fluence-FWHM
     if energy_key in data_frame_dict.keys(): 
         df = data_frame_dict[energy_key]
         fig = go.Figure(data =  
@@ -347,9 +348,7 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
         fig.write_image(out_folder+"/"+fig["layout"]["title"]["text"]+ext)
         df = original_df
         
-
-        
-    #get data frames for 1e12 photon count and do a contour
+    #Contour Energy-FWHM
     data_frame_dict = {elem : pd.DataFrame() for elem in unique_photons}   
     photon_key_for_file_name = '{:.2e}'.format(photon_key)
     if use_neutze_units:
@@ -377,10 +376,10 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
         fig.update_yaxes(title="Energy (eV)")
 
         fig.show()   
-        fig.write_image(out_folder+"/"+name_of_set + ", " +str(photon_key_for_file_name)+" " +photon_measure+ext)
+        fig.write_image(out_folder+name_of_set + ", " +str(photon_key_for_file_name)+" " +photon_measure+ext)
         df = original_df
 
-    #get data frames for 25 fs fwhm and do a contour
+    #Contour: Energy-Fluence
     data_frame_dict = {elem : pd.DataFrame() for elem in unique_fwhm}    
     if fwhm_key in data_frame_dict.keys(): 
         for key in data_frame_dict.keys():
@@ -393,16 +392,16 @@ def plot_that_funky_thing(R_data,names,param_dict,cmin=0.1,cmax=0.3,clr_scale="a
                 #x=unique_fwhm, 
                 #y=unique_photons,
                 z = df["R"],
-                x = df["energy"],
-                y = [p for p in df[photon_measure]],
+                y = df["energy"],
+                x = [p for p in df[photon_measure]],
                **contour_args,
             ))
         fig.update_layout(width = 750, height = 600,)
         fig.update_layout(title=name_of_set + ", FWHM = "+str(fwhm_key)+" fs")
-        fig.update_xaxes(title="Energy (eV)")
-        fig.update_yaxes(title=photon_measure,type="log",range=np.log10(ranges[photon_measure]),tickvals = [1e8,1e9,1e10,1e11,1e12,1e13,1e14,1e15],tickformat = '.0e')
+        fig.update_yaxes(title="Energy (eV)")
+        fig.update_xaxes(title=photon_measure,type="log",range=np.log10(ranges[photon_measure]),tickvals = [1e8,1e9,1e10,1e11,1e12,1e13,1e14,1e15],tickformat = '.0e')
         fig.show()    
-        fig.write_image(out_folder+"/"+fig["layout"]["title"]["text"]+ext)    
+        fig.write_image(out_folder+fig["layout"]["title"]["text"]+ext)    
         df = original_df
 #%%
 #------------Get R--------------------
@@ -416,7 +415,7 @@ if __name__ == "__main__":
     )
 
 
-    batch_mode = False # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
+    batch_mode = True # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
 
     mode = 1  #0 -> infinite crystal, 1 -> finite crystal/SPI, 2-> both  
     same_deviations = False # whether same position deviations between damaged and undamaged crystal (SPI only)
@@ -425,13 +424,16 @@ if __name__ == "__main__":
         allowed_atoms = ["C","N","O","S"] 
         CNO_to_N = False
         S_to_N = True
-        batch_handle = "lys_all_light" 
-        kwargs["plasma_batch_handle"] = batch_handle
+        batch_handle = "lys_full" 
         batch_dir = None # Optional: Specify existing parent folder for batch of results, to add these orientation results to.
         pdb_path = PDB_PATHS["lys"]
+        # Params set to batch_handle
+        kwargs["plasma_batch_handle"] = batch_handle
+        fname = batch_handle
     else: # Compare specific simulations
-        # allowed_atoms = ["C","N","O"]; S_to_N = True
-        allowed_atoms = ["C","N","O","S"]; S_to_N = True
+        fname = "comparison"
+        allowed_atoms = ["C","N","O"]; S_to_N = True
+        #allowed_atoms = ["C","N","O","S"]; S_to_N = False
         CNO_to_N = False
         kwargs["plasma_batch_handle"] = ""
         #kwargs["plasma_handles"] = ["lys_nass_3","lys_nass_no_S_1"]    #Note that S_to_N must be true to compare effect on nitrogen R factor. Comparing S_to_N true with nitrogen only sim, then S_to_N false with nitrogen+sulfur sim, let's us compare the true effect of sulfur on R facator.
@@ -441,34 +443,50 @@ if __name__ == "__main__":
         #kwargs["plasma_handles"] = ["glycine_abdullah_4"]  
         #pdb_path = PDB_PATHS["fcc"]
         #pdb_path = PDB_PATHS["lys"]
-        pdb_path = PDB_PATHS["lys_solvated"]
+        #pdb_path = PDB_PATHS["lys_solvated"]
         #pdb_path = PDB_PATHS["glycine"]
+        pdb_path = PDB_PATHS["tetra"]
 
     if MODE_DICT[mode] != "spi":
         scatter_data = multi_damage(imaging_params.default_dict,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
     if MODE_DICT[mode] != "crystal":
         scatter_data = multi_damage(imaging_params.default_dict_SPI,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
-
+    
+    save_data(fname,scatter_data)
+    
 
 #--------------------------------------
 #%%
 #------------Plot----------------------
 if __name__ == "__main__":
-    if batch_mode:
-        name_of_set = batch_handle+"draft"
-    else:
-        name_of_set = ""
+    name_of_set = fname + "v2"
+    df = load_df(fname, -1, check_batch_nums=batch_mode)
     plot_2D_constants = dict(energy_key = 18000, photon_key = 1e15,fwhm_key = 100)
     neutze = True
     if MODE_DICT[mode] != "spi":
         print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-        plot_that_funky_thing(*scatter_data,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units = neutze,check_batch_nums=batch_mode) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+        plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units = neutze,) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
     if MODE_DICT[mode] != "crystal":
         print("-------------------SPI------------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-        plot_that_funky_thing(*scatter_data,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units=neutze,check_batch_nums=batch_mode) # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+        plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units=neutze,) # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
     print("Done")
 
-#--------------------------------------
-#TODO store results.
-#TODO use form factor file produced by AC4DC rather than recalc so much.
+
+
+#%%
+#------------Compare----------------------
+if __name__ == "__main__":
+    fname1 = "lys_full"; fname2 = "lys_all_light"
+    name_of_set = "Difference" + "_"+fname1 + "_" + fname2
+    df1 = pd.read_pickle(DATA_FOLDER + fname1)
+    df2 = pd.read_pickle(DATA_FOLDER + fname2)
+    plot_2D_constants = dict(energy_key = 18000, photon_key = 1e15,fwhm_key = 100)
+    neutze = True
+    if MODE_DICT[mode] != "spi":
+        print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
+        plot_that_funky_thing([df1,df2],0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units = neutze,) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+    if MODE_DICT[mode] != "crystal":
+        print("-------------------SPI------------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
+        plot_that_funky_thing([df1,df2],0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units=neutze,) # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+    print("Done")
 # %%

@@ -462,8 +462,12 @@ class Plotter:
         ff = shielding.get_ff("dummy",q,{"dummy":ground_state})
         f_sqrt_I = ff[...,None] * np.array(np.sqrt(I_avg)*np.ones(len(time_steps)))
         return np.moveaxis(f_sqrt_I,len(f_sqrt_I.shape)-1,0), time_steps                     
-    # why did I do thissss
+    def set_times_used(self,times):
+        self.times_used = times
     def get_times_used(self):
+        return self.times_used
+    # why did I do thissss
+    def set_trapezoid_times(self):
         def snapshot(idx):
             # We pass in indices from 0 to fineness-1, transform to time:
             idx = np.searchsorted(self.timeData, self.start_t + idx/self.t_fineness*(self.end_t-self.start_t))            
@@ -472,16 +476,16 @@ class Plotter:
         if len(time_steps) != len(np.unique(time_steps)):
             print("times used:", time_steps)
             raise Exception("Error, used same times! Choose a different fineness or a larger range.")
-        return time_steps      
+        self.times_used = time_steps
     def I_avg(self): # average intensity for pulse 
-        def snapshot(idx):
+        def snapshot(times):
             # We pass in indices from 0 to fineness-1, transform to time:
-            t = self.start_t + idx/self.t_fineness*(self.end_t-self.start_t)
+            t = times
             idx = np.searchsorted(self.timeData,t)  # SAME AS IN get_average_form_factor()
             time_step = self.timeData[idx]
             val = self.intensityData[idx]
             return val, time_step      
-        I,time_steps = np.fromfunction(snapshot,(self.t_fineness,))
+        I,time_steps = snapshot(self.get_times_used())
         I_avg = np.trapz(I,time_steps)/(time_steps[-1]-time_steps[0])
         return I_avg,time_steps
 

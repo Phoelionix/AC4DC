@@ -143,7 +143,7 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
         # ylim2 = 0.06       
 
         if m == 0:
-            # CARBON EII CROSS-SECTION
+            # CARBON EI CROSS-SECTION
             # Plot the electron-impact ionisation cross-section from Suno&Kato https://doi.org/10.1016/j.adt.2006.01.001
             # fit parameters for each transition ("0,1" means from charge of 0 to charge of 1)
             transitions =  dict()
@@ -152,7 +152,6 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
             transitions["1,2"] =  "24.4 8.390E-1 -7.950E-1  3.263E+0 -5.382E+0  3.476E+0   0.24".split()  
             for key,val in transitions.items():
                 transitions[key] = [float(s) for s in val] 
-            print(transitions)
             # sigma = {}
             # for key, V in transitions.items():
             #     I = V[0]; A = V[1:6]; rms = V[6]
@@ -173,7 +172,7 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
             print(y)
             ax_eii = pl1.ax_steps.twinx()
             ax_eii.tick_params(axis='y', colors='blue')
-            ax_eii.set_ylabel("$\sigma_{eii}(\epsilon) \epsilon^{-1/2}$",color="blue")
+            ax_eii.set_ylabel("$\sigma^{EI}(\epsilon) \epsilon^{-1/2}$",color="blue")
             ax_eii.plot(E[y>=0],y[y>=0],color="black",linestyle="dotted")
             ax_eii.set_ylim(0)
 

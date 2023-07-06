@@ -13,13 +13,13 @@ default_dict = dict(
     laser = dict(
         SPI = False,
         SPI_resolution = best_resolution,
-        pixels_across = 50,  # for SPI, shld go on xfel params.
+        pixels_across = 100,  # for SPI, shld go on xfel params.
         random_orientation = True,  # infinite cryst sim only, NB: orientation is synced with undamaged crystal imaging  (TODO random orientation should not be separate from the other orient params...)
     ),
     ##### Crystal params
     crystal = dict(
         cell_scale = 1,  # for SC: cell_scale^3 unit cells 
-        num_supercells = 1,
+        num_supercells = 100,
         supercell_simulations = 1,        
         include_symmetries = False,  # should unit cell contain symmetries?
         positional_stdv = 0, # Introduces disorder to positions. Note this is a deviation from the IDEAL structure, so is not a measure of similarity with undamaged and damaged structure but the ideal structure to recover and the dmaaged structure. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if quickly gauging serial crystallography R factor, as should somewhat average out.
