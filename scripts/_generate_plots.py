@@ -15,6 +15,12 @@ import os
 from QoL import set_highlighted_excepthook
 
 ELECTRON_DENSITY = False # energy density if False
+###
+PLOT_CONFIG_CHARGE=True
+PLOT_ELEMENT_IONISATION=False
+PLOT_FREE_CONTINUUM = False
+PLOT_FREE_SLICES=False
+###
 
 def main():
     set_highlighted_excepthook()
@@ -37,7 +43,7 @@ def main():
     assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder."
     for data_folder in sys.argv[1:]:
         label = data_folder +'_Plt'
-        make_some_plots(data_folder,molecular_path,label,dname_Figures,True,True,True,False)
+        make_some_plots(data_folder,molecular_path,label,dname_Figures,PLOT_CONFIG_CHARGE,PLOT_ELEMENT_IONISATION,PLOT_FREE_CONTINUUM,PLOT_FREE_SLICES)
 
 def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, charge_conservation=False,bound_ionisation=False,free=False,free_slices=False):
     '''
@@ -89,9 +95,9 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         ###
 
         #TODO get slices from AC4DC or user input           
-        # # Hau-Riege (Sanders results)
-        # thermal_cutoff_energies = [200, 500, 500, 1000]
-        # slices = [-7.5,-5,-2.5,0]         
+        # Hau-Riege (Sanders results)
+        thermal_cutoff_energies = [200, 500, 500, 1000]
+        slices = [-7.5,-5,-2.5,0]         
         # # -7.5 fs Hau-Riege
         # thermal_cutoff_energies = [200]
         # slices = [-7.5] 
@@ -99,14 +105,15 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         # # Royle Sect. B
         # thermal_cutoff_energies = [1500,1500,1500,1500]
         # slices = [-90, -50, 0]  
-        # Royle Sect. C
-        thermal_cutoff_energies = [500,500,600,1000]
-        slices = [-15, 0, 15, 30]
+        # # Royle Sect. C
+        # thermal_cutoff_energies = [500,500,600,1000]
+        # slices = [-15, 0, 15, 30]
 
         colrs = [cmap(i) for i in range(len(slices))]
 
-        plot_legend = True        
-        plot_fits = True # Whether to fit MB curves to distribution below thermal cutoff energies.
+        plot_legend = False        
+        plot_fits = False # Whether to fit MB curves to distribution below thermal cutoff energies.
+        plot_those_darn_knots = True
         ####### 
         # Here we can plot MB curves e.g. for fit comparison
         ####
@@ -137,8 +144,15 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         # custom_colrs = ['black']
         # plot_fits = True  # our fits don't work as well for some reason.
         #######
+
+        #v_anchors = [0.16,0.12,0.08,0.04]
+        v_anchors = [0.2,0.15,0.1,0.05]
         
         lw = 1.5
+        pl.ax_steps.set_ylim([0.4e-4, 0.4])
+        #pl.ax_steps.set_ylim([1e-4, 1])
+        #TODO get from AC4DC
+        pl.ax_steps.set_xlim([xmin,xmax]) #Hau-Riege        
         for (t, e, col ) in zip(slices, thermal_cutoff_energies, colrs):
                 lines = pl.plot_step(t, normed=True, color = col, lw=lw)
                 if plot_fits:
@@ -147,16 +161,16 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
             for (T, n, col ) in zip(custom_T, custom_n, custom_colrs):
                 pl.ax_steps.plot([0],[0],alpha=0,label=" ")
                 pl.plot_maxwell(T,n,color = col, lw=lw,alpha=0.7)
-
-
-        pl.ax_steps.set_ylim([1e-4, 1])
+        if plot_those_darn_knots:
+            ymin,_ = pl.ax_steps.get_ylim()
+            pl.ax_steps.set_ylim([ymin*0.67,None])
+            pl.plot_the_knots(slices,v_anchors,colrs,padding=0.1)
         if ELECTRON_DENSITY:
             pl.ax_steps.set_ylim([2e-7, 1e-2]) #royle sect. B
             pl.ax_steps.set_ylim([1e-8, 1e-3]) #royle sect. C
             pl.ax_steps.set_xscale("linear")
 
-        #TODO get from AC4DC
-        pl.ax_steps.set_xlim([xmin,xmax]) #Hau-Riege
+
 
         #pl.fig_steps.subplots_adjust(bottom=0.15,left=0.2,right=0.95,top=0.95)
         pl.ax_steps.xaxis.get_major_formatter().labelOnlyBase = False
@@ -168,9 +182,11 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
             order = list(range(0,len(labels) - 1,2)) + list(range(1,len(labels),2))
             if len(labels)%2 != 0:
                 order.append(len(order))  # shouldnt happen though.
-
-        
-            pl.ax_steps.legend([handles[idx] for idx in order],[labels[idx] for idx in order], loc='upper center',ncol=2)
+            ncols = 2
+            if plot_fits == False and plot_custom_fits == False:
+                ncols = 1
+                order = list(range(0,len(labels)))
+            pl.ax_steps.legend([handles[idx] for idx in order],[labels[idx] for idx in order], loc='upper center',ncol=ncols)
 
         name = label.replace('_',' ')
         pl.ax_steps.set_title(name + " - Free-electron distribution")

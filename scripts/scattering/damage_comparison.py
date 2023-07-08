@@ -153,7 +153,7 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
             SPI_result1 = experiment1.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal, **run_params["laser"])
             SPI_result2 = experiment2.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal_undmged, **run_params["laser"])
             #TODO apply_background([SPI_result1,SPI_result2])
-            R,cc = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=get_R_only,SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
+            R,cc,resolutions = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=get_R_only,SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
         else:
             exp1_orientations = experiment1.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal, results_parent_dir=sctr_results_batch_dir, **run_params["laser"])
             if exp_name2 != None:
@@ -165,7 +165,7 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
         dmg_data.append([R,cc]) 
         pulse_params.append([energy[i],fwhm[i],photon_count[i]])
     
-    return np.array(pulse_params,dtype=float),np.array(dmg_data,dtype=object), names, param_dict
+    return np.array(pulse_params,dtype=float),np.array(dmg_data,dtype=object), resolutions, names, param_dict
 
 import pickle
 def save_data(fname, data):
@@ -177,9 +177,10 @@ def save_data(fname, data):
     
 def load_df(fname, resolution_idx,check_batch_nums=True):
     with open(DATA_FOLDER+fname +".pickle", "rb") as file:
-        pulse_params, dmg_data,names,param_dict = pickle.load(file) 
+        pulse_params, dmg_data,resolutions,names,param_dict = pickle.load(file) 
     
     dmg_data = dmg_data[...,resolution_idx].astype(float)
+    resolution = resolutions[resolution_idx]
     log_photons = np.log(pulse_params[:,2])-np.min(np.log(pulse_params[:,2]))
     log_photons += np.max(log_photons)/2
     # photon_size_thing = dmg_data[:,2] + np.max(dmg_data[:,2])/10
@@ -199,6 +200,7 @@ def load_df(fname, resolution_idx,check_batch_nums=True):
         "photon_size_thing": photon_size_thing, 
         "_": pulse_params[:,0]*0+1, # dummy column for size.
     })
+    df.resolution = resolution
     print(df)
     # Check if missing any files.
     if check_batch_nums:
@@ -440,7 +442,7 @@ if __name__ == "__main__":
         #kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_6","lys_nass_Gd_16"]  
         #kwargs["plasma_handles"] = ["lys_nass_HF","lys_nass_Gd_HF"]  
         kwargs["plasma_handles"] = ["lys_full-typical","lys_all_light-typical"]  
-        #kwargs["plasma_handles"] = ["glycine_abdullah_4"]  
+        #kwargs["plasma_handles"] = ["glycine_abdullah_4"]
         #pdb_path = PDB_PATHS["fcc"]
         #pdb_path = PDB_PATHS["lys"]
         #pdb_path = PDB_PATHS["lys_solvated"]
@@ -460,9 +462,11 @@ if __name__ == "__main__":
 #------------Plot----------------------
 if __name__ == "__main__":
     name_of_set = fname + "v2"
-    df = load_df(fname, -1, check_batch_nums=batch_mode)
+    df = load_df(fname, 0, check_batch_nums=batch_mode) # resolution index 0 corresponds to the max resolution
     plot_2D_constants = dict(energy_key = 18000, photon_key = 1e15,fwhm_key = 100)
     neutze = True
+
+    name_of_set += "_"+str(df.resolution)
     if MODE_DICT[mode] != "spi":
         print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
         plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units = neutze,) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r

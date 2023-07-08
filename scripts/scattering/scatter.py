@@ -2033,12 +2033,12 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 resolutions = q_to_res(np.sqrt(np.apply_along_axis(np.sum,2, result1.q_xy**2))) 
                 min_res = np.min(resolutions)  # get this working later im tired np.min(np.nonzero(resolutions*result1.full_ring_mask[...,None]))
                 max_res = min_res*4
-                bin_lims = np.linspace(min_res,max_res,9)
-                cc = np.zeros(len(bin_lims)-1)
+                res_lims = np.linspace(min_res,max_res,10)
+                cc = np.zeros(len(res_lims))
                 # Get R for comparison too
                 R_vect = cc.copy()
-                for i in range(len(bin_lims)-1):
-                    lower = resolutions * 0 + bin_lims[i]
+                for i in range(len(res_lims)):
+                    lower = resolutions * 0 + res_lims[i]
                     upper = np.Infinity
                     # Select data up to a some resolution limit
                     x = np.extract((resolutions >= lower) * (resolutions < upper)*result1.I*result2.I >np.zeros(result1.I.shape),result1.I)
@@ -2062,19 +2062,19 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 #plt.plot((bin_lims[0:-1] + bin_lims[1:])/2,cc)
                 if not get_R_only:
                     plt.rcParams["text.usetex"] = True
-                    plt.plot(bin_lims[:-1],R_vect,color="red")
+                    plt.plot(res_lims,R_vect,color="red")
                     plt.ylabel("R")
                     plt.xlabel("d ($\AA$)")                    
                     plt.ylim(0,1.04)
                     plt.gca().invert_xaxis()
                     plt.show()                    
-                    plt.plot(bin_lims[:-1],cc)
+                    plt.plot(res_lims,cc)
                     plt.ylabel("CC")
                     plt.xlabel("d ($\AA$)")
                     plt.ylim(0,1.04)
                     plt.gca().invert_xaxis()
                     plt.show()
-                return R_vect,cc
+                return R_vect,cc,res_lims
             
         ## Circle grid
         else:
@@ -2324,13 +2324,13 @@ def stylin(exp_name1,exp_name2,q_scr_max,get_R_only = False,SPI=False,SPI_max_q=
             print("----Intensity of experiment 2----")
             scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
             print("----R Sectors aligned----")
-            R, cc = scatter_scatter_plot(crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+            R, cc, resolutions = scatter_scatter_plot(crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
             print("----Intensity of experiment 1 (damaged) aligned----") 
             scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
             print("----Intensity of experiment 2 (undamaged) aligned----")
             scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
         else:
-            R, cc = scatter_scatter_plot(get_R_only = True,crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
+            R, cc, resolutions = scatter_scatter_plot(get_R_only = True,crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity)
 
     else:
         #TODO Get the colors to match neutze.
@@ -2340,10 +2340,10 @@ def stylin(exp_name1,exp_name2,q_scr_max,get_R_only = False,SPI=False,SPI_max_q=
         cutoff_log_intensity = None # -1 or None
         cmap = "PiYG_r"# "plasma"
         radial_lim = SPI_max_q
-        R, cc = scatter_scatter_plot(get_R_only=get_R_only,log_I = log_I, cutoff_log_intensity = cutoff_log_intensity, SPI_result1=SPI_result1,SPI_result2=SPI_result2,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap)
+        R, cc, resolutions = scatter_scatter_plot(get_R_only=get_R_only,log_I = log_I, cutoff_log_intensity = cutoff_log_intensity, SPI_result1=SPI_result1,SPI_result2=SPI_result2,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap)
 
 
-    return R, cc
+    return R, cc, resolutions
 
 def res_to_q(d):
     '''
@@ -2367,13 +2367,13 @@ if __name__ == "__main__":
     target_options = ["neutze","hen","tetra","glycine"]
     #============------------User params---------==========#
 
-    target = "hen"  #target_options[2]
+    target = "tetra"  #target_options[2]
     best_resolution = 1.58 #(abdullah) # 2   # resolution (determining max q)
     worst_resolution = None#30 # 'resolution' corresponding to min q
 
     #### Individual experiment arguments 
-    start_time = -30#-6
-    end_time = 30#6
+    start_time = -6#-6
+    end_time = 6#6
     laser_firing_qwargs = dict(
         # ab initio pixels
         SPI = True,
@@ -2385,10 +2385,10 @@ if __name__ == "__main__":
     ##### Crystal params
     crystal_qwargs = dict(
         cell_scale = 1, # 5 # for SC: cell_scale^3 unit cells 
-        num_supercells = 1000,#35000,
-        supercell_simulations = 1,#50,
+        num_supercells = 27,#35000,
+        supercell_simulations = 8,#50,
         positional_stdv = 0,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
-        include_symmetries = False,  # should unit cell contain symmetries?
+        include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
         rocking_angle = 30,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         #CNO_to_N = True,   # whether the plasma simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic

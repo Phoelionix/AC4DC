@@ -10,11 +10,11 @@ import time
 def plot_frame(ipl,energies,densities,knot_to_plot):
 
     ipl.update_data(energies,densities)
-    normalise = True  # TODO make True default, and False an option for cmdline arg.
+    normalise = True # Currently we use fixed axes.
+    # Plot the trace of the electron energy density (f[e]*e) 
     ipl.plot_step(normed=normalise)
+    # Plot the knots (the grid/basis points)
     ipl.plot_the_knot(knot_to_plot)   
-    # import matplotlib.pyplot as plt
-    # plt.pause(2)
 
 
 def plot_frame_from_c(energies,densities,knot_points):

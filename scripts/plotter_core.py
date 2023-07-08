@@ -1,6 +1,7 @@
 import stringprep
 import matplotlib.rcsetup as rcsetup
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import numpy as np
 # from scipy.interpolate import BSpline
 from math import log
@@ -21,7 +22,6 @@ from core_functions import get_mol_file
 #plt.rcParams.update(plt.rcParamsDefault)
 #plt.style.use('seaborn-muted')
 #plt.style.use('turrell-style')
-plt.rcParams["font.size"] = 9
 
 engine = re.compile(r'(\d[spdf])\^\{(\d+)\}')
 
@@ -86,6 +86,7 @@ class Plotter:
         self.outDir = self.molecular_path + data_folder_name
         self.freeFile = self.outDir +"/freeDist.csv"
         self.intFile = self.outDir + "/intensity.csv"
+        self.gridFile = self.outDir + "/knotHistory.csv"
 
         self.boundData={}
         self.chargeData={}
@@ -654,6 +655,16 @@ class Plotter:
             self.boundData[a] = raw[:, 1:]
             self.statedict[a] = self.get_bound_config_spec(a)
         self.atomic_numbers = self.get_atomic_numbers()
+        self.grid_update_time_Data = []
+        self.grid_point_Data = []
+        with open(self.gridFile) as file:
+            for n, row in enumerate(csv.reader(file)):
+                if n < 2:
+                    continue
+                self.grid_update_time_Data.append(float(row[0].split()[0])) 
+                self.grid_point_Data.append([float(elem) for elem in row[0].split()[1:]])
+        self.grid_update_time_Data = np.array(self.grid_update_time_Data,dtype=np.float64)
+        self.grid_point_Data = np.array(self.grid_point_Data,dtype=object)
 
     def go(self):
         if not self.check_current():
@@ -680,6 +691,8 @@ class Plotter:
             self.fig, self.axs = plt.subplots(int(0.999+(num_subplots**0.5)),int(0.999+(num_subplots**0.5)),figsize=(width*int((1+num_subplots)/2),height*int((1+num_subplots)/2)))
         else:
             self.fig, self.axs = plt.subplots(num_subplots,figsize=(width,height*num_subplots))
+            if type(self.axs) is not np.ndarray:
+                self.axs = np.array([self.axs])
 
     def get_next_ax(self):
         ax = self.axs.flat[self.num_plotted]
@@ -840,7 +853,7 @@ class Plotter:
         self.ax_steps = self.get_next_ax()
         self.fig_steps = self.fig
     
-    def plot_step(self, t, normed=True, fitE=None, **kwargs):        
+    def plot_step(self, t, prefactor_function = None, prefactor_power = 1, prefactor_args = {}, normed=True, fitE=None, **kwargs):        
         self.ax_steps.set_xlabel('Energy (eV)')
         self.ax_steps.set_ylabel('$f(\\epsilon) \\epsilon $') # \\Delta \\epsilon is implied now. Want to distinguish from Hau-Riege whose f(e) is our f(e)e
         if self.use_electron_density:
@@ -850,17 +863,45 @@ class Plotter:
         n = self.timeData.searchsorted(t)
         data = self.freeData[n,:]
         X = self.energyKnot
-        density_factor = X # energy density
-        if self.use_electron_density:
-            density_factor = 1 
 
         if normed:
             tot = self.get_density(t)
             data /= tot
             data/=4*3.14
         
-        return self.ax_steps.plot(X, data*density_factor, label='%1.1f fs' % t, **kwargs)
+        prefactor = 1
+        if prefactor_function != None or prefactor_power not in [1,None]:
+            assert prefactor_function != None and prefactor_power != None
+            prefactor_function = np.vectorize(prefactor_function,otypes=[np.double])
+            prefactor = prefactor_function(X,**prefactor_args)
+            data = data[prefactor!=0]
+            X = X[prefactor!=0]
+            prefactor = prefactor[prefactor!=0]
+            prefactor **= prefactor_power
+        density_factor = X # energy density
+        if self.use_electron_density:
+            density_factor = 1 
 
+        return self.ax_steps.plot(X, prefactor*data*density_factor, label='%1.1f fs' % t, **kwargs)
+
+    def plot_the_knots(self,times,vert_anchors,colours,padding=0.01):
+        assert len(self.grid_update_time_Data == len(self.grid_point_Data))
+        ylims = self.ax_steps.get_ylim()
+        xlims = self.ax_steps.get_xlim()
+        # Add a background for the knots
+        tangle_top = np.e**(np.log(ylims[0]) + ( np.max(vert_anchors) )*(np.log(ylims[1]) - (1+padding)*np.log(ylims[0])))
+        tangle_bot = np.e**(np.log(ylims[0]) - ( np.min(vert_anchors) )*(np.log(ylims[1]) - (1+padding)*np.log(ylims[0])))
+        under_tangle =  patches.Rectangle((xlims[0]*0.1,tangle_bot), xlims[1], tangle_top, lw=0, edgecolor='none', facecolor='white',alpha=0.8,zorder=98)
+        self.ax_steps.add_patch(under_tangle)
+        # Plot the knots
+        for t,y_anchor,col in zip(times,vert_anchors,colours):
+            if self.grid_update_time_Data[-1] <= t:
+                update_idx = len(self.grid_update_time_Data) - 1
+            else:
+                update_idx = self.grid_update_time_Data.searchsorted(t+1e-12) -1 # we increase the time slightly, as the indices of the knot updates correspond to the first step in the new basis.
+            knots_to_plot = self.grid_point_Data[update_idx]
+            y = [np.e**(np.log(ylims[0]) + y_anchor*(np.log(ylims[1]) - np.log(ylims[0])))]* len(knots_to_plot)
+            self.ax_steps.scatter(knots_to_plot,y,color = col,s=3,zorder=99)     
     def plot_fit(self, t, fitE, normed=True, **kwargs):
         t_idx = self.timeData.searchsorted(t)
         fit = self.energyKnot.searchsorted(fitE)
