@@ -116,7 +116,7 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
     size_t next_knot_update = 0;
     while (i <  static_cast<int>(t.size())-1){
         i++;
-        if (i + order == next_knot_update){  // The knot update indices correspond to an update at that index that also transformed the last 'order' of states (as in the solver's order).
+        if (i + order == next_knot_update or i == 0){  // The knot update indices correspond to an update at that index that also transformed the last 'order' of states (as in the solver's order).
             Distribution::load_knots_from_history(i+order);
             next_knot_update = Distribution::next_knot_change_idx(i+order);
         } 
@@ -153,7 +153,7 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     size_t next_knot_update = 0;
     while (i <  static_cast<int>(t.size())-1){
         i++;
-        if (i + order == next_knot_update){
+        if (i + order == next_knot_update or i == 0){
             Distribution::load_knots_from_history(i+order);
             next_knot_update = Distribution::next_knot_change_idx(i+order);
         } 
@@ -244,7 +244,7 @@ void ElectronRateSolver::saveKnots(const std::string& fname) {
     assert(y.size() == t.size());
     size_t next_knot_update = 0;
     for (size_t i=0; i<t.size(); i++) {
-        if (i + order == next_knot_update){
+        if (i + order == next_knot_update or i == 0){
             Distribution::load_knots_from_history(i+order);
             next_knot_update = Distribution::next_knot_change_idx(i+order);
             f<<t[i]*Constant::fs_per_au<<" "<<Distribution::output_knots_eV()<<endl;
