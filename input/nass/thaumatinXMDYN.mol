@@ -1,8 +1,8 @@
 #ATOMS
-C 1000
+C 983
 N 272
-O 309
-S 23
+O 303
+S 10
 
 #VOLUME
 31500        // Volume per molecule in Angstrom^3.
@@ -13,7 +13,8 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 7114         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
-4 // total sim time in fwhm
+9.1 // total sim time in fwhm
+1.2  // time before pulse peak to start at in fwhm 
 
 #USE_COUNT
 true    // active (using count)?
@@ -41,7 +42,7 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 Notes:
 Medium XMDYN probe pulse params for thaumatin used by XMDYN in Nass et al 2020 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7156470/
-(oddly a different one to that used in experiment)
+(atomic ratios are of the full unit cell, INCLUDING the solvent. I'm assuming that hydrogen was not included.)
 PDB: https://www.rcsb.org/structure/1rqw
 Probe pulse only, so should underestimate ionisation at best. Gets higher result than XMDYN, which used a low ratio of sulfur.
 See supplementary notes.

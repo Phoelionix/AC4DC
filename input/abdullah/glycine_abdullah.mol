@@ -1,22 +1,22 @@
-// Carbon (amorphous similar to Hau-Riege). Assumes 100nm cylindrical beam fired into much larger target.
-// Confirmed to work with AC4DCv2 (Sanders 2020 thesis).
+// Abdullah glycine supercell
 #ATOMS
-C 1
+C 210
+N 105
+O 210
 
 #VOLUME
-18.11        // Volume per molecule in Angstrom^3.
+3432        // Volume per molecule in Angstrom^3.
 2000         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-6000         // Photon energy in eV.
+10000         // Photon energy in eV.
 10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-square       // Pulse shape
-1           // simulation total timespan, as a multiple of fwhm
+gaussian       // Pulse shape
 
-#USE_FLUENCE
+#USE_INTENSITY
 true         // enabled? true/false.
-2500         // Pulse fluence in 10^4 * J/cm^2.
+15            // Maximum intensity in 10^19 * W/cm^2. Will give different fluence between square and gaussian.
 
 #NUMERICAL
 1000        // Initial guess for number of time step points for rate equation.
@@ -34,14 +34,17 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #LOAD
-//carbon_classic_dynamic_2
-//-0.1
+// carbon_redux_3
+// 99999
+// false
+
 #DEBUG
-99           // end time
-0            // Interval to display current timestep [fs].
+99           // Simulation cutoff time in fs
+0.01          // Interval to display current timestep [fs].
 ####END####
 
 Notes:
-
-
-
+Idea: R factor for Abdullah's work should roughly correspond to our R factor, as the R factor we obtain can be thought 
+of as the error introduced with the best possible effective (static) form factor. 
+measure of the difference from a coherently evolving pattern (i.e. multiplied by a scalar factor).
+(I think... )

@@ -1,8 +1,11 @@
 #ATOMS
-C 189
-N 53
-O 58
+H 157
+C 87
+N 24
+O 39
 S 2
+
+
 #VOLUME
 6027        // Volume per molecule in Angstrom^3.
 500         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons (assumes surrounded by a void).
@@ -12,7 +15,8 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 7114         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
-4 // total sim time in fwhm
+9.1 // total sim time in fwhm
+1.2  // time before pulse peak to start at in fwhm 
 
 #USE_COUNT
 true    // active (using count)?
@@ -39,7 +43,30 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 ####END#####
 
 Notes:
-Medium XMDYN probe pulse params for thaumatin used in Nass et al 2020, *with atomic ratios used by XMDYN* https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7156470/
-maybe..
-PDB: https://www.rcsb.org/structure/5FGX
-Probe pulse only
+Medium XMDYN probe pulse params for thaumatin used by XMDYN in Nass et al 2020 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7156470/
+(atomic ratios are of the full unit cell, INCLUDING the solvent. Assuming hydrogen was included)
+
+PDB: https://www.rcsb.org/structure/1rqw
+Probe pulse only, so should underestimate ionisation at best. Gets higher result than XMDYN, which used a low ratio of sulfur.
+See supplementary notes.
+
+
+
+C 1000
+N 272
+O 309
+S 23
+
+Scale down to 1/11.5 -> 
+protein contribution:
+H ~=  133
+C 87
+N 24
+O 27
+S 2
+
+
+Water contribution:
+only 36 atoms...?
+O: 12
+H: 24

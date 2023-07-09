@@ -12,15 +12,14 @@ cylindrical    // geometry of sample (may be spherical, cylindrical or planar)
 #PULSE
 1070         // Photon energy in eV.
 40           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). 
-square     // as done by abdallah
-50           // (1) simulation total timespan, as a multiple of fwhm 
+gaussian     // Pulse shape 
 
 #USE_FLUENCE
 true         // enabled? true/false.
 4            // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
-200000         // starting number of time step points for rate equation.
+5000         // starting number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
@@ -34,6 +33,9 @@ N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
+#DEBUG
+999999            // Simulation cutoff time in fs - as done by abdallah.
+0.01         // Interval to display current timestep [fs].
 ####END####
 
 Notes:
