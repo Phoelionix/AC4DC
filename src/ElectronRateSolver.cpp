@@ -625,7 +625,7 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
 
     _log <<"Reloading grid"<<endl;
     // with the states loaded the spline factors are as they were, we just need to load the appropriate knots.
-    assert(saved_knots == Distribution::get_knots_from_history(n+order));
+    assert(saved_knots == Distribution::get_knots_from_history(n));
     for(auto elem : saved_states){
         assert(elem.F.container_size() == saved_states.back().F.container_size());
     }
