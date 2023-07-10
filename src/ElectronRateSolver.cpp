@@ -783,9 +783,11 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
     if ((n-this->order+1)%checkpoint_gap == 0){  //
         old_checkpoint = checkpoint;
 
-        // Find the nearest streak of states in the same knot basis.
+        // Find the nearest streak of states in the same knot basis. 
+        // This looks for the most recent grid update, BEFORE the current step.
+        // if It occurred ON the current step, then we are fine, unless there was another knot change in the last few steps. (Which shouldn't happen but I haven't completely verified I've caught all cases.)
         size_t checkpoint_n = n;
-        while (Distribution::most_recent_knot_change_idx(checkpoint_n) > n - this->order){
+        while (Distribution::most_recent_knot_change_idx(checkpoint_n-1) >= n - this->order){
             checkpoint_n--;
             assert(checkpoint_n > this->order);
             assert(int(checkpoint_n) > int(n) - this->order-1); // may trigger if knot changes too close together.
