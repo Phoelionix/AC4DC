@@ -787,7 +787,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         // This looks for the most recent grid update, BEFORE the current step.
         // if It occurred ON the current step, then we are fine, unless there was another knot change in the last few steps. (Which shouldn't happen but I haven't completely verified I've caught all cases.)
         size_t checkpoint_n = n;
-        while (Distribution::most_recent_knot_change_idx(checkpoint_n-1) >= n - this->order){
+        while (Distribution::most_recent_knot_change_idx(checkpoint_n-1) >= n - this->order + 1){
             checkpoint_n--;
             assert(checkpoint_n > this->order);
             assert(int(checkpoint_n) > int(n) - this->order-1); // may trigger if knot changes too close together.
@@ -795,16 +795,18 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         std::vector<state_type> check_states;
         std::vector<double> check_times;
         {
-            std::vector<state_type>::const_iterator start_vect_idx = y.begin() - order + checkpoint_n;  
+            std::vector<state_type>::const_iterator start_vect_idx = y.begin() - order + 1 + checkpoint_n;  
             std::vector<state_type>::const_iterator end_vect_idx = y.begin() + checkpoint_n;  
             check_states = std::vector<state_type>(start_vect_idx, end_vect_idx+1);
         }
         {
-            std::vector<double>::const_iterator start_vect_idx = t.begin() - order + checkpoint_n;  
+            std::vector<double>::const_iterator start_vect_idx = t.begin() - order + 1 + checkpoint_n;  
             std::vector<double>::const_iterator end_vect_idx = t.begin() + checkpoint_n;  
             check_times = std::vector<double>(start_vect_idx, end_vect_idx+1);
         }        
-
+        assert(check_states.size() == order);
+        assert(check_times.size() == order);
+        assert(check_states.front().F.container_size() == check_states.back().F.container_size());
         checkpoint = {checkpoint_n, Distribution::get_knot_energies(),this->regimes,check_states,check_times};
     }
     if (euler_exceeded || !good_state){     
@@ -1012,7 +1014,7 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t latest_step, std::ve
     this->zero_y = get_ground_state();
     this->zero_y *= 0.; // set it to Z E R O
     // Load distributions and also the previous few states that we need for the first ode step. (Unnecessary now since removed grid updates on checkpoint load, but keeping it here in case we go back to that.)
-    assert(next_ode_states_used.size() > order);  // Order previous states + present state
+    assert(next_ode_states_used.size() == order);  // Order previous states + present state
     y.resize(n+1-next_ode_states_used.size());
     for(state_type state : next_ode_states_used){
         y.push_back(state);

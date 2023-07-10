@@ -144,7 +144,7 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, size_t npoints, const 
         // Try to set checkpoint to be at the starting step 
         // Check if need to set it before the last knot change.
         size_t checkpoint_n = resume_n;
-        while (Distribution::most_recent_knot_change_idx(checkpoint_n) > resume_n - this->order){
+        while (Distribution::most_recent_knot_change_idx(checkpoint_n) >= resume_n - this->order + 1){ 
             checkpoint_n--;
             assert(checkpoint_n > this->order);
             assert(checkpoint_n > resume_n - this->order); // may trigger if knot changes too close together.
@@ -152,15 +152,19 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, size_t npoints, const 
         std::vector<state_type> check_states;
         std::vector<double> check_times;
         {
-            std::vector<state_type>::const_iterator start_vect_idx = this->y.begin() - this->order + checkpoint_n;  
+            std::vector<state_type>::const_iterator start_vect_idx = this->y.begin() - this->order + 1 + checkpoint_n;  
             std::vector<state_type>::const_iterator end_vect_idx = this->y.begin() + checkpoint_n;  
             check_states = std::vector<state_type>(start_vect_idx, end_vect_idx+1);
         }
         {
-            std::vector<double>::const_iterator start_vect_idx = this->t.begin() - this->order + checkpoint_n;  
+            std::vector<double>::const_iterator start_vect_idx = this->t.begin() - this->order + 1 + checkpoint_n;  
             std::vector<double>::const_iterator end_vect_idx = this->t.begin() + checkpoint_n;  
             check_times = std::vector<double>(start_vect_idx, end_vect_idx+1);   
         }
+        assert(check_states.size() == this->order);
+        assert(check_times.size() == this->order);
+        assert(check_states.front().F.container_size() == check_states.back().F.container_size());
+
         checkpoint = {checkpoint_n, Distribution::get_knot_energies(),this->regimes,check_states,check_times};
     }
     old_checkpoint = checkpoint; 
@@ -208,16 +212,18 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         std::vector<state_type> check_states;
         std::vector<double> check_times;
         {
-            std::vector<state_type>::const_iterator start_vect_idx = this->y.begin();  
+            std::vector<state_type>::const_iterator start_vect_idx = this->y.begin() + 1;  
             std::vector<state_type>::const_iterator end_vect_idx = this->y.begin() + this->order;  
             check_states = std::vector<state_type>(start_vect_idx, end_vect_idx+1);
         }
         {
-            std::vector<double>::const_iterator start_vect_idx = this->t.begin();  
+            std::vector<double>::const_iterator start_vect_idx = this->t.begin() + 1;  
             std::vector<double>::const_iterator end_vect_idx = this->t.begin() + this->order;  
             check_times = std::vector<double>(start_vect_idx, end_vect_idx+1);
         }        
-
+        assert(check_states.size() == this->order);
+        assert(check_times.size() == this->order);
+        assert(check_states.front().F.container_size() == check_states.back().F.container_size());
         checkpoint = {this->order, Distribution::get_knot_energies(), this->regimes, check_states,check_times};
         old_checkpoint = checkpoint;
     }
