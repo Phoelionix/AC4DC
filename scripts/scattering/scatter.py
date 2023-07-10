@@ -2031,9 +2031,9 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 # Pearson Correlation Coefficient:
                 # Iterate through bins of resolution of 0.1 angstrom:
                 resolutions = q_to_res(np.sqrt(np.apply_along_axis(np.sum,2, result1.q_xy**2))) 
-                min_res = np.min(resolutions)  # get this working later im tired np.min(np.nonzero(resolutions*result1.full_ring_mask[...,None]))
-                max_res = min_res*4
-                res_lims = np.linspace(min_res,max_res,10)
+                min_res = np.min(resolutions)  # THIS IS NOT FROM THE RIM!!! It includes all.
+                max_res = 10#min_res*4
+                res_lims = np.linspace(min_res,max_res,50)
                 cc = np.zeros(len(res_lims))
                 # Get R for comparison too
                 R_vect = cc.copy()

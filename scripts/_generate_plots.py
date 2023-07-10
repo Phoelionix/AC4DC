@@ -16,9 +16,9 @@ from QoL import set_highlighted_excepthook
 
 ELECTRON_DENSITY = False # energy density if False
 ###
-PLOT_CONFIG_CHARGE=True
-PLOT_ELEMENT_IONISATION=False
-PLOT_FREE_CONTINUUM = False
+PLOT_ELEMENT_CHARGE=True
+PLOT_ION_RATIOS=True
+PLOT_FREE_CONTINUUM = True
 PLOT_FREE_SLICES=False
 ###
 
@@ -43,7 +43,7 @@ def main():
     assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder."
     for data_folder in sys.argv[1:]:
         label = data_folder +'_Plt'
-        make_some_plots(data_folder,molecular_path,label,dname_Figures,PLOT_CONFIG_CHARGE,PLOT_ELEMENT_IONISATION,PLOT_FREE_CONTINUUM,PLOT_FREE_SLICES)
+        make_some_plots(data_folder,molecular_path,label,dname_Figures,PLOT_ELEMENT_CHARGE,PLOT_ION_RATIOS,PLOT_FREE_CONTINUUM,PLOT_FREE_SLICES)
 
 def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, charge_conservation=False,bound_ionisation=False,free=False,free_slices=False):
     '''
@@ -94,10 +94,11 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         
         ###
 
+        slices = [-15,0,15]
         #TODO get slices from AC4DC or user input           
-        # Hau-Riege (Sanders results)
-        thermal_cutoff_energies = [200, 500, 500, 1000]
-        slices = [-7.5,-5,-2.5,0]         
+        # # Hau-Riege (Sanders results)
+        # thermal_cutoff_energies = [200, 500, 500, 1000]
+        # slices = [-7.5,-5,-2.5,0]         
         # # -7.5 fs Hau-Riege
         # thermal_cutoff_energies = [200]
         # slices = [-7.5] 
@@ -146,15 +147,18 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         #######
 
         #v_anchors = [0.16,0.12,0.08,0.04]
-        v_anchors = [0.2,0.15,0.1,0.05]
-        
+        #v_anchors = [0.2,0.15,0.1,0.05]
+        v_anchors = [0.19,0.12,0.05]
+
         lw = 1.5
-        pl.ax_steps.set_ylim([0.4e-4, 0.4])
+        #pl.ax_steps.set_ylim([0.4e-4, 0.4])
+        pl.ax_steps.set_ylim([0.1e-4, 0.1])
         #pl.ax_steps.set_ylim([1e-4, 1])
         #TODO get from AC4DC
         pl.ax_steps.set_xlim([xmin,xmax]) #Hau-Riege        
+        lines = []
         for (t, e, col ) in zip(slices, thermal_cutoff_energies, colrs):
-                lines = pl.plot_step(t, normed=True, color = col, lw=lw)
+                lines.extend(pl.plot_step(t, normed=True, color = col, lw=lw))
                 if plot_fits:
                     T = pl.plot_fit(t, e, normed=True, color=col, lw=lw,alpha=0.7)
         if plot_custom_fits:
@@ -164,7 +168,11 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         if plot_those_darn_knots:
             ymin,_ = pl.ax_steps.get_ylim()
             pl.ax_steps.set_ylim([ymin*0.67,None])
-            pl.plot_the_knots(slices,v_anchors,colrs,padding=0.1)
+            pl.plot_the_knots(slices,v_anchors,colrs,padding=0.14)
+            #pl.fig_steps.set_figheight(4.8)
+            # pl.fig_steps.set_figwidth(7)  
+            # for l in lines:
+            #     l.set_linewidth(3)          
         if ELECTRON_DENSITY:
             pl.ax_steps.set_ylim([2e-7, 1e-2]) #royle sect. B
             pl.ax_steps.set_ylim([1e-8, 1e-3]) #royle sect. C

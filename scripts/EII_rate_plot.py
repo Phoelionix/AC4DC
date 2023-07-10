@@ -22,7 +22,7 @@ from copy import deepcopy
 
 NORMED = False
 FULL_FIG = True
-PLOT_RATE_SEPARATELY = False
+PLOT_MODE = 2  # 0: plot the ionisation rates at snapshot times. 1: Plot the EEDF alongside the ionisation rate. 2: Plot the ionisation rate only. 
 
 
 def main():
@@ -42,7 +42,7 @@ def main():
     
     make_the_plot(data_folders,molecular_path,label,dname_Figures)
 
-def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir,plot_rate_separately = False):
+def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
     '''
     Arguments:
     mol_name: The name of the folder containing the simulation's data (the csv files). (By default this is the stem of the mol file.)
@@ -73,20 +73,29 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir,plot_
     # alternative but annoying and possibly costly method would be to incorporate rate tracking in the ODE solver.
     transitions =  dict()
     # charge                I      A1        A2        A3        A4        A5      rms 
-    transitions["0,1"] =  "10.6 1.829E+0 -1.975E+0  1.149E+0 -3.583E+0  2.451E+0   0.61".split()
-    transitions["1,2"] =  "24.4 8.390E-1 -7.950E-1  3.263E+0 -5.382E+0  3.476E+0   0.24".split()  
+    transitions["C$\\;\\;\\;\\rightarrow$ C$^+$"] =  ["10.6 1.829E+0 -1.975E+0  1.149E+0 -3.583E+0  2.451E+0   0.61".split()]
+    transitions["C$^+ \\rightarrow$ C$^{2+}$"] =  ["24.4 8.390E-1 -7.950E-1  3.263E+0 -5.382E+0  3.476E+0   0.24".split()]  
+    transitions["C$^{2+} \\rightarrow$ C$^{3+}$"] =  ["41.4 4.009E-1 -3.518E-1  2.375E+0 -3.992E+0  2.794E+0   0.08".split()]  
+    transitions["C$^{3+} \\rightarrow$ C$^{4+}$"] =  ["64.5 1.350E+0 -8.748E-1 -1.444E+0  2.330E+0 -2.730E+0   0.11".split(),"285 -2.777E+0  5.376E+0 -8.748E+0  1.766E+1 -9.086E+0 0.11".split()]  
+    transitions["C$^{4+} \\rightarrow$ C$^{5+}$"] =  ["392  9.205E-1 -6.297E-1  1.316E+0 -9.156E-2     0.0     1.07".split()]  
+    transitions["C$^{5+} \\rightarrow$ C$^{6+}$"] =  ["490  2.489E-1  1.847E-1  4.475E-2 -9.432E-2  5.122E-1   0.02".split()]  
+    transitions["C$^{+} \\rightarrow$ C$^{3+}$"] =  ["70.0 1.674E-1 -1.583E-1  1.941E-2  1.200E-1 -3.559E-1   0.430".split(),"320 -7.904E-1  1.315E+0  7.235E-1 -7.621E-1  2.485E+0 0.430".split()]  
     for key,val in transitions.items():
-        transitions[key] = [float(s) for s in val] 
+        transitions[key] = [[float(s) for s in elem] for elem in val] 
     # sigma = {}
     # for key, V in transitions.items():
     #     I = V[0]; A = V[1:6]; rms = V[6]
     #     sigma[key] = lambda E: 10e-13/(I*E)*(A[0]*np.log(E/I)+np.sum( [A[i]*(1-I/E)**(i) for i in range(1,len(A))] ))
     def sigma(E,transition):
-        V = transitions[transition]
-        I = V[0]; A = V[1:6]; rms = V[6]
-        if E <= I: 
-            return 0
-        return 1e-13/(I*E)*(A[0]*np.log(E/I)+np.sum( [A[i]*(1-I/E)**(i) for i in range(1,len(A))] ))
+        return_val = 0
+        fits = transitions[transition]
+        for V in fits:
+            I = V[0]; A = V[1:6]; rms = V[6]
+            if E <= I: 
+                # Potential too high for contribution, skip.
+                continue
+            return_val += 1e-13/(I*E)*(A[0]*np.log(E/I)+np.sum( [A[i]*(1-I/E)**(i) for i in range(1,len(A))] ))
+        return return_val 
     def eii_prefactor(E,transition):
         ang_per_cm = 1e8
         fs_per_eV = 0.6582
@@ -95,7 +104,7 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir,plot_
     slices = [-9.5,-8.5,-7.5]
     xmin,xmax = 10,1e4
 
-    electron_density = (PLOT_RATE_SEPARATELY == False)
+    electron_density = (PLOT_MODE == 0)  # Switch to f(\epsilon) so we don't need to divide by sqrt e and consequently divide by zero.
     label_x_anchors_override = [22,70,90,22,50,72]
     for m, mol_name in enumerate(mol_names):           
         pl1 = Plotter(mol_name,sim_output_parent_dir,use_electron_density = electron_density)
@@ -113,22 +122,61 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir,plot_
         #Cutoff energies for fitting MB curves. TODO get from AC4DC
         thermal_cutoff_energies = [2000]*10     
 
-        if PLOT_RATE_SEPARATELY and m == 0:
-            y = []
+        if PLOT_MODE != 0 and m == 0:
+            # Display the rate corrresponding to a single electron.           
             E = np.logspace(1,4,2000)
             # can't simply vectorise for whatever reason.
-            for e in E:
-                y.append(sigma(e,"0,1")/np.sqrt(e))   # f(e)*sqrt(e) = cross-section, so need to divide by sqrt(e) to see effecto f f(e)*e
-            y = np.array(y)
-            ax_eii = pl1.ax_steps.twinx()
-            ax_eii.tick_params(axis='y', colors='blue')
-            ax_eii.set_ylabel("$\sigma^{EI}(\epsilon) \epsilon^{-1/2}$",color="blue")
-            ax_eii.plot(E[y>=0],y[y>=0],color="black",linestyle="dotted")
-            ax_eii.set_ylim(0)
-
+   
+            pl1.ax_steps.set_xscale("log")
+            if PLOT_MODE == 1:
+                ax_color = 'blue'
+                ax_eii = pl1.ax_steps.twinx()                
+                y = []
+                for e in E:
+                    y.append(sigma(e,"0,1")*np.sqrt(e))
+                y = np.array(y)                 
+                ax_eii.plot(E[y>=0],y[y>=0],color="black",linestyle="dotted")
+                ax_eii.set_ylabel("Electron impact ionisation rate",color=ax_color)
+                ax_eii.set_ylim(0)
+            elif PLOT_MODE == 2: 
+                ax_color = 'black'
+                #cmap = plt.get_cmap("Accent")
+                #cmap = plt.get_cmap("Paired")
+                #colrs = [cmap(1),cmap(0),cmap(3),cmap(2),cmap(5),cmap(4)]
+                cmap = plt.get_cmap("twilight")
+                colrs = [cmap(i/len(transitions)) for i in range(len(transitions))] 
+                colrs.reverse()
+                colrs = colrs[3:] + colrs
+                ax_eii = pl1.ax_steps
+                ax_eii.set_yscale("log")
+                ax_eii.set_ylim([0.01,1])                
+                for key, col in zip(transitions.keys(),colrs):
+                    y = []
+                    for e in E:
+                        y.append(sigma(e,key)*np.sqrt(e))
+                    y = np.array(y)
+                    y*=4e14 #arbitrary I just want a nice graph.
+                    # Don't plot if outside limit
+                    if np.max(y) < ax_eii.get_ylim()[0]:
+                        continue
+                    # # "Normalise"
+                    # de = np.append(E, E[-1]*2 - E[-2]) 
+                    # de = de [1:] - de[:-1]
+                    # y/=(np.dot(y, de))
+                    ax_eii.plot(E[y>=0],y[y>=0],color=col,lw=2,label=key)
+                ax_eii.legend()
+                ax_eii.set_ylabel("Electron impact ionisation rate (arb. units)",color=ax_color)
+            ax_eii.tick_params(axis='y', colors=ax_color)
+            #ax_eii.set_ylabel("$\sigma^{EI}(\epsilon) \epsilon^{1/2}$",color=color)
+            # print("Nitrogen auger electron (400 eV) C->C+ rate:",sigma(400,"0,1")*np.sqrt(400))
+            # print("low photoelectron (6 keV) electron C->C+ rate",sigma(6000,"0,1")*np.sqrt(6000))
+            # print("high photoelectron (12 keV) electron C->C+ rate",sigma(6000,"0,1")*np.sqrt(6000))
+        if PLOT_MODE == 2:
+            # Don't plot data from AC4DC
+            break  
 
         cmap = plt.get_cmap("tab10")
-        colrs = [cmap(i) for i in range(len(slices))] # (needlessly generalised)        
+        colrs = [cmap(i) for i in range(len(slices))]      
         linestyle = dashes[m]
 
         thermal_cutoff_energies = [1000]*len(slices)
@@ -142,7 +190,7 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir,plot_
         plot_custom_fits = False
 
         prefactor_kwargs = {}
-        if not PLOT_RATE_SEPARATELY:
+        if PLOT_MODE == 0:
             prefactor_kwargs = dict(prefactor_function = eii_prefactor, prefactor_args = dict(transition="0,1"))
         for i, pl in enumerate(plotters):
             lw = 2
@@ -201,8 +249,8 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir,plot_
             
             #pl.ax_steps.set_ylabel("$\\frac{d}{d\\epsilon} \\Gamma^{eii}$")
 
-    pl.fig_steps.set_figheight(4.8)
-    pl.fig_steps.set_figwidth(12.8)
+    fig_steps.set_figheight(4.8)
+    fig_steps.set_figwidth(12.8)
 
     plt.tight_layout()
     plt.savefig(figure_output_dir + label +"_"+ str(slices[0]) + figures_ext)

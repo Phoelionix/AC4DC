@@ -855,7 +855,8 @@ class Plotter:
     
     def plot_step(self, t, prefactor_function = None, prefactor_power = 1, prefactor_args = {}, normed=True, fitE=None, **kwargs):        
         self.ax_steps.set_xlabel('Energy (eV)')
-        self.ax_steps.set_ylabel('$f(\\epsilon) \\epsilon $') # \\Delta \\epsilon is implied now. Want to distinguish from Hau-Riege whose f(e) is our f(e)e
+        #self.ax_steps.set_ylabel('$f(\\epsilon) \\epsilon $') # \\Delta \\epsilon is implied now. Want to distinguish from Hau-Riege whose f(e) is our f(e)e
+        self.ax_steps.set_ylabel('Energy density (eV/$\\AA^{3}$)') # \\Delta \\epsilon is implied now. Want to distinguish from Hau-Riege whose f(e) is our f(e)e
         if self.use_electron_density:
             self.ax_steps.set_ylabel('$f(\\epsilon)')
         self.ax_steps.loglog()
@@ -901,7 +902,7 @@ class Plotter:
                 update_idx = self.grid_update_time_Data.searchsorted(t+1e-12) -1 # we increase the time slightly, as the indices of the knot updates correspond to the first step in the new basis.
             knots_to_plot = self.grid_point_Data[update_idx]
             y = [np.e**(np.log(ylims[0]) + y_anchor*(np.log(ylims[1]) - np.log(ylims[0])))]* len(knots_to_plot)
-            self.ax_steps.scatter(knots_to_plot,y,color = col,s=3,zorder=99)     
+            self.ax_steps.scatter(knots_to_plot,y,color = col,s=80,zorder=99,lw=0.8, marker="|") #marker="|" or 10 work well.       
     def plot_fit(self, t, fitE, normed=True, **kwargs):
         t_idx = self.timeData.searchsorted(t)
         fit = self.energyKnot.searchsorted(fitE)

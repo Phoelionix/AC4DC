@@ -123,7 +123,7 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
         exp_name1 = sim_handle + "_" + exp1_qualifier
         exp_name2 = sim_handle + "_" + exp2_qualifier
 
-
+        resolutions_vect = [] # Sometimes resolution we provided in input params is cutoff due to a low energy being used, so we need to save them all to be safe.
         # Spend a few billion on XFELs
         experiment1 = XFEL(exp_name1,energy[i],**run_params["experiment"])
         experiment2 = XFEL(exp_name2,energy[i],**run_params["experiment"])
@@ -164,8 +164,9 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
             R,cc = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=get_R_only,SPI=False,results_parent_dir = sctr_results_batch_dir)
         dmg_data.append([R,cc]) 
         pulse_params.append([energy[i],fwhm[i],photon_count[i]])
+        resolutions_vect.append(resolutions)
     
-    return np.array(pulse_params,dtype=float),np.array(dmg_data,dtype=object), resolutions, names, param_dict
+    return np.array(pulse_params,dtype=float),np.array(dmg_data,dtype=object), np.array(resolutions_vect,dtype=object), names, param_dict
 
 import pickle
 def save_data(fname, data):
@@ -180,7 +181,7 @@ def load_df(fname, resolution_idx,check_batch_nums=True):
         pulse_params, dmg_data,resolutions,names,param_dict = pickle.load(file) 
     
     dmg_data = dmg_data[...,resolution_idx].astype(float)
-    resolution = resolutions[resolution_idx]
+    resolutions = resolutions[:,resolution_idx]
     log_photons = np.log(pulse_params[:,2])-np.min(np.log(pulse_params[:,2]))
     log_photons += np.max(log_photons)/2
     # photon_size_thing = dmg_data[:,2] + np.max(dmg_data[:,2])/10
@@ -200,7 +201,7 @@ def load_df(fname, resolution_idx,check_batch_nums=True):
         "photon_size_thing": photon_size_thing, 
         "_": pulse_params[:,0]*0+1, # dummy column for size.
     })
-    df.resolution = resolution
+    df.resolutions = resolutions
     print(df)
     # Check if missing any files.
     if check_batch_nums:
@@ -226,11 +227,12 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="amp",use_neutze_units=
     photon_measure = df.columns[3]
 
     if photon_measure[:5] == "Count":
+        photon_measure_default = "ph per um^2"
         if use_neutze_units:
             df[photon_measure] = [7.854e-3*p for p in df[photon_measure]] # square micrometre to 100 nm diameter spot
-            photon_measure = "Count - 100 nm spot"
+            photon_measure = "photons per 100 nm spot"
         else:
-            photon_measure = "Count - um^2"
+            photon_measure = photon_measure_default
         df.rename(columns=dict(Count=photon_measure),inplace=True)
         print(df)
     else:
@@ -352,7 +354,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="amp",use_neutze_units=
         
     #Contour Energy-FWHM
     data_frame_dict = {elem : pd.DataFrame() for elem in unique_photons}   
-    photon_key_for_file_name = '{:.2e}'.format(photon_key)
+    default_unit_photon_key = '{:.2e}'.format(photon_key)
     if use_neutze_units:
         photon_key *=7.854e-3
     photon_key_for_title = '{:.2e}'.format(photon_key)
@@ -369,7 +371,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="amp",use_neutze_units=
                 #y=unique_photons,
                 z = df["R"],
                 x = df["fwhm"],
-                y = df["energy"]
+                y = df["energy"],
                 **contour_args,
             ))
         fig.update_layout(width = 750, height = 600)
@@ -378,7 +380,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="amp",use_neutze_units=
         fig.update_yaxes(title="Energy (eV)")
 
         fig.show()   
-        fig.write_image(out_folder+name_of_set + ", " +str(photon_key_for_file_name)+" " +photon_measure+ext)
+        fig.write_image(out_folder+name_of_set + ", " +str(default_unit_photon_key)+" " +photon_measure_default+ext)
         df = original_df
 
     #Contour: Energy-Fluence
@@ -461,12 +463,15 @@ if __name__ == "__main__":
 #%%
 #------------Plot----------------------
 if __name__ == "__main__":
-    name_of_set = fname + "v2"
-    df = load_df(fname, 0, check_batch_nums=batch_mode) # resolution index 0 corresponds to the max resolution
-    plot_2D_constants = dict(energy_key = 18000, photon_key = 1e15,fwhm_key = 100)
+    data_name = "lys_all_light"; batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
+    #####
+    name_of_set = data_name
+    resolution_idx = 1
+    df = load_df(data_name, resolution_idx, check_batch_nums=batch_mode) # resolution index 0 corresponds to the max resolution
+    plot_2D_constants = dict(energy_key = 9000, photon_key = 1e10,fwhm_key = 15)
     neutze = True
 
-    name_of_set += "_"+str(df.resolution)
+    name_of_set += "-res="+str("{:.2f}".format(df.resolution))
     if MODE_DICT[mode] != "spi":
         print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
         plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units = neutze,) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
