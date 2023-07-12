@@ -2367,8 +2367,8 @@ if __name__ == "__main__":
     target_options = ["neutze","hen","tetra","glycine"]
     #============------------User params---------==========#
 
-    target = "tetra"  #target_options[2]
-    best_resolution = 1.58 #(abdullah) # 2   # resolution (determining max q)
+    target = "hen"  #target_options[2]
+    best_resolution = 2 # 1.58 (abdullah) # 2   # resolution (determining max q)
     worst_resolution = None#30 # 'resolution' corresponding to min q
 
     #### Individual experiment arguments 
@@ -2384,9 +2384,9 @@ if __name__ == "__main__":
     )
     ##### Crystal params
     crystal_qwargs = dict(
-        cell_scale = 1, # 5 # for SC: cell_scale^3 unit cells 
-        num_supercells = 27,#35000,
-        supercell_simulations = 8,#50,
+        cell_scale = 3, # 5 # for SC: cell_scale^3 unit cells 
+        num_supercells = 1,#35000,
+        supercell_simulations = 1,#50,
         positional_stdv = 0,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
@@ -2397,7 +2397,7 @@ if __name__ == "__main__":
     #### XFEL params
     tag = "" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
     #TODO make it so reflections don't overwrite same orientation, as stochastic now.
-    energy = 9000#7100 # eV
+    energy = 15000#7100 # eV
     exp_qwargs = dict(
         detector_distance_mm = 100,
         screen_type = "flat",#"hemisphere"
@@ -2473,10 +2473,10 @@ if __name__ == "__main__":
         # target_handle = "lys_nass_2"
         # folder = "lys"
         #'''
-        target_handle = "lys_full-typical"#"lys_nass_15"#"lys-5_3"#" #12keV, 0.1/0.01 count, 10 fs
+        target_handle = "lys_full-94_1"#"lys_nass_15"#"lys-5_3"#" #12keV, 0.1/0.01 count, 10 fs
         #folder = "lys" 
         folder = "" 
-        background_targets = "lys_water"
+        #background_targets = "lys_water"
         #''' 
         '''
         target_handle = "lys_no_S_1"#"lys_no_S_2" #12keV, 0.1/0.01 count, 10 fs

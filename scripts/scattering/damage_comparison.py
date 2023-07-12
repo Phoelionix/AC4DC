@@ -445,7 +445,7 @@ if __name__ == "__main__":
     )
 
 
-    batch_mode = True # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
+    batch_mode = False # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
 
     mode = 1  #0 -> infinite crystal, 1 -> finite crystal/SPI, 2-> both  
     same_deviations = False # whether same position deviations between damaged and undamaged crystal (SPI only)
@@ -456,27 +456,29 @@ if __name__ == "__main__":
         S_to_N = True
         batch_handle = "resolutions" 
         batch_dir = None # Optional: Specify existing parent folder for batch of results, to add these orientation results to.
-        #pdb_path = PDB_PATHS["lys"]
-        pdb_path = PDB_PATHS["lys_empty"]
+        pdb_path = PDB_PATHS["lys"]
         # Params set to batch_handle
         kwargs["plasma_batch_handle"] = batch_handle
         fname = batch_handle
     else: # Compare specific simulations
         fname = "comparison"
-        allowed_atoms = ["C","N","O"]; S_to_N = True
+        #allowed_atoms = ["C","N","O"]; S_to_N = True
+        allowed_atoms = ["N"]; S_to_N = True
         #allowed_atoms = ["C","N","O","S"]; S_to_N = False
         CNO_to_N = False
         kwargs["plasma_batch_handle"] = ""
         #kwargs["plasma_handles"] = ["lys_nass_3","lys_nass_no_S_1"]    #Note that S_to_N must be true to compare effect on nitrogen R factor. Comparing S_to_N true with nitrogen only sim, then S_to_N false with nitrogen+sulfur sim, let's us compare the true effect of sulfur on R facator.
         #kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_6","lys_nass_Gd_16"]  
+        #kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_HF","lys_nass_Gd_HF"]  
+        kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_square"]  
         #kwargs["plasma_handles"] = ["lys_nass_HF","lys_nass_Gd_HF"]  
-        kwargs["plasma_handles"] = ["lys_full-typical","lys_all_light-typical"]  
+        #kwargs["plasma_handles"] = ["lys_full-typical","lys_all_light-typical"]  
         #kwargs["plasma_handles"] = ["glycine_abdullah_4"]
         #pdb_path = PDB_PATHS["fcc"]
-        #pdb_path = PDB_PATHS["lys"]
+        pdb_path = PDB_PATHS["lys"]
         #pdb_path = PDB_PATHS["lys_solvated"]
         #pdb_path = PDB_PATHS["glycine"]
-        pdb_path = PDB_PATHS["tetra"]
+        #pdb_path = PDB_PATHS["tetra"]
 
     if MODE_DICT[mode] != "spi":
         scatter_data = multi_damage(imaging_params.default_dict,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
@@ -493,7 +495,7 @@ if __name__ == "__main__":
     data_name = "lys_full"; batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
     #####
     name_of_set = data_name
-    resolution = 1.93
+    resolution = 1.94 #1.9 2.8
     df = load_df(data_name, resolution, check_batch_nums=batch_mode) # resolution index 0 corresponds to the max resolution
     plot_2D_constants = dict(energy_key = 9000, photon_key = 1e12,fwhm_key = 25)
     neutze = False
@@ -505,6 +507,33 @@ if __name__ == "__main__":
         print("-------------------SPI------------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
         plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units=neutze,cmax_contour=0.4) # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
     print("Done")
+
+#%%
+# ------------- RESOLUTION MAP ------------ #
+if __name__ == "__main__":
+    data_name = "comparison"; batch_mode = False; mode = 1
+    #####
+    with open(DATA_FOLDER+data_name +".pickle", "rb") as file:
+        _, _,sim_resolutions,_,_ = pickle.load(file) 
+    
+    R_factors = []
+    for resolution in sim_resolutions[0]:
+        df = load_df(data_name, resolution, check_batch_nums=batch_mode) # resolution index 0 corresponds to the max resolution
+        R_factors.append(df["R"])
+        names = df["name"]
+    R_factors = np.array(R_factors)
+    names = np.array(names)
+    sim_resolutions = np.array(sim_resolutions)
+    for i,name in enumerate(names):
+        assert np.array_equal(sim_resolutions[i],sim_resolutions[0])
+        plt.plot(sim_resolutions[0],R_factors[:,i],label=name)
+    plt.legend(labels=["gauss", "square"],reverse=True)
+    plt.ylabel("$R_{dmg}$")
+    plt.xlabel("Resolution ($\AA$)")
+    plt.xscale("log")
+    plt.show()
+    print("Done")
+
 
 #%%
 '''
@@ -523,15 +552,18 @@ if __name__ == "__main__":
     batch_mode = True; mode = 1
     
     resolution = 1.9#2.2
-    photon_min=1e11
+    photon_min=1e10
     fname1 = "lys_full"; fname2 = "lys_all_light"
-    plot_2D_constants = dict(energy_key = 9000, photon_key = 1e12,fwhm_key = 25)
+    plot_2D_constants = dict(energy_key = 9000, photon_key = 1e13,fwhm_key = 25)
 
-    for percentage_difference in [False,True]:
+    statistics_calculation_R_cutoff = 0.1
+    #for percentage_difference in [False,True]:
+    for percentage_difference in [False]:
         if percentage_difference:
             contour_interval = 0.05
             contour_colour = "viridis"
-            vmax =  0.3
+            vmax =  0.4
+            mask_below_value = 0.1
         else:
             contour_interval = 0.01
             contour_colour = "plasma"
@@ -547,13 +579,26 @@ if __name__ == "__main__":
             if col != "R" and col != "cc" and col!="name":
                 assert np.array_equal(df_diff[col], df2[col]) and np.array_equal(df1[col], df_diff[col])
             elif col != "name":
-                print(df_diff[col])
-                print(df2[col])
                 if percentage_difference:
                     df_diff[col] = df1[col]/df2[col] - 1
+                    mask = df1[col] < mask_below_value
+                    df_diff[col][mask] = None 
                 else:
                     df_diff[col] -= df2[col]
-                print(df_diff) 
+                    if col == "R":
+                        num_non_pos_count = np.sum(df_diff[col] <= 0)
+                        print("NUMBER OF R_diff <= 0:", num_non_pos_count)  
+                        print("AVERAGE FACTOR",np.sum(df1[col]/df2[col])/len(df1[col]))
+                        print("MIN/MAXIMUM FACTOR",np.min(df1[col]/df2[col]),"|",np.max(df1[col]/df2[col]))
+                        print("sample STD",np.std(df1[col]/df2[col],ddof=1))
+                        print("==========")
+                        mask = np.array(df1[col] > statistics_calculation_R_cutoff,dtype=bool)
+                        print(np.sum(mask))
+                        print("VALUES WHERE R FACTOR OF TARGET1 ABOVE", mask_below_value,":")
+                        print("AVERAGE FACTOR",np.nansum(np.array(df1[col]/df2[col]/np.sum(mask))[mask==True]))
+                        print("MIN/MAXIMUM FACTOR",np.nanmin((df1[col]/df2[col])[mask]),"|",np.max((df1[col]/df2[col])[mask]))
+                        print("sample STD",np.std(np.array(df1[col]/df2[col])[mask],ddof=1))                        
+                        
         if percentage_difference:
             dmg_measure = "R1/R2-1"
         else:
