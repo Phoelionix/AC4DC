@@ -321,7 +321,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_unit
         rng[1]+= rng[1]/10
         ranges[col] = rng
 
-    if cmax_contour != None:
+    if cmax_contour == None:
         cmax_contour = ranges[dmg_measure][1]
 
     contour_args = dict(
@@ -495,8 +495,8 @@ if __name__ == "__main__":
     name_of_set = data_name
     resolution = 1.93
     df = load_df(data_name, resolution, check_batch_nums=batch_mode) # resolution index 0 corresponds to the max resolution
-    plot_2D_constants = dict(energy_key = 9000, photon_key = 1e10,fwhm_key = 15)
-    neutze = True
+    plot_2D_constants = dict(energy_key = 9000, photon_key = 1e12,fwhm_key = 25)
+    neutze = False
     name_of_set += "-res="+str("{:.1f}".format(df.resolution)) # Currently there's an uncertainty in the 2nd decimal because I coded bad, so 2 Sig figs it shall be.
     if MODE_DICT[mode] != "spi":
         print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
@@ -527,13 +527,13 @@ if __name__ == "__main__":
     fname1 = "lys_full"; fname2 = "lys_all_light"
     plot_2D_constants = dict(energy_key = 9000, photon_key = 1e12,fwhm_key = 25)
 
-    for percentage_difference in [True,False]:
+    for percentage_difference in [False,True]:
         if percentage_difference:
-            contour_interval = 0.1
+            contour_interval = 0.05
             contour_colour = "viridis"
-            vmax =  0.4
+            vmax =  0.3
         else:
-            contour_interval = 0.02
+            contour_interval = 0.01
             contour_colour = "plasma"
             vmax = 0.1
 
