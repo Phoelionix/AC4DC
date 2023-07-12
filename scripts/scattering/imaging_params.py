@@ -18,10 +18,10 @@ default_dict = dict(
     ),
     ##### Crystal params
     crystal = dict(
-        cell_scale = 3,  # for SC: cell_scale^3 unit cells 
+        cell_scale = 1,  ##3 # for SC: cell_scale^3 unit cells 
         num_supercells = 1,
         supercell_simulations = 1,        
-        include_symmetries = True,  # should unit cell contain symmetries?
+        include_symmetries = False, ##True  # should unit cell contain symmetries?
         positional_stdv = 0, # Introduces disorder to positions. Note this is a deviation from the IDEAL structure, so is not a measure of similarity with undamaged and damaged structure but the ideal structure to recover and the dmaaged structure. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if quickly gauging serial crystallography R factor, as should somewhat average out.
         cell_packing = "SC",
         rocking_angle = 1.2,  # (approximating mosaicity, infinite crystal sim only)
@@ -33,7 +33,7 @@ default_dict = dict(
         screen_type = "flat",#"hemisphere"
         q_minimum = res_to_q(worst_resolution),#None #angstrom
         q_cutoff = res_to_q(best_resolution),#2*np.pi/d
-        t_fineness=25,   
+        t_fineness=2,   ##25
         #####crystal stuff
         max_miller_idx = None, # = m, where max momentum given by q with miller indices (m,m,m)
         ####SPI stuff

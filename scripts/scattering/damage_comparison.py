@@ -34,6 +34,7 @@ PDB_PATHS = dict( # <value:> the target that should be used for <key:> the name 
     lys_tmp = my_dir + "targets/4et8.pdb",
     lys_solvated = my_dir + "solvate_1.0/lys_8_cell.xpdb",
     fcc = "targets/FCC.pdb",
+    lys_empty = "targets/lys_points.pdb",
     glycine = "targets/glycine.pdb",
 )          
 
@@ -105,6 +106,7 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
     dmg_data = []
     pulse_params=[]
     names = []
+    resolutions_vect = [] # Sometimes resolution we provided in input params is cutoff due to a low energy being used, so we need to save them all to be safe.
     for i, sim_handle in enumerate(plasma_handles):
         # TODO
         # if params["laser"]["SPI"]:
@@ -123,7 +125,6 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
         exp_name1 = sim_handle + "_" + exp1_qualifier
         exp_name2 = sim_handle + "_" + exp2_qualifier
 
-        resolutions_vect = [] # Sometimes resolution we provided in input params is cutoff due to a low energy being used, so we need to save them all to be safe.
         # Spend a few billion on XFELs
         experiment1 = XFEL(exp_name1,energy[i],**run_params["experiment"])
         experiment2 = XFEL(exp_name2,energy[i],**run_params["experiment"])
@@ -176,11 +177,33 @@ def save_data(fname, data):
         pickle.dump(data, file)
 
     
-def load_df(fname, resolution_idx,check_batch_nums=True):
+def load_df(fname, resolution,check_batch_nums=True):
     with open(DATA_FOLDER+fname +".pickle", "rb") as file:
         pulse_params, dmg_data,resolutions,names,param_dict = pickle.load(file) 
     
-    dmg_data = dmg_data[...,resolution_idx].astype(float)
+    # Check that the resolution is above the minimum of all simulations
+    print(dmg_data.shape)
+    assert resolution >= np.max(resolutions[:,0])
+    resolutions_idxes = np.empty(resolutions.shape)
+    unique_resolutions = []
+    dmg_vect = []
+    for i, vect in enumerate(resolutions):
+        res_idx = np.searchsorted(vect,resolution)
+        if vect[res_idx] not in unique_resolutions:
+            unique_resolutions.append(vect[res_idx])
+        dmg_vect.append(dmg_data[i,:,res_idx]) 
+    print("RESOLUTIONS USED",unique_resolutions)
+    # Sorry for this
+    assert(np.max(unique_resolutions) - np.min(unique_resolutions)) < 0.05 , "nearest resolution above the resolution specified for each simulation differ by a value above the tolerance - unique values: " + str(unique_resolutions) + " Try a different value (sorry for this bad coding)." 
+    resolution = np.average(unique_resolutions)
+    dmg_data = np.array(dmg_vect,dtype=float)
+    
+    
+    # resolutions_slice = resolutions[:,resolution_idx]
+    
+    # assert np.all(resolutions_slice==resolutions_slice[0]),   
+    # resolution = resolutions_slice[0]
+    # print("Resolution: ", resolution, "Angstrom")
     resolutions = resolutions[:,resolution_idx]
     log_photons = np.log(pulse_params[:,2])-np.min(np.log(pulse_params[:,2]))
     log_photons += np.max(log_photons)/2
@@ -201,7 +224,7 @@ def load_df(fname, resolution_idx,check_batch_nums=True):
         "photon_size_thing": photon_size_thing, 
         "_": pulse_params[:,0]*0+1, # dummy column for size.
     })
-    df.resolutions = resolutions
+    df.resolution = resolution
     print(df)
     # Check if missing any files.
     if check_batch_nums:
@@ -428,9 +451,10 @@ if __name__ == "__main__":
         allowed_atoms = ["C","N","O","S"] 
         CNO_to_N = False
         S_to_N = True
-        batch_handle = "lys_full" 
+        batch_handle = "resolutions" 
         batch_dir = None # Optional: Specify existing parent folder for batch of results, to add these orientation results to.
-        pdb_path = PDB_PATHS["lys"]
+        #pdb_path = PDB_PATHS["lys"]
+        pdb_path = PDB_PATHS["lys_empty"]
         # Params set to batch_handle
         kwargs["plasma_batch_handle"] = batch_handle
         fname = batch_handle
@@ -463,15 +487,14 @@ if __name__ == "__main__":
 #%%
 #------------Plot----------------------
 if __name__ == "__main__":
-    data_name = "lys_all_light"; batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
+    data_name = "lys_fullRes"; batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
     #####
     name_of_set = data_name
-    resolution_idx = 1
-    df = load_df(data_name, resolution_idx, check_batch_nums=batch_mode) # resolution index 0 corresponds to the max resolution
+    resolution = 1.93
+    df = load_df(data_name, resolution, check_batch_nums=batch_mode) # resolution index 0 corresponds to the max resolution
     plot_2D_constants = dict(energy_key = 9000, photon_key = 1e10,fwhm_key = 15)
     neutze = True
-
-    name_of_set += "-res="+str("{:.2f}".format(df.resolution))
+    name_of_set += "-res="+str("{:.1f}".format(df.resolution)) # Currently there's an uncertainty in the 2nd decimal because I coded bad, so 2 Sig figs it shall be.
     if MODE_DICT[mode] != "spi":
         print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
         plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units = neutze,) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
@@ -480,7 +503,16 @@ if __name__ == "__main__":
         plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units=neutze,) # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
     print("Done")
 
-
+#%%
+'''
+# Surgery
+fname = "lys_all_light"
+with open(DATA_FOLDER+fname +".pickle", "rb") as file:
+    pulse_params, dmg_data,_,names,param_dict = pickle.load(file) 
+with open(DATA_FOLDER+"resolutions.pickle","rb") as file:
+    _, _,resolutions,_,_ = pickle.load(file) 
+save_data(fname +"Res", (pulse_params,dmg_data, resolutions, names, param_dict))
+'''
 
 #%%
 #------------Compare----------------------

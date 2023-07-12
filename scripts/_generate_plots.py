@@ -16,10 +16,10 @@ from QoL import set_highlighted_excepthook
 
 ELECTRON_DENSITY = False # energy density if False
 ###
-PLOT_ELEMENT_CHARGE=True
-PLOT_ION_RATIOS=True
-PLOT_FREE_CONTINUUM = True
-PLOT_FREE_SLICES=False
+PLOT_ELEMENT_CHARGE= True
+PLOT_ION_RATIOS=False
+PLOT_FREE_CONTINUUM = False
+PLOT_FREE_SLICES=True
 ###
 
 def main():
@@ -76,9 +76,9 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         #plt.savefig(figure_output_dir + label + fname_bound_dynamics + figures_ext)
         
     if free:
-        pl.plot_free(log=True, min=1e-7, every=5)
         #plt.savefig(figure_output_dir + label + fname_free + figures_ext)
-
+        ymax = 9e3
+        pl.plot_free(log=True, min=1e-6,max = 10**(-3.3), every=5,mask_below_min=True,cmap='turbo',ymax=ymax)
     if free_slices:
         pl.initialise_step_slices_ax()
         from plotter_core import fit_maxwell, maxwell
@@ -94,11 +94,11 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         
         ###
 
-        slices = [-15,0,15]
+        # slices = [-15,0,15]
         #TODO get slices from AC4DC or user input           
         # # Hau-Riege (Sanders results)
-        # thermal_cutoff_energies = [200, 500, 500, 1000]
-        # slices = [-7.5,-5,-2.5,0]         
+        thermal_cutoff_energies = [200, 500, 500, 1000]
+        slices = [-7.5,-5,-2.5,0]         
         # # -7.5 fs Hau-Riege
         # thermal_cutoff_energies = [200]
         # slices = [-7.5] 
@@ -112,13 +112,13 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
 
         colrs = [cmap(i) for i in range(len(slices))]
 
-        plot_legend = False        
+        plot_legend = False       
         plot_fits = False # Whether to fit MB curves to distribution below thermal cutoff energies.
-        plot_those_darn_knots = True
+        plot_those_darn_knots = False
         ####### 
         # Here we can plot MB curves e.g. for fit comparison
+        plot_custom_fits = True
         ####
-        plot_custom_fits = False
         # # example
         # custom_T = [30.8,75.5,131.8,207.5]
         # custom_n = [0.06*3/2,0.06*3/2,0.06*3/2,0.06*3/2]
@@ -127,11 +127,11 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         # custom_n = [0.06*3/2,0.06*3/2] # - (not anything meaningful, just density of MB approximated as 50% of total). 
         # custom_colrs = ['r','b']
         #H-R
-        # custom_T = [31,70,125,195]   # [44.1,84.9,135.6,205.8]
-        # custom_n = [0.06*3/2]*len(custom_T) # - (not anything meaningful, just density of MB approximated as 50% of total). 
-        # custom_colrs = colrs   
-        # xmin,xmax = 1,1500 
-        # plot_legend = False    
+        custom_T = [31,70,125,195]   # [44.1,84.9,135.6,205.8]
+        custom_n = [0.06*3/2]*len(custom_T) # - (not anything meaningful, just density of MB approximated as 50% of total). 
+        custom_colrs = colrs   
+        xmin,xmax = 1,1e4 
+        plot_legend = True 
         # #Royle B
         # custom_T = [8,33,105]  
         # custom_n = [0.08,0.08,0.08]     
@@ -152,7 +152,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
 
         lw = 1.5
         #pl.ax_steps.set_ylim([0.4e-4, 0.4])
-        pl.ax_steps.set_ylim([0.1e-4, 0.1])
+        pl.ax_steps.set_ylim([1e-4, 1])
         #pl.ax_steps.set_ylim([1e-4, 1])
         #TODO get from AC4DC
         pl.ax_steps.set_xlim([xmin,xmax]) #Hau-Riege        
@@ -163,7 +163,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
                     T = pl.plot_fit(t, e, normed=True, color=col, lw=lw,alpha=0.7)
         if plot_custom_fits:
             for (T, n, col ) in zip(custom_T, custom_n, custom_colrs):
-                pl.ax_steps.plot([0],[0],alpha=0,label=" ")
+                pl.ax_steps.plot([0],[0],alpha=0,label=None)
                 pl.plot_maxwell(T,n,color = col, lw=lw,alpha=0.7)
         if plot_those_darn_knots:
             ymin,_ = pl.ax_steps.get_ylim()
@@ -186,11 +186,16 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
 
         if plot_legend:
             handles, labels = pl.ax_steps.get_legend_handles_labels()
-            # e.g. for 8 labels (4 time steps), order = [0,2,4,6,1,3,5,7]  
-            order = list(range(0,len(labels) - 1,2)) + list(range(1,len(labels),2))
+            ncols = 4
+            # e.g. for 8 labels (4 time steps), order = [0,2,4,6,1,3,5,7]  , if ncols = 2.
+            order = []
+            #2 cols
+            #order = list(range(0,len(labels) - 1,ncols)) + list(range(1,len(labels),ncols)) 
+            # 2 rows 4 cols
+            order = list(range(0,len(labels) - 1,ncols)) + list(range(1,len(labels),ncols)) +  list(range(2,len(labels) - 1,ncols)) + list(range(ncols-1,len(labels),ncols)) 
+            print(order)
             if len(labels)%2 != 0:
                 order.append(len(order))  # shouldnt happen though.
-            ncols = 2
             if plot_fits == False and plot_custom_fits == False:
                 ncols = 1
                 order = list(range(0,len(labels)))

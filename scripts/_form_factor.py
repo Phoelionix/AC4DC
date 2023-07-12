@@ -33,7 +33,8 @@ set_highlighted_excepthook()
 #handle =  "lys_nass_6"#
 #handle =  "lys_nass_Gd_12"#
 #handles = ["lys_nass_no_S_2","lys_nass_6","lys_nass_Gd_16"]
-handles = ["lys_nass_Gd_16"]
+#handles = ["lys_nass_Gd_16"]
+handles = ["lys_nass_square_13","lys"]
 #######
 for handle in handles:
     label = handle +'_' 
