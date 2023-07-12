@@ -204,7 +204,6 @@ def load_df(fname, resolution,check_batch_nums=True):
     # assert np.all(resolutions_slice==resolutions_slice[0]),   
     # resolution = resolutions_slice[0]
     # print("Resolution: ", resolution, "Angstrom")
-    resolutions = resolutions[:,resolution_idx]
     log_photons = np.log(pulse_params[:,2])-np.min(np.log(pulse_params[:,2]))
     log_photons += np.max(log_photons)/2
     # photon_size_thing = dmg_data[:,2] + np.max(dmg_data[:,2])/10
@@ -224,8 +223,6 @@ def load_df(fname, resolution,check_batch_nums=True):
         "photon_size_thing": photon_size_thing, 
         "_": pulse_params[:,0]*0+1, # dummy column for size.
     })
-    df.resolution = resolution
-    print(df)
     # Check if missing any files.
     if check_batch_nums:
         nums = []
@@ -241,9 +238,12 @@ def load_df(fname, resolution,check_batch_nums=True):
                     print("mising file number 1?")
             elif nums[i-1] != elem -1:
                 print("Missing file? File number",elem,"was found after",nums[i-1])  
+    df = df.sort_values(by=["energy","fwhm",photon_measure])
+    df = df.reset_index(drop=True)
+    df.resolution = resolution
     return df   
     
-def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="amp",use_neutze_units=False,name_of_set="",energy_key=9000,photon_key=1e14,fwhm_key=50,cmin_contour=0,cmax_contour=0.4,**kwargs):
+def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_units=False,name_of_set="",energy_key=9000,photon_key=1e14,fwhm_key=50,cmin_contour=0,cmax_contour=None,contour_colour = "amp",contour_interval=0.05,dmg_measure="R",photon_min=None,**kwargs,):
     out_folder = PLOT_FOLDER
     os.makedirs(out_folder,exist_ok=True)
     ext = ".svg"
@@ -264,7 +264,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="amp",use_neutze_units=
             use_neutze_units = False    
     #3D - no idea why x axis is bugged.
     fig = px.scatter_3d(df, x=photon_measure, y='fwhm', z='energy',
-              color='R',  color_continuous_scale=clr_scale, range_color=[cmin,cmax],**kwargs)
+              color=dmg_measure,  color_continuous_scale=clr_scale, range_color=[cmin,cmax],**kwargs)
     camera = dict(
         up=dict(x=0, y=0, z=1),
         center=dict(x=0, y=0, z=0),
@@ -279,8 +279,8 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="amp",use_neutze_units=
     # Plot designed for small number of simulations to compare.
     if len(df['name']) <= 10:
         label_col = 'name'   
-        fig = px.scatter(df, text=label_col,x='fwhm', y='R', symbol='energy', size='photon_size_thing',#'log_photons',
-                color='R', color_continuous_scale=clr_scale, range_color=[cmin,cmax],size_max=15,opacity=1,**kwargs) 
+        fig = px.scatter(df, text=label_col,x='fwhm', y=dmg_measure, symbol='energy', size='photon_size_thing',#'log_photons',
+                color=dmg_measure, color_continuous_scale=clr_scale, range_color=[cmin,cmax],size_max=15,opacity=1,**kwargs) 
         fig.update_layout(
             showlegend=True,
             legend=dict(
@@ -301,7 +301,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="amp",use_neutze_units=
     # vert axis is energy of photons 
     df = df.sort_values('photon_size_thing',ascending=False)
     fig = px.scatter(df, x='fwhm', y='energy', size='photon_size_thing',
-              color='R', color_continuous_scale=clr_scale, range_color=[cmin,cmax],size_max=30,opacity=1,
+              color=dmg_measure, color_continuous_scale=clr_scale, range_color=[cmin,cmax],size_max=30,opacity=1,
               **kwargs)
     fig.update_layout(title=name_of_set+"-Flat")     
     fig.show()    
@@ -315,20 +315,23 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="amp",use_neutze_units=
         #rng = df[col].agg(['min','max'])
         rng = [df[col].min(),df[col].max()]
         rng[0]-=rng[1]/10 
+        if photon_min != None and col == photon_measure:
+            rng[0] = photon_min
         rng[0] = max(0,rng[0])
         rng[1]+= rng[1]/10
         ranges[col] = rng
 
-    cmax_contour = max(cmax_contour,ranges['R'][1])
+    if cmax_contour != None:
+        cmax_contour = ranges[dmg_measure][1]
 
     contour_args = dict(
-        colorscale = 'amp',#clr_scale, #'electric',
+        colorscale = contour_colour,#clr_scale, #'electric',
         line_smoothing=0,
         connectgaps = False,
         zmin = 0, zmax = 0.4,
         #contours_coloring='heatmap',
-        contours = go.contour.Contours(start = 0.05, end= cmax_contour, size = 0.05),
-        colorbar = dict(title = "R", tickvals = np.arange(0.05,cmax_contour+0.001,0.05)),
+        contours = go.contour.Contours(start = contour_interval, end= cmax_contour, size = contour_interval),
+        colorbar = dict(title = dmg_measure, tickvals = np.arange(contour_interval,cmax_contour+0.00001,contour_interval)),
     )
     original_df = df
     #get data frames for each energy
@@ -360,7 +363,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="amp",use_neutze_units=
                 #z=R_mesh,
                 #x=unique_fwhm, 
                 #y=unique_photons,
-                z = df["R"],
+                z = df[dmg_measure],
                 x = df["fwhm"],
                 y = [p for p in df[photon_measure]],
 
@@ -392,7 +395,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="amp",use_neutze_units=
                 #z=R_mesh,
                 #x=unique_fwhm, 
                 #y=unique_photons,
-                z = df["R"],
+                z = df[dmg_measure],
                 x = df["fwhm"],
                 y = df["energy"],
                 **contour_args,
@@ -418,7 +421,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="amp",use_neutze_units=
                 #z=R_mesh,
                 #x=unique_fwhm, 
                 #y=unique_photons,
-                z = df["R"],
+                z = df[dmg_measure],
                 y = df["energy"],
                 x = [p for p in df[photon_measure]],
                **contour_args,
@@ -487,7 +490,7 @@ if __name__ == "__main__":
 #%%
 #------------Plot----------------------
 if __name__ == "__main__":
-    data_name = "lys_fullRes"; batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
+    data_name = "lys_full"; batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
     #####
     name_of_set = data_name
     resolution = 1.93
@@ -497,10 +500,10 @@ if __name__ == "__main__":
     name_of_set += "-res="+str("{:.1f}".format(df.resolution)) # Currently there's an uncertainty in the 2nd decimal because I coded bad, so 2 Sig figs it shall be.
     if MODE_DICT[mode] != "spi":
         print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-        plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units = neutze,) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+        plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units = neutze,cmax_contour=0.4) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
     if MODE_DICT[mode] != "crystal":
         print("-------------------SPI------------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-        plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units=neutze,) # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+        plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units=neutze,cmax_contour=0.4) # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
     print("Done")
 
 #%%
@@ -517,17 +520,53 @@ save_data(fname +"Res", (pulse_params,dmg_data, resolutions, names, param_dict))
 #%%
 #------------Compare----------------------
 if __name__ == "__main__":
+    batch_mode = True; mode = 1
+    
+    resolution = 1.9#2.2
+    photon_min=1e11
     fname1 = "lys_full"; fname2 = "lys_all_light"
-    name_of_set = "Difference" + "_"+fname1 + "_" + fname2
-    df1 = pd.read_pickle(DATA_FOLDER + fname1)
-    df2 = pd.read_pickle(DATA_FOLDER + fname2)
-    plot_2D_constants = dict(energy_key = 18000, photon_key = 1e15,fwhm_key = 100)
-    neutze = True
-    if MODE_DICT[mode] != "spi":
-        print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-        plot_that_funky_thing([df1,df2],0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units = neutze,) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
-    if MODE_DICT[mode] != "crystal":
-        print("-------------------SPI------------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-        plot_that_funky_thing([df1,df2],0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units=neutze,) # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+    plot_2D_constants = dict(energy_key = 9000, photon_key = 1e12,fwhm_key = 25)
+
+    for percentage_difference in [True,False]:
+        if percentage_difference:
+            contour_interval = 0.1
+            contour_colour = "viridis"
+            vmax =  0.4
+        else:
+            contour_interval = 0.02
+            contour_colour = "plasma"
+            vmax = 0.1
+
+        #name_of_set = "Difference" + "_"+fname1 + "_" + fname2
+        name_of_set = "Sulfur_impact"
+        df1 =  load_df(fname1, resolution, check_batch_nums=batch_mode)
+        df2 = load_df(fname2, resolution, check_batch_nums=batch_mode)
+        neutze = False
+        df_diff = copy.deepcopy(df1)
+        for col in df1.columns:
+            if col != "R" and col != "cc" and col!="name":
+                assert np.array_equal(df_diff[col], df2[col]) and np.array_equal(df1[col], df_diff[col])
+            elif col != "name":
+                print(df_diff[col])
+                print(df2[col])
+                if percentage_difference:
+                    df_diff[col] = df1[col]/df2[col] - 1
+                else:
+                    df_diff[col] -= df2[col]
+                print(df_diff) 
+        if percentage_difference:
+            dmg_measure = "R1/R2-1"
+        else:
+            dmg_measure = "R1- R2"
+        df_diff = df_diff.rename(columns={"R":dmg_measure})
+        df_diff.resolution = df1.resolution
+        assert df_diff.resolution == df2.resolution
+        name_of_set += "-res="+str("{:.1f}".format(df_diff.resolution)) # Currently there's an uncertainty in the 2nd decimal because I coded bad, so 2 Sig figs it shall be.
+        if percentage_difference:
+            name_of_set+="_PERC"
+        else:
+            name_of_set+="_DIFF"
+        print(df_diff)                                                 #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
+        plot_that_funky_thing(df_diff,cmin=0,cmax=vmax,cmin_contour = 0, cmax_contour = vmax, contour_colour=contour_colour, contour_interval = contour_interval,name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units = neutze,dmg_measure=dmg_measure,photon_min=photon_min) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
     print("Done")
 # %%
