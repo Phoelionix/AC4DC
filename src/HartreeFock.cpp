@@ -520,7 +520,6 @@ int SetBoundaryValuesApprox(Grid * Lattice, RadialWF * Psi, Potential* U)
 		//set boundary values for inwards integration
 		lambda = sqrt(-2 * Psi->Energy);
 		sigma = (U->V[infinity] * Lattice->R(infinity) - 1.) / lambda;
-		if(Psi->Energy > -0.01){std::cout << "Low orbital energy: "<< Psi->Energy <<", which leads lambda and sigma to be:"<<lambda<<" "<<sigma<<endl;}
 
 		a[0] = 1;
 		b[0] = -lambda;
