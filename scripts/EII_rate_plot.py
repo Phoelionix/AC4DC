@@ -139,6 +139,7 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
                 ax_eii.set_ylabel("Electron impact ionisation rate",color=ax_color)
                 ax_eii.set_ylim(0)
             elif PLOT_MODE == 2: 
+                PLOT_GRADIENT = False # quick confirmation of gradient's peak magnitude at low energies
                 ax_color = 'black'
                 #cmap = plt.get_cmap("Accent")
                 #cmap = plt.get_cmap("Paired")
@@ -163,7 +164,12 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
                     # de = np.append(E, E[-1]*2 - E[-2]) 
                     # de = de [1:] - de[:-1]
                     # y/=(np.dot(y, de))
-                    ax_eii.plot(E[y>=0],y[y>=0],color=col,lw=2,label=key)
+                    if PLOT_GRADIENT:
+                        if key == "C$^{3+} \\rightarrow$ C$^{4+}$":
+                            break                        
+                    else:
+                        ax_eii.plot(E[y>=0],y[y>=0],color=col,lw=2,label=key)
+
                 ax_eii.legend(loc="best",framealpha=0.95)
                 ax_eii.set_ylabel("Electron impact ionisation rate (arb. units)",color=ax_color)
                 ax_eii.set_xlabel("Electron energy (eV)",color=ax_color)
@@ -174,6 +180,12 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
             # print("low photoelectron (6 keV) electron C->C+ rate",sigma(6000,"0,1")*np.sqrt(6000))
             # print("high photoelectron (12 keV) electron C->C+ rate",sigma(6000,"0,1")*np.sqrt(6000))
         if PLOT_MODE == 2:
+            if PLOT_GRADIENT:
+                ax_eii.plot(E[y>=0], np.gradient(y)[y>=0])  
+                pl1.ax_steps.set_xscale("linear")
+                pl1.ax_steps.set_yscale("linear")  
+                ax_eii.relim()
+                ax_eii.autoscale()        
             # Don't plot data from AC4DC
             break  
 

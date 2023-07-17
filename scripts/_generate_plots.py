@@ -17,9 +17,9 @@ from QoL import set_highlighted_excepthook
 ELECTRON_DENSITY = False # energy density if False
 ###
 PLOT_ELEMENT_CHARGE= True
-PLOT_ION_RATIOS=False
+PLOT_ION_RATIOS=True
 PLOT_FREE_CONTINUUM = False
-PLOT_FREE_SLICES=True
+PLOT_FREE_SLICES=False
 ###
 
 def main():
@@ -72,11 +72,13 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
 
     if bound_ionisation:
         pl.plot_all_charges()
-        pl.fig.subplots_adjust(left=0.2,bottom=0.18,top=0.95)
-        #plt.savefig(figure_output_dir + label + fname_bound_dynamics + figures_ext)
+        # #Royle B
+        # pl.plot_charges_royle_style("Al", True)
+        # pl.fig.subplots_adjust(left=0.2,bottom=0.18,top=0.95)
+        # pl.fig.set_figheight(2.5) # total dimensions, for when other plots turned off...
+        # pl.fig.set_figwidth(6) 
         
     if free:
-        #plt.savefig(figure_output_dir + label + fname_free + figures_ext)
         ymax = 9e3
         pl.plot_free(log=True, min=1e-6,max = 10**(-3.3), every=5,mask_below_min=True,cmap='turbo',ymax=ymax)
     if free_slices:
@@ -97,27 +99,29 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         # slices = [-15,0,15]
         #TODO get slices from AC4DC or user input           
         # # Hau-Riege (Sanders results)
-        thermal_cutoff_energies = [200, 500, 500, 1000]
-        slices = [-7.5,-5,-2.5,0]         
+        # thermal_cutoff_energies = [200, 500, 500, 1000]
+        # slices = [-7.5,-5,-2.5,0]         
         # # -7.5 fs Hau-Riege
         # thermal_cutoff_energies = [200]
         # slices = [-7.5] 
 
-        # # Royle Sect. B
-        # thermal_cutoff_energies = [1500,1500,1500,1500]
-        # slices = [-90, -50, 0]  
+        #abdallah
+        #slices = [-39,-38,-36,-34,-32,-30,-0.01]         
+        # Royle Sect. B
+        thermal_cutoff_energies = [500,1000,1250,2000]
+        slices = [-90, -50, 0, 50]  
         # # Royle Sect. C
-        # thermal_cutoff_energies = [500,500,600,1000]
+        # thermal_cutoff_energies = [500,500,600,2000]
         # slices = [-15, 0, 15, 30]
 
         colrs = [cmap(i) for i in range(len(slices))]
 
-        plot_legend = False       
+        plot_legend = True
         plot_fits = False # Whether to fit MB curves to distribution below thermal cutoff energies.
         plot_those_darn_knots = False
         ####### 
         # Here we can plot MB curves e.g. for fit comparison
-        plot_custom_fits = True
+        plot_custom_fits = False
         ####
         # # example
         # custom_T = [30.8,75.5,131.8,207.5]
@@ -127,23 +131,30 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         # custom_n = [0.06*3/2,0.06*3/2] # - (not anything meaningful, just density of MB approximated as 50% of total). 
         # custom_colrs = ['r','b']
         #H-R
-        custom_T = [31,70,125,195]   # [44.1,84.9,135.6,205.8]
-        custom_n = [0.06*3/2]*len(custom_T) # - (not anything meaningful, just density of MB approximated as 50% of total). 
-        custom_colrs = colrs   
-        xmin,xmax = 1,1e4 
-        plot_legend = True 
-        # #Royle B
-        # custom_T = [8,33,105]  
-        # custom_n = [0.08,0.08,0.08]     
-        # xmin, xmax = 1,2000
-        # colrs = [cmap(0),cmap(2),cmap(1),cmap(3)]  
-        # custom_colrs = [cmap(0),cmap(2),cmap(1),cmap(3)]  
+        # custom_T = [31,70,125,195]   # [44.1,84.9,135.6,205.8]
+        # custom_n = [0.06*3/2]*len(custom_T) # - (not anything meaningful, just density of MB approximated as 50% of total). 
+        # custom_colrs = colrs   
+        # xmin,xmax = 1,1e4 
+        # plot_legend = True 
+        #Royle B
+        xmin, xmax = 0,2000
+        colrs = [cmap(0),cmap(2),cmap(1),cmap(3)]  
+        custom_colrs = [cmap(0),cmap(2),cmap(1),cmap(3)]  
+        plot_fits = True
+        plot_custom_fits = False
+        custom_T = [8,33,105,120]  
+        custom_n = [0.12,0.05,0.12,0.12] 
         # #Royle C
         # custom_T = [100]  
         # custom_n = [0.155]     
         # colrs = [cmap(0),cmap(2),cmap(1),cmap(3)]          
         # custom_colrs = ['black']
-        # plot_fits = True  # our fits don't work as well for some reason.
+        # plot_fits = False
+        # plot_custom_fits = False
+        # # Fit our last point in time 
+        # if plot_custom_fits == False:
+        #     T = pl.plot_fit(slices[-1], thermal_cutoff_energies[-1], normed=True, color=cmap(3), lw=1.5,alpha=0.7)
+        # xmin,xmax = 0,1e4
         #######
 
         #v_anchors = [0.16,0.12,0.08,0.04]
@@ -175,10 +186,8 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
             #     l.set_linewidth(3)          
         if ELECTRON_DENSITY:
             pl.ax_steps.set_ylim([2e-7, 1e-2]) #royle sect. B
-            pl.ax_steps.set_ylim([1e-8, 1e-3]) #royle sect. C
+            # pl.ax_steps.set_ylim([1e-8, 1e-3]) #royle sect. C
             pl.ax_steps.set_xscale("linear")
-
-
 
         #pl.fig_steps.subplots_adjust(bottom=0.15,left=0.2,right=0.95,top=0.95)
         pl.ax_steps.xaxis.get_major_formatter().labelOnlyBase = False
@@ -186,14 +195,13 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
 
         if plot_legend:
             handles, labels = pl.ax_steps.get_legend_handles_labels()
-            ncols = 4
+            ncols = 2
             # e.g. for 8 labels (4 time steps), order = [0,2,4,6,1,3,5,7]  , if ncols = 2.
             order = []
             #2 cols
-            #order = list(range(0,len(labels) - 1,ncols)) + list(range(1,len(labels),ncols)) 
+            order = list(range(0,len(labels) - 1,ncols)) + list(range(1,len(labels),ncols)) 
             # 2 rows 4 cols
-            order = list(range(0,len(labels) - 1,ncols)) + list(range(1,len(labels),ncols)) +  list(range(2,len(labels) - 1,ncols)) + list(range(ncols-1,len(labels),ncols)) 
-            print(order)
+            #order = list(range(0,len(labels) - 1,ncols)) + list(range(1,len(labels),ncols)) +  list(range(2,len(labels) - 1,ncols)) + list(range(ncols-1,len(labels),ncols)) 
             if len(labels)%2 != 0:
                 order.append(len(order))  # shouldnt happen though.
             if plot_fits == False and plot_custom_fits == False:
@@ -205,6 +213,10 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         pl.ax_steps.set_title(name + " - Free-electron distribution")
 
         #plt.savefig(figure_output_dir + label + fname_HR_style + figures_ext)
+    #Abdallah
+    # pl.ax_steps.set_xscale("linear")
+    # pl.ax_steps.set_xlim([0,1800])
+    # pl.ax_steps.set_ylim([0.5e-4,0.5])
     plt.tight_layout()
     plt.savefig(figure_output_dir + label + figures_ext)
     plt.close()

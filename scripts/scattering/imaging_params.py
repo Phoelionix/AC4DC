@@ -33,7 +33,7 @@ default_dict = dict(
         screen_type = "flat",#"hemisphere"
         q_minimum = res_to_q(worst_resolution),#None #angstrom
         q_cutoff = res_to_q(best_resolution),#2*np.pi/d
-        t_fineness=2,   ##25
+        t_fineness=25,   ##25
         #####crystal stuff
         max_miller_idx = None, # = m, where max momentum given by q with miller indices (m,m,m)
         ####SPI stuff

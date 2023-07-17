@@ -811,7 +811,7 @@ class XFEL():
         if random_orientation == True and self.orientation_set != None:
             raise Exception("Ambiguity: random orientations set to True, but set orientations were provided.")
         if random_orientation == False and self.orientation_set == None:
-            raise Exception("Providing an axis of orientation (e.g. format: [0,0,1] for z axis) or enabling random orientations is required")
+            raise Exception("Providing an axis of orientation (e.g. format: [0,0,1] for z axis) or enabling random orientations is required (even with a pixel sampling simulation because I coded it bad sorry)") #TODO!
         
 
         if pixels_across == None and circle_grid == False and SPI:
@@ -2372,8 +2372,8 @@ if __name__ == "__main__":
     worst_resolution = None#30 # 'resolution' corresponding to min q
 
     #### Individual experiment arguments 
-    start_time = -6#-6
-    end_time = 6#6
+    start_time = -30#-6
+    end_time = 30#6
     laser_firing_qwargs = dict(
         # ab initio pixels
         SPI = True,
@@ -2473,7 +2473,7 @@ if __name__ == "__main__":
         # target_handle = "lys_nass_2"
         # folder = "lys"
         #'''
-        target_handle = "lys_full-94_1"#"lys_nass_15"#"lys-5_3"#" #12keV, 0.1/0.01 count, 10 fs
+        target_handle = "lys_full-typical"#"lys_full-94_1"#"lys_nass_15"#"lys-5_3"#" #12keV, 0.1/0.01 count, 10 fs
         #folder = "lys" 
         folder = "" 
         #background_targets = "lys_water"
@@ -2483,10 +2483,12 @@ if __name__ == "__main__":
         folder = ""        
         '''
         #//
-        allowed_atoms = ["C","N","O","S"]
+        allowed_atoms = ["C","N","O"]
         #allowed_atoms = ["N","S_fast"]
         #allowed_atoms = ["N_fast"]
         #allowed_atoms = ["S_fast"]
+        CNO_to_N = False
+        S_to_N = True
         #//
         CNO_to_N = False
     elif target == "tetra": 
@@ -2516,14 +2518,14 @@ if __name__ == "__main__":
     experiment2 = XFEL(exp_name2,energy,**exp_qwargs)
     # Create Crystals
 
-    crystal = Crystal(pdb_path,allowed_atoms,is_damaged=first_crystal_is_damaged,CNO_to_N = CNO_to_N, **crystal_qwargs)
+    crystal = Crystal(pdb_path,allowed_atoms,is_damaged=first_crystal_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N, **crystal_qwargs)
     # The undamaged crystal uses the initial state but still performs the same integration step with the pulse profile weighting.
     if same_deviations:
         # we copy the other crystal so that it has the same deviations in coords
         crystal_undmged = copy.deepcopy(crystal)#Crystal(pdb_path,allowed_atoms,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
         crystal_undmged.is_damaged = second_crystal_is_damaged
     else:
-        crystal_undmged = Crystal(pdb_path,allowed_atoms,is_damaged=second_crystal_is_damaged,CNO_to_N = CNO_to_N, **crystal_qwargs)
+        crystal_undmged = Crystal(pdb_path,allowed_atoms,is_damaged=second_crystal_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N, **crystal_qwargs)
     crystal.plot_me(300000,water_index = water_index,template="plotly_dark")
 #%
     if laser_firing_qwargs["SPI"]:

@@ -462,15 +462,16 @@ if __name__ == "__main__":
         fname = batch_handle
     else: # Compare specific simulations
         fname = "comparison"
-        #allowed_atoms = ["C","N","O"]; S_to_N = True
-        allowed_atoms = ["N"]; S_to_N = True
+        allowed_atoms = ["C","N","O"]; S_to_N = True
+        #allowed_atoms = ["N"]; S_to_N = True
         #allowed_atoms = ["C","N","O","S"]; S_to_N = False
         CNO_to_N = False
         kwargs["plasma_batch_handle"] = ""
         #kwargs["plasma_handles"] = ["lys_nass_3","lys_nass_no_S_1"]    #Note that S_to_N must be true to compare effect on nitrogen R factor. Comparing S_to_N true with nitrogen only sim, then S_to_N false with nitrogen+sulfur sim, let's us compare the true effect of sulfur on R facator.
         #kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_6","lys_nass_Gd_16"]  
         #kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_HF","lys_nass_Gd_HF"]  
-        kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_square"]  
+        #kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_square"]  
+        kwargs["plasma_handles"] = ["lys_nass_no_S_3","lys_nass_gauss","lys_nass_Gd_full_1"]
         #kwargs["plasma_handles"] = ["lys_nass_HF","lys_nass_Gd_HF"]  
         #kwargs["plasma_handles"] = ["lys_full-typical","lys_all_light-typical"]  
         #kwargs["plasma_handles"] = ["glycine_abdullah_4"]
@@ -497,7 +498,7 @@ if __name__ == "__main__":
     name_of_set = data_name
     resolution = 1.94 #1.9 2.8
     df = load_df(data_name, resolution, check_batch_nums=batch_mode) # resolution index 0 corresponds to the max resolution
-    plot_2D_constants = dict(energy_key = 9000, photon_key = 1e12,fwhm_key = 25)
+    plot_2D_constants = dict(energy_key = 15000, photon_key = 1e12,fwhm_key = 25)
     neutze = False
     name_of_set += "-res="+str("{:.1f}".format(df.resolution)) # Currently there's an uncertainty in the 2nd decimal because I coded bad, so 2 Sig figs it shall be.
     if MODE_DICT[mode] != "spi":
@@ -527,8 +528,11 @@ if __name__ == "__main__":
     for i,name in enumerate(names):
         assert np.array_equal(sim_resolutions[i],sim_resolutions[0])
         plt.plot(sim_resolutions[0],R_factors[:,i],label=name)
-    plt.legend(labels=["gauss", "square"],reverse=True)
+    labels=["Lysozyme, no S","Lysozyme","Lysozyme.Gd"]
+    #labels=["Gaussian pulse","Square pulse",]
+    plt.legend(labels=labels,reverse=True)
     plt.ylabel("$R_{dmg}$")
+    plt.ylim([None,0.105])
     plt.xlabel("Resolution ($\AA$)")
     plt.xscale("log")
     plt.show()
@@ -554,7 +558,7 @@ if __name__ == "__main__":
     resolution = 1.9#2.2
     photon_min=1e10
     fname1 = "lys_full"; fname2 = "lys_all_light"
-    plot_2D_constants = dict(energy_key = 9000, photon_key = 1e13,fwhm_key = 25)
+    plot_2D_constants = dict(energy_key = 15000, photon_key = 1e13,fwhm_key = 25)
 
     statistics_calculation_R_cutoff = 0.1
     #for percentage_difference in [False,True]:
@@ -581,7 +585,7 @@ if __name__ == "__main__":
             elif col != "name":
                 if percentage_difference:
                     df_diff[col] = df1[col]/df2[col] - 1
-                    mask = df1[col] < mask_below_value
+                    mask = df1[col] < statistics_calculation_R_cutoff
                     df_diff[col][mask] = None 
                 else:
                     df_diff[col] -= df2[col]
@@ -594,7 +598,7 @@ if __name__ == "__main__":
                         print("==========")
                         mask = np.array(df1[col] > statistics_calculation_R_cutoff,dtype=bool)
                         print(np.sum(mask))
-                        print("VALUES WHERE R FACTOR OF TARGET1 ABOVE", mask_below_value,":")
+                        print("VALUES WHERE R FACTOR OF TARGET1 ABOVE", statistics_calculation_R_cutoff,":")
                         print("AVERAGE FACTOR",np.nansum(np.array(df1[col]/df2[col]/np.sum(mask))[mask==True]))
                         print("MIN/MAXIMUM FACTOR",np.nanmin((df1[col]/df2[col])[mask]),"|",np.max((df1[col]/df2[col])[mask]))
                         print("sample STD",np.std(np.array(df1[col]/df2[col])[mask],ddof=1))                        
