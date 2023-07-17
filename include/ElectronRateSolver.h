@@ -152,7 +152,7 @@ private:
     void mb_energy_bounds(size_t step, double& max, double& min, double& peak_density, bool allow_shrinkage);
     void transition_energy(size_t step, double& g_min);
     double approx_nearest_peak(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
-    double approx_nearest_trough(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
+    double approx_nearest_trough(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1,bool accept_negatives = false);  
     double approx_regime_trough(size_t step, double lower_bound, double upper_bound_global,double upper_bound_local, double del_energy);
     double nearest_inflection(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
     double approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min_distance = 40, double min_inflection_fract = 1./4., double min = -1, double max=-1);  

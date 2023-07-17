@@ -51,7 +51,7 @@ double ElectronRateSolver::approx_nearest_peak(size_t step, double start_energy,
     // Default values
     if (min < 0)
         min = 0;
-    if(max < 0 || max > Distribution::get_max_E())
+    if (max < 0 || max > Distribution::get_max_E())
         max = Distribution::get_max_E();
     // Initialise
     double e = start_energy;
@@ -89,7 +89,7 @@ double ElectronRateSolver::approx_nearest_peak(size_t step, double start_energy,
     }
     return local_max;
 }
-double ElectronRateSolver::approx_nearest_trough(size_t step, double start_energy,double del_energy, size_t min_sequential, double min, double max){
+double ElectronRateSolver::approx_nearest_trough(size_t step, double start_energy,double del_energy, size_t min_sequential, double min, double max, bool accept_negatives){
     assert(del_energy != 0);
     // Default values
     if (min < 0)
@@ -121,7 +121,7 @@ double ElectronRateSolver::approx_nearest_trough(size_t step, double start_energ
             num_sequential++;
         }
         // Ignore negative local minimums
-        if (density <= last_density || min_density < 0){
+        if (density <= last_density || (accept_negatives == false && min_density < 0)){
             local_min = -1;
             num_sequential = 0;
             min_density = INFINITY;
@@ -274,8 +274,12 @@ double ElectronRateSolver::approx_regime_trough(size_t step, double lower_bound,
         e += del_energy; 
     }
     // Global minimum failed, find local minimum instead
-    if (trough_density < 0 || last_point_is_min){
-        trough_e = approx_nearest_trough(step,upper_bound_global-(step*2),del_energy,3,upper_bound_global-(step*2),upper_bound_local);
+    if (trough_e < 0 || last_point_is_min){
+        trough_e = approx_nearest_trough(step,upper_bound_global-(del_energy*2),del_energy,3,upper_bound_global-(del_energy*2),upper_bound_local);
+    }
+    // Could not find non-zero local minimum, accept nearest negative local minimum
+    if (trough_e < 0){
+        trough_e = approx_nearest_trough(step,upper_bound_global-(del_energy*2),del_energy,3,upper_bound_global-(del_energy*2),upper_bound_local,true);
     }
     return trough_e;
 }
@@ -416,6 +420,9 @@ void ElectronRateSolver::transition_energy(size_t step, double& g_min){
         new_min = min(new_min,approx_regime_trough(step,regimes.mb_peak,upper_bound_global,upper_bound_local,2/Constant::eV_per_Ha)); 
     }
     assert(new_min <= upper_bound_local);
+    // Failsafe if didn't find any local minimum. 
+    if (new_min < 0)
+        new_min = min(4000/Constant::eV_per_Ha,4*regimes.mb_peak);
     // if(allow_decrease) 
     g_min = max(250/Constant::eV_per_Ha,max(g_min*0.5,new_min));  // As a stopgap, prevents decreases of transition energy over half the previous.
 
