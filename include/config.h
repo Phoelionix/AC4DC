@@ -30,6 +30,8 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 //#define BOUND_GD_HACK
 
 //#define CLASSIC_MANUAL_GRID
+
+//#define INFINITE_COULOMBLOG_CUTOFF  // Set cutoff for calculation of temperature/coulomb log to be infinite.
 /////////////
 
 

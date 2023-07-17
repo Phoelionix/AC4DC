@@ -49,6 +49,10 @@ void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_
     knots_history.push_back(indexed_knot{step,get_knot_energies()});
     Distribution::size=basis.num_funcs;
     Distribution::CoulombLog_cutoff = basis.i_from_e(param_cutoffs.transition_e);
+    #ifdef INFINITE_COULOMBLOG_CUTOFF
+    Distribution::CoulombLog_cutoff = basis.i_from_e(INFINITY);
+    #endif
+
     Distribution::CoulombDens_min = param_cutoffs.min_coulomb_density;
     cout<<"[ Free ] Estimating lnLambda for energies below ";
     cout<<param_cutoffs.transition_e<<" Ha"<<endl;
@@ -63,6 +67,9 @@ void Distribution::set_basis(size_t step, Cutoffs param_cutoffs, FeatureRegimes 
     knots_history.push_back(indexed_knot{step,get_knot_energies()});
     Distribution::size=basis.num_funcs;
     Distribution::CoulombLog_cutoff = basis.i_from_e(param_cutoffs.transition_e);
+    #ifdef INFINITE_COULOMBLOG_CUTOFF
+    Distribution::CoulombLog_cutoff = basis.i_from_e(INFINITY);
+    #endif    
     Distribution::CoulombDens_min = param_cutoffs.min_coulomb_density;
     cout<<"[ Free ] Estimating lnLambda for energies below ";
     cout<<param_cutoffs.transition_e<<" Ha"<<endl;

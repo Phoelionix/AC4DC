@@ -39,7 +39,8 @@ This file is part of AC4DC.
 
 /**
  * @brief Approximates midpoint between start_energy (e.g. a peak) and local density minimum.
- * @details  Finds density minimum by checking energies separated by del_energy until the energy increases for more than min_higher steps.
+ * @details  Finds density maximum by checking energies separated by del_energy until the energy decreases for more than min_sequential steps.
+ * Returns boundary (min or max, depending on direction) by default if no max found found
  * @param start_energy 
  * @param del_energy 
  * @param min don't seek past this point
@@ -57,7 +58,7 @@ double ElectronRateSolver::approx_nearest_peak(size_t step, double start_energy,
     double local_max = -1;
     double max_density = -1;
     double last_density = y[step].F(start_energy)*start_energy;
-    size_t ascended_count = 0; // make sure we go up. We require it goes up min_sequential times to give a correlation with this param designed to address instability.
+    size_t ascended_count = 0; // make sure we go up. We require it goes up min_sequential times to tie both these approaches to addressing instability to the same parameter.
     size_t num_sequential = 0;
     if(min_sequential < 1) min_sequential = 1;
     // Seek local maximum.
@@ -87,6 +88,49 @@ double ElectronRateSolver::approx_nearest_peak(size_t step, double start_energy,
         last_density = density; 
     }
     return local_max;
+}
+double ElectronRateSolver::approx_nearest_trough(size_t step, double start_energy,double del_energy, size_t min_sequential, double min, double max){
+    assert(del_energy != 0);
+    // Default values
+    if (min < 0)
+        min = 0;
+    if(max < 0 || max > Distribution::get_max_E())
+        max = Distribution::get_max_E();
+    // Initialise
+    double e = start_energy;
+    double local_min = -1;
+    double min_density = INFINITY;
+    double last_density = y[step].F(start_energy)*start_energy;
+    size_t descended_count = 0; // make sure we go up. We require it goes up min_sequential times to give a correlation with this param designed to address instability.
+    size_t num_sequential = 0;
+    if(min_sequential < 1) min_sequential = 1;
+    // Seek local minimum.
+    while (num_sequential < min_sequential+1){
+        e += del_energy;
+        if (e < min){
+            local_min = min; break;}
+        if (e > max){
+            local_min = max; break;}
+
+        double density = y[step].F(e)*e;  //  electron energy density.
+        if(density > last_density && descended_count >= min_sequential){
+            if (num_sequential == 0){ // local min is the first in the run of ascending.
+                local_min = e - del_energy;
+                min_density = density;
+            }
+            num_sequential++;
+        }
+        if (density <= last_density || min_density < 0){
+            local_min = -1;
+            num_sequential = 0;
+            min_density = INFINITY;
+        }
+        if (density <= last_density){
+            descended_count++;        
+        }
+        last_density = density; 
+    }
+    return local_min;
 }
 
 // num_sequential is num times the check passed.
@@ -200,22 +244,30 @@ std::vector<double> ElectronRateSolver::approx_regime_peaks(size_t step, double 
     return peak_energies;
 }
 
-double ElectronRateSolver::approx_regime_trough(size_t step, double lower_bound, double upper_bound, double del_energy){
+double ElectronRateSolver::approx_regime_trough(size_t step, double lower_bound, double upper_bound_global,double upper_bound_local, double del_energy){
     del_energy = abs(del_energy);
     assert(del_energy > 0);
     double e = lower_bound;
     double trough_density = INFINITY;
     double trough_e = -1;
+    assert(upper_bound_global <= upper_bound_local); // Required because we call the search for nearest trough if a local minimum was not found by global search, and we want to get an energy at least at that last point checked.
     // Seek maximum between low and upper bound.
-    while (e < upper_bound){
+    // Attempt to find a non-zero global minimum
+    bool last_point_is_min;
+    while (e < upper_bound_global){
+        last_point_is_min = false;
         double density = y[step].F(e)*e; // electron energy density
-        if (density < trough_density){
+        if (density < trough_density && density > 0){
             trough_density = density;
             trough_e = e;
+            last_point_is_min = true;
         }
         e += del_energy; 
     }
-    if (trough_density < 0) return -1;  // error due to wiggle - minimum is not physical.
+    // Global minimum failed, find local minimum instead
+    if (trough_density < 0 || last_point_is_min){
+        trough_e = approx_nearest_trough(step,lower_bound,del_energy,3,lower_bound,upper_bound_local);
+    }
     return trough_e;
 }
 
@@ -326,11 +378,11 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
 /**
  * @brief A basic quantifier of the ill-defined transition region
  * @details While this is a terrible approximation for the transition energy at later times,(it's unclear how to define the transition region as the peaks merge),
- * a) the dln(Λ)/dT < 1 as ln(Λ) propto ln(T_e^(3/2)), i.e. an accurate measure at low T is most important (kind of, at very low T transport coefficients dominate).
- * b) The coulomb logarithm is capped to 23.5 for ee collisions, which is where it is used. [and get_Q_ee limits it to approx. half of this cap though I need to determine why)
- * See https://www.nrl.navy.mil/ppd/content/nrl-plasma-formulary.
+ * a) the dln(Λ)/dT < 1 as ln(Λ) propto ln(T_e^(3/2)), i.e. an accurate measure at low T is most important for WDM
+ * b) The coulomb logarithm is capped to 23.5 for ee collisions, which is where it is used in this sim. (https://www.nrl.navy.mil/ppd/content/nrl-plasma-formulary.)
+ *
  * @param step 
- * @param g_min 
+ * @param g_min Previous transition energy
  */
 void ElectronRateSolver::transition_energy(size_t step, double& g_min){
     #ifdef SWITCH_OFF_DYNAMIC_BOUNDS
@@ -338,22 +390,26 @@ void ElectronRateSolver::transition_energy(size_t step, double& g_min){
     #endif
     //TODO assert that this is called after MB and dirac regimes updated.
 
-    double upper_bound = 1.5*g_min; // ?Fix? for low fluence, but just set to infinity to get old behaviour that works fine for standard fluences.
+    double upper_bound_global = 1.5*g_min; // ?Fix? for low fluence, but just set to infinity to get old behaviour that works fine for standard fluences.
+    double upper_bound_local = INFINITY;
     // for these functions, if a trough is negative then it defaults to using g_min.
     double new_min = INFINITY;
     for(auto &dirac_peak : regimes.dirac_peaks){
-        upper_bound = min(upper_bound,0.9*dirac_peak);
         if (dirac_peak < 0) continue;
-        new_min = min(new_min,approx_regime_trough(step,regimes.mb_peak,upper_bound,2/Constant::eV_per_Ha)); 
+        upper_bound_global = min(upper_bound_global,0.9*dirac_peak);
+        upper_bound_local = min(upper_bound_local,0.9*dirac_peak);
+        new_min = min(new_min,approx_regime_trough(step,regimes.mb_peak,upper_bound_global,upper_bound_local,2/Constant::eV_per_Ha)); 
     }
     // no peaks left, we just look for minimum between mb peak and photon energy. 
     if (new_min == INFINITY){
-        upper_bound = min(upper_bound,input_params.Omega());
-        new_min = min(new_min,approx_regime_trough(step,regimes.mb_peak,upper_bound,2/Constant::eV_per_Ha)); 
+        upper_bound_global = min(upper_bound_global,input_params.Omega());
+        upper_bound_local = Distribution::get_max_E();
+        new_min = min(new_min,approx_regime_trough(step,regimes.mb_peak,upper_bound_global,upper_bound_local,2/Constant::eV_per_Ha)); 
     }
+    assert(new_min <= upper_bound_local);
     // if(allow_decrease) 
     g_min = max(250/Constant::eV_per_Ha,max(g_min*0.5,new_min));  // As a stopgap, prevents decreases of transition energy over half the previous.
-    
+
     // else               
     //g_min = max(g_min,new_min); // if the previous transition energy was higher, use that.  (Can be quite bad at low fluences, as it can lead to a higher cutoff for photopeaks than there should be, leading to the transition energy in the next step going higher than the photopeaks, leading to much higher temperature at low temperature regime.)
 }

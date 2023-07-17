@@ -104,7 +104,7 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         };    
         break;  
       case DynamicGridPreset::heavy_support:
-        preset_name = "Heavy atom support";
+        preset_name = "Heavy atom support";  // TODO change name this was just the K-shell photoelectrons in Al.
         mb_max_over_kT = 2.3208*4/3;  
         pts_per_dirac = 10;
         regions = {
