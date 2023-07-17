@@ -120,6 +120,7 @@ double ElectronRateSolver::approx_nearest_trough(size_t step, double start_energ
             }
             num_sequential++;
         }
+        // Ignore negative local minimums
         if (density <= last_density || min_density < 0){
             local_min = -1;
             num_sequential = 0;
@@ -244,6 +245,8 @@ std::vector<double> ElectronRateSolver::approx_regime_peaks(size_t step, double 
     return peak_energies;
 }
 
+// Searches global minimum, then local minimum past that.
+// Designed to prevent choosing local minimum that is very close to MB peak, but not using a global minimum that is too far away..
 double ElectronRateSolver::approx_regime_trough(size_t step, double lower_bound, double upper_bound_global,double upper_bound_local, double del_energy){
     del_energy = abs(del_energy);
     assert(del_energy > 0);
@@ -254,19 +257,25 @@ double ElectronRateSolver::approx_regime_trough(size_t step, double lower_bound,
     // Seek maximum between low and upper bound.
     // Attempt to find a non-zero global minimum
     bool last_point_is_min;
+    bool second_last_point_is_min; // im tired and so I'm doing this atrocity
     while (e < upper_bound_global){
-        last_point_is_min = false;
+        // track if one of last 2 points was the minimum - if this is true at end, we will use local minimum search
+        if (second_last_point_is_min == true)
+            second_last_point_is_min = false;
+        else
+            last_point_is_min = false;
         double density = y[step].F(e)*e; // electron energy density
         if (density < trough_density && density > 0){
             trough_density = density;
             trough_e = e;
+            second_last_point_is_min = true;
             last_point_is_min = true;
         }
         e += del_energy; 
     }
     // Global minimum failed, find local minimum instead
     if (trough_density < 0 || last_point_is_min){
-        trough_e = approx_nearest_trough(step,lower_bound,del_energy,3,lower_bound,upper_bound_local);
+        trough_e = approx_nearest_trough(step,upper_bound_global-(step*2),del_energy,3,upper_bound_global-(step*2),upper_bound_local);
     }
     return trough_e;
 }
@@ -390,7 +399,7 @@ void ElectronRateSolver::transition_energy(size_t step, double& g_min){
     #endif
     //TODO assert that this is called after MB and dirac regimes updated.
 
-    double upper_bound_global = 1.5*g_min; // ?Fix? for low fluence, but just set to infinity to get old behaviour that works fine for standard fluences.
+    double upper_bound_global = 3*regimes.mb_peak; // ?Fix? for low fluence, but just set to infinity to get old behaviour that works fine for standard fluences.
     double upper_bound_local = INFINITY;
     // for these functions, if a trough is negative then it defaults to using g_min.
     double new_min = INFINITY;
