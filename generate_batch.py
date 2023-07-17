@@ -121,7 +121,7 @@ def make_mol_file(fname, outfile, **incoming_params):
   fwhm = incoming_params.get('fwhm')
   photon_count = incoming_params.get('photon_count')
 
-  update_period = fwhm/3
+  update_period = min(10,fwhm/3)
   num_steps = max(1000,round(fwhm*50))
 
   # Creare plasma input file
