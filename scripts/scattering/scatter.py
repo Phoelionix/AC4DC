@@ -1784,7 +1784,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             I1 = tmp_I1[unique_values_mask]
             I2 = tmp_I2[unique_values_mask]
             radial_axis = radial_axis[unique_values_mask]
-            phi = phi[unique_values_mask] + np.pi/2 # to align with the SPI pixel plot
+            phi = phi[unique_values_mask]
 
             #sector_histogram += get_histogram_contribution(z,result.phi,radial_axis)
             if result2 != None:
@@ -2410,7 +2410,7 @@ if __name__ == "__main__":
     start_time = -12#-6
     end_time = 12#6
     laser_firing_qwargs = dict(
-        # ab initio pixels
+        # pixel sampling method (Neutze) if True - Miller indices if False
         SPI = False,
         SPI_resolution = best_resolution,
         pixels_across = 300,  # for SPI, shld go on xfel params.
@@ -2421,7 +2421,7 @@ if __name__ == "__main__":
     crystal_qwargs = dict(
         cell_scale = 5,  # for SC: cell_scale^3 unit cells 
         num_supercells = 35409,#100, # 35409
-        supercell_simulations = 1,
+        supercell_simulations = 1, #150
         positional_stdv = 0,#0.2,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
@@ -2451,12 +2451,12 @@ if __name__ == "__main__":
         SPI_z_rotation = 0,
         #crystallographic orientations (not consistent with SPI yet)
         # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.        
-        num_orients_crys=2, # Miller indices orientations
+        num_orients_crys=1, # Miller indices orientations
         #orientation_axis_crys = None,
         orientation_axis_crys = [0,0,1],#None,#[1,1,0]
 
         # for debugging/comparison with other works
-        custom_cell_dims_for_miller_indices = [17.174,14.93,13.384], # None # Implemented for comparison with others that use supercells.  
+        custom_cell_dims_for_miller_indices = None,#[17.174,14.93,13.384], # None # Implemented for comparison with others that use supercells.  
         override_max_q = False # False # Also special, implemented for comparison purposes but should be left as False by default.
         ######
     )
@@ -2580,14 +2580,14 @@ if __name__ == "__main__":
             laser_firing_qwargs["random_orientation"] = False
             experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
             experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged, results_parent_dir=results_parent_folder, **laser_firing_qwargs)
-        stylin(exp_name1,exp_name2,experiment1.max_q,) # Note we are passing the max q, not max q_scr.
+        stylin(exp_name1,exp_name2,experiment1.q_to_X(experiment1.max_q)/1e7,) # Note we are passing the max q, not max q_scr.
 #^^^^^^^
 #%% SPI
 if __name__ == "__main__":
     stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
 #%% cry
 if __name__ == "__main__":
-    stylin(exp_name1,exp_name2,100,show_labels=True) # Note we are passing the max q, not max q_scr.
+    stylin(exp_name1,exp_name2,experiment1.q_to_X(experiment1.max_q)/1e7,show_labels=False) # Note we are passing the max q, not max q_scr.
     #stylin("glycine_v36__real","glycine_v36__ideal",2.3)
     #stylin(exp_name1,exp_name2,3)
 #%%
