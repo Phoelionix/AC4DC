@@ -1784,7 +1784,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             I1 = tmp_I1[unique_values_mask]
             I2 = tmp_I2[unique_values_mask]
             radial_axis = radial_axis[unique_values_mask]
-            phi = phi[unique_values_mask]
+            phi = phi[unique_values_mask]  + np.pi/2 # to align with the SPI pixel plot
 
             #sector_histogram += get_histogram_contribution(z,result.phi,radial_axis)
             if result2 != None:
