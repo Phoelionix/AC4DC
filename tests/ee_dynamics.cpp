@@ -1,5 +1,5 @@
-#include "src/HybridIntegrator.hpp"
-#include "src/RateSystem.h"
+#include "HybridIntegrator.hpp"
+#include "RateSystem.h"
 #include <iostream>
 #include <fstream>
 #include <cmath>

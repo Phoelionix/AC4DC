@@ -1,5 +1,5 @@
 
-CPP := g++-11
+CPP := g++-12
 
 LIB := -fopenmp
 
