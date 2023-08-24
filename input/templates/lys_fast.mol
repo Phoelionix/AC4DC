@@ -1,9 +1,8 @@
 //lysozyme https://files.rcsb.org/pub/pdb/validation_reports/et/4et8/4et8_full_validation.pdf
 
 #ATOMS
-C 613
-N 193
-O 185
+S_fast 10
+N 991
 
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.
@@ -20,11 +19,11 @@ true
 2  // Photon density (x10^12 ph.µm-2)
 
 #NUMERICAL
-2000       // Initial guess for number of time step points for rate equation.        If loading time, then the time steps should be whatever gives the time step density at end of sim. (TODO make this automatic or change input to be time step width)
+20000       // Initial guess for number of time step points for rate equation.        If loading time, then the time steps should be whatever gives the time step density at end of sim. (TODO make this automatic or change input to be time step width)
 18            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
-medium              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
+l              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
 0.25            // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT

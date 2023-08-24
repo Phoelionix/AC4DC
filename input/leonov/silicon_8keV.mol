@@ -1,5 +1,5 @@
 #ATOMS
-Si_fast 8
+Si 8
 
 #VOLUME
 160       // Volume per molecule in Angstrom^3.
@@ -17,7 +17,7 @@ true         // enabled? true/false.
 16          // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
-1000        // Initial guess for number of time step points for rate equation.
+2000        // Initial guess for number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID

@@ -34,7 +34,8 @@ def main():
 
 
   ENERGIES = [6000,9000,12000,15000,18000]
-  FWHMS = [7.5,10,15,25,50,100] 
+  #FWHMS = [7.5,10,15,25,50,100] 
+  FWHMS = [100] 
   PHOTON_COUNTS = [0.01,0.1,1,10,100]  
 
 
@@ -150,7 +151,7 @@ def make_mol_file(fname, outfile, **incoming_params):
   plasma_file.write("""18           // Number of threads in OpenMP.\n""")
 
   plasma_file.write("""\n#DYNAMIC_GRID\n""")
-  plasma_file.write("""low          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).\n""")
+  plasma_file.write("""medium       // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).\n""")
   plasma_file.write("""%.2f         // Grid update period in fs, (dynamic grid only).\n""" %update_period)
 
   plasma_file.write("""\n#OUTPUT\n""")

@@ -1,26 +1,27 @@
 #ATOMS
-Al_fast 1
+Al 1
 
 #VOLUME
 16.59       // Volume per molecule in Angstrom^3.
-14000          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
-none    // geometry of sample (may be spherical, cylindrical or planar)
+14000          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons. Not sure what radius means for planar... doesnt seem to matter anyway.
+planar    // geometry of sample (may be spherical, cylindrical or planar)
 
 #PULSE
 1700         // Photon energy in eV.
 80           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). 
-gaussian
+gaussian     // Pulse temporal shape
+2.5           // Total timespan, as a multiple of fwhm
 
-#USE_COUNT
+#USE_INTENSITY
 true         // enabled? true/false.
-??0.000425            // Photon density (x10^12 ph.µm-2)
+0.0136            // Maximum intensity in 10^19 * W/cm^2. Will give different fluence between square and gaussian. 
 
 #NUMERICAL
-5000        // Initial guess for number of time step points for rate equation.
+5000         // Initial guess for number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
-A - heavy support          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
+A - heavy         // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
 8         // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
@@ -31,14 +32,11 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-200           // Simulation cutoff time in fs 
+9999          // Simulation cutoff time in fs 
 0.01          // Interval to display current timestep [fs].
 ####END####
 
-#LOAD
-//aluminium_royle_first_part
-//99999
-//false
+
 
 Notes:
 From: https://doi.org/10.1103/PhysRevE.95.063203

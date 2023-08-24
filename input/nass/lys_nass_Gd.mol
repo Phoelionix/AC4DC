@@ -3,8 +3,6 @@ Gd_fast 2
 S_fast 10
 N 991
 
-
-
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.
 500         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons (assumes surrounded by a void).

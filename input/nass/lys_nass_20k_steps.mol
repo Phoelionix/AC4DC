@@ -1,28 +1,27 @@
 #ATOMS
-C 87
-N 24
-O 36
-S 2
-
+C 613
+N 193
+O 185
+S 10
 
 #VOLUME
-2993        // Volume per molecule in Angstrom^3.
+20000        // Volume per molecule in Angstrom^3.
 500         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons (assumes surrounded by a void).
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-7114         // Photon energy in eV.
+7112         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
-7.87 // total sim time in fwhm
+9.1 // total sim time in fwhm
 1.2  // time before pulse peak to start at in fwhm 
 
 #USE_COUNT
 true    // active (using count)?
-2.2  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
+1.75  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
-5000      // Initial guess for number of time step points for rate equation.
+20000      // Initial guess for number of time step points for rate equation.
 18            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
@@ -36,42 +35,22 @@ N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
-#LOAD
-//thaumatinXMDYNwH_backup
-
 #DEBUG
-999 //10     // Simulation cutoff time in fs
+999 //10     // Simulation (early) cutoff time in fs
 0.01    // Interval to update current timestep [fs].
 ####END#####
 
 Notes:
-Medium XMDYN probe pulse params for thaumatin used by XMDYN in Nass et al 2020 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7156470/
-(atomic ratios are of the full unit cell, INCLUDING the solvent. Assuming hydrogen was included)
+Parameters approximate (pump) pulse used in Nass et al 2020 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7156470/
+Hen egg-white lysozyme https://files.rcsb.org/pub/pdb/validation_reports/et/4et8/4et8_full_validation.pdf
+Ignores:
+- precipitant (NaCl)
+- surrounding water, which would filter photoelectron distribution in crystal with own.
+    - If photoelectrons aren't slowed by boundary significantly, this is on a timescale shorter 
+    than the pulse.
+- spatial boundary, since the water droplet size is unknown
 
-PDB: https://www.rcsb.org/structure/1rqw
-Probe pulse only, so should underestimate ionisation at best. Gets higher result than XMDYN, which used a low ratio of sulfur.
-See supplementary notes.
+from many runs, distributions are very well-approximated by low accuracy grid, 
+for the purposes of both a) atomic form factor determination and b) debye length 
+determination for hybrid models.
 
-
-
-C 1000
-N 272
-O 309
-S 23
-
-Scale down to 1/11.5 -> 
-protein contribution:
-H ~=  133
-C 87
-N 24
-O 27
-S 2
-
-
-Water contribution:
-only 27 atoms...?
-O: 9
-H: 18
-
-
-H 157 in total but excluded because of bug and insignificance.

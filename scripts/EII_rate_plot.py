@@ -22,8 +22,8 @@ from copy import deepcopy
 
 NORMED = False
 FULL_FIG = True
-PLOT_MODE = 2  # 0: plot the ionisation rates at snapshot times. 1: Plot the EEDF alongside the ionisation rate. 2: Plot the ionisation rate only. 
-
+PLOT_MODE = 0  # 0: plot the ionisation rates at snapshot times. 1: Plot the EEDF alongside the ionisation rate. 2: Plot the ionisation rate only. 
+MULTIPLY_BY_NEUTRAL = "C" #TODO remove this
 
 def main():
     set_highlighted_excepthook()
@@ -87,6 +87,8 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
     #     I = V[0]; A = V[1:6]; rms = V[6]
     #     sigma[key] = lambda E: 10e-13/(I*E)*(A[0]*np.log(E/I)+np.sum( [A[i]*(1-I/E)**(i) for i in range(1,len(A))] ))
     def sigma(E,transition):
+        if transition == "0,1":
+            transition = "C$\\;\\;\\;\\rightarrow$ C$^+$" # Sorry I'm in a rush.
         return_val = 0
         fits = transitions[transition]
         for V in fits:
@@ -101,11 +103,13 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
         fs_per_eV = 0.6582
         return sigma(E,transition)*np.sqrt(E)*ang_per_cm**2/fs_per_eV # Convert to cross-section in angstrom and add conversion of rate to fs.  
     
-    slices = [-9.5,-8.5,-7.5]
+    #slices = [-9.5,-8.5,-7.5] # carbon stability graph
+    slices = [-12,-5]
     xmin,xmax = 10,1e4
 
     electron_density = (PLOT_MODE == 0)  # Switch to f(\epsilon) so we don't need to divide by sqrt e and consequently divide by zero.
-    label_x_anchors_override = [22,70,90,22,50,72]
+    #label_x_anchors_override = [22,70,90,22,50,72]  # carbon stability graph
+    label_x_anchors_override = [25,37,35,150]   # criticality graph
     for m, mol_name in enumerate(mol_names):           
         pl1 = Plotter(mol_name,sim_output_parent_dir,use_electron_density = electron_density)
         pl2 = Plotter(mol_name,sim_output_parent_dir,use_electron_density = electron_density)      
@@ -210,7 +214,7 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
             lw = 2
             lines = []
             for (t, e, col ) in zip(slices, thermal_cutoff_energies, colrs):
-                    lines.extend(pl.plot_step(t, normed=NORMED, color = col, lw=lw,linestyle=linestyle,**prefactor_kwargs))
+                    lines.extend(pl.plot_step(t, normed=NORMED, color = col, lw=lw,linestyle=linestyle,multiply_by_neutral_state = MULTIPLY_BY_NEUTRAL,**prefactor_kwargs))
                     if plot_fits:
                         T = pl.plot_fit(t, e, normed=NORMED, color=col, lw=lw,alpha=0.7)
             if plot_custom_fits:
@@ -259,7 +263,7 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
             #pl.ax_steps.set_ylabel("$\\frac{d}{d\epsilon}\Gamma^{EI}(\epsilon)$",rotation='horizontal')
             #pl.ax_steps.set_ylabel("Impact ionisation rate $\\left(\\frac{d\\,\\Gamma^{ei}}{d\\epsilon}\\right)$")
             #pl.ax_steps.set_ylabel("Impact ionisation rate ($\\textrm{fs}^{-1}$)")
-            pl.ax_steps.set_ylabel("Impact ionisation rate (fs$^{-1}$)")
+            pl.ax_steps.set_ylabel("Pop. adjusted EI rate C $\\rightarrow$ C+ (fs$^{-1}$)")
             
             #pl.ax_steps.set_ylabel("$\\frac{d}{d\\epsilon} \\Gamma^{eii}$")
 

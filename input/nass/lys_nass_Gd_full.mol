@@ -3,6 +3,7 @@ C 613
 N 193
 O 185
 S 10
+Gd_fast 2
 
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.
@@ -12,15 +13,16 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 #PULSE
 7112         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-square       // Pulse shape
-7.7 // total sim time in fwhm
+gaussian       // Pulse shape
+2.4  // total sim time in fwhm
+1.2 // time before pulse peak to start at in fwhm 
 
 #USE_COUNT
 true    // active (using count)?
 1.75  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
-5000      // Initial guess for number of time step points for rate equation.
+1500      // Initial guess for number of time step points for rate equation.
 18            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
@@ -35,7 +37,7 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-999 //10     // Simulation cutoff time in fs
+999 //10     // Simulation (early) cutoff time in fs
 0.01    // Interval to update current timestep [fs].
 ####END#####
 

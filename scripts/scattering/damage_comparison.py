@@ -475,8 +475,8 @@ if __name__ == "__main__":
         #kwargs["plasma_handles"] = ["lys_nass_HF","lys_nass_Gd_HF"]  
         #kwargs["plasma_handles"] = ["lys_full-typical","lys_all_light-typical"]  
         #kwargs["plasma_handles"] = ["glycine_abdullah_4"]
-        #pdb_path = PDB_PATHS["fcc"]
-        pdb_path = PDB_PATHS["lys"]
+        pdb_path = PDB_PATHS["fcc"]
+        #pdb_path = PDB_PATHS["lys"]
         #pdb_path = PDB_PATHS["lys_solvated"]
         #pdb_path = PDB_PATHS["glycine"]
         #pdb_path = PDB_PATHS["tetra"]
@@ -558,7 +558,7 @@ if __name__ == "__main__":
     resolution = 1.9#2.2
     photon_min=1e10
     fname1 = "lys_full"; fname2 = "lys_all_light"
-    plot_2D_constants = dict(energy_key = 15000, photon_key = 1e13,fwhm_key = 25)
+    plot_2D_constants = dict(energy_key = 15000, photon_key = 1e14,fwhm_key = 100)
 
     statistics_calculation_R_cutoff = 0.1
     #for percentage_difference in [False,True]:

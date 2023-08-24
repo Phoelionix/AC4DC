@@ -1,4 +1,6 @@
-//lysozyme https://files.rcsb.org/pub/pdb/validation_reports/et/4et8/4et8_full_validation.pdf
+// AC4DC input file generated from: input/templates/lys_full.mol
+// Example, with relatively standard pulse parameters. 
+
 #ATOMS
 C 613
 N 193
@@ -12,7 +14,7 @@ none         // Spatial boundary shape - options are none (confined system), sph
 
 #PULSE
 9000         // Photon energy in eV.
-5         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
+25.0         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
 gaussian     // Pulse shape.
 
 #USE_COUNT
@@ -20,24 +22,16 @@ true         // enabled? true/false.
 1.00            // Photon density (x10^12 ph.µm-2)
 
 #NUMERICAL
-20000        // Initial guess for number of time step points for rate equation.
+1250        // Initial guess for number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 low          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
-0.25         // Grid update period in fs, (dynamic grid only).
+8.33         // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
 800          // Number of time steps in the output files.
 4000         // Number of free-electron grid points in output file.
-N            // Write atomic charges in a separate file (Y/N)?
-Y            // Write intensity in a separate file (Y/N)?
-Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
-
-#LOAD
-lys-full-backup
-99
-false
 
 #DEBUG
 999           // Simulation cutoff time in fs (can end before but not after).
@@ -45,4 +39,3 @@ false
 ####END####
 
 Notes:
-testing gaussian version

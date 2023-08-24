@@ -717,8 +717,8 @@ class Plotter:
         ax.set_ylabel("Density")
         #self.fig.subplots_adjust(left=0.2, right=0.92, top=0.93, bottom=0.1)
 
-    def plot_charges(self, a, ion_fract = True, rseed=404,plot_legend=True,**kwargs):
-        ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
+    def plot_charges(self, a, ion_fract = True, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[0,1],**kwargs):
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=show_pulse_profile)
         self.aggregate_charges()
         #print_idx = np.searchsorted(self.timeData,-7.5)
         ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))
@@ -739,12 +739,49 @@ class Plotter:
         # ax.set_title("Charge state dynamics")
         ax.set_ylabel(r"Density (\AA$^{-3}$)")
         if ion_fract:
-            ax.set_ylabel(r"Ion Fraction")
+            ax.set_ylabel(r"Ion Fractions")
+        old_ytop = ax.get_ylim()[1]
+        ax.set_ylim(ylim)
+        ax.set_xlim(xlim)
+        ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
 
         num_cols = 1+round(num_traces/30-num_traces%30/30)
         #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)
         if plot_legend:
             ax.legend(loc='upper left',bbox_to_anchor=(1, 1),fontsize=4,ncol=num_cols)
+    # TODO Remove this function (not the royle one though it's different enough)
+    def plot_charges_leonov_style(self, a, ion_fract = True, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[0,1],**kwargs):
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=show_pulse_profile)
+        self.aggregate_charges()
+        #print_idx = np.searchsorted(self.timeData,-7.5)
+        max_at_zero = np.max(self.chargeData[a][0,:]) 
+        norm = 1
+        if ion_fract:
+            norm = 1/max_at_zero            
+        num_traces = 0 
+        colours = ["#000000","#CF5346","#91E95C","#3E5CE7","#BDF9E1","#9D83CC","#EEE483","#858F2F","#3C44A1","#7541D9","#A77375","#59B535","#64A68E","#5465ED","#F0A078"]
+        for i in range(self.chargeData[a].shape[1]):
+            mask = self.chargeData[a][:,i] > max_at_zero*2
+            mask |= self.chargeData[a][:,i] < -max_at_zero*2
+            Y = np.ma.masked_where(mask, self.chargeData[a][:,i])     
+            if np.sum(Y) == 0:
+                continue                 
+            ax.plot(self.timeData, Y*norm, label = a+r"$^{%d+}$" % i,color=colours[i],**kwargs)
+            num_traces+=1 
+            #print("Charge: ", i ,", time: ",self.timeData[print_idx], ", density: ",self.chargeData[a][print_idx,i])
+        # ax.set_title("Charge state dynamics")
+        ax.set_ylabel(r"Density (\AA$^{-3}$)")
+        if ion_fract:
+            ax.set_ylabel("Ion Fractions")
+        old_ytop = ax.get_ylim()[1]
+        ax.set_ylim(ylim)
+        ax.set_xlim(xlim)
+        ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
+        num_cols = 1+round(num_traces/30-num_traces%30/30)
+        #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)
+        if plot_legend:
+            ax.legend(loc='upper left',bbox_to_anchor=(1, 1),fontsize=4,ncol=num_cols)  
+
     def plot_charges_royle_style(self, a, ion_fract = True,max_charge=11):
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=False)
         self.aggregate_charges()
@@ -803,11 +840,10 @@ class Plotter:
         self.fig.subplots_adjust(left=0.2, right=0.95, top=0.95, bottom=0.2)
 
 
-    def plot_tot_charge(self, every=1,densities = False,colours=None,atoms=None,plot_legend=True,**kwargs):
+    def plot_tot_charge(self, every=1,densities = False,colours=None,atoms=None,plot_legend=True,charge_difference=True,ylim=[None,None],legend_loc='upper left',**kwargs):
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
-        self.aggregate_charges(True)
+        self.aggregate_charges(charge_difference)
         #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
-
         T = self.timeData[::every]
         self.Q = np.zeros(T.shape[0]) # total charge
         colour = None
@@ -835,19 +871,22 @@ class Plotter:
             # ax.set_title("Charge Conservation")
             ax.plot(T, self.Q, label='total')
         else:
-            ax.set_ylabel("Charge difference")  # Sometimes we start with charged states.
+            ax.set_ylabel("Average charge")
+            if charge_difference:
+                ax.set_ylabel("Avg. charge difference")  # Sometimes we start with charged states.
+        ax.set_ylim(ylim)
         # ax.set_xlim(None,-18.6)
         # ax.set_ylim(0,5)
         if plot_legend:
-            ax.legend(loc = 'upper left')
+            ax.legend(loc = legend_loc)
         return ax
         
 
-    def plot_all_charges(self, ion_fract = True, rseed=404,plot_legend=True,**kwargs):
+    def plot_all_charges(self, ion_fract = True, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[None,None],**kwargs):
         for a in self.atomdict:
-            self.plot_charges(a, ion_fract, rseed,plot_legend,**kwargs)
-
-    def plot_free(self, N=100, log=False, min = 0, max=None, every = None,mask_below_min=True,cmap='magma',ymax=np.Infinity):
+            self.plot_charges(a, ion_fract, rseed,plot_legend,show_pulse_profile=show_pulse_profile,xlim=xlim,ylim=ylim,**kwargs)
+        
+    def plot_free(self, N=100, log=False, cmin = 0, cmax=None, every = None,mask_below_min=True,cmap='magma',ymax=np.Infinity,leonov_style = False):
         ax = self.get_next_ax()
         #self.fig_free.subplots_adjust(left=0.12, top=0.96, bottom=0.16,right=0.95)
 
@@ -859,20 +898,29 @@ class Plotter:
             T = self.timeData [::every]
         
         if mask_below_min:
-            Z = np.ma.masked_where(Z < min, Z)
-
+            min_col = 0 
+            if leonov_style:  
+                min_col = 20
+                Z = np.ma.masked_where(Z <= 0,Z)
+                Z = np.ma.masked_where(Z*4200*np.linalg.norm(np.log10(Z[Z.mask==False]))<min_col,Z) # 2550  4200 no time for math time for eye. Desperate times...
+            else:
+                Z = np.ma.masked_where(Z < cmin, Z)
+            cmap = plt.get_cmap(cmap)
+            cmap.set_over(cmap(np.inf))
+            cmap.set_under(cmap(min_col))    
+            cmap.set_extremes(bad=cmap(min_col))        
             if max is not None:
                 pass
             #     Z = np.ma.masked_where(Z > max, Z)
             else:
-                max = Z.max()
+                cmax = Z.max()
 
         # if log:
         #     Z = np.log10(Z)
 
         ax.set_facecolor('black')
         if log:
-            cm = ax.pcolormesh(T, self.energyKnot[self.energyKnot<ymax]*1e-3, Z[self.energyKnot<ymax], shading='gouraud',norm=colors.LogNorm(vmin=min, vmax=max),cmap=cmap,rasterized=True)
+            cm = ax.pcolormesh(T, self.energyKnot[self.energyKnot<ymax]*1e-3, Z[self.energyKnot<ymax], shading='gouraud',norm=colors.LogNorm(vmin=cmin, vmax=cmax),cmap=cmap,rasterized=True)
             cbar = self.fig.colorbar(cm,ax=ax)
         else:
             if cmap != None:
@@ -900,13 +948,15 @@ class Plotter:
         ax2.plot(T, self.intensityData[::every],'w:',linewidth=1)
 
         ax2.get_yaxis().set_visible(False)
+        ax2.set_ylim([0,ax2.get_ylim()[1]-ax2.get_ylim()[0]])
 
     # Plots a single point in time.
     def initialise_step_slices_ax(self):
         self.ax_steps = self.get_next_ax()
         self.fig_steps = self.fig
     
-    def plot_step(self, t, prefactor_function = None, prefactor_power = 1, prefactor_args = {}, normed=True, fitE=None, **kwargs):        
+    #TODO get rid of hacky multiply_by_netural_state.
+    def plot_step(self, t, prefactor_function = None, prefactor_power = 1, prefactor_args = {}, normed=True, fitE=None, multiply_by_neutral_state=None, **kwargs):        
         self.ax_steps.set_xlabel('Energy (eV)')
         #self.ax_steps.set_ylabel('$f(\\epsilon) \\epsilon $') # \\Delta \\epsilon is implied now. Want to distinguish from Hau-Riege whose f(e) is our f(e)e
         self.ax_steps.set_ylabel('Energy density (eV/$\\AA^{3}$)') # \\Delta \\epsilon is implied now. Want to distinguish from Hau-Riege whose f(e) is our f(e)e
@@ -932,6 +982,11 @@ class Plotter:
             X = X[prefactor!=0]
             prefactor = prefactor[prefactor!=0]
             prefactor **= prefactor_power
+        if multiply_by_neutral_state:
+            #Multiply by proportion of states that are neutral
+            self.aggregate_charges(False)
+            t_idx = self.timeData.searchsorted(t)
+            prefactor*=self.chargeData[multiply_by_neutral_state][t_idx,0]/np.sum(self.chargeData[multiply_by_neutral_state][0])
         density_factor = X # energy density
         if self.use_electron_density:
             density_factor = 1 

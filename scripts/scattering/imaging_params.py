@@ -18,7 +18,7 @@ default_dict = dict(
     ),
     ##### Crystal params
     crystal = dict(
-        cell_scale = 3,  ##3 # for SC: cell_scale^3 unit cells 
+        cell_scale = 50,  ##3 # for SC: cell_scale^3 unit cells 
         num_supercells = 1,
         supercell_simulations = 1,        
         include_symmetries = True, ##True  # should unit cell contain symmetries?

@@ -1,11 +1,12 @@
 #ATOMS
-C 983
-N 272
-O 303
-S 10
+C 87
+N 24
+O 187
+S 2
+
 
 #VOLUME
-31500        // Volume per molecule in Angstrom^3.
+6027        // Volume per molecule in Angstrom^3.
 500         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons (assumes surrounded by a void).
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
@@ -21,7 +22,7 @@ true    // active (using count)?
 2.2  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
-1000      // Initial guess for number of time step points for rate equation.
+5000      // Initial guess for number of time step points for rate equation.
 18            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
@@ -36,13 +37,32 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-99 //10     // Simulation cutoff time in fs
+999 //10     // Simulation cutoff time in fs
 0.01    // Interval to update current timestep [fs].
 ####END#####
 
 Notes:
 Medium XMDYN probe pulse params for thaumatin used by XMDYN in Nass et al 2020 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7156470/
-(atomic ratios are of the full unit cell, INCLUDING the solvent. I'm assuming that hydrogen was not included.)
+(atomic ratios are of the full unit cell, INCLUDING the solvent. Assuming hydrogen was not included)
+
 PDB: https://www.rcsb.org/structure/1rqw
 Probe pulse only, so should underestimate ionisation at best. Gets higher result than XMDYN, which used a low ratio of sulfur.
 See supplementary notes.
+
+
+
+C 1000
+N 272
+O 309
+S 23
+
+Scale down to 1/11.5 -> 
+protein contribution:
+C 87
+N 24
+O 27
+S 2
+
+
+Water contribution:
+O: 160

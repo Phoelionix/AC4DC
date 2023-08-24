@@ -293,7 +293,7 @@ class InteractivePlotter:
                 size=1,
                 # color='rgba(0,0,0,0)' # hide tick numbers? Nope.
             ),
-            paper_bgcolor= '#F7CAC9' #'#f7dac9' '#F7CAC9'  '#FFD580' "#92A8D1"  lgrey = '#bbbfbf',
+            #paper_bgcolor= '#F7CAC9' #'#f7dac9' '#F7CAC9'  '#FFD580' "#92A8D1"  lgrey = '#bbbfbf',
         )
 
         self.fig.update_xaxes(x_args)
@@ -384,7 +384,8 @@ class InteractivePlotter:
                         #     shape = "+",                    
                         #     fillmode = 'overlay',
                         # ),
-                        line=dict(color=col, **line_kwargs[g]),
+                        #line=dict(color=col, **line_kwargs[g]), # TODO EMERGENCY COMMENT OUT
+                        line=dict(**line_kwargs[g]), # TODO EMERGENCY---TO REMOVE
                         name="t = " + str(t),
                         x=X,
                         y=data*density_factor))

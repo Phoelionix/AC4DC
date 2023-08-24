@@ -1,8 +1,8 @@
-# Instructions for a fresh install for C++ beginners. Chatgpt-esque AI can help make unexpected issues in compiling a lot less painful.
+# Instructions for a fresh install for C++ beginners.
 # --Compiling--
 #(0. Run 'sudo apt-get install build-essential' )
 # 1. Install brew (e.g. linux: https://docs.brew.sh/Homebrew-on-Linux#requirements)
-# 2. Run 'brew install [formula]' on following formulae: gcc@10, eigen
+# 2. Run 'brew install [formula]' on following formulae: gcc@10, eigen, ncurses
 # 3. Ensure correct links for INC and LIB in this file. 
 # 4. Run 'make'
 #
@@ -12,10 +12,11 @@
 #
 # --Running (see README.md)--
 # 'mv bin/ac4dc ac4dc'
-# './ac4dc input/carbon_example.mol'   
+# './ac4dc input/carbon_example.mol'  
 # If the file cannot execute it may be a linking error. Run ldd ac4dc to check dependencies.
-# Tested on WSL2 subsystem.
 
+# Tested on WSL2 (Ubuntu)
+# -----------------------------------------------------------------------------------------------
 
 CPP := g++-10 #(not g++-11) 
 

@@ -1,5 +1,5 @@
 #ATOMS
-Al_fast 1
+Al 1
 
 #VOLUME
 16.59       // Volume per molecule in Angstrom^3.
@@ -7,17 +7,17 @@ Al_fast 1
 planar    // geometry of sample (may be spherical, cylindrical or planar)
 
 #PULSE
-1700         // Photon energy in eV.
-80           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). 
-gaussian     // Pulse temporal shape
-2.5           // Total timespan, as a multiple of fwhm
+1590         // Photon energy in eV.
+40           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). 
+square     // Pulse temporal shape
+1.5           // Total timespan, as a multiple of fwhm
 
 #USE_INTENSITY
 true         // enabled? true/false.
-0.0136            // Maximum intensity in 10^19 * W/cm^2. Will give different fluence between square and gaussian. 
+0.025            // Maximum intensity in 10^19 * W/cm^2. Will give different fluence between square and gaussian. 
 
 #NUMERICAL
-5000         // Initial guess for number of time step points for rate equation.
+3500         // Initial guess for number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
@@ -32,11 +32,11 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
--90          // Simulation cutoff time in fs 
+9999          // Simulation cutoff time in fs 
 0.01          // Interval to display current timestep [fs].
 ####END####
 
-#LOAD
+
 
 Notes:
 From: https://doi.org/10.1103/PhysRevE.95.063203

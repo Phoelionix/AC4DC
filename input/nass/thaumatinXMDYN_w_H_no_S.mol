@@ -1,9 +1,7 @@
 #ATOMS
 C 87
-N 24
+N 26
 O 36
-S 2
-
 
 #VOLUME
 2993        // Volume per molecule in Angstrom^3.

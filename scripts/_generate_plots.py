@@ -5,6 +5,13 @@ matplotlib.rcParams.update({
     'font.family': 'serif',
     'text.usetex': True,
     'pgf.rcfonts': False,
+    #thaumatin thing
+    'axes.titlesize':14,     # fontsize of the axes title
+    'axes.labelsize':14,    # fontsize of the x and y labels   
+    'ytick.labelsize':14,
+    'xtick.labelsize':14,
+    'legend.fontsize':12,    
+    'lines.linewidth':2,
 })
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,7 +24,7 @@ from QoL import set_highlighted_excepthook
 ELECTRON_DENSITY = False # energy density if False
 ###
 PLOT_ELEMENT_CHARGE= True
-PLOT_ION_RATIOS=True
+PLOT_ION_RATIOS=False
 PLOT_FREE_CONTINUUM = False
 PLOT_FREE_SLICES=False
 ###
@@ -67,20 +74,32 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
     pl.setup_axes(num_subplots)
 
     if charge_conservation: 
-        pl.plot_tot_charge(every=10)
+        pl.plot_tot_charge(every=10,charge_difference=False,legend_loc="best")  #TODO automatically set to charge_difference to True if starting with ions...
         #plt.savefig(figure_output_dir + label + fname_charge_conservation + figures_ext)
+ 
 
     if bound_ionisation:
-        pl.plot_all_charges()
+        pl.plot_all_charges(show_pulse_profile=False,ylim=[0,1])
+        #Abdallah
+        #pl.plot_all_charges(show_pulse_profile=False,xlim=[-40,0],ylim=[0,1])
+        #pl.fig.set_figwidth(6)
+        #pl.fig.set_figheight(4)
         # #Royle B
         # pl.plot_charges_royle_style("Al", True)
         # pl.fig.subplots_adjust(left=0.2,bottom=0.18,top=0.95)
         # pl.fig.set_figheight(2.5) # total dimensions, for when other plots turned off...
-        # pl.fig.set_figwidth(6) 
+        # pl.fig.set_figwidth(6)
+        # # leonov
+        # pl.plot_charges_leonov_style("Si",show_pulse_profile=True,xlim=[-20,20],ylim=[0,1.099])
+        # pl.fig.set_figwidth(6.662*0.7)  
+        # pl.fig.set_figheight(6*0.7)  
         
     if free:
+        #Leonov
         ymax = 9e3
-        pl.plot_free(log=True, min=1e-6,max = 10**(-3.3), every=5,mask_below_min=True,cmap='turbo',ymax=ymax)
+        pl.plot_free(log=True, cmin=10**(-6.609),cmax = 10**(-2), every=5,mask_below_min=True,cmap='turbo',ymax=ymax,leonov_style=True)
+        pl.fig.set_figwidth(6.662*0.7*1.16548042705)  
+        pl.fig.set_figheight(6*0.7)      
     if free_slices:
         pl.initialise_step_slices_ax()
         from plotter_core import fit_maxwell, maxwell

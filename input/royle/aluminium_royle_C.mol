@@ -1,5 +1,5 @@
 #ATOMS
-Al_fast 1
+Al 1
 
 #VOLUME
 16.59       // Volume per molecule in Angstrom^3.
@@ -9,20 +9,21 @@ planar    // geometry of sample (may be spherical, cylindrical or planar)
 #PULSE
 10000       // Photon energy in eV.
 20          // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). 
-gaussian      //
-3           // simulation total timespan, as a multiple of fwhm
+gaussian      // 
+6.5           // simulation total timespan, as a multiple of fwhm
+1.5             // simulation time before peak as a multiple of fwhm
 
 #USE_INTENSITY
 true         // enabled? true/false.
 1            // Maximum intensity in 10^19 * W/cm^2. Will give different fluence between square and gaussian. 
 
 #NUMERICAL
-1500        // Initial guess for number of time step points for rate equation.
+3000        // Initial guess for number of time step points for rate equation.
 18           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 low          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
-2.5         // Grid update period in fs, (dynamic grid only).
+4          // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
 800          // Number of time steps in the output files.

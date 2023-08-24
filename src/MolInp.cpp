@@ -61,7 +61,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (!line.compare(0, 2, comment)) continue;   
 		if (!line.compare(0, 1, "")) continue;
 		if (!line.compare(0,end_file.length(),end_file)) break; 
-		// A category of inputs
+		// A header, defining a category of inputs
 		if (!line.compare(0, 1, "#")) {
 			if ( FileContent.find(line) == FileContent.end() ) {
 				FileContent[line] = vector<string>(0);
@@ -71,7 +71,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 			}
 			curr_key = line;
 			
-		// An input
+		// A line below the header, defining an input
 		} else {
 			FileContent[curr_key].push_back(line);
 		}

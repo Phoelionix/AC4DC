@@ -14,6 +14,7 @@ import os.path as path
 import os
 from QoL import set_highlighted_excepthook
 
+CHARGE_DIFFERENCE = False # Useful if simulation started with ionised atoms
 def main():
     set_highlighted_excepthook()
 
@@ -45,7 +46,7 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir):
     # File/directory names
     #######  
     figures_ext = "" #.png
-    for plot_mode in (0,1):     # 0: plot all charges, 1: plot element total charges
+    for plot_mode in (1,):#(0,1):     # 0: plot all charges, 1: plot element total charges
 
         fig, axs = plt.subplots(3, 3, sharey=True, facecolor='w')
 
@@ -66,12 +67,11 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir):
                 pl.plot_all_charges(plot_legend=(m==0),linestyle=dashes[m])
             if plot_mode == 1:
                 colours = [cmap(i) for i in range(len(atoms))]
-                pl.plot_tot_charge(every=10,linestyle=dashes[m],colours = colours,atoms = atoms,plot_legend=(m==0))
-
+                pl.plot_tot_charge(every=10,linestyle=dashes[m],colours = colours,atoms = atoms,plot_legend=(m==0),ylim=[0,8],charge_difference=CHARGE_DIFFERENCE)
         fig.set_figheight(4.8)
         fig.set_figwidth(4)
 
-        plt.tight_layout()
+        #plt.tight_layout()
         if plot_mode == 0:
             qualifier = "_"+ "BoundComp"
         if plot_mode == 1:

@@ -13,25 +13,38 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 // #define OUTPUT_DFDT_TO_CERR
 #endif
 
-//#define NO_TBR
-//#define NO_EE   // This can break the dynamic grid late in the simulation at low energies.
-//#define NO_EII
+/// Disable plasma processes  
+//#define NO_TBR    //Three body recombination
+//#define NO_EE   // Electron-electron scattering. This can break the dynamic grid late in the simulation at low energies.
+//#define NO_EII    // Electron impact ionisation
 
-//#define NO_MINISTEPS
+
+// Disable features
+//#define NO_PLOTTING // Turns off live saves of the free-electron energy distribution to _live_plot.png. Disables use of python 
+//#define NO_BACKUP_SAVING // Disables the hourly saves of the data to  
+
+
+// Asynchronous solver
+//#define NO_MINISTEPS   // Disables the asynchronous implementation of the solver, stepping the free (E-E) and bound (everything else) solvers together.
 #define NO_MINISTEP_UPDATING  // ministep updates not working atm, possibly as lagrange polynomial is a bad thing to use here and I should just use linear interpolation.
 
-//#define DEBUG_BOUND
-//#define SWITCH_OFF_DYNAMIC_BOUNDS
-//#define SWITCH_OFF_ALL_DYNAMIC_UPDATES  // should be equivalent (or almost equivalent, I can't remember if gaussian quadrature will make a difference here) to switching off dynamic bounds if working properly
 
-//#define NO_PLOTTING
-//#define NO_BACKUP_SAVING
+// Dynamic grid debugging
+//#define DEBUG_BOUND  // Turns on testing for negative bound state probabilities. Should narrow down cause (unless one is facing a dreaded memory corruption bug). Probably should be removed as this is no longer an issue.
+//#define SWITCH_OFF_ALL_DYNAMIC_UPDATES  // The initial grid (spline knot basis) is used for the whole simulation. 
+//#define SWITCH_OFF_DYNAMIC_BOUNDS // Disables updates of the MB energy bounds, the photoelectron energy bounds, and the transition energy. Should be equivalent to SWITCH_OFF_ALL_DYNAMIC_UPDATES if everything is working  
 
-//#define BOUND_GD_HACK
 
-//#define CLASSIC_MANUAL_GRID
 
-//#define INFINITE_COULOMBLOG_CUTOFF  // Set cutoff for calculation of temperature/coulomb log to be infinite.
+
+/// Experimental options for developers.
+
+
+//#define BOUND_GD_HACK // A very primitive (unfinished) implementation of a bound transport correction. Not confirmed to be working as intended.
+
+//#define CLASSIC_MANUAL_GRID // Implements an outdated static grid implementation for purposes of comparison.
+
+//#define INFINITE_COULOMBLOG_CUTOFF  //Not confirmed to work with dynamic grid. Set cutoff for calculation of temperature/coulomb log to be infinite.
 /////////////
 
 

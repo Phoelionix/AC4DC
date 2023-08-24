@@ -20,7 +20,7 @@ true    // active (using count)?
 2.2  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
-1000      // Initial guess for number of time step points for rate equation.
+2000      // Initial guess for number of time step points for rate equation.
 18            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
@@ -35,7 +35,7 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-99 //10     // Simulation cutoff time in fs
+999 //10     // Simulation cutoff time in fs
 0.01    // Interval to update current timestep [fs].
 
 ####END#####
