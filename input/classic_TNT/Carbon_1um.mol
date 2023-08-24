@@ -1,0 +1,33 @@
+// Carbon (amorphous similar to Hau-Riege). Assumes 1um cylindrical beam fired into much larger target.
+
+#ATOMS
+C 1
+
+#VOLUME
+18.11      // Volume per molecule in Angstrom^3.
+10000          // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
+cylindrical       // Spatial boundary shape - options are none, spherical, cylindrical, planar
+
+#PULSE
+6000         // Photon energy in eV.
+8           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+25           // Pulse fluence in 10^4 * J/cm^2.
+gaussian     // Pulse shape
+
+#NUMERICAL
+200000         // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation solving step.
+12            // Number of threads in OpenMP.
+0            // [only for nonthermal] minimum free-electron energy in eV
+8000          // [only for nonthermal] maximum free-electron energy in eV
+100            // total number of free-electron grid points
+powerlaw     // electron grid type
+50            // Number of "low-energy" grid points (hybrid & powerlaw grids only)
+2500           // transition energy in eV
+1e-2             // Min ionisation per unit cell to turn on electron-electron interactions
+
+#OUTPUT
+800         // Number of time steps in the output files.
+4000        // number of free-electron grid points in output file.
+N            // Write atomic charges in a separate file (Y/N)?
+Y            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?

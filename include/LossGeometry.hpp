@@ -1,3 +1,7 @@
+/**
+ * @file LossGeometry.hpp
+*/
+
 /*===========================================================================
 This file is part of AC4DC.
 
@@ -31,7 +35,7 @@ struct LossGeometry {
     int mode = 1;
     double L0 = 1;
     double factor() const {
-        assert(mode >=0 && mode <=2);
+        assert(mode >=0 && mode <=3);
         return 1.*constants[mode]/L0;
     }
     private:

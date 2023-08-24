@@ -1,3 +1,9 @@
+/**
+ * @file Grid.h
+ * @brief Defines the Grid class
+ * @details The Grid class creates the coordinate grid on the interval from [r_min, r_max]
+	with "num_grid_pts" points. The grid's spacing follows a logarithmic relationship. See Grid.
+ */
 /*===========================================================================
 This file is part of AC4DC.
 
@@ -21,13 +27,15 @@ This file is part of AC4DC.
 
 using namespace std;
 
-class Grid
-{	/* The Grid class creates the coordinate grid on the interval from [r_min, r_max]
+/** 
+ * @brief The Grid class creates the coordinate grid on the interval from [r_min, r_max]
 	with "num_grid_pts" points. The grid has not constant node spacing. It is constant
-	for the following variable
-	S = R + beta*ln(R)
+	for the following variable:
+	S = R + beta*ln(R).
 	According to Vladimir Dzuba the best value for beta=4.
-	*/
+*/
+class Grid
+{	
 private:
 	vector<double> r, dr;
 	double ds;

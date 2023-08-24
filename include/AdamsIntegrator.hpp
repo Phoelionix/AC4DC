@@ -1,3 +1,7 @@
+/**
+ * @file AdamsIntegrator.hpp
+ * @brief 
+ */
 /*===========================================================================
 This file is part of AC4DC.
 
@@ -24,6 +28,7 @@ This file is part of AC4DC.
 #include <iomanip>
 #include <assert.h>
 #include <stdexcept>
+#include "config.h"
 
 #define ODE_MAX_MEOMRY_USE 4000000000
 
@@ -37,15 +42,18 @@ class IVPSolver{
 public:
     IVPSolver();
     void setup(const T& initial_state, double _dt, double _tolerance = 1e-2);
-    double dt;
+    /// Should really be called deltat. Length of the time steps - S.P.
+    double dt;  
     double step_tolerance;
-
+    
     // void export_to(string fname);
 protected:
     std::vector<T> y;
-    std::vector<double> t;
-    virtual void sys(const T& q, T& qdot, double t) =0;
+    std::vector<double> t;    
+    virtual void sys_bound(const T& q, T& qdot,T& q_bg, double t) =0;
     T zero_y;
+
+    std::vector<T> y_bg;  // background
 
 };
 
@@ -57,7 +65,7 @@ IVPSolver<T>::IVPSolver() {
 }
 
 template<typename T>
-void IVPSolver<T>::setup(const T& initial_state, double _dt, double _step_tolerance ) {
+void IVPSolver<T>:: setup(const T& initial_state, double _dt, double _step_tolerance ) {
     step_tolerance = _step_tolerance;
     this->y[0] = initial_state;
     // Makes a zero std::vector in a mildly spooky way
@@ -80,7 +88,7 @@ public:
 
 protected:
     void run_steps();
-    void step(int n); // Predictor-corrector multistep method
+    void step_nonstiff_part(int n); // Predictor-corrector multistep method
     void step_rk4(int n); // Runge-Kutta 4th order calculator
     void step_euler(int n); // Basic explicit Euler stepper
     unsigned int order;
@@ -103,7 +111,7 @@ Adams_BM<T>::Adams_BM(unsigned int _order):
 template <typename T>
 void Adams_BM<T>::step_euler(int n){
     T dndt;
-    this->sys(this->y[n], dndt, this->t[n]);
+    this->sys_bound(this->y[n], dndt,  this->y_bg[n], this->t[n]);
     dndt *=this->dt;
     this->y[n+1] = this->y[n];
     this->y[n+1] += dndt;
@@ -115,24 +123,24 @@ void Adams_BM<T>::step_euler(int n){
 template<typename T>
 void Adams_BM<T>::step_rk4(int n) {
     T k1, k2, k3, k4, tmp;
-    this->sys(this->y[n], k1, this->t[n]);
+    this->sys_bound(this->y[n], k1, this-> y_bg[n], this->t[n]);
     //tmp = this->y[n]+k1*0.5
     k1 *= this->dt;
     tmp = k1;
     tmp *= 0.5;
     tmp += this->y[n];
-    this->sys(tmp, k2, this->t[n]+this->dt*0.5);
+    this->sys_bound(tmp, k2, this->y_bg[n],this->t[n]+this->dt*0.5);
     // tmp = this->y[n]+k2*0.5
     k2 *= this->dt;
     tmp = k2;
     tmp *=0.5;
     tmp += this->y[n];
-    this->sys(tmp, k3, this->t[n]+this->dt*0.5);
+    this->sys_bound(tmp, k3, this->y_bg[n],this->t[n]+this->dt*0.5);
     // tmp = this->y[n] + k3;
     k3 *= this->dt;
     tmp = k3;
     tmp += this->y[n];
-    this->sys(tmp, k4, this->t[n]+this->dt    );
+    this->sys_bound(tmp, k4, this->y_bg[n], this->t[n]+this->dt    );
     
     k4 *= this->dt;
     //y[n+1] = y[n] + (k1*(1./6) + k2*(1./3) + k3*(1./3) + k4*(1./6)) * this->dt;;
@@ -152,42 +160,69 @@ void Adams_BM<T>::step_rk4(int n) {
 }
 
 template<typename T>
-void Adams_BM<T>::step(int n) {
+/**
+ * @brief Uses the explicit Adams-Bashforth method, then applies the implicit Adams-Moulton method as a correction. 
+ * @tparam T 
+ * @param n Index of current time step.
+ */
+void Adams_BM<T>::step_nonstiff_part(int n) {
     // Predicts the value y_n+1
     // Adams-Bashforth predictor routine:
 
     T tmp, ydot;
     tmp = this->zero_y;
 
+    #ifdef DEBUG_BOUND
+    for(size_t a = 0; a < tmp.atomP.size();a++)
+        for(size_t i=0;i < tmp.atomP[a].size();i++){
+            assert(tmp.atomP[a][i] >= 0);
+        }        
+    #endif 
+
     for (size_t i = 0; i < order; i++) {
-        this->sys(this->y[n-i], ydot, this->t[n-i]);
+        this->sys_bound(this->y[n-i], ydot, this->y_bg[n-i], this->t[n-i]);
         ydot *= b_AB[i];
         tmp += ydot;
-    }
+    }   
 
     // Weird syntax here is done in order to avoid calls to
-    // operator+ and orparator*, which may unnecessarily create large
+    // operator+ and operator*, which may unnecessarily create large
     // local variables.
 
     // y_n+1 = y_n + dt*sum_{i=0}^s-1 b_i f_(n-i)
     tmp *= this->dt;
     tmp += this->y[n];
 
+    #ifdef DEBUG_BOUND
+    for(size_t a = 0; a < tmp.atomP.size();a++)
+        for(size_t i=0;i < tmp.atomP[a].size();i++){
+            assert(tmp.atomP[a][i] >= 0);
+        }        
+    #endif 
+
     // Adams-Moulton corrector step
     // Here, tmp is the y_n+1 guessed in the preceding step, handle i=0 explicitly:
     T tmp2(tmp);
-    this->sys(tmp2, tmp, this->t[n+1]);
+    this->sys_bound(tmp2, tmp, this->y_bg[n+1], this->t[n+1]);
     tmp *= b_AM[0];
     // Now tmp goes back to being an aggregator
     for (int i = 1; i < order; i++) {
-        this->sys(this->y[n-i+1], ydot, this->t[n-i+1]);
+        this->sys_bound(this->y[n-i+1], ydot, this->y_bg[n-i+1], this->t[n-i+1]);
         ydot *= b_AM[i];
         tmp += ydot;
     }
+
     // Store the corrected value
     //this->y[n+1] = this->y[n] + tmp * this->dt;
     tmp *= this->dt;
     tmp += this->y[n];
+
+    #ifdef DEBUG_BOUND
+    for(size_t a = 0; a < tmp.atomP.size();a++)
+        for(size_t i=0;i < tmp.atomP[a].size();i++){
+            assert(tmp.atomP[a][i] >= 0);
+        }        
+    #endif 
     this->y[n+1] = tmp;
 }
 
@@ -224,15 +259,15 @@ void Adams_BM<T>::run_steps(){
     // initialise enough points for multistepping to get going
     for (int n = 0; n < order; n++) {
         //this->step_rk4(n);
-	this->y[n+1] = this->y[0];
+	this->y[n+1] = this->y[0];  // Sets the distribution to be the initial one it seems -S.P.
     }
     // Run those steps
     std::cout << "[ sim ]                       ";
     for (int n = this->order; n < this->t.size()-1; n++) {
         std::cout << "\r[ sim ] t="
                   << std::left<<std::setfill(' ')<<std::setw(6)
-                  << this->t[n] << std::flush;
-        this->step(n);
+                  << this->t[n] << "au" << std::flush;
+        this->step_nonstiff_part(n);
     }
     std::cout<<std::endl;
 

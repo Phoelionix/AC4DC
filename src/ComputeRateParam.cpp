@@ -1,3 +1,7 @@
+/**
+ * @file ComputeRateParam.cpp
+ * @brief @copybrief ComputeRateParam.h
+*/
 /*===========================================================================
 This file is part of AC4DC.
 
@@ -36,8 +40,11 @@ using namespace CustomDataType;
 int ComputeRateParam::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
 {
 	// Calculates cross sections needed to solve rate equations.
-	// Final_occ defines the lowest possible occupancies for the initiall orbital.
+	// Final_occ defines the lowest possible occupancies for the initial orbital.
 	// Intermediate orbitals are recalculated to obtain the corresponding rates.
+
+	assert(Max_occ.size() == orbitals.size());
+	//DecayRates::set_Max_occ(Max_occ,orbitals);  // used when max_occ isn't valid. 
 
 	if (!SetupIndex(Max_occ, Final_occ, runlog)) return 1;
 
@@ -200,7 +207,7 @@ int ComputeRateParam::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, of
 
 // Called for molecular inputs.
 // Computes molecular collision parameters.
-RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
+RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, vector<bool> shell_check, ofstream & runlog)
 {
 	// Uses BEB model to compute fundamental
 	// EII, Auger, Photoionisation and Fluorescence rates
@@ -256,6 +263,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		vector<RateData::Rate> LocalFluor(0);
 		vector<RateData::Rate> LocalAuger(0);
 		vector<ffactor> LocalFF(0);
+		vector<energy_config> LocalEnergyConfig(0); 
 		// Electron impact ionization orbital enerrgy storage.
 		RateData::EIIdata tmpEIIparams;
 		int MaxBindInd = 0;
@@ -274,8 +282,9 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		density.clear();
 
 	  	#pragma omp parallel default(none) num_threads(input.Num_Threads())\
-		shared(cout, runlog, MaxBindInd, have_Aug, have_Flr, have_Pht, saveFF) \
-		private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor, LocalEIIparams, tmpEIIparams, LocalFF)
+		shared(cout, runlog, shell_check, MaxBindInd, have_Aug, have_Flr, have_Pht, saveFF) \
+		private(Tmp, LocalPhoto, LocalAuger, LocalFluor, LocalEnergyConfig, LocalEIIparams, tmpEIIparams, LocalFF) \
+		firstprivate(Max_occ)  // I believe this should be shared, but it was in private() before (which I believe is a mistake, since this meant the value of max_occ was lost) so I'm putting it here to be safe. -S.P.
 		{
 			#pragma omp for schedule(dynamic) nowait
 			for (size_t i = 0;i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
@@ -286,6 +295,8 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				for (size_t j = 0;j < Orbitals.size(); j++) {
 					Orbitals[j].set_occupancy(orbitals[j].occupancy() - Index[i][j]);
 					N_elec += Orbitals[j].occupancy();
+					// Store shell flag if orbital corresponds to shell
+					if(shell_check[j]) Orbitals[j].flag_shell(true);
 				}
 				// Grid Lattice(lattice.size(), lattice.R(0), lattice.R(lattice.size() - 1) / (0.3*(u.NuclCharge() - N_elec) + 1), 4);
 				// Change Lattice to lattice for electron density evaluation.
@@ -315,6 +326,53 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				}
 				LocalEIIparams.push_back(tmpEIIparams);
 
+				bool calc_bound_transport = true;
+				if (calc_bound_transport){
+					assert(Max_occ.size() == Orbitals.size());
+					size = 0;
+					double valence_energy = 0;
+					for (int j = MaxBindInd; j < Orbitals.size(); j++) {
+						if (Orbitals[j].occupancy() == 0) continue;
+						valence_energy = -tmpEIIparams.ionB[size];
+						size++;
+					}
+					int receiver_orbital = -1;
+					int donator_orbital = -1;
+					int receiver_occupancy= -1;
+					int donator_occupancy = -1;
+					for (int j = MaxBindInd; j < Orbitals.size(); j++) {
+						if (Orbitals[j].occupancy() == 0) continue;
+						donator_orbital = j;
+						receiver_orbital = j;
+					}				
+					if (Max_occ[receiver_orbital] == Orbitals[receiver_orbital].occupancy())
+						receiver_orbital += 1;
+					int donator_idx;
+					int receiver_idx;
+					// Find index of config after electron is transported to this config
+					if (receiver_orbital >= Orbitals.size())
+						// maximum orbital is filled - Transport is disallowed.
+						receiver_idx = -1;
+					else{
+						int old_occ = Orbitals[receiver_orbital].occupancy();
+						Orbitals[receiver_orbital].set_occupancy(old_occ +1);
+						receiver_idx = mapOccInd(Orbitals);
+						Orbitals[receiver_orbital].set_occupancy(old_occ);
+					}
+					// Find index of config after electron is transported away.
+					if (donator_orbital == -1){
+						// Empty shells - Transport is disallowed (I don't think such a config would be passed in this loop anyway).
+						donator_idx = -1;
+					}
+					else{
+						int old_occ = Orbitals[donator_orbital].occupancy();
+						Orbitals[donator_orbital].set_occupancy(old_occ - 1);
+						donator_idx = mapOccInd(Orbitals);
+						Orbitals[donator_orbital].set_occupancy(old_occ);
+					}
+					assert(valence_energy < 0);
+					LocalEnergyConfig.push_back(energy_config{(int)i,valence_energy,receiver_idx,donator_idx});  // if valence energy of atom 1 at receiver_idx + valence energy of atom 2 at donator_idx  << current valence energies, transport occurs.
+				}
 				DecayRates Transit(lattice, Orbitals, u, input);
 
 				if (saveFF) LocalFF.push_back({i, Transit.FT_density()});
@@ -367,6 +425,7 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				Store.Auger.insert(Store.Auger.end(), LocalAuger.begin(), LocalAuger.end());
 				Store.EIIparams.insert(Store.EIIparams.end(), LocalEIIparams.begin(), LocalEIIparams.end());
 				FF.insert(FF.end(), LocalFF.begin(), LocalFF.end());
+				Store.EnergyConfig.insert(Store.EnergyConfig.end(), LocalEnergyConfig.begin(), LocalEnergyConfig.end());
 			}
 		}
 
@@ -469,6 +528,266 @@ int ComputeRateParam::Symbolic(const string & input, const string & output)
 	}
 
 }
+string ComputeRateParam::InterpretIndex(int i)
+{
+	// Outputs electronic configuration referenced in the i^th entry of
+	// EIIparams, Auger, Photo, Fluor
+	// LaTeX output format for direct insertion into table.
+	string Result;
+	if (!Index.empty()) {
+		if (Index[i].size() == orbitals.size())	{
+			ostringstream tmpstr;
+			tmpstr << '$';
+			for (size_t j = 0;j < orbitals.size(); j++) {
+				tmpstr << orbitals[j].N();
+				switch (orbitals[j].L()) {
+				case 0:
+					tmpstr << 's';
+					break;
+				case 1:
+					tmpstr << 'p';
+					break;
+				case 2:
+					tmpstr << 'd';
+					break;
+				case 3:
+					tmpstr << 'f';
+					break;
+				default:
+					tmpstr << 'x';
+					break;
+				}
+				tmpstr << "^{" << orbitals[j].occupancy() - Index[i][j] <<'}';
+			}
+			tmpstr << '$';
+			Result = tmpstr.str();
+		}
+	}
+	return Result;
+}
+
+int ComputeRateParam::Charge(int Iconf)
+{
+	int Result = 0;
+	for (size_t j = 0;j < Index[Iconf].size(); j++) Result += Index[Iconf][j] - Index[0][j];
+	return Result;
+}
+
+bool ComputeRateParam::SetupIndex(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
+{
+	if (orbitals.size() != Final_occ.size())
+	{
+		runlog << "Final occupancies should be provided for all orbitals." << endl;
+		return false;
+	}
+	// Work out the number of allowed configurations
+	dimension = 1;
+	int orbitals_size = orbitals.size();
+	int l_hole = 0;//lowest energy orbital with allowed holes
+	hole_posit.clear();
+	hole_posit.resize(orbitals.size());
+
+	vector<int> max_holes(orbitals.size(), 0);
+	for (int i = orbitals_size - 1; i >= 0; i--)
+	{
+		max_holes[i] = Max_occ[i] - Final_occ[i] + 1;
+		if (Max_occ[i] == Final_occ[i]) l_hole++;
+		hole_posit[i] = dimension;
+		dimension *= max_holes[i];
+	}
+
+	//configuration information. Index[i][j] denotes number of holes in oorbital [j], that together form configuration [i].
+	Index.resize(dimension);
+	for (auto& v : Index) {
+		v.resize(orbitals.size());
+	}
+
+	for (size_t i = 0;i < dimension; i++)
+	{
+		int tmp = i;
+		for (size_t j = 0;j < orbitals_size; j++)
+		{
+			Index[i][j] = tmp / hole_posit[j];
+			if (Index[i][j] > Max_occ[j]) { Index[i][j] = Max_occ[j]; }
+			tmp -= Index[i][j] * hole_posit[j];
+		}
+	}
+	return true;
+}
+
+ComputeRateParam::~ComputeRateParam()
+{
+}
+
+vector<double> ComputeRateParam::generate_dT(int num_elem)//default time interval
+{
+	vector<double> Result(num_elem, 0);
+	double tmp = 1;
+	for (size_t i = 0;i < num_elem; i++) {
+	tmp = fabs(1.*i / (num_elem-1) - 0.5) + 0.01;
+		Result[i] = tmp;
+	}
+	return Result;
+}
+
+vector<double> ComputeRateParam::generate_T(vector<double>& dT)//default time
+{
+	vector<double> Result(dT.size(), 0);
+	vector<double> Bashforth_4{ 55. / 24., -59. / 24., 37. / 24., -9. / 24. }; //Adams�Bashforth method
+	for (int i = 1; i < Bashforth_4.size(); i++)//initial few points
+	{
+		Result[i] = Result[i - 1] + dT[i - 1];
+	}
+	for (int i = Bashforth_4.size(); i < Result.size(); i++)//subsequent points
+	{
+		Result[i] = Result[i - 1];
+		for (size_t j = 0;j < Bashforth_4.size(); j++)
+		{
+			Result[i] += Bashforth_4[j] * dT[i - j - 1];
+		}
+	}
+
+	return Result;
+}
+
+vector<double> ComputeRateParam::generate_I(vector<double>& Time, double Fluence, double Sigma)//intensity of the Gaussian X-ray pulse
+{
+
+	vector<double> Result(Time.size(), 0);
+
+	double midpoint = 0.5*(T.back() + T[0]);
+	double denom = 2*Sigma*Sigma;
+	double norm = 1./sqrt(denom*Constant::Pi);
+	//include the window function to make it exactly 0 at the beginning and smoothly increase toward Gaussian
+
+
+  int smooth = T.size()/10;
+  double tmp = 0;
+	for (size_t i = 0;i < Time.size(); i++)
+	{
+    Result[i] = Fluence * norm * exp(-(Time[i] - midpoint)*(Time[i] - midpoint) / denom);
+    if (i < smooth) {
+      tmp = fabs(T[i] - T[0]) / fabs(T[smooth] - T[0]);
+      Result[i] *= tmp*tmp*(3 - 2 * tmp);
+    }
+  }
+
+  /*
+  for (size_t i = 0;i < Time.size(); i++)
+	{
+    Result[i] = Fluence / T.back();
+	}
+  */
+
+
+
+	return Result;
+}
+
+int ComputeRateParam::extend_I(vector<double>& Intensity, double new_max_T, double step_T)
+{
+  // Uniform mesh is added.
+  double last_T = T.back(), dT_last = dT.back();
+  //double MidT = 0.5*(T.back() - T[0]);
+  //double denom = 2*Sigma*Sigma;
+  //double norm = 1./sqrt(denom*Constant::Pi);
+
+  while (last_T < new_max_T) {
+    dT.push_back(dT_last);
+    T.push_back(last_T + dT_last);
+    last_T = T.back();
+    Intensity.push_back(0);
+  }
+  return 0;
+}
+
+void SmoothOrigin(vector<double> & T, vector<double> & F)
+{
+	int smooth = T.size() / 10;
+	for (size_t i = 0;i < smooth; i++)
+	{
+		F[i] *= (T[i] / T[smooth])*(T[i] / T[smooth])*(3 - 2 * (T[i] / T[smooth]));
+	}
+}
+
+/**
+ * @brief Intensity profile normalized to 1.
+ * Time is assumbed to be in FEM.
+ * 
+ * @return vector<double> 
+ */
+vector<double> ComputeRateParam::generate_G()
+{
+	double Sigma = input.Width()/(2*sqrt(2*log(2.)));
+
+	return generate_I(T, 1, Sigma);
+}
+
+void ComputeRateParam::GenerateRateKeys(vector<RateData::Rate> & ToSort)
+{
+	int CurrentFrom = 0;
+	int start = 0;
+	RatesFromKeys.push_back(0);
+	for (int i = 1; i < ToSort.size(); i++) {
+		if (ToSort[i].from != CurrentFrom) {
+			CurrentFrom = ToSort[i].from;
+			start = RatesFromKeys.back();
+			RatesFromKeys.push_back(i);
+			sort(ToSort.begin() + start, ToSort.begin() + RatesFromKeys.back(), sortRatesTo);
+		}
+	}
+}
+
+int ComputeRateParam::mapOccInd(vector<RadialWF> & Orbitals)
+{
+	int Result = 0;
+	for (size_t j = 0;j < hole_posit.size(); j++)	{
+		Result += (orbitals[j].occupancy() - Orbitals[j].occupancy())*hole_posit[j];
+	}
+
+	return Result;
+}
+
+double ComputeRateParam::T_avg_RMS(vector<pair<double, int>> conf_RMS)
+{
+  // Calculate pulse-averaged root mean square radius of an atom.
+  double tmp = 0;
+
+  vector<double> intensity = generate_G();
+  if (P.size()-1 != density.size()) return -1;
+  for (int m = 0; m < T.size(); m++) {
+    tmp = 0;
+    for (size_t i = 0;i < conf_RMS.size(); i++) tmp += P[i][m]*conf_RMS[i].first;
+    intensity[m] *= tmp;
+  }
+
+  Grid Time(T, dT);
+  Adams I(Time, 10);
+
+  return I.Integrate(&intensity, 0, T.size()-1);
+}
+
+
+double ComputeRateParam::T_avg_Charge()
+{
+  // Calculate pulse-averaged charge of atom.
+  double tmp = 0;
+
+  vector<double> intensity = generate_G();
+  for (int m = 0; m < T.size(); m++) {
+    tmp = 0;
+    for (size_t i = 0;i < charge.size(); i++) tmp += (input.Nuclear_Z() - i)*charge[i][m];
+    intensity[m] *= tmp;
+  }
+
+  Grid Time(T, dT);
+  Adams I(Time, 10);
+
+  return I.Integrate(&intensity, 0, T.size()-1);
+}
+
+
+// Unfinished or archived:
 //
 // int ComputeRateParam::SetupAndSolve(ofstream & runlog)
 // {
@@ -742,264 +1061,3 @@ int ComputeRateParam::Symbolic(const string & input, const string & output)
 //
 // 	return 0;
 // }
-
-
-string ComputeRateParam::InterpretIndex(int i)
-{
-	// Outputs electronic configuration referenced in the i^th entry of
-	// EIIparams, Auger, Photo, Fluor
-	// LaTeX output format for direct insertion into table.
-	string Result;
-	if (!Index.empty()) {
-		if (Index[i].size() == orbitals.size())	{
-			ostringstream tmpstr;
-			tmpstr << '$';
-			for (size_t j = 0;j < orbitals.size(); j++) {
-				tmpstr << orbitals[j].N();
-				switch (orbitals[j].L()) {
-				case 0:
-					tmpstr << 's';
-					break;
-				case 1:
-					tmpstr << 'p';
-					break;
-				case 2:
-					tmpstr << 'd';
-					break;
-				case 3:
-					tmpstr << 'f';
-					break;
-				default:
-					tmpstr << 'x';
-					break;
-				}
-				tmpstr << "^{" << orbitals[j].occupancy() - Index[i][j] <<'}';
-			}
-			tmpstr << '$';
-			Result = tmpstr.str();
-		}
-	}
-	return Result;
-}
-
-int ComputeRateParam::Charge(int Iconf)
-{
-	int Result = 0;
-	for (size_t j = 0;j < Index[Iconf].size(); j++) Result += Index[Iconf][j] - Index[0][j];
-	return Result;
-}
-
-bool ComputeRateParam::SetupIndex(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
-{
-	if (orbitals.size() != Final_occ.size())
-	{
-		runlog << "Final occupancies should be provided for all orbitals." << endl;
-		return false;
-	}
-	if (Max_occ.size() != orbitals.size()) {
-		Max_occ.resize(orbitals.size());
-		for (size_t i = 0;i < orbitals.size(); i++) {
-			Max_occ[i] = 4*orbitals[i].L() + 2;
-		}
-	}
-	// Work out the number of allowed configurations
-	dimension = 1;
-	int orbitals_size = orbitals.size();
-	int l_hole = 0;//lowest energy orbital with allowed holes
-	hole_posit.clear();
-	hole_posit.resize(orbitals.size());
-
-	vector<int> max_holes(orbitals.size(), 0);
-	for (int i = orbitals_size - 1; i >= 0; i--)
-	{
-		max_holes[i] = Max_occ[i] - Final_occ[i] + 1;
-		if (Max_occ[i] == Final_occ[i]) l_hole++;
-		hole_posit[i] = dimension;
-		dimension *= max_holes[i];
-	}
-
-	//configuration information. Index[i][j] denotes number of holes in oorbital [j], that together form configuration [i].
-	Index.resize(dimension);
-	for (auto& v : Index) {
-		v.resize(orbitals.size());
-	}
-
-	for (size_t i = 0;i < dimension; i++)
-	{
-		int tmp = i;
-		for (size_t j = 0;j < orbitals_size; j++)
-		{
-			Index[i][j] = tmp / hole_posit[j];
-			if (Index[i][j] > Max_occ[j]) { Index[i][j] = Max_occ[j]; }
-			tmp -= Index[i][j] * hole_posit[j];
-		}
-	}
-	return true;
-}
-
-ComputeRateParam::~ComputeRateParam()
-{
-}
-
-vector<double> ComputeRateParam::generate_dT(int num_elem)//default time interval
-{
-	vector<double> Result(num_elem, 0);
-	double tmp = 1;
-	for (size_t i = 0;i < num_elem; i++) {
-	tmp = fabs(1.*i / (num_elem-1) - 0.5) + 0.01;
-		Result[i] = tmp;
-	}
-	return Result;
-}
-
-vector<double> ComputeRateParam::generate_T(vector<double>& dT)//default time
-{
-	vector<double> Result(dT.size(), 0);
-	vector<double> Bashforth_4{ 55. / 24., -59. / 24., 37. / 24., -9. / 24. }; //Adams�Bashforth method
-	for (int i = 1; i < Bashforth_4.size(); i++)//initial few points
-	{
-		Result[i] = Result[i - 1] + dT[i - 1];
-	}
-	for (int i = Bashforth_4.size(); i < Result.size(); i++)//subsequent points
-	{
-		Result[i] = Result[i - 1];
-		for (size_t j = 0;j < Bashforth_4.size(); j++)
-		{
-			Result[i] += Bashforth_4[j] * dT[i - j - 1];
-		}
-	}
-
-	return Result;
-}
-
-vector<double> ComputeRateParam::generate_I(vector<double>& Time, double Fluence, double Sigma)//intensity of the Gaussian X-ray pulse
-{
-
-	vector<double> Result(Time.size(), 0);
-
-	double midpoint = 0.5*(T.back() + T[0]);
-	double denom = 2*Sigma*Sigma;
-	double norm = 1./sqrt(denom*Constant::Pi);
-	//include the window function to make it exactly 0 at the beginning and smoothly increase toward Gaussian
-
-
-  int smooth = T.size()/10;
-  double tmp = 0;
-	for (size_t i = 0;i < Time.size(); i++)
-	{
-    Result[i] = Fluence * norm * exp(-(Time[i] - midpoint)*(Time[i] - midpoint) / denom);
-    if (i < smooth) {
-      tmp = fabs(T[i] - T[0]) / fabs(T[smooth] - T[0]);
-      Result[i] *= tmp*tmp*(3 - 2 * tmp);
-    }
-  }
-
-  /*
-  for (size_t i = 0;i < Time.size(); i++)
-	{
-    Result[i] = Fluence / T.back();
-	}
-  */
-
-
-
-	return Result;
-}
-
-int ComputeRateParam::extend_I(vector<double>& Intensity, double new_max_T, double step_T)
-{
-  // Uniform mesh is added.
-  double last_T = T.back(), dT_last = dT.back();
-  //double MidT = 0.5*(T.back() - T[0]);
-  //double denom = 2*Sigma*Sigma;
-  //double norm = 1./sqrt(denom*Constant::Pi);
-
-  while (last_T < new_max_T) {
-    dT.push_back(dT_last);
-    T.push_back(last_T + dT_last);
-    last_T = T.back();
-    Intensity.push_back(0);
-  }
-  return 0;
-}
-
-void SmoothOrigin(vector<double> & T, vector<double> & F)
-{
-	int smooth = T.size() / 10;
-	for (size_t i = 0;i < smooth; i++)
-	{
-		F[i] *= (T[i] / T[smooth])*(T[i] / T[smooth])*(3 - 2 * (T[i] / T[smooth]));
-	}
-}
-
-vector<double> ComputeRateParam::generate_G()
-{
-	// Intensity profile normalized to 1.
-	// Time is assumbed to be in FEM
-	double Sigma = input.Width()/(2*sqrt(2*log(2.)));
-
-	return generate_I(T, 1, Sigma);
-}
-
-void ComputeRateParam::GenerateRateKeys(vector<RateData::Rate> & ToSort)
-{
-	int CurrentFrom = 0;
-	int start = 0;
-	RatesFromKeys.push_back(0);
-	for (int i = 1; i < ToSort.size(); i++) {
-		if (ToSort[i].from != CurrentFrom) {
-			CurrentFrom = ToSort[i].from;
-			start = RatesFromKeys.back();
-			RatesFromKeys.push_back(i);
-			sort(ToSort.begin() + start, ToSort.begin() + RatesFromKeys.back(), sortRatesTo);
-		}
-	}
-}
-
-int ComputeRateParam::mapOccInd(vector<RadialWF> & Orbitals)
-{
-	int Result = 0;
-	for (size_t j = 0;j < hole_posit.size(); j++)	{
-		Result += (orbitals[j].occupancy() - Orbitals[j].occupancy())*hole_posit[j];
-	}
-
-	return Result;
-}
-
-double ComputeRateParam::T_avg_RMS(vector<pair<double, int>> conf_RMS)
-{
-  // Calculate pulse-averaged root mean square radius of an atom.
-  double tmp = 0;
-
-  vector<double> intensity = generate_G();
-  if (P.size()-1 != density.size()) return -1;
-  for (int m = 0; m < T.size(); m++) {
-    tmp = 0;
-    for (size_t i = 0;i < conf_RMS.size(); i++) tmp += P[i][m]*conf_RMS[i].first;
-    intensity[m] *= tmp;
-  }
-
-  Grid Time(T, dT);
-  Adams I(Time, 10);
-
-  return I.Integrate(&intensity, 0, T.size()-1);
-}
-
-
-double ComputeRateParam::T_avg_Charge()
-{
-  // Calculate pulse-averaged charge of atom.
-  double tmp = 0;
-
-  vector<double> intensity = generate_G();
-  for (int m = 0; m < T.size(); m++) {
-    tmp = 0;
-    for (size_t i = 0;i < charge.size(); i++) tmp += (input.Nuclear_Z() - i)*charge[i][m];
-    intensity[m] *= tmp;
-  }
-
-  Grid Time(T, dT);
-  Adams I(Time, 10);
-
-  return I.Integrate(&intensity, 0, T.size()-1);
-}

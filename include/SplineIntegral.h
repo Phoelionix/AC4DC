@@ -1,3 +1,9 @@
+/**
+ * @file SplineIntegral.h
+ * @brief Part of Sanders' continuum plasma extension.
+ * 
+ */
+
 /*===========================================================================
 This file is part of AC4DC.
 
@@ -23,13 +29,13 @@ This file is part of AC4DC.
 #include "SplineBasis.h"
 #include <omp.h>
 
+
 struct SparsePair
 {
     int idx;
     double val;
     SparsePair() {idx=0; val=0;};
     SparsePair( int i, double v ) : idx(i), val(v) {};
-    ~SparsePair() {};
     SparsePair& operator=(SparsePair tup) {
         idx = tup.idx;
         val = tup.val;
@@ -56,7 +62,7 @@ static const int GAUSS_ORDER_EE = 4;
 
 // Specialised quadrature rules for integrals of the form \int_-1^1 dx sqrt(x+1) f(x)
 // calculated using this excelent tool https://keisan.casio.com/exec/system/15041456505628
-static const int GAUSS_ORDER_SQRT = 6;
+static const int GAUSS_ORDER_SQRT = 6; // i.e. length of the below containers -S.P.
 static const double gaussX_sqrt[] = {-0.8937779292142465272226, -0.5977085045355194007473, -0.1747746522411171589491, 0.2850548710873168381781, 0.6839736445131432976427, 0.9372325703904229510983};
 static const double gaussW_sqrt[] = {0.0679848323648580100291, 0.2364639422771327772543, 0.4158087090592895378275, 0.5047613331425565232555, 0.4387744028120991078995, 0.2218248635081907754697};
 
@@ -75,6 +81,7 @@ typedef std::vector<std::vector<SparsePair> > eiiGraph;
 
 struct SparseTriple
 {
+    //SparseTriple() : K(0), L(0), val(0) {} // go away undefined behaviour.
     int K;
     int L;
     double val;
@@ -92,25 +99,72 @@ public:
     typedef std::vector<SparseTriple> sparse_matrix;
     typedef std::vector<SparsePair> pair_list;
 
+    /**
+     * @details
+     * Interpretation: J^th matrix element of dQ/dt given by
+     * Q_eii[a][xi][J][K] * P^a[xi] * F[K]
+     *       ^  ^   ^  ^
+     *       |  |   Basis indices (J index for LHS, K index for RHS)
+     *       |  state within atom a
+     *       Atom
+    */
     typedef std::vector<std::vector< std::vector< std::vector<double> > > > Q_eii_t;
-    // Interpretation: J^th matrix element of dQ/dt given by
-    // Q_eii[a][xi][J][K] * P^a[xi] * F[K]
-    //       ^  ^   ^  ^
-    //       |  |   Basis indices (J index for LHS, K index for RHS)
-    //       |  state within atom a
-    //       Atom
+
+
+    /**
+     * @details 
+     * Interpretation: J^th matrix element of dQ/dt given by
+     * vector<SparseTriple> &nv = Q_tbr[a][xi][J]
+     * for (auto& Q : nv) {
+     *      tmp += nv.val * P^a[xi] * F[nv.K] * F[nv.L]
+     * }
+    */
     typedef std::vector<std::vector<std::vector<sparse_matrix> > > Q_tbr_t;
-    // Interpretation: J^th matrix element of dQ/dt given by
-    // vector<SparseTriple> &nv = Q_tbr[a][xi][J]
-    // for (auto& Q : nv) {
-    //      tmp += nv.val * P^a[xi] * F[nv.K] * F[nv.L]
-    // }
+
+    /**
+     * @details
+     * Interpretation: J'th element of df/dt is given by
+     * for (auto& q : Q_EE[J][K]) {
+     *     tmp += q.val*F[K]*F[q.idx]
+     * }
+     * 1000 times fewer components than QTBR, not a problem
+    */
     typedef std::vector<std::vector<pair_list> > Q_ee_t;
-    // Interpretation: J'th element of df/dt is given by
-    // for (auto& q : Q_EE[J][K]) {
-    //     tmp += q.val*F[K]*F[q.idx]
-    // }
-    // 1000 times fewer components than QTBR, not a problem
+
+
+     /**
+     * @brief // Replaces inner knots with the ones provided, using the current boundaries to determine which are inner. 
+     * @details Note that knot[i] is just an energy. Intended for use in loading prev. simulation states.
+     * 
+     * @param inner_knots Inner knot energies in Hartrees [Ha]. The new (boundary-absent) knot vector, in case you knew not.
+     * @return SplineIntegral& 
+     */
+    SplineIntegral& operator=(vector<double> inner_knots){
+        // Count number of boundary knots
+        int lower = 0;
+        int upper = 0;
+        for(size_t k = 0; k  < knot.size(); k++){
+            if(knot[k] <= _min){  
+                lower++;}
+            else if (knot[k] > _max){ // note knot at _max is not boundary knot. knot.
+                upper++;}
+        }
+        // Remove inner knots
+        knot.erase(std::next(knot.begin(), lower), std::next(knot.begin(), knot.size()- upper));
+        // Insert new knots
+        knot.reserve(lower + inner_knots.size() + upper);
+        knot.insert(knot.begin() + lower,inner_knots.begin(),inner_knots.end());
+        // update num_funcs
+        num_funcs = inner_knots.size();
+        
+        compute_overlap(num_funcs);
+
+        return *this;        
+    }    
+
+    /// Returns the knot vector, boundary grid points included
+    vector<double> get_knot(){return knot;}
+
     SplineIntegral() {};
     void precompute_QEII_coeffs(vector<RateData::Atom>& Atoms);
     void precompute_QTBR_coeffs(vector<RateData::Atom>& Atoms);
@@ -128,6 +182,8 @@ public:
     Q_eii_t Q_EII;
     Q_tbr_t Q_TBR;
     Q_ee_t Q_EE;
+    static constexpr double DBL_CUTOFF_QEE = 1e-16;
+
 protected:
     // Computes the overlap of the J^th df/ft term with the K^th basis function in f
     double calc_Q_eii( const RateData::EIIdata& eii, size_t J, size_t K) const;
@@ -141,8 +197,7 @@ protected:
     bool _has_Qtbr = false;  // Flags wheter Q_TBR has been calculated
     bool _has_Qee = false;  // Flags wheter Q_EE has been calculated
 
-    static constexpr double DBL_CUTOFF_TBR = 1e-16;
-    static constexpr double DBL_CUTOFF_QEE = 1e-16;
+    static constexpr double DBL_CUTOFF_TBR = 1e-16; // 1e-16 is smallest machine pracision -S.P.
 };
 
 #endif /* end of include guard: AC4DC_SPLINEINTEGRAL_CXX_H */

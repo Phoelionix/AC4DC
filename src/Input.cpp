@@ -45,6 +45,7 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 	string comment = "//";
 	string curr_key;
 
+	// Put the information into FileContent
 	while (!infile.eof() && infile.is_open()) {
 		string line;
 		getline(infile, line);
@@ -60,7 +61,9 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 			FileContent[curr_key].push_back(line);
 		}
 	}
-
+	// Seems like this is old code that hasn't been removed, presumably this part was moved to MolInp.cpp. Though the #OUTPUT section is still present in the files. TODO try turning this off. - S.P.
+	// Update: 
+	/////////////////////////////////////////////////////
 	for (int n = 0; n < FileContent["#PULSE"].size(); n++) {
 		stringstream stream(FileContent["#PULSE"][n]);
 		if (n == 0) stream >> omega;
@@ -82,10 +85,13 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 			if (tmp == 'Y') write_intensity = true;
 		}
 	}
+	/////////////////////////////////////////////////////////
 
+	// This part almost definitely has old code that hasn't been removed, some of the parameters seems to pertain to plasma hyperparameters that the .mol files already do, so may be redundant
+	/////////////////////////////////////////////////////////
 	int line_indentifier = 0, num_grid_pts, num_orbitals, N, L, current_orbital = 0, occupancy;
 	double r_min, r_box;
-	map<char, int> angular = {{'s', 0}, {'p', 1}, {'d', 2}, {'f', 3}};
+	map<char, int> subshell_to_angular = {{'s', 0}, {'p', 1}, {'d', 2}, {'f', 3},{'N',-10}};   // 'N' flags usage of the shell energy instead of the orbital.
 
 	for (int n = 0; n < FileContent["#NUMERICAL"].size(); n++) {
 		stringstream stream(FileContent["#NUMERICAL"][n]);
@@ -93,7 +99,7 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 		if (n == 1) stream >> r_min;
 		if (n == 2) stream >> r_box;
 		if (n == 3) stream >> num_time_steps;
-		if (n == 4) stream >> omp_threads;
+		if (n == 4) stream >> omp_threads;  // Overridden by .mol
 		if (n == 5) {
 			int tmp = 0;
 			stream >> tmp;
@@ -111,6 +117,7 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 		}
 		if (n == 8) stream >> max_HF_iterations;
 	}
+	////////////////////////////////////////////////////////
 
 	// Assign a default value to avoid undefiend comparisons
 	num_orbitals = -10;
@@ -120,22 +127,24 @@ Input::Input(char *filename, vector<RadialWF> &Orbitals, Grid &Lattice, ofstream
 		if (n == 1) stream >> model;
 		if (n == 2) stream >> hamiltonian;
 		if (n == 3) stream >> num_orbitals;
-		// TODO: Refactor this to be less of a kludge
+		//( Orbitals )\\		// TODO: Refactor this to be less of a kludge
 		if (n > 3 && n < num_orbitals + 4) {
-			char tmp;
+			char tmp;  // the subshell (spdf)
 			stream >> N >> tmp >> occupancy;
 			if (occupancy == 0){
-				cerr << "[ Atomic ] \033[31;1mOrbital with N=" << N << ", L=" << angular[tmp] << " has occupancy=0 \033[0m" << endl;
+				cerr << "[ Atomic ] \033[31;1mOrbital with N=" << N << ", L=" << subshell_to_angular[tmp] << " has occupancy=0 \033[0m" << endl;
 			}
+			// It seems like this effectively throws if the wrong number of orbitals is specified. As virtual orbitals are allowed. -S.P.
 			if (N == 0){
-				cerr << "[ Atomic ] \033[31;1m Orbital with N=0 encountered: "<<filename<<"\033[0m" << endl;
-				cerr << "[ Atomic ] Did you specify the right number of orbitals?" << endl;
+				cerr << "[ Atomic ] \033[31;1m Incorrect number of orbital types specified in input file: "<<filename<<"\033[0m" << endl;
+				cerr << "Note that a shell approximation for orbitals only counts for 1" << endl;
 				throw runtime_error("Bad atomic input");
 			}
-			Orbitals.push_back(RadialWF(num_grid_pts));
+			Orbitals.push_back(RadialWF(num_grid_pts)); // Adds a radial wavefunction
 			Orbitals.back().set_N(N);
-			Orbitals.back().set_L(angular[tmp]);//setting L overwrites occupancy with 4L+2
+			Orbitals.back().set_L(subshell_to_angular[tmp]);//setting L overwrites occupancy with 4L+2 (which is simpler for DecayRates.cpp), so occupancy must be set after this.
 			Orbitals.back().set_occupancy(occupancy);
+			Orbitals.back().flag_shell();  // remember if this is a shell
 		}
 		if (n == num_orbitals + 4) stream >> potential;
 		if (n == num_orbitals + 5) stream >> me_gauge;

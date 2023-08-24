@@ -1,3 +1,10 @@
+/**
+ * @file FreeDistribution.cpp
+ * @brief @copybrief FreeDistribution.h
+ * @details Grid points are synonymous w/ knot points for the B-splines. Note that this code expands 
+ * on the original AC4DC model by introducing these grid points, allowing for an approximation of a 
+ * continuous electron density distribution along the energy basis. 
+ */
 /*===========================================================================
 This file is part of AC4DC.
 
@@ -25,56 +32,109 @@ This file is part of AC4DC.
 // to remove asserts
 
 // Initialise static things
-size_t Distribution::size=0;
+
+
 size_t Distribution::CoulombLog_cutoff=0;
 double Distribution::CoulombDens_min=0;
-SplineIntegral Distribution::basis;
+std::vector<indexed_knot> Distribution::knots_history;
+// These variables are modified by set_distribution_STATIC_ONLY or by dynamic grid updates when set_basis is called.
+SplineIntegral Distribution::basis; 
+size_t Distribution::size=0;  
 
-// Psuedo-constructor thing
-void Distribution::set_elec_points(size_t n, double min_e, double max_e, GridSpacing grid_style) {
-    // Defines a grid of n points
-    basis.set_parameters(n, min_e, max_e, grid_style);
-    Distribution::size=n;
-    Distribution::CoulombLog_cutoff = basis.i_from_e(grid_style.transition_e);
-    Distribution::CoulombDens_min = grid_style.min_coulomb_density;
-    cout<<"[ Free ] Estimating lnLambda based on first ";
-    cout<<CoulombLog_cutoff<<" points, up to "<<grid_style.transition_e<<" Ha"<<endl;
+// Psuedo-constructor thing (Maybe not anymore... -S.P.)
+void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, ManualGridBoundaries elec_grid_regions, DynamicGridPreset dyn_grid_preset){
+    // Defines a grid of num_funcs points (if manual, thsi is the total number of free-electron grid points specified in the .mol file.)
+    // where num_funcs is the number of non-boundary (i.e. "usable") splines/knots.
+    basis.set_parameters(grid_style, elec_grid_regions,regimes,dyn_grid_preset);
+    knots_history.push_back(indexed_knot{step,get_knot_energies()});
+    Distribution::size=basis.num_funcs;
+    Distribution::CoulombLog_cutoff = basis.i_from_e(param_cutoffs.transition_e);
+    #ifdef INFINITE_COULOMBLOG_CUTOFF
+    Distribution::CoulombLog_cutoff = basis.i_from_e(INFINITY);
+    #endif
+
+    Distribution::CoulombDens_min = param_cutoffs.min_coulomb_density;
+    cout<<"[ Free ] Estimating lnLambda for energies below ";
+    cout<<param_cutoffs.transition_e<<" Ha"<<endl;
     cout<<"[ Free ] Neglecting electron-electron below density of n = "<<CoulombDens_min<<"au^-3"<<endl;
 }
 
+
+void Distribution::set_basis(size_t step, Cutoffs param_cutoffs, FeatureRegimes regimes, std::vector<double> knots){
+    // Defines a grid of num_funcs points (if manual, thsi is the total number of free-electron grid points specified in the .mol file.)
+    // where num_funcs is the number of non-boundary (i.e. "usable") splines/knots.
+    basis.set_parameters(regimes, knots);
+    knots_history.push_back(indexed_knot{step,get_knot_energies()});
+    Distribution::size=basis.num_funcs;
+    Distribution::CoulombLog_cutoff = basis.i_from_e(param_cutoffs.transition_e);
+    #ifdef INFINITE_COULOMBLOG_CUTOFF
+    Distribution::CoulombLog_cutoff = basis.i_from_e(INFINITY);
+    #endif    
+    Distribution::CoulombDens_min = param_cutoffs.min_coulomb_density;
+    cout<<"[ Free ] Estimating lnLambda for energies below ";
+    cout<<param_cutoffs.transition_e<<" Ha"<<endl;
+    cout<<"[ Free ] Neglecting electron-electron below density of n = "<<CoulombDens_min<<"au^-3"<<endl;
+}
+
+void Distribution::set_spline_factors(vector<double> new_spline_factors){
+    f = new_spline_factors; 
+}
+void Distribution::set_distribution_STATIC_ONLY(vector<double> new_knot, vector<double> new_spline_factors) {
+    f = new_spline_factors; 
+    load_knot(new_knot);
+    f.resize(size);
+}
+void Distribution::load_knot(vector<double> loaded_knot) {
+    loaded_knot = get_trimmed_knots(loaded_knot); // Remove boundary knots
+    size = loaded_knot.size();
+    basis = loaded_knot; // note the overload!
+}
+
 // Adds Q_eii to the parent Distribution
-void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P) const {
+void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const {
     assert(basis.has_Qeii());
     assert(P.size() == basis.Q_EII[a].size());
     assert((unsigned) v.size() == size);
-    
     for (size_t xi=0; xi<P.size(); xi++) {
         // Loop over configurations that P refers to
+        double v_copy [size] = {0};
+        #pragma omp parallel for num_threads(threads) reduction(+ : v_copy) // Do NOT use collapse(2), it's about twice as slow.
         for (size_t J=0; J<size; J++) {
             for (size_t K=0; K<size; K++) {
-                v[J] += P[xi]*f[K]*basis.Q_EII[a][xi][J][K];
+                v_copy[J] += P[xi]*f[K]*basis.Q_EII[a][xi][J][K];
             }
         }
+        v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
     }
 }
 
+/**
+ * @brief 
+ * @details d/dt f = Q_B[f](t)  
+ * 
+ * @param v 
+ * @param a 
+ * @param P probabilities of each atomic state;  d/dt P[i] = \sum_i=1^N W_ij - W_ji ~~~~ P[j] = d/dt(average-atomic-state)
+ */
 // Puts the Q_TBR changes in the supplied vector v
-void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P) const {
+void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const {
     assert(basis.has_Qtbr());
     assert(P.size() == basis.Q_TBR[a].size());
-    for (size_t eta=0; eta<P.size(); eta++) {
+    double v_copy [size] = {0}; 
+    #pragma omp parallel for num_threads(threads) reduction(+ : v_copy) collapse(2)
+    for (size_t eta=0; eta<P.size(); eta++) {          // size = num configurations
         // Loop over configurations that P refers to
-        for (size_t J=0; J<size; J++) {
-            for (auto& q : basis.Q_TBR[a][eta][J]) {
-                 v[J] += q.val * P[eta] * f[q.K] * f[q.L];
+        for (size_t J=0; J<size; J++) {                   // size = num grid points
+            for (auto& q : basis.Q_TBR[a][eta][J]) {   // Thousands of iterations for each J - S.P.
+                 v_copy[J] += q.val * P[eta] * f[q.K] * f[q.L];
             }
         }
     }
+    v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
 }
 
-
-// Puts the Q_EE changes into v
-void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
+// Puts the Q_EE changes in the supplied vector v
+void Distribution::get_Q_ee(Eigen::VectorXd& v, const int & threads) const {
     assert(basis.has_Qee());
     double CoulombLog = this->CoulombLogarithm();
     // double CoulombLog = 3.4;
@@ -85,89 +145,26 @@ void Distribution::get_Q_ee(Eigen::VectorXd& v) const {
     // if (isnan(LnLambdaD)) LnLambdaD = 11;
     // cerr<<"LnDebLen = "<<LnLambdaD<<endl;
     // A guess. This should only happen when density is zero, so Debye length is infinity.
-    // Guess the sample size is about 10^5 Bohr. This shouldn't ultimately matter much.
+    // Guess the sample size is about 10^5 Bohr. This shouldn't ultimately matter much.   /// Attention - S.P. // Actually it seems this isn't active? Something something fences on roads.
+    double v_copy [size] = {0}; 
+    #pragma omp parallel for num_threads(threads) reduction(+ : v_copy)  collapse(2)       
     for (size_t J=0; J<size; J++) {
         for (size_t K=0; K<size; K++) {
             for (auto& q : basis.Q_EE[J][K]) {
-                 v[J] += q.val * f[K] * f[q.idx] * CoulombLog;
+                 v_copy[J] += q.val * f[K] * f[q.idx] * CoulombLog;   
             }
         }
     }
+    v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
 }
 
-void Distribution::get_Jac_ee(Eigen::MatrixXd& M) const{
-    // Returns Q^p_qjc^q + Q^p_jrc^r
-    assert(basis.has_Qee());
-    M = Eigen::MatrixXd::Zero(size,size);
-    double CoulombLog=3;
-    // double CoulombLog = CoulombLogarithm(size/3);
-    if (isnan(CoulombLog) || CoulombLog <= 0) return;
-    for (size_t P=0; P<size; P++) {
-        for (size_t Q=0; Q<size; Q++) {
-            for (auto& q : basis.Q_EE[P][Q]) {
-                // q.idx is  L
-                M(P,q.idx) += q.val * f[Q] * CoulombLog;
-                M(P, Q) += q.val * f[q.idx] * CoulombLog;
-            }
-        }
-    }
-}
-
-/*
-// Sets f_n+1 based on using a Newton-Rhapson-Euler stiff solver
-// Not currently used
-void Distribution::from_backwards_Euler(double dt, const Distribution& prev_step_dist, double tolerance, unsigned maxiter){
-
-    Eigen::MatrixXd M(size, size);
-    Eigen::MatrixXd A(size, size);
-    Eigen::VectorXd v(size);
-    Eigen::VectorXd old_curr_step(size);
-    
-    unsigned idx = 0;
-    const unsigned MAX_ITER = 200;
-
-    bool converged = false;
-
-    Eigen::Map<const Eigen::VectorXd > prev_step (prev_step_dist.f.data(), size);
-    Eigen::Map<Eigen::VectorXd > curr_step(f.data(), size);
-
-    while (!converged && idx < MAX_ITER){
-        
-        old_curr_step = curr_step;
-        v = Eigen::VectorXd::Zero(size);
-        this->get_Q_ee(v, size/3); // calculates v based on curr_step
-        
-        // Newton iterator
-        get_Jac_ee(M);
-        A = dt * basis.Sinv(M) - Eigen::MatrixXd::Identity(size,size);
-        
-        curr_step = -A.fullPivLu().solve(dt*v + prev_step - curr_step);
-        curr_step += prev_step;
-        
-        // Picard iterator
-        // curr_step = prev_step + dt*v;
-
-        double delta = fabs((curr_step-old_curr_step).sum());
-
-        if (delta/curr_step.sum() < tolerance) converged = true;
-        idx++;
-    }
-    if (idx == MAX_ITER) std::cerr<<"Max stiff-solver iterations exceeded"<<std::endl;
-}
-*/
-
-// // Taken verbatim from Rockwood as quoted by Morgan and Penetrante in ELENDIF
-// void Distribution::add_Q_ee(const Distribution& d, double kT) {
-//     double density=0;
-//     double CoulombLog = log(kT/(4*Constant::Pi*density));
-//     double alpha = 2*Constant::Pi*sqrt(2)/3*CoulombLog;
 
 
-// }
 
 // ============================
 // utility
 
+// See add_density_destribution comments
 // Expects T to have units of Ha
 void Distribution::add_maxwellian(double T, double N) {
     Eigen::VectorXd v(size);
@@ -176,8 +173,8 @@ void Distribution::add_maxwellian(double T, double N) {
         double a = basis.supp_min(i);
         double b = basis.supp_max(i);
         for (size_t j=0; j<10; j++) {
-            double e = (b-a)/2 *gaussX_10[j] + (a+b)/2;
-            v[i] +=  gaussW_10[j]*exp(-e/T)*basis(i, e)*pow(e,0.5);;
+            double e = (b-a)/2 *gaussX_10[j] + (a+b)/2;                 
+            v[i] +=  gaussW_10[j]*exp(-e/T)*basis(i, e)*pow(e,0.5);; 
         }
         v[i] *= (b-a)/2;
         v[i] *= N*pow(T, -1.5)*2/pow(Constant::Pi,0.5);
@@ -188,6 +185,115 @@ void Distribution::add_maxwellian(double T, double N) {
     }
 }
 
+// Assumes new basis has same B spline order.
+void Distribution::transform_basis(std::vector<double> new_knots){
+    int new_basis_order = basis.BSPLINE_ORDER;
+    //// Get knots that have densities
+    int num_new_splines = get_trimmed_knots(new_knots).size();   // TODO replace get_trimmed_knots with get_num_funcs?. 
+    //// Compute densities for knots
+    std::vector<std::vector<double>> new_densities(num_new_splines, std::vector<double>(64, 0));
+
+    // Cackle and iterate through each new spline.
+    for (size_t i=0; i<num_new_splines; i++){
+        // Use current basis to generate the density terms for gaussian integration at for each basis point.   
+        // Black magic. ଘ(੭ˊᵕˋ)੭.*･｡ﾟ
+        double a = new_knots[i];                  // i.e. <new_basis>.supp_min(i);
+        double b = new_knots[i+new_basis_order];  // i.e. <new_basis>.supp_max(i);        
+        for(size_t j=0; j < 64; j++){
+            double e = (b-a)/2 *gaussX_64[j] + (a+b)/2;
+            new_densities[i][j] = (*this)(e);  
+        }
+    }
+    // Change distribution to empty one in new basis.    
+    vector<double> new_f(num_new_splines,0);
+    set_distribution_STATIC_ONLY(new_knots,new_f);
+    // Add densities in new basis.
+    add_density_distribution(new_densities);
+}
+
+void Distribution::add_density_distribution(vector<vector<double>> densities){
+
+    assert(densities.size() == size);
+    Eigen::VectorXd v(size);
+    std::vector<double> energies = get_trimmed_knots(get_knot_energies());//basis.avg_e;//get_trimmed_knots(get_knot_energies());
+    for (size_t i=0; i<size; i++) {
+        v[i] = 0;
+        double a = basis.supp_min(i);
+        double b = basis.supp_max(i);
+        // This uses gaussian quadrature (https://pomax.github.io/bezierinfo/legendre-gauss.html)
+        // to approximate the integral of bspline_i.density_i between the boundaries of the splines, but with some basis shenanigans to spice it up.
+        // Thus v[i] would correspond to the total num electrons contributed by spline i. -S.P.
+        for (size_t j=0; j<64; j++) {
+            double e = (b-a)/2 *gaussX_64[j] + (a+b)/2;    // e = element E_i of gaussian quadrature sum
+            v[i] += gaussW_64[j]*basis.raw_bspline(i, e)*densities[i][j]; 
+        }
+        v[i] *= (b-a)/2;//*=densities[i]*(b-a)/2;
+    }
+    // Su = v, where u[i] is the electron density (in the grid basis?), S is the (sparse) overlap matrix, and v[i] is the num electrons the spline represents. 
+    Eigen::VectorXd u = this->basis.Sinv(v);
+    for (size_t i=0; i<size; i++) {
+        this->f[i] += u[i];
+    }
+}
+
+std::vector<double> Distribution::get_trimmed_knots(std::vector<double> knots){
+    // Remove boundary knots  // TODO CRITICAL this is possibly BAD as it might not work with non-default Z_0 and Z_inf?
+    while(knots[0] <= basis.min_elec_e() && knots.size() > 0){
+        knots.erase(knots.begin());
+    }        
+    while (knots.back() > basis.max_elec_e() && knots.size() > 0){
+        knots.erase(knots.end() - 1);
+    }   
+    return knots;
+}
+
+
+/**
+ * @brief Loads the static variables relating to the basis that are changed by grid updates.
+ * @param step_idx Step to load.
+ * @return returns the knot that was loaded for convenience.
+ */
+std::vector<double> Distribution::load_knots_from_history(size_t step_idx){
+    std::vector<double> loaded_knot = get_knots_from_history(step_idx);
+    load_knot(loaded_knot);
+    return loaded_knot;
+}
+
+size_t Distribution::most_recent_knot_change_idx(size_t step_idx){
+    size_t most_recent_update = 0;
+    // Find the step of the most recent knot update as of step_idx. (will return same step if given the step of the change.)
+    for(auto elem: knots_history){
+        if (elem.step > step_idx) 
+            break; 
+        most_recent_update = elem.step;
+    }
+    return most_recent_update;
+}
+
+
+size_t Distribution::next_knot_change_idx(size_t step_idx){
+    size_t next_knot_update = INFINITY;
+    // Find the step of the next knot update as of step_idx. (will return next update idx if given the step of the change.)
+    for(auto elem: knots_history){
+        if (elem.step > step_idx){
+            next_knot_update = elem.step;
+            break; 
+        }
+    } 
+    return next_knot_update;
+}
+
+
+std::vector<double> Distribution::get_knots_from_history(size_t step_idx){
+    vector<double> loaded_knot;
+    // Find the most recent grid update's knots as of step_idx.  (if knot was changed at step idx will return the knot loaded at that step.)
+    for(auto elem: knots_history){
+        if (elem.step > step_idx) 
+            break;
+        loaded_knot = elem.energy;
+    }
+    return loaded_knot;
+}
 // ==========================
 // IO
 
@@ -220,17 +326,25 @@ std::string Distribution::output_energies_eV(size_t num_pts) {
     return ss.str();
 }
 
-std::string Distribution::output_densities(size_t num_pts) const {
-    std::stringstream ss;
-    const double units = 1./Constant::eV_per_Ha/Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au;
-    size_t pts_per_knot = num_pts / basis.gridlen();
+/**
+ * @brief 
+ * @param num_pts 
+ * @param reference_knots knots to base the outputted energies off.
+ * @return 
+ */
+std::string Distribution::output_densities(size_t num_pts,std::vector<double> reference_knots) const {    
+    size_t pts_per_knot = num_pts / reference_knots.size();
     if (pts_per_knot == 0){
         pts_per_knot = 1;
         cerr<<"[ warn ] Outputting a small number of points per knot."<<endl;
     }
-    for (size_t i=0; i<basis.gridlen()-1; i++){
-        double e = basis.grid(i);
-        double de = (basis.grid(i+1) - e)/(pts_per_knot-1);
+    // Iterate through each knot
+    std::stringstream ss;
+    const double units = 1./Constant::eV_per_Ha/Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au;
+    for (size_t i=0; i<reference_knots.size()-1; i++){
+        // output pts_per_knot points between this knot to the next.
+        double e = reference_knots[i];
+        double de = (reference_knots[i+1] - reference_knots[i])/(pts_per_knot-1);
         for (size_t j=0; j<pts_per_knot; j++) {
             ss << (*this)(e)*units<<" ";
         e += de;
@@ -239,6 +353,59 @@ std::string Distribution::output_densities(size_t num_pts) const {
     return ss.str();
 }
 
+
+// for live plotting 
+////
+std::vector<double> Distribution::get_energies_eV(size_t num_pts) {
+    std::vector<double> energies(num_pts);
+    size_t pts_per_knot = num_pts / basis.gridlen();
+    if (pts_per_knot == 0){
+        pts_per_knot = 1;
+        energies.resize(basis.gridlen());
+        cerr<<"[ warn ] Outputting a small number of points per knot."<<endl;
+    }
+    for (size_t i=0; i<basis.gridlen()-1; i++){
+        double e = basis.grid(i);
+        double de = (basis.grid(i+1) - e)/(pts_per_knot-1);
+        for (size_t j=0; j<pts_per_knot; j++) {
+            energies[i*pts_per_knot + j]=e*Constant::eV_per_Ha;
+            e += de;
+        }
+    }
+    return energies;
+}
+std::vector<double> Distribution::get_densities(size_t num_pts,std::vector<double> reference_knots) const {    
+    std::vector<double> densities(num_pts);
+    size_t pts_per_knot = num_pts / reference_knots.size();
+    if (pts_per_knot == 0){
+        pts_per_knot = 1;
+        densities.resize(basis.gridlen());
+        cerr<<"[ warn ] Outputting a small number of points per knot."<<endl;
+    }
+    // Iterate through each knot
+    const double units = 1./Constant::eV_per_Ha/Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au;
+    for (size_t i=0; i<reference_knots.size()-1; i++){
+        // output pts_per_knot points between this knot to the next.
+        double e = reference_knots[i];
+        double de = (reference_knots[i+1] - reference_knots[i])/(pts_per_knot-1);
+        for (size_t j=0; j<pts_per_knot; j++) {
+            densities[i*pts_per_knot + j] = (*this)(e)*units;
+        e += de;
+        }
+    }
+    return densities;
+}
+///////
+
+
+
+/**
+ * @brief Returns the spline-interpolated electron density of states at any energy (In atomic units, i.e. 1/(Ha.a0^3)).
+ * Multiplying by E returns the electron energy density.
+ * @details This does a dot product of the "Frobenius-treated" basis with each spline's expansion coefficient.
+ * @param e energy to get density from.
+ * @return double 
+ */
 double Distribution::operator()(double e) const{
     double tmp=0;
     for (size_t j = 0; j < size; j++) {
@@ -272,10 +439,15 @@ void Distribution::addDeltaSpike(double e, double N) {
     f[idx] += N/basis.areas[idx];
 }
 
-
-void Distribution::applyDelta(const Eigen::VectorXd& v) {
+/**
+ * @brief f <-- f + df/dt|basis  
+ * @details NOT applying a dirac delta. 
+ * @param v 
+ */
+void Distribution::applyDeltaF(const Eigen::VectorXd& v,const int & threads) {
     Eigen::VectorXd u(size);
-    u= (this->basis.Sinv(v));
+    u= (this->basis.Sinv(v)); 
+    #pragma omp for schedule(dynamic) nowait
     for (size_t i=0; i<size; i++) {
         f[i] += u[i];
     }
@@ -294,6 +466,63 @@ void Distribution::addLoss(const Distribution& d, const LossGeometry &l, double 
     }
 }
 
+// Calculating the filtration rate of photoelectrons
+// The way that the photoelectrons leave will be somewhere between the rate corresponding to the 
+// limit of non-interacting, and the limit of Sanders' implementation, where the velocities of electrons
+// between steps are independent due to a high collision rate/low mean free path .
+// The difference being, one is a flat rate, whereas one is a percentage rate.
+// for a 1000eV temperature *equilibrium* plasma with carbon density and all electrons ionised, 
+// the collision rate is < 0.6785 /fs. Electrons are travelling at ~ 50-100 nm/fs, in a < 10-100 nm crystal...
+// This discussion is all likely very negligible.
+/**
+ * @brief 
+ * 
+ * @param d  distribution on previous step 
+ * @param bg background distribution
+ * @param l 
+ */
+void Distribution :: addFiltration(const Distribution& d, const Distribution& bg,const LossGeometry &l){
+    // first order approximation, valid if step size * vel. much smaller than volume
+    // For crystals our surface is flat, so the issue is 
+    //return 0.5*v;  
+    
+    // For a given particle within some volume and velocity v, the time for it to leave the volume is
+    // equivalent if we consider the volume to have -v instead. Indeed, we can do this with all particles
+    // in the volume with the same v. Assuming homogeneity and a spherical symmetry (which it roughly is for a small crystal anyway), we can
+    // calculate the rate that particles leave the volume by considering an equivalent volume passing over 
+    // an equivalent number of stationary particles. 
+    // slice of sphere:
+    // L0 is the characteristic length scale given in input file.
+    // v = sqrt(2*E) as m_e is 1 in a.u..
+    // dN/dt = V_sphere*v/(2*R) = v*(2/3)pi*R^2 * f[i]  
+    double c = 137.036;
+    double m = 1;       
+    double factor = 2./3*Constant::Pi*pow(l.L0,2);
+    for (size_t i=0; i < size; i++){
+         double v = c*sqrt( 1 - pow((1+basis.avg_e[i]/(m*c*c)), -2) );
+        f[i] += factor*v*(bg[i] - d[i]);
+    }
+}
+
+// Distribution Distribution :: relativistic_loss(const Distribution& d, const LossGeometry &l, double rho) {
+//     std::vector<double> knots = basis.get_knot();
+//     std::vector<std::vector<double>> lost_densities(basis.num_funcs, std::vector<double>(64, 0));
+//     for (size_t i=0; i<basis.num_funcs; i++){
+//         // Generate the density terms for gaussian integration at each basis point.   
+//         double a = knots[i];                  // i.e. <new_basis>.supp_min(i);
+//         double b = knots[i+basis.BSPLINE_ORDER];  
+//          for(size_t j=0; j < 64; j++){
+//             double e = (b-a)/2 *gaussX_64[j] + (a+b)/2;
+//                 // Get the density multiplied by the filtration rate.
+//                 lost_densities[i][j] = (*this)(e) * filtration_rates(e);  
+//         }
+//     }    
+//     Distribution loss_distribution;
+//     loss_distribution = 0; 
+//     loss_distribution.add_density_distribution(lost_densities);    
+//     return loss_distribution;
+// }
+
 void Distribution::addDeltaLike(Eigen::VectorXd& v, double e, double height) {
     assert(e>basis.supp_min(0));
     for (size_t i=0;i<size; i++) {
@@ -303,7 +532,7 @@ void Distribution::addDeltaLike(Eigen::VectorXd& v, double e, double height) {
 }
 
 double Distribution::norm() const{
-    assert(f.size() == Distribution::size);
+    assert(f.size() == Distribution::size);  // A very blessed check -S.P.
     double x=0;
     for (auto&fi : f) {
         x+= fabs(fi);
@@ -331,6 +560,7 @@ double Distribution::density(size_t cutoff) const {
 
 // Returns an estimate of k*T
 // based on kinetic energy density of the plasma below the index given by 'cutoff'
+// unused
 double Distribution::k_temperature(size_t cutoff) const {
     double tmp=0;
     // Dodgy integral of e * f(e) de
@@ -376,10 +606,12 @@ double Distribution::integral(double (g)(double)) {
     return retval;
 }
 
-
 ostream& operator<<(ostream& os, const Distribution& dist) {
     for (size_t i= 0; i < Distribution::size; i++) {
         os<<" "<<dist[i]/Constant::eV_per_Ha;
     }
     return os;
 }
+
+
+

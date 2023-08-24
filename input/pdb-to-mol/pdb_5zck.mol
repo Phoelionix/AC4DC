@@ -1,0 +1,41 @@
+// Template AC4DC input file created from 5zck.pdb
+
+#ATOMS
+N 5
+C 17
+O 8
+
+#VOLUME
+515.69      // Volume per molecule in Angstrom^3.
+2000      // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+none      // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
+
+#PULSE
+6000         // Photon energy in eV.
+10           // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
+2500         // Pulse fluence in 10^4 * J/cm^2.
+square       // Pulse shape.
+
+#NUMERICAL
+400000       // Initial guess for number of time step points for rate equation. (TODO following is not working currently?: -S.P.) If the value is 0, program skips rate equation solving step.
+12           // Number of threads in OpenMP.
+0            // [only for nonthermal] minimum free-electron energy in eV.
+10000        // [only for nonthermal] maximum free-electron energy in eV. Should not be near photon energy.
+100          // total number of free-electron grid points.
+powerlaw     // electron grid type.
+35           // Number of "low-energy" grid points (hybrid & powerlaw grids only).
+2000         // transition energy in eV.
+
+#OUTPUT
+800          // Number of time steps in the output files.
+4000         // Number of free-electron grid points in output file.
+N            // Write atomic charges in a separate file (Y/N)?
+Y            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
+
+#DEBUG
+1         // Proportion of time steps to iterate through before stopping early.
+0.001         // Interval to update current timestep [fs].
+####END####
+
+Notes:

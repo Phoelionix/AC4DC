@@ -1,3 +1,8 @@
+/**
+ * @file ee_dynamics.cpp
+ * @brief 
+ * 
+ */
 #include "HybridIntegrator.hpp"
 #include "RateSystem.h"
 #include <iostream>
@@ -61,14 +66,14 @@ public:
         }
     }
 protected:
-    void sys(const Distribution& q, Distribution& qdot, const double t) {
+    void sys_bound(const Distribution& q, Distribution& qdot, const double t) {
         qdot=0;
     }
-    void sys2(const Distribution& q, Distribution& qdot, const double t) {
+    void sys_ee(const Distribution& q, Distribution& qdot) {
         qdot=0;
         Eigen::VectorXd v = Eigen::VectorXd::Zero(Distribution::size);
         q.get_Q_ee(v);
-        qdot.applyDelta(v);
+        qdot.applyDeltaF(v);
         if (isnan(qdot.norm())) throw runtime_error("NaN encountered in sdot");
     }
 };

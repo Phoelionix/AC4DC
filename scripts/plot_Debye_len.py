@@ -7,7 +7,7 @@ matplotlib.rcParams.update({
     'pgf.rcfonts': False,
 })
 import matplotlib.pyplot as plt
-from plot_molecular_charge import Plotter, fit_maxwell
+from plotter_core import Plotter, fit_maxwell
 import sys
 import numpy as np
 from scipy import constants as C

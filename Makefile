@@ -1,9 +1,28 @@
+# Instructions for a fresh install for C++ beginners.
+# --Compiling--
+#(0. Run 'sudo apt-get install build-essential' )
+# 1. Install brew (e.g. linux: https://docs.brew.sh/Homebrew-on-Linux#requirements)
+# 2. Run 'brew install [formula]' on following formulae: gcc@10, eigen, ncurses
+# 3. Ensure correct links for INC and LIB in this file. 
+# 4. Run 'make'
+#
+# Optional (well not yet optional TODO), live plotting:
+# 'brew install python3.9' 
+# Run 'pip3.9 install' on: pybind11, plotly, scipy.
+#
+# --Running (see README.md)--
+# 'mv bin/ac4dc ac4dc'
+# './ac4dc input/carbon_example.mol'  
+# If the file cannot execute it may be a linking error. Run ldd ac4dc to check dependencies.
 
-CPP := g++-12
+# Tested on WSL2 (Ubuntu)
+# -----------------------------------------------------------------------------------------------
 
-LIB := -fopenmp
+CPP := g++-10 #(not g++-11) 
 
-INC := -I/opt/homebrew/include/eigen3 -Iinclude
+LIB := -lncurses -fopenmp -lpython3.9 # Link special external libraries here! (-L for directory of libraries). Eigen contains no source files (pure header implementation) thus is excluded. 
+
+INC := -Iinclude -I/home/linuxbrew/.linuxbrew/include/eigen3 -I/usr/include/ncursesw $(shell python3.9 -m pybind11 --includes)
 
 SRCDIR := src
 BUILDDIR := build
@@ -14,7 +33,7 @@ SRCEXT := cpp
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT) )
 
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
-CXXFLAGS := -std=c++17 -fopenmp -MD -g -Wall
+CXXFLAGS := -std=c++17 -fopenmp -MD -g -Wall  -L/usr/lib/x86_64-linux-gnu -lncurses 
 
 debug: CXXFLAGS += -DDEBUG -Wpedantic
 release: CXXFLAGS += -O3 -DNDEBUG
@@ -25,13 +44,13 @@ TINC := $(INC) -I./
 
 $(TARGET): $(OBJECTS)
 	@echo " Linking $(TARGET)... ";
-	@echo " $(CPP) $^ $(LIB) -o $(TARGET) "; $(CPP) $^ $(LIB) -o $(TARGET)
+	@echo " $(CPP) $^ $(LIB) -o $(TARGET) "; $(CPP) $^ $(LIB) -o $(TARGET) 
 
 all: $(TARGET)
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
 	@mkdir -p $(BUILDDIR) bin $(BUILDDIR)/Wigner $(BUILDDIR)/$(MAINSUBDIR)
-	@echo " $(CPP) $(CXXFLAGS) $(INC) -c -o $@ $<"; $(CPP) $(CXXFLAGS) $(INC) -c -o $@ $<
+	@echo " $(CPP) $(CXXFLAGS) $(INC) -c -o $@ $<"; $(CPP) $(CXXFLAGS) $(INC) -c -o  $@ $<
 
 test: $(TESTS)
 	@mkdir -p bin/tests tmp testOutput
@@ -51,7 +70,7 @@ debug: all
 release: all
 
 scrub:
-	$(RM) build/FreeDistribution.o build/ElectronSolver.o build/SplineBasis.o build/SplineIntegral.o
+	$(RM) build/FreeDistribution.o build/ElectronRateSolver.o build/SplineBasis.o build/SplineIntegral.o
 
 clean:
 	@echo " Cleaning...";

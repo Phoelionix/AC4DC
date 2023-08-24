@@ -1,0 +1,41 @@
+// AC4DC input file generated from: input/templates/water_drop.mol
+
+#ATOMS
+O_fast 1  // Use N_fast if comparing with sim using N as an avg atom for CNO.
+
+#VOLUME
+29.90      // Volume per molecule in Angstrom^3.
+20000         // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+spherical         // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
+
+#PULSE
+12000         // Photon energy in eV.
+25.0         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
+gaussian     // Pulse shape.
+
+#USE_COUNT
+true         // enabled? true/false.
+0.01            // Photon density (x10^12 ph.µm-2)
+
+#NUMERICAL
+1000        // Initial guess for number of time step points for rate equation.
+18           // Number of threads in OpenMP.
+
+#DYNAMIC_GRID
+low          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
+0.25         // Grid update period in fs, (dynamic grid only).
+
+#OUTPUT
+800          // Number of time steps in the output files.
+4000         // Number of free-electron grid points in output file.
+N            // Write atomic charges in a separate file (Y/N)?
+Y            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
+
+#DEBUG
+999           // Simulation cutoff time in fs (can end before but not after).
+0.01          // Interval to display current timestep [fs].
+####END####
+
+Notes:
+Effectively infinite water droplet (2 micrometres). Leaving out H for now since it's bugged and also just not important.

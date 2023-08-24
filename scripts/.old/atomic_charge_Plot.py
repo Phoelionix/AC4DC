@@ -26,7 +26,7 @@ class Plotter:
         self.autorun = True
 
     def check_current(self):
-        inp = self.p+"/input/"+self.species+".inp"
+        inp = self.p+"/input/atoms/"+self.species+".inp"
         oup = self.p+"/output/log_"+self.species+".txt"
 
         lastedit = path.getmtime(inp)
@@ -36,7 +36,7 @@ class Plotter:
             print("File\n"+inp+"\n is newer than  \n"+oup)
             print("Rerunning ac4dc...")
 
-            subprocess.run(self.p+'/bin/ac4dc input/{}.inp'.format(self.species), shell=True, check=True)
+            subprocess.run(self.p+'/bin/ac4dc input/atoms/{}.inp'.format(self.species), shell=True, check=True)
 
     def update(self):
         self.check_current()

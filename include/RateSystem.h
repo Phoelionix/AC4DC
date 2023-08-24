@@ -1,3 +1,7 @@
+/**
+ * @file RateSystem.h
+ * @brief 
+ */
 /*===========================================================================
 This file is part of AC4DC.
 
@@ -27,12 +31,18 @@ This file is part of AC4DC.
 
 
 
-// Class responsible for storing the system state.
+/**
+ * @brief Class responsible for storing the system state at a moment in time.
+ * @details y[i] corresponds to t[i] throughout the plasma code, which is somewhat unfortunate.
+ * y[i].F and y.atomP are everything you'd want to pop on a plot's axes for time t[i]... perhaps, even, on the y-axis against t? -S.P.
+ */
 class state_type
 {
 public:
-    std::vector<bound_t> atomP; // Probabilities of state for all atoms.
-    Distribution F; // Energy distribution function
+    /// Probabilities of state for all atoms.
+    std::vector<bound_t> atomP; 
+    /// Energy distribution function
+    Distribution F;   
     double bound_charge;
 
     state_type();

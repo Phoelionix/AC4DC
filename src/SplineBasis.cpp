@@ -1,3 +1,8 @@
+/**
+ * @file SpineBasis.cpp
+ * @brief @copybrief SplineBasis.h
+ * 
+ */
 /*===========================================================================
 This file is part of AC4DC.
 
@@ -57,10 +62,12 @@ int r_binsearch(double val, const double* arr, int len, int idx) {
     }
 }
 
+/// @todo make variable names clearer
 int lower_idx(double val, const std::vector<double>& arr){
     return r_binsearch(val, arr.data(), arr.size(), 0);
 }
 
+/// @todo make variable names clearer
 int BasisSet::i_from_e(double e) {
     // size_t idx = r_binsearch(e, avg_e.data(), avg_e.size(), 0);
     size_t idx = lower_idx(e, avg_e);
@@ -74,10 +81,28 @@ int BasisSet::lower_i_from_e(double e) {
     return lower_idx(e, avg_e);
 }
 
-// Constructs the grid over which the electron distribution is solved. 
-void BasisSet::set_knot(const GridSpacing& gt){
-    int Z_0 = gt.zero_degree_0;
-    int Z_inf = gt.zero_degree_inf;
+/**
+ * @brief Constructs the grid over which the electron distribution is solved. 
+ * @details Idea: Want num_funcs usable B-splines
+ *  If grid has num_funcs+k+1 points, num_funcs of these are usable splines
+ *  grid layout for open boundary:
+ *  t0=t1=t2=...=tk-1,   tn+1 = tn+2 =... =tn+k
+ *  homogeneous Dirichlet boundary:
+ *  t0=t1=t2=...=tk-2,   tn+2 =... =tn+k
+ *  Neumann boundary:
+ *  t0=t1=...=tk-3, tn+3=...=tn+k
+ *     
+ *  boundary at minimm energy enforces energy conservation
+ * 
+ * @param gt grid type, also referred to as grid_style. Only used for zero_degree_0 and zero_degree_inf. TODO really need to refactor around how we are using gt.
+ */
+
+std::vector<double> BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rgm, bool trial, bool do_not_update_regions){ // 'trial' isn't used by program currently
+    if (!do_not_update_regions){
+        update_regions(rgm);
+    }
+    Z_0 = gt.zero_degree_0;
+    Z_inf = gt.zero_degree_inf;
     if( BSPLINE_ORDER - Z_0 < 0){
         std::cerr <<"Failed to set boundary condition at 0, defaulting to "<<0<<std::endl;
         Z_0 = 0;
@@ -88,50 +113,146 @@ void BasisSet::set_knot(const GridSpacing& gt){
     } 
 
     size_t start = BSPLINE_ORDER-Z_0-1;
-    size_t num_int = num_funcs + Z_inf - start;
-    
 
-    double A_lin = (_max - _min)/(num_int-1);
-    double A_sqrt = (_max - _min)/(num_int-1)/(num_int-1);
-    // exponential grid
-    if ( (gt.mode == GridSpacing::exponential) && _min <= 0) {
-        throw runtime_error("Cannot construct an exponential grid with zero minimum energy.");
+    std::sort(regions.begin(),regions.end()); // Sort by min energy.
+    // Set first energy to minimum of all grids present.
+    std::vector<double> boundary_E = {regions[0].get_E_min()};        
+
+    std::cout<<"[ Dynamic Knot ] Using splines of "<<BSPLINE_ORDER<<"th order "<<std::endl;
+    std::cout<<"[ Dynamic Knot ] (i.e. piecewise polynomial has leading order x^"<<BSPLINE_ORDER-1<<")"<<std::endl;
+
+    std::vector<double> new_knots;
+    new_knots.reserve(400+BSPLINE_ORDER+1);
+
+    // Set the k - zero_deg repeated knots
+    for (size_t i=0; i<start; i++) {
+        new_knots.push_back(_min);
     }
-    double A_exp = _min;
-    double lambda_exp = (log(_max) - log(_min))/(num_int-1);
-    // hybrid linear-linear grid
+    // minimum (0)
+    new_knots.push_back(_min);
 
-    size_t M = gt.num_low + 1;
-
-    assert(num_funcs > M);
-    assert(_max > gt.transition_e);
-
-    double B_hyb = (gt.transition_e - _min)/M;
-    double C_hyb = (_max - gt.transition_e)/(num_funcs - M);
+    size_t i=start;
+    // Dynamically choose next grid point. Idea: We move to next point based on whichever region's rule gives the closest one. 
+    while(true){
+        i++;
+        // Find the smallest grid point that regions that the point is within want.
+        double next_point = INFINITY;
+        for (size_t r = 0; r < regions.size(); r ++){
+            double point =  regions[r].get_next_knot(new_knots[i-1],i==start+1); // If first non_zero point, we get the minimum of the regions since it is safe to do so (we don't do it at other points so that no knots are closer together than the regions it is within/neighbouring.)
+            if (point > new_knots[i-1]){
+                next_point = min(next_point,point);
+            }
+        }
+        if(next_point == INFINITY){
+            // We are outside the max, add max point + boundary thing and finish.
+            new_knots.push_back(_max);
+            new_knots.push_back(_max+500/Constant::eV_per_Ha);
+            break;
+        }
+        assert(next_point > new_knots[i-1]);
+        assert(i < 999);
+        new_knots.push_back(next_point);
+    }
+    size_t tmp_num_funcs = new_knots.size()-(start+1)-1;
+    // t_{n+1+z_infinity} has been set now. Repeat it until the end.
+    for (size_t i= tmp_num_funcs + 1 + Z_inf; i< tmp_num_funcs+BSPLINE_ORDER; i++) {
+        new_knots.push_back(new_knots[tmp_num_funcs + Z_inf]);
+    }
     
-    double p_powlaw = (log(_max-_min) - log(gt.transition_e - _min))/(log(1.*num_funcs/M));
-    double A_powlaw = (_max - _min)/pow(num_funcs, p_powlaw);
+    if (!trial){
+        num_funcs = tmp_num_funcs;
+        knot = new_knots;
+    }
+    #ifdef DEBUG
+    std::cerr<<"Knot: [ ";
+    for (auto& ki : new_knots) {
+        std::cerr<<ki<<" ";
+    }
+    std::cerr<<"]\n";
+    #endif    
+    return new_knots;
+}
 
 
-    std::cout<<"[ Knot ] Using splines of "<<BSPLINE_ORDER<<"th order "<<std::endl;
-    std::cout<<"[ Knot ] (i.e. piecewise polynomial has leading order x^"<<BSPLINE_ORDER-1<<")"<<std::endl;
-    if ( gt.mode == GridSpacing::powerlaw) {
-        std::cout<<"[ Knot ] Using power-law exponent "<<p_powlaw<<std::endl;
+
+void BasisSet::manual_set_knot(const GridSpacing& gt){
+    Z_0 = gt.zero_degree_0;
+    Z_inf = gt.zero_degree_inf;
+    if( BSPLINE_ORDER - Z_0 < 0){
+        std::cerr <<"Failed to set boundary condition at 0, defaulting to "<<0<<std::endl;
+        Z_0 = 0;
+    }
+    if (BSPLINE_ORDER - Z_inf < 0){
+        std::cerr <<"Failed to set boundary condition at infinity, defaulting to "<<BSPLINE_ORDER<<std::endl;
+        Z_inf = BSPLINE_ORDER;
+    } 
+
+    size_t start = BSPLINE_ORDER-Z_0-1;
+    //size_t num_int = num_funcs + Z_inf - start;
+
+    /// Wiggle destroyer.  Continuous piecewise.
+    // e.g. 6k eV photon beam. Have delta-like stuff in MB and dirac.
+    // Idea: Define e.g. four energy regions: (eV) <-0--low--10--mid--200-trans.--2000--high--10000--surplus->
+    // We want to have higher density in the mid and high energy regions, and low in the low, transition, and surplus regions.
+    // Form of E = An^p + B
+
+    // Force first point to be 0
+    _manual_region_bndry_index.insert(_manual_region_bndry_index.begin(), 0);
+    _manual_region_bndry_energy.insert(_manual_region_bndry_energy.begin(), 0);
+    _region_powers.insert(_region_powers.begin(), 0);
+    assert(_manual_region_bndry_energy.size() == _manual_region_bndry_index.size());
+    assert(_region_powers.size() == _manual_region_bndry_index.size() - 1);
+
+    std::vector<double> hyb_powlaw_factor (_manual_region_bndry_index.size() - 1,0.);
+    // Params that define region boundaries:
+    int n_M, n_N; //Index of first point in region/next region.  
+    double E_M, E_N; // Corresponding energies.
+    double p;        // power law that sparseness of grid points in each region follows.
+    // R region boundaries and 1 power law for each region --> R - 1 power laws.
+    // 
+    for (size_t rgn=1; rgn< _region_powers.size(); rgn++){   // (0 to pow of 0 gives 1 so skip n=0 point.).
+        n_M = _manual_region_bndry_index[rgn];
+        E_M = _manual_region_bndry_energy[rgn];
+        n_N = _manual_region_bndry_index[rgn+1];
+        E_N = _manual_region_bndry_energy[rgn+1];
+        p = _region_powers[rgn];
+        
+        hyb_powlaw_factor[rgn] = (E_N - E_M)/pow(n_N-n_M, p);
+    }
+    // classic power law
+    bool classic_mode = false;
+    #ifdef CLASSIC_MANUAL_GRID
+        classic_mode = true;
+    #endif
+    double p_powlaw;
+    double A_powlaw;
+    if (classic_mode){
+        double transition_e  = 2000/Constant::eV_per_Ha;
+        size_t num_low = 35;
+        size_t M = num_low + 1;
+        p_powlaw = (log(_max-_min) - log(transition_e - _min))/(log(1.*num_funcs/M));
+        A_powlaw = (_max - _min)/pow(num_funcs, p_powlaw);
     }
 
+    std::cout<<"[ Manual Knot ] Using splines of "<<BSPLINE_ORDER<<"th order "<<std::endl;
+    std::cout<<"[ Manual Knot ] (i.e. piecewise polynomial has leading order x^"<<BSPLINE_ORDER-1<<")"<<std::endl;
 
-    // std::function<double(double)> f = [=](double B) {return _min*exp(B*M/(_max - B*(num_int-M))) + B*(num_int-M) - _max;};
-    // double B_hyb = 0;
-    // if (gt.mode == GridSpacing::hybrid){
-    //     B_hyb = find_root(f, 0, _max/(num_int-M + 1));
-    // }
-    // double C_hyb = _max - B_hyb * num_int;
-    // double lambda_hyb = (log(B_hyb*M+C_hyb) - log(_min))/M;
+    std::cout<<"[ Manual Knot ] Using power-law exponents: "; 
+    for (size_t j = 0; j < _region_powers.size(); j++){
+        cout << _region_powers[j] << ", ";
+    }
+    std::cout << std::endl; 
+    std::cout<<"[ Manual Knot ] Using power-law factors: ";
+    for (size_t j = 0; j < hyb_powlaw_factor.size(); j++){
+        cout << hyb_powlaw_factor[j] << ", ";
+    }       
+    std::cout << std::endl;         
+
 
     knot.resize(num_funcs+BSPLINE_ORDER+1); // num_funcs == n + 1
 
-    // Set the k - zero_deg repeated knots
     
+    // Set the k - zero_deg repeated knots
     for (size_t i=0; i<start; i++) {
         knot[i] = _min;
     }
@@ -139,35 +260,35 @@ void BasisSet::set_knot(const GridSpacing& gt){
     // TODO:
     // - Move this grid-construction code to GridSpacing.hpp
     // - Refactor to incorporate boundaries max and min into the GridSpacing object
-    // - Unfuck the boundary conditions (seems to break for BSPLINE_ORDER=3?)
+    // - Consider better method to deal with MB divergence at low T.
 
-    // At i=0, the value of knot will still be _min
+    // Keep in mind: At i=0, the value of knot will still be _min
+    bool used_good_grid = false;
+
     for(size_t i=start; i<=num_funcs + Z_inf; i++) {
-        switch (gt.mode)
-        {
-        case GridSpacing::linear:
-            knot[i] = _min + A_lin*(i-start); // linear spacing
-            break;
-        case GridSpacing::quadratic:
-            knot[i] = _min + A_sqrt*(i-start)*(i-start); // square root spacing
-            break;
-        case GridSpacing::exponential:
-            knot[i] = A_exp*exp(lambda_exp*(i-start));
-            break;
-        case GridSpacing::hybrid:
-            // knot[i] = (i >=M ) ? B_hyb*(i-start) + C_hyb : A_exp * exp(lambda_hyb*(i-start));
-            knot[i] = (i-start < M) ? B_hyb*(i-start) + _min : C_hyb*(i-start-M) + gt.transition_e;
-            break;
-        case GridSpacing::powerlaw:
-            knot[i] = A_powlaw * pow(i-start, p_powlaw) + _min;
-            break;
-        default:
-            throw std::runtime_error("Grid spacing has not been defined.");
-            break;
+        if (!classic_mode){
+            used_good_grid = true;        
+            // Generalised custom spacing
+            //  Get the index of the region (rgn) that this point is part of.
+            size_t rgn = 0;
+            for( ; rgn < _region_powers.size(); rgn++){
+                if( i - start < _manual_region_bndry_index[rgn+1]
+                    || rgn == _region_powers.size() - 1){
+                    break;
+                    }
+            }
+            n_M = _manual_region_bndry_index[rgn];
+            E_M = _manual_region_bndry_energy[rgn];
+            p = _region_powers[rgn];            
+            // Calculate the knot energy
+            knot[i] = hyb_powlaw_factor[rgn] * pow(i - n_M - start, p) + E_M;
         }
-        
+        else{
+            knot[i] = A_powlaw * pow(i-start, p_powlaw) + _min;
+        }        
     }
 
+    if(!used_good_grid) std::cout << "WARNING, this grid type is obsolete, if a dynamic grid is not possible, using a targeted grid is favourable. See README." <<std::endl; 
     // t_{n+1+z_infinity} has been set now. Repeat it until the end.
     for (size_t i= num_funcs + 1 + Z_inf; i< num_funcs+BSPLINE_ORDER; i++) {
         knot[i] = knot[num_funcs + Z_inf];
@@ -183,18 +304,23 @@ void BasisSet::set_knot(const GridSpacing& gt){
     #endif
 }
 
-// Sets up the B-spline knot to have the appropriate shape (respecting boundary conditions)
-void BasisSet::set_parameters(size_t num_int, double min, double max, const GridSpacing& gt) {
-    // gt.zero_degree_0: The number of derivatives to set to zero: 0 = open conditions, 1=impose f(0)=0, 2=impose f(0)=f'(0) =0
-    // num_int: the number of Bsplins to use in the basis
-    // min: minimum energy
-    // max: maximum energy
-    this->_min = min;
-    this->_max = max;
+/**
+ * @brief Sets up the B-spline knot to have the appropriate shape (respecting boundary conditions)
+ * @details 
+ * 
+ * @param _num_funcs the number of B-splines to use in the basis. 
+ * @param min minimum energy
+ * @param max maximum energy
+ * @param gt gt.zero_degree_0: The number of derivatives to set to zero: 0 = open conditions, 1=impose f(0)=0, 2=impose f(0)=f'(0) =0
+ * @param  
+ */
+void BasisSet::set_parameters(const GridSpacing& gt, ManualGridBoundaries& manual_elec_grid_regions, FeatureRegimes& regimes,DynamicGridPreset dyn_grid_preset) {
+    this->_manual_region_bndry_index = manual_elec_grid_regions.bndry_idx;   // TODO: refactor, can replace min and max with array of region start and region ends. -S.P.
+    this -> _manual_region_bndry_energy = manual_elec_grid_regions.bndry_E;   
+    this -> _region_powers = manual_elec_grid_regions.powers;   
 
-    num_funcs = num_int;
-    // Idea: Want num_int usable B-splines
-    // If grid has num_int+k+1 points, num_int of these are usable splines
+    // Idea: Want num_funcs usable B-splines
+    // If grid has num_funcs+k+1 points, num_funcs of these are usable splines (num_int = num_funcs + Z_inf - start)
     // grid layout for open boundary:
     // t0=t1=t2=...=tk-1,   tn+1 = tn+2 =... =tn+k
     // homogeneous Dirichlet boundary:
@@ -202,15 +328,34 @@ void BasisSet::set_parameters(size_t num_int, double min, double max, const Grid
     // Neumann boundary:
     // t0=t1=...=tk-3, tn+3=...=tn+k
     
-    // boundary at minimm energy enforces energy conservation
-    set_knot(gt);
-    
+    // boundary at minimum energy enforces energy conservation 
+    this->_min = 0;
+    if (gt.mode == GridSpacing::dynamic){
+        if (dyn_grid_preset.selected != DynamicGridPreset::unknown) // By default this will be False, only on initialisation of sim do we pass the preset to this function.
+            initialise_regions(dyn_grid_preset);
+        assert(regions.size() > 0);
+        this->_max = dynamic_max_inner_knot();  
+        set_knot(gt,regimes);        
+    }
+    else{    
+        assert(gt.mode == GridSpacing::manual);
+        this->_max = manual_elec_grid_regions.bndry_E.back();
+        num_funcs = manual_elec_grid_regions.bndry_idx.back();
+        manual_set_knot(gt);
+    }    
+    // std::cout << "Knots set to: ";
+    // for (double e: knot)
+    //     std::cout << e*Constant::eV_per_Ha << ' ';
+    // cout << std::endl;
+    compute_overlap(num_funcs);
+}
 
-    
+
+void BasisSet::compute_overlap(size_t num_funcs){
     std::vector<Eigen::Triplet<double>> tripletList;
     tripletList.reserve(BSPLINE_ORDER*2*num_funcs);
     
-    // Eigen::MatrixXd S(num_funcs, num_funcs);
+    // NB: S is -> Eigen::MatrixXd S(num_funcs, num_funcs);
     for (size_t i=0; i<num_funcs; i++) {
         for (size_t j=i+1; j<num_funcs; j++) {
             double tmp=overlap(i, j);
@@ -225,8 +370,8 @@ void BasisSet::set_parameters(size_t num_int, double min, double max, const Grid
         tripletList.push_back(Eigen::Triplet<double>(i,i,overlap(i, i)));
         // S(i,i) = overlap(i,i);
     }
-    // Compute overlap matrix
-    Eigen::SparseMatrix<double> S(num_funcs, num_funcs);
+    /// Compute overlap matrix   //s\/ quick and fast note - if we use the grid basis (with num_func splines) the splines overlap. S takes us to a spline-independent basis I believe -S.P.
+    Eigen::SparseMatrix<double> S(num_funcs, num_funcs);   // (num_funcs rows and cols). 
     S.setFromTriplets(tripletList.begin(), tripletList.end());
     // Precompute the LU decomposition
     linsolver.analyzePattern(S);
@@ -236,10 +381,10 @@ void BasisSet::set_parameters(size_t num_int, double min, double max, const Grid
         throw runtime_error("Factorisation of overlap matrix failed!");
     }
 
-    avg_e.resize(num_int);
-    log_avg_e.resize(num_int);
-    areas.resize(num_int);
-    for (size_t i = 0; i < num_int; i++) {
+    avg_e.resize(num_funcs);
+    log_avg_e.resize(num_funcs);
+    areas.resize(num_funcs);
+    for (size_t i = 0; i < num_funcs; i++) {
         // Chooses the 'center' of the B-spline
         avg_e[i] = (this->supp_max(i) + this->supp_min(i))/2 ;
         log_avg_e[i] = log(avg_e[i]);
@@ -253,11 +398,30 @@ void BasisSet::set_parameters(size_t num_int, double min, double max, const Grid
     }
 }
 
-Eigen::VectorXd BasisSet::Sinv(const Eigen::VectorXd& deltaf) {
-    // Solves the linear system S fdot = deltaf
-    return linsolver.solve(deltaf);
+
+void BasisSet::set_parameters(FeatureRegimes& regimes, std::vector<double> new_grid_knots) {
+    assert(Z_0 !=-1 && "Z_0 hasn't been set");
+    assert( BSPLINE_ORDER - Z_0 >= 0);      
+    update_regions(regimes);
+    knot = new_grid_knots;
+    num_funcs = knot.size()-(BSPLINE_ORDER-Z_0)-1; //knot.size()- (BSPLINE_ORDER+1); 
+    compute_overlap(num_funcs);
 }
 
+/**
+ * @brief Sinv = S inverse. Changes basis of vector deltaf from spline basis to grid basis and vice versa I think? -S.P.
+ * @details
+ */
+Eigen::VectorXd BasisSet::Sinv(const Eigen::VectorXd& deltaf) {
+    // Solves the linear system S fdot = deltaf   (returning f dot -S.P.)
+    auto tmp = linsolver.solve(deltaf);
+    return tmp;
+}
+
+/**
+ * @brief Sinv = S inverse.
+ * @details 
+ */
 Eigen::MatrixXd BasisSet::Sinv(const Eigen::MatrixXd& J) {
     // Solves the linear system S fdot = deltaf
     return linsolver.solve(J);

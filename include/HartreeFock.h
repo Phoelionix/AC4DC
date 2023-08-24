@@ -1,3 +1,9 @@
+/**
+ * @file HartreeFock.h
+ * @brief Entrance to a terrifying rabbit hole.
+ * 
+ */
+
 /*===========================================================================
 This file is part of AC4DC.
 
@@ -52,7 +58,7 @@ private:
 	double Master_tolerance = pow(10, -10);
 	double No_exchange_tolerance = pow(10, -3);
 	double HF_tolerance = pow(10, -6);
-	int max_HF_iterations = 500;
+	int max_HF_iterations = 2500;
 	int max_Virt_iterations = 70;
 	Grid * lattice;
 	double OrthogonalityTest(vector<RadialWF> &Orbitals);

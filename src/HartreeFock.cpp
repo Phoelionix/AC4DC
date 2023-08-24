@@ -1,3 +1,9 @@
+/**
+ * @file HartreeFock.h
+ * @brief You wanted to see if it was really that terrifying.
+ * 
+ */
+
 /*===========================================================================
 This file is part of AC4DC.
 
@@ -16,6 +22,8 @@ This file is part of AC4DC.
 ===========================================================================*/
 #include "HartreeFock.h"
 #include <algorithm>
+#include <iostream>
+#include <numeric>
 
 using namespace std;
 
@@ -25,38 +33,91 @@ int SetBoundaryValuesApprox(Grid*, RadialWF*, Potential*);
 HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &Potential, Input & Inp, ofstream & log) : lattice(&Lattice)
 {
 //==========================================================================================================
-// Estimate starting energies using Slater rules.
-	float s = 0, p = 1;
-	int N_elec_shell = 0;// Current shell.
-	int N_elec_n1 = 0, N_elec_n2 = 0;// Shell with n-1 and n-2 respectively.
+// Estimate starting energies for atom using Slater rules.
+// At first call, the occupancies will be that given by the .inp file.
+
+
+// To handle "average shell" orbital inputs, this code separates each element of Orbitals into shell occupancy containers. e.g. occupancies for 2p 2, 3N 5 -> {0,2,0,0},{2,3,0,0}
+// TODO test working as expected
+	float s = 0; //,p = 1;
+	int N_elec_n0 = 0;// Num screening electrons on current shell.
+	int N_elec_n1 = 0, N_elec_n2_plus = 0;// Num screening electrons in shells with n-1 and {n-2,n-3,...,} respectively.
+
+	std::vector<int> shell_occupancies = {0,0,0,0};  // Number of electrons in each orbital of a shell {s,p,d,f}
+	std::vector<int> screening_shell_occupancies = {0,0,0,0};
 
 	Potential.GenerateTrial(Orbitals);
 
+	// TODO I feel like this many for loops is a sin, rejigging how inputs work or vectorising would help -S.P.
 	for (int i = 0; i < Orbitals.size(); i++)
 	{
-		N_elec_shell = Orbitals[i].occupancy() - 1;
+		N_elec_n0 = -1; // Electron does not screen itself //Orbitals[i].occupancy() - 1;
 		N_elec_n1 = 0;
-		N_elec_n2 = 0;
-		for (int j = 0; j < Orbitals.size(); j++)
+		N_elec_n2_plus = 0;
+		Orbitals[i].Energy = 0;
+		shell_occupancies = Orbitals[i].get_subshell_occupancies(); // 
+		// Iterate through each subshell
+		for (int L = 0; L < shell_occupancies.size(); L++)
 		{
-			if (j == i) { continue; }// No double counting.
-			if (Orbitals[i].L() <= 1)// [s] and [s,p] groups.
+			// Get the screening contribution on an electron in the i'th orbital/shell with orbital L, due to the j'th orbital/shell.
+			for (int j = 0; j < Orbitals.size(); j++)
 			{
-				if (Orbitals[j].N() == Orbitals[i].N() && Orbitals[j].L() < 2) { N_elec_shell += Orbitals[j].occupancy(); }
-				if (Orbitals[j].N() == Orbitals[i].N() - 1) { N_elec_n1 += Orbitals[j].occupancy(); }
-				if (Orbitals[j].N() < Orbitals[i].N() - 1) { N_elec_n2 += Orbitals[j].occupancy(); }
+				if (Orbitals[j].occupancy() == 0) continue; // No contribution to screening. 
+				screening_shell_occupancies = Orbitals[j].get_subshell_occupancies();
+				// [1s] and [ns,np] groups.
+				if (L == 0 || L == 1 )
+				{
+					if(Orbitals[j].N() == Orbitals[i].N()){
+						N_elec_n0 += screening_shell_occupancies[0] + screening_shell_occupancies[1];
+					}
+					if (Orbitals[j].N() == Orbitals[i].N() - 1) { 
+						N_elec_n1 += Orbitals[j].occupancy(); 
+					}
+					if (Orbitals[j].N() < Orbitals[i].N() - 1) { 
+						N_elec_n2_plus += Orbitals[j].occupancy(); 
+					}
+				}
+				// [nd] and [nf] groups closer to the nucleus.
+				else
+				{ 	for(int L_other = 0; L_other < screening_shell_occupancies.size(); L_other++){ 
+						if (L > L_other && Orbitals[i].N() >= Orbitals[j].N())
+						{ N_elec_n2_plus += Orbitals[j].occupancy();
+						}
+					}
+				}
 			}
-			else if (Orbitals[i].L() > Orbitals[j].L() && Orbitals[j].N() <= Orbitals[i].N())// [d] and [f] groups.
-			{
-				N_elec_n2 += Orbitals[j].occupancy();
-			}
+			// Set orbitals' energy via Slater approximation.  E = -[(Z-s)/n]^2 . TODO figure out why 0.5 factor is there.
+			
+			// TODO still need to ask why s = 0.35 was being used before, rather than 0.30, for 1s group.
+			float s_p_fact = 0.30;
+			if (i != 0) s_p_fact = 0.35;
+			
+			s = s_p_fact*max(0,N_elec_n0) + 0.85*N_elec_n1 + 1.0*N_elec_n2_plus;   // I added max(0, N_elec_n0) in case this energy is used when no electrons are present. TODO should use s = 0.30 * N_elec_n0 for 1s case right? Check. - S.P.
+			double factor = 1;
+			if(Orbitals[i].occupancy() != 0){
+				factor = static_cast<float>(shell_occupancies[L])/static_cast<float>(Orbitals[i].occupancy()); // Average out the possible energies.
+			}			
+			Orbitals[i].Energy += factor*-0.5*(Potential.NuclCharge() - s)*(Potential.NuclCharge() - s) / Orbitals[i].N() / Orbitals[i].N();
+			//std::cout << "Slater orbital energy is: " << Orbitals[i].Energy << " (x2)Ry"<<endl;
 		}
-		s = 0.35*N_elec_shell + 0.85*N_elec_n1 + 1.0*N_elec_n2;
-		Orbitals[i].Energy = -0.5*(Potential.NuclCharge() - s)*(Potential.NuclCharge() - s) / Orbitals[i].N() / Orbitals[i].N();
 	}
+	// Quick and dirty approximation of shells to a p orbital. TODO
+	for (int i = 0; i < Orbitals.size();i++){
+		if(Orbitals[i].L() == -10){ 
+			Orbitals[i].set_L(1,false);  
+		}	
+	}
+
+	// cout << "Orbital energies:" << endl;
+	// for (int i = 0; i < Orbitals.size();i++){
+	// 	std::cout << Orbitals[i].Energy << " Ry; Occupancy: " << Orbitals[i].occupancy() << endl; 
+	// }	
+	// std::cout << "[ORBENG]: " << Orbitals[0].Energy << " "<<Orbitals[1].Energy << " "<<Orbitals[2].Energy <<" Ry; Occupancy: " <<Orbitals[0].occupancy() << " "<<Orbitals[1].occupancy() << " "<<Orbitals[2].occupancy() << endl; 
 //==========================================================================================================
 // Find initial Guess for wavefunctions. Check if there is a single orbital occupied. If there is
-// only one electron (hydrogenic case) solve problem.
+// only one electron within that orbital (hydrogenic case) solve problem.
+
+// Initialising/fetching variables
 	Master_tolerance = Inp.Master_toll();
 	No_exchange_tolerance = Inp.No_Exch_toll();
 	HF_tolerance = Inp.HF_toll();
@@ -65,7 +126,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 	double Norm = 0.;
 	vector<double> E_rel_change(Orbitals.size(), 1);
 	double duration;
-	int infinity = 0;
+	int infinity = 0;  // First I've heard of it -S.P.
 
 	Adams I(Lattice, 10);
 	int m = 0;
@@ -73,24 +134,26 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 
 	E_max_error = 1;
 
-// Check if the system has a single occupied orbital
-	int check_orb = 0, single = -1;
+// Check if the atom has a single (occupied) orbital
+	int num_occupied_orbs = 0, single_orb_idx = -1;
 	for (int i = 0; i < Orbitals.size(); i++)
 	{
 		if (Orbitals[i].occupancy() != 0)
 		{
-			check_orb++;
-			single = i;
+			num_occupied_orbs++;
+			single_orb_idx = i;
 		}
 	}
-	if (check_orb != 1) single =-1;
+	if (num_occupied_orbs != 1) single_orb_idx =-1;
 
 	Potential.GenerateTrial(Orbitals);
 
-	if (check_orb == 1 && Orbitals[single].occupancy() == 1) Potential.Reset();
-
+	if (num_occupied_orbs == 1 && Orbitals[single_orb_idx].occupancy() == 1) Potential.Reset();
+	
 	for (int i = 0; i < Orbitals.size(); i++) {
+		if (std::isnan(Orbitals[Orbitals.size()-1].F[i])){throw std::runtime_error("F invalid pre-Master!");}
 		Master(&Lattice, &Orbitals[i], &Potential, Master_tolerance, log);
+		if (std::isnan(Orbitals[Orbitals.size()-1].F[i])){throw std::runtime_error("F invalid post-Master!");}
 	}
 
 //==========================================================================================================
@@ -98,41 +161,44 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 	vector<RadialWF> Orbitals_old = Orbitals;
 	vector<double> V_old = Potential.V;
 	double V_tmp = 0;
-
-	if (check_orb == 1 && Orbitals[single].occupancy() > 1 && Inp.Hamiltonian() == 0) {
+	if (num_occupied_orbs == 1 && Orbitals[single_orb_idx].occupancy() > 1 && Inp.Hamiltonian() == 0) {
+		float p = 1;
 		// A single occupied orbital. HF (with Exchange) solution is here.
 		// Afterwards unoccupied orbitals are calculated.
-		for (int i = 0; i < Orbitals.size(); i++) {
-			if (Orbitals[i].occupancy() != 0) single = i;
-		}
-
-		while (E_rel_change[single] > HF_tolerance) {
+		
+		// Set single to be the orbital index... TODO redundant??? - S.P.
+		// for (int i = 0; i < Orbitals.size(); i++) {
+		// 	if (Orbitals[i].occupancy() != 0) single_orb_idx = i;
+		// }
+		
+		while (E_rel_change[single_orb_idx] > HF_tolerance) {
 			if (m > 20) {
 				log << "Starting approximation does not converge... " << endl;
 				break;
 			}
 
-			Potential.HF_upd_dir(&Orbitals[single], Orbitals);
+			Potential.HF_upd_dir(&Orbitals[single_orb_idx], Orbitals);
 			for (int j = 0; j < Lattice.size(); j++) {
 				Potential.V[j] = p*Potential.V[j] + (1 - p)*V_old[j];
 			}
 			if (m == 0) p = 0.5;
 			if (m == 6) p = 0.8;
 
-			Master(&Lattice, &Orbitals[single], &Potential, Master_tolerance, log);
-			E_rel_change[single] = fabs(Orbitals[single].Energy / Orbitals_old[single].Energy - 1);
+			Master(&Lattice, &Orbitals[single_orb_idx], &Potential, Master_tolerance, log);
+			E_rel_change[single_orb_idx] = fabs(Orbitals[single_orb_idx].Energy / Orbitals_old[single_orb_idx].Energy - 1);
 
-			Orbitals_old[single] = Orbitals[single];
+			Orbitals_old[single_orb_idx] = Orbitals[single_orb_idx];
 			V_old = Potential.V;
-			m++;
+			m++;		
 		}
 		m = 0;
 	}
-	if (check_orb == 1 && Orbitals[single].occupancy() == 1) {
+	// Single orbital with 1 electron (Multiple electrons calculated above)
+	if (num_occupied_orbs == 1 && Orbitals[single_orb_idx].occupancy() == 1) {
 		Potential.Reset();
 		for (auto& Orb: Orbitals) Master(&Lattice, &Orb, &Potential, Master_tolerance, log);
 	} else {
-		p = 0.5;
+		float p = 0.5;
 		// There is more than one orbital.
 
 		// Set up starting approximation for the Hartree-Fock equations.
@@ -153,7 +219,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 				log.flush();
 				break;
 			}
-
+		
 			Potential.LDA_upd_dir(Orbitals);
 
 			// Smooth start for m = 0. Introduce latter tail correction. May help iof the original routine diverges.
@@ -175,7 +241,9 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 					continue;
 				}*/
 				if (E_rel_change[i] < E_max_error && m != 0) continue;
-
+				if (std::isnan(Potential.V[0])){
+					throw std::runtime_error("Potential is invalid (HF w/o exchange).");
+				}	
 				if (Master(&Lattice, &Orbitals[i], &Potential, Master_tolerance, log)) {
 					// Master didn't converge. This is bad. Return to old solution and
 					// iterated second worst instead.
@@ -239,7 +307,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 
 				for (int i = 0; i < Orbitals.size(); i++)
 				{
-					if (i == single) continue;
+					if (i == single_orb_idx) continue;
 					if (E_rel_change[i] < E_max_error && m != 0) continue;
 
 					Potential.HF_upd_dir(&Orbitals[i], Orbitals_old);
@@ -420,12 +488,16 @@ int SetBoundaryValuesApprox(Grid * Lattice, RadialWF * Psi, Potential* U)
 	int Turn = 1;
 	int infinity = Lattice->size() - 1;
 	int adams_max_order = 10;
-
+	
 	double sigma, lambda;
 	int order = 3;
 	vector<double> a(order, 0);
 	vector<double> b(order, 0);
 	double S = 0;
+
+	if (std::isnan(U->V[Turn])){
+		throw std::runtime_error("Potential is invalid (func: SetBoundaryValuesApprox).");
+	}
 
 	if (Psi->Energy < 0.)
 	{
@@ -434,7 +506,7 @@ int SetBoundaryValuesApprox(Grid * Lattice, RadialWF * Psi, Potential* U)
 		{
 			Turn++;
 		}
-
+		
 		//set boundary conditions for outwards integration
 		infinity = Turn;
 		Psi->set_turn(Turn);
@@ -448,6 +520,7 @@ int SetBoundaryValuesApprox(Grid * Lattice, RadialWF * Psi, Potential* U)
 		//set boundary values for inwards integration
 		lambda = sqrt(-2 * Psi->Energy);
 		sigma = (U->V[infinity] * Lattice->R(infinity) - 1.) / lambda;
+
 		a[0] = 1;
 		b[0] = -lambda;
 		for (int i = 1; i < a.size(); i++)
@@ -468,9 +541,13 @@ int SetBoundaryValuesApprox(Grid * Lattice, RadialWF * Psi, Potential* U)
 			Psi->F[Inf] += a[0];
 			Psi->G[Inf] += b[0];
 			S = pow(Lattice->R(Inf), sigma)*exp(-lambda*Lattice->R(Inf));
+			double F_inf_old = Psi->F[Inf];
+			double G_inf_old = Psi->G[Inf];
 			Psi->F[Inf] *= S;
 			Psi->G[Inf] *= S;
-
+			if (std::isinf(Psi->F[Inf])){
+				throw std::runtime_error("Psi has inf value!");
+			}
 		}
 	}
 
@@ -478,13 +555,20 @@ int SetBoundaryValuesApprox(Grid * Lattice, RadialWF * Psi, Potential* U)
 
 	return infinity;
 }
-
+/**
+ * @brief This routine does the same as "Master" by W. Johnson.
+ * 1) Takes Psi.Energy_0 and integrates the HF equations inwards and outwards
+ * 2) On each iteration the energy is corrected to the point when |Psi.Energy(i) - Psi.Energy(i-1)| < Epsilon
+ * 3) Normalizes Psi in the end of the routine
+ * @param Lattice 
+ * @param Psi The orbital/orbital wavefunction
+ * @param U 
+ * @param Epsilon 
+ * @param log 
+ * @return 
+ */
 int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsilon, ofstream & log)
 {
-	// This routine does the same as "Master" by W. Johnson.
-	// 1) Takes Psi.Energy_0 and integrates the HF equations inwards and outwards
-	// 2) On each iteration the energy is corrected to the point when |Psi.Energy(i) - Psi.Energy(i-1)| < Epsilon
-	// 3) Normalizes Psi in the end of the routine
 	double F_left, G_left = 1., F_right, G_right = -1., E_tmp = Psi->Energy, Norm = 0.0, old_Energy;
 	double E_low = -0.5*U->NuclCharge()*U->NuclCharge() / Psi->N() / Psi->N(), E_high = 0;
 	int Turn = 1, infinity = 0, NumNodes = 0.;
@@ -511,12 +595,13 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 			log << "Oops, Master failed to converge." << endl
 				<< "Practical infinity: " << Lattice->R(infinity) << endl
 				<< "n = " << Psi->N() << " l = " << Psi->L() << " Energy = " << Psi->Energy << endl;
+			cout << "HF Master failed to converge! See logs." <<endl; 
 			return 1;
 		}
-
+		
 		//Find the point where in and out integrated functions are to be stiched. The point is the largest maximum before classical Turning point.
 		//Should be done prior to the outwards integration.
-
+	
 		infinity = SetBoundaryValuesApprox(Lattice, Psi, U);//Approx
 		Turn = Psi->turn_pt();
 		if (Psi->pract_infinity() == Lattice->size() - 1) {
@@ -527,23 +612,25 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 			Psi->Energy *= 2;
 			continue;
 		}
+		if (std::isinf(Psi->F[infinity-1])){throw std::runtime_error("Psi has inf value!");}
 
 		NumIntgr.StartAdams(Psi, 0, true);
 
 		density.clear();
-		density.resize(infinity + 1);
-
+		density.resize(infinity + 1); // equiv. to density.resize(SetBoundaryValuesApprox(Lattice, Psi, U) + 1)
+	
 		NumIntgr.Integrate(Psi, 0, Turn);
 
 		Norm = 0.0;
 
 		F_left = Psi->F[Turn];
 		G_left = Psi->G[Turn] / F_left;
-
+		if (std::isinf(Psi->F[infinity-1])){throw std::runtime_error("Psi has inf value!");}
 		NumIntgr.StartAdams(Psi, infinity, false);
 		NumIntgr.Integrate(Psi, infinity, Turn);
 
 		F_right = Psi->F[Turn];
+		if (std::isnan(Psi->F[0])){throw std::runtime_error("Psi->F[i] is nan!");}
 		G_right = Psi->G[Turn] / F_right;
 
 		for (int i = 0; i <= infinity; i++) {
@@ -554,14 +641,16 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 				Psi->F[i] /= F_left;
 				Psi->G[i] /= F_left;
 			}
-
+			if (std::isnan(Psi->F[i])){throw std::runtime_error("Psi->F[i] is nan!");}
 			density[i] = Psi->F[i] * Psi->F[i];
+			if (std::isnan(density[i])){throw std::runtime_error("Density is nan!");}
 		}
 
+		// ~~~Issues with this line may crop up after it has already failed (if it returns nan it will lead to an issue on the second loop)~~~
 		Norm = NumIntgr.Integrate(&density, 0, infinity) + Psi->F[0] * Psi->F[0] * Lattice->R(0) / (2 * Psi->L() + 3);//last term accounts for WF between 0 and Lattice.R(0)
 		E_tmp = 0.5*((G_right - G_left) / Norm);
 		NumNodes = Psi->check_nodes();
-
+		
 		old_Energy = Psi->Energy;
 		if (NumNodes == Psi->GetNodes()) {
 			if (Psi->Energy - E_tmp > E_high) {
@@ -605,12 +694,13 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 			NumIntgr.C[i] += E_tmp;
 		}
 		E_tmp *= 0.5;
-
+		
 	}
-
+	
 	Psi->set_infinity(infinity);
 	//normalize the answer
 	Psi->scale(1. / sqrt(Norm));
+	if (std::isnan(1/sqrt(Norm))){throw std::runtime_error("Invalid normalisation! func: HartreeFock::Master()");}
 
 	return 0;
 }

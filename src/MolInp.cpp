@@ -22,11 +22,12 @@ This file is part of AC4DC.
 #include <iostream>
 #include <stdexcept>
 #include <map>
+#include <cmath>
 #include "HartreeFock.h"
 #include "ComputeRateParam.h"
 
 
-MolInp::MolInp(const char* filename, ofstream & log)
+MolInp::MolInp(const char* filename, ofstream & _log)
 {
 	// Input file for molecular ionization calculation.
 	map<string, vector<string>> FileContent;
@@ -48,18 +49,29 @@ MolInp::MolInp(const char* filename, ofstream & log)
     }
 	string comment = "//";
 	string curr_key = "";
+	string end_file = "####END####";  // Do not parse text past a line beginning with this string 
 
+	// Store the parameter-holding file content.
+	// Note that end-line comments aren't actually ignored, just we only stream first term of each line.
 	while (!infile.eof())
 	{
 		string line;
 		getline(infile, line);
-		if (!line.compare(0, 2, comment)) continue;
+		// Skip lines with no information.
+		if (!line.compare(0, 2, comment)) continue;   
 		if (!line.compare(0, 1, "")) continue;
+		if (!line.compare(0,end_file.length(),end_file)) break; 
+		// A header, defining a category of inputs
 		if (!line.compare(0, 1, "#")) {
 			if ( FileContent.find(line) == FileContent.end() ) {
 				FileContent[line] = vector<string>(0);
 			}
+			while (line.back() == ' '){
+				line.resize(line.size()-1);
+			}
 			curr_key = line;
+			
+		// A line below the header, defining an input
 		} else {
 			FileContent[curr_key].push_back(line);
 		}
@@ -93,58 +105,157 @@ MolInp::MolInp(const char* filename, ofstream & log)
 
 		if (n == 0) stream >> out_T_size;
 		if (n == 1) stream >> out_F_size;
-		if (n == 2) {
-			stream >> tmp;
-			if (tmp == 'Y') write_charges = true;
-		}
-		if (n == 3) {
-			stream >> tmp;
-			if (tmp == 'Y') write_intensity = true;
-		}
-		if (n == 4) {
-			stream >> tmp;
-			if (tmp != 'Y') write_md_data = false;
-		}
+		// if (n == 2) {
+		// 	stream >> tmp;
+		// 	if (tmp == 'Y') write_<placeholder> = true;
+		// }
 	}
-
-	for (size_t n = 0; n < FileContent["#PULSE"].size(); n++) {
+	
+	for (size_t n = 0; n < FileContent["#PULSE"].size(); n++) {  
 		stringstream stream(FileContent["#PULSE"][n]);
 
 		if (n == 0) stream >> omega;
 		if (n == 1) stream >> width;
-		if (n == 2) stream >> fluence;
-		if (n == 3) stream >> pulse_shape;
+		if (n == 2) stream >> pulse_shape;  // (Note user-defined operators)
+		if (n == 3) stream >> timespan_factor;
+		if (n == 4) stream >> negative_timespan_factor;
 	}
+
+	string tmp = "";
+	for (size_t n = 0; n < FileContent["#USE_COUNT"].size(); n++) {  
+		stringstream stream(FileContent["#USE_COUNT"][n]);
+
+		if (n == 0) stream >> tmp;
+		if (tmp[0] == 't' || tmp[0] == 'T'){
+			use_count = true; 
+			if (n == 1) stream >> photon_count;
+		}	
+	}
+	tmp = "";
+	for (size_t n = 0; n < FileContent["#USE_INTENSITY"].size(); n++) {  
+		stringstream stream(FileContent["#USE_INTENSITY"][n]);
+
+		if (n == 0) stream >> tmp;
+		if (tmp[0] == 't' || tmp[0] == 'T'){
+			use_intensity = true; 
+			if (n == 1) stream >> peak_intensity;
+		}		
+		
+	}
+	tmp = "";
+	for (size_t n = 0; n < FileContent["#USE_FLUENCE"].size(); n++) {  
+		stringstream stream(FileContent["#USE_FLUENCE"][n]);
+
+		if (n == 0) stream >> tmp;
+		if (tmp[0] == 't' || tmp[0] == 'T'){
+			use_fluence = true; 
+			if (n == 1) stream >> fluence;
+		}
+	}
+
 
 	for (size_t n = 0; n < FileContent["#NUMERICAL"].size(); n++) {
 		stringstream stream(FileContent["#NUMERICAL"][n]);
 
 		if (n == 0) stream >> num_time_steps;
 		if (n == 1) stream >> omp_threads;
-		if (n == 2) stream >> min_elec_e;
-		if (n == 3) stream >> max_elec_e;
-		if (n == 4) stream >> num_elec_points;
-		if (n == 5) stream >> elec_grid_type;
-		if (n == 6) stream >> elec_grid_type.num_low;
-		if (n == 7) stream >> elec_grid_type.transition_e;
-		if (n == 8) stream >> elec_grid_type.min_coulomb_density;
+		if (n == 2) stream >> param_cutoffs.min_coulomb_density;
+		
 
 	}
+	for (size_t n = 0; n < FileContent["#MANUAL_GRID"].size(); n++) {
+		stringstream stream(FileContent["#MANUAL_GRID"][n]);
+		if (n == 0) stream >> elec_grid_type; // "true" for manual.		
+		//#GRID ,
+		if (n == 1) stream >> param_cutoffs.transition_e; 
+		if (n == 2) stream >> elec_grid_regions; //elec_grid_regions.bndry_idx
+		if (n == 3) stream >> elec_grid_regions; //elec_grid_regions.bndry_E
+		if (n == 4) stream >> elec_grid_regions; //elec_grid_regions.powers
+	}
+	for (size_t n = 0; n < FileContent["#DYNAMIC_GRID"].size(); n++) {
+		stringstream stream(FileContent["#DYNAMIC_GRID"][n]);
+		if (n == 0) stream >> elec_grid_preset;
+		if (n == 1) stream >> grid_update_period;
+	}	
 
-	// for (size_t n = 0; n < FileContent["#GRID"].size(); n++) {
-	// 	stringstream stream(FileContent["#GRID"][n]);
-	// 	if (n == 0) stream >> min_elec_e;
-	// 	if (n == 1) stream >> max_elec_e;
-	// 	if (n == 2) stream >> num_elec_points;
-	// 	if (n == 3) stream >> elec_grid_type;
-	// 	if (n == 4) stream >> elec_grid_type.num_low;
-	// 	if (n == 5) stream >> elec_grid_type.transition_e;
+	for (size_t n = 0; n < FileContent["#FILTRATION"].size(); n++) {
+		stringstream stream(FileContent["#FILTRATION"][n]);
+		if (n == 0){ stream >> filtration_file;
+			filtration_file = "output/__Molecular/" + filtration_file + "/freeDistRaw.csv";
+		}
+	}
+
+	for (size_t n = 0; n < FileContent["#LOAD"].size(); n++) {
+		stringstream stream(FileContent["#LOAD"][n]);
+
+		if (n == 0){stream >> load_folder;
+			load_folder = "output/__Molecular/" + load_folder + "/";
+		}
+		if (n == 1) stream >> simulation_resume_time_max;
+		if (n == 2 && (stream.get() =='t'||stream.get() =='T')){
+			loading_uses_input_timestep = true;
+		} 
+	}
+
+	for (size_t n = 0; n < FileContent["#DEBUG"].size(); n++) {
+		stringstream stream(FileContent["#DEBUG"][n]);
+
+		if (n == 0){ stream >> simulation_cutoff_time; cutoff_flag = true;}
+		if (n == 1) stream >> time_update_gap;
+
+	}	
+
+
+
+	// Get fluence (in 10^4 * J.cm^-2).
+	// if (use_count){ // 10^12 photons in 100 nm diam. spot
+	// 	double SPOT_RAD = 50; // nm
+	// 	fluence = photon_count*omega*Constant::J_per_eV*1e12; J in spot
+	// 	fluence *= 1e-4/(Constant::Pi*pow(SPOT_RAD*1e-7,2)); // 10^4 J cm^-2 
 	// }
+	if (use_count){  // [10^12 ph.µm^-2]
+		fluence = photon_count*omega*Constant::J_per_eV*1e12; // J µm^-2
+		fluence *= 1e4;  // 10^4 J cm^-2
+	}	
+	if (use_intensity){
+		// TODO Need to test this is working as expected
+		// fluence = I0 * fwhm. I0 = I_avg*timespan/(fwhm). NB: var width = fwhm
+		// if square: Ipeak = I0.  
+		// if gaussian, I_peak = I0/norm, where norm = sqrt(pi/4/log(2)). 
+		
+		// Convert units, Peak intensity is units of 10^19 W/cm^2, fluence is in 10^4 * J/cm^2.
+		double t_units = pow(10,-15);   
+		double I_units = pow(10,15);  //  
+		switch (pulse_shape)
+		{
+		case PulseShape::gaussian:{
+			const double norm = sqrt(Constant::Pi/4/log(2)); // from  Pulse::operator() 
+			fluence = peak_intensity*I_units*norm*(width*t_units);
+			break;
+			}
+		case PulseShape::square:{
+			fluence = peak_intensity*I_units*(width*t_units);
+			break;
+			}
+		default:
+			throw runtime_error("Pulse shape has not been set.");
+			break;
+		}    
+	}
+	if (use_fluence){
+		// already set.
+	}
+
+
+
+	// Give dynamic grid regions eV pulse energy 
+	elec_grid_preset.pulse_omega = omega;
 
 	// Hardcode the boundary conditions
 	elec_grid_type.zero_degree_inf = 3;
 	elec_grid_type.zero_degree_0 = 0;
 
+	// TODO update this.
 	const string bc = "\033[33m"; // begin colour escape code
 	const string clr = "\033[0m"; // clear escape code
 	// 80 equals signs
@@ -159,41 +270,50 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	cout<<bc<<"Pulse FWHM:     "<<clr<<width<<" fs"<<endl;
 	cout<<bc<<"Pulse shape:    "<<clr<<pulse_shape<<endl<<endl;
 
-	cout<<bc<<"Electron grid:  "<<clr<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
-	cout<<    "                "<<num_elec_points<<" points"<<endl;
+	// cout<<bc<<"Electron grid:  "<<clr<<min_elec_e<<" ... "<<max_elec_e<<" eV"<<endl;
+	// cout<<    "                "<<num_elec_points<<" points"<<endl;
 	cout<<bc<<"Grid type:      "<<clr<<elec_grid_type<<endl;
-	cout<<bc<<"Low energy cutoff for Coulomb logarithm estimation: "<<clr<<elec_grid_type.transition_e<<"eV"<<endl;
-	cout<<bc<<"Minimum num electrons per unit cell for Coulomb logarithm to be considered: "<<clr<<elec_grid_type.min_coulomb_density<<endl;
+	cout<<bc<<"Low energy cutoff for Coulomb logarithm estimation: "<<clr<<param_cutoffs.transition_e<<"eV"<<endl;
+	cout<<bc<<"Minimum num electrons per unit cell for Coulomb logarithm to be considered: "<<clr<<param_cutoffs.min_coulomb_density<<endl;
 	cout<<endl;
 
-	cout<<bc<<"ODE Iteration:  "<<clr<<num_time_steps<<" timesteps"<<endl<<endl;
+	cout<<bc<<"ODE Iteration:  "<<clr<<num_time_steps<<" timesteps"<<endl;
+	if(cutoff_flag){cout<<bc<<"Simulation set to cut off early at: "<<clr<<simulation_cutoff_time<<" fs"<<endl;}
+	else{cout<<bc<<"Simulation cutoff is inactive."<<clr<<endl; }	
+	cout <<endl;
 
 	cout<<bc<<"Output:         "<<clr<<out_T_size<<" time grid points"<<endl;
-	cout<<    "                "<<out_F_size<<" energy grid points"<<endl;
-	cout<<banner<<endl;
+	cout<<    "                "<<out_F_size<<" energy grid points"<<endl << endl;
+	
+	cout<<bc<<"OMP threads:  "<<clr<<omp_threads<<" threads"<<endl;
 
+	cout<<banner<<endl;
+	
 	// Convert to number of photon flux.
 	omega /= Constant::eV_per_Ha;
 	fluence *= 10000/Constant::Jcm2_per_Haa02/omega;
 
 	// Convert to atomic units.
 	width /= Constant::fs_per_au;
+	simulation_cutoff_time /= Constant::fs_per_au;
+	time_update_gap /= Constant::fs_per_au;
+	grid_update_period /= Constant::fs_per_au;
 	loss_geometry.L0 /= Constant::Angs_per_au;
 	unit_V /= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
 
-	elec_grid_type.min_coulomb_density /= unit_V;
+	param_cutoffs.min_coulomb_density /= unit_V;
 
-	min_elec_e /= Constant::eV_per_Ha;
-	max_elec_e /= Constant::eV_per_Ha;
-
-	elec_grid_type.transition_e /= Constant::eV_per_Ha;
+	param_cutoffs.transition_e /= Constant::eV_per_Ha;
+	for (size_t i = 0; i < elec_grid_regions.bndry_E.size(); i++){
+		elec_grid_regions.bndry_E[i] /= Constant::eV_per_Ha;
+	}
 
 	// Reads the very top of the file, expecting input of the form
 	// H 2
 	// O 1
 	// Then scans for atomic files of the form 
-	// input/H.inp
-	// input/O.inp
+	// input/atoms/H.inp
+	// input/atoms/O.inp
 	// Store is then populated with the atomic data read in below.
 	for (size_t i = 0; i < num_atoms; i++) {
 		string at_name;
@@ -206,9 +326,9 @@ MolInp::MolInp(const char* filename, ofstream & log)
 		Store[i].name = at_name;
 		// Store[i].R = radius;
 
-		at_name = "input/" + at_name + ".inp";
+		at_name = "input/atoms/" + at_name + ".inp";
 
-		Atomic.push_back(Input((char*)at_name.c_str(), Orbits[i], Latts[i], log));
+		Atomic.push_back(Input((char*)at_name.c_str(), Orbits[i], Latts[i], _log));
 		// Overrides pulses found in .inp files
 		Atomic.back().Set_Pulse(omega, fluence, width);
 		Atomic.back().Set_Num_Threads(omp_threads);
@@ -224,7 +344,7 @@ MolInp::MolInp(const char* filename, ofstream & log)
 	}
 }
 
-bool MolInp::validate_inputs() {
+bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P. TODO if it breaks it assert that num time steps greater than loaded.
 	bool is_valid=true;
 	cerr<<"\033[31;1m";
 	if (omega <= 0 ) { cerr<<"ERROR: pulse omega must be positive"; is_valid=false; }
@@ -234,30 +354,33 @@ bool MolInp::validate_inputs() {
 	if (out_T_size <= 0) { cerr<<"ERROR: system set to output zero timesteps"; is_valid=false; }
 	if (out_F_size <= 0) { cerr<<"ERROR: system set to output zero energy grid points"; is_valid=false; }
 	if (loss_geometry.L0 <= 0) { cerr<<"ERROR: radius must be positive"; is_valid=false; }
+	if (timespan_factor < 0 || negative_timespan_factor < 0) {cerr << "ERROR, timespan factors must be postive"; is_valid = false;}
+	if (timespan_factor < negative_timespan_factor){cerr << "ERROR, the timespan factor for the negative times must be smaller than the full timespan factor";is_valid=false;}
+	if (pulse_shape == PulseShape::square && timespan_factor < 1){cerr << "ERROR, timespan too short to capture full square pulse";is_valid=false;}
+	if (pulse_shape == PulseShape::square && negative_timespan_factor != 0){cerr << "ERROR, timespan for negative times cannot be specified with square pulse";is_valid=false;}
+	if (use_fluence + use_count + use_intensity != 1) {cerr << "ERROR, require exactly one of #USE_FLUENCE, #USE_COUNT, and #USE_INTENSITY to be active ";is_valid = false;}
 	if (omp_threads <= 0) { omp_threads = 4; cerr<<"Defaulting number of OMP threads to 4"; }
 
 	if (elec_grid_type.mode == GridSpacing::unknown) {
-		cerr<<"ERROR: Grid spacing not recognised - must start with (l)inear, (q)uadratic,";
-		cerr<<" (e)xponential, (h)ybrid or (p)owerlaw"; is_valid=false;
+	cerr<<"ERROR: Grid type not recognised - param corresponding to use of manual must start with (t)rue or (f)alse,";
+	is_valid=false;
 	}
-	if (elec_grid_type.mode == GridSpacing::hybrid || elec_grid_type.mode == GridSpacing::powerlaw) {
-		if (elec_grid_type.num_low <= 0 || elec_grid_type.num_low >= num_elec_points) { 
-			cerr<<"Defaulting number of dense points to "<<num_elec_points/2;
-			elec_grid_type.num_low = num_elec_points/2;
+	if (elec_grid_type.mode == GridSpacing::manual){
+		// transition e.
+		if (param_cutoffs.transition_e <= elec_grid_regions.bndry_E.front() || param_cutoffs.transition_e >= elec_grid_regions.bndry_E.back()) {
+			std::cout <<"Transition energy "<<param_cutoffs.transition_e*Constant::eV_per_Ha<<" outside range: "
+			<< elec_grid_regions.bndry_E.front()*Constant::eV_per_Ha<<" "<<param_cutoffs.transition_e*Constant::eV_per_Ha << " " << elec_grid_regions.bndry_E.back()*Constant::eV_per_Ha << std::endl;
+			param_cutoffs.transition_e = elec_grid_regions.bndry_E.back()/4;
+			cerr<<"Defaulting low-energy cutoff for coulomb _log calculations to "<<param_cutoffs.transition_e*Constant::eV_per_Ha; 
 		}
+		// Electron grid style
+		if(elec_grid_regions.bndry_E.front() < 0 || elec_grid_regions.bndry_E.back() < 0 || elec_grid_regions.bndry_E.back() <= elec_grid_regions.bndry_E.front()) { cerr<<"ERROR: Electron grid specification invalid"; is_valid=false; }
+		if (num_time_steps <= 0 ) { cerr<<"ERROR: got negative number of energy steps"; is_valid=false; }	
 	}
-	if (elec_grid_type.transition_e <= min_elec_e || elec_grid_type.transition_e >= max_elec_e) {
-		cerr<<"Defaulting low-energy cutoff to "<<max_elec_e/4;
-		elec_grid_type.transition_e = max_elec_e/4;
-	}
-	
 
 	// unit cell volume.
 	if (unit_V <= 0) { cerr<<"ERROR: unit xell volume must be positive"; is_valid=false; }
 
-	// Electron grid style
-	if(min_elec_e < 0 || max_elec_e < 0 || max_elec_e <= min_elec_e) { cerr<<"ERROR: Electron grid specification invalid"; is_valid=false; }
-	if (num_time_steps <= 0 ) { cerr<<"ERROR: got negative number of energy steps"; is_valid=false; }
 	cerr<<"\033[0m";
 	return is_valid;
 }
@@ -271,15 +394,19 @@ void MolInp::calc_rates(ofstream &_log, bool recalc) {
 		ComputeRateParam Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], recalc);
 		vector<int> final_occ(Orbits[a].size(), 0);
 		vector<int> max_occ(Orbits[a].size(), 0);
-		for (size_t i = 0; i < max_occ.size(); i++) {
-			if (fabs(Orbits[a][i].Energy) > Omega()) final_occ[i] = Orbits[a][i].occupancy();
+		vector<bool> shell_check(Orbits[a].size(),0); // Store the indices of shell-approximated orbitals
+		for (size_t i = 0; i < Orbits[a].size(); i++) {
+			// locks in electrons that are in a potential deeper than the (mean) photon energy
+			if (fabs(Orbits[a][i].Energy) > Omega()) final_occ[i] = Orbits[a][i].occupancy();  // TODO what about continuum lowering/IPD or electrons with energies above the photon energy? -S.P.  
 			max_occ[i] = Orbits[a][i].occupancy();
+			shell_check[i] = Orbits[a][i].is_shell();
 		}
 
 		string name = Store[a].name;
 		double nAtoms = Store[a].nAtoms;
 
-		Store[a] = Dynamics.SolvePlasmaBEB(max_occ, final_occ, _log);
+
+		Store[a] = Dynamics.SolvePlasmaBEB(max_occ, final_occ, shell_check,_log);
 		Store[a].name = name;
 		Store[a].nAtoms = nAtoms;
 		// Store[a].R = dropl_R();

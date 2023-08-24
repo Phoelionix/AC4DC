@@ -1,0 +1,52 @@
+// Carbon (amorphous similar to Hau-Riege). Assumes 100nm cylindrical beam fired into much larger target.
+// Confirmed to work with AC4DCv2 - Totally Non Thermal (Sanders 2020 thesis).
+#ATOMS
+C 1
+
+#VOLUME
+18.11        // Volume per molecule in Angstrom^3.
+2000         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
+none // Spatial boundary shape - options are none, spherical, cylindrical, planar
+
+#PULSE
+6000         // Photon energy in eV.
+10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+square       // Pulse shape
+1           // simulation total timespan, as a multiple of fwhm
+
+#USE_FLUENCE
+true         // enabled? true/false.
+2500         // Pulse fluence in 10^4 * J/cm^2.
+
+#NUMERICAL
+10000  //1000           //  Original: 400000 (200k was used but doubled to 400k in old code)          // Initial guess for number of time step points for rate equation.
+18            // Number of threads in OpenMP.
+
+#MANUAL_GRID
+true        // IGNORE THIS SECTION (other than transition energy) as I overrode it.// use manual grid? If false, dynamic grid is used.
+2000           // Transition energy.  The temperature, and thus coulomb logarithm, is approximated by calculating the equilibrium definition of temperature for the energy distribution below this cutoff.
+1|100                 // manual grid boundary indices, with point at 0 excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
+2.8571|10000       // manual grid boundary energies, with point at 0 excluded. No spaces. 2.8571 is what I thought the min value that corresponds to the original powerlaw grid was but it isn't. 
+1.772                    // region powers corresponding to original powerlaw grid
+
+#OUTPUT
+800         // Number of time steps in the output files.
+4000        // number of free-electron grid points in output file.
+N            // Write atomic charges in a separate file (Y/N)?
+Y            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
+
+
+#DEBUG
+999           // end time [fs].
+0.01          // Interval to display current timestep [fs].
+####END####
+
+Notes:
+I ended up not bothering recreating the grid with the manual grid (the params here don't are overridden by the sim I ran) and just  added a 
+"classic mode" to the manual_set_knot() function in spline_basis.cpp - if anyone happens to want to recreate my results.
+One can note that if ministeps are turned on, the simulation is actually quite fast in this classic mode, .
+
+1|35|100                 // manual grid boundary indices, with point at 0 excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
+2.8571|2000|10000       // manual grid boundary energies, with point at 0 excluded. No spaces. 2.8571 is the min value that corresponds to the original powerlaw grid. 
+1.77052|1.77052                     // region powers corresponding to original powerlaw grid

@@ -199,6 +199,10 @@ int Potential::HF_upd_dir(RadialWF* Current, std::vector<RadialWF> &Orbitals)
 		if (density[i] != 0) LocExc[i] = -0.635348143*pow((density[i] / lattice->R(i) / lattice->R(i)), 1. / 3.);
 	}
 
+	if (std::isnan(V[0])){
+		throw std::runtime_error("Potential is invalid (func: HF_upd_dir).");
+	}
+
 	return 0;
 }
 
@@ -209,7 +213,7 @@ int Potential::LDA_upd_dir(std::vector<RadialWF> &Orbitals)
 	std::vector<double> y_0(lattice->size(), 0.);
 	std::vector<double> density(lattice->size(), 0.);
 	int infinity = 0;
-	int L_min = Orbitals[0].L();
+	int L_min = Orbitals[0].L(); 
 	int N_elec = 0;
 	double Q = 1;
 
@@ -233,7 +237,7 @@ int Potential::LDA_upd_dir(std::vector<RadialWF> &Orbitals)
 	}
 
 	if (N_elec == 1) {
-		V = nuclear;
+		V = nuclear;		
 		for (int i = 0; i < lattice->size(); i++) {
 			LocExc[i] = 0;
 			Asympt[i] = 0;
@@ -264,7 +268,9 @@ int Potential::LDA_upd_dir(std::vector<RadialWF> &Orbitals)
 			if (V[i] > Asympt[i]) V[i] = Asympt[i];// HFS/LDA tail correction.
 		}
 	}
-
+	if (std::isnan(V[0])){
+		throw std::runtime_error("Potential is invalid (end of func: LDA_upd_dir).");
+	}	
 	return 0;
 }
 
@@ -403,7 +409,7 @@ std::vector<double> Potential::Y_k(int k, std::vector<double> density, int infin
 
 	for (int i = 0; i < lattice->size(); i++) {
 		W.A[i] = (k+1) / lattice->R(i);
-		W.X[i] = -density[i];
+		W.X[i] = -density[i];			
 	}
 	// Rough integration.
 	for (int i = infinity; i > infinity - adams_order; i--) {
@@ -420,7 +426,9 @@ std::vector<double> Potential::Y_k(int k, std::vector<double> density, int infin
 		else { Result[i] = Y_less[infinity]; }
 
 	}
-
+	if (std::isnan(Result[0])){
+		throw std::runtime_error("Y_k returned invalid result.");
+	}	
 	return Result;
 }
 
