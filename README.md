@@ -9,7 +9,7 @@ The main code of the suite, AC4DC (the literal acronym is no longer apt), simula
 + Computes cross-sections for atomic processes: photoionisation, fluorescence, Auger decay and electron-impact ionisation
 + Asynchronously solves for the time evolution of the non-equilibrium free electrons and the bound states of the atomic population, via the Boltzmann transport equation.
 + Allows for an arbitrary form of the free-electron distribution f(E) interpolated over a basis of B-splines. 
-  + The basis is adaptive; it is automatically transformed through time to assign more splines where sharp, non-polynomial peaks are present in the distribution. 
+  + The basis is adaptive; it is transformed periodically to automatically assign more splines where sharp, non-polynomial peaks are present in the distribution. 
 
 ## Scatter
 
