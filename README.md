@@ -38,13 +38,13 @@ Tested on an Ubuntu environment in WSL2.
 4. Run `make`
 
 #### For live plotting (optional)
-`brew install python3.9` 
+`brew install python3.9`  <br> 
 Run 'pip3.9 install' for: pybind11, plotly, scipy.
 
 #### Running and testing
 
-`mv bin/ac4dc ac4dc`
-`./ac4dc input/lys_example.mol`   
+`mv bin/ac4dc ac4dc`  <br>
+`./ac4dc input/lys_example.mol`  <br>   
 If the file cannot execute it may be a linking error. Run ‘ldd ac4dc’ to check dependencies.
 
 ### Dependencies
