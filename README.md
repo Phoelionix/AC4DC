@@ -71,30 +71,30 @@ In AC4DC/include/config.h various features of the simulation can be disabled (e.
 
 ### Running AC4DC and workflow
 
-0. Compile
-`make`
-`mv bin/ac4dc ac4dc`
-1. Simulate the damage
-Run with `./ac4dc input/lys_example.mol`
+0. Compile  <br>
+`make`  <br>
+`mv bin/ac4dc ac4dc`  <br>
+1. Simulate the damage  <br>
+Run with `./ac4dc input/lys_example.mol`  <br>
 Once completed, the simulation produces a folder containing the data in AC4DC/output/__Molecular/lys_example_#, where # is the number for the simulation (this will be 1 if it is the first time the program has been run with this .mol file). 
-The simulation saves the data to AC4DC/output/backup_data hourly. This can be loaded if specified in the input file. Note that old files are never removed, but they are overwritten. 
-2. Analysis
-The plotting/scattering programs always take in a folder handle, which is searched for within the AC4DC/output/__Molecular directory and subdirectories (ambiguities are flagged and handled).
-View an interactive plot for the electron distribution with
-`python3.9 scripts/_generate_interactive lys_example_#`
-and generate various plots with
-`python3.9 scripts/generate_plots lys_example_#`
+The simulation saves the data to AC4DC/output/backup_data hourly. This can be loaded if specified in the input file. Note that old files are never removed, but they are overwritten.  <br> 
+2. Analysis  <br>
+The plotting/scattering programs always take in a folder handle, which is searched for within the AC4DC/output/__Molecular directory and subdirectories (ambiguities are flagged and handled).  <br>
+View an interactive plot for the electron distribution with  <br>
+`python3.9 scripts/_generate_interactive lys_example_#`  <br>
+and generate various plots with  <br>
+`python3.9 scripts/generate_plots lys_example_#`  <br>
 These will be contained in AC4DC/output/graphs/
 
-Automated generation of batches of simulations is also supported.
-Configure generate_batch.py and run:
-`python3.9 generate_batch.py input/templates/lys` will generate a batch of simulations with each permutation of parameters, located in the folder AC4DC/input/batch_lys/.
-run_sims.sh can be configured to run these batches. 
-If these results are manually moved to the folder AC4DC/output/__Molecular/my_batch/, we can run
-`python3.9 scripts/_generate_interactive my_batch`
-and
-`python3.9 scripts/generate_plots my_batch`
-which will generate figures for each simulation, saved in AC4DC/output/graphs/my_batch
+Automated generation of batches of simulations is also supported.  <br>
+Configure generate_batch.py and run:  <br>
+`python3.9 generate_batch.py input/templates/lys` will generate a batch of simulations with each permutation of parameters, located in the folder AC4DC/input/batch_lys/.  <br>
+run_sims.sh can be configured to run these batches.  <br>
+If these results are manually moved to the folder AC4DC/output/__Molecular/my_batch/, we can run  <br>
+`python3.9 scripts/_generate_interactive my_batch`  <br>
+and  <br>
+`python3.9 scripts/generate_plots my_batch`  <br>
+which will generate figures for each simulation, saved in AC4DC/output/graphs/my_batch  <br>
 
 
 
