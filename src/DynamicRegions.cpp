@@ -109,9 +109,9 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         pts_per_dirac = 10;
         regions = {
             //Region(1,1.2,5,"static"),
-            Region(5,10,20, "static"), Region(5,20,50, "static"),  // low support
-            Region(12,50,200,"static"),  // auger
-            Region(12,200,600,"static"), 
+            Region(7,10,20, "static"), Region(15,20,50, "static"),  // low support
+            Region(25,50,200,"static"),  // Slow photoelectron Support 
+            Region(20,200,600,"static"), 
             Region((int)(0.5+ 6*trans_scaling),600,preset.pulse_omega/4,"static"), // transition
             Region(15,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
             Region(4,preset.pulse_omega*6/4,preset.pulse_omega*2.5,"static"), // high tail

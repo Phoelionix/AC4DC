@@ -177,17 +177,28 @@ double ElectronRateSolver::nearest_inflection(size_t step, double start_energy,d
 }
 
 // min distance in eV
-double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min_distance, double min_inflection_fract, double _min, double _max){
+/**
+ * @brief 
+ * 
+ * @param step 
+ * @param start_energy 
+ * @param del_energy 
+ * @param min_sequential 
+ * @param min_distance 
+ * @param inflection_fract 
+ * @param _min 
+ * @param _max 
+ * @return double 
+ */
+double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min_distance, double inflection_fract, double _min, double _max){
     min_distance /= Constant::eV_per_Ha;
     // Find 0 of second derivative
     double inflection = nearest_inflection(step,start_energy,del_energy,min_sequential,_min,_max);
     std::cout << inflection*Constant::eV_per_Ha;
-    // TODO For dirac use a function that has this changed such that, from the inflection above, 
-    // it finds the next minimum OR the next point at the cutoff energy, whichever comes first. 
-    double A = 1/min_inflection_fract; // region between peak and inflection take up min_inflection_frac at min distance.
+    // TODO For dirac use a function that has this changed such that, from the inflection above, it finds the next minimum OR the next point at the cutoff energy, whichever comes first. 
+    double A = 1/inflection_fract; 
     double D = min_distance;
     int sign = (0 < del_energy) - (del_energy < 0);
-    //return sign*max(A*sqrt(abs(start_energy - inflection))*sqrt(D/A),D) + start_energy;
     return sign*max(A*abs(start_energy - inflection),D) + start_energy;
 }
 
@@ -323,7 +334,7 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, std::vector<double>& m
         down_e_step = max(down_e_step, -10/Constant::eV_per_Ha);
 
         // Get bounds
-        double min_distance = input_params.elec_grid_preset.pulse_omega/10; // the minimum distance from the peak that the region must cover.
+        double min_distance = input_params.elec_grid_preset.pulse_omega/10; // the minimum distance from the peak that the region must cover. // TODO this is very high...
         std::cout << "Inflections of peak at " <<e_peak*Constant::eV_per_Ha <<" are... Lwr:";
         double lower_bound = approx_regime_bound(step,e_peak, down_e_step, num_sequential_needed,min_distance,1./4.);
         std::cout <<", Upr: ";

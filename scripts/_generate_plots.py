@@ -23,8 +23,9 @@ from QoL import set_highlighted_excepthook
 
 ELECTRON_DENSITY = False # energy density if False
 ###
-PLOT_ELEMENT_CHARGE= True
+PLOT_ELEMENT_CHARGE= False
 PLOT_ION_RATIOS=False
+PLOT_ION_RATIOS_BARS=True
 PLOT_FREE_CONTINUUM = False
 PLOT_FREE_SLICES=False
 ###
@@ -50,9 +51,9 @@ def main():
     assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder."
     for data_folder in sys.argv[1:]:
         label = data_folder +'_Plt'
-        make_some_plots(data_folder,molecular_path,label,dname_Figures,PLOT_ELEMENT_CHARGE,PLOT_ION_RATIOS,PLOT_FREE_CONTINUUM,PLOT_FREE_SLICES)
+        make_some_plots(data_folder,molecular_path,label,dname_Figures,PLOT_ELEMENT_CHARGE,PLOT_ION_RATIOS,PLOT_FREE_CONTINUUM,PLOT_FREE_SLICES,PLOT_ION_RATIOS_BARS)
 
-def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, charge_conservation=False,bound_ionisation=False,free=False,free_slices=False):
+def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, charge_conservation=False,bound_ionisation=False,free=False,free_slices=False,bound_ionisation_bar=False):
     '''
     Arguments:
     mol_name: The name of the folder containing the simulation's data (the csv files). (By default this is the stem of the mol file.)
@@ -70,16 +71,20 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
 
     pl = Plotter(mol_name,sim_output_parent_dir,use_electron_density = ELECTRON_DENSITY)
     num_atoms = len(pl.statedict)
-    num_subplots = charge_conservation + bound_ionisation*num_atoms + free + free_slices
+    num_subplots = charge_conservation + bound_ionisation*num_atoms + free + free_slices + bound_ionisation_bar
     pl.setup_axes(num_subplots)
 
     if charge_conservation: 
-        pl.plot_tot_charge(every=10,charge_difference=False,legend_loc="best")  #TODO automatically set to charge_difference to True if starting with ions...
+        pl.plot_tot_charge(every=10,charge_difference=True,legend_loc="best")  #TODO automatically set to charge_difference to True if starting with ions...
         #plt.savefig(figure_output_dir + label + fname_charge_conservation + figures_ext)
  
 
+    if bound_ionisation_bar:
+        pl.plot_charges_bar("C",show_pulse_profile=False)
+        #plt.gcf().set_figwidth(15)        
     if bound_ionisation:
         pl.plot_all_charges(show_pulse_profile=False,ylim=[0,1])
+
         #Abdallah
         #pl.plot_all_charges(show_pulse_profile=False,xlim=[-40,0],ylim=[0,1])
         #pl.fig.set_figwidth(6)

@@ -212,13 +212,15 @@ class PlotData:
 class InteractivePlotter:
     # max_final_t, float, end time in femtoseconds. Not equivalent to time duration
     # max_points, int, number of points (within the timespan) for the interactive to have at maximum.
-    def __init__(self, target_names, sim_output_parent_directory, max_final_t = 30, max_points = 70, custom_names = None,use_electron_density = False):
+    def __init__(self, target_names, sim_output_parent_directory, max_final_t = 30, max_points = 70, custom_names = None,use_electron_density = False,presentation_mode=False):
         '''
         output_parent_directory: absolute path
         use_electron_density: If True, plot electron density rather than energy density
+        Various changes, such as bigger font, etc. for presentation purposes.
         '''
         self.multi_trace_params = [""]*len(target_names)  # 
         self.use_electron_density = use_electron_density
+        self.presentation_mode = presentation_mode
 
         self.num_plots = len(target_names)
         self.target_data = []
@@ -289,7 +291,7 @@ class InteractivePlotter:
             title= plot_title + " - Free-electron distribution",  # Attention: title overwritten by add_time_slider()
             showlegend=False,
             font=dict(
-                family="Courier New, monospace",
+                family="Times New Roman",
                 size=1,
                 # color='rgba(0,0,0,0)' # hide tick numbers? Nope.
             ),
@@ -394,11 +396,10 @@ class InteractivePlotter:
 
     #----Widgets----#
     # Time Slider
-    def add_time_slider(self):
+    def add_time_slider(self,one_slider=False):
         simul_step_slider=False
         if self.num_plots > 1:
-            # Slider that displays all simulations at the same time step. The limit of plotly without dash.
-            simul_step_slider=True
+            simul_step_slider=True # add a slider that displays all simulations at the same time step. (The limit of plotly: without dash, cannot just turn on or off specific traces via buttons.)
         self.steps_groups = [] # Stores the steps for each plot separately 
         start_step = 0
         time_slider = []
@@ -406,14 +407,18 @@ class InteractivePlotter:
         for g in range(self.num_plots):
             steps = []
             target = self.target_data[g]
-            displaying = "<span style='font-size: 28px; font-family: Roboto'>" +"Displaying:                  </span>"
-            subplot_title = dict(text= displaying + "<span style='font-size: 35px;color:"+ target.title_colour +"; font-family: Roboto'>" + target.target_mol["name"]  + "</span>", yanchor = "top", xanchor = "left", pad = dict(b = 0,l=-400))  # margin-top:100px; display:inline-block;
+            displaying = "<span style='font-size: 28px; font-family: Times New Roman'>" +"Displaying:                  </span>"
+            subplot_title = dict(text= displaying + "<span style='font-size: 35px;color:"+ target.title_colour +"; font-family: Times New Roman'>" + target.target_mol["name"]  + "</span>", yanchor = "top", xanchor = "left", pad = dict(b = 0,l=-400))  # margin-top:100px; display:inline-block;
             allplot_title = copy.deepcopy(subplot_title) 
             allplot_title_colour = "#4d50b3" 
-            allplot_title["text"] = displaying + "<span style='font-size: 35px;color:"+ allplot_title_colour +"; font-family: Roboto'>" + "          All"
+            allplot_title["text"] = displaying + "<span style='font-size: 35px;color:"+ allplot_title_colour +"; font-family: Times New Roman'>" + "          All"
             if g == 0:
                 self.fig.update_layout({"title": subplot_title})
             for i in range(len(target.timeData) - 1): # -1 as don't have trace for zeroth time step.
+                if self.presentation_mode:
+                    self.fig.update_layout({"title":""})
+                    #allplot_title["text"] = "<span style='font-size: 35px;color:"+ allplot_title_colour +"; font-family: Times New Roman'>" + "t = " + str(target.timeData[i+1]) 
+                    #subplot_title["text"] = "<span style='font-size: 35px;color:"+ allplot_title_colour +"; font-family: Times New Roman'>" + "t = " + str(target.timeData[i+1]) 
                 if target.timeData[i+1] > target.max_final_t:
                     break                
                 step = dict(
@@ -430,10 +435,15 @@ class InteractivePlotter:
                     #   Initialise slider that shows all plots.
                     if g == 0:
                         simul_step = copy.deepcopy(step)
-                        simul_step["label"] = "  " + "%.2f" % target.timeData[i+1]
+                        simul_step["label"] = "  " + "%.2f" % target.timeData[i+1]                            
                         simul_steps.append(simul_step)    
                         simul_step["args"][1]["title"] = allplot_title 
                     #   Add later plots' traces at same step (not necessarily same time...).
+                    elif self.presentation_mode:
+                        # Use time of plot assuming all same.
+                        simul_steps[i]["args"][0]["visible"][start_step+i] = True    
+                        simul_step["label"] = "  " + "%.2f" % target.timeData[i+1] 
+                        simul_step["args"][1]["title"] = "<span style='font-size: 35px;color:"+ allplot_title_colour +"; font-family: Times New Roman'>" + "t = " + str(target.timeData[i+1]) 
                     elif i < len(simul_steps):
                         simul_steps[i]["args"][0]["visible"][start_step+i] = True    
                         simul_steps[i]["label"] += "  |  " + "%.2f" % target.timeData[i+1]
@@ -445,21 +455,31 @@ class InteractivePlotter:
                 active=0,
                 tickwidth=0,
                 tickcolor = "rgba(0,0,0,0)",
-                currentvalue={"prefix": "<span style='font-size: 25px; font-family: Roboto; color = black'>" + target.target_mol["name"] + " - Time [fs]: "},
+                currentvalue={"prefix": "<span style='font-size: 25px; font-family: Times New Roman; color = black'>" + target.target_mol["name"] + " - Time [fs]: "},
                 pad={"t": 85+90*g,"r": 200,"l":0},
                 steps=steps,
                 #font = {"color":"rgba(0.5,0.5,0.5,1)"}
             ))
         if simul_step_slider:
+            self.steps_groups.append(simul_steps)
             all_slider = dict(
                 active = 0,
                 tickwidth = 0,
-                currentvalue = {"prefix": "<span style='font-size: 25px; font-family: Roboto; color = white;'>" +"All" + " - Times [fs]: "},
+                currentvalue = {"prefix": "<span style='font-size: 25px; font-family: Times New Roman; color = white;'>" +"All" + " - Times [fs]: "},
                 pad={"t": 85+90*(g+1),"r": 200,"l":0},
                 steps = simul_steps,
                 #font = {"color":"rgba(0.5,0.5,0.5,1)"}
             )
+            if self.presentation_mode:
+                all_slider["currentvalue"] =  {"prefix": "<span style='font-size: 100px; font-family: Times New Roman; color = white;'>" + "t =", "suffix": "<span style='font-size: 100px; font-family: Times New Roman; color = white;'>" + " fs"}
+                #all_slider["pad"] = {"t": 130,"r": 200,"l":0}
+                all_slider["pad"] = {"t": -1000,"r": 0,"l":1650}
+                all_slider["font"] = {"color":"blue"}
+                all_slider["len"] = 0
             time_slider.append(all_slider)
+        
+        if one_slider:
+            time_slider = [time_slider[-1]]
         
         self.fig.update_layout(sliders=time_slider)    
 
@@ -522,7 +542,7 @@ class InteractivePlotter:
                 xanchor="right",
                 y= 0, 
                 yanchor="top",
-                font = {"size": 25,"family": "Roboto"},
+                font = {"size": 25,"family": "Times New Roman"},
         )   
         self.fig.update_layout(
             updatemenus = [scale_button]

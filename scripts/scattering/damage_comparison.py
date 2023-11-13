@@ -1,5 +1,4 @@
 #%%
-from scatter import XFEL,Crystal,stylin
 import numpy as np
 import os.path as path
 import os
@@ -12,12 +11,14 @@ import plotly.graph_objects as go
 import pandas as pd
 import plotly.express as px
 import colorcet as cc; import cmasher as cmr
-from core_functions import get_sim_params
 import matplotlib.pyplot as plt
-
 import inspect
 src_file_path = inspect.getfile(lambda: None)
 my_dir = path.abspath(path.join(src_file_path ,"../")) + "/"
+from core_functions import get_sim_params
+from scatter import XFEL,Crystal,stylin
+
+
 
 # full sim that does point sampling, thus assumes a "smooth" distribution. Thus good for low cell count input. Num cells is entire whole target.
 # Compared with non-SPI (crystal) which assumes crystal and does bragg points. Num cells is supercell.
@@ -437,6 +438,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_unit
 #------------Get R--------------------
 
 if __name__ == "__main__":
+    # Initialise kwargs
     kwargs = dict(
         plasma_batch_handle = "", 
         plasma_handles = None, 
@@ -445,16 +447,17 @@ if __name__ == "__main__":
     )
 
 
-    batch_mode = False # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
+    batch_mode = True # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
 
     mode = 1  #0 -> infinite crystal, 1 -> finite crystal/SPI, 2-> both  
-    same_deviations = False # whether same position deviations between damaged and undamaged crystal (SPI only)
+    same_deviations = True # whether same position deviations between damaged and undamaged crystal (SPI only)
     
+    # Change options here... #TODO make clearer this is for user options
     if batch_mode:
         allowed_atoms = ["C","N","O","S"] 
         CNO_to_N = False
         S_to_N = True
-        batch_handle = "resolutions" 
+        batch_handle = "lys_all_light" 
         batch_dir = None # Optional: Specify existing parent folder for batch of results, to add these orientation results to.
         pdb_path = PDB_PATHS["lys"]
         # Params set to batch_handle
@@ -552,6 +555,8 @@ save_data(fname +"Res", (pulse_params,dmg_data, resolutions, names, param_dict))
 
 #%%
 #------------Compare----------------------
+contour_interval_delta_difference = 0.01 # 0.01
+contour_interval_percentage_difference = 0.05
 if __name__ == "__main__":
     batch_mode = True; mode = 1
     
@@ -564,12 +569,12 @@ if __name__ == "__main__":
     #for percentage_difference in [False,True]:
     for percentage_difference in [False]:
         if percentage_difference:
-            contour_interval = 0.05
+            contour_interval = contour_interval_percentage_difference
             contour_colour = "viridis"
             vmax =  0.4
             mask_below_value = 0.1
         else:
-            contour_interval = 0.01
+            contour_interval = contour_interval_delta_difference
             contour_colour = "plasma"
             vmax = 0.1
 

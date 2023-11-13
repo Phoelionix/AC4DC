@@ -115,7 +115,7 @@ class Results_Grid():
     pass    
 
 class Crystal():
-    def __init__(self, pdb_fpath, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = True, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, cell_scale = 1,num_supercells=1, supercell_simulations = 1, S_to_N=False,):
+    def __init__(self, pdb_fpath, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = True, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1, S_to_N=False,):
         '''
         rocking_angle [degrees]
         cell_packing ("SC","BCC","FCC","FCC-D")
@@ -123,7 +123,7 @@ class Crystal():
         self.cell_packing = cell_packing
         self.rocking_angle = rocking_angle * np.pi/180            
         self.is_damaged = is_damaged
-        self.cell_scale = cell_scale  # TODO allow for non-cubic crystals and non SC cell packing.
+        self.supercell_scale = supercell_scale  # TODO allow for non-cubic crystals and non SC cell packing.
         self.num_supercells = num_supercells
         self.supercell_simulations = supercell_simulations
         if positional_stdv == 0 and is_damaged == False:
@@ -142,7 +142,7 @@ class Crystal():
             self.sym_rotations = []; self.sym_translations = []; 
             self.add_symmetry_to_cells(np.identity(3),np.zeros((3)),"(X,Y,Z)")
 
-        self.supercell_dim = self.cell_dim*cell_scale 
+        self.supercell_dim = self.cell_dim*supercell_scale 
 
         ## Dictionary for going from pdb to ac4dc names.
         # different names
@@ -219,9 +219,9 @@ class Crystal():
         symmetry_translation/= ang_per_bohr
         # Simple cubic packing. (actually it's all rectangular prisms, TODO)
         if self.cell_packing == "SC":  
-            self.num_cells = self.cell_scale**3
+            self.num_cells = self.supercell_scale**3
             # Generate the coordinates of the cube (performance: defining scaling matrix/cube coords outside of here would be more efficient). But only runs once  \_( '_')_/ ¯\_(ツ)_/¯.
-            x, y, z= np.meshgrid(np.arange(0, self.cell_scale), np.arange(0, self.cell_scale), np.arange(0, self.cell_scale))
+            x, y, z= np.meshgrid(np.arange(0, self.supercell_scale), np.arange(0, self.supercell_scale), np.arange(0, self.supercell_scale))
             cube_coords = np.stack([ y.flatten(), x.flatten(), z.flatten()], axis = -1)
             # Construct the cube by adding the "unit cell translation" to the symmetry translation. 
             # (e.g. if crystal is centred on origin, in fractional crystallographic coordinates the index of the unit cell is equal to the unit cell's translation from the origin.) 
@@ -306,7 +306,7 @@ class Crystal():
             
     def save_structure(self,dir="targets"):
         '''
-        Saves the full structure in a pdb file format for use with Solvate1.0 
+        Saves the full structure in a pdb file format for use with Solvate1.0   
         Stdv not included.
         I have not tested if using it for over 1e5 atoms (when xpdb alters things so it doesn't break) works when plugged into SOLVATE
         TODO need to add boilerplate (replace HETATM with 'ATOM  ', add symmetries and cell dimensions to start of file.)
@@ -352,7 +352,7 @@ class Crystal():
 
     def plot_me(self,max_points = 100000,water_index = None,**layout_kwargs):
         if water_index != None:
-            assert self.cell_scale == 1 and len(self.sym_rotations) == 1, "Plotting water with an added intra-cell or crystal symmetry is not supported."
+            assert self.supercell_scale == 1 and len(self.sym_rotations) == 1, "Plotting water with an added intra-cell or crystal symmetry is not supported."
         '''
         plots the symmetry points. Origin is the centre of the base asymmetric unit (not the centre of a unit cell).
         RMS error in positions ('positional_stdv') is not accounted for
@@ -388,10 +388,10 @@ class Crystal():
             plot_coords.extend(coord_list)  
 
         #Colors - which to highlight (root atom is first atom of cell)
-        c_first_root_atom = True # red
+        c_first_root_atom = False # red
         c_first_unit = True # pink
         c_first_cell = True # aquamarine
-        c_all_root_atoms = True # yellow
+        c_all_root_atoms = False # yellow
 
         top_atom_index = 0 # index of atom that has highest z
         max_height = -np.inf
@@ -420,7 +420,7 @@ class Crystal():
             kernel_color = np.empty(water_index+1,dtype=object);# kernel_alpha =  np.empty(water_index+1,dtype=np.double)
             bg_color = np.empty(len(plot_coords)-(water_index+1),dtype=object); #bg_alpha = np.empty(len(plot_coords)-(water_index+1),dtype=np.double)
             kernel_color.fill('rgba(92,169,4,1)'); #kernel_alpha.fill(1) 
-            bg_color.fill('rgba(0,30,255,0.2)'); #bg_alpha.fill(0.7)
+            bg_color.fill('rgba(0,30,255,0.2)');  # water atom colours
             color = np.concatenate((kernel_color,bg_color))
             #alpha = np.concatenate((kernel_alpha,bg_alpha))
         
@@ -472,13 +472,18 @@ class Crystal():
         # angular_aperture = np.pi*0.6
         # dot_lw = 0.1 # unit
         #2x2x2 Crystal
-        # size = 10*max(1,500/(min_len+max_len))   #solvated crystal
-        # angular_aperture = np.pi*0.7 # Solvated crystal        
-        # dot_lw = 0 # cryst    
+        size = 10*max(1,500/(min_len+max_len))   #solvated crystal
+        angular_aperture = np.pi*0.7 # Solvated crystal        
+        dot_lw = 0 # cryst    
 
-        # non camera perspective:
-        size = max(1,500/(min_len+max_len))
-        dot_lw = 0 
+        # tetrapeptide:
+        # size = 3*max(1,500/(min_len+max_len))
+        # angular_aperture = np.pi*0.6
+        # dot_lw = 0.1 
+
+        # non-camera perspective (dots all same):
+        size = 1.5*max(1,500/(min_len+max_len))
+        dot_lw = 0
         if origin_on_corner:
             max_num_ticks = 7
             minima = np.array([np.min(plot_coords[:,i]) for i in range(3)])
@@ -1956,7 +1961,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 den = np.sqrt(np.sum(x-x_bar)**2*np.sum(y-y_bar)**2)
                 cc = num/den
 
-                return R,cc
+                return R,cc,None # resolution lims not implemented
     
     ## Continuous (SPI)
     else:
@@ -2087,8 +2092,8 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                         # plt.yticks(ticks,ticklabels)
                         # plt.show()                          
                     print ("Plotting log ratio")
-                    I1 = result1.I
-                    I2 = result2.I
+                    I1 = result1.I #real
+                    I2 = result2.I #ideal
                     log_ratio = log_function((I1/I1[int(len(I1)/2)][int(len(I1)/2)])/(I2/I2[int(len(I2)/2)][int(len(I2)/2)]))
                     fig, ax = plt.subplots()
                     ax.imshow(bg)
@@ -2200,7 +2205,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 num = np.sum((x-x_bar)*(y-y_bar))
                 den = np.sqrt(np.sum(x-x_bar)**2*np.sum(y-y_bar)**2)
                 cc = num/den                             
-                return R,cc     
+                return R,cc,None  # resolution lims not implemented
                 # print("R: (not normalised)")
                 # R = np.sum(np.abs((sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))
                 # print(R)
@@ -2288,6 +2293,7 @@ def get_result(filename,results_dir,compare_dir = None):
 
 ##### https://scripts.iucr.org/cgi-bin/paper?S0021889807029238, http://superflip.fzu.cz/
 
+#TODO figure out why we get zeros for reflection intensities sometimes.
 import pandas as pd
 import csv
 def create_reflection_file(result_handle,results_parent_dir = "results/",overwrite=False):
@@ -2327,7 +2333,8 @@ def create_reflection_file(result_handle,results_parent_dir = "results/",overwri
         df[i] = df[i].astype('int')
     df["I"] = df["I"].astype('float')
     df = df.round(6)
-    df.drop_duplicates(inplace=True) 
+    df.drop_duplicates(subset = ["h","k","l"],inplace=True) # TODO should take average.
+    df = df[df['I']>=0.01] # TODO temporary fix for appearance of low values that needs to be squashed.
     df.to_csv(out_path,header=False,index=False,float_format='%10f', sep=" ", quoting=csv.QUOTE_NONE, escapechar=" ")
 
 #create_reflection_file("f1_11",True)
@@ -2443,37 +2450,37 @@ if __name__ == "__main__":
     target_options = ["neutze","hen","tetra","glycine","fcc"]
     #============------------User params---------==========#
 
-    target = "tetra"#"glycine"  #target_options[2]
-    best_resolution = 2 # 1.58 (abdullah) # 2   # resolution (determining max q)
+    target = "hen"#"glycine"  #target_options[2]
+    best_resolution = 0.1 # 1.58 (abdullah) # 2   # resolution (determining max q)
     worst_resolution = None#30 # 'resolution' corresponding to min q
 
     #### Individual experiment arguments 
-    start_time = -30#-12#-6
-    end_time = 30#12#6
+    tag = "D" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
+    start_time = -18#-12#-6
+    end_time = 18#12#6
     laser_firing_qwargs = dict(
         # pixel sampling method (Neutze) if True - Miller indices if False
-        SPI = True,
+        SPI = True,  # sampling method, if False, bragg spots. if True, detector pixels. TODO change name
         SPI_resolution = best_resolution,
-        pixels_across = 500,  # for SPI, shld go on xfel params.
+        pixels_across = 150,  # for SPI, shld go on xfel params.
         # miller
-        random_orientation = False, #infinite cryst sim only, TODO refactor to be in same place as other orients...# orientation is synced with second 
+        random_orientation = True, #bragg spot sampling only, TODO refactor to be in same place as other orients...# orientation is synced with second 
     )
     ##### Crystal params
     crystal_qwargs = dict(
-        cell_scale = 5,  # for SC: cell_scale^3 unit cells 
+        supercell_scale = 2,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
         num_supercells = 1,#100, # 35409
         supercell_simulations = 1, #150
         positional_stdv = 0,#0.2,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
-        rocking_angle = 30,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
+        rocking_angle = 1,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         #CNO_to_N = True,   # whether the plasma simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
     )
 
     #### XFEL params
-    tag = "" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
     #TODO make it so reflections don't overwrite same orientation, as stochastic now.
-    energy = 9000#7100 # eV
+    energy = 10000#7100 # eV
     exp_qwargs = dict(
         detector_distance_mm = 100,
         screen_type = "flat",#"hemisphere"
@@ -2481,8 +2488,8 @@ if __name__ == "__main__":
         q_cutoff = res_to_q(best_resolution), #(best_resolution),#2*np.pi/2
         t_fineness=25,   
         #####crystal stuff (miller)
-        max_miller_idx = 6, #None, # = m, [thus max q given by q with miller indices (m,m,m)]
-        all_miller_indices = True, # False, whether to find all bragg points at or below the max miller index (and between min and max q)
+        max_miller_idx = None, #None, # = m, [thus max q given by q with miller indices (m,m,m)]
+        all_miller_indices = False, # False, whether to find all bragg points at or below the max miller index (and between min and max q)
         ####SPI stuff ( ab initio)
         num_rings = 20,
         pixels_per_ring = 20,
@@ -2492,12 +2499,12 @@ if __name__ == "__main__":
         SPI_z_rotation = 0,
         #crystallographic orientations (not consistent with SPI yet)
         # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.        
-        num_orients_crys=1, # Miller indices orientations
-        #orientation_axis_crys = None,
-        orientation_axis_crys = [0,0,1],#None,#[1,1,0]
-
+        num_orients_crys=50, # Miller indices orientations
+        orientation_axis_crys = None,
+        #orientation_axis_crys = [0,0,1],#None,#[1,1,0]
+        
         # for debugging/comparison with other works
-        custom_cell_dims_for_miller_indices = [17.174,14.93,13.384], # None # Implemented for comparison with others that use supercells.  
+        custom_cell_dims_for_miller_indices = None,#[17.174,14.93,13.384], # None # Implemented for comparison with others that use supercells.  
         override_max_q = False # False # Also special, implemented for comparison purposes but should be left as False by default.
         ######
     )
@@ -2514,20 +2521,20 @@ if __name__ == "__main__":
     second_crystal_is_damaged = False  # False
 
     #---------------------------Result handle names---------------------------#
-    exp1_qualifier = "_real"
-    exp2_qualifier = "_ideal"
+    exp1_qualifier = "real"
+    exp2_qualifier = "ideal"
     if chosen_root_handle is None:
         version_number = 1
         count = 0
+        if tag != "":
+            tag = "_" + tag        
         while True:
-            if tag != "":
-                tag = "_" + tag
             if count > 99:
                 raise Exception("could not find valid file in " + str(count) + " loops")
             results_parent_folder = "results/" # needs to be synced with other functions
-            root_handle = str(target) + tag + "_v" + str(version_number)
-            exp_name1 = root_handle + "_" + exp1_qualifier
-            exp_name2 = root_handle + "_" + exp2_qualifier  
+            root_handle = str(target) + tag
+            exp_name1 = root_handle + "_" + exp1_qualifier + "_v" + str(version_number)
+            exp_name2 = root_handle + "_" + exp2_qualifier  + "_v" + str(version_number)
             if path.exists(path.dirname(results_parent_folder + exp_name1 + "/")) or path.exists(path.dirname(results_parent_folder + exp_name2 + "/")):
                 version_number+=1
                 count+=1
@@ -2540,7 +2547,7 @@ if __name__ == "__main__":
     #exp_name2 = None
 
     #---------------------------------#
-    water_index = None # TODO automate
+    water_index = None # None TODO automate
     if target == "neutze": #T4 virus lys
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/2lzm.pdb"
         target_handle = "lys-1_2"  
@@ -2548,13 +2555,16 @@ if __name__ == "__main__":
         allowed_atoms = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_unit_cell.pdb"
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_asym.xpdb"
         #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"
         #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
         # target_handle = "lys_nass_2"
         # folder = "lys"
         #'''
-        target_handle = "lys_all_light-typical"#"lys_full-94_1"#"lys_nass_15"#"lys-5_3"#" #12keV, 0.1/0.01 count, 10 fs
+        target_handle = "lys_nass_Gd_full_1"#"lys_nass_Gd_full_1"#"lys_nass_no_S_3" #"lys_all_light-typical"#"lys_full-94_1"#"lys_nass_15"#"lys-5_3"#" #12keV, 0.1/0.01 count, 10 fs
+        #target_handle = "lys_nass_no_S_3"
         #folder = "lys" 
         folder = "" 
         #background_targets = "lys_water"
@@ -2565,6 +2575,7 @@ if __name__ == "__main__":
         '''
         #//
         allowed_atoms = ["C","N","O"]
+        #allowed_atoms = ["C","N","O"]
         #allowed_atoms = ["N","S_fast"]
         #allowed_atoms = ["N_fast"]
         #allowed_atoms = ["S_fast"]
@@ -2622,13 +2633,14 @@ if __name__ == "__main__":
             laser_firing_qwargs["random_orientation"] = False
             experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
             experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged, results_parent_dir=results_parent_folder, **laser_firing_qwargs)
+            create_reflection_file(exp_name2,results_parent_dir=results_parent_folder)
         stylin(exp_name1,exp_name2,experiment1.q_to_X(experiment1.max_q)/1e7,) # Note we are passing the max q, not max q_scr.
 #^^^^^^^
 #%% Pixels/SPI
 if __name__ == "__main__":
     stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2,
            min_R_dmg_pixel=0,spi_full_rings_only=False,log_range=None,custom_fig_height=20,custom_fig_width=20)
-#%% Miller/cry
+#%% Miller/macrocrystal
 if interactive and __name__ == "__main__":
     stylin(exp_name1,exp_name2,experiment1.q_to_X(experiment1.max_q)/1e7,show_labels=False) # Note we are passing the max q, not max q_scr.
     #stylin("glycine_v36__real","glycine_v36__ideal",2.3)
@@ -2645,7 +2657,7 @@ if interactive and __name__ == "__main__":
     ##### Crystal params
     pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
     crystal_qwargs = dict(
-        cell_scale = 3,  # for SC: cell_scale^3 unit cells
+        supercell_scale = 1,  # for SC: supercell_scale^3 unit cells
         positional_stdv = 0,  # Not used
         include_symmetries = True,  # should unit cell contain symmetries or just one asymmetric unit?
         cell_packing = "SC",

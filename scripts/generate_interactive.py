@@ -3,7 +3,7 @@
 File: generate_interactive.py
 Purpose: For generation of interactive electron density figure, alongside misc plots.
 
-1. generate figures for single output
+1. generate interactive + figures for single output
 'python3 generate_interactive.py lysozyme_3'
 
 2. Compare interactive figures 
@@ -18,19 +18,23 @@ TODO ac4dc doesnt auto put results into a batch folder currently.
 TODO need to be able to specify folders containing outputs e.g. to compare a few outputs
 TODO add -N flag for normalisation (cld also add normalisation option to plotly to replace sliders with normed trace vrsns.)
 Notes:
-Simulation outputs/batches should be in AC4DC/output/__Molecular/ while this scripts is in AC4DC/scripts
+Simulation outputs/batches should be in AC4DC/output/__Molecular/ while this file is in AC4DC/scripts
 
 
 '''
 ####
 
-
-terminal_mode = True
 normalise = False
 ELECTRON_DENSITY = False # if False, use energy density  
+ANIMATION = True # if true, generate animation rather than interactive figure (i.e. automatic slider movement) 
 
 END_T = 9999  # Put at value to cutoff times early.
 POINTS = 70
+if ANIMATION:
+    POINTS = 200 # 200
+
+IDX = 0
+terminal_mode = True
 #####
 
 import os
@@ -42,6 +46,9 @@ import numpy as np
 from QoL import set_highlighted_excepthook
 sys.path.append(os.path.join(os.path.dirname(__file__), 'scattering'))
 from core_functions import get_sim_params # so that we can name batches for the parameters we care about. 
+import PIL
+import io
+from math import ceil
 
 def main():
     set_highlighted_excepthook()
@@ -153,6 +160,9 @@ def set_up_interactive_axes(ipl,plot_title):
     lin_ymin = -0.005
     log_ymax = 1
     log_ymin = 1e-4
+    if ANIMATION:
+        log_ymax = 0.5
+        log_ymin = 5e-5
     xmin,xmax = ipl.get_E_lims()
     xmin = max(1,xmin)
     xmax/=2.4 # Cut off tail
@@ -161,13 +171,21 @@ def set_up_interactive_axes(ipl,plot_title):
     # Axis parameters, these define axis properties depending on what scale is used.
     xlabel = 'Energy (eV)'
     ylabel = '$f(\\epsilon) \\Delta \\epsilon$'   #TODO: Get this working on offline file saves somehow.
+    if ANIMATION:
+        ylabel = "Energy density (arb. units)"
+
     if ELECTRON_DENSITY:
         ylabel = '$f(\\epsilon)'
-    x_log_args = {'title': {"text": xlabel + " - log scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
-    x_lin_args = {'title': {"text": xlabel + " - lin scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "linear", "range" : [xmin,xmax]}
-    y_lin_args = {'title': {"text": ylabel + " - lin scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
-    y_log_args = {'exponentformat':'e','tickvals': [100,10,1,0.1,0.01,0.001,0.0001,0.00001],'title': {"text": ylabel + " - log scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
+    x_log_args = {'title': {"text": xlabel + " - log scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
+    x_lin_args = {'title': {"text": xlabel + " - lin scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "linear", "range" : [xmin,xmax]}
+    y_lin_args = {'title': {"text": ylabel + " - lin scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
+    y_log_args = {'exponentformat':'e','tick0': [100,10,1,0.1,0.01,0.001,0.0001,0.00001],'title': {"text": ylabel + " - log scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
     
+    if ANIMATION:
+        x_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": xlabel, "font":{"size": 65,"family": "times new roman"}}, 'tickfont': {"size": 55,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
+        y_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": ylabel, "font":{"size": 65,"family": "times new roman"}}, 'tickfont': {"size": 55,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
+
+
     # Initialises graph object.
     ipl.initialise_figure(plot_title, x_log_args,y_log_args) 
     return (x_log_args,x_lin_args,y_log_args,y_lin_args)
@@ -180,7 +198,7 @@ def generate(target_handles,sim_data_parent_dir,plot_title,fname_out,normalise,o
     '''
     print("[ Interactive ] Creating electron density interactive figure")
     # Initialises plotter object with data from files.
-    ipl = InteractivePlotter(target_handles,sim_data_parent_dir, max_final_t=END_T,max_points=POINTS,custom_names=custom_names,use_electron_density = ELECTRON_DENSITY)  
+    ipl = InteractivePlotter(target_handles,sim_data_parent_dir, max_final_t=END_T,max_points=POINTS,custom_names=custom_names,use_electron_density = ELECTRON_DENSITY,presentation_mode=ANIMATION)  
     scale_button_args = set_up_interactive_axes(ipl,plot_title)
     # The meat of the plotting. Plot line for each point in time
     line_1 = {'width': 6,"dash": '10,1'}
@@ -190,10 +208,14 @@ def generate(target_handles,sim_data_parent_dir,plot_title,fname_out,normalise,o
         line_kwargs = [line_2 for l in range(len(target_handles))]
     ipl.plot_traces(normed=normalise, line_kwargs=line_kwargs)
     # Add widgets
-    ipl.add_scale_button(*scale_button_args)                 
-    ipl.add_time_slider()  
+    ipl.add_time_slider(one_slider=ANIMATION)  
+    if not ANIMATION:
+        ipl.add_scale_button(*scale_button_args)                 
     #-----Save-----#
-    save_interactive(ipl,outdir,fname_out)
+    if ANIMATION:
+        save_animation(ipl,outdir,fname_out,max_num_frames=999)
+    else:
+        save_interactive(ipl,outdir,fname_out)
 
 def save_interactive(ipl,outdir,fname_out):
     extension = ".html"
@@ -201,6 +223,59 @@ def save_interactive(ipl,outdir,fname_out):
     ipl.fig.write_html(file_path)
 
     print("Done!")
+
+def save_animation(ipl,outdir,fname_out,max_num_frames=10):
+    # https://stackoverflow.com/questions/55460434/how-to-export-save-an-animated-bubble-chart-made-with-plotly
+    extension = ".gif"
+    file_path =  outdir + fname_out + extension
+
+    # generate images for each step in animation
+    frames = []
+
+    steps = ipl.steps_groups[-1] 
+    #for i, step in enumerate(steps[::ceil(len(steps)/num_frames)]):
+    num_frames = min(max_num_frames,len(steps))  
+    #for i in range(len(steps)):  
+    for i in range(len(steps)-35): #TODO remove, use above line instead.  
+        if i%ceil(len(steps)/num_frames) != 0: continue # Iterate through every nth step to get our frame
+        print("step=",i)
+        # # set main traces to appropriate traces within plotly frame
+        # ipl.fig.update(data=fr.data)
+        # move the slider containing all simulation traces to correct place
+        ipl.fig.layout.sliders[-1].update(active=i)  
+        # For some reason this isn't making the trace update...
+        #ipl.fig.update_layout(style = {"visible": ipl.steps_groups[-1][i]["args"][0]["visible"]}) 
+
+        # fig.for_each_trace(
+        #     lambda trace: trace.update(visible=True) if trace.name == "linear" else (),
+        # )        
+        visible = ipl.steps_groups[-1][i]["args"][0]["visible"]
+        ipl.fig.for_each_trace(
+            lambda trace: trace.update(visible=False),
+        )
+        for elem in np.where(visible)[0]:  # Get indices of traces that are to be visible at slider step.
+            ipl.fig.data[elem].visible = True
+        # generate image of current state
+        frames.append(PIL.Image.open(io.BytesIO(ipl.fig.to_image(format="png", width=2560, height=1440, scale=1))))
+
+    # append duplicated last image more times, to keep animation stop at last status
+    for i in range(ceil(num_frames/5)):
+        frames.append(frames[-1])
+
+    # # Duplicate initial images for some Sanders-patented tension. 
+    # for i in range(int(num_frames/10)):
+    #     frames.insert(0,frames[0])
+
+    # create animated GIF
+    duration = 10 # duration in seconds
+    frames[0].save(
+            file_path,
+            save_all=True,
+            append_images=frames[1:],
+            optimize=False,
+            duration=duration*1000/num_frames,
+            loop=0,
+        )
 
 if __name__ == "__main__":
     main()
@@ -222,3 +297,8 @@ if __name__ == "__main__":
 #         ipl.set_trace_params(idx,energy,fwhm,photons,normed=normalise)
 #     ipl.plot_traces()
 #     ipl.switching_time_sliders()
+
+
+############### Scratchpad
+#python3.9 scripts/generate_interactive.py carbon_classic_static carbon_classic_dynamic
+#python3.9 scripts/generate_interactive.py lys_nass_no_S_4 lys_nass_gauss lys_nass_Gd_full_1 

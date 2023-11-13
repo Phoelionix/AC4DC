@@ -51,7 +51,7 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir):
         fig, axs = plt.subplots(3, 3, sharey=True, facecolor='w')
 
         dashes = ["solid","dashed"]#"dotted"]
-        atoms = ("C","N","O")
+        atoms = ("C","N","O","S")
         cmap = plt.get_cmap("Dark2")
         assert len(mol_names) <= 2
         # INCREDIBLY hacky way to get overlaid plots and I am very sorry! Code rot is now at "duct taping the sinking ship" stage.
@@ -67,10 +67,11 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir):
                 pl.plot_all_charges(plot_legend=(m==0),linestyle=dashes[m])
             if plot_mode == 1:
                 colours = [cmap(i) for i in range(len(atoms))]
-                pl.plot_tot_charge(every=10,linestyle=dashes[m],colours = colours,atoms = atoms,plot_legend=(m==0),ylim=[0,8],charge_difference=CHARGE_DIFFERENCE)
-        fig.set_figheight(4.8)
-        fig.set_figwidth(4)
+                #ylim=[0,8]
+                ylim=[0,6]
+                pl.plot_tot_charge(every=10,linestyle=dashes[m],colours = colours,atoms = atoms,plot_legend=(m==0),ylim=ylim,charge_difference=CHARGE_DIFFERENCE)
 
+        plt.gcf().set_figwidth(9.2)
         #plt.tight_layout()
         if plot_mode == 0:
             qualifier = "_"+ "BoundComp"

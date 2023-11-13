@@ -468,7 +468,10 @@ class Plotter:
         def snapshot(idx):
             # We pass in indices from 0 to fineness-1, transform to time:
             idx = np.searchsorted(self.timeData, self.start_t + idx/self.t_fineness*(self.end_t-self.start_t))            
-            return self.timeData[idx]
+            try:
+                return self.timeData[idx]
+            except:
+                raise Exception("Start and end times provided seem to be outside the range of the output data.")
         time_steps = np.fromfunction(snapshot,(self.t_fineness,))
         if len(time_steps) != len(np.unique(time_steps)):
             print("times used:", time_steps)
@@ -821,7 +824,38 @@ class Plotter:
             ax.set_ylabel(r"Ion Fraction")
 
         num_cols = 1+round(num_traces/30-num_traces%30/30)
-        ax.legend(loc='upper left',bbox_to_anchor=(1, 1),fontsize=4,ncol=num_cols)        
+        ax.legend(loc='upper left',bbox_to_anchor=(1, 1),fontsize=4,ncol=num_cols)
+
+    def plot_charges_bar(self, a, ion_fract = True, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[0,1],**kwargs):
+        ax = self.get_next_ax()
+        self.aggregate_charges()
+        #print_idx = np.searchsorted(self.timeData,-7.5)
+        ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))
+        max_at_zero = np.max(self.chargeData[a][0,:]) 
+        norm = 1
+        if ion_fract:
+            norm = 1/max_at_zero            
+        num_traces = 0             
+
+        Y = []
+        Z = []
+        for i in range(self.chargeData[a].shape[1]):
+            Y.append(i)   
+            Z.append(norm*self.chargeData[a][:,i])  
+            num_traces+=1 
+
+        ax.set_facecolor('black')
+        cm = ax.pcolormesh(self.timeData, Y, Z, shading='inferno',cmap="inferno",rasterized=True)
+        cbar = self.fig.colorbar(cm,ax=ax,label="State density")
+
+        ax.set_xlabel("Time (fs)")            
+
+        ax.set_ylabel(r"Density (\AA$^{-3}$)")
+        if ion_fract:
+            ax.set_ylabel(a+r" charge")
+        old_ytop = ax.get_ylim()[1]
+        ax.set_ylim([-0.5,len(Y)-0.5])
+
 
     def plot_subshell(self, a, subshell='1s',rseed=404):
         if not hasattr(self, 'ax_subshell'):

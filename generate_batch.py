@@ -16,9 +16,9 @@ import os
 
 def main():
   # https://www.xfel.eu/sites/sites_custom/site_xfel/content/e35165/e46561/e46876/e179573/e179574/xfel_file179576/19042023_Parameters_factsheet_2024-01_Final_eng.pdf
-  #ENERGIES = [6000,9000,12000]  # 6-12keV is general operating range of EXFEL, 15keV is max.~ 9300 comes up in papers/specs repeatedly. 
-  # FWHMS = [5,15,25]  # Prefer to explore outside capability just for now, snce this will be biggest effect on sim time.
-  # PHOTON_COUNTS = [0.01,0.1,1]   # 10^12 per 100 nm diameter spot. Upper limit seems to be around the limit of EXFEL.
+  #ENERGIES = [6000,9000,12000]  # keV, 6-12keV is general operating range of EXFEL, 15keV is max.~ 9300 comes up in papers/specs repeatedly. 
+  # FWHMS = [5,15,25]  # fs, Prefer to explore outside capability just for now, snce this will be biggest effect on sim time.
+  # PHOTON_COUNTS = [0.01,0.1,1,10]   # 10^12 per square micrometre. 10^13 an approx. upper bound on EXFEL capabilities (though really 10^12 is probably closer to what is achievable).
  
   # ENERGIES = [12000]   
   # FWHMS = [5,10,15,25,50,100] 
@@ -31,12 +31,15 @@ def main():
   # ENERGIES = [6000,9000,12000,15000]
   # FWHMS = [25] 
   # PHOTON_COUNTS = [0.1,1,10,100,1000]  
-
-
-  ENERGIES = [6000,9000,12000,15000,18000]
+  ##
+  #ENERGIES = [6000,9000,12000,15000,18000]
   #FWHMS = [7.5,10,15,25,50,100] 
-  FWHMS = [100] 
-  PHOTON_COUNTS = [0.01,0.1,1,10,100]  
+  #PHOTON_COUNTS = [0.01,0.1,1,10,100]  
+  ##
+
+  ENERGIES = [6000,8000,10000,12000]
+  FWHMS = [10,15,25] 
+  PHOTON_COUNTS = [0.1,1,10]  
 
 
   batch_folder_parent_dir = "input/"
