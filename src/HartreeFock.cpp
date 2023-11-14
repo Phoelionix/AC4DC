@@ -546,7 +546,7 @@ int SetBoundaryValuesApprox(Grid * Lattice, RadialWF * Psi, Potential* U)
 			Psi->F[Inf] *= S;
 			Psi->G[Inf] *= S;
 			if (std::isinf(Psi->F[Inf])){
-				throw std::runtime_error("Psi has inf value!");
+				throw std::runtime_error("Psi has inf value! Sigma may be too high (Psi->Energy too small?).");
 			}
 		}
 	}
@@ -612,7 +612,8 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 			Psi->Energy *= 2;
 			continue;
 		}
-		if (std::isinf(Psi->F[infinity-1])){throw std::runtime_error("Psi has inf value!");}
+		if (std::isinf(Psi->F[infinity-1])){
+			throw std::runtime_error("Psi has inf value!");}
 
 		NumIntgr.StartAdams(Psi, 0, true);
 
@@ -625,7 +626,8 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 
 		F_left = Psi->F[Turn];
 		G_left = Psi->G[Turn] / F_left;
-		if (std::isinf(Psi->F[infinity-1])){throw std::runtime_error("Psi has inf value!");}
+		if (std::isinf(Psi->F[infinity-1])){
+			throw std::runtime_error("Psi has inf value!");}
 		NumIntgr.StartAdams(Psi, infinity, false);
 		NumIntgr.Integrate(Psi, infinity, Turn);
 

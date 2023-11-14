@@ -1,11 +1,5 @@
 #%%
-#TODO
-## Important
-# - make it so reflections don't overwrite same orientation, as stochastic now.
-# - should have option to average out same miller indices be averaged out.
-# - normalise damaged I rather than using neutze-style k factor in R factor.
-## Not so important 
-# - implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector (or just do SPI)
+# Unfinished replacement of intensity integration through time with gaussian quadrature.
 
 '''
 /*===========================================================================

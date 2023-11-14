@@ -1,4 +1,5 @@
 // Average over configuration fractional occupancy is supported, atomic orbital occupancies are between 0 and 4L+2.
+// 1323 configs.
 
 #ATOM
 18           // Nuclear charge
@@ -17,7 +18,7 @@ length       // Gauge type for matrix elements involving photon absorption/emiss
 #NUMERICAL
 2000          // Number of grid points
 0.001	        // Origin of the coordinate grid. Should be > 0.
-100	          // Box radius, maximum distance from the nucleus.
+120	          // Box radius, maximum distance from the nucleus.
 1000          // Initial guess for number of time step points for rate equation. If the value is 0, program skips rate equation soluving step.
 7             // Number of threads in OpenMP.
 // Hartree-Fock implementation numerical parameters.

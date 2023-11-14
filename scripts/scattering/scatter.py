@@ -6,6 +6,7 @@
 # - normalise damaged I rather than using neutze-style k factor in R factor.
 ## Not so important 
 # - implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector (or just do SPI)
+# - Select times and integrate snapshots of intensities with gaussian quadrature or some better method than trapezoid method. (I started this with scatter_quad.py)
 
 '''
 /*===========================================================================
@@ -472,9 +473,9 @@ class Crystal():
         # angular_aperture = np.pi*0.6
         # dot_lw = 0.1 # unit
         #2x2x2 Crystal
-        size = 10*max(1,500/(min_len+max_len))   #solvated crystal
-        angular_aperture = np.pi*0.7 # Solvated crystal        
-        dot_lw = 0 # cryst    
+        # size = 10*max(1,500/(min_len+max_len))   #solvated crystal
+        # angular_aperture = np.pi*0.7 # Solvated crystal        
+        # dot_lw = 0 # cryst    
 
         # tetrapeptide:
         # size = 3*max(1,500/(min_len+max_len))
@@ -2555,10 +2556,11 @@ if __name__ == "__main__":
         allowed_atoms = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_unit_cell.pdb"
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_asym.xpdb"
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
+        # Solvated targets
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_asym.xpdb"; water_index = 1089
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_unit_cell.pdb"; water_index = 8705
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"; water_index = 
         #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
         # target_handle = "lys_nass_2"
         # folder = "lys"

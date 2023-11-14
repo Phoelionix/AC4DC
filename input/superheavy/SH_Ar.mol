@@ -3,7 +3,7 @@ C 613
 N 193
 O 185
 S 10
-Ar 2
+Ar_fast 2
 
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.

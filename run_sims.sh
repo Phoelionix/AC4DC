@@ -12,5 +12,6 @@ set -x
 
 #for f in input/_batches/batch_ClpP/ClpP-{1..36}.mol; do ./ac4dc "$f"; done
 
-TAG=("Ne" "Ar" "Zn" "Se" "Kr" "Zr" "Xe")
+#TAG=("Ne" "Ar" "Zn" "Se" "Kr" "Zr" "Xe")
+TAG=("Ar" "Zn" "Se" "Kr" "Zr" "Xe")
 for t in ${TAG[@]}; do ./ac4dc "input/superheavy/SH_${t}.mol"; done

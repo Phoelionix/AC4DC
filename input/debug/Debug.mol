@@ -1,9 +1,5 @@
 #ATOMS
-H 1000
-C 613
-N 193
-O 185
-
+Ar_fast 2
 
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.
@@ -14,8 +10,8 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 7112         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
-2.4 //9.1 // total sim time in fwhm
-1.2 //1.2  // time before pulse peak to start at in fwhm 
+2.4  // total sim time in fwhm
+1.2 // time before pulse peak to start at in fwhm 
 
 #USE_COUNT
 true    // active (using count)?

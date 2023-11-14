@@ -1,17 +1,17 @@
-// 3+ Ion - as in Gadoteridol 
 // Average over configuration fractional occupancy is supported, so closed orbitals can have occupancy between 0 and 4L+2.
+// Xe8+
+// 3249 configs excluding 1s.
 
 #ATOM
 54            // Nuclear charge
 coulomb      // Nuclear potential model. Can be "coulomb" for point-like nucleus, "sphere" for spherical nucleus.
 HF           // Hamiltonian form. Can be HF, LDA.
 // Orbitals and their occupancies
-5	         // Number of orbitals.
+4	         // Number of orbitals.
 1s 2
 2N 8
 3N 18
 4N 18
-5N 8
 V_N          // Potential model. Can be "V_N" for Hartree-Fock, "V_N-1no" for non-orthogonal excited state orbitals, "V_N-1" for classical potential.
 length       // Gauge type for matrix elements involving photon absorption/emission. Can be either "length" or "velocity".
 
