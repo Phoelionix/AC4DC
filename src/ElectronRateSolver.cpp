@@ -910,7 +910,7 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
     }
     */
     dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
-    #endif #SWITCH_OFF_ALL_DYNAMIC_UPDATES
+    #endif //SWITCH_OFF_ALL_DYNAMIC_UPDATES
     
     //////  Check if user wants to end simulation early ////// 
     auto t_start_usr = std::chrono::high_resolution_clock::now();

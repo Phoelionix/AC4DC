@@ -258,7 +258,7 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
             #pl.ax_steps.set_ylabel("Impact ionisation rate $\\left(\\frac{d\\,\\Gamma^{ei}}{d\\epsilon}\\right)$")
             #pl.ax_steps.set_ylabel("Impact ionisation rate ($\\textrm{fs}^{-1}$)")
             #pl.ax_steps.set_ylabel("Differential EI rate C $\\rightarrow$ C$^{+}$",color="blue")
-            pl.ax_steps.set_ylabel("Differential EI rate (a.u)",color="blue")
+            pl.ax_steps.set_ylabel("Differential EI rate (a.u.)",color="blue")
             pl.ax_steps.tick_params(axis='y', colors='blue')
             
             #pl.ax_steps.set_ylabel("$\\frac{d}{d\\epsilon} \\Gamma^{eii}$")

@@ -26,7 +26,7 @@ Simulation outputs/batches should be in AC4DC/output/__Molecular/ while this fil
 
 normalise = False
 ELECTRON_DENSITY = False # if False, use energy density  
-ANIMATION = True # if true, generate animation rather than interactive figure (i.e. automatic slider movement) 
+ANIMATION = False # if true, generate animation rather than interactive figure (i.e. automatic slider movement) 
 
 END_T = 9999  # Put at value to cutoff times early.
 POINTS = 70
