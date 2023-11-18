@@ -1404,6 +1404,9 @@ class XFEL():
 
         print("Cardan angles:",cardan_angles)
         print("Number of points:", len(indices))   
+        assert len(indices) < 10920, "Output size failsafe triggered, output array of ("+str(len(indices))+","+str(len(indices))+") will be more than 1 GiB."
+        if len(indices) > 2000:
+            print("WARNING: very high number of points!")        
         for elem in indices:
             if DEBUG:
                 print(elem)
@@ -2531,7 +2534,7 @@ if __name__ == "__main__":
         positional_stdv = 0,#0.2,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
-        rocking_angle = 30,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
+        rocking_angle = 5,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         #CNO_to_N = True,   # whether the plasma simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
     )
 
@@ -2545,7 +2548,7 @@ if __name__ == "__main__":
         q_cutoff = res_to_q(best_resolution), #(best_resolution),#2*np.pi/2
         t_fineness=25,   
         #####crystal stuff (miller)
-        max_miller_idx = None, #None, # = m, [thus max q given by q with miller indices (m,m,m)]
+        max_miller_idx = 12, #None, # = m, [thus max q given by q with miller indices (m,m,m)]
         all_miller_indices = False, # False, whether to find all bragg points at or below the max miller index (and between min and max q)
         ####SPI stuff ( ab initio)
         num_rings = 20,
