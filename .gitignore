@@ -45,3 +45,5 @@ scripts/scattering/R_plots
 scripts/scattering/dmg_data
 valgrind-out*
 input/_batches/*
+scripts/scattering/reflections/*
+scripts/scattering/scalepack/*

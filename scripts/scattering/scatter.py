@@ -1147,7 +1147,7 @@ class XFEL():
                             break
                         if self.target.supercell_simulations < 10:
                             if len(self.target.sym_rotations) < 50 or (len(self.target.sym_rotations) < 2000 and s%100 == 0)  or s%1000 == 0:
-                                print("symmetry:",s,"atoms:",atm_idx[0],"-",atm_idx[-1])
+                                print("symmetry:",s,"atoms:",species.name,atm_idx[0],"-",atm_idx[-1])
                         relative_atm_idx = np.arange(max_atoms_per_loop*a_batch, min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
                         # Rotate to target's current orientation 
                         # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
@@ -2298,6 +2298,9 @@ def get_result(filename,results_dir,compare_dir = None):
 import pandas as pd
 import csv
 def create_reflection_file(result_handle,results_parent_dir = "results/",overwrite=False):
+    '''
+    Generates a .rfl file, compatible with Superflip
+    '''
     print("Creating reflection file for",result_handle)
     directory = "reflections/"
     results_dir = results_parent_dir+ result_handle+"/"
@@ -2338,7 +2341,60 @@ def create_reflection_file(result_handle,results_parent_dir = "results/",overwri
     df = df[df['I']>=0.01] # TODO temporary fix for appearance of low values that needs to be squashed.
     df.to_csv(out_path,header=False,index=False,float_format='%10f', sep=" ", quoting=csv.QUOTE_NONE, escapechar=" ")
 
-#create_reflection_file("f1_11",True)
+def rfl_to_sca(result_handle,reflections_dir = "reflections/",overwrite=True):
+    '''Converts .rfl file to scalepack .sca file
+    See https://www.ccp4.ac.uk/html/scala.html#files
+    '''
+    directory = "scalepack/"
+    os.makedirs(directory, exist_ok=True) 
+    rfl_file_path = reflections_dir + result_handle + ".rfl"
+    out_path = directory + result_handle + ".sca"
+    save_action = "x"
+    if overwrite:
+        save_action = "w"    
+    # First find max length of intensities, so can scale values down.
+    max_length = 0
+    with open(rfl_file_path, 'r') as a:
+        for line in a:
+            entries = line.split()
+            if entries[0]+entries[1]+entries[2] == '0'*3: 
+                continue # Ignore (0,0,0) reflection
+            
+            max_length = max(max_length,len(line.split()[3].split('.')[0]))
+    #
+    with open(rfl_file_path, 'r') as a, open(out_path, save_action) as b:
+        # placeholder boilerplate 
+        indent = ' '*3
+        b.write(indent+' 1\n -987\n')
+        # Cell geometry TODO integrate with actual input.
+        b.write(indent+' 79.000    79.000    38.000    90.000    90.000    90.000 P43212\n')
+        # Miller indices (hkl) | IMEAN_dataset | SIGIMEAN_dataset
+        for line in a:
+            # Initialise elements
+            h=k=l = ' '*4
+            I_mean=sigI_mean = ' '*8
+            I_scaling_power = max_length - 7
+
+            # convert data to usable format from .rfl file
+            entries = line.split()
+            #   hkl
+            if entries[0]+entries[1]+entries[2] == '0'*3:
+                continue # Ignore (0,0,0) reflection
+            #   I
+            entries[3] =  '%.0f'%(float(entries[3])/10**I_scaling_power)
+            # Add in entry for sigmaI_mean
+            entries.append('50.0')
+
+            # Populate elements
+            for i,q in enumerate([h,k,l,I_mean,sigI_mean]):
+                assert len(entries[i]) < len(q), "Error, entry of '"+entries[i]+"' has length >= "+str(len(q))   # Use '<' not '<=' because need a space.
+                q = q[:-len(entries[i])]+ entries[i]
+                b.write(q)
+            b.write('\n')
+
+
+#create_reflection_file("hen_v7__eal",True)
+#rfl_to_sca("hen_v7_real")
 
 #####
 # stylin' 
@@ -2461,7 +2517,7 @@ if __name__ == "__main__":
     end_time = 18#12#6
     laser_firing_qwargs = dict(
         # pixel sampling method (Neutze) if True - Miller indices if False
-        SPI = True,  # sampling method, if False, bragg spots. if True, detector pixels. TODO change name
+        SPI = False,  # sampling method, if False, bragg spots. if True, detector pixels. TODO change name
         SPI_resolution = best_resolution,
         pixels_across = 150,  # for SPI, shld go on xfel params.
         # miller
@@ -2469,19 +2525,19 @@ if __name__ == "__main__":
     )
     ##### Crystal params
     crystal_qwargs = dict(
-        supercell_scale = 2,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
+        supercell_scale = 1,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
         num_supercells = 1,#100, # 35409
         supercell_simulations = 1, #150
         positional_stdv = 0,#0.2,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
-        rocking_angle = 1,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
+        rocking_angle = 30,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         #CNO_to_N = True,   # whether the plasma simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
     )
 
     #### XFEL params
     #TODO make it so reflections don't overwrite same orientation, as stochastic now.
-    energy = 10000#7100 # eV
+    energy = 7112#7100 # eV
     exp_qwargs = dict(
         detector_distance_mm = 100,
         screen_type = "flat",#"hemisphere"
@@ -2631,11 +2687,14 @@ if __name__ == "__main__":
     else:
         exp1_orientations = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal, results_parent_dir=results_parent_folder, **laser_firing_qwargs)
         create_reflection_file(exp_name1,results_parent_dir=results_parent_folder)
+        rfl_to_sca(exp_name1)
         if exp_name2 != None:
             laser_firing_qwargs["random_orientation"] = False
             experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
             experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged, results_parent_dir=results_parent_folder, **laser_firing_qwargs)
             create_reflection_file(exp_name2,results_parent_dir=results_parent_folder)
+            rfl_to_sca(exp_name2)
+
         stylin(exp_name1,exp_name2,experiment1.q_to_X(experiment1.max_q)/1e7,) # Note we are passing the max q, not max q_scr.
 #^^^^^^^
 #%% Pixels/SPI
