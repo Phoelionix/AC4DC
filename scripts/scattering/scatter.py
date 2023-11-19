@@ -1210,12 +1210,14 @@ class XFEL():
         # Generally not important due to small angles involved.
         thet = self.q_to_theta(feature.q)
         r_e_sqr = 2.83570628e-9
-        I*= r_e_sqr*(1/2)*(1+np.square(np.cos(2*thet)))
+        I*= r_e_sqr*(1/2)*(1+np.square(np.cos(2*thet))) 
 
         if SPI:
             # For crystal we can approximate infinitely small pixels and just consider bragg points. (i.e. The intensity will be the same so long as the pixel isn't covering multiple points.)
             # But for SPI need to take the pixel's size into account. Neutze 2000 makes the following approximation:
             I *=  SPI_proj_solid_angle    # equiv. to *= solid_angle
+        
+        I/=10**12  # Scale down intensity.
         print("Total screen-incident intensity = ","{:e}".format(np.sum(I)))
         return I
 
@@ -1404,7 +1406,7 @@ class XFEL():
 
         print("Cardan angles:",cardan_angles)
         print("Number of points:", len(indices))   
-        assert len(indices) < 10920, "Output size failsafe triggered, output array of ("+str(len(indices))+","+str(len(indices))+") will be more than 1 GiB."
+        assert len(indices) < 10920, "Output size failsafe triggered, output size likely >~ 1 GiB."
         if len(indices) > 2000:
             print("WARNING: very high number of points!")        
         for elem in indices:
@@ -1811,7 +1813,8 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             I1 = tmp_I1[unique_values_mask]
             I2 = tmp_I2[unique_values_mask]
             radial_axis = radial_axis[unique_values_mask]
-            phi = phi[unique_values_mask]  + np.pi/2 # to align with the SPI pixel plot
+            phi = phi[unique_values_mask] + np.pi/2 # to align with the SPI pixel plot
+            phi[phi>=np.pi] -= 2*np.pi
 
             #sector_histogram += get_histogram_contribution(z,result.phi,radial_axis)
             if result2 != None:
@@ -1952,7 +1955,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 # R = np.sum(np.abs((sqrt_real - sqrt_ideal)))/np.sum(sqrt_ideal)
                 # print(R)
                 if not get_R_only:
-                    print("sum of real","{:e}".format(np.sum(sqrt_real)),"sum of ideal","{:e}".format(np.sum(sqrt_ideal)),"sum of abs difference","{:e}".format(np.sum(np.abs((sqrt_real - sqrt_ideal)))))
+                    print("sum of (sqrt) real","{:e}".format(np.sum(sqrt_real)),"sum of (sqrt) ideal","{:e}".format(np.sum(sqrt_ideal)),"sum of abs difference","{:e}".format(np.sum(np.abs((sqrt_real - sqrt_ideal)))))
                     #neutze_histogram = np.histogram2d(phi, radial_axis, weights=R, bins=(np.array([-np.pi,np.pi]), radial_edges))[0]             
                     #plot_sectors(neutze_histogram)
 
@@ -2516,7 +2519,7 @@ if __name__ == "__main__":
 
     #### Individual experiment arguments 
     tag = "D" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
-    start_time = -18#-12#-6
+    start_time = 0#-12#-6
     end_time = 18#12#6
     laser_firing_qwargs = dict(
         # pixel sampling method (Neutze) if True - Miller indices if False
@@ -2528,13 +2531,13 @@ if __name__ == "__main__":
     )
     ##### Crystal params
     crystal_qwargs = dict(
-        supercell_scale = 1,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
+        supercell_scale = 2,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
         num_supercells = 1,#100, # 35409
         supercell_simulations = 1, #150
         positional_stdv = 0,#0.2,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
-        rocking_angle = 5,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
+        rocking_angle = 0.02,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         #CNO_to_N = True,   # whether the plasma simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
     )
 
@@ -2548,7 +2551,7 @@ if __name__ == "__main__":
         q_cutoff = res_to_q(best_resolution), #(best_resolution),#2*np.pi/2
         t_fineness=25,   
         #####crystal stuff (miller)
-        max_miller_idx = 12, #None, # = m, [thus max q given by q with miller indices (m,m,m)]
+        max_miller_idx = None, #None, # = m, [thus max q given by q with miller indices (m,m,m)]
         all_miller_indices = False, # False, whether to find all bragg points at or below the max miller index (and between min and max q)
         ####SPI stuff ( ab initio)
         num_rings = 20,
@@ -2559,7 +2562,7 @@ if __name__ == "__main__":
         SPI_z_rotation = 0,
         #crystallographic orientations (not consistent with SPI yet)
         # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.        
-        num_orients_crys=50, # Miller indices orientations
+        num_orients_crys=5, # Miller indices orientations
         orientation_axis_crys = None,
         #orientation_axis_crys = [0,0,1],#None,#[1,1,0]
         
@@ -2709,7 +2712,8 @@ if interactive and __name__ == "__main__":
     stylin(exp_name1,exp_name2,experiment1.q_to_X(experiment1.max_q)/1e7,show_labels=False) # Note we are passing the max q, not max q_scr.
     #stylin("glycine_v36__real","glycine_v36__ideal",2.3)
     #stylin(exp_name1,exp_name2,3)
-#%%
+#%%--------STRUCTURE CONSTRUCTOR------
+
 # Save full structures in pdb format for SOLVATE
 # Using this structure is not amazing practice, it takes a lot of time and potentially memory!
 # SOLVATE allows for generating just the water with the solute removed. So an alternative method might 
