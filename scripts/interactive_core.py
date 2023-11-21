@@ -323,6 +323,7 @@ class InteractivePlotter:
                     data/=4*3.14
 
                 ### Cute colours  ★ﾟ~(◠ᴗ ◕✿)ﾟ*｡:ﾟ+ 
+                '''                
                 rgb = [None,None,None]
                 a = 1 
                 if len(self.target_data) > 1: a = 0.8
@@ -367,7 +368,20 @@ class InteractivePlotter:
                     rgb[i] = 255*min(1, max(0, rgb[i]))
                     rgba = tuple(rgb) + (a,)
                 col = "rgba" + str(tuple(rgba))      
-                
+                '''                
+                plotly_d3_colors = [
+                    '#1f77b4',
+                    '#ff7f0e',
+                    '#2ca02c',
+                    '#d62728',
+                    '#9467bd',
+                    '#8c564b',
+                    '#e377c2',
+                    '#7f7f7f',
+                    '#bcbd22',
+                    '#17becf',
+                    ]*10
+                col = plotly_d3_colors[g]
 
                 # Choose dependent variable factor depending on if using energy density or electron density.
                 density_factor = X # energy density
@@ -386,8 +400,8 @@ class InteractivePlotter:
                         #     shape = "+",                    
                         #     fillmode = 'overlay',
                         # ),
-                        #line=dict(color=col, **line_kwargs[g]), # TODO EMERGENCY COMMENT OUT
-                        line=dict(**line_kwargs[g]), # TODO EMERGENCY---TO REMOVE
+                        line=dict(color=col, **line_kwargs[g]),
+                        #line=dict(**line_kwargs[g]), 
                         name="t = " + str(t),
                         x=X,
                         y=data*density_factor))
