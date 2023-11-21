@@ -81,7 +81,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
 
     if bound_ionisation_bar:
         pl.plot_charges_bar("C",show_pulse_profile=False)
-        #plt.gcf().set_figwidth(15)        
+        plt.gcf().set_figwidth(15)        
     if bound_ionisation:
         pl.plot_all_charges(show_pulse_profile=False,ylim=[0,1])
 

@@ -166,21 +166,29 @@ def set_up_interactive_axes(ipl,plot_title):
     xmin,xmax = ipl.get_E_lims()
     xmin = max(1,xmin)
     xmax/=2.4 # Cut off tail
+    ylabel = "Electron energy density (arb. units)"
+    if ANIMATION:
+        ylabel = "Energy density (arb. units)"
     if ELECTRON_DENSITY:
+        ylabel = "Electron density (arb. units)"
         log_ymin = 2e-7; log_ymax = 1e-2 
     # Axis parameters, these define axis properties depending on what scale is used.
     xlabel = 'Energy (eV)'
-    ylabel = '$f(\\epsilon) \\Delta \\epsilon$'   #TODO: Get this working on offline file saves somehow.
-    if ANIMATION:
-        ylabel = "Energy density (arb. units)"
+    #ylabel = '$f(\\epsilon) \\Delta \\epsilon$' 
+    
 
     if ELECTRON_DENSITY:
         ylabel = '$f(\\epsilon)'
-    x_log_args = {'title': {"text": xlabel + " - log scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
-    x_lin_args = {'title': {"text": xlabel + " - lin scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "linear", "range" : [xmin,xmax]}
-    y_lin_args = {'title': {"text": ylabel + " - lin scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
-    y_log_args = {'exponentformat':'e','tick0': [100,10,1,0.1,0.01,0.001,0.0001,0.00001],'title': {"text": ylabel + " - log scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
+    #x_lin_args = {'title': {"text": xlabel + " - lin scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "linear", "range" : [xmin,xmax]}
+    #y_lin_args = {'title': {"text": ylabel + " - lin scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
+    #x_log_args = {'title': {"text": xlabel + " - log scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
+    #y_log_args = {'exponentformat':'e','tick0': [100,10,1,0.1,0.01,0.001,0.0001,0.00001],'title': {"text": ylabel + " - log scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
     
+    x_lin_args = {'title': {"text": xlabel + " - lin scale", "font":{"size": 35,"family": "times new roman"}}, 'tickfont': {"size": 35}, 'type' : "linear", "range" : [xmin,xmax]}
+    y_lin_args = {'title': {"text": ylabel + " - lin scale", "font":{"size": 35,"family": "times new roman"}}, 'tickfont': {"size": 35}, 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
+    x_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": xlabel, "font":{"size": 35,"family": "times new roman"}}, 'tickfont': {"size": 30,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
+    y_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": ylabel, "font":{"size": 35,"family": "times new roman"}}, 'tickfont': {"size": 30,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
+
     if ANIMATION:
         x_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": xlabel, "font":{"size": 65,"family": "times new roman"}}, 'tickfont': {"size": 55,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
         y_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": ylabel, "font":{"size": 65,"family": "times new roman"}}, 'tickfont': {"size": 55,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
@@ -197,8 +205,11 @@ def generate(target_handles,sim_data_parent_dir,plot_title,fname_out,normalise,o
     sim_data_parent_dir: absolute path to the folder containing the folders specified by target_handles.
     '''
     print("[ Interactive ] Creating electron density interactive figure")
+    presentation_mode = None # Use default
+    if ANIMATION:
+        presentation_mode = True
     # Initialises plotter object with data from files.
-    ipl = InteractivePlotter(target_handles,sim_data_parent_dir, max_final_t=END_T,max_points=POINTS,custom_names=custom_names,use_electron_density = ELECTRON_DENSITY,presentation_mode=ANIMATION)  
+    ipl = InteractivePlotter(target_handles,sim_data_parent_dir, max_final_t=END_T,max_points=POINTS,custom_names=custom_names,use_electron_density = ELECTRON_DENSITY,presentation_mode=presentation_mode)  
     scale_button_args = set_up_interactive_axes(ipl,plot_title)
     # The meat of the plotting. Plot line for each point in time
     line_1 = {'width': 6,"dash": '10,1'}

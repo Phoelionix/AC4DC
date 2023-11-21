@@ -46,6 +46,10 @@ for symbol in ATOMS:
     ATOMNO[symbol + '_fast'] = i
     ATOMNO[symbol + '_faster'] = i
     i += 1
+ATOMNO["Zr_fast"] = 40
+ATOMNO["Xe_fast"] = 54
+ATOMNO["Gd_galli"] = 64 
+ATOMNO["Gd_fast"] = 64
 ATOMNO["Gd"] = 64
 ATOMNO["Gd_galli"] = 64 
 ATOMNO["Gd_fast"] = 64

@@ -220,7 +220,9 @@ class InteractivePlotter:
         '''
         self.multi_trace_params = [""]*len(target_names)  # 
         self.use_electron_density = use_electron_density
-        self.presentation_mode = presentation_mode
+        self.presentation_mode = False
+        if presentation_mode:
+            self.presentation_mode = True
 
         self.num_plots = len(target_names)
         self.target_data = []
@@ -287,15 +289,26 @@ class InteractivePlotter:
     def initialise_figure(self, plot_title, x_args={}, y_args={}):
         self.fig = go.Figure()
         
+        left_anchor = {"xanchor":"left", "x":0.01} 
+        #right_anchor = {"xanchor":"right", "x":0.99} 
+        right_anchor = {"xanchor":"left", "x":0.6} 
+        h_anchor = right_anchor 
         self.fig.update_layout(
-            title= plot_title + " - Free-electron distribution",  # Attention: title overwritten by add_time_slider()
-            showlegend=False,
+            title = plot_title + " - Free-electron distribution",  # Attention: title overwritten by add_time_slider()
+            showlegend=True,
+            legend=dict(
+                yanchor="top",
+                y=0.99,
+                xanchor = h_anchor["xanchor"],
+                x = h_anchor["x"],
+                bgcolor = '#F5F5F5',
+                font = dict(family="Times New Roman",size=35),
+            ),               
+            # Hide the slider values
             font=dict(
                 family="Times New Roman",
-                size=1,
-                # color='rgba(0,0,0,0)' # hide tick numbers? Nope.
-            ),
-            #paper_bgcolor= '#F7CAC9' #'#f7dac9' '#F7CAC9'  '#FFD580' "#92A8D1"  lgrey = '#bbbfbf',
+                size=1, 
+            )
         )
 
         self.fig.update_xaxes(x_args)
@@ -391,21 +404,21 @@ class InteractivePlotter:
                 self.fig.add_trace(
                     go.Scatter(
                         visible=False,
-                        # Can't get to work
-                        # marker=dict(
-                        #     color='LightSkyBlue',
-                        #     size=12,
-                        # ),
-                        # fillpattern = dict(
-                        #     shape = "+",                    
-                        #     fillmode = 'overlay',
-                        # ),
                         line=dict(color=col, **line_kwargs[g]),
-                        #line=dict(**line_kwargs[g]), 
-                        name="t = " + str(t),
+                        name=self.target_data[g].target_mol["name"] + "%.1f"%t + " fs",
                         x=X,
                         y=data*density_factor))
-        
+        # # Plot knots as trace too? (would need to figure out how to make it not move vertically.)
+        # knot_to_plot = self.target_data[g].energyKnot
+        # self.fig.add_trace(
+        #     go.Scatter(
+        #         x=knot_to_plot,
+        #         y = [10**(self.y_args["range"][0])*1.1]* len(knot_to_plot),
+        #         mode="markers",
+        #         marker = dict(color='#e66000',size=8),
+        #         name="knot"
+        #     ),
+        # )
         self.fig.data[0].visible = True
 
     #----Widgets----#
@@ -430,9 +443,7 @@ class InteractivePlotter:
                 self.fig.update_layout({"title": subplot_title})
             for i in range(len(target.timeData) - 1): # -1 as don't have trace for zeroth time step.
                 if self.presentation_mode:
-                    self.fig.update_layout({"title":""})
-                    #allplot_title["text"] = "<span style='font-size: 35px;color:"+ allplot_title_colour +"; font-family: Times New Roman'>" + "t = " + str(target.timeData[i+1]) 
-                    #subplot_title["text"] = "<span style='font-size: 35px;color:"+ allplot_title_colour +"; font-family: Times New Roman'>" + "t = " + str(target.timeData[i+1]) 
+                    self.fig.update_layout({"title":"Free electrons"}) 
                 if target.timeData[i+1] > target.max_final_t:
                     break                
                 step = dict(
@@ -464,16 +475,19 @@ class InteractivePlotter:
             ###
             self.steps_groups.append(steps)
             start_step += len(steps)
-
-            time_slider.append(dict(
-                active=0,
-                tickwidth=0,
-                tickcolor = "rgba(0,0,0,0)",
-                currentvalue={"prefix": "<span style='font-size: 25px; font-family: Times New Roman; color = black'>" + target.target_mol["name"] + " - Time [fs]: "},
-                pad={"t": 85+90*g,"r": 200,"l":0},
-                steps=steps,
-                #font = {"color":"rgba(0.5,0.5,0.5,1)"}
-            ))
+        
+            # Show individual sliders (Not necessary, can isolate traces by clicking on the legend.)
+            individual_sliders = False
+            if individual_sliders:
+                time_slider.append(dict(
+                    active=0,
+                    tickwidth=0,
+                    tickcolor = "rgba(0,0,0,0)",
+                    currentvalue={"prefix": "<span style='font-size: 25px; font-family: Times New Roman; color = black'>" + target.target_mol["name"] + " - Time [fs]: "},
+                    pad={"t": 85+90*g,"r": 200,"l":0},
+                    steps=steps,
+                    #font = {"color":"rgba(0.5,0.5,0.5,1)"}
+                ))
         if simul_step_slider:
             self.steps_groups.append(simul_steps)
             all_slider = dict(
@@ -484,6 +498,16 @@ class InteractivePlotter:
                 steps = simul_steps,
                 #font = {"color":"rgba(0.5,0.5,0.5,1)"}
             )
+            if not individual_sliders:
+                all_slider = dict(
+                    active = 0,
+                    tickwidth = 0,
+                    currentvalue = {"prefix": "<span style='font-size: 35px; font-family: Times New Roman; color = white;'>" +"All" + " - Times [fs]: "},
+                    pad={"t": 85,"r": 200,"l":0},
+                    steps = simul_steps,
+                    #font = {"color":"rgba(0.5,0.5,0.5,1)"}
+                )                
+
             if self.presentation_mode:
                 all_slider["currentvalue"] =  {"prefix": "<span style='font-size: 100px; font-family: Times New Roman; color = white;'>" + "t =", "suffix": "<span style='font-size: 100px; font-family: Times New Roman; color = white;'>" + " fs"}
                 #all_slider["pad"] = {"t": 130,"r": 200,"l":0}
