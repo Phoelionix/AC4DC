@@ -24,7 +24,7 @@ import copy
 from core_functions import get_mol_file
 pio.templates.default = "seaborn" #"plotly_dark" # "plotly"
 
-
+T_PRECISION = 6 # Truncate past 6 d.p. (millionth of an fs) to Avoid floating point error
 engine = re.compile(r'(\d[spdf])\^\{(\d+)\}')
 
 def eprint(*args, **kwargs):
@@ -129,15 +129,20 @@ class PlotData:
         return min(self.max_final_t,self.raw_int[-1,0]) - self.raw_int[0,0]
     def set_max_t(self,time_range):
         raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
-        self.max_final_t = (self.raw_int[0,0] + time_range)//1e-6/1e6  # Truncate past 6 d.p. (millionth of an fs) to Avoid floating point error
+        Q = 10**(-T_PRECISION)
+        self.max_final_t = (self.raw_int[0,0] + time_range)//Q*Q  # Truncate to avoid floating point error
+        #self.max_final_t = round((self.raw_int[0,0] + time_range)/Q)*Q  # Round to avoid floating point error
     def get_num_usable_points(self):
         return min(len(self.raw_int), self.max_points)
 
     def update_outputs(self):
         # Get samples of steps separated by the same times.
         times = np.linspace(self.raw_int[0,0],self.max_final_t,self.max_points)
-        indices = np.searchsorted(self.raw_int[:,0],times) 
-
+        Q = 10**(-T_PRECISION)
+        print(np.round((times)/Q)*Q)
+        indices = np.searchsorted(self.raw_int[:,0],(times)//Q*Q)
+        #indices = np.searchsorted(self.raw_int[:,0],np.round((times)/Q)*Q )
+        indices[1:] -= 1  # index 0 is ignored later anyway.
         np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
         raw = self.raw_int[indices]
         print("Times plotted:\n",raw[:,0])
@@ -317,14 +322,18 @@ class InteractivePlotter:
     # line_args - a list of kwarg dictionaries to be used for the line argument of go.Scatter().
     # colour_mixup - good for distinguishing plots that are on the same timescale.
     def plot_traces(self, saturation = 0.85, normed = True, colour_mixup = True, line_kwargs = [{},{},{},{},{}], fitE = None):
-        # Add a group of traces for each target, but the time slider needs to manual separate them out. Probably a better way to do this but oh well.
+        Q = 10**(-T_PRECISION)
+        # Add a group of traces for each target.
         for g, target in enumerate(self.target_data):
-            min_t = target.timeData[0]   #
-            max_t = target.timeData[-1]-(target.timeData[-1]-min_t)/len(target.timeData)  # hack, weird indices fix colours and don't affect data.
+            # (Used for colour)
+            min_t_c = target.timeData[0]   #
+            max_t_c = target.timeData[-1]-(target.timeData[-1]-min_t_c)/len(target.timeData)  # hack, weird indices fix colours and don't affect data.
             # Add traces, one for each slider step
             X = target.energyKnot
             for j, t in enumerate(target.timeData):
-                if t > target.max_final_t:
+                if t//Q*Q > target.max_final_t:
+                #if round(t/Q)*Q > target.max_final_t:
+                    print(t,"BTOKRN")
                     break
 
                 if j == 0: continue  # Skip empty plot
@@ -376,7 +385,7 @@ class InteractivePlotter:
 
                 # Linear interpolation
                 for i in range(len(rgb)):
-                    t_norm = (t-min_t)/(max_t-min_t)
+                    t_norm = (t-min_t_c)/(max_t_c-min_t_c)
                     rgb[i] = saturation * rgb_intensity[i] * (1-((t_norm-rgb_bndry[i])/rgb_width[i])**2)
                     rgb[i] = 255*min(1, max(0, rgb[i]))
                     rgba = tuple(rgb) + (a,)
@@ -457,21 +466,26 @@ class InteractivePlotter:
                 step["args"][0]["visible"][start_step + i] = True  #  When at this step toggle i'th trace in target's group to "visible"
                 steps.append(step)
                 if simul_step_slider:
+                    trace_label = step["label"]
                     #   Initialise slider that shows all plots.
                     if g == 0:
                         simul_step = copy.deepcopy(step)
-                        simul_step["label"] = "  " + "%.2f" % target.timeData[i+1]                            
+                        simul_step["label"] = "  " + trace_label                   
                         simul_steps.append(simul_step)    
                         simul_step["args"][1]["title"] = allplot_title 
                     #   Add later plots' traces at same step (not necessarily same time...).
                     elif self.presentation_mode:
                         # Use time of plot assuming all same.
                         simul_steps[i]["args"][0]["visible"][start_step+i] = True    
-                        simul_step["label"] = "  " + "%.2f" % target.timeData[i+1] 
-                        simul_step["args"][1]["title"] = "<span style='font-size: 35px;color:"+ allplot_title_colour +"; font-family: Times New Roman'>" + "t = " + str(target.timeData[i+1]) 
-                    elif i < len(simul_steps):
+                        simul_step["label"] = "  " + trace_label
+                        simul_step["args"][1]["title"] = "<span style='font-size: 35px;color:"+ allplot_title_colour +"; font-family: Times New Roman'>" + "t = " + trace_label 
+                    elif i < len(simul_steps):  
                         simul_steps[i]["args"][0]["visible"][start_step+i] = True    
-                        simul_steps[i]["label"] += "  |  " + "%.2f" % target.timeData[i+1]
+                        simul_steps[i]["label"] += "  |  " + trace_label
+                    if i < len(simul_steps) and g == self.num_plots - 1:
+                        # Check if times align. If so, just show one.
+                        if simul_steps[i]["label"] == "  " + trace_label  + ("  |  " + trace_label)*g:
+                            simul_steps[i]["label"] = trace_label 
             ###
             self.steps_groups.append(steps)
             start_step += len(steps)
@@ -505,6 +519,9 @@ class InteractivePlotter:
                     currentvalue = {"prefix": "<span style='font-size: 35px; font-family: Times New Roman; color = white;'>" +"All" + " - Times [fs]: "},
                     pad={"t": 85,"r": 200,"l":0},
                     steps = simul_steps,
+                    len = 0.5,
+                    borderwidth = 10,
+                    bordercolor = "blue",
                     #font = {"color":"rgba(0.5,0.5,0.5,1)"}
                 )                
 
@@ -547,7 +564,7 @@ class InteractivePlotter:
 
 
     # Scale Button 
-    def add_scale_button(self,x_log_args, x_lin_args, y_log_args,y_lin_args,):      
+    def add_scale_button_vertical(self,x_log_args, x_lin_args, y_log_args,y_lin_args,):      
         scale_button = go.layout.Updatemenu(
                 buttons=list([
                     dict(
@@ -585,6 +602,44 @@ class InteractivePlotter:
         self.fig.update_layout(
             updatemenus = [scale_button]
         )    
+    def add_scale_button(self,x_log_args, x_lin_args, y_log_args,y_lin_args,):      
+        scale_button = go.layout.Updatemenu(
+                buttons=list([
+                    dict(
+                        args=[{'yaxis': y_log_args, 'xaxis': x_log_args}],
+                        label="<br>Log-Log<br>",
+                        method="relayout",
+                    ),
+                    dict(
+                        args=[{'yaxis': y_lin_args, 'xaxis': x_log_args}],
+                        label="<br>Lin-Log<br>",
+                        method="relayout"    
+                    ),
+                    dict(
+                        args=[{'yaxis': y_log_args, 'xaxis': x_lin_args}],
+                        label="<br>Log-Lin<br>",
+                        method="relayout"    
+                    ),    
+                    dict(
+                        args=[{'yaxis': y_lin_args, 'xaxis': x_lin_args}],
+                        label="<br>Lin-Lin<br>",
+                        method="relayout"              
+                    )
+                ]),
+                type="buttons",
+                # Array buttons along bottom right of graph
+                direction = "right",
+                pad={"r": 0, "t": 85},
+                showactive=True,
+                x= 1,
+                xanchor="right",
+                y= 0, 
+                yanchor="top",
+                font = {"size": 35,"family": "Times New Roman"},
+        )   
+        self.fig.update_layout(
+            updatemenus = [scale_button]
+        )   
 
     def get_E_lims(self):
         Emax = -np.inf; Emin = np.inf

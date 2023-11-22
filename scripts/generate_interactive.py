@@ -50,6 +50,7 @@ import PIL
 import io
 from math import ceil
 
+assert ELECTRON_DENSITY is False, "Electron density not implemented yet, need to take in dynamic knots." #TODO
 def main():
     set_highlighted_excepthook()
     molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
@@ -166,15 +167,18 @@ def set_up_interactive_axes(ipl,plot_title):
     xmin,xmax = ipl.get_E_lims()
     xmin = max(1,xmin)
     xmax/=2.4 # Cut off tail
-    ylabel = "Electron energy density (arb. units)"
+    # TODO pop in units
+    ylabel = "Electron energy density"
     if ANIMATION:
-        ylabel = "Energy density (arb. units)"
+        ylabel = "Energy density"
     if ELECTRON_DENSITY:
-        ylabel = "Electron density (arb. units)"
+        ylabel = "Electron density"
         log_ymin = 2e-7; log_ymax = 1e-2 
     # Axis parameters, these define axis properties depending on what scale is used.
     xlabel = 'Energy (eV)'
     #ylabel = '$f(\\epsilon) \\Delta \\epsilon$' 
+    if normalise: 
+        ylabel += " (arb. units)"
     
 
     if ELECTRON_DENSITY:
@@ -184,8 +188,8 @@ def set_up_interactive_axes(ipl,plot_title):
     #x_log_args = {'title': {"text": xlabel + " - log scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
     #y_log_args = {'exponentformat':'e','tick0': [100,10,1,0.1,0.01,0.001,0.0001,0.00001],'title': {"text": ylabel + " - log scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
     
-    x_lin_args = {'title': {"text": xlabel + " - lin scale", "font":{"size": 35,"family": "times new roman"}}, 'tickfont': {"size": 35}, 'type' : "linear", "range" : [xmin,xmax]}
-    y_lin_args = {'title': {"text": ylabel + " - lin scale", "font":{"size": 35,"family": "times new roman"}}, 'tickfont': {"size": 35}, 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
+    x_lin_args = {'title': {"text": xlabel, "font":{"size": 35,"family": "times new roman"}}, 'tickfont': {"size": 35}, 'type' : "linear", "range" : [xmin,xmax]}
+    y_lin_args = {'title': {"text": ylabel, "font":{"size": 35,"family": "times new roman"}}, 'tickfont': {"size": 35}, 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
     x_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": xlabel, "font":{"size": 35,"family": "times new roman"}}, 'tickfont': {"size": 30,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
     y_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": ylabel, "font":{"size": 35,"family": "times new roman"}}, 'tickfont': {"size": 30,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
 
