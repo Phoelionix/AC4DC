@@ -689,6 +689,7 @@ class Plotter:
         ax2.axes.get_yaxis().set_visible(False)
         # ax2.tick_params(None)
         ax.get_xaxis().get_major_formatter().labelOnlyBase = False
+        ax2.set_ylim([0,ax2.get_ylim()[1]-ax2.get_ylim()[0]])
         #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)   
         return (ax, ax2)
     
