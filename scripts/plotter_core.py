@@ -881,9 +881,9 @@ class Plotter:
 
     def plot_tot_charge(self, every=1,densities = False,colours=None,atoms=None,plot_legend=True,charge_difference=True,ylim=[None,None],legend_loc='upper left',**kwargs):
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
-        self.aggregate_charges(charge_difference)
         #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
         T = self.timeData[::every]
+        self.aggregate_charges(charge_difference)
         self.Q = np.zeros(T.shape[0]) # total charge
         colour = None
         for j,a in enumerate(self.atomdict):
@@ -896,7 +896,7 @@ class Plotter:
                 atomic_charge += self.chargeData[a][::every,i]*i
             if not densities:
                 atomic_charge /= np.sum(self.chargeData[a][0])
-            ax.plot(T, atomic_charge, label = a,color=colour,**kwargs)
+            ax.plot(T, atomic_charge, label = a,color=colour,**kwargs)  # ???? TODO remove?
             self.Q += atomic_charge
 
         # Free data
@@ -919,6 +919,27 @@ class Plotter:
         if plot_legend:
             ax.legend(loc = legend_loc)
         return ax
+    def get_total_charge(self,every=1,densities=False,atoms=None,charge_difference=False):
+        T = self.timeData[::every]
+        self.aggregate_charges(charge_difference)
+        self.Q = np.zeros(T.shape[0]) # total charge
+        for j,a in enumerate(self.atomdict):
+            if atoms is not None and a not in atoms:
+                continue
+            atomic_charge = np.zeros(T.shape[0])
+            for i in range(self.chargeData[a].shape[1]):
+                atomic_charge += self.chargeData[a][::every,i]*i
+            if not densities:
+                atomic_charge /= np.sum(self.chargeData[a][0])
+            self.Q += atomic_charge
+        # Free data
+        if densities:
+            de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])   
+            de = de [1:] - de[:-1]
+            tot_free_Q =-1*np.dot(self.freeData, de)
+            self.Q += tot_free_Q[::every]
+        return self.Q
+            
         
 
     def plot_all_charges(self, ion_fract = True, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[None,None],**kwargs):

@@ -22,6 +22,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import copy
 from core_functions import get_mol_file
+import matplotlib as plt
 pio.templates.default = "seaborn" #"plotly_dark" # "plotly"
 
 T_PRECISION = 6 # Truncate past 6 d.p. (millionth of an fs) to Avoid floating point error
@@ -139,7 +140,6 @@ class PlotData:
         # Get samples of steps separated by the same times.
         times = np.linspace(self.raw_int[0,0],self.max_final_t,self.max_points)
         Q = 10**(-T_PRECISION)
-        print(np.round((times)/Q)*Q)
         indices = np.searchsorted(self.raw_int[:,0],(times)//Q*Q)
         #indices = np.searchsorted(self.raw_int[:,0],np.round((times)/Q)*Q )
         indices[1:] -= 1  # index 0 is ignored later anyway.
@@ -333,7 +333,6 @@ class InteractivePlotter:
             for j, t in enumerate(target.timeData):
                 if t//Q*Q > target.max_final_t:
                 #if round(t/Q)*Q > target.max_final_t:
-                    print(t,"BTOKRN")
                     break
 
                 if j == 0: continue  # Skip empty plot
@@ -403,8 +402,10 @@ class InteractivePlotter:
                     '#bcbd22',
                     '#17becf',
                     ]*10
-                col = plotly_d3_colors[g]
-
+                #col = plotly_d3_colors[g]
+                cmap = plt.cm.get_cmap('viridis') # 'viridis' 'cool' 'plasma' 'inferno' 'cividis'
+                col = cmap(g/(len(self.target_data)-1))
+                col = plt.colors.rgb2hex(col)
                 # Choose dependent variable factor depending on if using energy density or electron density.
                 density_factor = X # energy density
                 if self.use_electron_density:

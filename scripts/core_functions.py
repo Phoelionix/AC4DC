@@ -2,10 +2,16 @@ import os
 import os.path as path
 import numpy as np
 
-def get_sim_params(input_path,molecular_path,handle):
+def get_sim_params(handle,input_path="input/",molecular_path="output/__Molecular/"):
     '''
     Reads the control file and returns the relevant parameters within
+    By default use input_path = "input/"
     '''    
+    if input_path is None:
+        input_path = path.abspath(path.join(__file__ ,"../../input/")) + "/"
+    if molecular_path is None:
+        molecular_path = path.abspath(path.join(__file__ ,"../../input/__Molecular/")) + "/"
+        
     molfile = get_mol_file(input_path,molecular_path,handle,"y",out_prefix_text = "Reading simulation parameters from")
     outDir = molecular_path + handle 
     intFile = outDir + "/intensity.csv"

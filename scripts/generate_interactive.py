@@ -27,6 +27,7 @@ Simulation outputs/batches should be in AC4DC/output/__Molecular/ while this fil
 normalise = False
 ELECTRON_DENSITY = False # if False, use energy density  
 ANIMATION = False # if true, generate animation rather than interactive figure (i.e. automatic slider movement) 
+ALSO_MAKE_PLOTS = False # Generate static plots for each simulation 
 
 END_T = 9999  # Put at value to cutoff times early.
 POINTS = 70
@@ -81,14 +82,15 @@ def main():
         int_subdir = "interactives/"; plot_subdir = "plots/"  # Separate out types of plots
         make_outfolder(outdir,[int_subdir,plot_subdir])
         generate(target_handles,data_parent_dir,plot_title,fname_out + "_Int", normalise,outdir+int_subdir,custom_names)    
-        for i, target in enumerate(target_handles):
-            if len(sys_argv) > 2:
-                fname_out = target
-            make_some_plots(target,data_parent_dir,fname_out+"_Plt",outdir+plot_subdir,True,True,False,False)   #TODO bound plots not working for multiple species, they are joined with multiple species.          
+        if ALSO_MAKE_PLOTS:
+            for i, target in enumerate(target_handles):
+                if len(sys_argv) > 2:
+                    fname_out = target
+                make_some_plots(target,data_parent_dir,fname_out+"_Plt",outdir+plot_subdir,True,True,False,False)   #TODO bound plots not working for multiple species, they are joined with multiple species.          
     def get_custom_names(target_handles,sim_data_parent_dir):
         custom_names = []
         for handle in target_handles:
-            sim_params = list(get_sim_params(sim_input_dir,sim_data_parent_dir,handle))
+            sim_params = list(get_sim_params(handle,sim_input_dir,sim_data_parent_dir))
             sim_params = sim_params[2:] # 0 and 1 are start and end time,
             unit_dict = sim_params.pop()
             param_dict = sim_params.pop()
