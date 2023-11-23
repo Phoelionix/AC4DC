@@ -47,3 +47,4 @@ valgrind-out*
 input/_batches/*
 scripts/scattering/reflections/*
 scripts/scattering/scalepack/*
+scripts/scattering/*.pdf

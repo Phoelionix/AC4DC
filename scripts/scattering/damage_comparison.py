@@ -103,7 +103,7 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
         for dat_file in necessary_files: 
             assert path.isfile(plasma_output + "/" +dat_file), "Missing "+dat_file+" in "+plasma_output
         # Index parameters of simulation
-        start_time[i],end_time[i],energy[i],fwhm[i],photon_count[i],param_dict,unit_dict = get_sim_params(sim_input_dir,sim_data_batch_dir,sim_handle)
+        start_time[i],end_time[i],energy[i],fwhm[i],photon_count[i],param_dict,unit_dict = get_sim_params(sim_handle,sim_input_dir,sim_data_batch_dir)
     dmg_data = []
     pulse_params=[]
     names = []

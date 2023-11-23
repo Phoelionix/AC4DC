@@ -806,7 +806,7 @@ class XFEL():
         self.orientation_set = orientation_set
         print("orientation set set:", self.orientation_set)
     def get_ff_calculator(self,start_time,end_time,damage_output_handle,parent_dir_path):
-        ff_calculator = Plotter(damage_output_handle,parent_dir_path)
+        ff_calculator = Plotter(damage_output_handle,parent_dir_path,out_prefix_text = "Calculating form factors...")
         plt.close()
         ff_calculator.initialise_form_factor_params(start_time,end_time,self.max_q,self.photon_energy,t_fineness=self.t_fineness) # q_fineness isn't used for our purposes.   
         return ff_calculator
@@ -2026,7 +2026,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 z1_map = plt.imshow(z1,vmin=z_min,vmax=z_max,cmap=current_cmap)
                 plt.colorbar(z1_map)
                 plt.gcf().set_figwidth(custom_fig_width); plt.gcf().set_figheight(custom_fig_height)
-                plt.savefig("tmp1")
+                plt.savefig("tmp_I_real.pdf",format="pdf")
                 plt.show()
             if result2 != None:
                 if not get_R_only:
@@ -2035,7 +2035,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     z2_map = plt.imshow(z2,vmin=z_min,vmax=z_max,cmap=current_cmap)
                     plt.colorbar(z2_map)
                     plt.gcf().set_figwidth(custom_fig_width); plt.gcf().set_figheight(custom_fig_height)
-                    plt.savefig("tmp2")
+                    plt.savefig("tmp_I_ideal.pdf",format="pdf")
                     plt.show()
                     print("R:")
                     fig, ax = plt.subplots()
@@ -2064,10 +2064,12 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     plt.colorbar(R_map)
                     ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
                     ticklabels = ["{:6.2f}".format(q_row_0_el[1]) for q_row_0_el in result1.q_xy[0]]
+                    ticks = ticks[len(ticks)//10::len(ticks)//5]
+                    ticklabels = ticklabels[len(ticklabels)//10::len(ticklabels)//5]                    
                     plt.xticks(ticks,ticklabels)
                     plt.yticks(ticks,ticklabels)
                     plt.gcf().set_figwidth(custom_fig_width); plt.gcf().set_figheight(custom_fig_height)
-                    plt.savefig("tmp3")
+                    plt.savefig("tmp_R_contributions.pdf",format="pdf")
                     plt.show()
 
                     R_num = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)))        
@@ -2082,10 +2084,12 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                         plt.colorbar(R_map)
                         ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
                         ticklabels = ["{:6.2f}".format(q_row_0_el[1]) for q_row_0_el in result1.q_xy[0]]
+                        ticks = ticks[len(ticks)//10::len(ticks)//5]
+                        ticklabels = ticklabels[len(ticklabels)//10::len(ticklabels)//5]                        
                         plt.xticks(ticks,ticklabels)
                         plt.yticks(ticks,ticklabels)
                         plt.gcf().set_figwidth(custom_fig_width); plt.gcf().set_figheight(custom_fig_height)
-                        plt.savefig("tmp4")
+                        plt.savefig("tmp_R_pixel.pdf",format="pdf")
                         plt.show()   
                         # print("Plotting change map") 
                         # fig, ax = plt.subplots()
@@ -2104,14 +2108,16 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     log_ratio = log_function((I1/I1[int(len(I1)/2)][int(len(I1)/2)])/(I2/I2[int(len(I2)/2)][int(len(I2)/2)]))
                     fig, ax = plt.subplots()
                     ax.imshow(bg)
-                    I_map = ax.imshow(log_ratio,vmin=-0.5,vmax=0.5,cmap="plasma")#"nipy_spectral_r")
+                    I_map = ax.imshow(log_ratio,vmin=-0.5,vmax=0.5,cmap = cmap2)#cmap="plasma")#"nipy_spectral_r")
                     plt.colorbar(I_map)
                     ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
                     ticklabels = ["{:6.2f}".format(q_row_0_el[1]) for q_row_0_el in result1.q_xy[0]]
+                    ticks = ticks[len(ticks)//10::len(ticks)//5]
+                    ticklabels = ticklabels[len(ticklabels)//10::len(ticklabels)//5]
                     plt.xticks(ticks,ticklabels)
                     plt.yticks(ticks,ticklabels)
                     plt.gcf().set_figwidth(custom_fig_width); plt.gcf().set_figheight(custom_fig_height)
-                    plt.savefig("tmp5")
+                    plt.savefig("tmp_log_diff.pdf",format="pdf")
                     plt.show()                      
 
 
@@ -2161,7 +2167,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     plt.plot(res_lims,cc)
                     plt.ylabel("CC")
                     plt.xlabel("d ($\AA$)")
-                    plt.ylim(0,1.04)
+                    plt.ylim(0,0.2)
                     plt.gca().invert_xaxis()
                     plt.show()
                 return R_vect,cc,res_lims
@@ -2411,9 +2417,8 @@ def stylin(exp_name1,exp_name2,radial_lim,get_R_only = False,SPI=False,SPI_max_q
     #####
 
 
-    font = {'family' : 'monospace',
-            'weight' : 'bold',
-            'size'   : 24}
+    font = {'family': 'serif',
+            'size'   : 12}
 
     plt.rc('font', **font)
 
@@ -2509,21 +2514,23 @@ def q_to_res(q):
 DEBUG = False
 
 if __name__ == "__main__":
+    fig_width = 3.49697 # 20
+    fig_height = fig_width*3/4 # 20
     ### Simulate
     target_options = ["neutze","hen","tetra","glycine","fcc"]
     #============------------User params---------==========#
 
     target = "hen"#"glycine"  #target_options[2]
-    best_resolution = 0.1 # 1.58 (abdullah) # 2   # resolution (determining max q)
+    best_resolution = 2 # 1.58 (abdullah) # 2   # resolution (determining max q)
     worst_resolution = None#30 # 'resolution' corresponding to min q
 
     #### Individual experiment arguments 
     tag = "D" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
-    start_time = 0#-12#-6
+    start_time = -18#-12#-6
     end_time = 18#12#6
     laser_firing_qwargs = dict(
         # pixel sampling method (Neutze) if True - Miller indices if False
-        SPI = False,  # sampling method, if False, bragg spots. if True, detector pixels. TODO change name
+        SPI = True,  # sampling method, if False, bragg spots. if True, detector pixels. TODO change name
         SPI_resolution = best_resolution,
         pixels_across = 150,  # for SPI, shld go on xfel params.
         # miller
@@ -2531,7 +2538,7 @@ if __name__ == "__main__":
     )
     ##### Crystal params
     crystal_qwargs = dict(
-        supercell_scale = 2,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
+        supercell_scale = 1,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
         num_supercells = 1,#100, # 35409
         supercell_simulations = 1, #150
         positional_stdv = 0,#0.2,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
@@ -2627,8 +2634,10 @@ if __name__ == "__main__":
         # target_handle = "lys_nass_2"
         # folder = "lys"
         #'''
-        target_handle = "lys_nass_Gd_full_1"#"lys_nass_Gd_full_1"#"lys_nass_no_S_3" #"lys_all_light-typical"#"lys_full-94_1"#"lys_nass_15"#"lys-5_3"#" #12keV, 0.1/0.01 count, 10 fs
-        #target_handle = "lys_nass_no_S_3"
+        # Light + Heavy atoms handles.
+        #target_handle = "lys_nass_Gd_full_1"#"lys_nass_Gd_full_1"#"lys_nass_no_S_3" #"lys_all_light-typical"#"lys_full-94_1"#"lys_nass_15"#"lys-5_3"#" #12keV, 0.1/0.01 count, 10 fs
+        # Light atoms only
+        target_handle = "lys_nass_no_S_3"
         #folder = "lys" 
         folder = "" 
         #background_targets = "lys_water"
@@ -2689,7 +2698,7 @@ if __name__ == "__main__":
     if laser_firing_qwargs["SPI"]:
         SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal,results_parent_dir=results_parent_folder, **laser_firing_qwargs)
         SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged,results_parent_dir=results_parent_folder,  **laser_firing_qwargs)
-        stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
+        stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2,custom_fig_width=fig_width,custom_fig_height=fig_height)
     else:
         exp1_orientations = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal, results_parent_dir=results_parent_folder, **laser_firing_qwargs)
         create_reflection_file(exp_name1,results_parent_dir=results_parent_folder)
@@ -2701,12 +2710,12 @@ if __name__ == "__main__":
             create_reflection_file(exp_name2,results_parent_dir=results_parent_folder)
             rfl_to_sca(exp_name2)
 
-        stylin(exp_name1,exp_name2,experiment1.q_to_X(experiment1.max_q)/1e7,) # Note we are passing the max q, not max q_scr.
+        stylin(exp_name1,exp_name2,experiment1.q_to_X(experiment1.max_q)/1e7,custom_fig_width=fig_width,custom_fig_height=fig_height) # Note we are passing the max q, not max q_scr.
 #^^^^^^^
 #%% Pixels/SPI
 if __name__ == "__main__":
     stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2,
-           min_R_dmg_pixel=0,spi_full_rings_only=False,log_range=None,custom_fig_height=20,custom_fig_width=20)
+           min_R_dmg_pixel=0,spi_full_rings_only=False,log_range=None,custom_fig_height=fig_height,custom_fig_width=fig_width)
 #%% Miller/macrocrystal
 if interactive and __name__ == "__main__":
     stylin(exp_name1,exp_name2,experiment1.q_to_X(experiment1.max_q)/1e7,show_labels=False) # Note we are passing the max q, not max q_scr.
