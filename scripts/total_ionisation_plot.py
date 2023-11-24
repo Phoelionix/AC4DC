@@ -31,19 +31,25 @@ ylim=[None,None]
 # stem = "SH_N"
 # nums = range(1,12)
 # ylim = [0,2] #[0,2.2]
-stem = "SH_Zn"
-nums = range(1,12)
-ylim = [0,2]#[0.25,2.25] #[0,2.2]
+# ylim = [0,4]#[0.25,2.25] #[0,2.2]
 # stem = "SH_Xe"
-# nums = range(0,5)
+# nums = range(0,6)
 # ylim = [2,4]
+# Batch stems and index range (inclusive). currently assuming form of key"-"+n+"_1", where n is a number in range of stem[key]
+stem_dict = {"SH_N":[1,11],
+        "SH_Zn":[1,11],
+        "SH_Xe":[1,5],
+    }
 ################
 set_highlighted_excepthook()
 
 def main():
-    data_folders = []
-    for val in nums:
-        data_folders.append(stem+"-"+str(val)+"_1") 
+    batches = {}
+    for key,val in stem_dict.items():
+        data_folders = []
+        for n in range(val[0],val[1]+1):
+            data_folders.append(key+"-"+str(n)+"_1") 
+        batches[key] = data_folders
         
     molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
     dname_Figures = "../../output/_Graphs/plots/"
@@ -54,11 +60,11 @@ def main():
             valid_folder_names = False
             print("\033[91mInput error\033[0m (argument \033[91m"+str(i)+ "\033[0m): folder name not found.")
     assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder."
-    fig_title =data_folders[0].split("-")[0].split("_")[-1] 
+    fig_title = "".join([stem.split("-")[0].split("_")[-1] for stem in batches.keys()])
     label = fig_title+'_total_ion_plot'
-    plot(data_folders,molecular_path,label,dname_Figures,fig_title=fig_title)
+    plot(batches,molecular_path,label,dname_Figures,fig_title=fig_title)
 
-def plot(mol_names,sim_output_parent_dir, label,figure_output_dir, fig_title = "", charge_conservation=False,bound_ionisation=False,free=False,free_slices=False,bound_ionisation_bar=False):
+def plot(batches,sim_output_parent_dir, label,figure_output_dir, fig_title = "", charge_conservation=False,bound_ionisation=False,free=False,free_slices=False,bound_ionisation_bar=False):
     '''
     Arguments:
     mol_name: The name of the folder containing the simulation's data (the csv files). (By default this is the stem of the mol file.)
@@ -74,30 +80,34 @@ def plot(mol_names,sim_output_parent_dir, label,figure_output_dir, fig_title = "
     fname_HR_style = "HR_style"
     fname_bound_dynamics = "bound_dynamics"
 
-    step_index = -1
-    charges = []
-    energies = []
-    times = []
-    for mol_name in mol_names:
-        energies.append(get_sim_params(mol_name)[2]/1000)
-        pl = Plotter(mol_name)
-        charges.append(pl.get_total_charge(atoms="C")[step_index])
-        times.append(pl.timeData[step_index])
-    print("Energies:",energies)
-    print("Charges:",charges)
     fig, ax = plt.subplots(figsize=(FIGWIDTH,FIGHEIGHT))
 
-    
-    ax.scatter(energies,charges)
-    if LABEL_TIMES:
-        for i, txt in enumerate(times):
-            ax.annotate(txt, (energies[i],charges[i]))
-    ax.set_ylabel("Average carbon charge")
-    ax.set_xlabel("Energy (keV)")
-    ax.set_title(fig_title)
-    
-    ax.set_ylim(ylim)
+    for stem, mol_names in batches.items():
+        print("Plotting "+stem+" trace.")
+        step_index = -1
+        charges = []
+        energies = []
+        times = []
+        for mol_name in mol_names:
+            energies.append(get_sim_params(mol_name)[2]/1000)
+            pl = Plotter(mol_name)
+            charges.append(pl.get_total_charge(atoms="C")[step_index])
+            times.append(pl.timeData[step_index])
+        print("Energies:",energies)
+        print("Charges:",charges)
+        
 
+        
+        ax.scatter(energies,charges,label=stem.split("-")[0].split("_")[-1])
+        if LABEL_TIMES:
+            for i, txt in enumerate(times):
+                ax.annotate(txt, (energies[i],charges[i]))
+        ax.set_ylabel("Average carbon charge")
+        ax.set_xlabel("Energy (keV)")
+        
+    ax.set_ylim(ylim)
+    ax.legend()
+    #ax.set_title(fig_title)
     plt.tight_layout()
     plt.savefig(figure_output_dir + label + figures_ext)
     plt.close()
