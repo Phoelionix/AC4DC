@@ -41,6 +41,7 @@ This file is part of AC4DC.
  * - MB region
  * - Photoelectron region
  * transition region has more knots for higher energies (as it becomes quite wide and we already are using a low number of knots).
+ * @note Code chooses max density region, so overlapping regions are allowed.
  * @todo 
  * 1. Add a config file for users to provide custom grids. 
  * 2. Add a dynamic region that will automatically provide support for peaks higher than the photoelectron peaks.
@@ -117,6 +118,22 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
             Region(4,preset.pulse_omega*6/4,preset.pulse_omega*2.5,"static"), // high tail
             Region(20,-1,-1,"mb"), // Maxwell-boltzmann distribution
         };    
+        break;          
+      case DynamicGridPreset::Zr_support:
+        preset_name = "Zr_fast Auger support (1/2 L hole(s), M->L|M->free (1st order): 1589/1615 eV, M->L|N->free (2nd order): 1918/1970 eV)";  // TODO change name this was just the K-shell photoelectrons in Al.
+        mb_max_over_kT = 2.3208*4/3;  
+        pts_per_dirac = 15;  
+        regions = {
+            Region(7,10,20, "static"), Region(8,20,50, "static"),  // low support
+            Region(10,50,200,"static"), 
+            Region(10,200,600,"static"), // light auger
+            Region((int)(0.5+ 7*trans_scaling),600,preset.pulse_omega/4,"static"), // transition (Overlaps with Zr auger support but that's fine since code chooses max density region)
+            Region(20,1200,2400,"static"), // Zr Auger support
+            Region(4,800,1200,"static"), // Zr Auger lower support
+            Region(25,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
+            Region(7,preset.pulse_omega*6/4,preset.pulse_omega*2.5,"static"), // high tail
+            Region(25,-1,-1,"mb"), // Maxwell-boltzmann distribution
+        };   
         break;          
       case DynamicGridPreset::dismal_acc:
         preset_name = "Dismal accuracy";

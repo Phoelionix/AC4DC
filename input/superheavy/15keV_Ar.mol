@@ -2,7 +2,7 @@
 C 613
 N 193
 O 185
-Ne_fast 10
+Ar_fast 10
 
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.
@@ -10,7 +10,7 @@ Ne_fast 10
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-7112         // Photon energy in eV.
+15000         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
 2.4  // total sim time in fwhm

@@ -1,5 +1,5 @@
 #ATOMS
-Ar_fast 2
+Se_fast 2
 
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.

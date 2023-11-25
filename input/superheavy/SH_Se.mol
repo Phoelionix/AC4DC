@@ -2,8 +2,7 @@
 C 613
 N 193
 O 185
-S 10
-Se_fast 2
+Se_fast 10
 
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.
@@ -19,7 +18,7 @@ gaussian       // Pulse shape
 
 #USE_COUNT
 true    // active (using count)?
-1.75  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
+1.75  // Photon density (x10^12 ph.µm-2)
 
 #NUMERICAL
 1500      // Initial guess for number of time step points for rate equation.

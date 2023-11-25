@@ -34,6 +34,7 @@ struct DynamicGridPreset{
     const static char no_dirac = 4;
     const static char training_wheels = 5;
     const static char heavy_support = 6;
+    const static char Zr_support = 7;
     const static char unknown = 101;
     char selected = unknown;  
     double pulse_omega = -1;  // Photon energy [eV]
@@ -147,7 +148,10 @@ namespace {
             break;                      
         case 'A':
             preset.selected = DynamicGridPreset::heavy_support;
-            break;                      
+            break;        
+        case 'B':
+            preset.selected = DynamicGridPreset::Zr_support;
+            break;                           
         default:
             std::cerr<<"Unrecognised grid preset \""<<tmp<<"\", defaulting to medium accuracy..."<<std::endl;
             preset.selected = DynamicGridPreset::medium_acc;
