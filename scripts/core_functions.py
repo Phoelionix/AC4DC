@@ -2,7 +2,7 @@ import os
 import os.path as path
 import numpy as np
 
-def get_sim_params(handle,input_path="input/",molecular_path="output/__Molecular/"):
+def get_sim_params(handle,input_path=None,molecular_path=None):
     '''
     Reads the control file and returns the relevant parameters within
     By default use input_path = "input/"
@@ -10,7 +10,7 @@ def get_sim_params(handle,input_path="input/",molecular_path="output/__Molecular
     if input_path is None:
         input_path = path.abspath(path.join(__file__ ,"../../input/")) + "/"
     if molecular_path is None:
-        molecular_path = path.abspath(path.join(__file__ ,"../../input/__Molecular/")) + "/"
+        molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
         
     molfile = get_mol_file(input_path,molecular_path,handle,"y",out_prefix_text = "Reading simulation parameters from")
     outDir = molecular_path + handle 
@@ -161,4 +161,27 @@ def find_mol_file_from_directory(input_directory, mol):
             else:
                 print("Continuing...")
                 selected_file = True
-    return molfile    
+    return molfile   
+def get_pdb_paths_dict(my_dir): 
+    '''
+    my_dir = calling file's directory
+    '''
+    PDB_PATHS = dict(
+        tetra = "targets/5zck.pdb",
+        lys = "targets/4et8.pdb", #"targets/2lzm.pdb",
+        test = "targets/4et8.pdb", 
+        lys_tmp = "targets/4et8.pdb",
+        lys_solvated = "solvate_1.0/lys_8_cell.xpdb",
+        fcc = "targets/FCC.pdb",
+        lys_empty = "targets/lys_points.pdb",
+        glycine = "targets/glycine.pdb",
+    )      
+    for key, value in PDB_PATHS.items():
+        PDB_PATHS[key] = my_dir + value
+    return PDB_PATHS
+
+def get_pdb_path(my_dir,key): 
+    '''
+    my_dir = calling file's directory
+    '''
+    return get_pdb_paths_dict(my_dir)[key]

@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import inspect
 src_file_path = inspect.getfile(lambda: None)
 my_dir = path.abspath(path.join(src_file_path ,"../")) + "/"
-from core_functions import get_sim_params
+from core_functions import get_sim_params, get_pdb_paths_dict
 from scatter import XFEL,Crystal,stylin
 
 
@@ -30,16 +30,7 @@ from scatter import XFEL,Crystal,stylin
 
 MODE_DICT = {0:'crystal',1:'spi',2:'both'}
 
-PDB_PATHS = dict( # <value:> the target that should be used for <key:> the name of simulation output batch folder.
-    tetra = my_dir+ "targets/5zck.pdb",
-    lys = my_dir + "targets/4et8.pdb", #"targets/2lzm.pdb",
-    test = my_dir + "targets/4et8.pdb", 
-    lys_tmp = my_dir + "targets/4et8.pdb",
-    lys_solvated = my_dir + "solvate_1.0/lys_8_cell.xpdb",
-    fcc = "targets/FCC.pdb",
-    lys_empty = "targets/lys_points.pdb",
-    glycine = "targets/glycine.pdb",
-)          
+PDB_PATHS = get_pdb_paths_dict(my_dir) # <value:> the target that should be used for <key:> the name of simulation output batch folder.
 
 DATA_FOLDER = "dmg_data/"
 PLOT_FOLDER = "R_plots/"
@@ -153,7 +144,7 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
             #crystal.plot_me(250000)
             crystal.plot_me(25000,template="plotly_dark")
     
-        if params["laser"]["SPI"]:
+        if run_params["laser"]["SPI"]:
             SPI_result1 = experiment1.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal, **run_params["laser"])
             SPI_result2 = experiment2.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal_undmged, **run_params["laser"])
             #TODO apply_background([SPI_result1,SPI_result2])
@@ -184,7 +175,7 @@ def load_df(fname, resolution,check_batch_nums=True):
     with open(DATA_FOLDER+fname +".pickle", "rb") as file:
         pulse_params, dmg_data,resolutions,names,param_dict = pickle.load(file) 
     
-    # Check that the resolution is above the minimum of all simulations
+    # Check that the resolution is at or above the minimum of all simulations
     print(dmg_data.shape)
     assert resolution >= np.max(resolutions[:,0])
     resolutions_idxes = np.empty(resolutions.shape)
@@ -502,7 +493,7 @@ if __name__ == "__main__":
     #####
     name_of_set = data_name
     resolution = 1.94 #1.9 2.8
-    df = load_df(data_name, resolution, check_batch_nums=batch_mode) # resolution index 0 corresponds to the max resolution
+    df = load_df(data_name, resolution, check_batch_nums=batch_mode) # resolution list is orders from best to worst resolutions.
     plot_2D_constants = dict(energy_key = 15000, photon_key = 1e12,fwhm_key = 25)
     neutze = False
     name_of_set += "-res="+str("{:.1f}".format(df.resolution)) # Currently there's an uncertainty in the 2nd decimal because I coded bad, so 2 Sig figs it shall be.

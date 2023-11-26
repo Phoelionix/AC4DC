@@ -116,7 +116,7 @@ class Results_Grid():
     pass    
 
 class Crystal():
-    def __init__(self, pdb_fpath, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = True, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1, S_to_N=False,):
+    def __init__(self, pdb_fpath, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = True, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1, S_to_N=False,convert_excluded_elements_to_N=False):
         '''
         rocking_angle [degrees]
         cell_packing ("SC","BCC","FCC","FCC-D")
@@ -151,9 +151,9 @@ class Crystal():
             NA = "Sodion", CL = "Chloride",
         )
         # Same names
-        for elem in ["H","He","C","N","O","P","S","Gd"]:
-            PDB_to_AC4DC_dict[elem] = elem  #TODO need to get _fast suffix in to keys again.
-        # Modify the dictionary according to arguments.
+        for elem in ["H","He","C","N","O","P","S","Gd"]:  # pdb names
+            PDB_to_AC4DC_dict[elem] = elem   # ac4dc name
+        # Modify the values in the dictionary according to arguments.
         for k,v in PDB_to_AC4DC_dict.items():
             # Light atom approximation. 
             if CNO_to_N:
@@ -161,7 +161,9 @@ class Crystal():
                     v = "N"        
             if S_to_N:
                 if v == "S":
-                    v = "N"               
+                    v = "N"  
+            if convert_excluded_elements_to_N and v not in allowed_atoms: 
+                    v = "N"    
             PDB_to_AC4DC_dict[k] = v       
         # Get structure using Bio.PDB's parser
         parser=copy.deepcopy(xPDBParser)
@@ -176,6 +178,9 @@ class Crystal():
             if ac4dc_atom + "_fast" in allowed_atoms:
                 #TODO read data folder to resolve ambiguity.
                 raise Exception("Ambiguity, both "+ac4dc_atom+" and "+ac4dc_atom+"_fast were given in allowed_atoms.") 
+            if ac4dc_atom + "_faster" in allowed_atoms:
+                #TODO read data folder to resolve ambiguity.
+                raise Exception("Ambiguity, both "+ac4dc_atom+" and "+ac4dc_atom+"_faster were given in allowed_atoms.")            
         for atom in structure.get_atoms():
             # Get ze data
             R = atom.get_vector()
@@ -184,10 +189,13 @@ class Crystal():
             if name == None:
                 pdb_atoms_ignored += atom.element + " "
                 continue
+            # TODO make this not suck.
             if name not in allowed_atoms: 
                 name+= "_fast"
-                if (name not in allowed_atoms): 
-                    continue
+                if name not in allowed_atoms: 
+                    name +="er"
+                    if name not in allowed_atoms:
+                        continue
             if name not in species_dict.keys():
                 species_dict[name] = Atomic_Species(name,self) 
                 pdb_atoms.append(atom.element)
@@ -2124,15 +2132,15 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     print("sum of real","{:e}".format(np.sum(sqrt_real)),"sum of ideal","{:e}".format(np.sum(sqrt_ideal)),"sum of abs difference","{:e}".format(R_num))       
                 
 
-                # Pearson Correlation Coefficient:
-                # Iterate through bins of resolution of 0.1 angstrom:
+                # R factor / Pearson Correlation Coefficient:
+                # Iterate through bins of resolutions:
                 resolutions = q_to_res(np.sqrt(np.apply_along_axis(np.sum,2, result1.q_xy**2))) 
-                min_res = np.min(resolutions)  # THIS IS NOT FROM THE RIM!!! It includes all.
-                max_res = 10#min_res*4
+                #min_res = np.min(resolutions)  # THIS IS NOT FROM THE RIM!!! It includes all.
+                min_res = np.max([np.min(resolutions[:][:][0]),np.min(resolutions[:][:][1])])  # rim resolution
+                max_res = 6#min_res*4
                 res_lims = np.linspace(min_res,max_res,50)
-                cc = np.zeros(len(res_lims))
-                # Get R for comparison too
-                R_vect = cc.copy()
+                cc = np.zeros(len(res_lims)) # Pearson cc
+                R_vect = cc.copy() # R_dmg
                 for i in range(len(res_lims)):
                     lower = resolutions * 0 + res_lims[i]
                     upper = np.Infinity

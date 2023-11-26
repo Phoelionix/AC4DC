@@ -29,7 +29,7 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 def parse_elecs_from_latex(latexlike):
-    # Parses a chemistry-style configuration to return total number of electrons
+    # Parses a chemistry-style configuration to return dict of total number of electrons
     # e.g. $1s^{1}2s^{1}$
     # ignores anything non-numerical or spdf
     qdict = {}
@@ -47,6 +47,7 @@ for symbol in ATOMS:
     ATOMNO[symbol + '_faster'] = i
     i += 1
 ATOMNO["Zr_fast"] = 40
+ATOMNO["Zr_faster"] = 40
 ATOMNO["Xe_fast"] = 54
 ATOMNO["Gd_galli"] = 64 
 ATOMNO["Gd_fast"] = 64
@@ -67,7 +68,7 @@ class Plotter:
     # Example initialisation: Plotter(water,molecular/path)
     # --> Data is contained in molecular/path/water. 
     # Will use mol file within by default, or (with a warning) search input for matching name if none exists.  
-    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False):
+    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None):
         '''
         abs_molecular_path: The path to the folder containing the simulation output folder of interest.
         use_electron_density: If True, plot electron density rather than energy density
@@ -78,6 +79,8 @@ class Plotter:
             self.molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
         AC4DC_dir = path.abspath(path.join(__file__ ,"../../"))  + "/"
         self.input_path = AC4DC_dir + 'input/'
+        if out_prefix_text is None:
+            out_prefix_text = "Initialising plotting with"
         molfile = get_mol_file(self.input_path,self.molecular_path,data_folder_name,"y",out_prefix_text = "Initialising plotting with") 
 
         self.mol = {'name': data_folder_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}        
@@ -513,7 +516,7 @@ class Plotter:
         f_avg = np.trapz(form_factors_sqrt_I,time_steps)/(time_steps[-1]-time_steps[0])
         return f_avg         
 
-    def plot_form_factor(self,num_snapshots = 8, atoms=None):  # k = 4*np.pi = 2*q. c.f. Sanders plot.
+    def plot_form_factor(self,num_snapshots = 8, atoms=None,resolution=False,q_min=0,fig_width=5,fig_height=6,show_average=True,percentage_change=False):  # k = 4*np.pi = 2*q. c.f. Sanders plot.
         
         times = np.linspace(self.start_t,self.end_t,num_snapshots)
         if atoms == None:
@@ -523,8 +526,9 @@ class Plotter:
 
 
         #TODO figure out overlaying.
-        q = np.linspace(0,self.q_max,self.q_fineness)
-
+        q = np.linspace(q_min,self.q_max,self.q_fineness)
+        if resolution:
+            q = q[q!=0]
         self.fig = plt.figure(figsize=(3,2.5))
         ax = self.fig.add_subplot(111)
 
@@ -539,19 +543,37 @@ class Plotter:
         print(times)
         ang_per_bohr = 0.529177
         angstrom_mom = [k/ang_per_bohr for k in q]
+        X = np.array(angstrom_mom)
+        if resolution:
+            X = 2*np.pi/X       
+        if percentage_change:
+            f_init = np.array([self.get_average_form_factor(x,atoms,time=self.timeData[0])[0] for x in q])
         for time in times:
-            f = [self.get_average_form_factor(x,atoms,time=time)[0] for x in q]
+            f = np.array([self.get_average_form_factor(x,atoms,time=time)[0] for x in q])
+            if percentage_change:
+                f = -100*(1-f/f_init)
             f_avg.append(f)
-            ax.plot(angstrom_mom, f,label="t = " + str(time)+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))     
-        f_avg = np.average(f_avg,axis=0)
-        ax.plot(angstrom_mom, f_avg,'k--',label="Average")  
+            #ax.plot(X, f,label="t = " + str(time)+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))     
+            ax.plot(X, f,label="%.1f"%time+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))     
+            # Percentage difference from initital state
+        if show_average:
+            f_avg = np.average(f_avg,axis=0)
+            ax.plot(X, f_avg,'k--',label="Average")  
 
         ax.set_title("")
-        ax.set_xlabel("q (angstrom)")
+        ax.set_xlabel("Resolution ($\\AA^{-1}$)")
         ax.set_ylabel("Form factor")
-        ax.set_xlim(0,self.q_max/ang_per_bohr)   
-        ax.legend()
-        self.fig.set_size_inches(6,5)           
+        if percentage_change:
+            ax.set_ylabel("Change in $f(q)$ (\\%)")
+        #ax.set_xlim(0,self.q_max/ang_per_bohr)   
+        ax.set_xlim(np.min(X),np.max(X))
+        if resolution:
+            ax.invert_xaxis()
+        loc = "upper right"
+        if percentage_change:
+            loc = "lower right"
+        ax.legend(loc=loc)
+        self.fig.set_size_inches(fig_width,fig_height)           
 
     
     # Note this combines form factors when supplied multiple species, which is not necessarily interesting.
@@ -679,10 +701,10 @@ class Plotter:
             self.update_outputs()
 
     # makes a blank plot showing the intensity curve
-    def setup_intensity_plot(self,ax,show_pulse_profile=True):
+    def setup_intensity_plot(self,ax,show_pulse_profile=True,col='black'):
         ax2 = ax.twinx()
         if show_pulse_profile:
-            ax2.plot(self.timeData, self.intensityData, lw = 2, c = 'black', ls = ':', alpha = 0.7)
+            ax2.plot(self.timeData, self.intensityData, lw = 2, c = col, ls = ':', alpha = 0.7)
         # ax2.set_ylabel('Pulse Intensity (photons cm$^{-2}$ s$^{-1}$)')
         ax.set_xlabel("Time (fs)")
         ax.tick_params(direction='in')
@@ -861,6 +883,43 @@ class Plotter:
         old_ytop = ax.get_ylim()[1]
         ax.set_ylim([-0.5,len(Y)-0.5])
 
+    def plot_orbitals_bar(self, a, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[0,1],**kwargs):
+        if show_pulse_profile:  
+            ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),col="white")
+        else:
+            ax = self.get_next_ax()
+        self.aggregate_charges()
+        #print_idx = np.searchsorted(self.timeData,-7.5)
+        ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))
+        max_at_zero = np.max(self.chargeData[a][0,:]) 
+        norm = 1/max_at_zero                        
+
+        Y = []
+        Z = []
+        labels = []
+        states = self.statedict[a]
+        for j, subshell in enumerate(parse_elecs_from_latex(states[0]).keys()):
+            Y.append(j)
+            labels.append(subshell)
+            tot = np.zeros_like(self.boundData[a][:,0])
+            for i in range(len(states)):
+                orboccs = parse_elecs_from_latex(states[i])
+                tot += orboccs[subshell]*self.boundData[a][:,i]*norm
+            Z.append(tot)
+
+
+        ax.set_facecolor('black')
+        cm = ax.pcolormesh(self.timeData, Y, Z,cmap="Spectral",rasterized=True,vmin=0)
+        cbar = self.fig.colorbar(cm,ax=ax,label="Average orbital occupancy")
+        ax.set_yticks(ticks=Y,labels=labels)
+        
+        ax.set_xlabel("Time (fs)")            
+
+        ax.set_ylabel(r"Orbital")
+        old_ytop = ax.get_ylim()[1]
+        ax.set_ylim([-0.5,len(Y)-0.5])     
+        if show_pulse_profile:   
+            ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
 
     def plot_subshell(self, a, subshell='1s',rseed=404):
         if not hasattr(self, 'ax_subshell'):
@@ -1248,9 +1307,9 @@ class SlaterShielding:
         if shell_num == 2:
             return 64*lamb**6*(4*lamb**2-np.power(k,2))/np.power(D,4)
         if shell_num == 3:
-            return 128*lamb**7/6*(192*lamb**5-160*lamb**3*np.power(k,2)+12*lamb*np.power(k,4))/np.power(D,6)
+            return 128/6*lamb**7*(192*lamb**5-160*lamb**3*np.power(k,2)+12*lamb*np.power(k,4))/np.power(D,6)
         else:
-            raise Exception("ERROR! shell_ff")
+            raise Exception("ERROR! shell_num = "+str(shell_num))
         
     # Gets a configuration's form factor for array of k. 
     def calculate_config_ff(self,occ_index, k,  s,occ_dict):

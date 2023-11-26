@@ -404,7 +404,10 @@ class InteractivePlotter:
                     ]*10
                 #col = plotly_d3_colors[g]
                 cmap = plt.cm.get_cmap('viridis') # 'viridis' 'cool' 'plasma' 'inferno' 'cividis'
-                col = cmap(g/(len(self.target_data)-1))
+                if len(self.target_data) == 1:
+                    col = cmap(0)
+                else:
+                    col = cmap(g/(len(self.target_data)-1))
                 col = plt.colors.rgb2hex(col)
                 # Choose dependent variable factor depending on if using energy density or electron density.
                 density_factor = X # energy density
@@ -493,7 +496,7 @@ class InteractivePlotter:
         
             # Show individual sliders (Not necessary, can isolate traces by clicking on the legend.)
             individual_sliders = False
-            if individual_sliders:
+            if individual_sliders or len(self.target_data) == 1:
                 time_slider.append(dict(
                     active=0,
                     tickwidth=0,
@@ -501,6 +504,7 @@ class InteractivePlotter:
                     currentvalue={"prefix": "<span style='font-size: 25px; font-family: Times New Roman; color = black'>" + target.target_mol["name"] + " - Time [fs]: "},
                     pad={"t": 85+90*g,"r": 200,"l":0},
                     steps=steps,
+                    len = 0.5,
                     #font = {"color":"rgba(0.5,0.5,0.5,1)"}
                 ))
         if simul_step_slider:
