@@ -26,7 +26,7 @@ FIGWIDTH = 3.49697
 FIGHEIGHT = FIGWIDTH*3/4
 LABEL_TIMES = False # Set True to graphically check times are all aligned.
 
-ylim=[None,None]
+ylim=[None,3.2]
 ################
 # stem = "SH_N"
 # nums = range(1,12)
@@ -37,28 +37,37 @@ ylim=[None,None]
 # ylim = [2,4]
 # Batch stems and index range (inclusive). currently assuming form of key"-"+n+"_1", where n is a number in range of stem[key]
 stem_dict = {"SH_N":[1,11],
-        "SH_Zn":[1,11],
-        "SH_Xe":[1,5],
+        #"SH_Zn":[1,11],
+        "SH_Zr":[1,5],
+        #"SH_Xe":[1,6],
     }
 ################
 set_highlighted_excepthook()
 
-def main():
-    batches = {}
-    for key,val in stem_dict.items():
-        data_folders = []
-        for n in range(val[0],val[1]+1):
-            data_folders.append(key+"-"+str(n)+"_1") 
-        batches[key] = data_folders
-        
+def main():       
     molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
     dname_Figures = "../../output/_Graphs/plots/"
     dname_Figures = path.abspath(path.join(__file__ ,dname_Figures)) + "/"
+    
+    batches = {}
+    # Get folders names in molecular_path
+    all_outputs = os.listdir(molecular_path)
     valid_folder_names= True
-    for i, data_folder in enumerate(data_folders):
-        if not path.isdir(molecular_path+data_folder):
-            valid_folder_names = False
-            print("\033[91mInput error\033[0m (argument \033[91m"+str(i)+ "\033[0m): folder name not found.")
+    for key,val in stem_dict.items():
+        data_folders = []
+        for n in range(val[0],val[1]+1):
+            data_folders.append(key+"-"+str(n)) # Folder name, excluding run tag "_"+R
+        # Add run tag corresponding to latest run (highest "R" for "stem-n_R")
+        for i, handle in enumerate(data_folders):
+            matches = [match for match in all_outputs if match.startswith(handle)]
+            run_nums = [int(R.split("_")[-1]) for R in matches if R.split("_")[-1].isdigit()]            
+            # no folders - > not valid 
+            if len(run_nums) == 0: 
+                valid_folder_names = False
+                print("\033[91mInput error\033[0m (a run corresponding to \033[91m"+handle+"\033[0m): not found in"+molecular_path)
+                break
+            data_folders[i] = handle + "_"+str(max(run_nums))
+        batches[key] = data_folders
     assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder."
     fig_title = "".join([stem.split("-")[0].split("_")[-1] for stem in batches.keys()])
     label = fig_title+'_total_ion_plot'
