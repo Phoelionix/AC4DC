@@ -21,10 +21,16 @@ import sys, traceback
 import os.path as path
 import os
 from QoL import set_highlighted_excepthook
+sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
+sys.path.append('/home/speno/AC4DC/scripts/scattering')
+from scatter import XFEL,Crystal,stylin
 
 FIGWIDTH = 3.49697
 FIGHEIGHT = FIGWIDTH*3/4
 LABEL_TIMES = False # Set True to graphically check times are all aligned.
+
+
+MODE = 1 # MODES = {0:"total_ionisation",1:"R factors"}
 
 ylim=[None,3.2]
 ################
@@ -43,7 +49,6 @@ stem_dict = {"SH_N":[1,11],
     }
 ################
 set_highlighted_excepthook()
-
 def main():       
     molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
     dname_Figures = "../../output/_Graphs/plots/"
@@ -71,15 +76,15 @@ def main():
     assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder."
     fig_title = "".join([stem.split("-")[0].split("_")[-1] for stem in batches.keys()])
     label = fig_title+'_total_ion_plot'
-    plot(batches,molecular_path,label,dname_Figures,fig_title=fig_title)
+    plot(batches,molecular_path,label,dname_Figures,fig_title=fig_title,mode=MODE)
 
-def plot(batches,sim_output_parent_dir, label,figure_output_dir, fig_title = "", charge_conservation=False,bound_ionisation=False,free=False,free_slices=False,bound_ionisation_bar=False):
+def plot(batches,sim_output_parent_dir, label,figure_output_dir, fig_title = "", charge_conservation=False,bound_ionisation=False,free=False,free_slices=False,bound_ionisation_bar=False,mode = 0):
     '''
     Arguments:
     mol_name: The name of the folder containing the simulation's data (the csv files). (By default this is the stem of the mol file.)
     sim_data_parent_dir: absolute path to the folder containing the folders specified by target_handles.
     '''    
-    
+    plot_type = {0:"total_ionisation",1:"R factors"}[mode]
     ############
     # File/directory names
     #######  
@@ -90,7 +95,8 @@ def plot(batches,sim_output_parent_dir, label,figure_output_dir, fig_title = "",
     fname_bound_dynamics = "bound_dynamics"
 
     fig, ax = plt.subplots(figsize=(FIGWIDTH,FIGHEIGHT))
-
+    X = []
+    Y = []
     for stem, mol_names in batches.items():
         print("Plotting "+stem+" trace.")
         step_index = -1
@@ -105,9 +111,16 @@ def plot(batches,sim_output_parent_dir, label,figure_output_dir, fig_title = "",
         print("Energies:",energies)
         print("Charges:",charges)
         
+        X = energies
+        if plot_type is "total_ionisation":
+            Y = charges
+        else:
+            print("Getting R factor for [Scattering structure params go here]") #TODO
+            for stem, mol_names in batches.items():
 
-        
-        ax.scatter(energies,charges,label=stem.split("-")[0].split("_")[-1])
+                
+
+        ax.scatter(energies,Y,label=stem.split("-")[0].split("_")[-1])
         if LABEL_TIMES:
             for i, txt in enumerate(times):
                 ax.annotate(txt, (energies[i],charges[i]))
