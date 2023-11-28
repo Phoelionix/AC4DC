@@ -6,12 +6,13 @@ matplotlib.rcParams.update({
     'text.usetex': True,
     'pgf.rcfonts': False,
     #thaumatin thing
-    'axes.titlesize':12,     # fontsize of the axes title
-    'axes.labelsize':12,    # fontsize of the x and y labels   
-    'ytick.labelsize':12,
-    'xtick.labelsize':12,
-    'legend.fontsize':12,    
+    'axes.titlesize':10,     # fontsize of the axes title
+    'axes.labelsize':10,    # fontsize of the x and y labels   
+    'ytick.labelsize':10,
+    'xtick.labelsize':10,
+    'legend.fontsize':10,    
     'lines.linewidth':1,
+    'lines.markersize':4,
 })
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,6 +23,7 @@ import os.path as path
 import os
 from QoL import set_highlighted_excepthook
 import copy
+import math
 sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
 sys.path.append('/home/speno/AC4DC/scripts/scattering')
 from scatter import XFEL,Crystal,stylin
@@ -29,8 +31,20 @@ from damage_landscape import multi_damage
 from core_functions import get_pdb_path
 import imaging_params
 
-FIGWIDTH = 3.49697
+
+FIGWIDTH_FACTOR = 1
+FIGWIDTH = 3.49697 *FIGWIDTH_FACTOR
 FIGHEIGHT = FIGWIDTH*3/4
+
+matplotlib.rcParams.update({
+    'figure.subplot.left':0.14/FIGWIDTH_FACTOR,
+    'figure.subplot.right':1,
+    'figure.subplot.bottom': 0.16/FIGWIDTH_FACTOR,
+    'figure.subplot.top':1-0.07/(FIGWIDTH_FACTOR*FIGHEIGHT/FIGWIDTH*4/3),
+})
+
+
+
 LABEL_TIMES = False # Set True to graphically check times are all aligned.
 
 
@@ -48,8 +62,8 @@ ylim=[None,None]
 # Batch stems and index range (inclusive). currently assuming form of key"-"+n+"_1", where n is a number in range of stem[key]
 stem_dict = {"SH_N":[1,11],
         "SH_Zn":[1,11],
-        #"SH_Zr":[1,6],
-        "SH_Xe":[1,6],
+        #"SH_Zr":[1,7],
+        "SH_Xe":[0,8],
     }
 ################
 ## Constants
@@ -58,7 +72,7 @@ AVERAGE_CHARGE = 0
 R_FACTOR = 1
 #
 SCATTER_DIR = path.abspath(path.join(__file__ ,"../")) +"/scattering/"
-PDB_STRUCTURE = get_pdb_path(SCATTER_DIR,"tetra") 
+PDB_STRUCTURE = get_pdb_path(SCATTER_DIR,"lys") 
 MOLECULAR_PATH = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/" # directory of damage sim output folders
 
 set_highlighted_excepthook()
@@ -113,7 +127,6 @@ def plot(batches,label,figure_output_dir,mode = 0):
         X = []
         Y = []
         print("Plotting "+stem+" trace.")
-        step_index = -1
         energies = []
         times = []
         for mol_name in mol_names:
@@ -121,30 +134,40 @@ def plot(batches,label,figure_output_dir,mode = 0):
             pl = Plotter(mol_name)
             
             if mode is AVERAGE_CHARGE:
-                Y.append(pl.get_total_charge(atoms="C")[step_index])
+                intensity_averaged = False
+                if intensity_averaged: 
+                    Y.append(np.average(pl.get_total_charge(atoms="C")*pl.intensityData)/np.average(pl.intensityData))
+                else:
+                    step_index = -1  # Average charge at End-of-pulse 
+                    Y.append(pl.get_total_charge(atoms="C")[step_index])
             elif mode is R_FACTOR:            
                 Y.append(get_R(mol_name,MOLECULAR_PATH,imaging_params.goldilocks_dict)[0][0])
 
-            times.append(pl.timeData[step_index])
+            times.append(pl.timeData[-1])
         X = energies
         print("Energies:",energies)
         if mode is AVERAGE_CHARGE:
             print("Charges:",Y)
         if mode is R_FACTOR:
             print("R factors:",Y)
-
         ax.scatter(X,Y,label=stem.split("-")[0].split("_")[-1])
         if LABEL_TIMES:
             for i, txt in enumerate(times):
                 ax.annotate(txt, (X[i],Y[i]))
         ax.set_ylabel(ylabel[mode])
         ax.set_xlabel("Energy (keV)")
-        
+    
+    ax.ticklabel_format(style='sci', axis='y', scilimits=(-1,1),)
+    #yticks = ax.get_yticks()
+    #OOM = math.floor(math.log10(np.max(yticks)))
+    #ax.set_yticks((yticks//(10**(OOM-1))*(10**(OOM-1))))
+    #ax.set_yticklabels(([str(y/OOM) for y in yticks ]))
+
     ax.set_ylim(ylim)
-    ax.legend()
+    ax.legend(title="Dopant",fancybox=True)
     #ax.set_title(fig_title)
-    fig.tight_layout()
-    fig.savefig(figure_output_dir + label + figures_ext)
+    #fig.tight_layout()
+    fig.savefig(figure_output_dir + label + figures_ext)#bbox_inches="tight", pad_inches=0)
 
 def grow_crystals(run_params,pdb_path,allowed_atoms,identical_deviations=True,plot_crystal=True,CNO_to_N=False,S_to_N=True):
     ''' 
