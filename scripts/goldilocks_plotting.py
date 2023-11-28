@@ -48,7 +48,7 @@ matplotlib.rcParams.update({
 LABEL_TIMES = False # Set True to graphically check times are all aligned.
 
 
-MODE = 1 # | 0: average charge | 1: R factors |
+MODE = 0 # | 0: average charge | 1: R factors |
 
 ylim=[None,None]
 ################
@@ -63,7 +63,7 @@ ylim=[None,None]
 stem_dict = {"SH_N":[1,11],
         "SH_Zn":[1,11],
         #"SH_Zr":[1,7],
-        "SH_Xe":[0,8],
+        "SH_Xe":[0,7],
     }
 ################
 ## Constants
@@ -92,7 +92,7 @@ def main():
             data_folders.append(key+"-"+str(n)) # Folder name, excluding run tag "_"+R
         # Add run tag corresponding to latest run (highest "R" for "stem-n_R")
         for i, handle in enumerate(data_folders):
-            matches = [match for match in all_outputs if match.startswith(handle)]
+            matches = [match for match in all_outputs if match.startswith(handle+"_")]
             run_nums = [int(R.split("_")[-1]) for R in matches if R.split("_")[-1].isdigit()]            
             # no folders - > not valid 
             if len(run_nums) == 0: 
@@ -107,7 +107,7 @@ def main():
     plot(batches,label,dname_Figures,mode=MODE)
 
 def plot(batches,label,figure_output_dir,mode = 0):
-    ylabel = {AVERAGE_CHARGE:"Average carbon charge",R_FACTOR:"$R_{dmg}$"}
+    ylabel = {AVERAGE_CHARGE:"Average carbon's charge",R_FACTOR:"$R_{dmg}$"}
     '''
     Arguments:
     mol_name: The name of the folder containing the simulation's data (the csv files). (By default this is the stem of the mol file.)
