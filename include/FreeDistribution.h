@@ -253,7 +253,7 @@ public:
      * @param grid_style 
      */
     static void set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, ManualGridBoundaries elec_grid_regions, DynamicGridPreset dyn_grid_preset = DynamicGridPreset());
-    static void set_basis(size_t step, Cutoffs param_cutoffs, FeatureRegimes regimes, std::vector<double> knots);
+    static void set_basis(size_t step, Cutoffs param_cutoffs, FeatureRegimes regimes, std::vector<double> knots,bool update_knot_history = true);
     
     //void prep_adapt_knots(const FeatureRegimes& regimes);
     int adapt_knots(bool init, GridSpacing gt, Distribution original_distribution, std::vector<double> original_knots, std::vector<double> reference_energies = {}, std::vector<double> prev_Edens = {},size_t iteration = 0);

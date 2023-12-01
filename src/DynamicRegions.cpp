@@ -54,6 +54,7 @@ GridRegions::GridRegions(){
     mb_max_over_kT =  2.3208; //  80% of electrons below this point (lower since not as sharp)
 } 
 void GridRegions::initialise_regions(DynamicGridPreset preset){
+    preset.min_dirac_region_peak_energy = 1500;  // eV. Convert to Ha at end.
     // Initialise regions
     regions = {};
     // Carbon target (a relatively divergent-prone example) good grid for the unstable early times:
@@ -134,7 +135,22 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
             Region(7,preset.pulse_omega*6/4,preset.pulse_omega*2.5,"static"), // high tail
             Region(25,-1,-1,"mb"), // Maxwell-boltzmann distribution
         };   
-        break;          
+        break;     
+      case DynamicGridPreset::lower_dirac_support:
+        preset_name = "Lower dirac regions";  // Support extends below bottom of transition region.
+        preset.min_dirac_region_peak_energy  = 350;
+        mb_max_over_kT = 2.3208*4/3;  
+        pts_per_dirac = 15;  
+        regions = {
+            Region(7,10,20, "static"), Region(8,20,50, "static"),  // low support
+            Region(10,50,200,"static"), 
+            Region(15,200,600,"static"), // auger
+            Region((int)(0.5+ 7*trans_scaling),600,preset.pulse_omega/4,"static"), // transition
+            Region(25,preset.pulse_omega/4,preset.pulse_omega*6/4,"static"),  // photo
+            Region(7,preset.pulse_omega*6/4,preset.pulse_omega*2.5,"static"), // high tail
+            Region(25,-1,-1,"mb"), // Maxwell-boltzmann distribution
+        };        
+        break;            
       case DynamicGridPreset::dismal_acc:
         preset_name = "Dismal accuracy";
         pts_per_dirac = 5;
@@ -188,6 +204,9 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
     };     
     regions.insert(regions.end(), common_regions.begin(), common_regions.end() );
     std::cout << "[ Dynamic Grid ] '"<< preset_name << "' preset used to initialise dynamic regions." << endl;
+    
+    // Convert to atomic units
+    preset.min_dirac_region_peak_energy  /= Constant::eV_per_Ha;
 }
 
 

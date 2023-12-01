@@ -59,7 +59,7 @@ void ElectronRateSolver::save(const std::string& _dir) {
     int i = -1;
     while (i < static_cast<int>(t.size())-1){  //TODO make this some constructed function or something
         i++;
-        if(t[i] < previous_t + t_fineness && i<= t.size()-extra_fine_steps_out){
+        if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){
             continue;
         }        
         times.push_back(t[i]);
@@ -116,11 +116,11 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
     size_t next_knot_update = 0;
     while (i <  static_cast<int>(t.size())-1){
         i++;
-        if (i + order == next_knot_update or i == 0){  // EDIT: No this seems to be broken Original: The knot update indices correspond to an update at that index that also transformed the last 'order' of states (as in the solver's order).
-            Distribution::load_knots_from_history(i+order);
-            next_knot_update = Distribution::next_knot_change_idx(i+order);
+        if (i == next_knot_update or i == 0){
+            Distribution::load_knots_from_history(i);
+            next_knot_update = Distribution::next_knot_change_idx(i);
         } 
-        if(t[i] < previous_t + t_fineness && i<= t.size()-extra_fine_steps_out){
+        if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){
             continue;
         }
         f<<round_time(t[i]*Constant::fs_per_au)<<" "<<y[i].F.output_densities(this->input_params.Out_F_size(),reference_knots)<<endl;
@@ -153,11 +153,11 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     size_t next_knot_update = 0;
     while (i <  static_cast<int>(t.size())-1){
         i++;
-        if (i + order == next_knot_update or i == 0){
-            Distribution::load_knots_from_history(i+order);
-            next_knot_update = Distribution::next_knot_change_idx(i+order);
+        if (i == next_knot_update or i == 0){
+            Distribution::load_knots_from_history(i);
+            next_knot_update = Distribution::next_knot_change_idx(i);
         } 
-        if(t[i] < previous_t + t_fineness && i<= t.size()-extra_fine_steps_out){
+        if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){
             continue;
         }
         f<<round_time(t[i]*Constant::fs_per_au)<<" "<<y[i].F<<endl;  // Note that the << operator divides the factors by Constant::eV_per_Ha.
@@ -193,7 +193,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         int i = -1;
         while (i <  static_cast<int>(t.size())-1){
             i++;
-            if(t[i] < previous_t + t_fineness && i<= t.size()-extra_fine_steps_out){ 
+            if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){ 
                 continue;
             }            
             // Make sure all "natom-dimensioned" objects are the size expected
@@ -221,7 +221,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         std::vector<double> tmp {photo_rate[i],fluor_rate[i],auger_rate[i],bound_transport_rate[i],eii_rate[i],tbr_rate[i]};
         for (size_t j = 0; j < density.size();j++)
             density[j] += tmp[j]*(t[i]-t[i-1]);            
-        if(t[i] < previous_t + t_fineness && i<= t.size()-extra_fine_steps_out){ 
+        if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){ 
             continue;
         }
         f<<round_time(t[i]*Constant::fs_per_au) << ' ' << density<<endl;
@@ -244,9 +244,9 @@ void ElectronRateSolver::saveKnots(const std::string& fname) {
     assert(y.size() == t.size());
     size_t next_knot_update = 0;
     for (size_t i=0; i<t.size(); i++) {
-        if (i + order == next_knot_update or i == 0){
-            Distribution::load_knots_from_history(i+order);
-            next_knot_update = Distribution::next_knot_change_idx(i+order);
+        if (i == next_knot_update or i == 0){
+            Distribution::load_knots_from_history(i);
+            next_knot_update = Distribution::next_knot_change_idx(i);
             f<<t[i]*Constant::fs_per_au<<" "<<Distribution::output_knots_eV()<<endl;
         } 
     }

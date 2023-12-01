@@ -307,7 +307,7 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, std::vector<double>& m
     #ifdef SWITCH_OFF_DYNAMIC_BOUNDS
     return;
     #endif
-    double min_photo_peak_considered = 1500/Constant::eV_per_Ha;  // An energy that is above auger energies but will catch significant peaks. //TODO replace with transition energy of last regimes?
+    double min_photo_peak_considered = input_params.elec_grid_preset.min_dirac_region_peak_energy;  // An energy that is above auger energies but will catch significant peaks. //TODO replace with transition energy of last regimes?
     min_photo_peak_considered = min(0.7*input_params.elec_grid_preset.pulse_omega/Constant::eV_per_Ha,min_photo_peak_considered); // just to better support really low energies, though it's not the intended use.
     double peak_search_step_size = 10/Constant::eV_per_Ha;
     // Find peaks
@@ -376,6 +376,10 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
 
     double kT = 2*peak;
     // CDF = Γ(3/2)γ(3/2,E/kT)
+
+    // Only allow shrinkage if the new peak is away from the minimum (sometimes the lower knot 'snaps' just before diverging, creating an unphysical minimum).
+    //TODO would be better to  take samples of minimum a few times between grid updates and using the second last sample if it is much closer to the median than the grid at the point of the update.
+    allow_shrinkage = allow_shrinkage&&peak>15/Constant::eV_per_Ha;
     double new_min = max(first_gp_min_E,Distribution::get_mb_min()*kT);
     if(_min < new_min || allow_shrinkage){
         _min = new_min;

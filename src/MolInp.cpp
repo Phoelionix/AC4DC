@@ -263,7 +263,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	cout<<banner<<endl;
 	cout<<bc<<"Unit cell size: "<<clr<<unit_V<<" A^3"<<endl;
 	cout<<bc<<"Droplet L0:     "<<clr<<loss_geometry.L0<<" A"<<endl;
-	cout<<bc<<"Droplet Shape:  "<<clr<<loss_geometry<<endl<<endl;
+	cout<<bc<<"Droplet shape:  "<<clr<<loss_geometry<<endl<<endl;
 
 	cout<<bc<<"Photon energy:  "<<clr<<omega<<" eV"<<endl;
 	cout<<bc<<"Pulse fluence:  "<<clr<<fluence*10000<<" J/cm^2 = "<<10000*fluence/omega/Constant::J_per_eV<<"ph cm^-2"<<endl;

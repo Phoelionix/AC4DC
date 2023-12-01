@@ -221,7 +221,7 @@ private:
     void set_starting_state();
     state_type get_ground_state();
     void update_grid(ofstream& _log, size_t latest_step, bool force_update = false);
-    void reload_grid(ofstream& _log, size_t latest_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used);
+    void reload_grid(ofstream& _log, size_t load_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used);
 
     //void high_energy_stability_check();
     string its_dinner_time(std::vector<std::chrono::duration<double, std::milli>> times, std::vector<std::string> tags);
@@ -232,12 +232,14 @@ private:
 
 
     // Rates tracking: (this should be a class esp. due to checkpoint loading but I don't have time to do this properly)
+    #ifdef RATES_TRACKING
     std::vector<double> bound_transport_rate;
     std::vector<double> photo_rate;
     std::vector<double> fluor_rate;
     std::vector<double> auger_rate;
     std::vector<double> eii_rate;
     std::vector<double> tbr_rate;
+    #endif
 };
 
 

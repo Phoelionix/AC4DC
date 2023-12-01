@@ -353,6 +353,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
     sdot=0;
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
 
+    #ifdef RATES_TRACKING
     // Incorrect currently, Need to implement this with the ODE solver somehow :/
     photo_rate = fluor_rate = auger_rate = bound_transport_rate = tbr_rate = eii_rate = {0}; 
     // photo_rate.push_back(0); 
@@ -361,6 +362,8 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
     // bound_transport_rate.push_back(0);
     // tbr_rate.push_back(0); 
     // eii_rate.push_back(0); 
+    #endif 
+
     if (!good_state) return;
     for (size_t a = 0; a < s.atomP.size(); a++) {
         auto t9 = std::chrono::high_resolution_clock::now();
@@ -383,7 +386,9 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             sdot.bound_charge +=  tmp;
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
+        #ifdef RATES_TRACKING
         photo_rate.back() += sdot.bound_charge;
+        #endif
         double old_bound_charge = sdot.bound_charge;
         #ifdef DEBUG_BOUND
         for(size_t i=0;i < Pdot.size();i++){
@@ -395,7 +400,9 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             double tmp = r.val*P[r.from];
             Pdot[r.to] += tmp;
             Pdot[r.from] -= tmp;
+            #ifdef RATES_TRACKING
             fluor_rate.back() +=tmp;
+            #endif
             // Energy from optical photon assumed lost
         }
         #ifdef DEBUG_BOUND
@@ -413,7 +420,9 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
             sdot.bound_charge +=  tmp;
         }
+        #ifdef RATES_TRACKING
         auger_rate.back() += sdot.bound_charge - old_bound_charge;
+        #endif
         old_bound_charge = sdot.bound_charge;
         /// CHARGE TRANSPORT
         auto t_transport = std::chrono::high_resolution_clock::now();
@@ -519,8 +528,10 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             #endif
         }
         sdot.bound_charge += sdot_bound_charge_eii_subst + sdot_bound_charge_tbr_subst;
+        #ifdef RATES_TRACKING
         eii_rate.back() += sdot_bound_charge_eii_subst;
         tbr_rate.back() += sdot_bound_charge_tbr_subst;
+        #endif
 
         auto t10 = std::chrono::high_resolution_clock::now();
         pre_tbr_time += t10 - t9;
@@ -612,16 +623,8 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     this->dt/=fact;
     int remaining_steps = t.size() - (n+1);
     assert(remaining_steps > 0 && fact > 1);
-    input_params.num_time_steps = ceil(t.size() + (fact - 1)*remaining_steps); // todo separate num steps from input params
+    input_params.num_time_steps = ceil(t.size() + (fact - 1)*remaining_steps); // todo separate num steps from input params  // TODO check potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
     steps_per_time_update = max(1 , (int)(0.5+input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
-    t.resize(n+1); t.resize(input_params.num_time_steps);
-
-    //TODO implement: size_t npoints = (t_final - t_initial)/this->dt + 1; input_params.num_time_steps is for the full number, not what we want.
-    // Set up the t grid       
-    for (size_t i=n+1; i<input_params.num_time_steps; i++){   // TODO check potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
-        this->t[i] = this->t[i-1] + this->dt;
-    }
-    steps_per_grid_transform = round(steps_per_grid_transform*fact);
 
     _log <<"Reloading grid"<<endl;
     // with the states loaded the spline factors are as they were, we just need to load the appropriate knots.
@@ -629,22 +632,27 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     for(auto elem : saved_states){
         assert(elem.F.container_size() == saved_states.back().F.container_size());
     }
+
+
+    // Move current step to first interpolated state step (set below)
+    n-= (order-1); 
     // Linearly interpolate the previous states as a first order correction. (We should use 4th order Runge-Kutta, but I don't have time to get that working with sys_ee incorporated)
-    // last element of saved_states is y[n], so we just iterate up to y[n-1]
+    // First element of saved_states is y[n-this->order], corresponding to t[n-this->order].
     std::vector<state_type> interpolated_states(saved_states.size());
     for(size_t i = 0; i < saved_states.size();i++){
         interpolated_states[i]=saved_states[i];
     }
     for(size_t i = 0; i < saved_states.size() - 1; i++){
-        assert(saved_times.back()==t[n]);
-        double intra_time = t[n] - (saved_states.size()-1 - i)*dt; 
-        size_t loop_step = n;
+        double intra_time = t[n] +i*dt; 
+        size_t loop_step = n;  //
+        assert(saved_times.front()==t[loop_step]);
         while(1){
-            int rel_idx = saved_states.size() - (n - loop_step) - 1;
+            int rel_idx = loop_step - n; 
             if(saved_times[rel_idx] == intra_time){
                 interpolated_states[i] = saved_states[rel_idx];
                 break;
             }
+            // Check if intra_time is between t[loop_step] and t[loop_step+1]
             if(saved_times[rel_idx] < intra_time){
                 // if t' = t(n) + u 
                 // y(t') = y(n) + [y(n+1) - y(n)] * u/[t(n+1)-t(n)]  = y(n) + dy
@@ -658,17 +666,22 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
                 interpolated_states[i] += saved_states[rel_idx];
                 break;
             }
-            loop_step--;
-            if (saved_states.size() < (n-loop_step)-1)
+            loop_step++;
+            if (saved_states.size() <= loop_step - n)
                 throw runtime_error("Unexpected error, could not interpolate times when loading checkpoint.");
         }
     }
-    photo_rate.resize(n); 
-    fluor_rate.resize(n); 
-    auger_rate.resize(n); 
-    tbr_rate.resize(n); 
-    eii_rate.resize(n); 
-    reload_grid(_log, n, saved_knots,interpolated_states);
+    
+
+    // Fill in rest of times.
+    t.resize(n+1); t.resize(input_params.num_time_steps);
+    // Set up the t grid       
+    for (size_t i=n+1; i<input_params.num_time_steps; i++){
+        this->t[i] = this->t[i-1] + this->dt;
+    }
+    steps_per_grid_transform = round(steps_per_grid_transform*fact);
+
+    reload_grid(_log, n, saved_knots,interpolated_states);  // Reload grid from the START of the interpolated states
     
 
     /* [These ideas need a bit of effort and consideration if it is to be implemented, or even better a more effective adaptive step size algo could be implemented. But questionable if worth it.]
@@ -785,9 +798,9 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
 
         // Find the nearest streak of states in the same knot basis. 
         // This looks for the most recent grid update, BEFORE the current step.
-        // if It occurred ON the current step, then we are fine, unless there was another knot change in the last few steps. (Which shouldn't happen but I haven't completely verified I've caught all cases.)
+        // if the knot was changed on the current step, stop, as we are only saving the previous steps (which will not have been transformed), and this will correspond to the same point that was stopped by the corresponding previous call of this code. 
         size_t checkpoint_n = n;
-        while (Distribution::most_recent_knot_change_idx(checkpoint_n-1) >= n - this->order + 1){
+        while (int(checkpoint_n) - int(Distribution::most_recent_knot_change_idx(checkpoint_n-1)) < this->order) {
             checkpoint_n--;
             assert(checkpoint_n > this->order);
             assert(int(checkpoint_n) > int(n) - this->order-1); // may trigger if knot changes too close together.
@@ -976,19 +989,52 @@ void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool fo
 } 
 
 // Reloads grid using knots and the states needed for the first step of the ode 
-// next_ode_states_used - includes current step
+// first_step = next_ode_states_used[0] 
+//
 // Does not resize containers
-void ElectronRateSolver::reload_grid(ofstream& _log, size_t latest_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used){
-    size_t n = latest_step;
-   
+void ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used){
+    assert(next_ode_states_used.size() == order);  
+
+
+
+    size_t n = load_step;
+    assert(y[n].atomP == next_ode_states_used[0].atomP);
+    #ifdef RATES_TRACKING
+    photo_rate.resize(n); 
+    fluor_rate.resize(n); 
+    auger_rate.resize(n); 
+    tbr_rate.resize(n); 
+    eii_rate.resize(n);     
+    #endif
+
     std::cout.setstate(std::ios_base::failbit);  // disable character output
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
-        // set basis to one given by knots
-        while(Distribution::knots_history.back().step >= n && Distribution::knots_history.size() > 0){
+        
+        // // Clear knot history up to this step.
+        // If this is turned on (may be useful if change made to update grid on checkpoint load, need to remove lines in HybridIntegrator.hpp and ElectronRateSolver.cpp corresponding to comment: // may trigger if knot changes too close together.
+        // while(Distribution::knots_history.back().step >= n && Distribution::knots_history.size() > 0){
+        //     Distribution::knots_history.pop_back();
+        // }           
+
+        // Clear knot history past this step.
+        while(Distribution::knots_history.back().step > n && Distribution::knots_history.size() > 0){
             Distribution::knots_history.pop_back();
-        }            
-        Distribution::set_basis(latest_step, param_cutoffs, regimes,  knots);
+        }              
+        // set basis to one given by knots
+        Distribution::set_basis(load_step, param_cutoffs, regimes, knots, false);
     }
+
+
+    // Load distributions and also the next few states that we need for the first ode step.
+    y.resize(n+1-next_ode_states_used.size());    
+    for(state_type state : next_ode_states_used){
+        y.push_back(state);
+        n++;
+    }    
+    y.resize(input_params.num_time_steps);  
+    initialise_transient_y((int)load_step);
+   
+
 
     // Set up the container class to have the correct size
     state_type::set_P_shape(input_params.Store);
@@ -998,7 +1044,7 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t latest_step, std::ve
         if(_log.is_open()){
             double e = Constant::eV_per_Ha;
             _log << "------------------- [ Reloaded Knots ] -------------------\n" 
-            "Time: "<<t[latest_step]*Constant::fs_per_au <<" fs; "<<"Step: "<<latest_step<<"\n" 
+            "Time: "<<t[load_step]*Constant::fs_per_au <<" fs; "<<"Step: "<<load_step<<"\n" 
             <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
             for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
                 _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
@@ -1010,19 +1056,10 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t latest_step, std::ve
         }        
     }
 
-    
+    // Set zero_y for new grid
     this->zero_y = get_ground_state();
     this->zero_y *= 0.; // set it to Z E R O
-    // Load distributions and also the previous few states that we need for the first ode step. (Unnecessary now since removed grid updates on checkpoint load, but keeping it here in case we go back to that.)
-    assert(next_ode_states_used.size() == order);  // Order previous states + present state
-    y.resize(n+1-next_ode_states_used.size());
-    for(state_type state : next_ode_states_used){
-        y.push_back(state);
-    }
-    y.resize(input_params.num_time_steps);  
-    initialise_transient_y((int)latest_step);
-    
-    
+
     // update the tensor of coefficients 
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic)
         initialise_rates();    

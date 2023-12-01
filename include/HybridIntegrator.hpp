@@ -144,7 +144,7 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, size_t npoints, const 
         // Try to set checkpoint to be at the starting step 
         // Check if need to set it before the last knot change.
         size_t checkpoint_n = resume_n;
-        while (Distribution::most_recent_knot_change_idx(checkpoint_n) >= resume_n - this->order + 1){ 
+        while (int(checkpoint_n) - int(Distribution::most_recent_knot_change_idx(checkpoint_n-1)) < this->order) {
             checkpoint_n--;
             assert(checkpoint_n > this->order);
             assert(checkpoint_n > resume_n - this->order); // may trigger if knot changes too close together.
@@ -316,7 +316,7 @@ void Hybrid<T>::step_stiff_part(unsigned n){
     #ifdef DEBUG
     assert(this->y[n].F[3] == y_transient[last_rel_idx].F[3]);
     #endif
-
+    
     int excess_count = 0;
     int under_count = 0;
     int num_ministep_reductions = 0;
@@ -328,7 +328,7 @@ void Hybrid<T>::step_stiff_part(unsigned n){
         T tmp;
         tmp = this->zero_y;
         // tmp acts as an aggregator
-        for (int i = 1; i < this->order; i++){  // work through last N=order-1 ministeps. i.e. Order = 3 corresponds to 2 step method.
+        for (int i = 1; i < int(this->order); i++){  // work through last N=order-1 ministeps. i.e. Order = 3 corresponds to 2 step method.
             T ydot; // ydot stores the change this loop.
             this->sys_ee(y_transient[(1-i+mini_n)%(this->order)], ydot); 
             ydot *= this->b_AM[i];
@@ -359,6 +359,7 @@ void Hybrid<T>::step_stiff_part(unsigned n){
             idx++;
         }
         if(idx==stiff_max_iter){
+            #ifndef NO_MINISTEP_UPDATING
             if (num_ministep_reductions < max_ministep_reductions){
                 // Try again with more ministeps
                 modify_ministeps(n,min(num_stiff_ministeps*2,1000));
@@ -373,6 +374,15 @@ void Hybrid<T>::step_stiff_part(unsigned n){
                 this->euler_exceeded = true;  
                 break;
             }
+            #else
+            if (diff > intolerable_stiff_divergence){
+                //std::cerr << "Max error ("<<intolerable_stiff_divergence<<") exceeded, ending simulation early." <<std::endl; // moved to 
+                this->good_state = false;
+                this->timestep_reached = this->t[n+1]*Constant::fs_per_au; // t[n+1] is equiv. to t in bound !good_state case, where error condition this is modelled off is found.
+                this->euler_exceeded = true;  
+                break;
+            }
+            #endif
         }
         y_transient[next_rel_idx] += delta_bound_interpolated[mini_n-old_mini_n];  // Add interpolated bound state contribution
         #ifndef NO_MINISTEP_UPDATING
@@ -414,7 +424,7 @@ void Hybrid<T>::initialise_transient_y(int n) {
         ydot += this->y.at(n);
         ydot *= 1./(double)num_stiff_ministeps;    
         // Set transient_y  = [y[n]-3*ydot,y[n]-2*ydot,y[n]-ydot,y[n]] for order 3. Value at the first index will be given the value at the next ministep, and so on.
-        for(int i = 0; i < this->order; i++){  // Technically we don't need to fill the first idx, but we may as well.
+        for(int i = 0; i < int(this->order); i++){  // Technically we don't need to fill the first idx, but we may as well.
             // y[n-i] = y[n] - ydot*i   (here y and n refer to the intermediate steps)
             y_transient.at(mini_n-i) = this->y[n];
             T tmp;
@@ -426,9 +436,9 @@ void Hybrid<T>::initialise_transient_y(int n) {
 
     //}
     else{
+        // Not enough ministeps to remain within a single step. Synchronise with full step size.
         mini_dt = this->dt;
-        // Not enough ministeps to remain within a single step.
-        for(int i = 0; i < this->order; i++){
+        for(int i = 0; i < int(this->order); i++){
             y_transient[mini_n-i] = this->y[n-i];
         }
     }
@@ -512,7 +522,7 @@ void Hybrid<T>::modify_ministeps(const int n,const int num_ministeps){
         std::vector<double> new_times(old_y_transient.size());
         std::vector<T> old_y(old_y_transient.size());
         
-        for(int i = 0; i < this->order; i++){ 
+        for(int i = 0; i < int(this->order); i++){ 
             // unwind last few ministeps of last step (in old_y_transient)
             int old_idx = (old_mini_n-i)%(this->order);
             int new_idx = (mini_n-i)%(this->order);
@@ -527,7 +537,7 @@ void Hybrid<T>::modify_ministeps(const int n,const int num_ministeps){
     else{
         // Not enough ministeps to remain within a single step.
         mini_dt = this->dt;
-        for(int i = 0; i < this->order; i++){
+        for(int i = 0; i < int(this->order); i++){
             y_transient[(mini_n-i)%(this->order)] = this->y[n-i];
         }        
     }
@@ -542,7 +552,7 @@ void Hybrid<T>::initialise_transient_y_v2(int n){
         std::vector<double> old_times(y_transient.size());
         std::vector<double> new_times(y_transient.size());    
 
-        for(int i = 0; i < this->order; i++){ 
+        for(int i = 0; i < int(this->order); i++){ 
             old_times[mini_n-i] = this->t[n-i];
             new_times[mini_n-i] = this->t[n] - mini_dt*i;
         }
@@ -556,7 +566,7 @@ void Hybrid<T>::initialise_transient_y_v2(int n){
     else{
         // Not enough ministeps to remain within a single step.
         mini_dt = this->dt;
-        for(int i = 0; i < this->order; i++){
+        for(int i = 0; i < int(this->order); i++){
             y_transient[mini_n-i] = this->y[n-i];
         }
     }

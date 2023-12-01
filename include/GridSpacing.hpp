@@ -35,9 +35,11 @@ struct DynamicGridPreset{
     const static char training_wheels = 5;
     const static char heavy_support = 6;
     const static char Zr_support = 7;
+    const static char lower_dirac_support = 8;
     const static char unknown = 101;
     char selected = unknown;  
     double pulse_omega = -1;  // Photon energy [eV]
+    double min_dirac_region_peak_energy;  // Minimum energy for a peak that the dirac dynamic region will support (Ha). #TODO  move, don't store this here.
 };
 
 struct GridSpacing {
@@ -152,6 +154,9 @@ namespace {
         case 'B':
             preset.selected = DynamicGridPreset::Zr_support;
             break;                           
+        case 'D':
+            preset.selected = DynamicGridPreset::lower_dirac_support;
+            break;
         default:
             std::cerr<<"Unrecognised grid preset \""<<tmp<<"\", defaulting to medium accuracy..."<<std::endl;
             preset.selected = DynamicGridPreset::medium_acc;
