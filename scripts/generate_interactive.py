@@ -363,7 +363,6 @@ def snapshot(target_handles,sim_data_parent_dir,fname_out,normalise,outdir):
         showticklabels = False,
     )
     inset_dict["axes_kwargs"]["xaxis2"].update(
-        title = x_args["title"],
         tickfont = x_args["tickfont"],
         side= 'top',
     )
