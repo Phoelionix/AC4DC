@@ -349,7 +349,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         assert(dt < timespan_au);
         input_params.num_time_steps = std::round(this->timespan_au/dt);
     }
-    this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance); // Set up so we can load, but in load_bound we set zero_y to the correct basis.
+    this->setup(get_initial_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance); // Set up so we can load, but in load_bound we set zero_y to the correct basis.
     steps_per_time_update = max(1 , (int)(input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
 
 
@@ -425,7 +425,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         else{
             y[i].F.set_spline_factors(saved_f);
             //Distribution::set_knot_history(0,saved_knots);
-            //this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
+            //this->setup(get_initial_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
             // Starting knots are given by loadKnots()
         }
         t[i] = saved_time[i];
@@ -662,9 +662,8 @@ void ElectronRateSolver::loadBound() {
         param_cutoffs.transition_e = max(param_cutoffs.transition_e,2*regimes.mb_max); // mainly for case that transition region continues to dip into negative (in which case the transition region doesn't update).   
         // Set basis
         Distribution::set_basis(n, param_cutoffs, regimes,  Distribution::get_knots_from_history(n));
-        state_type::set_P_shape(input_params.Store);
-        this->zero_y = get_ground_state();
-        this->zero_y *= 0.; // set it to Z E R O          
+        // state_type::set_P_shape(input_params.Store);
+        // this->set_zero_y();     
     }    
 }
 

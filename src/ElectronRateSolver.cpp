@@ -50,11 +50,11 @@ void ElectronRateSolver::set_starting_state(){
     }
     else{
         cout << "[ Plasma ] Creating ground state" << endl;
-        this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
+        this->setup(get_initial_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
     }
 }
 
-state_type ElectronRateSolver::get_ground_state() {
+state_type ElectronRateSolver::get_initial_state() {
     state_type initial_condition;
     assert(initial_condition.atomP.size() == input_params.Store.size());
     for (size_t a=0; a<input_params.Store.size(); a++) {
@@ -69,7 +69,7 @@ state_type ElectronRateSolver::get_ground_state() {
     // std::cout << endl;
     return initial_condition;
 }
-//state_type ElectronRateSolver::set_zero_y(){zero_y = 0*get_ground_state();}
+//state_type ElectronRateSolver::set_zero_y(){zero_y = 0*get_initial_state();}
 
 // grid initilisation call order as of 3/04/23 TODO make clearer
 // set_up_grid_and_compute_cross_sections(init = true) is called first
@@ -175,11 +175,6 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
     }
 
 
-    
-    // Set up the container class to have the correct size
-    state_type::set_P_shape(input_params.Store);  // TODO should just do on init?
-
-
     if (init){
         // Set up the rate equations (setup called from parent Adams_B  M)
         set_starting_state(); // possibly redundant steps in here.
@@ -203,6 +198,8 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
 
     // create the tensor of coefficients 
     initialise_rates();
+    // zero_y is used as the starting state for each step, so it must match the current knot basis.
+    set_zero_y();    
 }
 
 void ElectronRateSolver::set_grid_regions(ManualGridBoundaries gb){
@@ -964,9 +961,6 @@ void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool fo
     std::cout.clear();
     //// We need some previous points needed to perform next ode step, so transform them to new basis ////
     std::vector<double> new_energies = Distribution::get_knot_energies();
-    // zero_y is used as the starting state for each step, so we need to reset it so it has the right knots.
-    this->zero_y = get_ground_state();
-    this->zero_y *= 0.; // set it to Z E R O
                 
     for (size_t m = n+1 - this->order; m < n+1; m++) {  // TODO turn off if not new knots??
         // We transform this step to the correct basis, but we also need a few steps to get us going, 
@@ -1008,6 +1002,8 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::vect
     #endif
 
     std::cout.setstate(std::ios_base::failbit);  // disable character output
+    
+    bool rates_uninitialised = false;
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
         
         // // Clear knot history up to this step.
@@ -1019,9 +1015,11 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::vect
         // Clear knot history past this step.
         while(Distribution::knots_history.back().step > n && Distribution::knots_history.size() > 0){
             Distribution::knots_history.pop_back();
+            rates_uninitialised = true;
         }              
         // set basis to one given by knots
-        Distribution::set_basis(load_step, param_cutoffs, regimes, knots, false);
+        if (rates_uninitialised)
+            Distribution::set_basis(load_step, param_cutoffs, regimes, knots, false);
     }
 
 
@@ -1035,11 +1033,25 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::vect
     initialise_transient_y((int)load_step);
    
 
-
-    // Set up the container class to have the correct size
-    state_type::set_P_shape(input_params.Store);
-
-
+    if (rates_uninitialised){
+        if(_log.is_open()){
+            double e = Constant::eV_per_Ha;
+            _log << "------------------- [ Reloaded Knots ] -------------------\n" 
+            "Time: "<<t[load_step]*Constant::fs_per_au <<" fs; "<<"Step: "<<load_step<<"\n" 
+            <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
+            for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
+                _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
+            }
+            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<"\n"  
+            << "Grid size: "<<Distribution::size<<"\n"
+            << "-----------------------------------------------------" 
+            << endl;
+        }           
+        std::cout.clear();
+        return;
+    }
+    //////// Update rates and container sizes etc. as necessary for when grid is changed ///////////
+    {
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
         if(_log.is_open()){
             double e = Constant::eV_per_Ha;
@@ -1056,22 +1068,24 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::vect
         }        
     }
 
-    // Set zero_y for new grid
-    this->zero_y = get_ground_state();
-    this->zero_y *= 0.; // set it to Z E R O
-
+  
     // update the tensor of coefficients 
-    if (input_params.elec_grid_type.mode == GridSpacing::dynamic)
-        initialise_rates();    
+    initialise_rates();    
+
+    // Set zero_y for new grid
+    set_zero_y();    
 
     std::cout.clear();
+    }
 
     // The next containers are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state. 
 } 
 
 
 void ElectronRateSolver::initialise_rates(){
-    //TODO these aren't constant now - change to lowercase.
+    // Set up the container class to have the correct size
+    state_type::set_P_shape(input_params.Store);     
+    //Clear any old rates. //TODO these aren't constant now - change to lowercase.
     RATE_EII.clear();
     RATE_TBR.clear();    
     RATE_EII.resize(input_params.Store.size());
@@ -1085,4 +1099,10 @@ void ElectronRateSolver::initialise_rates(){
     }
     precompute_gamma_coeffs();
     Distribution::precompute_Q_coeffs(input_params.Store);    
+}
+
+void ElectronRateSolver::set_zero_y(){
+    // Makes a zero std::vector in a mildly spooky way 
+    zero_y = get_initial_state(); // do this to make the underlying structure large enough
+    zero_y *= 0.; // set it to Z E R O
 }

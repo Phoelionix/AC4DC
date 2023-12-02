@@ -219,7 +219,12 @@ private:
 
     void set_grid_regions(ManualGridBoundaries gb);
     void set_starting_state();
-    state_type get_ground_state();
+    /**
+     * @brief Sets zero_y.
+     * @details zero_y corresponds to a system with no free electrons and all atoms in their ground states (as according to the atomic inputs). Used as an initial empty container in each ODE step.
+     */
+    void set_zero_y(); // 
+    state_type get_initial_state();
     void update_grid(ofstream& _log, size_t latest_step, bool force_update = false);
     void reload_grid(ofstream& _log, size_t load_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used);
 

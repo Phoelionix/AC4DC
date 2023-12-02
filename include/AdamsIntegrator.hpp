@@ -51,6 +51,7 @@ protected:
     std::vector<T> y;
     std::vector<double> t;    
     virtual void sys_bound(const T& q, T& qdot,T& q_bg, double t) =0;
+    virtual void set_zero_y() =0;
     T zero_y;
 
     std::vector<T> y_bg;  // background
@@ -68,9 +69,7 @@ template<typename T>
 void IVPSolver<T>:: setup(const T& initial_state, double _dt, double _step_tolerance ) {
     step_tolerance = _step_tolerance;
     this->y[0] = initial_state;
-    // Makes a zero std::vector in a mildly spooky way
-    this->zero_y = initial_state; // do this to make the underlying structure large enough
-    this->zero_y *= 0.; // set it to Z E R O
+    this->set_zero_y();  // NOT equal to initial state necessarily.
     if (_dt < 1E-16) {
         std::cerr<<"WARN: step size "<<dt<<"is smaller than machine precision"<<std::endl;
     }

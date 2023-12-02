@@ -99,7 +99,7 @@ class Hybrid : public Adams_BM<T>{
     std::vector<T> y_transient; // stores transient/intermediate steps for stiff solver
     std::vector<T> old_y_transient; // stores final transient/intermediate steps of last step. 
     // More virtual funcs defined by ElectronRateSolver:
-    virtual state_type get_ground_state()=0;
+    virtual state_type get_initial_state()=0;
     virtual void pre_ode_step(ofstream& _log, size_t& n,const int steps_per_time_update)=0;
     virtual int post_ode_step(ofstream& _log, size_t& n)=0;
     /// Unused
