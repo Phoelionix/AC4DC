@@ -39,8 +39,7 @@ This file is part of AC4DC.
 
 
 void ElectronRateSolver::set_starting_state(){
-    
-    if (input_params.Load_Folder() != ""){ 
+     if (input_params.Load_Folder() != ""){ 
         cout << "[ Plasma ] loading sim state from specified files." << endl;
         loadFreeRaw_and_times();
         if (input_params.elec_grid_type.mode == GridSpacing::dynamic)
@@ -49,6 +48,8 @@ void ElectronRateSolver::set_starting_state(){
         simulation_resume_time = t.back();
     }
     else{
+        // Set up the container class to have the correct size
+        state_type::set_P_shape(input_params.Store);           
         cout << "[ Plasma ] Creating ground state" << endl;
         this->setup(get_initial_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
     }
@@ -175,7 +176,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
     }
 
 
-    if (init){
+    if (init){         
         // Set up the rate equations (setup called from parent Adams_B  M)
         set_starting_state(); // possibly redundant steps in here.
     }
@@ -668,7 +669,6 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
                 throw runtime_error("Unexpected error, could not interpolate times when loading checkpoint.");
         }
     }
-    
 
     // Fill in rest of times.
     t.resize(n+1); t.resize(input_params.num_time_steps);
@@ -1024,7 +1024,7 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::vect
 
 
     // Load distributions and also the next few states that we need for the first ode step.
-    y.resize(n+1-next_ode_states_used.size());    
+    y.resize(n);    
     for(state_type state : next_ode_states_used){
         y.push_back(state);
         n++;
@@ -1033,18 +1033,11 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::vect
     initialise_transient_y((int)load_step);
    
 
-    if (rates_uninitialised){
+    if (rates_uninitialised == false){
         if(_log.is_open()){
             double e = Constant::eV_per_Ha;
-            _log << "------------------- [ Reloaded Knots ] -------------------\n" 
+            _log << "------------------- [ Reloaded Step ] -------------------\n" 
             "Time: "<<t[load_step]*Constant::fs_per_au <<" fs; "<<"Step: "<<load_step<<"\n" 
-            <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
-            for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
-                _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
-            }
-            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<"\n"  
-            << "Grid size: "<<Distribution::size<<"\n"
-            << "-----------------------------------------------------" 
             << endl;
         }           
         std::cout.clear();
@@ -1055,7 +1048,7 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::vect
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
         if(_log.is_open()){
             double e = Constant::eV_per_Ha;
-            _log << "------------------- [ Reloaded Knots ] -------------------\n" 
+            _log << "------------------- [ Reloaded Step + Knots ] -------------------\n" 
             "Time: "<<t[load_step]*Constant::fs_per_au <<" fs; "<<"Step: "<<load_step<<"\n" 
             <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
             for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
@@ -1083,7 +1076,7 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::vect
 
 
 void ElectronRateSolver::initialise_rates(){
-    // Set up the container class to have the correct size
+    // Reset the container class to ensure it matches current grid.
     state_type::set_P_shape(input_params.Store);     
     //Clear any old rates. //TODO these aren't constant now - change to lowercase.
     RATE_EII.clear();

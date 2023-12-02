@@ -221,7 +221,7 @@ private:
     void set_starting_state();
     /**
      * @brief Sets zero_y.
-     * @details zero_y corresponds to a system with no free electrons and all atoms in their ground states (as according to the atomic inputs). Used as an initial empty container in each ODE step.
+     * @details zero_y corresponds to a system with no electrons. Used as an initial empty container in each ODE step.
      */
     void set_zero_y(); // 
     state_type get_initial_state();
