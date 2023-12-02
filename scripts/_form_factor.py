@@ -29,7 +29,7 @@ import numpy as np
 
 set_highlighted_excepthook()
 
-FIGWIDTH = 3.49697
+FIGWIDTH = 3.49751
 FIGHEIGHT = FIGWIDTH*2/3
 ###
 ANG_TO_BOHR =0.529177

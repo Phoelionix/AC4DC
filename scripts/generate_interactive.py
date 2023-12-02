@@ -28,11 +28,45 @@ normalise = False
 ELECTRON_DENSITY = False # if False, use energy density  
 ANIMATION = False # if true, generate animation rather than interactive figure (i.e. automatic slider movement) 
 ALSO_MAKE_PLOTS = False # Generate static plots for each simulation 
+SINGLE_FRAME = True
 
 END_T = 9999  # Put at value to cutoff times early.
 POINTS = 70
 if ANIMATION:
     POINTS = 200 # 200
+
+SINGLE_FRAME_DICT = dict(
+    # In inches
+    width = 3.49751*4/3,
+    height = 3.49751*2/3,
+    line_width = 2,
+    time = -10, # fs
+    font_size = 10,
+    superscript_font_size = 8,
+    
+    ylog = False, # < uses linear scale if False 
+    xlog = False, # <
+
+    y_range = [0,0.0015],# [-5,-1],      # < If axis is log scale, limits correspond to powers of 10.
+    x_range = [None,7500], # None,         # < Use None for default. 
+)
+
+INSET = True 
+inset_dict = dict(
+    axes_kwargs = dict(
+        xaxis2 =dict(
+            domain=[0.15, 0.45],
+            range = [0,50],
+            anchor='y2',
+        ),
+        yaxis2=dict(
+            domain=[0.15, 0.8],
+            anchor='x2',
+        ),
+    ),
+)
+
+NAMING_MODE = 1  # 0: full details of sim parameters + sim name | 1: elements in sim| 
 
 IDX = 0
 terminal_mode = True
@@ -46,7 +80,7 @@ import sys
 import numpy as np
 from QoL import set_highlighted_excepthook
 sys.path.append(os.path.join(os.path.dirname(__file__), 'scattering'))
-from core_functions import get_sim_params # so that we can name batches for the parameters we care about. 
+from core_functions import get_sim_params,get_sim_elements # Functions used for naming batches with the parameters we care about. 
 import PIL
 import io
 from math import ceil
@@ -56,7 +90,6 @@ def main():
     set_highlighted_excepthook()
     molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
     graph_folder = path.abspath(path.join(__file__ ,"../../output/_Graphs/")) + "/" 
-    sim_input_dir = path.abspath(path.join(__file__,"../../input/")) + "/"
 
     if terminal_mode:
         sys_argv = sys.argv  
@@ -74,31 +107,21 @@ def main():
     
     def single_interactive(target_handles,data_parent_dir,outdir):
         print(target_handles,data_parent_dir,outdir)
-        custom_names = get_custom_names(target_handles,data_parent_dir)
         fname_out = target_handles[0]
         if len(sys_argv) > 2:
             fname_out += '_' + sys_argv[2][:15] + "..-"
         plot_title = fname_out.replace('_',' ')  
         int_subdir = "interactives/"; plot_subdir = "plots/"  # Separate out types of plots
         make_outfolder(outdir,[int_subdir,plot_subdir])
-        generate(target_handles,data_parent_dir,plot_title,fname_out + "_Int", normalise,outdir+int_subdir,custom_names)    
+        if not SINGLE_FRAME:
+            generate(target_handles,data_parent_dir,plot_title,fname_out + "_Int", normalise,outdir+int_subdir)  
+        else:
+            snapshot(target_handles,data_parent_dir,fname_out + "_frame", normalise,outdir+int_subdir)  
         if ALSO_MAKE_PLOTS:
             for i, target in enumerate(target_handles):
                 if len(sys_argv) > 2:
                     fname_out = target
                 make_some_plots(target,data_parent_dir,fname_out+"_Plt",outdir+plot_subdir,True,True,False,False)   #TODO bound plots not working for multiple species, they are joined with multiple species.          
-    def get_custom_names(target_handles,sim_data_parent_dir):
-        custom_names = []
-        for handle in target_handles:
-            sim_params = list(get_sim_params(handle,sim_input_dir,sim_data_parent_dir))
-            sim_params = sim_params[2:] # 0 and 1 are start and end time,
-            unit_dict = sim_params.pop()
-            param_dict = sim_params.pop()
-            name = ["  " + param_dict[i][0] + ": " +str(p) + unit_dict[i]  for i, p in enumerate(sim_params)]
-            name = ''.join(name) + " [" + handle + "]"
-            name = name[2:]  
-            custom_names.append(name)
-        return custom_names
 
     given_path = ""
     is_parent_dir = False
@@ -157,7 +180,11 @@ def symlog(arr, base=10, linthresh=1e-10, linscale=1):
 
 
 
-def set_up_interactive_axes(ipl,plot_title):
+def set_up_interactive_axes(ipl,plot_title,font_size=35,superscript_font_size=30):
+    '''
+    superscript_font_size is for whatever plotly does when using superscript tick labels, font is made bigger and I assume it bases it off the superscript or something.
+    '''
+
     # Y scaling
     lin_ymax = 0.03
     lin_ymin = -0.005
@@ -190,32 +217,64 @@ def set_up_interactive_axes(ipl,plot_title):
     #x_log_args = {'title': {"text": xlabel + " - log scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
     #y_log_args = {'exponentformat':'e','tick0': [100,10,1,0.1,0.01,0.001,0.0001,0.00001],'title': {"text": ylabel + " - log scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
     
-    x_lin_args = {'title': {"text": xlabel, "font":{"size": 35,"family": "times new roman"}}, 'tickfont': {"size": 35}, 'type' : "linear", "range" : [xmin,xmax]}
-    y_lin_args = {'title': {"text": ylabel, "font":{"size": 35,"family": "times new roman"}}, 'tickfont': {"size": 35}, 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
-    x_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": xlabel, "font":{"size": 35,"family": "times new roman"}}, 'tickfont': {"size": 30,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
-    y_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": ylabel, "font":{"size": 35,"family": "times new roman"}}, 'tickfont': {"size": 30,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
+    x_lin_args = {'tick0': None,'dtick':None,'title': {"text": xlabel, "font":{"size": font_size,"family": "times new roman"}}, 'tickfont': {"size": font_size}, 'type' : "linear", "range" : [xmin,xmax]}
+    y_lin_args = {'tick0': None,'dtick':None,'title': {"text": ylabel, "font":{"size": font_size,"family": "times new roman"}}, 'tickfont': {"size": font_size}, 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
+    x_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": xlabel, "font":{"size": font_size,"family": "times new roman"}}, 'tickfont': {"size": superscript_font_size,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
+    y_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": ylabel, "font":{"size": font_size,"family": "times new roman"}}, 'tickfont': {"size": superscript_font_size,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
 
     if ANIMATION:
-        x_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": xlabel, "font":{"size": 65,"family": "times new roman"}}, 'tickfont': {"size": 55,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
-        y_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": ylabel, "font":{"size": 65,"family": "times new roman"}}, 'tickfont': {"size": 55,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
+        x_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": xlabel, "font":{"size": font_size*2-5,"family": "times new roman"}}, 'tickfont': {"size": superscript_font_size*2-5,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
+        y_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": ylabel, "font":{"size": font_size*2-5,"family": "times new roman"}}, 'tickfont': {"size": superscript_font_size*2-5,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
 
 
     # Initialises graph object.
     ipl.initialise_figure(plot_title, x_log_args,y_log_args) 
     return (x_log_args,x_lin_args,y_log_args,y_lin_args)
 
-def generate(target_handles,sim_data_parent_dir,plot_title,fname_out,normalise,outdir,custom_names = None):
+def get_legend_labels(target_handles,sim_data_parent_dir,sim_input_dir=None):
+    if sim_input_dir is None:
+        sim_input_dir = path.abspath(path.join(__file__,"../../input/")) + "/"        
+    custom_names = []
+    legend_title=None
+    if NAMING_MODE == 1:
+        legend_title = "Elements included"        
+    for handle in target_handles:
+        if NAMING_MODE == 0:
+            sim_params = list(get_sim_params(handle,sim_input_dir,sim_data_parent_dir))
+            sim_params = sim_params[2:] # 0 and 1 are start and end time,
+            unit_dict = sim_params.pop()
+            param_dict = sim_params.pop()
+            name = ["  " + param_dict[i][0] + ": " +str(p) + unit_dict[i]  for i, p in enumerate(sim_params)]
+            name = ''.join(name) + " [" + handle + "]"
+            name = name[2:]  
+        elif NAMING_MODE == 1:
+            elements = list(get_sim_elements(handle,sim_input_dir,sim_data_parent_dir))
+            # Remove suffixes
+            for e,elem in enumerate(elements):
+                elements[e] = elem.split("_")[0]
+            # Combine light atoms 
+            light_atoms = ['C', 'N', 'O']
+            if all(X in elements for X in light_atoms):
+                for X in light_atoms:
+                    elements.remove(X)
+                elements.insert(0,"CNO")
+            name = ','.join(elements)
+        custom_names.append(name)
+    return custom_names, legend_title
+
+def generate(target_handles,sim_data_parent_dir,plot_title,fname_out,normalise,outdir):
     '''
     Arguments:
     target_handles: The name of the folder containing the simulation's data (the csv files). 
     sim_data_parent_dir: absolute path to the folder containing the folders specified by target_handles.
     '''
     print("[ Interactive ] Creating electron density interactive figure")
+    custom_names,legend_title = get_legend_labels(target_handles,sim_data_parent_dir)
     presentation_mode = None # Use default
     if ANIMATION:
         presentation_mode = True
     # Initialises plotter object with data from files.
-    ipl = InteractivePlotter(target_handles,sim_data_parent_dir, max_final_t=END_T,max_points=POINTS,custom_names=custom_names,use_electron_density = ELECTRON_DENSITY,presentation_mode=presentation_mode)  
+    ipl = InteractivePlotter(target_handles,sim_data_parent_dir, max_final_t=END_T,max_points=POINTS,custom_names=custom_names,use_electron_density = ELECTRON_DENSITY,presentation_mode=presentation_mode,inset=INSET)  
     scale_button_args = set_up_interactive_axes(ipl,plot_title)
     # The meat of the plotting. Plot line for each point in time
     line_1 = {'width': 6,"dash": '10,1'}
@@ -234,12 +293,109 @@ def generate(target_handles,sim_data_parent_dir,plot_title,fname_out,normalise,o
     else:
         save_interactive(ipl,outdir,fname_out)
 
+def snapshot(target_handles,sim_data_parent_dir,fname_out,normalise,outdir):
+    '''
+    Arguments:
+    target_handles: The name of the folder containing the simulation's data (the csv files). 
+    sim_data_parent_dir: absolute path to the folder containing the folders specified by target_handles.
+    '''
+    print("[ Interactive ] Creating snapshot of electron density interactive figure")
+    custom_names,legend_title = get_legend_labels(target_handles,sim_data_parent_dir)
+    font_size = SINGLE_FRAME_DICT["font_size"]
+    supfont_size = SINGLE_FRAME_DICT["superscript_font_size"]
+    ipl = InteractivePlotter(target_handles,sim_data_parent_dir, font_size=font_size, max_final_t=SINGLE_FRAME_DICT["time"],max_points=1,legend_title=legend_title,times_in_legend=False,custom_names=custom_names,use_electron_density = ELECTRON_DENSITY,inset=INSET,)
+    # Axes
+    xlog_args,xlin_args,ylog_args,ylin_args = set_up_interactive_axes(ipl,None,font_size=font_size,superscript_font_size=supfont_size)
+    x_args = xlin_args
+    y_args = ylin_args 
+    if SINGLE_FRAME_DICT["xlog"]:
+        x_args = xlog_args          
+    if SINGLE_FRAME_DICT["ylog"]:
+        y_args = ylog_args 
+
+    # Adjust layout to suit a static figure.
+
+    for i, key in enumerate(["x_range","y_range"]):
+        for j in range(2):
+            val = SINGLE_FRAME_DICT[key][j]
+            if val is not None:
+                if i == 0:
+                    x_args["range"][j] = val
+                if i == 1:
+                    y_args["range"][j] = val
+            
+
+
+    ipl.fig.update_layout(
+        margin=dict(
+            l=0,
+            r=0,
+            b=0,
+            t=0,
+            pad=0
+        ),
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor = "right",
+            x = 0.7,
+            bgcolor = 'rgba(255,255,255,0.7)',
+        ),          
+        autosize=False,
+        width=SINGLE_FRAME_DICT["width"]*72.27,
+        height=SINGLE_FRAME_DICT["height"]*72.27,
+    )   
+    ipl.fig.update_xaxes(x_args)
+    ipl.fig.update_yaxes(y_args)    
+
+    # Plot a trace for each simulation for the snapshot in time. 
+    line = {'width': SINGLE_FRAME_DICT["line_width"]}
+    ipl.plot_traces(normed=normalise, line_kwargs=[line]*len(target_handles))   
+  
+    show_legend=False
+    if not show_legend:
+        ipl.fig.update_layout(
+            showlegend = False
+        )
+
+    inset_dict["axes_kwargs"]["yaxis2"].update(
+        range = [inset_dict["axes_kwargs"]["yaxis2"]["domain"][0]*SINGLE_FRAME_DICT["y_range"][1], inset_dict["axes_kwargs"]["yaxis2"]["domain"][1]*SINGLE_FRAME_DICT["y_range"][1]],
+        showticklabels = False,
+    )
+    inset_dict["axes_kwargs"]["xaxis2"].update(
+        title = x_args["title"],
+        tickfont = x_args["tickfont"],
+        side= 'top',
+    )
+
+    if INSET:
+        ipl.fig.update_layout(**inset_dict["axes_kwargs"])
+        ipl.fig.update_layout(**inset_dict["axes_kwargs"])
+    
+    
+    
+    fname_out +=  "_" + str(SINGLE_FRAME_DICT["time"])+"fs"
+    save_snapshot(ipl,outdir,fname_out)
+
 def save_interactive(ipl,outdir,fname_out):
     extension = ".html"
     file_path =  outdir + fname_out + extension
     ipl.fig.write_html(file_path)
 
-    print("Done!")
+    print("Done!") 
+
+def save_snapshot(ipl,outdir,fname_out):
+    import time
+    import plotly.express as px
+    extension = ".pdf"
+    file_path = outdir + fname_out + extension 
+    # Workaround for loading mathjax graphical bug
+    ipl.fig.write_image(file_path,format="pdf")  
+    time.sleep(2)
+
+    ipl.fig.write_image(file_path,format="pdf")
+
+    print("done!")
 
 def save_animation(ipl,outdir,fname_out,max_num_frames=10):
     # https://stackoverflow.com/questions/55460434/how-to-export-save-an-animated-bubble-chart-made-with-plotly

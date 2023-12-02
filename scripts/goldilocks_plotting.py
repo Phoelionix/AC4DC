@@ -33,7 +33,7 @@ import imaging_params
 
 
 FIGWIDTH_FACTOR = 1
-FIGWIDTH = 3.49697 *FIGWIDTH_FACTOR
+FIGWIDTH = 3.49751 *FIGWIDTH_FACTOR
 FIGHEIGHT = FIGWIDTH*3/4
 
 matplotlib.rcParams.update({

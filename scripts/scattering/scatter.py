@@ -2522,7 +2522,7 @@ def q_to_res(q):
 DEBUG = False
 
 if __name__ == "__main__":
-    fig_width = 3.49697 # 20
+    fig_width = 3.49751 # 20
     fig_height = fig_width*3/4 # 20
     ### Simulate
     target_options = ["neutze","hen","tetra","glycine","fcc"]

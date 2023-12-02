@@ -78,7 +78,34 @@ def get_sim_params(handle,input_path=None,molecular_path=None):
     param_dict = ["Energy","Width",photon_measure,"R"]  #TODO dont call dicts...
     unit_dict = [" eV"," fs",photon_unit,""]
     #TODO check that time range is satisfied by files.
-    return start_t,end_t, energy, fwhm, photon_measure_val, param_dict,unit_dict 
+    return start_t,end_t, energy, fwhm, photon_measure_val, param_dict,unit_dict
+
+def get_sim_elements(handle,input_path=None,molecular_path=None):
+    if input_path is None:
+        input_path = path.abspath(path.join(__file__ ,"../../input/")) + "/"
+    if molecular_path is None:
+        molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
+        
+    molfile = get_mol_file(input_path,molecular_path,handle,"y",out_prefix_text = "Reading elements from")
+    outDir = molecular_path + handle 
+    intFile = outDir + "/intensity.csv"
+    reading = False
+    elements = []
+    with open(molfile, 'r') as f:
+        n = 0
+        for line in f:
+            if line.startswith("#ATOM"):
+                reading=True            
+                continue        
+            elif line.startswith("#") or line.startswith("//") or len(line.strip()) == 0:
+                break
+            if line.startswith("####END####"):
+                break
+            if reading:
+                elem = line.split(' ')[0]         
+                elements.append(elem)
+    return elements
+    
 
 # Contender for world's most convoluted function.
 def get_mol_file(input_path, molecular_path, mol, output_mol_query = "",out_prefix_text = "Using"):

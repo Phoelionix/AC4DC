@@ -217,18 +217,24 @@ class PlotData:
 class InteractivePlotter:
     # max_final_t, float, end time in femtoseconds. Not equivalent to time duration
     # max_points, int, number of points (within the timespan) for the interactive to have at maximum.
-    def __init__(self, target_names, sim_output_parent_directory, max_final_t = 30, max_points = 70, custom_names = None,use_electron_density = False,presentation_mode=False):
+    def __init__(self, target_names, sim_output_parent_directory, max_final_t = 30, max_points = 70, custom_names = None,legend_title=None,use_electron_density = False,presentation_mode=False,font_size=35,times_in_legend=True,inset = False):
         '''
         output_parent_directory: absolute path
         use_electron_density: If True, plot electron density rather than energy density
         Various changes, such as bigger font, etc. for presentation purposes.
         '''
+        max_points+=1  # (we exclude t=0)
         self.multi_trace_params = [""]*len(target_names)  # 
         self.use_electron_density = use_electron_density
         self.presentation_mode = False
         if presentation_mode:
             self.presentation_mode = True
 
+        self.font_size = font_size
+        self.times_in_legend = times_in_legend
+        self.legend_title = legend_title
+        self.inset = inset
+        
         self.num_plots = len(target_names)
         self.target_data = []
         minimum_time_range = np.inf
@@ -297,9 +303,12 @@ class InteractivePlotter:
         left_anchor = {"xanchor":"left", "x":0.01} 
         #right_anchor = {"xanchor":"right", "x":0.99} 
         right_anchor = {"xanchor":"left", "x":0.6} 
-        h_anchor = right_anchor 
+        h_anchor = right_anchor
+        title = ""
+        if plot_title is not None:
+            title = plot_title + " - Free-electron distribution"
         self.fig.update_layout(
-            title = plot_title + " - Free-electron distribution",  # Attention: title overwritten by add_time_slider()
+            title = title,  # Attention: title overwritten by add_time_slider()
             showlegend=True,
             legend=dict(
                 yanchor="top",
@@ -307,11 +316,16 @@ class InteractivePlotter:
                 xanchor = h_anchor["xanchor"],
                 x = h_anchor["x"],
                 bgcolor = '#F5F5F5',
-                font = dict(family="Times New Roman",size=35),
+                font = dict(family="times new roman",size=self.font_size),
+                title=self.legend_title,
+                title_font=dict(
+                    family="times new roman",
+                    size=self.font_size,
+                ),
             ),               
             # Hide the slider values
             font=dict(
-                family="Times New Roman",
+                family="times new roman",
                 size=1, 
             )
         )
@@ -335,7 +349,7 @@ class InteractivePlotter:
                 #if round(t/Q)*Q > target.max_final_t:
                     break
 
-                if j == 0: continue  # Skip empty plot
+                if j == 0: continue  # Skip t = 0 (empty plot)
 
                 data = target.freeData[j,:]
                 if normed:
@@ -414,13 +428,33 @@ class InteractivePlotter:
                 if self.use_electron_density:
                     density_factor = 1 
                 # Add the trace
+                visible = False
+                if j == 1:
+                    # Make earliest point visible.
+                    visible = True
+                name=self.target_data[g].target_mol["name"] 
+                if self.times_in_legend:
+                    name+="%.1f"%t + " fs"
                 self.fig.add_trace(
                     go.Scatter(
-                        visible=False,
+                        visible=visible,
                         line=dict(color=col, **line_kwargs[g]),
-                        name=self.target_data[g].target_mol["name"] + "%.1f"%t + " fs",
+                        name=name,
                         x=X,
                         y=data*density_factor))
+                if self.inset:
+                    self.fig.add_trace(
+                        go.Scatter(
+                            visible=visible,
+                            line=dict(color=col, **line_kwargs[g]),
+                            name=name,
+                            x=X,
+                            y=data*density_factor,
+                            xaxis ='x2',
+                            yaxis = 'y2',
+                            ))                
+                
+                    
         # # Plot knots as trace too? (would need to figure out how to make it not move vertically.)
         # knot_to_plot = self.target_data[g].energyKnot
         # self.fig.add_trace(
@@ -432,7 +466,7 @@ class InteractivePlotter:
         #         name="knot"
         #     ),
         # )
-        self.fig.data[0].visible = True
+        
 
     #----Widgets----#
     # Time Slider
@@ -447,11 +481,11 @@ class InteractivePlotter:
         for g in range(self.num_plots):
             steps = []
             target = self.target_data[g]
-            displaying = "<span style='font-size: 28px; font-family: Times New Roman'>" +"Displaying:                  </span>"
-            subplot_title = dict(text= displaying + "<span style='font-size: 35px;color:"+ target.title_colour +"; font-family: Times New Roman'>" + target.target_mol["name"]  + "</span>", yanchor = "top", xanchor = "left", pad = dict(b = 0,l=-400))  # margin-top:100px; display:inline-block;
+            displaying = "<span style='font-size: 28px; font-family: times new roman'>" +"Displaying:                  </span>"
+            subplot_title = dict(text= displaying + "<span style='font-size: "+str(self.font_size)+"px;color:"+ target.title_colour +"; font-family: times new roman'>" + target.target_mol["name"]  + "</span>", yanchor = "top", xanchor = "left", pad = dict(b = 0,l=-400))  # margin-top:100px; display:inline-block;
             allplot_title = copy.deepcopy(subplot_title) 
             allplot_title_colour = "#4d50b3" 
-            allplot_title["text"] = displaying + "<span style='font-size: 35px;color:"+ allplot_title_colour +"; font-family: Times New Roman'>" + "          All"
+            allplot_title["text"] = displaying + "<span style='font-size: "+str(self.font_size)+"px;color:"+ allplot_title_colour +"; font-family: times new roman'>" + "          All"
             if g == 0:
                 self.fig.update_layout({"title": subplot_title})
             for i in range(len(target.timeData) - 1): # -1 as don't have trace for zeroth time step.
@@ -482,7 +516,7 @@ class InteractivePlotter:
                         # Use time of plot assuming all same.
                         simul_steps[i]["args"][0]["visible"][start_step+i] = True    
                         simul_step["label"] = "  " + trace_label
-                        simul_step["args"][1]["title"] = "<span style='font-size: 35px;color:"+ allplot_title_colour +"; font-family: Times New Roman'>" + "t = " + trace_label 
+                        simul_step["args"][1]["title"] = "<span style='font-size: "+str(self.font_size)+"px;color:"+ allplot_title_colour +"; font-family: times new roman'>" + "t = " + trace_label 
                     elif i < len(simul_steps):  
                         simul_steps[i]["args"][0]["visible"][start_step+i] = True    
                         simul_steps[i]["label"] += "  |  " + trace_label
@@ -501,7 +535,7 @@ class InteractivePlotter:
                     active=0,
                     tickwidth=0,
                     tickcolor = "rgba(0,0,0,0)",
-                    currentvalue={"prefix": "<span style='font-size: 25px; font-family: Times New Roman; color = black'>" + target.target_mol["name"] + " - Time [fs]: "},
+                    currentvalue={"prefix": "<span style='font-size: 25px; font-family: times new roman; color = black'>" + target.target_mol["name"] + " - Time [fs]: "},
                     pad={"t": 85+90*g,"r": 200,"l":0},
                     steps=steps,
                     len = 0.5,
@@ -512,7 +546,7 @@ class InteractivePlotter:
             all_slider = dict(
                 active = 0,
                 tickwidth = 0,
-                currentvalue = {"prefix": "<span style='font-size: 25px; font-family: Times New Roman; color = white;'>" +"All" + " - Times [fs]: "},
+                currentvalue = {"prefix": "<span style='font-size: 25px; font-family: times new roman; color = white;'>" +"All" + " - Times [fs]: "},
                 pad={"t": 85+90*(g+1),"r": 200,"l":0},
                 steps = simul_steps,
                 #font = {"color":"rgba(0.5,0.5,0.5,1)"}
@@ -521,7 +555,7 @@ class InteractivePlotter:
                 all_slider = dict(
                     active = 0,
                     tickwidth = 0,
-                    currentvalue = {"prefix": "<span style='font-size: 35px; font-family: Times New Roman; color = white;'>" +"All" + " - Times [fs]: "},
+                    currentvalue = {"prefix": "<span style='font-size: "+str(self.font_size)+"px; font-family: times new roman; color = white;'>" +"All" + " - Times [fs]: "},
                     pad={"t": 85,"r": 200,"l":0},
                     steps = simul_steps,
                     len = 0.5,
@@ -531,7 +565,7 @@ class InteractivePlotter:
                 )                
 
             if self.presentation_mode:
-                all_slider["currentvalue"] =  {"prefix": "<span style='font-size: 100px; font-family: Times New Roman; color = white;'>" + "t =", "suffix": "<span style='font-size: 100px; font-family: Times New Roman; color = white;'>" + " fs"}
+                all_slider["currentvalue"] =  {"prefix": "<span style='font-size: 100px; font-family: times new roman; color = white;'>" + "t =", "suffix": "<span style='font-size: 100px; font-family: times new roman; color = white;'>" + " fs"}
                 #all_slider["pad"] = {"t": 130,"r": 200,"l":0}
                 all_slider["pad"] = {"t": -1000,"r": 0,"l":1650}
                 all_slider["font"] = {"color":"blue"}
@@ -602,7 +636,7 @@ class InteractivePlotter:
                 xanchor="right",
                 y= 0, 
                 yanchor="top",
-                font = {"size": 25,"family": "Times New Roman"},
+                font = {"size": 25,"family": "times new roman"},
         )   
         self.fig.update_layout(
             updatemenus = [scale_button]
@@ -640,7 +674,7 @@ class InteractivePlotter:
                 xanchor="right",
                 y= 0, 
                 yanchor="top",
-                font = {"size": 35,"family": "Times New Roman"},
+                font = {"size": 35,"family": "times new roman"},
         )   
         self.fig.update_layout(
             updatemenus = [scale_button]
