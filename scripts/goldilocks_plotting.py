@@ -48,7 +48,7 @@ matplotlib.rcParams.update({
 LABEL_TIMES = False # Set True to graphically check times are all aligned.
 
 
-MODE = 0 # | 0: average charge | 1: R factors |
+MODE = 1 # | 0: mean carbon charge | 1: R factors |
 
 ylim=[None,None]
 ################
@@ -60,10 +60,10 @@ ylim=[None,None]
 # nums = range(0,6)
 # ylim = [2,4]
 # Batch stems and index range (inclusive). currently assuming form of key"-"+n+"_1", where n is a number in range of stem[key]
-stem_dict = {"SH_N":[1,11],
-        "SH_Zn":[1,11],
-        #"SH_Zr":[1,7],
-        "SH_Xe":[0,7],
+stem_dict = {"SH_N":[18,24],
+        "SH_Zn":[18,24],
+        #"SH_Zr":[1,10],
+        #"SH_Xe":[0,7],
     }
 ################
 ## Constants

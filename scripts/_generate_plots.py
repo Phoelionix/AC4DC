@@ -6,11 +6,11 @@ matplotlib.rcParams.update({
     'text.usetex': True,
     'pgf.rcfonts': False,
     #thaumatin thing
-    'axes.titlesize':12,     # fontsize of the axes title
-    'axes.labelsize':12,    # fontsize of the x and y labels   
-    'ytick.labelsize':12,
-    'xtick.labelsize':12,
-    'legend.fontsize':12,    
+    'axes.titlesize':10,     # fontsize of the axes title
+    'axes.labelsize':10,    # fontsize of the x and y labels   
+    'ytick.labelsize':10,
+    'xtick.labelsize':10,
+    'legend.fontsize':10,    
     'lines.linewidth':2,
 })
 import matplotlib.pyplot as plt

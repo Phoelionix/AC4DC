@@ -14,7 +14,10 @@ import os.path as path
 import os
 from QoL import set_highlighted_excepthook
 
-CHARGE_DIFFERENCE = False # Useful if simulation started with ionised atoms
+CHARGE_DIFFERENCE = False # Set True if want ionised atoms' trace to start from origin
+PLOT_DERIVATIVE = True # Plot the rate of avg charge gain
+YLIM = [None,None]
+#YLIM=[0,6]
 def main():
     set_highlighted_excepthook()
 
@@ -33,9 +36,9 @@ def main():
     assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder."
     data_folders = sys.argv[1:]
     label = data_folders[0] + "_"+data_folders[1]
-    make_some_plots(data_folders,molecular_path,label,dname_Figures)
+    make_some_plots(data_folders,molecular_path,label,dname_Figures,plot_derivative=PLOT_DERIVATIVE)
 
-def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir):
+def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,plot_derivative = False):
     '''
     Arguments:
     mol_name: The name of the folder containing the simulation's data (the csv files). (By default this is the stem of the mol file.)
@@ -67,9 +70,7 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir):
                 pl.plot_all_charges(plot_legend=(m==0),linestyle=dashes[m])
             if plot_mode == 1:
                 colours = [cmap(i) for i in range(len(atoms))]
-                #ylim=[0,8]
-                ylim=[0,6]
-                pl.plot_tot_charge(every=10,linestyle=dashes[m],colours = colours,atoms = atoms,plot_legend=(m==0),ylim=ylim,charge_difference=CHARGE_DIFFERENCE)
+                pl.plot_tot_charge(every=1,linestyle=dashes[m],colours = colours,atoms = atoms,plot_legend=(m==0),ylim=YLIM,charge_difference=CHARGE_DIFFERENCE,plot_derivative=PLOT_DERIVATIVE)
 
         plt.gcf().set_figwidth(9.2)
         #plt.tight_layout()
@@ -77,6 +78,8 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir):
             qualifier = "_"+ "BoundComp"
         if plot_mode == 1:
             qualifier = "_"+ "ElementComp"
+        if PLOT_DERIVATIVE:
+            qualifier+="-deriv"
         plt.savefig(figure_output_dir + label +qualifier + figures_ext)
         plt.close()
 

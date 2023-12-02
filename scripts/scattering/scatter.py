@@ -2426,7 +2426,7 @@ def stylin(exp_name1,exp_name2,radial_lim,get_R_only = False,SPI=False,SPI_max_q
 
 
     font = {'family': 'serif',
-            'size'   : 12}
+            'size'   : 10}
 
     plt.rc('font', **font)
 

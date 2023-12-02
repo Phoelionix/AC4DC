@@ -938,7 +938,10 @@ class Plotter:
         self.fig.subplots_adjust(left=0.2, right=0.95, top=0.95, bottom=0.2)
 
 
-    def plot_tot_charge(self, every=1,densities = False,colours=None,atoms=None,plot_legend=True,charge_difference=True,ylim=[None,None],legend_loc='upper left',**kwargs):
+    def plot_tot_charge(self, every=1,densities = False,colours=None,atoms=None,plot_legend=True,charge_difference=True,ylim=[None,None],plot_derivative=False,legend_loc='upper left',**kwargs):
+        '''
+        plot_derivative (bool), if True, plots average ionisation rate instead of average charge. 
+        '''
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
         #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
         T = self.timeData[::every]
@@ -950,12 +953,18 @@ class Plotter:
                 continue
             if colours != None:
                 colour = colours[j]
+            kwargs["label"] = a
+            kwargs["color"] = colour
+            # Plot trace for the atom
             atomic_charge = np.zeros(T.shape[0])
             for i in range(self.chargeData[a].shape[1]):
                 atomic_charge += self.chargeData[a][::every,i]*i
             if not densities:
                 atomic_charge /= np.sum(self.chargeData[a][0])
-            ax.plot(T, atomic_charge, label = a,color=colour,**kwargs)  # ???? TODO remove?
+            if not plot_derivative:
+                ax.plot(T,atomic_charge,**kwargs)
+            else:
+                ax.plot(T, np.gradient(atomic_charge,T),**kwargs)  # ???? TODO remove?
             self.Q += atomic_charge
 
         # Free data
@@ -964,13 +973,19 @@ class Plotter:
             de = de [1:] - de[:-1]
             tot_free_Q =-1*np.dot(self.freeData, de)
             ax.plot(T, tot_free_Q[::every], label = 'Free')
-            ax.set_ylabel("Charge density ($e$ \AA$^{-3}$)")
             self.Q += tot_free_Q[::every]
             # ax.set_title("Charge Conservation")
-            ax.plot(T, self.Q, label='total')
+            if not plot_derivative:
+                ax.plot(T, self.Q, label='total')
+                ax.set_ylabel("Charge density ($e$ \AA$^{-3}$)")
+            else:
+                ax.plot(T, np.gradient(self.Q,T), label='total')
+                ax.set_ylabel("dQ/dt ($e$ \AA$^{-3} \cdot fs^{-1}$)")
         else:
             ax.set_ylabel("Average charge")
-            if charge_difference:
+            if plot_derivative:
+                ax.set_ylabel("Average ionisation rate ($e \cdot fs^{-1}$)")
+            elif charge_difference:
                 ax.set_ylabel("Avg. charge difference")  # Sometimes we start with charged states.
         ax.set_ylim(ylim)
         # ax.set_xlim(None,-18.6)
