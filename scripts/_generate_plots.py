@@ -25,12 +25,12 @@ from QoL import set_highlighted_excepthook
 ####
 ELECTRON_DENSITY = False # energy density if False
 ###
-PLOT_ELEMENT_CHARGE= False
+PLOT_ELEMENT_CHARGE= True
 PLOT_FREE_CONTINUUM = False
 PLOT_FREE_SLICES=False
 PLOT_ION_RATIOS=False
 PLOT_ION_RATIOS_BARS=False
-PLOT_ORBITAL_DENSITIES = True
+PLOT_ORBITAL_DENSITIES = False
 ###
 FIGWIDTH = FIGWIDTH = 3.49751
 FIGHEIGHT = FIGWIDTH*2/4
@@ -89,6 +89,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         #plt.gcf().set_figwidth(15)        
     if orbital_densities_bar:
         pl.plot_orbitals_bar("C",show_pulse_profile=True)
+        #pl.plot_orbitals_bar("Gd_fast",show_pulse_profile=True,orbitals=["3p","4p","5p"])
     if bound_ionisation:
         pl.plot_all_charges(show_pulse_profile=False,ylim=[0,1])
 

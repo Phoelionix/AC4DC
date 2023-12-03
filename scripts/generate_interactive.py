@@ -28,7 +28,7 @@ normalise = False
 ELECTRON_DENSITY = False # if False, use energy density  
 ANIMATION = False # if true, generate animation rather than interactive figure (i.e. automatic slider movement) 
 ALSO_MAKE_PLOTS = False # Generate static plots for each simulation 
-SINGLE_FRAME = True
+SINGLE_FRAME = False 
 
 END_T = 9999  # Put at value to cutoff times early.
 POINTS = 70
@@ -37,26 +37,26 @@ if ANIMATION:
 
 SINGLE_FRAME_DICT = dict(
     # In inches
-    width = 3.49751*4/3,
-    height = 3.49751*2/3,
+    width = 7.24409436834,#3.49751*2*3/5,
+    height = 7.24409436834/3, #3.49751*2/3
     line_width = 2,
-    time = -10, # fs
+    times = [0],#[-10],#[-10,0], # fs.  Use multiple to plot traces from multiple times (colours will be same between frames however.)
     font_size = 10,
     superscript_font_size = 8,
     
     ylog = False, # < uses linear scale if False 
     xlog = False, # <
 
-    y_range = [0,0.0015],# [-5,-1],      # < If axis is log scale, limits correspond to powers of 10.
+    y_range = [0,0.019],#[0,0.019],#[0,0.0014],# [-5,-1],      # < If axis is log scale, limits correspond to powers of 10.
     x_range = [None,7500], # None,         # < Use None for default. 
 )
 
-INSET = True 
+INSET = True #False
 inset_dict = dict(
     axes_kwargs = dict(
         xaxis2 =dict(
             domain=[0.15, 0.45],
-            range = [0,50],
+            range = [0,120], #[0,50],
             anchor='y2',
         ),
         yaxis2=dict(
@@ -66,7 +66,7 @@ inset_dict = dict(
     ),
 )
 
-NAMING_MODE = 1  # 0: full details of sim parameters + sim name | 1: elements in sim| 
+NAMING_MODE = 0  # 0: full details of sim parameters + sim name | 1: elements in sim| 
 
 IDX = 0
 terminal_mode = True
@@ -87,6 +87,8 @@ from math import ceil
 
 assert ELECTRON_DENSITY is False, "Electron density not implemented yet, need to take in dynamic knots." #TODO
 def main():
+    if INSET:
+        assert SINGLE_FRAME,"Inset only supported with single frame at present" 
     set_highlighted_excepthook()
     molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
     graph_folder = path.abspath(path.join(__file__ ,"../../output/_Graphs/")) + "/" 
@@ -303,7 +305,9 @@ def snapshot(target_handles,sim_data_parent_dir,fname_out,normalise,outdir):
     custom_names,legend_title = get_legend_labels(target_handles,sim_data_parent_dir)
     font_size = SINGLE_FRAME_DICT["font_size"]
     supfont_size = SINGLE_FRAME_DICT["superscript_font_size"]
-    ipl = InteractivePlotter(target_handles,sim_data_parent_dir, font_size=font_size, max_final_t=SINGLE_FRAME_DICT["time"],max_points=1,legend_title=legend_title,times_in_legend=False,custom_names=custom_names,use_electron_density = ELECTRON_DENSITY,inset=INSET,)
+
+    
+    ipl = InteractivePlotter(target_handles,sim_data_parent_dir, font_size=font_size, max_final_t=-99999,max_points=1,legend_title=legend_title,times_in_legend=False,custom_names=custom_names,use_electron_density = ELECTRON_DENSITY,inset=INSET)
     # Axes
     xlog_args,xlin_args,ylog_args,ylin_args = set_up_interactive_axes(ipl,None,font_size=font_size,superscript_font_size=supfont_size)
     x_args = xlin_args
@@ -348,9 +352,12 @@ def snapshot(target_handles,sim_data_parent_dir,fname_out,normalise,outdir):
     ipl.fig.update_xaxes(x_args)
     ipl.fig.update_yaxes(y_args)    
 
-    # Plot a trace for each simulation for the snapshot in time. 
-    line = {'width': SINGLE_FRAME_DICT["line_width"]}
-    ipl.plot_traces(normed=normalise, line_kwargs=[line]*len(target_handles))   
+    for t in SINGLE_FRAME_DICT["times"]:
+        # Plot a trace for each simulation for the snapshot in time. 
+        ipl.input_data_args["max_final_t"] = t
+        ipl.initialise_data()
+        line = {'width': SINGLE_FRAME_DICT["line_width"]}
+        ipl.plot_traces(normed=normalise, line_kwargs=[line]*len(target_handles))   
   
     show_legend=False
     if not show_legend:
@@ -359,21 +366,30 @@ def snapshot(target_handles,sim_data_parent_dir,fname_out,normalise,outdir):
         )
 
     inset_dict["axes_kwargs"]["yaxis2"].update(
-        range = [inset_dict["axes_kwargs"]["yaxis2"]["domain"][0]*SINGLE_FRAME_DICT["y_range"][1], inset_dict["axes_kwargs"]["yaxis2"]["domain"][1]*SINGLE_FRAME_DICT["y_range"][1]],
-        showticklabels = False,
+        #1:1 yaxis scale
+        #range = [inset_dict["axes_kwargs"]["yaxis2"]["domain"][0]*SINGLE_FRAME_DICT["y_range"][1], inset_dict["axes_kwargs"]["yaxis2"]["domain"][1]*SINGLE_FRAME_DICT["y_range"][1]],
+        #showticklabels = False,
+
+        ####
+        tickfont = y_args["tickfont"],
+        side= 'right',        
     )
     inset_dict["axes_kwargs"]["xaxis2"].update(
         tickfont = x_args["tickfont"],
         side= 'top',
     )
+    subplot_ax_font_colour = "blue"
+    for k in ["yaxis2","xaxis2"]:
+        inset_dict["axes_kwargs"][k]["tickfont"]["color"] = subplot_ax_font_colour
+
 
     if INSET:
         ipl.fig.update_layout(**inset_dict["axes_kwargs"])
         ipl.fig.update_layout(**inset_dict["axes_kwargs"])
     
     
-    
-    fname_out +=  "_" + str(SINGLE_FRAME_DICT["time"])+"fs"
+    if len(SINGLE_FRAME_DICT["times"]) == 1:
+        fname_out +=  "_" + str(SINGLE_FRAME_DICT["times"][0])+"fs"
     save_snapshot(ipl,outdir,fname_out)
 
 def save_interactive(ipl,outdir,fname_out):

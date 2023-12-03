@@ -145,7 +145,7 @@ class PlotData:
         indices[1:] -= 1  # index 0 is ignored later anyway.
         np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
         raw = self.raw_int[indices]
-        print("Times plotted:\n",raw[:,0])
+        print("Snapshot times set:\n",raw[:,0])
         
         self.intensityData = raw[:,1]
         self.timeData = raw[:, 0]       
@@ -236,11 +236,26 @@ class InteractivePlotter:
         self.inset = inset
         
         self.num_plots = len(target_names)
-        self.target_data = []
-        minimum_time_range = np.inf
-        lowest_max_points = np.inf
         if custom_names is None:
             custom_names = [None]*self.num_plots
+        self.input_data_args = {
+            "target_names":target_names,
+            "custom_names":custom_names,
+            "sim_output_parent_directory":sim_output_parent_directory,
+            "max_final_t":max_final_t,
+            "max_points":max_points,
+            }
+        self.initialise_data()
+    
+    def initialise_data(self):    
+
+        d = self.input_data_args
+        target_names,custom_names,sim_output_parent_directory,max_final_t,max_points = (
+            d["target_names"],d["custom_names"],d["sim_output_parent_directory"],d["max_final_t"],d["max_points"]
+        )
+        self.target_data = []
+        minimum_time_range = np.inf
+        lowest_max_points = np.inf           
         for i, mol_name in enumerate(target_names):
             custom_name = custom_names[i]
             dat = PlotData(sim_output_parent_directory,mol_name,"y",max_final_t=max_final_t,max_points=max_points,custom_name=custom_name)    
@@ -250,7 +265,7 @@ class InteractivePlotter:
         for dat in self.target_data:
             dat.set_max_t(minimum_time_range)
             dat.max_points = lowest_max_points
-            dat.update_outputs()
+            dat.update_outputs()        
 
     def set_trace_params(self,target_handle_idx,energy,fwhm,photons):
         self.multi_trace_params[target_handle_idx] = (energy,fwhm,photons)        

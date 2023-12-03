@@ -30,11 +30,13 @@ from scatter import XFEL,Crystal,stylin
 from damage_landscape import multi_damage
 from core_functions import get_pdb_path
 import imaging_params
+from scipy.interpolate import InterpolatedUnivariateSpline,SmoothBivariateSpline
 
 
 FIGWIDTH_FACTOR = 1
 FIGWIDTH = 3.49751 *FIGWIDTH_FACTOR
 FIGHEIGHT = FIGWIDTH*3/4
+FIT = True
 
 matplotlib.rcParams.update({
     'figure.subplot.left':0.14/FIGWIDTH_FACTOR,
@@ -60,10 +62,11 @@ ylim=[None,None]
 # nums = range(0,6)
 # ylim = [2,4]
 # Batch stems and index range (inclusive). currently assuming form of key"-"+n+"_1", where n is a number in range of stem[key]
-stem_dict = {"SH_N":[18,24],
-        "SH_Zn":[18,24],
+stem_dict = {
+        "SH_N":[1,11],
+        "SH_Zn":[1,11],
         #"SH_Zr":[1,10],
-        #"SH_Xe":[0,7],
+        "SH_Xe":[1,9],
     }
 ################
 ## Constants
@@ -151,6 +154,14 @@ def plot(batches,label,figure_output_dir,mode = 0):
         if mode is R_FACTOR:
             print("R factors:",Y)
         ax.scatter(X,Y,label=stem.split("-")[0].split("_")[-1])
+        
+        if FIT:
+            #p = np.polynomial.Legendre.fit(X,Y,deg=6)
+            #ax.plot(*p.linspace(100))
+            sp = InterpolatedUnivariateSpline(X,Y)
+            finer_x = np.linspace(np.min(X),np.max(X),endpoint=True)
+            ax.plot(finer_x, sp(finer_x)) 
+
         if LABEL_TIMES:
             for i, txt in enumerate(times):
                 ax.annotate(txt, (X[i],Y[i]))

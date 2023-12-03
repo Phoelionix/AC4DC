@@ -18,6 +18,8 @@ import random
 from scipy.optimize import curve_fit
 from scipy.stats import linregress
 from core_functions import get_mol_file
+from scipy.interpolate import splrep, splev
+from scipy.signal import savgol_filter
 
 #plt.rcParams.update(plt.rcParamsDefault)
 #plt.style.use('seaborn-muted')
@@ -883,7 +885,7 @@ class Plotter:
         old_ytop = ax.get_ylim()[1]
         ax.set_ylim([-0.5,len(Y)-0.5])
 
-    def plot_orbitals_bar(self, a, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[0,1],**kwargs):
+    def plot_orbitals_bar(self, a, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[0,1],orbitals=None,**kwargs):
         if show_pulse_profile:  
             ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),col="white")
         else:
@@ -898,7 +900,10 @@ class Plotter:
         Z = []
         labels = []
         states = self.statedict[a]
-        for j, subshell in enumerate(parse_elecs_from_latex(states[0]).keys()):
+        orb_dict = parse_elecs_from_latex(states[0])
+        if orbitals is not None:
+            orb_dict = {k: v for k, v in orb_dict.items() if k in orbitals}
+        for j, subshell in enumerate(orb_dict.keys()):
             Y.append(j)
             labels.append(subshell)
             tot = np.zeros_like(self.boundData[a][:,0])
@@ -910,7 +915,7 @@ class Plotter:
 
         ax.set_facecolor('black')
         cm = ax.pcolormesh(self.timeData, Y, Z,cmap="Spectral",rasterized=True,vmin=0)
-        cbar = self.fig.colorbar(cm,ax=ax,label="Average orbital occupancy")
+        cbar = self.fig.colorbar(cm,ax=ax,label="Average "+a+" orbital occupancy")
         ax.set_yticks(ticks=Y,labels=labels)
         
         ax.set_xlabel("Time (fs)")            
@@ -964,7 +969,36 @@ class Plotter:
             if not plot_derivative:
                 ax.plot(T,atomic_charge,**kwargs)
             else:
-                ax.plot(T, np.gradient(atomic_charge,T),**kwargs)  # ???? TODO remove?
+                smooth = False
+                dydx = np.gradient(atomic_charge,T)
+                if not smooth:
+                    ax.plot(T, dydx,**kwargs)
+                else:
+                    w = np.zeros(len(T))
+                    w+=1
+                    from scipy.ndimage import uniform_filter1d
+                    spikiness = np.abs(uniform_filter1d(splev(T,splrep(T,atomic_charge,k=3,s=0),der=3),size=10))
+                    w/=np.sqrt(spikiness)
+                    w /= np.median(w)
+                    w[0] = 100
+                    smoothed = splev(T,splrep(T,atomic_charge,w=w,k=3,s=0.015),der=1)
+                    smoothed *= np.max(dydx)/np.max(smoothed)
+                    
+                    #smoothed = uniform_filter1d(atomic_charge,size=200,mode="reflect")
+                    #smoothed = splev(T,splrep(T,smoothed,k=3,s=0),der=1)
+                    #smoothed *= np.max(dydx)/np.max(smoothed)
+
+                    YY = smoothed
+
+                    ax.plot(T, YY,**kwargs)
+                
+                
+                #dt = np.append(T, T[-1]*2 - T[-2])   
+                #dt = dt[1:] - dt[:-1]
+                #dydx = savgol_filter(atomic_charge, window_length=11, polyorder=4, deriv=1)*10
+                #ax.plot(T,dydx,**kwargs)
+                
+
             self.Q += atomic_charge
 
         # Free data
