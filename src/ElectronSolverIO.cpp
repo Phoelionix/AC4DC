@@ -69,13 +69,14 @@ void ElectronRateSolver::save(const std::string& _dir) {
 }
 
 void ElectronRateSolver::file_delete_check(const std::string& fname){
+    // Commented out messages due to not playing nice with ncurses
     if(std::filesystem::exists(fname)){
         if( remove( fname.c_str() ) != 0 ){
-            perror( "[ Output ] Error saving file: could not delete existing file" );
+            //perror( "[ Output ] Error saving file: could not delete existing file" );
             return;
             }
         else
-            puts( "File successfully deleted" );
+           ;// puts( "File successfully deleted" );
     }    
 }
 
