@@ -882,7 +882,9 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
           time_of_last_save = std::chrono::high_resolution_clock::now();
           size_t old_size = y.size();
           y.resize(n+1); t.resize(n+1);
+          std::cout.setstate(std::ios_base::failbit);  // disable character output
           save(data_backup_folder);
+          std::cout.clear(); // enable character output
           y.resize(old_size); t.resize(old_size);
           // re-set the future t values       
           for (int i=n+1; i<old_size; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
