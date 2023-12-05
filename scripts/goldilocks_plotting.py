@@ -168,11 +168,6 @@ def plot(batches,label,figure_output_dir,mode = 0):
             ordered_dat = sorted(zip(X,Y))
             # Split dataset with ionisation edge
             split_idx = np.searchsorted(np.array([x[0] for x in ordered_dat]),edge_dict[stem])
-            print(np.array([x[0] for x in ordered_dat]))
-            print(np.array([x[0] for x in ordered_dat]))
-            print(stem)
-            print(edge_dict[stem])
-            print(split_idx)            
             splines = []
             finer_x = []
             if split_idx in (0, len(X)):
