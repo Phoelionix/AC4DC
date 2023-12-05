@@ -68,6 +68,12 @@ stem_dict = {
         #"SH_Zr":[1,10],
         "SH_Xe":[1,9],
     }
+edge_dict = {
+    "SH_N":0.3,
+    "SH_Zn":9.7,
+    "SH_Zr":18,
+    "SH_Xe":5.5,
+}
 ################
 ## Constants
 # Dependent variable
@@ -104,7 +110,7 @@ def main():
                 break
             data_folders[i] = handle + "_"+str(max(run_nums))
         batches[key] = data_folders
-    assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder."
+    assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder. See input error message(s)"
     fig_title = "".join([stem.split("-")[0].split("_")[-1] for stem in batches.keys()])
     label = fig_title+"_"+plot_type[MODE]
     plot(batches,label,dname_Figures,mode=MODE)
@@ -126,7 +132,10 @@ def plot(batches,label,figure_output_dir,mode = 0):
     fname_bound_dynamics = "bound_dynamics"
 
     fig, ax = plt.subplots(figsize=(FIGWIDTH,FIGHEIGHT))
+    cmap = plt.get_cmap('tab10')
+    c = -1
     for stem, mol_names in batches.items():
+        c+=1
         X = []
         Y = []
         print("Plotting "+stem+" trace.")
@@ -153,14 +162,30 @@ def plot(batches,label,figure_output_dir,mode = 0):
             print("Charges:",Y)
         if mode is R_FACTOR:
             print("R factors:",Y)
-        ax.scatter(X,Y,label=stem.split("-")[0].split("_")[-1])
+        ax.scatter(X,Y,label=stem.split("-")[0].split("_")[-1],color = cmap(c))
         
         if FIT:
-            #p = np.polynomial.Legendre.fit(X,Y,deg=6)
-            #ax.plot(*p.linspace(100))
-            sp = InterpolatedUnivariateSpline(X,Y)
-            finer_x = np.linspace(np.min(X),np.max(X),endpoint=True)
-            ax.plot(finer_x, sp(finer_x)) 
+            ordered_dat = sorted(zip(X,Y))
+            # Split dataset with ionisation edge
+            split_idx = np.searchsorted(np.array([x[0] for x in ordered_dat]),edge_dict[stem])
+            print(np.array([x[0] for x in ordered_dat]))
+            print(np.array([x[0] for x in ordered_dat]))
+            print(stem)
+            print(edge_dict[stem])
+            print(split_idx)            
+            splines = []
+            finer_x = []
+            if split_idx in (0, len(X)):
+                # No split in fit
+                splines.append(InterpolatedUnivariateSpline(*zip(*ordered_dat),k=2))
+                finer_x.append(np.linspace(np.min(X),np.max(X),endpoint=True))
+            else:
+                # Split in fit                  \\START           \\END
+                for start_idx,end_idx  in zip([0,split_idx],[split_idx-1,len(X)-1]):
+                    splines.append(InterpolatedUnivariateSpline(*zip(*ordered_dat[start_idx:end_idx+1]),k=2))
+                    finer_x.append(np.linspace(ordered_dat[start_idx][0],ordered_dat[end_idx][0],endpoint=True))
+            for sp, lil_x in zip(splines,finer_x):
+                ax.plot(lil_x, sp(lil_x),color = cmap(c)) 
 
         if LABEL_TIMES:
             for i, txt in enumerate(times):

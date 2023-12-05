@@ -892,27 +892,10 @@ class Plotter:
             ax = self.get_next_ax()
         self.aggregate_charges()
         #print_idx = np.searchsorted(self.timeData,-7.5)
-        ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))
-        max_at_zero = np.max(self.chargeData[a][0,:]) 
-        norm = 1/max_at_zero                        
+        ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))                        
 
-        Y = []
-        Z = []
-        labels = []
-        states = self.statedict[a]
-        orb_dict = parse_elecs_from_latex(states[0])
-        if orbitals is not None:
-            orb_dict = {k: v for k, v in orb_dict.items() if k in orbitals}
-        for j, subshell in enumerate(orb_dict.keys()):
-            Y.append(j)
-            labels.append(subshell)
-            tot = np.zeros_like(self.boundData[a][:,0])
-            for i in range(len(states)):
-                orboccs = parse_elecs_from_latex(states[i])
-                tot += orboccs[subshell]*self.boundData[a][:,i]*norm
-            Z.append(tot)
-
-
+        Z,labels = self.get_orbital_data(a,orbitals)
+        Y = range(len(Z))
         ax.set_facecolor('black')
         cm = ax.pcolormesh(self.timeData, Y, Z,cmap="Spectral",rasterized=True,vmin=0)
         cbar = self.fig.colorbar(cm,ax=ax,label="Average "+a+" orbital occupancy")
@@ -925,6 +908,30 @@ class Plotter:
         ax.set_ylim([-0.5,len(Y)-0.5])     
         if show_pulse_profile:   
             ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
+
+    def get_orbital_data(self,a,orbitals):
+        self.aggregate_charges(False)
+        max_at_zero = np.max(self.chargeData[a][0,:]) 
+        norm = 1/max_at_zero        
+
+        colour = None
+        states = self.statedict[a]
+        orb_dict = parse_elecs_from_latex(states[0])
+        if orbitals is not None:
+            orb_dict = {k: v for k, v in orb_dict.items() if k in orbitals}
+
+        orbital_idx = []
+        orb_density = []
+        labels = []
+        for j, subshell in enumerate(orb_dict.keys()):
+            orbital_idx.append(j)
+            labels.append(subshell)
+            tot = np.zeros_like(self.boundData[a][:,0])
+            for i in range(len(states)):
+                orboccs = parse_elecs_from_latex(states[i])
+                tot += orboccs[subshell]*self.boundData[a][:,i]*norm
+            orb_density.append(tot)      
+        return orb_density, labels             
 
     def plot_subshell(self, a, subshell='1s',rseed=404):
         if not hasattr(self, 'ax_subshell'):
@@ -1027,6 +1034,87 @@ class Plotter:
         if plot_legend:
             ax.legend(loc = legend_loc)
         return ax
+    
+    def plot_orbitals_charge(self, every=1,densities = False,cmap=None,atom=None,orbitals = None,plot_legend=True,ylim=[None,None],plot_derivative=False,legend_loc='lower left',**kwargs):
+        '''
+        plot_derivative (bool), if True, plots average ionisation rate instead of average charge. 
+        '''
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
+        #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
+        T = self.timeData[::every]
+        avg_occupancies,labels = self.get_orbital_data(atom,orbitals)
+
+        if cmap is None:
+            cmap = "tab20"
+
+        colours = [plt.get_cmap(cmap)((i)/len(avg_occupancies)) for i in range(len(avg_occupancies)) ]
+
+        for Y, label, col in zip(avg_occupancies,labels,colours):
+            if not plot_derivative:
+                ax.plot(T,Y,label=label,color=col,**kwargs)
+            else:
+                smooth = False
+                dydx = np.gradient(Y,T)
+                if not smooth:
+                    ax.plot(T, dydx,label=label,**kwargs)
+                else:
+                    w = np.zeros(len(T))
+                    w+=1
+                    from scipy.ndimage import uniform_filter1d
+                    spikiness = np.abs(uniform_filter1d(splev(T,splrep(T,Y,k=3,s=0),der=3),size=10))
+                    w/=np.sqrt(spikiness)
+                    w /= np.median(w)
+                    w[0] = 100
+                    smoothed = splev(T,splrep(T,Y,w=w,k=3,s=0.015),der=1)
+                    smoothed *= np.max(dydx)/np.max(smoothed)
+                    
+                    #smoothed = uniform_filter1d(atomic_charge,size=200,mode="reflect")
+                    #smoothed = splev(T,splrep(T,smoothed,k=3,s=0),der=1)
+                    #smoothed *= np.max(dydx)/np.max(smoothed)
+
+                    YY = smoothed
+
+                    ax.plot(T, YY,label=label**kwargs)
+                
+                
+                #dt = np.append(T, T[-1]*2 - T[-2])   
+                #dt = dt[1:] - dt[:-1]
+                #dydx = savgol_filter(atomic_charge, window_length=11, polyorder=4, deriv=1)*10
+                #ax.plot(T,dydx,**kwargs)
+                
+
+
+        # Free data
+        if densities:
+            assert False,"Densities not implemented with orbitals charge plot"
+        #     de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])   
+        #     de = de [1:] - de[:-1]
+        #     tot_free_Q =-1*np.dot(self.freeData, de)
+        #     ax.plot(T, tot_free_Q[::every], label = 'Free')
+        #     self.Q += tot_free_Q[::every]
+        #     # ax.set_title("Charge Conservation")
+        #     if not plot_derivative:
+        #         ax.plot(T, self.Q, label='total')
+        #         ax.set_ylabel("Charge density ($e$ \AA$^{-3}$)")
+        #     else:
+        #         ax.plot(T, np.gradient(self.Q,T), label='total')
+        #         ax.set_ylabel("dQ/dt ($e$ \AA$^{-3} \cdot fs^{-1}$)")
+        # else:
+        #     ax.set_ylabel("Average charge")
+        #     if plot_derivative:
+        #         ax.set_ylabel("Average ionisation rate ($e \cdot fs^{-1}$)")
+        #     elif charge_difference:
+        #         ax.set_ylabel("Avg. charge difference")  # Sometimes we start with charged states.
+        ax.set_ylim(ylim)
+        # ax.set_xlim(None,-18.6)
+        # ax.set_ylim(0,5)
+        if plot_legend:
+            #ax.legend(loc = legend_loc)
+            ax.legend(bbox_to_anchor=(1.02, 1),loc='upper left', ncol=1,handlelength=1)
+        return ax    
+    
+ 
+    
     def get_total_charge(self,every=1,densities=False,atoms=None,charge_difference=False):
         T = self.timeData[::every]
         self.aggregate_charges(charge_difference)

@@ -28,7 +28,7 @@ normalise = False
 ELECTRON_DENSITY = False # if False, use energy density  
 ANIMATION = False # if true, generate animation rather than interactive figure (i.e. automatic slider movement) 
 ALSO_MAKE_PLOTS = False # Generate static plots for each simulation 
-SINGLE_FRAME = False 
+SINGLE_FRAME = True
 
 END_T = 9999  # Put at value to cutoff times early.
 POINTS = 70
@@ -37,17 +37,19 @@ if ANIMATION:
 
 SINGLE_FRAME_DICT = dict(
     # In inches
-    width = 7.24409436834,#3.49751*2*3/5,
+    width = (7.24409436834*2/3),#3.49751*2*3/5,
     height = 7.24409436834/3, #3.49751*2/3
     line_width = 2,
-    times = [0],#[-10],#[-10,0], # fs.  Use multiple to plot traces from multiple times (colours will be same between frames however.)
+    times = [0],#[-10],#[0],#[-10,0], # fs.  Use multiple to plot traces from multiple times (colours will be same between frames however.)
     font_size = 10,
     superscript_font_size = 8,
     
+    show_legend = False, 
+
     ylog = False, # < uses linear scale if False 
     xlog = False, # <
 
-    y_range = [0,0.019],#[0,0.019],#[0,0.0014],# [-5,-1],      # < If axis is log scale, limits correspond to powers of 10.
+    y_range = [0,0.009],#[0,0.0014],#[0,0.019],#[0,0.09],# [-5,-1],      # < If axis is log scale, limits correspond to powers of 10.
     x_range = [None,7500], # None,         # < Use None for default. 
 )
 
@@ -55,7 +57,7 @@ INSET = True #False
 inset_dict = dict(
     axes_kwargs = dict(
         xaxis2 =dict(
-            domain=[0.15, 0.45],
+            domain=[0.1, 0.4],
             range = [0,120], #[0,50],
             anchor='y2',
         ),
@@ -66,7 +68,7 @@ inset_dict = dict(
     ),
 )
 
-NAMING_MODE = 0  # 0: full details of sim parameters + sim name | 1: elements in sim| 
+NAMING_MODE = 1  # 0: full details of sim parameters + sim name | 1: elements in sim| 
 
 IDX = 0
 terminal_mode = True
@@ -239,7 +241,7 @@ def get_legend_labels(target_handles,sim_data_parent_dir,sim_input_dir=None):
     custom_names = []
     legend_title=None
     if NAMING_MODE == 1:
-        legend_title = "Elements included"        
+        legend_title = "Elements present"        
     for handle in target_handles:
         if NAMING_MODE == 0:
             sim_params = list(get_sim_params(handle,sim_input_dir,sim_data_parent_dir))
@@ -341,8 +343,8 @@ def snapshot(target_handles,sim_data_parent_dir,fname_out,normalise,outdir):
         legend=dict(
             yanchor="top",
             y=0.99,
-            xanchor = "right",
-            x = 0.7,
+            xanchor = "left",
+            x = 0.05,
             bgcolor = 'rgba(255,255,255,0.7)',
         ),          
         autosize=False,
@@ -359,11 +361,9 @@ def snapshot(target_handles,sim_data_parent_dir,fname_out,normalise,outdir):
         line = {'width': SINGLE_FRAME_DICT["line_width"]}
         ipl.plot_traces(normed=normalise, line_kwargs=[line]*len(target_handles))   
   
-    show_legend=False
-    if not show_legend:
-        ipl.fig.update_layout(
-            showlegend = False
-        )
+    ipl.fig.update_layout(
+        showlegend=SINGLE_FRAME_DICT["show_legend"]
+    )
 
     inset_dict["axes_kwargs"]["yaxis2"].update(
         #1:1 yaxis scale
@@ -386,6 +386,13 @@ def snapshot(target_handles,sim_data_parent_dir,fname_out,normalise,outdir):
     if INSET:
         ipl.fig.update_layout(**inset_dict["axes_kwargs"])
         ipl.fig.update_layout(**inset_dict["axes_kwargs"])
+        if SINGLE_FRAME_DICT["show_legend"]:
+            ipl.fig.update_layout(
+                legend=dict(
+                    xanchor = "left",
+                    x = inset_dict["axes_kwargs"]["xaxis2"]["domain"][1]+0.05,
+                ), 
+            )
     
     
     if len(SINGLE_FRAME_DICT["times"]) == 1:

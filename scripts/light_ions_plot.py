@@ -3,6 +3,7 @@ matplotlib.use("pgf")
 matplotlib.rcParams.update({
     "pgf.texsystem": "pdflatex",
     'font.family': 'serif',
+    'font.size': 10,
     'text.usetex': True,
     'pgf.rcfonts': False,
 })
@@ -15,8 +16,11 @@ import os
 from QoL import set_highlighted_excepthook
 
 CHARGE_DIFFERENCE = False # Set True if want ionised atoms' trace to start from origin
-PLOT_DERIVATIVE = True # Plot the rate of avg charge gain
+PLOT_DERIVATIVE = False # Plot the rate of avg charge gain
+PLOT_MODE = 2  # 0: plot all charges, 1: plot element total charges # 2: plot orbital charges
 YLIM = [None,None]
+FIGWIDTH = 3.49751*2/3
+FIGHEIGHT = 3.49751/2
 #YLIM=[0,6]
 def main():
     set_highlighted_excepthook()
@@ -49,7 +53,7 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,plo
     # File/directory names
     #######  
     figures_ext = "" #.png
-    for plot_mode in (1,):#(0,1):     # 0: plot all charges, 1: plot element total charges
+    for plot_mode in (PLOT_MODE,):#(0,1):     # 0: plot all charges, 1: plot element total charges
 
         fig, axs = plt.subplots(3, 3, sharey=True, facecolor='w')
 
@@ -57,11 +61,11 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,plo
         atoms = ("C","N","O","S")
         cmap = plt.get_cmap("Dark2")
         assert len(mol_names) <= 2
-        # INCREDIBLY hacky way to get overlaid plots and I am very sorry! Code rot is now at "duct taping the sinking ship" stage.
+        # Hacky way to get overlaid plots TODO
         pl = Plotter(mol_names[0],sim_output_parent_dir)
         if plot_mode == 0:
             pl.setup_axes(4)
-        if plot_mode == 1:
+        if plot_mode == 1 or plot_mode == 2:
             pl.setup_axes(1)
         for m, mol_name in enumerate(mol_names):    
             pl.__init__(mol_name,sim_output_parent_dir)       
@@ -71,16 +75,22 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,plo
             if plot_mode == 1:
                 colours = [cmap(i) for i in range(len(atoms))]
                 pl.plot_tot_charge(every=1,linestyle=dashes[m],colours = colours,atoms = atoms,plot_legend=(m==0),ylim=YLIM,charge_difference=CHARGE_DIFFERENCE,plot_derivative=PLOT_DERIVATIVE)
+            if plot_mode == 2:
+                pl.plot_orbitals_charge(every=1,linestyle=dashes[m],atom = "C",plot_legend=(m==0),ylim=YLIM,plot_derivative=PLOT_DERIVATIVE)
 
-        plt.gcf().set_figwidth(9.2)
+        plt.gcf().set_figwidth(FIGWIDTH)
+        plt.gcf().set_figheight(FIGHEIGHT)
+        #plt.gcf().tight_layout()
         #plt.tight_layout()
         if plot_mode == 0:
             qualifier = "_"+ "BoundComp"
         if plot_mode == 1:
             qualifier = "_"+ "ElementComp"
+        if plot_mode == 2:
+            qualifier = "_"+ "C-OrbitalComp"
         if PLOT_DERIVATIVE:
             qualifier+="-deriv"
-        plt.savefig(figure_output_dir + label +qualifier + figures_ext)
+        plt.savefig(figure_output_dir + label +qualifier + figures_ext,bbox_inches='tight')
         plt.close()
 
 if __name__ == "__main__":

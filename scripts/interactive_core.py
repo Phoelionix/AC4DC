@@ -431,13 +431,15 @@ class InteractivePlotter:
                     '#bcbd22',
                     '#17becf',
                     ]*10
-                #col = plotly_d3_colors[g]
+                col = plotly_d3_colors[g]
+                '''
                 cmap = plt.cm.get_cmap('viridis') # 'viridis' 'cool' 'plasma' 'inferno' 'cividis'
                 if len(self.target_data) == 1:
                     col = cmap(0)
                 else:
                     col = cmap(g/(len(self.target_data)-1))
                 col = plt.colors.rgb2hex(col)
+                '''
                 # Choose dependent variable factor depending on if using energy density or electron density.
                 density_factor = X # energy density
                 if self.use_electron_density:
@@ -462,7 +464,7 @@ class InteractivePlotter:
                         go.Scatter(
                             visible=visible,
                             line=dict(color=col, **line_kwargs[g]),
-                            name=name,
+                            name=None,
                             x=X,
                             y=data*density_factor,
                             xaxis ='x2',
