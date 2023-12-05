@@ -226,7 +226,7 @@ private:
     void set_zero_y(); // 
     state_type get_initial_state();
     void update_grid(ofstream& _log, size_t latest_step, bool force_update = false);
-    void reload_grid(ofstream& _log, size_t load_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used);
+    size_t reload_grid(ofstream& _log, size_t load_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used);
 
     //void high_energy_stability_check();
     string its_dinner_time(std::vector<std::chrono::duration<double, std::milli>> times, std::vector<std::string> tags);

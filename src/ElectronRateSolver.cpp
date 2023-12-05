@@ -678,7 +678,7 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     }
     steps_per_grid_transform = round(steps_per_grid_transform*fact);
 
-    reload_grid(_log, n, saved_knots,interpolated_states);  // Reload grid from the START of the interpolated states
+    n = reload_grid(_log, n, saved_knots,interpolated_states);  // Reload grid from the START of the interpolated states
     
 
     /* [These ideas need a bit of effort and consideration if it is to be implemented, or even better a more effective adaptive step size algo could be implemented. But questionable if worth it.]
@@ -988,7 +988,7 @@ void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool fo
 // first_step = next_ode_states_used[0] 
 //
 // Does not resize containers
-void ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used){
+size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used){
     assert(next_ode_states_used.size() == order);  
 
 
@@ -1043,7 +1043,7 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::vect
             << endl;
         }           
         std::cout.clear();
-        return;
+        return n;
     }
     //////// Update rates and container sizes etc. as necessary for when grid is changed ///////////
     {
@@ -1072,6 +1072,7 @@ void ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::vect
 
     std::cout.clear();
     }
+    return n;
 
     // The next containers are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state. 
 } 

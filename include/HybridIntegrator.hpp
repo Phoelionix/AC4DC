@@ -223,6 +223,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         }        
         assert(check_states.size() == this->order);
         assert(check_times.size() == this->order);
+        assert(n == this->order);
         assert(check_states.front().F.container_size() == check_states.back().F.container_size());
         checkpoint = {this->order, Distribution::get_knot_energies(), this->regimes, check_states,check_times};
         old_checkpoint = checkpoint;
