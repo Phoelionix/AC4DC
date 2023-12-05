@@ -222,7 +222,7 @@ void ElectronRateSolver::solve(ofstream & _log, const std::string& tmp_data_fold
     const string banner = "================================================================================";
     plasma_header<<banner<<"\n\r";
     if (input_params.time_update_gap > 0){
-        plasma_header<< "Updating display every " <<input_params.time_update_gap*Constant::fs_per_au<<" fs."<<"\n\r";
+        plasma_header<< "Updating this display every " <<input_params.time_update_gap*Constant::fs_per_au<<" fs."<<"\n\r";
     }
     if (simulation_resume_time != simulation_start_time){
         plasma_header/*<<"\033[33m"*/<<"Loaded simulation at:  "/*<<"\033[0m"*/<<(simulation_resume_time)*Constant::fs_per_au<<" fs"<<"\n\r";
@@ -777,7 +777,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
 
     ////// live plotting ////// 
     auto t_start_plot = std::chrono::high_resolution_clock::now();
-    if ((n-this->order+1)%20 == 0){ // TODO implement minimum time. also shld depend on num ministeps
+    if ((n-this->order+1)%input_params.steps_per_live_plot_update == 0){ // TODO implement minimum time. also shld depend on num ministeps
         size_t num_pts = 4000;
         py_plotter.plot_frame(
             Distribution::get_energies_eV(num_pts),

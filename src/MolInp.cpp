@@ -202,6 +202,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 
 		if (n == 0){ stream >> simulation_cutoff_time; cutoff_flag = true;}
 		if (n == 1) stream >> time_update_gap;
+		if (n == 2) stream >> steps_per_live_plot_update;
 
 	}	
 
@@ -360,6 +361,7 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P. TODO 
 	if (pulse_shape == PulseShape::square && negative_timespan_factor != 0){cerr << "ERROR, timespan for negative times cannot be specified with square pulse";is_valid=false;}
 	if (use_fluence + use_count + use_intensity != 1) {cerr << "ERROR, require exactly one of #USE_FLUENCE, #USE_COUNT, and #USE_INTENSITY to be active ";is_valid = false;}
 	if (omp_threads <= 0) { omp_threads = 4; cerr<<"Defaulting number of OMP threads to 4"; }
+	if (steps_per_live_plot_update < 1) {steps_per_live_plot_update = 1; cerr<<"Steps per live plot was raised to 1 from given value of "<<steps_per_live_plot_update;}
 
 	if (elec_grid_type.mode == GridSpacing::unknown) {
 	cerr<<"ERROR: Grid type not recognised - param corresponding to use of manual must start with (t)rue or (f)alse,";
