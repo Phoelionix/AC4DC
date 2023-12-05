@@ -39,17 +39,18 @@ This file is part of AC4DC.
 
 
 void ElectronRateSolver::set_starting_state(){
+    // Set up the container class to have the correct size
+    state_type::set_P_shape(input_params.Store);    
+
      if (input_params.Load_Folder() != ""){ 
         cout << "[ Plasma ] loading sim state from specified files." << endl;
         loadFreeRaw_and_times();
         if (input_params.elec_grid_type.mode == GridSpacing::dynamic)
-            loadKnots();
+            loadKnots();            
         loadBound();
         simulation_resume_time = t.back();
     }
-    else{
-        // Set up the container class to have the correct size
-        state_type::set_P_shape(input_params.Store);           
+    else{         
         cout << "[ Plasma ] Creating ground state" << endl;
         this->setup(get_initial_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
     }
@@ -105,26 +106,31 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
         double old_trans_e = param_cutoffs.transition_e;
         if(init){
-            // Empirically-based guesses for good starts.
-            std::cout << "[ Dynamic Grid ] Starting with initial grid guess"<<std::endl;
-            _log << "[ Dynamic Grid ] Starting with initial grid guess"<<endl;
-            double e = 1/Constant::eV_per_Ha;
-            param_cutoffs.transition_e = 250*e;
-            regimes.mb_peak=0; regimes.mb_min=first_gp_min_E; regimes.mb_max=10*e;
-            // cast a wide net to ensure we capture all dirac peaks. // TODO? there has to be a much better way than this.
-            double photo_peak = -1, photo_min = 1e9, photo_max = -1e9; 
-            for(auto& atom : input_params.Store) {
-                for(auto& r : atom.Photo) {      
-                    //photo_min = min(photo_min,r.energy*5/6);
-                    photo_min = max(100*e,min(photo_min,r.energy*5/6));
-                    photo_max = max(photo_max,r.energy*7/6);
+                if (input_params.Load_Folder()== ""){
+                // Empirically-based guesses for good starts.
+                std::cout << "[ Dynamic Grid ] Starting with initial grid guess"<<std::endl;
+                _log << "[ Dynamic Grid ] Starting with initial grid guess"<<endl;
                 }
-            }
-            for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
-                regimes.dirac_minimums[i] = photo_min + i*(photo_max-photo_min)/regimes.num_dirac_peaks;
-                regimes.dirac_maximums[i] = photo_min + (i+1)*(photo_max-photo_min)/regimes.num_dirac_peaks;
-            }
-            Distribution::set_basis(step, input_params.elec_grid_type, param_cutoffs, regimes, elec_grid_regions, input_params.elec_grid_preset);
+                else{
+                   _log << "[ Dynamic Grid ] Initialising dummy grid"<<endl;
+                }
+                double e = 1/Constant::eV_per_Ha;
+                param_cutoffs.transition_e = 250*e;
+                regimes.mb_peak=0; regimes.mb_min=first_gp_min_E; regimes.mb_max=10*e;
+                // cast a wide net to ensure we capture all dirac peaks. // TODO? there has to be a much better way than this.
+                double photo_peak = -1, photo_min = 1e9, photo_max = -1e9; 
+                for(auto& atom : input_params.Store) {
+                    for(auto& r : atom.Photo) {      
+                        //photo_min = min(photo_min,r.energy*5/6);
+                        photo_min = max(100*e,min(photo_min,r.energy*5/6));
+                        photo_max = max(photo_max,r.energy*7/6);
+                    }
+                }
+                for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
+                    regimes.dirac_minimums[i] = photo_min + i*(photo_max-photo_min)/regimes.num_dirac_peaks;
+                    regimes.dirac_maximums[i] = photo_min + (i+1)*(photo_max-photo_min)/regimes.num_dirac_peaks;
+                }
+                Distribution::set_basis(step, input_params.elec_grid_type, param_cutoffs, regimes, elec_grid_regions, input_params.elec_grid_preset);
         }
         else{ //TODO? reset dirac bounds on first one of these calls (since they are initialised to be very wide) IF shrinkage is to be turned off for dirac regions.
             double old_mb_min = regimes.mb_min, old_mb_max = regimes.mb_max;
@@ -181,7 +187,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
         set_starting_state(); // possibly redundant steps in here.
     }
 
-    if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
+    if (input_params.elec_grid_type.mode == GridSpacing::dynamic && input_params.Load_Folder()!= ""){
         if(_log.is_open()){
             double e = Constant::eV_per_Ha;
             _log << "------------------- [ New Knots ] -------------------\n" 
@@ -1079,8 +1085,6 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::ve
 
 
 void ElectronRateSolver::initialise_rates(){
-    // Reset the container class to ensure it matches current grid.
-    state_type::set_P_shape(input_params.Store);     
     //Clear any old rates. //TODO these aren't constant now - change to lowercase.
     RATE_EII.clear();
     RATE_TBR.clear();    

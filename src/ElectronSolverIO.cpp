@@ -663,7 +663,6 @@ void ElectronRateSolver::loadBound() {
         param_cutoffs.transition_e = max(param_cutoffs.transition_e,2*regimes.mb_max); // mainly for case that transition region continues to dip into negative (in which case the transition region doesn't update).   
         // Set basis
         Distribution::set_basis(n, param_cutoffs, regimes,  Distribution::get_knots_from_history(n));
-        state_type::set_P_shape(input_params.Store);
         this->set_zero_y();     
     }    
 }

@@ -163,7 +163,8 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, size_t npoints, const 
         }
         assert(check_states.size() == this->order);
         assert(check_times.size() == this->order);
-        assert(check_states.front().F.container_size() == check_states.back().F.container_size());
+        // TODO change so that when loading simulation loads from a step before the latest checkpoint if it is too close.
+        assert(check_states.front().F.container_size() == check_states.back().F.container_size() && "Loaded too close to a grid update, try loading from a time farther from the most recent knot update.");
 
         checkpoint = {checkpoint_n, Distribution::get_knot_energies(),this->regimes,check_states,check_times};
     }
