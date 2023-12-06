@@ -187,7 +187,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
         set_starting_state(); // possibly redundant steps in here.
     }
 
-    if (input_params.elec_grid_type.mode == GridSpacing::dynamic && input_params.Load_Folder()!= ""){
+    if (input_params.elec_grid_type.mode == GridSpacing::dynamic && (init==false || input_params.Load_Folder()== "")){
         if(_log.is_open()){
             double e = Constant::eV_per_Ha;
             _log << "------------------- [ New Knots ] -------------------\n" 
