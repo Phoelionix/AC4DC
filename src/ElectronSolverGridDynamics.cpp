@@ -380,7 +380,7 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
     // Only allow shrinkage if the new peak is away from the minimum (sometimes the lower knot 'snaps' just before diverging, creating an unphysical minimum).
     //TODO would be better to  take samples of minimum a few times between grid updates and using the second last sample if it is much closer to the median than the grid at the point of the update.
     allow_shrinkage = allow_shrinkage&&peak>15/Constant::eV_per_Ha;
-    double new_min = max(first_gp_min_E,Distribution::get_mb_min()*kT);
+    double new_min = max(Distribution::get_lowest_allowed_knot(),Distribution::get_mb_min()*kT);
     if(_min < new_min || allow_shrinkage){
         _min = new_min;
     }

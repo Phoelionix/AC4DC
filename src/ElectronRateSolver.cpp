@@ -116,7 +116,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
                 }
                 double e = 1/Constant::eV_per_Ha;
                 param_cutoffs.transition_e = 250*e;
-                regimes.mb_peak=0; regimes.mb_min=first_gp_min_E; regimes.mb_max=10*e;
+                regimes.mb_peak=0; regimes.mb_min=Distribution::get_lowest_allowed_knot(); regimes.mb_max=10*e;
                 // cast a wide net to ensure we capture all dirac peaks. // TODO? there has to be a much better way than this.
                 double photo_peak = -1, photo_min = 1e9, photo_max = -1e9; 
                 for(auto& atom : input_params.Store) {

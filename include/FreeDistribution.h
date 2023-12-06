@@ -261,6 +261,10 @@ public:
     static double get_min_E(){
         return basis.min_elec_e();
     }
+    static double get_lowest_allowed_knot(){
+        return basis.first_gp_min_E;
+    }
+
     static double get_max_E(){
         return basis.max_elec_e();
     }

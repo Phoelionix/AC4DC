@@ -131,7 +131,6 @@ private:
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)  // TODO need to refactor to store variables that we change later rather than alter input_params directly. Currently doing a hybrid of this.
     ManualGridBoundaries elec_grid_regions;
     Cutoffs param_cutoffs; 
-    double first_gp_min_E = 4/Constant::eV_per_Ha; // warning: going below ~4 eV leads to a much greater number of steps needed for little benefit. Though there's potential to increase dt once MB grid points go higher I suppose.
     Pulse pf;
     double timespan_au; // Atomic units
     double simulation_start_time;  // [Au]
