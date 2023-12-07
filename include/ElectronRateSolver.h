@@ -87,9 +87,17 @@ public:
             simulation_end_time = min(input_params.Simulation_Cutoff(),simulation_end_time); 
         }
         simulation_resume_time = simulation_start_time;  // If loading simulation, is overridden by ElectronRateSolver::set_starting_state();
-         
 
-        set_grid_regions(input_params.elec_grid_regions);
+        switch (input_params.elec_grid_type.mode)  
+        {
+            case GridSpacing::manual:
+                set_grid_regions(input_params.elec_grid_regions);
+                break;
+            case GridSpacing::dynamic:
+            if (input_params.elec_grid_preset.selected != DynamicGridPreset::unknown)
+                Distribution::initialise_dynamic_regions(input_params.elec_grid_preset);
+             
+        }
 
         grid_update_period = input_params.Grid_Update_Period();  // TODO the grid update period should be made to be at least 3x (probably much more) longer with a gaussian pulse, since early times need it to be updated far less often to avoid instability for such a pulse. 
         steps_per_time_update = max(1 , (int)(input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
@@ -139,7 +147,7 @@ private:
     double fraction_of_pulse_simulated;
     double grid_update_period; // time period between dynamic grid updates.
 
-    void load_filtration_file(){};
+    void load_filtration_file(){}; //TODO
     // Model parameters
 
     // arrays computed at class initialisation

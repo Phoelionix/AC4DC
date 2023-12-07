@@ -126,6 +126,8 @@ public:
 
     static vector<double> get_knot_energies(){return basis.get_knot();}
     static double num_basis_funcs(){return basis.num_funcs;}
+    static void initialise_dynamic_regions(DynamicGridPreset preset){basis.initialise_regions(preset);}
+
 
     /**
      * @brief Returns an order-preserved copy of knots with points that overlap with the basis's boundary removed.
@@ -252,7 +254,7 @@ public:
      * @param max_e max elec energy
      * @param grid_style 
      */
-    static void set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, ManualGridBoundaries elec_grid_regions, DynamicGridPreset dyn_grid_preset = DynamicGridPreset());
+    static void set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, ManualGridBoundaries elec_grid_regions);
     static void set_basis(size_t step, Cutoffs param_cutoffs, FeatureRegimes regimes, std::vector<double> knots,bool update_knot_history = true);
     
     //void prep_adapt_knots(const FeatureRegimes& regimes);
@@ -284,6 +286,7 @@ public:
     // history of grid points (for dynamic grid)
     static std::vector<indexed_knot> knots_history;  
     int container_size(){return f.size();}  
+
 private:
     std::vector<double> f;  // Spline expansion factors
     static SplineIntegral basis;

@@ -63,12 +63,10 @@ public:
     std::vector<Region> regions;
     double mb_min_over_kT; // min of MB region = mb_min_over_kT*kT;
     double mb_max_over_kT; // max of MB region = mb_min_over_kT*kT;
-    // vvv TODO vvv currently uses this value for init grid, rather than the one set in initialise_regions().
-    double first_gp_min_E = 4/Constant::eV_per_Ha; // Min gp of the MB dynamic region. Warning: going below ~4 eV leads to a much greater number of steps needed for little benefit. Though there's potential to increase dt once MB grid points go higher I suppose.
-
+    double first_gp_min_E; // Min gp of the MB dynamic region. Warning: going below ~4 eV leads to a much greater number of steps needed for little benefit. Though there's potential to increase dt once MB grid points go higher I suppose.
+    void initialise_regions(DynamicGridPreset preset);
 
 protected:
-    void initialise_regions(DynamicGridPreset preset);
     void set_static_region_energies(vector<double> energy_boundaries);
     double dynamic_min_inner_knot();
     double dynamic_max_inner_knot();

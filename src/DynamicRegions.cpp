@@ -52,6 +52,7 @@ GridRegions::GridRegions(){
     // Defaults for Maxwell-Boltzmann (thermalised electrons) region bounds, but overwritten in some presets.
     mb_min_over_kT =  0.2922; //  90% of electrons above this point
     mb_max_over_kT =  2.3208; //  80% of electrons below this point (lower since not as sharp)
+    first_gp_min_E = 4/Constant::eV_per_Ha;
 } 
 void GridRegions::initialise_regions(DynamicGridPreset preset){
     preset.min_dirac_region_peak_energy = 1500;  // eV. Convert to Ha at end.
