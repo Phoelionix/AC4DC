@@ -21,9 +21,9 @@ public:
      * @param num_points 
      * @param E_min in eV!
      * @param E_max in eV!
-     * @param type one of: "static", "dirac", "mb"
+     * @param type one of: "static", "dirac", "mb", "mb_log"
      */
-    Region(int num_points, double E_min, double E_max, const string type) :
+    Region(int num_points, double E_min, double E_max, char type) :
         num_points{num_points},
         E_min{E_min/Constant::eV_per_Ha},
         E_max{E_max/Constant::eV_per_Ha},
@@ -32,10 +32,10 @@ public:
         {
             num_points_left = num_points;
         }  
-    double get_point_density(){return (E_max-E_min)/num_points;};
+    double get_inv_point_density(double previous_knot);
     double get_E_min(){return E_min;}
     double get_E_max(){return E_max;}
-    const string get_type(){return type;}
+    char get_type(){return type;}
     // (just used for sorting)
     bool operator < (Region& other){
         return E_max  < (other.get_E_min());
@@ -45,12 +45,20 @@ public:
     void set_num_points(int n){num_points = n;}
     int get_num_points(){return num_points;}
 
+    const static char fixed = 0;
+    const static char dirac = 1;
+    const static char mb = 2;
+    const static char fixed_log = 3;
+    const static char dirac_log = 4;
+    const static char mb_log = 5;
+
+
 private:
     int num_points;
     int num_points_left;
     double E_min;
     double E_max;
-    string type;
+    char type;
     int power;
 };
 
