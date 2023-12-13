@@ -37,23 +37,27 @@ FIGWIDTH_FACTOR = 1
 FIGWIDTH = 3.49751 *FIGWIDTH_FACTOR
 FIGHEIGHT = FIGWIDTH*3/4
 FIT = True
+LEGEND = False
 
 matplotlib.rcParams.update({
     'figure.subplot.left':0.14/FIGWIDTH_FACTOR,
-    'figure.subplot.right':1,
+    'figure.subplot.right':1-0.02/FIGWIDTH_FACTOR,
     'figure.subplot.bottom': 0.16/FIGWIDTH_FACTOR,
     'figure.subplot.top':1-0.07/(FIGWIDTH_FACTOR*FIGHEIGHT/FIGWIDTH*4/3),
 })
 
 
+#######User parameters#########
 
 LABEL_TIMES = False # Set True to graphically check times are all aligned.
 
 
-MODE = 1 # | 0: mean carbon charge | 1: R factors |
+MODE = 1 # | 0: mean carbon charge | 1: R factors (performs scattering simulations for each) |
+SCATTERING_TARGET = 0 # Used if MODE = 1.  | 0: unit lysozyme (light atoms) | 1: 3x3x3 lysozyme (light atoms no solvent)|
+NORMALISING_STEM = "SH_N" # None  # None, or the stem (str) to normalise traces by. (s.t. normalised trace becomes horizontal line)  
 
 ylim=[None,None]
-################
+xlim = [7,18] # [5,18] [7,18]
 # stem = "SH_N"
 # nums = range(1,12)
 # ylim = [0,2] #[0,2.2]
@@ -63,22 +67,54 @@ ylim=[None,None]
 # ylim = [2,4]
 # Batch stems and index range (inclusive). currently assuming form of key"-"+n+"_1", where n is a number in range of stem[key]
 stem_dict = {
-        "SH_N":[1,11],
-        "SH_Zn":[1,11],
-        #"SH_Zr":[1,10],
-        "SH_Xe":[1,9],
+        "SH_N":[2,11],
+        "SH_S":[2,11],  
+        "SH_Fe":[2,8],  
+        "SH_Zn":[2,11],
+        "SH_Se":[2,11],
+        "SH_Zr":[2,10],
+        #-----L------
+        "SH_Xe":[2,9],
+        #"L_Gd":[1,1],
     }
+# Ionisation edges of dopants
 edge_dict = {
-    "SH_N":0.3,
-    "SH_Zn":9.7,
-    "SH_Zr":18,
-    "SH_Xe":5.5,
+    "SH_N": (0.3,"K"),
+    "SH_S": (1,"K"),
+    "SH_Fe":[7.1,"K"],  
+    "SH_Zn":(9.7,"K"),
+    "SH_Se":(12.7,"K"),
+    "SH_Zr":(17.98,"K"),  # Slight offset for graphical purposes.
+    "SH_Xe":(5.5,"L_{1}"),
+    "L_Gd":(7.4,"L_{1}"),
 }
+ground_charge_dict = {
+    "SH_N": 0,
+    "SH_S": 0,
+    "SH_Fe":2,  
+    "SH_Zn": 2,
+    "SH_Se":0,
+    "SH_Zr":2,
+    "SH_Xe":8,
+    "L_Gd":11,
+}
+col_dict = {
+    "SH_N": 0,
+    "SH_S": 1,
+    "SH_Fe":7,  
+    "SH_Zn": 3,
+    "SH_Se":4,
+    "SH_Zr":5,
+    "SH_Xe":6,
+    "L_Gd":2,    
+}
+
 ################
 ## Constants
 # Dependent variable
 AVERAGE_CHARGE = 0
 R_FACTOR = 1
+SCATTERING_TARGET_DICT = {0: (imaging_params.goldilocks_dict_unit,"-unit"),1: (imaging_params.goldilocks_dict_3x3x3,"3x3x3")}
 #
 SCATTER_DIR = path.abspath(path.join(__file__ ,"../")) +"/scattering/"
 PDB_STRUCTURE = get_pdb_path(SCATTER_DIR,"lys") 
@@ -86,7 +122,11 @@ MOLECULAR_PATH = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) 
 
 set_highlighted_excepthook()
 def main():       
-    plot_type = {AVERAGE_CHARGE:'avg_charge_plot',R_FACTOR:'R_dmg_plot'}        
+
+
+    assert all([k in edge_dict.keys() and k in ground_charge_dict.keys() for k in stem_dict.keys()])
+    # Plot tag
+    plot_type = {AVERAGE_CHARGE:'avg_charge_plot',R_FACTOR:'R_dmg'}      
 
     dname_Figures = "../../output/_Graphs/plots/"
     dname_Figures = path.abspath(path.join(__file__ ,dname_Figures)) + "/"
@@ -133,60 +173,119 @@ def plot(batches,label,figure_output_dir,mode = 0):
 
     fig, ax = plt.subplots(figsize=(FIGWIDTH,FIGHEIGHT))
     cmap = plt.get_cmap('tab10')
-    c = -1
-    for stem, mol_names in batches.items():
-        c+=1
-        X = []
-        Y = []
-        print("Plotting "+stem+" trace.")
-        energies = []
-        times = []
+
+    output_tag = ""
+    if MODE == 1:
+        im_params,output_tag = SCATTERING_TARGET_DICT[SCATTERING_TARGET]
+    if NORMALISING_STEM is not None:
+        output_tag += "-normed"
+
+    if NORMALISING_STEM is not None:
+        print("Getting norm")
+        mol_names = batches[NORMALISING_STEM]
+        norm = []
         for mol_name in mol_names:
-            energies.append(get_sim_params(mol_name)[2]/1000)
+            energy = get_sim_params(mol_name)[2]/1000
             pl = Plotter(mol_name)
-            
             if mode is AVERAGE_CHARGE:
                 intensity_averaged = False
                 if intensity_averaged: 
-                    Y.append(np.average(pl.get_total_charge(atoms="C")*pl.intensityData)/np.average(pl.intensityData))
+                    norm.append(np.average(pl.get_total_charge(atoms="C")*pl.intensityData)/np.average(pl.intensityData))
                 else:
                     step_index = -1  # Average charge at End-of-pulse 
-                    Y.append(pl.get_total_charge(atoms="C")[step_index])
+                    norm.append((energy,pl.get_total_charge(atoms="C")[step_index]))
             elif mode is R_FACTOR:            
-                Y.append(get_R(mol_name,MOLECULAR_PATH,imaging_params.goldilocks_dict)[0][0])
+                norm.append((energy,get_R(mol_name,MOLECULAR_PATH,im_params)[0][0]))
 
+
+    for stem, mol_names in batches.items():
+        print("Plotting "+stem+" trace.")
+        c = col_dict[stem]
+        dopant = stem.split("-")[0].split("_")[-1]
+        X = []
+        Y = []
+        energies = []
+        times = []  # last times of sims, for checking everything lines up.
+        for mol_name in mol_names:
+            pl = Plotter(mol_name)
             times.append(pl.timeData[-1])
+
+            if NORMALISING_STEM is not None and NORMALISING_STEM == stem:
+                for elem in norm:
+                    energies.append(elem[0])
+                    Y.append(elem[1])
+                break
+            else: 
+                energies.append(get_sim_params(mol_name)[2]/1000)
+                if mode is AVERAGE_CHARGE:
+                    intensity_averaged = False
+                    if intensity_averaged: 
+                        Y.append(np.average(pl.get_total_charge(atoms="C")*pl.intensityData)/np.average(pl.intensityData))
+                    else:
+                        step_index = -1  # Average charge at End-of-pulse 
+                        Y.append(pl.get_total_charge(atoms="C")[step_index])
+                elif mode is R_FACTOR:            
+                    Y.append(get_R(mol_name,MOLECULAR_PATH,im_params)[0][0])
+            
+
         X = energies
         print("Energies:",energies)
         if mode is AVERAGE_CHARGE:
             print("Charges:",Y)
         if mode is R_FACTOR:
             print("R factors:",Y)
-        ax.scatter(X,Y,label=stem.split("-")[0].split("_")[-1],color = cmap(c))
+        if NORMALISING_STEM is not None:
+            for i, energy in enumerate(energies): 
+                for elem in norm:
+                    if elem[0] == energy:
+                        Y[i]/=elem[1]
+                        break
+                assert(False,"Missing norm for energy") #TODO: If not found, remove corresponding value. (go backwards in reverse )
+                #     del(X[i])
+                #     del(Y[i])
+                #     del(energies[i])
+                #     del(times[i])
+
+        _label = dopant 
+        if ground_charge_dict[stem]>0: 
+            _label+="$^{"+str(ground_charge_dict[stem])+"+}$"
+        ax.scatter(X,Y,label=_label,color = cmap(c))
         
-        if FIT:
+        k =2 # Spline order
+        if FIT and len(X)>=k+1:
             ordered_dat = sorted(zip(X,Y))
-            # Split dataset with ionisation edge
-            split_idx = np.searchsorted(np.array([x[0] for x in ordered_dat]),edge_dict[stem])
+            # Split dataset with ionisation edge of dopant
+            split_idx = np.searchsorted(np.array([x[0] for x in ordered_dat]),edge_dict[stem][0])
             splines = []
             finer_x = []
             if split_idx in (0, len(X)):
                 # No split in fit
-                splines.append(InterpolatedUnivariateSpline(*zip(*ordered_dat),k=2))
+                splines.append(InterpolatedUnivariateSpline(*zip(*ordered_dat),k=k))
                 finer_x.append(np.linspace(np.min(X),np.max(X),endpoint=True))
             else:
                 # Split in fit                  \\START           \\END
                 for start_idx,end_idx  in zip([0,split_idx],[split_idx-1,len(X)-1]):
-                    splines.append(InterpolatedUnivariateSpline(*zip(*ordered_dat[start_idx:end_idx+1]),k=2))
-                    finer_x.append(np.linspace(ordered_dat[start_idx][0],ordered_dat[end_idx][0],endpoint=True))
+                    if end_idx+1 - start_idx>=k+1:
+                        splines.append(InterpolatedUnivariateSpline(*zip(*ordered_dat[start_idx:end_idx+1]),k=k))
+                        finer_x.append(np.linspace(ordered_dat[start_idx][0],ordered_dat[end_idx][0],endpoint=True))
             for sp, lil_x in zip(splines,finer_x):
                 ax.plot(lil_x, sp(lil_x),color = cmap(c)) 
 
         if LABEL_TIMES:
             for i, txt in enumerate(times):
                 ax.annotate(txt, (X[i],Y[i]))
-        ax.set_ylabel(ylabel[mode])
+        _ylab = ylabel[mode]
+        if NORMALISING_STEM is not None:
+            _ylab += " relative difference" # TODO better clarity
+        ax.set_ylabel(_ylab)
         ax.set_xlabel("Energy (keV)")
+    for stem, mol_names in batches.items():
+        c = col_dict[stem]
+        dopant = stem.split("-")[0].split("_")[-1]
+        if xlim[0] < edge_dict[stem][0] < xlim[1]:
+            ax.axvline(x=edge_dict[stem][0],ls=(5,(10,3)),color=cmap(c))
+            ax.text(edge_dict[stem][0]-0.1, 0.96*ax.get_ylim()[1] +0.04*ax.get_ylim()[0],dopant+"--$"+edge_dict[stem][1]+"$",verticalalignment='top',horizontalalignment='right',rotation=-90,color=cmap(c))
+
     
     ax.ticklabel_format(style='sci', axis='y', scilimits=(-1,1),)
     #yticks = ax.get_yticks()
@@ -195,10 +294,12 @@ def plot(batches,label,figure_output_dir,mode = 0):
     #ax.set_yticklabels(([str(y/OOM) for y in yticks ]))
 
     ax.set_ylim(ylim)
-    ax.legend(title="Dopant",fancybox=True)
+    ax.set_xlim(xlim)
+    if LEGEND:
+        ax.legend(title="Dopant",fancybox=True,ncol=2,loc='upper center',bbox_to_anchor=(0.75, 1.02),handletextpad=0.01,columnspacing=0.2,borderpad = 0.18)
     #ax.set_title(fig_title)
     #fig.tight_layout()
-    fig.savefig(figure_output_dir + label + figures_ext)#bbox_inches="tight", pad_inches=0)
+    fig.savefig(figure_output_dir + label + output_tag + figures_ext)#bbox_inches="tight", pad_inches=0)
 
 def grow_crystals(run_params,pdb_path,allowed_atoms,identical_deviations=True,plot_crystal=True,CNO_to_N=False,S_to_N=True):
     ''' 
