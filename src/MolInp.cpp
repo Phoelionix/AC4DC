@@ -181,6 +181,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		stringstream stream(FileContent["#ELECTRON_SOURCE"][n]);
 		if (n == 0) stream >> electron_source_fraction;
 		if (n == 1) stream >> electron_source_energy;
+		if (n == 1) stream >> electron_source_duration;
 	}	
 	for (size_t n = 0; n < FileContent["#FILTRATION"].size(); n++) {
 		stringstream stream(FileContent["#FILTRATION"][n]);

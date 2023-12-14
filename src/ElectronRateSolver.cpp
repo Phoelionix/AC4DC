@@ -379,27 +379,29 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             assert(Pdot[i] + P[i] >= 0);
         }
         #endif
-
+        double old_bound_charge = sdot.bound_charge;
         // PHOTOIONISATION
         double J = pf(t); // photon flux in atomic units
         for ( auto& r : input_params.Store[a].Photo) {
             double tmp = r.val*J*P[r.from];
             Pdot[r.to] += tmp;
             Pdot[r.from] -= tmp;
-            sdot.F.addDeltaSpike(r.energy, r.val*J*P[r.from]);
+            sdot.F.addDeltaSpike(r.energy, r.val*J*P[r.from]);  // TODO change to tmp?
             sdot.bound_charge +=  tmp; // this is negative (confusingly).
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
         #ifndef NO_ELECTRON_SOURCE
         //PHOTOION. SOURCE
-        double external_density = input_params.electron_source_fraction*(sdot.bound_charge);  // Additional electrons added at rate proportional to rest of sample. (Note this controls for differences in emission rate that normally would occur in the species producing photoelectrons of a different energy.)
-        sdot.F.addDeltaSpike(input_params.electron_source_energy,external_density);
+        if(t > simulation_start_time + input_params.electron_source_duration*(timespan_au)){
+            double external_density = input_params.electron_source_fraction*(sdot.bound_charge-old_bound_charge);  // Additional electrons added at rate proportional to rest of sample. (Note this controls for differences in emission rate that normally would occur in the species producing photoelectrons of a different energy.)
+            sdot.F.addDeltaSpike(input_params.electron_source_energy,external_density);
+        }
         #endif //NO_ELECTRON_SOURCE
         
         #ifdef RATES_TRACKING
         photo_rate.back() += sdot.bound_charge;
         #endif
-        double old_bound_charge = sdot.bound_charge;
+        old_bound_charge = sdot.bound_charge;
         #ifdef DEBUG_BOUND
         for(size_t i=0;i < Pdot.size();i++){
             assert(Pdot[i] + P[i] >= 0);
