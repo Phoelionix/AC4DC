@@ -52,7 +52,7 @@ default_dict_SPI = copy.deepcopy(default_dict)
 default_dict_SPI["laser"]["SPI"] = True 
 
 
-goldilocks_dict = dict( 
+goldilocks_dict_unit = dict( 
 
     #### Individual experiment arguments
     laser = dict(
@@ -93,6 +93,8 @@ goldilocks_dict = dict(
         orientation_axis_crys = None,#[1,1,0]   # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Incompatible with random_orientations   
     ),
 )
+goldilocks_dict_3x3x3 = copy.deepcopy(goldilocks_dict_unit)
+goldilocks_dict_3x3x3["crystal"]["supercell_scale"] = 3
 
 
 # Water background

@@ -37,7 +37,6 @@ FIGWIDTH_FACTOR = 1
 FIGWIDTH = 3.49751 *FIGWIDTH_FACTOR
 FIGHEIGHT = FIGWIDTH*3/4
 FIT = True
-LEGEND = False
 
 matplotlib.rcParams.update({
     'figure.subplot.left':0.14/FIGWIDTH_FACTOR,
@@ -47,33 +46,33 @@ matplotlib.rcParams.update({
 })
 
 
-#######User parameters#########
-
+####### User parameters #########
+## Graphical
+LEGEND = False
 LABEL_TIMES = False # Set True to graphically check times are all aligned.
 
-
-MODE = 1 # | 0: mean carbon charge | 1: R factors (performs scattering simulations for each) |
+## Numerical
+MODE = 0 # | 0: mean carbon charge | 1: R factors (performs scattering simulations for each) |
 SCATTERING_TARGET = 0 # Used if MODE = 1.  | 0: unit lysozyme (light atoms) | 1: 3x3x3 lysozyme (light atoms no solvent)|
-NORMALISING_STEM = "SH_N" # None  # None, or the stem (str) to normalise traces by. (s.t. normalised trace becomes horizontal line)  
+NORMALISING_STEM = None#"SH_N" # None  # None, or the stem (str) to normalise traces by. (s.t. normalised trace becomes horizontal line)
+INDEP_VARIABLE = 1 # | 0: energy of photons |1: Energy separation from given edge.  
 
 ylim=[None,None]
-xlim = [7,18] # [5,18] [7,18]
-# stem = "SH_N"
-# nums = range(1,12)
-# ylim = [0,2] #[0,2.2]
-# ylim = [0,4]#[0.25,2.25] #[0,2.2]
-# stem = "SH_Xe"
-# nums = range(0,6)
-# ylim = [2,4]
+xlim = [None,None]
+
+#ylim = [,]
+xlim = xlim = [-1, None]#[7,18] # [5,18] [7,18]
+
 # Batch stems and index range (inclusive). currently assuming form of key"-"+n+"_1", where n is a number in range of stem[key]
 stem_dict = {
         "SH_N":[2,11],
         "SH_S":[2,11],  
-        "SH_Fe":[2,8],  
+        "SH_Fe":[2,9],  
         "SH_Zn":[2,11],
         "SH_Se":[2,11],
         "SH_Zr":[2,10],
         #-----L------
+        "SH_Ag":[2,8],
         "SH_Xe":[2,9],
         #"L_Gd":[1,1],
     }
@@ -85,6 +84,7 @@ edge_dict = {
     "SH_Zn":(9.7,"K"),
     "SH_Se":(12.7,"K"),
     "SH_Zr":(17.98,"K"),  # Slight offset for graphical purposes.
+    "SH_Ag":(3.8,"L_{1}"),
     "SH_Xe":(5.5,"L_{1}"),
     "L_Gd":(7.4,"L_{1}"),
 }
@@ -95,6 +95,7 @@ ground_charge_dict = {
     "SH_Zn": 2,
     "SH_Se":0,
     "SH_Zr":2,
+    "SH_Ag":1,
     "SH_Xe":8,
     "L_Gd":11,
 }
@@ -105,6 +106,7 @@ col_dict = {
     "SH_Zn": 3,
     "SH_Se":4,
     "SH_Zr":5,
+    "SH_Ag":8,
     "SH_Xe":6,
     "L_Gd":2,    
 }
@@ -112,8 +114,13 @@ col_dict = {
 ################
 ## Constants
 # Dependent variable
+# MODE
 AVERAGE_CHARGE = 0
 R_FACTOR = 1
+# INDEP_VARIABLE
+PHOTON_ENERGY = 0
+PHOTOELECTRON_ENERGY = 1  # Not quite an accurate label.
+
 SCATTERING_TARGET_DICT = {0: (imaging_params.goldilocks_dict_unit,"-unit"),1: (imaging_params.goldilocks_dict_3x3x3,"3x3x3")}
 #
 SCATTER_DIR = path.abspath(path.join(__file__ ,"../")) +"/scattering/"
@@ -179,6 +186,8 @@ def plot(batches,label,figure_output_dir,mode = 0):
         im_params,output_tag = SCATTERING_TARGET_DICT[SCATTERING_TARGET]
     if NORMALISING_STEM is not None:
         output_tag += "-normed"
+    if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
+        output_tag +="-PhEl"  # X-ray photoelectron = XPhEl...
 
     if NORMALISING_STEM is not None:
         print("Getting norm")
@@ -226,9 +235,9 @@ def plot(batches,label,figure_output_dir,mode = 0):
                         Y.append(pl.get_total_charge(atoms="C")[step_index])
                 elif mode is R_FACTOR:            
                     Y.append(get_R(mol_name,MOLECULAR_PATH,im_params)[0][0])
-            
-
         X = energies
+        if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
+            X = [x - edge_dict[stem][0] for x in X]        
         print("Energies:",energies)
         if mode is AVERAGE_CHARGE:
             print("Charges:",Y)
@@ -247,8 +256,10 @@ def plot(batches,label,figure_output_dir,mode = 0):
                 #     del(times[i])
 
         _label = dopant 
-        if ground_charge_dict[stem]>0: 
+        if ground_charge_dict[stem]>1: 
             _label+="$^{"+str(ground_charge_dict[stem])+"+}$"
+        elif ground_charge_dict[stem]==1:
+            _label+="$^{+}$"
         ax.scatter(X,Y,label=_label,color = cmap(c))
         
         k =2 # Spline order
@@ -278,11 +289,15 @@ def plot(batches,label,figure_output_dir,mode = 0):
         if NORMALISING_STEM is not None:
             _ylab += " relative difference" # TODO better clarity
         ax.set_ylabel(_ylab)
-        ax.set_xlabel("Energy (keV)")
+        ax.set_xlabel("Photon energy (keV)")
+        if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
+            ax.set_xlabel("Dopant photo-e$^{-}$ energy (keV)")
+    ax.set_ylim(ylim)
+    ax.set_xlim(xlim)            
     for stem, mol_names in batches.items():
         c = col_dict[stem]
         dopant = stem.split("-")[0].split("_")[-1]
-        if xlim[0] < edge_dict[stem][0] < xlim[1]:
+        if ax.get_xlim()[0] < edge_dict[stem][0] < ax.get_xlim()[1]:
             ax.axvline(x=edge_dict[stem][0],ls=(5,(10,3)),color=cmap(c))
             ax.text(edge_dict[stem][0]-0.1, 0.96*ax.get_ylim()[1] +0.04*ax.get_ylim()[0],dopant+"--$"+edge_dict[stem][1]+"$",verticalalignment='top',horizontalalignment='right',rotation=-90,color=cmap(c))
 
@@ -293,8 +308,6 @@ def plot(batches,label,figure_output_dir,mode = 0):
     #ax.set_yticks((yticks//(10**(OOM-1))*(10**(OOM-1))))
     #ax.set_yticklabels(([str(y/OOM) for y in yticks ]))
 
-    ax.set_ylim(ylim)
-    ax.set_xlim(xlim)
     if LEGEND:
         ax.legend(title="Dopant",fancybox=True,ncol=2,loc='upper center',bbox_to_anchor=(0.75, 1.02),handletextpad=0.01,columnspacing=0.2,borderpad = 0.18)
     #ax.set_title(fig_title)

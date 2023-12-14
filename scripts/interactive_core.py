@@ -5,54 +5,34 @@ import numpy as np
 # from scipy.interpolate import BSpline
 from math import log
 import os.path as path
-import os
 import matplotlib.colors as colors
-import sys
 # import glob
 import csv
-import time
-import subprocess
-import re
 from matplotlib.ticker import LogFormatter 
-import random
 from scipy.optimize import curve_fit
 from scipy.stats import linregress
 import chart_studio.plotly as py
 import plotly.graph_objects as go
 import plotly.io as pio
 import copy
-from core_functions import get_mol_file
+from core_functions import get_mol_file, parse_elecs_from_latex, ATOMS, ATOMNO
 import matplotlib as plt
 pio.templates.default = "seaborn" #"plotly_dark" # "plotly"
 
 T_PRECISION = 6 # Truncate past 6 d.p. (millionth of an fs) to Avoid floating point error
-engine = re.compile(r'(\d[spdf])\^\{(\d+)\}')
 
-def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
-
-def parse_elecs_from_latex(latexlike):
-    # Parses a chemistry-style configuration to return total number of electrons
-    # e.g. $1s^{1}2s^{1}$
-    # ignores anything non-numerical or spdf
-    qdict = {}
-    for match in engine.finditer(latexlike):
-        qdict[match.group(1)] = int(match.group(2))
-    return qdict
-
-
-ATOMS = 'H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'.split()
-ATOMNO = {}
-i = 1
-for symbol in ATOMS:
-    ATOMNO[symbol] = i
-    ATOMNO[symbol + '_fast'] = i
-    #ATOMNO[symbol + '_faster'] = i
-    i += 1
-ATOMNO["Gd"] = i 
-ATOMNO["Gd_galli"] = i 
-ATOMNO["Gd_fast"] = i
-i+= 1
+# ATOMS = 'H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'.split()
+# ATOMNO = {}
+# i = 1
+# for symbol in ATOMS:
+#     ATOMNO[symbol] = i
+#     ATOMNO[symbol + '_fast'] = i
+#     #ATOMNO[symbol + '_faster'] = i
+#     i += 1
+# ATOMNO["Gd"] = i 
+# ATOMNO["Gd_galli"] = i 
+# ATOMNO["Gd_fast"] = i
+# i+= 1
 
 
 # def get_colors(num, seed):

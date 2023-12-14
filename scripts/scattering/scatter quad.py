@@ -882,7 +882,7 @@ class XFEL():
                 d = SPI_resolution/ang_per_bohr # resolution
                 rim_q = res_to_q(d)
                 if self.max_q < rim_q:
-                    print ("WARNING: resolution of " + str(SPI_resolution) + " angstroms requires q to go beyond its maximum. Using max_q instead.")
+                    print ("WARNING: resolution of " + str(SPI_resolution) + " angstroms requires q to go beyond its maximum. Using max_q="+str(self.max_q/ang_per_bohr)+" instead.")
                     rim_q = self.max_q
             print("rim q:",rim_q)
 

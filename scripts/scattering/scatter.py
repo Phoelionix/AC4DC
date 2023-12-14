@@ -744,7 +744,7 @@ class XFEL():
         """
         self.experiment_name = experiment_name
         self.detector_distance = detector_distance_mm*1e7/ang_per_bohr  # [converts to a0 (bohr)]
-        self.photon_momentum = 2*np.pi/E_to_lamb(photon_energy)  # atomic units, [a0^-1]. 
+        self.photon_momentum = 2*np.pi/E_to_lamb(photon_energy)  # atomic units, [a0^-1]. (2pi=h)
         self.photon_energy = photon_energy  #eV Attention: not in atomic units
         self.pixels_per_ring = pixels_per_ring
         self.num_rings = num_rings
@@ -911,7 +911,7 @@ class XFEL():
                 d = SPI_resolution/ang_per_bohr # resolution
                 rim_q = res_to_q(d)
                 if self.max_q < rim_q:
-                    print ("WARNING: resolution of " + str(SPI_resolution) + " angstroms requires q to go beyond its maximum. Using max_q instead.")
+                    print ("WARNING: resolution of " + str(SPI_resolution) + " angstroms requires q to go beyond its maximum. Using max_q="+str(self.max_q/ang_per_bohr)+" instead.")
                     rim_q = self.max_q
             print("rim q:",rim_q)
 
@@ -1145,7 +1145,7 @@ class XFEL():
                 if not np.array_equal(times_used,species.times_used):
                     raise Exception("Times used don't match between species.")        
                 # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
-                max_atoms_per_loop = 500 # Restrict array size to prevent computer explosions. 
+                max_atoms_per_loop = 1000 # Restrict array size to prevent computer explosions. 
                 for s in range(len(self.target.sym_rotations)):
                     #print("Working through symmetry",s)
                     num_atom_batches = int(len(species.coords)/max_atoms_per_loop)+1

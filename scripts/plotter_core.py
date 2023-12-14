@@ -12,50 +12,17 @@ import sys
 # import glob
 import csv
 import subprocess
-import re
 from matplotlib.ticker import LogFormatter 
 import random
 from scipy.optimize import curve_fit
 from scipy.stats import linregress
-from core_functions import get_mol_file
+from core_functions import get_mol_file, parse_elecs_from_latex, ATOMS, ATOMNO
 from scipy.interpolate import splrep, splev
 from scipy.signal import savgol_filter
 
 #plt.rcParams.update(plt.rcParamsDefault)
 #plt.style.use('seaborn-muted')
 #plt.style.use('turrell-style')
-
-engine = re.compile(r'(\d[spdf])\^\{(\d+)\}')
-
-def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
-
-def parse_elecs_from_latex(latexlike):
-    # Parses a chemistry-style configuration to return dict of total number of electrons
-    # e.g. $1s^{1}2s^{1}$
-    # ignores anything non-numerical or spdf
-    qdict = {}
-    for match in engine.finditer(latexlike):
-        qdict[match.group(1)] = int(match.group(2))
-    return qdict
-
-
-ATOMS = 'H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'.split()
-ATOMNO = {}
-i = 1
-for symbol in ATOMS:
-    ATOMNO[symbol] = i
-    ATOMNO[symbol + '_fast'] = i
-    ATOMNO[symbol + '_faster'] = i
-    i += 1
-ATOMNO["Zr_fast"] = 40
-ATOMNO["Zr_faster"] = 40
-ATOMNO["Xe_fast"] = 54
-ATOMNO["Gd_galli"] = 64 
-ATOMNO["Gd_fast"] = 64
-ATOMNO["Gd"] = 64
-ATOMNO["Gd_galli"] = 64 
-ATOMNO["Gd_fast"] = 64
 
 
 def get_colors(num, seed):

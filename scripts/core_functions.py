@@ -1,6 +1,8 @@
 import os
 import os.path as path
 import numpy as np
+import sys
+import re
 
 def get_sim_params(handle,input_path=None,molecular_path=None):
     '''
@@ -212,3 +214,28 @@ def get_pdb_path(my_dir,key):
     my_dir = calling file's directory
     '''
     return get_pdb_paths_dict(my_dir)[key]
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+def parse_elecs_from_latex(latexlike):
+    engine = re.compile(r'(\d[spdf])\^\{(\d+)\}')
+    # Parses a chemistry-style configuration to return dict of total number of electrons
+    # e.g. $1s^{1}2s^{1}$
+    # ignores anything non-numerical or spdf
+    qdict = {}
+    for match in engine.finditer(latexlike):
+        qdict[match.group(1)] = int(match.group(2))
+    return qdict
+
+ATOMS = ('H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'
+       +' Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe').split()
+ATOMNO = {}
+i = 1
+for symbol in ATOMS:
+    ATOMNO[symbol] = i
+    ATOMNO[symbol + '_fast'] = i
+    ATOMNO[symbol + '_faster'] = i
+    i += 1
+ATOMNO["Gd"] = ATOMNO["Gd_fast"] =ATOMNO["Gd_galli"]  = 64 

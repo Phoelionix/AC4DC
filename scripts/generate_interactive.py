@@ -28,7 +28,7 @@ normalise = False
 ELECTRON_DENSITY = False # if False, use energy density  
 ANIMATION = False # if true, generate animation rather than interactive figure (i.e. automatic slider movement) 
 ALSO_MAKE_PLOTS = False # Generate static plots for each simulation 
-SINGLE_FRAME = True
+SINGLE_FRAME = False
 
 END_T = 9999  # Put at value to cutoff times early.
 POINTS = 70
@@ -53,7 +53,7 @@ SINGLE_FRAME_DICT = dict(
     x_range = [None,7500], # None,         # < Use None for default. 
 )
 
-INSET = True #False
+INSET = False #False
 inset_dict = dict(
     axes_kwargs = dict(
         xaxis2 =dict(

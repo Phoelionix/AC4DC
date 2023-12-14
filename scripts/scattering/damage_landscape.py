@@ -428,7 +428,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_unit
         fig.write_image(out_folder+fig["layout"]["title"]["text"]+ext)    
         df = original_df
 #%%
-#------------Get R--------------------
+#------------Generate data (get R)--------------------
 
 if __name__ == "__main__":
     # Initialise kwargs
@@ -440,7 +440,7 @@ if __name__ == "__main__":
     )
 
 
-    batch_mode = True # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
+    batch_mode = False # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
 
     mode = 1  #0 -> infinite crystal, 1 -> finite crystal/SPI, 2-> both  
     same_deviations = True # whether same position deviations between damaged and undamaged crystal (SPI only)
@@ -471,8 +471,8 @@ if __name__ == "__main__":
         #kwargs["plasma_handles"] = ["lys_nass_HF","lys_nass_Gd_HF"]  
         #kwargs["plasma_handles"] = ["lys_full-typical","lys_all_light-typical"]  
         #kwargs["plasma_handles"] = ["glycine_abdullah_4"]
-        pdb_path = PDB_PATHS["fcc"]
-        #pdb_path = PDB_PATHS["lys"]
+        #pdb_path = PDB_PATHS["fcc"]
+        pdb_path = PDB_PATHS["lys"]
         #pdb_path = PDB_PATHS["lys_solvated"]
         #pdb_path = PDB_PATHS["glycine"]
         #pdb_path = PDB_PATHS["tetra"]
