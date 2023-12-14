@@ -42,6 +42,7 @@ struct DynamicGridPreset{
     char selected = unknown;  
     double pulse_omega = -1;  // Photon energy [eV]
     double min_dirac_region_peak_energy;  // Minimum energy for a peak that the dirac dynamic region will support (Ha). #TODO  move, don't store this here.
+	double electron_source_energy = -1;
 };
 
 struct GridSpacing {

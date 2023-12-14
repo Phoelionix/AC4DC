@@ -252,9 +252,16 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	}
 
 
-
+	
 	// Give dynamic grid regions pulse energy in eV 
 	elec_grid_preset.pulse_omega = omega;
+	// Give energy for electron source in eV
+	#ifndef NO_ELECTRON_SOURCE
+	if (elec_grid_preset.electron_source_energy > 0){
+		elec_grid_preset.electron_source_energy = electron_source_energy;
+	}
+	#endif //NO_ELECTRON_SOURCE
+
 
 	// Hardcode the boundary conditions
 	elec_grid_type.zero_degree_inf = 3;

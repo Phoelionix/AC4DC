@@ -55,9 +55,10 @@ GridRegions::GridRegions(){
     first_gp_min_E = 4/Constant::eV_per_Ha;
 } 
 void GridRegions::initialise_regions(DynamicGridPreset preset){
-    char dirac_region = Region::dirac;
+    first_gp_min_E = first_gp_min_E*Constant::eV_per_Ha;  // Converted to eV for consistency. Convert to Ha at end.
     preset.min_dirac_region_peak_energy = 1500;  // eV. Convert to Ha at end.
     // Initialise regions
+    char dirac_region = Region::dirac;
     regions = {};
     // Carbon target (a relatively divergent-prone example) good grid for the unstable early times:
     // indices  1|30|55|65|85|105|145|150 
@@ -154,7 +155,7 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         };        
         break;      
       case DynamicGridPreset::Galli_support:
-        first_gp_min_E = 1/Constant::eV_per_Ha; // MUCH slower. Unknown if the solution converges better (let alone by how much) when adding knots for these low energies. 
+        first_gp_min_E = 1; // MUCH slower. Unknown if the solution converges better (let alone by how much) when adding knots for these low energies. 
         preset_name = "Galli support";  
         preset.min_dirac_region_peak_energy  = 350;
         mb_max_over_kT = 2.3208*4/3;  
@@ -233,6 +234,13 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         };        
         break;              
     }
+    // Region for electron source.
+    if(preset.electron_source_energy != -1){
+        char static_region = Region::fixed;
+        if (preset.selected == DynamicGridPreset::log_grid)
+            static_region = Region::fixed_log;
+        regions.push_back(Region(pts_per_dirac,preset.electron_source_energy*5/6,preset.electron_source_energy*7/6,static_region));
+    }    
     std::vector<Region> common_regions = {
         Region(1,5,10,Region::fixed),  // low divergent (purpose is just placing a point at 5 eV. Below this is unnecessarily costly, and sometimes breaks - either because I have brittle code or it's fundamentally untenable.)
         // 4 Photoelectron peaks. need to include num regions defined here in FeatureRegimes. TODO fix this issue.
@@ -244,6 +252,7 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
     
     // Convert to atomic units
     preset.min_dirac_region_peak_energy  /= Constant::eV_per_Ha;
+    first_gp_min_E /= Constant::eV_per_Ha;
 }
 
 
