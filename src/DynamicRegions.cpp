@@ -55,6 +55,7 @@ GridRegions::GridRegions(){
     first_gp_min_E = 4/Constant::eV_per_Ha;
 } 
 void GridRegions::initialise_regions(DynamicGridPreset preset){
+    char dirac_region = Region::dirac;
     preset.min_dirac_region_peak_energy = 1500;  // eV. Convert to Ha at end.
     // Initialise regions
     regions = {};
@@ -153,7 +154,7 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         };        
         break;      
       case DynamicGridPreset::Galli_support:
-        first_gp_min_E = 1/Constant::eV_per_Ha;
+        first_gp_min_E = 1/Constant::eV_per_Ha; // MUCH slower. Unknown if the solution converges better (let alone by how much) when adding knots for these low energies. 
         preset_name = "Galli support";  
         preset.min_dirac_region_peak_energy  = 350;
         mb_max_over_kT = 2.3208*4/3;  
@@ -169,19 +170,21 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
             Region(40,-1,-1,Region::mb_log), // Maxwell-boltzmann distribution
         };        
         break;      
-      case DynamicGridPreset::log_dirac:
-        first_gp_min_E = 1/Constant::eV_per_Ha;
+      case DynamicGridPreset::log_grid:  // Similar to preset "dirac", with lower min energy like "Galli_support". However regions are all logarithmic.
         preset_name = "Lower dirac regions, log MB";  // Support extends below bottom of transition region.
         preset.min_dirac_region_peak_energy  = 350;
         mb_max_over_kT = 2.3208*4/3;  
+        mb_min_over_kT = 0.2922*1/4; 
         pts_per_dirac = 15;  
+        ////
+        dirac_region = Region::dirac_log;
         regions = {
-            Region(7,10,20, Region::fixed), Region(8,20,50, Region::fixed),  // low support
-            Region(10,50,200,Region::fixed), 
-            Region(15,200,600,Region::fixed), // auger
-            Region((int)(0.5+ 7*trans_scaling),600,preset.pulse_omega/4,Region::fixed), // transition
-            Region(25,preset.pulse_omega/4,preset.pulse_omega*6/4,Region::fixed),  // photo
-            Region(7,preset.pulse_omega*6/4,preset.pulse_omega*2.5,Region::fixed), // high tail
+            Region(7,10,20, Region::fixed_log), Region(8,20,50, Region::fixed_log),  // low support
+            Region(10,50,200,Region::fixed_log), 
+            Region(15,200,600,Region::fixed_log), // auger
+            Region((int)(0.5+ 7*trans_scaling),600,preset.pulse_omega/4,Region::fixed_log), // transition
+            Region(25,preset.pulse_omega/4,preset.pulse_omega*6/4,Region::fixed_log),  // photo
+            Region(7,preset.pulse_omega*6/4,preset.pulse_omega*2.5,Region::fixed_log), // high tail
             Region(25,-1,-1,Region::mb_log), // Maxwell-boltzmann distribution
         };        
         break;                 
@@ -233,8 +236,8 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
     std::vector<Region> common_regions = {
         Region(1,5,10,Region::fixed),  // low divergent (purpose is just placing a point at 5 eV. Below this is unnecessarily costly, and sometimes breaks - either because I have brittle code or it's fundamentally untenable.)
         // 4 Photoelectron peaks. need to include num regions defined here in FeatureRegimes. TODO fix this issue.
-        Region(pts_per_dirac,-1,-1,Region::dirac), Region(pts_per_dirac,-1,-1,Region::dirac), 
-        Region(pts_per_dirac,-1,-1,Region::dirac), Region(pts_per_dirac,-1,-1,Region::dirac)
+        Region(pts_per_dirac,-1,-1,dirac_region), Region(pts_per_dirac,-1,-1,dirac_region), 
+        Region(pts_per_dirac,-1,-1,dirac_region), Region(pts_per_dirac,-1,-1,dirac_region)
     };     
     regions.insert(regions.end(), common_regions.begin(), common_regions.end() );
     std::cout << "[ Dynamic Grid ] '"<< preset_name << "' preset used to initialise dynamic regions." << endl;
@@ -343,11 +346,8 @@ double Region::get_inv_point_density(double previous_knot){
         case Region::mb_log:
         {   
             double a = get_E_min(); double  b = get_E_max(); 
-            double x = previous_knot; int N = get_num_points();
+            double x = previous_knot; double N = get_num_points();
 
-            //double p = 10; Should look linear on electron density plot on log10 energy scale.
-            double p = exp(1);
-            double K = log(b/a)/log(p)/(N-1)+a;
 
             double last_point = a;
             double next_point = a;
@@ -355,7 +355,7 @@ double Region::get_inv_point_density(double previous_knot){
             // Don't take derivative, construct dummy knot to get spacing between discretised grid points.
             for(size_t n=2; n<= N; n++) {
                  last_point = next_point; 
-                 next_point = a*pow(p,(n-1)*(K-a));
+                 next_point = a*pow(b/a,(n-1)/(N-1));
                  if(next_point > x)
                     return next_point-last_point;
             }                        
