@@ -22,7 +22,7 @@ true         // enabled? true/false.
 28           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
-D       // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
+L       // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
 5.15         // Grid update period in fs, (dynamic grid only).
 
 #ELECTRON_SOURCE
@@ -36,6 +36,7 @@ D       // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) 
 #DEBUG
 999           // Simulation cutoff time in fs (can end before but not after).
 0.01          // Interval to display current timestep [fs].
+1             // Steps per live plot update
 ####END####
 
 Notes:

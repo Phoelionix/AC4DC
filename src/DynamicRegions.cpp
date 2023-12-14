@@ -168,7 +168,23 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
             Region(7,preset.pulse_omega*6/4,preset.pulse_omega*2.5,Region::fixed), // high tail
             Region(40,-1,-1,Region::mb_log), // Maxwell-boltzmann distribution
         };        
-        break;                
+        break;      
+      case DynamicGridPreset::log_dirac:
+        first_gp_min_E = 1/Constant::eV_per_Ha;
+        preset_name = "Lower dirac regions, log MB";  // Support extends below bottom of transition region.
+        preset.min_dirac_region_peak_energy  = 350;
+        mb_max_over_kT = 2.3208*4/3;  
+        pts_per_dirac = 15;  
+        regions = {
+            Region(7,10,20, Region::fixed), Region(8,20,50, Region::fixed),  // low support
+            Region(10,50,200,Region::fixed), 
+            Region(15,200,600,Region::fixed), // auger
+            Region((int)(0.5+ 7*trans_scaling),600,preset.pulse_omega/4,Region::fixed), // transition
+            Region(25,preset.pulse_omega/4,preset.pulse_omega*6/4,Region::fixed),  // photo
+            Region(7,preset.pulse_omega*6/4,preset.pulse_omega*2.5,Region::fixed), // high tail
+            Region(25,-1,-1,Region::mb_log), // Maxwell-boltzmann distribution
+        };        
+        break;                 
       case DynamicGridPreset::dismal_acc:
         preset_name = "Dismal accuracy";
         pts_per_dirac = 5;
@@ -201,7 +217,7 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
       // Idea: optimal grid dynamics should look something like noticeably more grid points early than late, as runge's phenomenon is most significant early on.
       // setting dynamic grid point count such that after a few fs their density is comparable to overlapping static region densities forces this.
       case DynamicGridPreset::training_wheels:
-        preset_name = "No dynamic dirac";
+        preset_name = "Training wheels";
         pts_per_dirac = 15;
         regions = {
             Region(10,10,50, Region::fixed), // low support
@@ -329,7 +345,8 @@ double Region::get_inv_point_density(double previous_knot){
             double a = get_E_min(); double  b = get_E_max(); 
             double x = previous_knot; int N = get_num_points();
 
-            double p = 10; // exp(1)
+            //double p = 10; Should look linear on electron density plot on log10 energy scale.
+            double p = exp(1);
             double K = log(b/a)/log(p)/(N-1)+a;
 
             double last_point = a;

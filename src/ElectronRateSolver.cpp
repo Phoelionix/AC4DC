@@ -387,13 +387,13 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             Pdot[r.to] += tmp;
             Pdot[r.from] -= tmp;
             sdot.F.addDeltaSpike(r.energy, r.val*J*P[r.from]);
-            sdot.bound_charge +=  tmp;
+            sdot.bound_charge +=  tmp; // this is negative (confusingly).
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
         #ifndef NO_ELECTRON_SOURCE
         //PHOTOION. SOURCE
-        double Pdot_external = input_params.electron_source_fraction*(sdot.bound_charge);  // Additional electrons added at rate proportional to rest of sample. (Note this controls for differences in emission rate that normally would occur in the species producing photoelectrons of a different energy.)
-        sdot.F.addDeltaSpike(input_params.electron_source_energy,-Pdot_external);
+        double external_density = input_params.electron_source_fraction*(sdot.bound_charge);  // Additional electrons added at rate proportional to rest of sample. (Note this controls for differences in emission rate that normally would occur in the species producing photoelectrons of a different energy.)
+        sdot.F.addDeltaSpike(input_params.electron_source_energy,external_density);
         #endif //NO_ELECTRON_SOURCE
         
         #ifdef RATES_TRACKING

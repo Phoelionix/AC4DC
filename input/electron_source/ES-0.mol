@@ -26,8 +26,7 @@ L       // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) 
 5.15         // Grid update period in fs, (dynamic grid only).
 
 #ELECTRON_SOURCE
-0.05    // Additional electrons as fraction of other photoion. events
-1000     // Electron energy in eV
+0    // Additional electrons as fraction of other photoion. events
 
 #OUTPUT
 800          // Number of time steps in the output files.
