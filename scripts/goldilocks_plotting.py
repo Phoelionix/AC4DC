@@ -48,7 +48,7 @@ matplotlib.rcParams.update({
 
 ####### User parameters #########
 ## Graphical
-LEGEND = False
+LEGEND = True
 LABEL_TIMES = False # Set True to graphically check times are all aligned.
 
 ## Numerical
@@ -293,13 +293,14 @@ def plot(batches,label,figure_output_dir,mode = 0):
         if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
             ax.set_xlabel("Dopant photo-e$^{-}$ energy (keV)")
     ax.set_ylim(ylim)
-    ax.set_xlim(xlim)            
-    for stem, mol_names in batches.items():
-        c = col_dict[stem]
-        dopant = stem.split("-")[0].split("_")[-1]
-        if ax.get_xlim()[0] < edge_dict[stem][0] < ax.get_xlim()[1]:
-            ax.axvline(x=edge_dict[stem][0],ls=(5,(10,3)),color=cmap(c))
-            ax.text(edge_dict[stem][0]-0.1, 0.96*ax.get_ylim()[1] +0.04*ax.get_ylim()[0],dopant+"--$"+edge_dict[stem][1]+"$",verticalalignment='top',horizontalalignment='right',rotation=-90,color=cmap(c))
+    ax.set_xlim(xlim)           
+    if INDEP_VARIABLE is PHOTON_ENERGY: 
+        for stem, mol_names in batches.items():
+            c = col_dict[stem]
+            dopant = stem.split("-")[0].split("_")[-1]
+            if ax.get_xlim()[0] < edge_dict[stem][0] < ax.get_xlim()[1]:
+                ax.axvline(x=edge_dict[stem][0],ls=(5,(10,3)),color=cmap(c))
+                ax.text(edge_dict[stem][0]-0.1, 0.96*ax.get_ylim()[1] +0.04*ax.get_ylim()[0],dopant+"--$"+edge_dict[stem][1]+"$",verticalalignment='top',horizontalalignment='right',rotation=-90,color=cmap(c))
 
     
     ax.ticklabel_format(style='sci', axis='y', scilimits=(-1,1),)
