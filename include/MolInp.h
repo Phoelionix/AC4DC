@@ -89,6 +89,9 @@ public:
 	double time_update_gap = 0; // interval **in fs** between each cout'd time.	May be useful to set to a high number for HPC or when otherwise not using ncurses.
     int steps_per_live_plot_update = 20; // Interval  **in steps** between plotting of the free electron distribution to _live_plot.png. Setting to 1 (updating every step) has a negligible effect on speed outside of very fast high step count simulations. 
 
+	double electron_source_fraction = 0;
+	double electron_source_energy = -1;
+
 protected:
 
 	bool validate_inputs();
@@ -124,7 +127,6 @@ protected:
 
 	// Dynamic grid
 	double grid_update_period; // time period between dynamic grid updates, fs.
-
 
 };
 

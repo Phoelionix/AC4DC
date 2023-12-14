@@ -35,6 +35,8 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 //#define SWITCH_OFF_DYNAMIC_BOUNDS // Disables updates of the MB energy bounds, the photoelectron energy bounds, and the transition energy. Should be equivalent to SWITCH_OFF_ALL_DYNAMIC_UPDATES if everything is working  
 
 
+// Analytical testing
+//#define NO_ELECTRON_SOURCE
 
 
 /// Experimental options for developers.

@@ -177,7 +177,11 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (n == 0) stream >> elec_grid_preset;
 		if (n == 1) stream >> grid_update_period;
 	}	
-
+	for (size_t n = 0; n < FileContent["#ELECTRON_SOURCE"].size(); n++) {
+		stringstream stream(FileContent["#ELECTRON_SOURCE"][n]);
+		if (n == 0) stream >> electron_source_fraction;
+		if (n == 1) stream >> electron_source_energy;
+	}	
 	for (size_t n = 0; n < FileContent["#FILTRATION"].size(); n++) {
 		stringstream stream(FileContent["#FILTRATION"][n]);
 		if (n == 0){ stream >> filtration_file;
@@ -361,10 +365,11 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P. TODO 
 	if (pulse_shape == PulseShape::square && negative_timespan_factor != 0){cerr << "ERROR, timespan for negative times cannot be specified with square pulse";is_valid=false;}
 	if (use_fluence + use_count + use_intensity != 1) {cerr << "ERROR, require exactly one of #USE_FLUENCE, #USE_COUNT, and #USE_INTENSITY to be active ";is_valid = false;}
 	if (omp_threads <= 0) { omp_threads = 4; cerr<<"Defaulting number of OMP threads to 4"; }
-	if (steps_per_live_plot_update < 1) {steps_per_live_plot_update = 1; cerr<<"Steps per live plot was raised to 1 from given value of "<<steps_per_live_plot_update;}
+	if (steps_per_live_plot_update < 1){steps_per_live_plot_update = 1; cerr<<"Steps per live plot was raised to 1 from given value of "<<steps_per_live_plot_update;}
+	if (electron_source_fraction != 0 && (electron_source_energy <= 0 || electron_source_fraction < 0)) {cerr<<"Invalid electron source parameters.";is_valid=false;}
 
 	if (elec_grid_type.mode == GridSpacing::unknown) {
-	cerr<<"ERROR: Grid type not recognised - param corresponding to use of manual must start with (t)rue or (f)alse,";
+	cerr<<"ERROR: Grid type not recognised - param corresponding to use of manual must start with (t)rue or (f)alse";
 	is_valid=false;
 	}
 	if (elec_grid_type.mode == GridSpacing::manual){
