@@ -23,10 +23,10 @@ true    // active (using count)?
 
 #NUMERICAL
 8000   //30000      // Initial guess for number of time step points for rate equation.
-18            // Number of threads in OpenMP.
+28            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
-D               // Grid region preset, this allows peaks to be supported for lower energies.
+G               // Grid region preset, this allows peaks to be supported for lower energies.
 10.05            // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
@@ -36,11 +36,13 @@ N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
-
+#LOAD
+Gd_r_backup
 
 #DEBUG
 99 //10  // Simulation cutoff time in fs
 0.01    // Interval to update current timestep [fs].
+1      // Live plot interval [steps]
 ####END#####
 
 
@@ -50,7 +52,3 @@ Due to approximations (such as removing the 5th shell) and without relativistic 
 We thus just use galli's 8480 eV, especially since recognising that the L1 edge will have very little effect with < 200 eV emissions.
 This may overestimate the effect slightly due to the lower P electrons' potential likely placing them closer to the Anti-goldilocks range
 
-#LOAD
-lys_galli_LF_L_edge_17
--27
-true

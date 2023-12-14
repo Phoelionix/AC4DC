@@ -11,7 +11,7 @@ Gd_galli 2
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-8500         // Photon energy in eV.
+9000         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
 2.4  // total sim time in fwhm
@@ -19,11 +19,11 @@ gaussian       // Pulse shape
 
 #USE_COUNT
 true    // active (using count)?
-1  // Photon density (x10^12 ph.µm-2)
+10  // Photon density (x10^12 ph.µm-2)
 
 #NUMERICAL
-1500      // Initial guess for number of time step points for rate equation.
-18            // Number of threads in OpenMP.
+3375      // Initial guess for number of time step points for rate equation.
+28            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 D              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
