@@ -101,8 +101,6 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 
 	for (size_t n = 0; n < FileContent["#OUTPUT"].size(); n++) {
 		stringstream stream(FileContent["#OUTPUT"][n]);
-		char tmp;
-
 		if (n == 0) stream >> out_T_size;
 		if (n == 1) stream >> out_F_size;
 		// if (n == 2) {
@@ -258,7 +256,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	elec_grid_preset.pulse_omega = omega;
 	// Give energy for electron source in eV
 	#ifndef NO_ELECTRON_SOURCE
-	if (elec_grid_preset.electron_source_energy > 0){
+	if (electron_source_energy > 0){
 		elec_grid_preset.electron_source_energy = electron_source_energy;
 	}
 	#endif //NO_ELECTRON_SOURCE

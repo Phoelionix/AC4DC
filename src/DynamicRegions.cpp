@@ -255,7 +255,9 @@ void GridRegions::initialise_regions(DynamicGridPreset& preset){
         char static_region = Region::fixed;
         if (preset.selected == DynamicGridPreset::all_log_grid)
             static_region = Region::fixed_log;
-        regions.push_back(Region(pts_per_dirac,preset.electron_source_energy*5/6,preset.electron_source_energy*7/6,static_region));
+        // Inner region with high density of knots, outer region of support to ensure not too high a difference with surroundings.
+        regions.push_back(Region(int(pts_per_dirac),preset.electron_source_energy*3/4,preset.electron_source_energy*1.5,static_region));
+        regions.push_back(Region(int(pts_per_dirac),preset.electron_source_energy*1/2,preset.electron_source_energy*2,static_region));
     }    
     std::vector<Region> common_regions = {
         Region(1,5,10,Region::fixed),  // low divergent (purpose is just placing a point at 5 eV. Below this is unnecessarily costly, and sometimes breaks - either because I have brittle code or it's fundamentally untenable.)

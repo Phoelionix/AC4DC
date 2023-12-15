@@ -41,7 +41,7 @@ def main():
      PHOTON_COUNT = 1
 
      SOURCE_FRACTIONS = [0.5]
-     SOURCE_ENERGIES = [500,1000,1500,2000,2500,3000,3500,4000]
+     SOURCE_ENERGIES = [0, 500,1000,1500,2000,2500,3000,3500,4000]
      SOURCE_DURATIONS = [0.0278]
 
   ##########
@@ -179,7 +179,7 @@ def make_mol_file(fname, outfile, param_dictionary):
 
   plasma_file.write("""\n#NUMERICAL\n""")
   plasma_file.write("""%.0f         // Initial guess for number of time step points for rate equation (Note e-e scattering part takes num_stiff_ministeps = 500 substeps for each step).\n""" %num_steps)
-  plasma_file.write("""28           // Number of threads in OpenMP.\n""")
+  plasma_file.write("""26           // Number of threads in OpenMP.\n""")
 
   plasma_file.write("""\n#DYNAMIC_GRID\n""")
   plasma_file.write("""M            // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).\n""")
@@ -199,6 +199,8 @@ def make_mol_file(fname, outfile, param_dictionary):
   plasma_file.write("""\n#DEBUG\n""")
   plasma_file.write("""999           // Simulation cutoff time in fs (can end before but not after).\n""")
   plasma_file.write("""0.01          // Interval to display current timestep [fs].\n""")
+  plasma_file.write("""5             // Interval to update live plot (steps).\n""")
+
   plasma_file.write("####END####\n\n")
   
   plasma_file.write("Notes:")
