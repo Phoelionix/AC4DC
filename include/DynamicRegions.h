@@ -72,7 +72,7 @@ public:
     double mb_min_over_kT; // min of MB region = mb_min_over_kT*kT;
     double mb_max_over_kT; // max of MB region = mb_min_over_kT*kT;
     double first_gp_min_E; // Min gp of the MB dynamic region. Warning: going below ~4 eV leads to a much greater number of steps needed for little benefit. Though there's potential to increase dt once MB grid points go higher I suppose.
-    void initialise_regions(DynamicGridPreset preset);
+    void initialise_regions(DynamicGridPreset& preset);
 
 protected:
     void set_static_region_energies(vector<double> energy_boundaries);

@@ -235,10 +235,12 @@ void ElectronRateSolver::solve(ofstream & _log, const std::string& tmp_data_fold
     }
     plasma_header/*<<"\033[33m"*/<<"Final time step:  "/*<<"\033[0m"*/<<(simulation_end_time)*Constant::fs_per_au<<" fs"<<"\n\r";
     
-    if (input_params.elec_grid_type.mode == GridSpacing::dynamic)
-        plasma_header <<"[ sim ] Grid update period: "<<grid_update_period * Constant::fs_per_au<<" fs"<<"\n\r";
+    if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
+        plasma_header <<"[ Grid ] Preset: "<<input_params.elec_grid_preset.name<<"\n\r";
+        plasma_header <<"[ Grid ] Update period: "<<grid_update_period * Constant::fs_per_au<<" fs"<<"\n\r";
+    }
     else 
-        plasma_header << "[ sim ] Using static grid" << "\n\r";
+        plasma_header << "[ Grid ] Using static grid" << "\n\r";
 
     plasma_header<<"[ Rate Solver ] Using initial timestep size of "<<this->dt*Constant::fs_per_au<<" fs"<<"\n\r";
     plasma_header<<banner<<"\n\r";

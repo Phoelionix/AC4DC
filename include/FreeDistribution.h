@@ -126,7 +126,7 @@ public:
 
     static vector<double> get_knot_energies(){return basis.get_knot();}
     static double num_basis_funcs(){return basis.num_funcs;}
-    static void initialise_dynamic_regions(DynamicGridPreset preset){basis.initialise_regions(preset);}
+    static void initialise_dynamic_regions(DynamicGridPreset& preset){basis.initialise_regions(preset);}
 
 
     /**

@@ -54,7 +54,7 @@ GridRegions::GridRegions(){
     mb_max_over_kT =  2.3208; //  80% of electrons below this point (lower since not as sharp)
     first_gp_min_E = 4/Constant::eV_per_Ha;
 } 
-void GridRegions::initialise_regions(DynamicGridPreset preset){
+void GridRegions::initialise_regions(DynamicGridPreset& preset){
     first_gp_min_E = first_gp_min_E*Constant::eV_per_Ha;  // Converted to eV for consistency. Convert to Ha at end.
     preset.min_dirac_region_peak_energy = 1500;  // eV. Convert to Ha at end.
     // Initialise regions
@@ -266,6 +266,7 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
     regions.insert(regions.end(), common_regions.begin(), common_regions.end() );
     std::cout <<"\033[38:5:208m"<<"[ Dynamic Grid ] '"<< preset_name << "' preset used to initialise dynamic regions."<<"\033[0m"<< endl;
     
+    preset.name = preset_name;
     // Convert to atomic units
     preset.min_dirac_region_peak_energy  /= Constant::eV_per_Ha;
     first_gp_min_E /= Constant::eV_per_Ha;
@@ -277,7 +278,7 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
  * @details currently places centre of region on peak.
  */
 void GridRegions::update_regions(FeatureRegimes rgm){
-    std::cout << "[Dynamic Grid] Updating regions" << std::endl;
+    std::cout << "[ Dynamic Grid ] Updating regions" << std::endl;
     size_t peak_idx = 0;
     for (size_t r = 0; r < regions.size(); r ++){
         switch(regions[r].get_type()){
