@@ -40,7 +40,7 @@ def main():
      FWHM = 15
      PHOTON_COUNT = 1
 
-     SOURCE_FRACTIONS = [0.5]
+     SOURCE_FRACTIONS = [3]
      SOURCE_ENERGIES = [0, 500,1000,1500,2000,2500,3000,3500,4000]
      SOURCE_DURATIONS = [0.0278]
 
@@ -185,7 +185,7 @@ def make_mol_file(fname, outfile, param_dictionary):
   plasma_file.write("""M            // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).\n""")
   plasma_file.write("""%.2f         // Grid update period in fs, (dynamic grid only).\n""" %update_period)
 
-  if P.source_fraction not in [None,0]:
+  if P.source_fraction not in [None,0] and P.source_energy not in [None,0]:
     plasma_file.write("""\n#ELECTRON_SOURCE\n""")
     plasma_file.write("""%.2f           // Additional electrons as fraction of other photoion. events.\n""" %P.source_fraction)
     plasma_file.write("""%.0f          // Electron energy in eV.\n""" %P.source_energy)
