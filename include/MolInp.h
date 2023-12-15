@@ -91,6 +91,7 @@ public:
 
 	double electron_source_fraction = 0;
 	double electron_source_energy = -1;
+	double electron_source_duration = 1; // As fraction of entire pulse
 
 protected:
 

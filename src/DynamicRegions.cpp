@@ -155,7 +155,7 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         };        
         break;      
       case DynamicGridPreset::Galli_support:
-        first_gp_min_E = 1; // MUCH slower. Unknown if the solution converges better (let alone by how much) when adding knots for these low energies. 
+        first_gp_min_E = 2; // Lower min E makes sim. much slower. Unknown if the solution converges better (let alone by how much) when adding knots for these low energies. 
         preset_name = "Galli support";  
         preset.min_dirac_region_peak_energy  = 350;
         mb_max_over_kT = 2.3208*4/3;  
@@ -171,8 +171,8 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
             Region(40,-1,-1,Region::mb_log), // Maxwell-boltzmann distribution
         };        
         break;      
-      case DynamicGridPreset::log_grid:  // Similar to preset "dirac", with lower min energy like "Galli_support". However regions are all logarithmic.
-        preset_name = "Lower dirac regions, log MB";  // Support extends below bottom of transition region.
+      case DynamicGridPreset::all_log_grid:  // Similar to preset "dirac", with lower min energy like "Galli_support". However regions are all logarithmic.
+        preset_name = "Lower dirac regions, log all";  // Support extends below bottom of transition region.
         preset.min_dirac_region_peak_energy  = 350;
         mb_max_over_kT = 2.3208*4/3;  
         mb_min_over_kT = 0.2922*1/4; 
@@ -188,7 +188,23 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
             Region(7,preset.pulse_omega*6/4,preset.pulse_omega*2.5,Region::fixed_log), // high tail
             Region(25,-1,-1,Region::mb_log), // Maxwell-boltzmann distribution
         };        
-        break;                 
+        break;       
+      case DynamicGridPreset::mb_log_grid:  // Similar to preset "dirac", with lower min energy like "Galli_support". However regions are all logarithmic.
+        preset_name = "Lower dirac regions, log MB";  // Support extends below bottom of transition region.
+        preset.min_dirac_region_peak_energy  = 350;
+        mb_max_over_kT = 2.3208*4/3;  
+        mb_min_over_kT = 0.2922*1/4; 
+        pts_per_dirac = 15;  
+        regions = {
+            Region(7,10,20, Region::fixed), Region(8,20,50, Region::fixed),  // low support
+            Region(10,50,200,Region::fixed), 
+            Region(15,200,600,Region::fixed), // auger
+            Region((int)(0.5+ 7*trans_scaling),600,preset.pulse_omega/4,Region::fixed), // transition
+            Region(25,preset.pulse_omega/4,preset.pulse_omega*6/4,Region::fixed),  // photo
+            Region(7,preset.pulse_omega*6/4,preset.pulse_omega*2.5,Region::fixed), // high tail
+            Region(25,-1,-1,Region::mb_log), // Maxwell-boltzmann distribution
+        };        
+        break;                   
       case DynamicGridPreset::dismal_acc:
         preset_name = "Dismal accuracy";
         pts_per_dirac = 5;
@@ -237,7 +253,7 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
     // Region for electron source.
     if(preset.electron_source_energy != -1){
         char static_region = Region::fixed;
-        if (preset.selected == DynamicGridPreset::log_grid)
+        if (preset.selected == DynamicGridPreset::all_log_grid)
             static_region = Region::fixed_log;
         regions.push_back(Region(pts_per_dirac,preset.electron_source_energy*5/6,preset.electron_source_energy*7/6,static_region));
     }    
@@ -248,7 +264,7 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
         Region(pts_per_dirac,-1,-1,dirac_region), Region(pts_per_dirac,-1,-1,dirac_region)
     };     
     regions.insert(regions.end(), common_regions.begin(), common_regions.end() );
-    std::cout << "[ Dynamic Grid ] '"<< preset_name << "' preset used to initialise dynamic regions." << endl;
+    std::cout <<"\033[38:5:208m"<<"[ Dynamic Grid ] '"<< preset_name << "' preset used to initialise dynamic regions."<<"\033[0m"<< endl;
     
     // Convert to atomic units
     preset.min_dirac_region_peak_energy  /= Constant::eV_per_Ha;
@@ -261,7 +277,7 @@ void GridRegions::initialise_regions(DynamicGridPreset preset){
  * @details currently places centre of region on peak.
  */
 void GridRegions::update_regions(FeatureRegimes rgm){
-    std::cout << "[Dynamic Grid] Updating regions " << std::endl;
+    std::cout << "[Dynamic Grid] Updating regions" << std::endl;
     size_t peak_idx = 0;
     for (size_t r = 0; r < regions.size(); r ++){
         switch(regions[r].get_type()){
