@@ -158,9 +158,8 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (n == 0) stream >> num_time_steps;
 		if (n == 1) stream >> omp_threads;
 		if (n == 2) stream >> param_cutoffs.min_coulomb_density;
-		
-
 	}
+
 	for (size_t n = 0; n < FileContent["#MANUAL_GRID"].size(); n++) {
 		stringstream stream(FileContent["#MANUAL_GRID"][n]);
 		if (n == 0) stream >> elec_grid_type; // "true" for manual.		
@@ -179,7 +178,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		stringstream stream(FileContent["#ELECTRON_SOURCE"][n]);
 		if (n == 0) stream >> electron_source_fraction;
 		if (n == 1) stream >> electron_source_energy;
-		if (n == 1) stream >> electron_source_duration;
+		if (n == 2) stream >> electron_source_duration;
 	}	
 	for (size_t n = 0; n < FileContent["#FILTRATION"].size(); n++) {
 		stringstream stream(FileContent["#FILTRATION"][n]);
@@ -209,27 +208,33 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 
 	}	
 
-
+	// Thread capping
+	#if defined THREAD_MAX_1
+		omp_threads = 1
+	#elif defined THREAD_MAX_4
+		omp_threads = min(4,omp_threads);
+	#elif defined THREAD_MAX_8
+		omp_threads = min(8,omp_threads);
+	#elif defined THREAD_MAX_12
+		omp_threads = min(12,omp_threads);
+	#elif defined THREAD_MAX_16
+		omp_threads = min(16,omp_threads);
+	#endif
 
 	// Get fluence (in 10^4 * J.cm^-2).
-	// if (use_count){ // 10^12 photons in 100 nm diam. spot
-	// 	double SPOT_RAD = 50; // nm
-	// 	fluence = photon_count*omega*Constant::J_per_eV*1e12; J in spot
-	// 	fluence *= 1e-4/(Constant::Pi*pow(SPOT_RAD*1e-7,2)); // 10^4 J cm^-2 
-	// }
 	if (use_count){  // [10^12 ph.µm^-2]
-		fluence = photon_count*omega*Constant::J_per_eV*1e12; // J µm^-2
-		fluence *= 1e4;  // 10^4 J cm^-2
+		fluence = photon_count*omega*Constant::J_per_eV*1e12; // [J µm^-2]
+		fluence *= 1e4;  // [10^4 J cm^-2]
 	}	
 	if (use_intensity){
-		// TODO Need to test this is working as expected
+		// TODO Need to double check that this was working as expected  
 		// fluence = I0 * fwhm. I0 = I_avg*timespan/(fwhm). NB: var width = fwhm
 		// if square: Ipeak = I0.  
 		// if gaussian, I_peak = I0/norm, where norm = sqrt(pi/4/log(2)). 
 		
 		// Convert units, Peak intensity is units of 10^19 W/cm^2, fluence is in 10^4 * J/cm^2.
 		double t_units = pow(10,-15);   
-		double I_units = pow(10,15);  //  
+		double I_units = pow(10,15); 
 		switch (pulse_shape)
 		{
 		case PulseShape::gaussian:{

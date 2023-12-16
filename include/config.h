@@ -19,37 +19,42 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 //#define NO_EII    // Electron impact ionisation
 
 
-// Disable features
+/// Disable features
 //#define NO_PLOTTING // Turns off live saves of the free-electron energy distribution to _live_plot.png. Disables use of python 
 //#define NO_BACKUP_SAVING // Disables the hourly saves of the data to  
 
 
-// Asynchronous solver
+/// Asynchronous solver
 //#define NO_MINISTEPS   // Disables the asynchronous implementation of the solver, stepping the free (E-E) and bound (everything else) solvers together.
 #define NO_MINISTEP_UPDATING  // ministep updates not working atm, possibly as lagrange polynomial is a bad thing to use here and I should just use linear interpolation.
 
 
-// Dynamic grid debugging
+/// Dynamic grid debugging
 //#define DEBUG_BOUND  // Turns on testing for negative bound state probabilities. Should narrow down cause (unless one is facing a dreaded memory corruption bug). Probably should be removed as this is no longer an issue.
 //#define SWITCH_OFF_ALL_DYNAMIC_UPDATES  // The initial grid (spline knot basis) is used for the whole simulation. 
 //#define SWITCH_OFF_DYNAMIC_BOUNDS // Disables updates of the MB energy bounds, the photoelectron energy bounds, and the transition energy. Should be equivalent to SWITCH_OFF_ALL_DYNAMIC_UPDATES if everything is working  
 
 
-// Analytical testing
+/// Analytical testing
 //#define NO_ELECTRON_SOURCE
 
 
-/// Experimental options for developers.
+/// Thread capping. Often an easier option than regenerating batch files. (If multiple are left on, uses the lowest cap)
+//#define THREAD_MAX_16
+//#define THREAD_MAX_12
+//#define THREAD_MAX_8
+//#define THREAD_MAX_4
+//#define THREAD_MAX_1
 
+/// Experimental options for developers.
 
 //#define BOUND_GD_HACK // A very primitive (unfinished) implementation of a bound transport correction. Not confirmed to be working as intended.
 
 //#define CLASSIC_MANUAL_GRID // Implements an outdated static grid implementation for purposes of comparison.
 
 //#define INFINITE_COULOMBLOG_CUTOFF  //Not confirmed to work with dynamic grid. Set cutoff for calculation of temperature/coulomb log to be infinite.
+
 /////////////
-
-
 #ifdef NO_MINISTEPS 
     #ifndef NO_MINISTEP_UPDATING
     #define NO_MINISTEP_UPDATING
