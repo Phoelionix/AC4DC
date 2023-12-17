@@ -52,29 +52,47 @@ LEGEND = True
 LABEL_TIMES = False # Set True to graphically check times are all aligned.
 
 ## Numerical
-MODE = 0 # | 0: mean carbon charge | 1: R factors (performs scattering simulations for each) |
+MODE = 1 # | 0: mean carbon charge | 1: R factors (performs scattering simulations for each) |
 SCATTERING_TARGET = 0 # Used if MODE = 1.  | 0: unit lysozyme (light atoms) | 1: 3x3x3 lysozyme (light atoms no solvent)|
 NORMALISING_STEM = None#"SH_N" # None  # None, or the stem (str) to normalise traces by. (s.t. normalised trace becomes horizontal line)
-INDEP_VARIABLE = 1 # | 0: energy of photons |1: Energy separation from given edge.  
+INDEP_VARIABLE = 2 # | 0: energy of photons |1: Energy separation from given edge |2: Artificial electron source energy
 
 ylim=[None,None]
 xlim = [None,None]
 
 #ylim = [,]
-xlim = xlim = [-1, None]#[7,18] # [5,18] [7,18]
+xlim = [0, None]
+#xlim = [7, 18]#[7,18] # [5,18] [7,18]
 
 # Batch stems and index range (inclusive). currently assuming form of key"-"+n+"_1", where n is a number in range of stem[key]
-stem_dict = {
-        "SH_N":[2,11],
-        "SH_S":[2,11],  
-        "SH_Fe":[2,9],  
-        "SH_Zn":[2,11],
-        "SH_Se":[2,11],
-        "SH_Zr":[2,10],
-        #-----L------
-        "SH_Ag":[2,8],
-        "SH_Xe":[2,9],
-        #"L_Gd":[1,1],
+REAL_ELEMENTS = 0; ELECTRON_SOURCE = 1
+#batch = REAL_ELEMENTS
+batch = ELECTRON_SOURCE
+if batch is REAL_ELEMENTS:
+    # e.g. item "Carbon":[2,4] means to plot simulations corresponding to outputs Carbon-2, Carbon-3, Carbon-4, mol files. Last simulation output is used in case of duplicates (highest run number).
+    stem_dict = {
+            "SH_N":[2,11],
+            "SH_S":[2,11],  
+            "SH_Fe":[2,9],  
+            "SH_Zn":[2,11],
+            "SH_Se":[2,11],
+            "SH_Zr":[2,10],
+            #-----L------
+            "SH_Ag":[2,8],
+            "SH_Xe":[2,9],
+            #"L_Gd":[1,1],
+    }
+    # Each item corresponds to a list of additional simulations to add on
+    additional_points_dict = {
+
+    }    
+if batch is ELECTRON_SOURCE:
+    stem_dict = {
+        #"ES":[32,35],
+        "ES_L":[47,52],
+    }
+    additional_points_dict = {
+        "ES_L":[0,],
     }
 # Ionisation edges of dopants
 edge_dict = {
@@ -87,6 +105,9 @@ edge_dict = {
     "SH_Ag":(3.8,"L_{1}"),
     "SH_Xe":(5.5,"L_{1}"),
     "L_Gd":(7.4,"L_{1}"),
+    
+    "ES":(0.3,"K"),
+    "ES_L":(0.3,"K"),
 }
 ground_charge_dict = {
     "SH_N": 0,
@@ -98,6 +119,9 @@ ground_charge_dict = {
     "SH_Ag":1,
     "SH_Xe":8,
     "L_Gd":11,
+
+    "ES":0,
+    "ES_L":0,
 }
 col_dict = {
     "SH_N": 0,
@@ -109,6 +133,9 @@ col_dict = {
     "SH_Ag":8,
     "SH_Xe":6,
     "L_Gd":2,    
+
+    "ES":0,
+    "ES_L":1,
 }
 
 ################
@@ -120,6 +147,7 @@ R_FACTOR = 1
 # INDEP_VARIABLE
 PHOTON_ENERGY = 0
 PHOTOELECTRON_ENERGY = 1  # Not quite an accurate label.
+ELECTRON_SOURCE_ENERGY = 2
 
 SCATTERING_TARGET_DICT = {0: (imaging_params.goldilocks_dict_unit,"-unit"),1: (imaging_params.goldilocks_dict_3x3x3,"3x3x3")}
 #
@@ -144,9 +172,10 @@ def main():
     valid_folder_names= True
     for key,val in stem_dict.items():
         data_folders = []
+        # Get folder name, excluding run tag
         for n in range(val[0],val[1]+1):
-            data_folders.append(key+"-"+str(n)) # Folder name, excluding run tag "_"+R
-        # Add run tag corresponding to latest run (highest "R" for "stem-n_R")
+            data_folders.append(key+"-"+str(n)) 
+        # Add run tag "_"+n corresponding to latest run (n = highest "R" for "stem-n_R")
         for i, handle in enumerate(data_folders):
             matches = [match for match in all_outputs if match.startswith(handle+"_")]
             run_nums = [int(R.split("_")[-1]) for R in matches if R.split("_")[-1].isdigit()]            
@@ -157,6 +186,20 @@ def main():
                 break
             data_folders[i] = handle + "_"+str(max(run_nums))
         batches[key] = data_folders
+    for key, sims in additional_points_dict.items():
+        for sim_tag in sims:
+            handle = key+"-"+str(sim_tag)
+            matches = [match for match in all_outputs if match.startswith(handle+"_")]
+            run_nums = [int(R.split("_")[-1]) for R in matches if R.split("_")[-1].isdigit()] 
+            if len(run_nums) == 0: 
+                valid_folder_names = False
+                print("\033[91mInput error\033[0m (a run corresponding to \033[91m"+handle+"\033[0m): not found in"+MOLECULAR_PATH)
+                break
+            data_folder = handle + "_"+str(max(run_nums))
+            assert(data_folder not in data_folders)
+            data_folders.append(data_folder)             
+
+
     assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder. See input error message(s)"
     fig_title = "".join([stem.split("-")[0].split("_")[-1] for stem in batches.keys()])
     label = fig_title+"_"+plot_type[MODE]
@@ -194,7 +237,15 @@ def plot(batches,label,figure_output_dir,mode = 0):
         mol_names = batches[NORMALISING_STEM]
         norm = []
         for mol_name in mol_names:
-            energy = get_sim_params(mol_name)[2]/1000
+            if INDEP_VARIABLE is PHOTON_ENERGY: 
+                energy = get_sim_params(mol_name)[2]/1000
+            if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
+                energy = get_sim_params(mol_name)[2]/1000 - edge_dict[stem][0]
+            if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
+                energy = get_sim_params(mol_name,get_source_energy=True)[2]
+                if energy is None:
+                    energy = 0
+                energy/=1000
             pl = Plotter(mol_name)
             if mode is AVERAGE_CHARGE:
                 intensity_averaged = False
@@ -213,19 +264,28 @@ def plot(batches,label,figure_output_dir,mode = 0):
         dopant = stem.split("-")[0].split("_")[-1]
         X = []
         Y = []
-        energies = []
         times = []  # last times of sims, for checking everything lines up.
         for mol_name in mol_names:
             pl = Plotter(mol_name)
             times.append(pl.timeData[-1])
 
-            if NORMALISING_STEM is not None and NORMALISING_STEM == stem:
+            if NORMALISING_STEM is not None and NORMALISING_STEM == stem:  #TODO tidy up by moving outside loop
                 for elem in norm:
-                    energies.append(elem[0])
+                    X.append(elem[0])
                     Y.append(elem[1])
                 break
-            else: 
-                energies.append(get_sim_params(mol_name)[2]/1000)
+            else:
+                if INDEP_VARIABLE is PHOTON_ENERGY: 
+                    X.append(get_sim_params(mol_name)[2]/1000)
+                if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
+                    X.append(get_sim_params(mol_name)[2]/1000 - edge_dict[stem][0])
+                if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
+                    energy = get_sim_params(mol_name,get_source_energy=True)[2]
+                    if energy is None:
+                        energy = 0
+                    energy/=1000
+                    X.append(energy)
+
                 if mode is AVERAGE_CHARGE:
                     intensity_averaged = False
                     if intensity_averaged: 
@@ -235,16 +295,13 @@ def plot(batches,label,figure_output_dir,mode = 0):
                         Y.append(pl.get_total_charge(atoms="C")[step_index])
                 elif mode is R_FACTOR:            
                     Y.append(get_R(mol_name,MOLECULAR_PATH,im_params)[0][0])
-        X = energies
-        if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
-            X = [x - edge_dict[stem][0] for x in X]        
-        print("Energies:",energies)
+        print("Energies:",X)
         if mode is AVERAGE_CHARGE:
             print("Charges:",Y)
         if mode is R_FACTOR:
             print("R factors:",Y)
         if NORMALISING_STEM is not None:
-            for i, energy in enumerate(energies): 
+            for i, energy in enumerate(X): 
                 for elem in norm:
                     if elem[0] == energy:
                         Y[i]/=elem[1]
@@ -266,7 +323,11 @@ def plot(batches,label,figure_output_dir,mode = 0):
         if FIT and len(X)>=k+1:
             ordered_dat = sorted(zip(X,Y))
             # Split dataset with ionisation edge of dopant
-            split_idx = np.searchsorted(np.array([x[0] for x in ordered_dat]),edge_dict[stem][0])
+            split_idx = 0
+            if INDEP_VARIABLE is PHOTON_ENERGY:
+                split_idx = np.searchsorted(np.array([x[0] for x in ordered_dat]),edge_dict[stem][0])
+            if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
+                split_idx = np.searchsorted(np.array([x[0] for x in ordered_dat]),-0.000000001)
             splines = []
             finer_x = []
             if split_idx in (0, len(X)):
@@ -289,9 +350,13 @@ def plot(batches,label,figure_output_dir,mode = 0):
         if NORMALISING_STEM is not None:
             _ylab += " relative difference" # TODO better clarity
         ax.set_ylabel(_ylab)
-        ax.set_xlabel("Photon energy (keV)")
+        if INDEP_VARIABLE is PHOTON_ENERGY:
+            ax.set_xlabel("Photon energy (keV)")
         if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
-            ax.set_xlabel("Dopant photo-e$^{-}$ energy (keV)")
+            ax.set_xlabel("Dopant `photoelectron energy' (keV)")  # TODO define better
+        if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
+            ax.set_xlabel("Source electron energy (keV)")  # TODO define better
+        
     ax.set_ylim(ylim)
     ax.set_xlim(xlim)           
     if INDEP_VARIABLE is PHOTON_ENERGY: 
@@ -301,6 +366,8 @@ def plot(batches,label,figure_output_dir,mode = 0):
             if ax.get_xlim()[0] < edge_dict[stem][0] < ax.get_xlim()[1]:
                 ax.axvline(x=edge_dict[stem][0],ls=(5,(10,3)),color=cmap(c))
                 ax.text(edge_dict[stem][0]-0.1, 0.96*ax.get_ylim()[1] +0.04*ax.get_ylim()[0],dopant+"--$"+edge_dict[stem][1]+"$",verticalalignment='top',horizontalalignment='right',rotation=-90,color=cmap(c))
+    if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
+        ax.axvline(x=0,ls=(5,(10,3)),color="black")
 
     
     ax.ticklabel_format(style='sci', axis='y', scilimits=(-1,1),)
