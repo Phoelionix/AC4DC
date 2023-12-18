@@ -29,6 +29,7 @@ This file is part of AC4DC.
 #include "LossGeometry.hpp"
 #include "Pulse.h"
 
+
 class MolInp
 {
 	// Molecular input for coupled atom/electron plasma calculations.
@@ -128,6 +129,10 @@ protected:
 
 	// Dynamic grid
 	double grid_update_period; // time period between dynamic grid updates, fs.
+
+	// Rate calc exclusions
+	std::vector<bool> bound_free_exclusions;
+
 
 };
 

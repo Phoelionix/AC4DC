@@ -178,6 +178,7 @@ namespace RateData {
 
 	struct Atom
 	{
+		bool bound_free_excluded = false; // Whether to skip calculation of EII and TBR for this species.
 		vector<string> index_names = vector<string>(0);
 		std::string name = "";
 		double nAtoms = 1.;// atomic number density

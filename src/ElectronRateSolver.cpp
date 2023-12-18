@@ -96,7 +96,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
     // #endif
     bool recalc = true;
     if (init ){
-        std::cout << "[ HF ] Computing bound rates for species' allowed orbital configurations" << std::endl;
+        std::cout << "[ HF ] Peforming Hartree-Fock calculations for species' allowed orbital configurations" << std::endl;
         input_params.calc_rates(_log, recalc);
         hasRates = true;
     }
@@ -204,8 +204,8 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
         }        
     }
 
-    // create the tensor of coefficients 
-    initialise_rates();
+    // create/update the tensor of coefficients corresponding to free distribution grid knots 
+    compute_free_grid_rates();
     // zero_y is used as the starting state for each step, so it must match the current knot basis.
     set_zero_y();    
 }
@@ -308,6 +308,8 @@ void ElectronRateSolver::precompute_gamma_coeffs() {
     std::cout<<"[ Gamma precalc ] Beginning coefficient computation..."<<std::endl;
     size_t N = Distribution::size;
     for (size_t a = 0; a < input_params.Store.size(); a++) {
+        if (input_params.Store[a].bound_free_excluded)
+            continue;
         std::cout<<"\n[ Gamma precalc ] Atom "<<a+1<<"/"<<input_params.Store.size()<<std::endl;
         auto eiiVec = input_params.Store[a].EIIparams;
         vector<RateData::InverseEIIdata> tbrVec = RateData::inverse(eiiVec);
@@ -482,90 +484,93 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         #endif        
 
         // EII / TBR bound-state dynamics
-        double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
-        double sdot_bound_charge_eii_subst = 0; 
-        double sdot_bound_charge_tbr_subst = 0; 
-        size_t N = Distribution::size; 
-        #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_eii_subst,sdot_bound_charge_tbr_subst)     
-        for (size_t n=0; n<N; n++) {
-            double tmp=0; // aggregator
-            
-            #ifndef NO_EII
-            for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
-                for (auto& finPair : RATE_EII[a][n][init]) {
-                    tmp = finPair.val*s.F[n]*P[init];
-                    Pdot_subst[finPair.idx] += tmp;
-                    Pdot_subst[init] -= tmp;
-                    sdot_bound_charge_eii_subst += tmp;   //TODO Not a minus sign like others, double check that's intentional. -S.P.
+        if(!input_params.Store[a].bound_free_excluded){
+            double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
+            double sdot_bound_charge_eii_subst = 0; 
+            double sdot_bound_charge_tbr_subst = 0; 
+            size_t N = Distribution::size; 
+            #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_eii_subst,sdot_bound_charge_tbr_subst)     
+            for (size_t n=0; n<N; n++) {
+                double tmp=0; // aggregator
+                
+                #ifndef NO_EII
+                for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
+                    for (auto& finPair : RATE_EII[a][n][init]) {
+                        tmp = finPair.val*s.F[n]*P[init];
+                        Pdot_subst[finPair.idx] += tmp;
+                        Pdot_subst[init] -= tmp;
+                        sdot_bound_charge_eii_subst += tmp;   //TODO Not a minus sign like others, double check that's intentional. -S.P.
+                    }
                 }
-            }
-            #endif
-            
-            
-            #ifndef NO_TBR
-            // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
-            // Note that RATE_TBR has the same geometry as InverseEIIdata.
-            for (size_t m=n+1; m<N; m++) {
-                size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
-                // k = N... N(N+1)/2-1
-                // W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
-                for (size_t init=0;  init<RATE_TBR[a][k].size(); init++) {
-                    for (auto& finPair : RATE_TBR[a][k][init]) {
-                        tmp = finPair.val*s.F[n]*s.F[m]*P[init]*2;
+                #endif
+                
+                
+                #ifndef NO_TBR
+                // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
+                // Note that RATE_TBR has the same geometry as InverseEIIdata.
+                for (size_t m=n+1; m<N; m++) {
+                    size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
+                    // k = N... N(N+1)/2-1
+                    // W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
+                    for (size_t init=0;  init<RATE_TBR[a][k].size(); init++) {
+                        for (auto& finPair : RATE_TBR[a][k][init]) {
+                            tmp = finPair.val*s.F[n]*s.F[m]*P[init]*2;
+                            Pdot_subst[finPair.idx] += tmp;
+                            Pdot_subst[init] -= tmp;
+                            sdot_bound_charge_tbr_subst -= tmp;
+                        }
+                    }
+                }
+                // the diagonal
+                // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
+                for (size_t init=0;  init<RATE_TBR[a][n].size(); init++) {
+                    for (auto& finPair : RATE_TBR[a][n][init]) {
+                        tmp = finPair.val*s.F[n]*s.F[n]*P[init];
                         Pdot_subst[finPair.idx] += tmp;
                         Pdot_subst[init] -= tmp;
                         sdot_bound_charge_tbr_subst -= tmp;
                     }
                 }
+                #endif
             }
-            // the diagonal
-            // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
-            for (size_t init=0;  init<RATE_TBR[a][n].size(); init++) {
-                for (auto& finPair : RATE_TBR[a][n][init]) {
-                    tmp = finPair.val*s.F[n]*s.F[n]*P[init];
-                    Pdot_subst[finPair.idx] += tmp;
-                    Pdot_subst[init] -= tmp;
-                    sdot_bound_charge_tbr_subst -= tmp;
-                }
+            // Add parallel containers to their parent containers.
+            for(size_t i=0;i < Pdot.size();i++){
+                Pdot[i] += Pdot_subst[i];
+                #ifdef DEBUG_BOUND
+                assert(Pdot[i] + P[i] >= 0);
+                // if(Pdot[i] + P[i] < 0){
+                //     Pdot[i]= -P[i]*1.00001;
+                // }
+                #endif
             }
+            sdot.bound_charge += sdot_bound_charge_eii_subst + sdot_bound_charge_tbr_subst;
+            #ifdef RATES_TRACKING
+            eii_rate.back() += sdot_bound_charge_eii_subst;
+            tbr_rate.back() += sdot_bound_charge_tbr_subst;
+            #endif
+        
+
+            auto t10 = std::chrono::high_resolution_clock::now();
+            pre_tbr_time += t10 - t9;
+
+            // Free-electron parts
+            #ifdef NO_EII
+            #warning No impact ionisation
+            #else
+            auto t1 = std::chrono::high_resolution_clock::now();
+            s.F.get_Q_eii(vec_dqdt, a, P, threads);
+            auto t2 = std::chrono::high_resolution_clock::now();
+            eii_time += t2 - t1;
+            #endif
+            #ifdef NO_TBR
+            #warning No three-body recombination
+            #else
+            auto t3 = std::chrono::high_resolution_clock::now();
+            s.F.get_Q_tbr(vec_dqdt, a, P, threads);  // Serially, this is the computational bulk of the program - S.P.
+            auto t4 = std::chrono::high_resolution_clock::now();
+            tbr_time += t4 - t3;
             #endif
         }
-        // Add parallel containers to their parent containers.
-        for(size_t i=0;i < Pdot.size();i++){
-            Pdot[i] += Pdot_subst[i];
-            #ifdef DEBUG_BOUND
-            assert(Pdot[i] + P[i] >= 0);
-            // if(Pdot[i] + P[i] < 0){
-            //     Pdot[i]= -P[i]*1.00001;
-            // }
-            #endif
-        }
-        sdot.bound_charge += sdot_bound_charge_eii_subst + sdot_bound_charge_tbr_subst;
-        #ifdef RATES_TRACKING
-        eii_rate.back() += sdot_bound_charge_eii_subst;
-        tbr_rate.back() += sdot_bound_charge_tbr_subst;
-        #endif
-
-        auto t10 = std::chrono::high_resolution_clock::now();
-        pre_tbr_time += t10 - t9;
-
-        // Free-electron parts
-        #ifdef NO_EII
-        #warning No impact ionisation
-        #else
-        auto t1 = std::chrono::high_resolution_clock::now();
-        s.F.get_Q_eii(vec_dqdt, a, P, threads);
-        auto t2 = std::chrono::high_resolution_clock::now();
-        eii_time += t2 - t1;
-        #endif
-        #ifdef NO_TBR
-        #warning No three-body recombination
-        #else
-        auto t3 = std::chrono::high_resolution_clock::now();
-        s.F.get_Q_tbr(vec_dqdt, a, P, threads);  // Serially, this is the computational bulk of the program - S.P.
-        auto t4 = std::chrono::high_resolution_clock::now();
-        tbr_time += t4 - t3;
-        #endif
     }
 
     // Add change to distribution
@@ -1079,7 +1084,7 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::ve
 
   
     // update the tensor of coefficients 
-    initialise_rates();    
+    compute_free_grid_rates();    
 
     // Set zero_y for new grid
     set_zero_y();    
@@ -1092,18 +1097,24 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::ve
 } 
 
 
-void ElectronRateSolver::initialise_rates(){
+void ElectronRateSolver::compute_free_grid_rates(){
     //Clear any old rates. //TODO these aren't constant now - change to lowercase.
     RATE_EII.clear();
-    RATE_TBR.clear();    
+    RATE_TBR.clear();
     RATE_EII.resize(input_params.Store.size());
     RATE_TBR.resize(input_params.Store.size());
     for (size_t a=0; a<input_params.Store.size(); a++) {
         size_t N = Distribution::num_basis_funcs();
         RATE_EII[a].clear();
         RATE_TBR[a].clear();
-        RATE_EII[a].resize(N);
-        RATE_TBR[a].resize(N*(N+1)/2);
+        if (input_params.Store[a].bound_free_excluded){
+            RATE_EII[a].resize(0);
+            RATE_TBR[a].resize(0);
+        }
+        else{
+            RATE_EII[a].resize(N);
+            RATE_TBR[a].resize(N*(N+1)/2);
+        }
     }
     precompute_gamma_coeffs();
     Distribution::precompute_Q_coeffs(input_params.Store);    

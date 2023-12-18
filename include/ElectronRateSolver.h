@@ -114,7 +114,7 @@ public:
     /// Sets up the rate equations, which requires computing the atomic cross-sections/avg. transition rates to get the coefficients.
     void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0,bool force_update = false); //bool recalc=true);
     /// creates the tensor of coefficients 
-    void initialise_rates();
+    void compute_free_grid_rates();
     void tokenise(std::string str, std::vector<double> &out, const size_t start_idx = 0, const char delim = ' ');
 
     /// Number of secs taken for simulation to run
