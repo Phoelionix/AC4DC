@@ -67,6 +67,7 @@ xlim = [0, None]
 # Batch stems and index range (inclusive). currently assuming form of key"-"+n+"_1", where n is a number in range of stem[key]
 REAL_ELEMENTS = 0; ELECTRON_SOURCE = 1
 #batch = REAL_ELEMENTS
+
 batch = ELECTRON_SOURCE
 if batch is REAL_ELEMENTS:
     # e.g. item "Carbon":[2,4] means to plot simulations corresponding to outputs Carbon-2, Carbon-3, Carbon-4, mol files. Last simulation output is used in case of duplicates (highest run number).
@@ -89,10 +90,10 @@ if batch is REAL_ELEMENTS:
 if batch is ELECTRON_SOURCE:
     stem_dict = {
         #"ES":[32,35],
-        "ES_L":[47,52],
+        "ES_L":[32,42],    # [43,46] -> + 77
     }
     additional_points_dict = {
-        "ES_L":[0,],
+        "ES_L":[0],
     }
 # Ionisation edges of dopants
 edge_dict = {

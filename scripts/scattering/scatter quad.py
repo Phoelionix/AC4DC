@@ -650,7 +650,7 @@ class Atomic_Species():
                     seed = idx
                 self.orb_occs[idx],_dummy,self.orb_occ_dict = self.crystal.ff_calculator.random_state_snapshots(self.name,seed) 
         else:
-           self.ground_state = self.crystal.ff_calculator.get_ground_state(self.name)           
+           self.ground_state = self.crystal.ff_calculator.get_ground_state_shells(self.name)           
     def set_coord_deviation(self):
         self.num_atoms = len(self.crystal.sym_rotations)*len(self.coords)
         self.error = np.empty((self.num_atoms,3))

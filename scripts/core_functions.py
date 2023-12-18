@@ -4,7 +4,7 @@ import numpy as np
 import sys
 import re
 
-def get_sim_params(handle,input_path=None,molecular_path=None):
+def get_sim_params(handle,input_path=None,molecular_path=None,get_source_energy=False):
     '''
     Reads the control file and returns the relevant parameters within
     By default use input_path = "input/"
@@ -26,8 +26,10 @@ def get_sim_params(handle,input_path=None,molecular_path=None):
     photon_measure = None  
     reading_photons = False
     reading_pulse = False    
+    reading_electron_source = False
     photon_unit = None
     photon_measure_val = None
+    source_energy = None
 
     def init_photon_read(param_type,unit):
         nonlocal reading_photons,photon_measure,photon_unit
@@ -50,10 +52,14 @@ def get_sim_params(handle,input_path=None,molecular_path=None):
                 continue
             elif line.startswith("#USE_INTENSITY"):
                 init_photon_read("Intensity","×10^19 W/cm^2")              
+                continue
+            elif line.startswith("#ELECTRON_SOURCE"):
+                reading_electron_source = True
                 continue                        
             elif line.startswith("#") or line.startswith("//") or len(line.strip()) == 0:
                 reading_photons = False
                 reading_pulse = False
+                reading_electron_source = False 
                 n = 0
                 continue
             if line.startswith("####END####"):
@@ -62,7 +68,7 @@ def get_sim_params(handle,input_path=None,molecular_path=None):
                 if n < 2:
                     val = float(line.split(' ')[0])         
                 if n == 0:
-                    energy = val
+                    photon_energy = val
                 elif n==1:
                     fwhm = val
                 n += 1
@@ -75,6 +81,13 @@ def get_sim_params(handle,input_path=None,molecular_path=None):
                 if n == 1:
                     photon_measure_val = float(line.split(' ')[0])
                 n += 1
+            if reading_electron_source:
+                if n == 1:
+                    source_energy = float(line.split(' ')[0])    
+                n+=1            
+    energy = photon_energy
+    if get_source_energy:
+        energy = source_energy
     print("Time range:",start_t,"-",end_t)
     print("Energy:", energy)
     param_dict = ["Energy","Width",photon_measure,"R"]  #TODO dont call dicts...

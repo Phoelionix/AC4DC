@@ -659,7 +659,7 @@ class Atomic_Species():
         With a hybrid molecular dynamics model informed by AC4DC, the nuclei's states could be tracked properly throughout time, and this function would be replaced
         by a call to the data of the atomic nuclei's states.
         '''
-        print("Creating time-varying states for each atom from plasma simulation's data")
+        print("Creating time-varying states for atom "+self.name+" from plasma simulation's data")
         self.times_used = self.crystal.ff_calculator.get_times_used()
         if self.num_atoms != len(self.crystal.sym_rotations)*len(self.coords):
             raise Exception("num atoms was not same on set_stochastic_states call as when set by set_coord_deviation")
@@ -674,7 +674,7 @@ class Atomic_Species():
                     seed = idx
                 self.orb_occs[idx],_dummy,self.orb_occ_dict = self.crystal.ff_calculator.random_state_snapshots(self.name,seed) 
         else:
-           self.ground_state = self.crystal.ff_calculator.get_ground_state(self.name)           
+           self.ground_state = self.crystal.ff_calculator.get_ground_state_shells(self.name)           
     def set_coord_deviation(self):
         self.num_atoms = len(self.crystal.sym_rotations)*len(self.coords)
         self.error = np.empty((self.num_atoms,3))
