@@ -392,6 +392,9 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             sdot.bound_charge +=  tmp; // this is negative (confusingly).
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
+
+        sdot.cumulative_photo[a]+=sdot.bound_charge-old_bound_charge;
+
         #ifndef NO_ELECTRON_SOURCE
         //PHOTOION. SOURCE
         if(t < simulation_start_time + input_params.electron_source_duration*(timespan_au)){

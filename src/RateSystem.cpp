@@ -40,6 +40,7 @@ state_type::state_type() {
 // Critical vector-space operators
 state_type& state_type::operator+=(const state_type &s) {
     for (size_t r = 0; r < atomP.size(); r++) {
+        cumulative_photo[r] += s.cumulative_photo[r];
         for (size_t i = 0; i < atomP[r].size(); i++) {
             atomP[r][i] += s.atomP[r][i];
         }

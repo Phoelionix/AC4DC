@@ -172,39 +172,68 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
 void ElectronRateSolver::saveBound(const std::string& dir) {
     // saves a table of bound-electron dynamics , split by atom, to folder dir.
     assert(y.size() == t.size());
-    // Iterate over atom types
     ofstream f;    
-    for (size_t a=0; a<input_params.Store.size(); a++) {
-        string fname = dir+"dist_"+input_params.Store[a].name+".csv";
-        file_delete_check(fname);
-        
-        cout << "Bound: \033[94m'"<<fname<<"'\033[95m | ";
-        f.open(fname);
-        f << "# Ionic electron dynamics"<<endl;
-        f << "# Time (fs) | State occupancy (Probability times number of atoms)" <<endl;
-        f << "#           | ";
-        // Index, Max_occ inherited from MolInp
-        for (auto& cfgname : input_params.Store[a].index_names) {
-            f << cfgname << " ";
+    // Iterate over save file type { 0: bound | 1: photoionisation | }
+    for (size_t mode=0; mode < 2; mode++)
+        // Iterate over atom types
+        for (size_t a=0; a<input_params.Store.size(); a++) {
+            string fname;
+            string header;
+            switch(mode){
+                case 0:
+                    fname = dir+"dist_"+input_params.Store[a].name+".csv";
+                    header = string("# Ionic electron dynamics\n") 
+                    + string("# Time (fs) | State occupancy (Probability times number of atoms)\n");
+                    std::cout << "Bound: \033[94m'"<<fname<<"'\033[95m | "<<std::endl;
+                break;
+                case 1:
+                    fname = dir+"photo_"+input_params.Store[a].name+".csv";
+                    header = string("# Cumulative photoionisation\n")
+                    + string("# Time (fs) | Total photoionised electron density \n");
+                    std::cout << "Rates: \033[94m'"<<fname<<"'\033[95m | "<<std::endl;
+                break;
+                default:
+                    continue;
+            }
+             
+            file_delete_check(fname);
+                        
+            f.open(fname);
+            f << header<<std::flush;
+            f << "#           | ";
+            if (mode == 0){
+                // Index, Max_occ inherited from MolInp
+                for (auto& cfgname : input_params.Store[a].index_names) {
+                    f << cfgname << " ";
+                }
+                f<<endl;
+            }
+            // Iterate over time.
+            double t_fineness = timespan_au  / num_steps_out;
+            double previous_t = t[0]-t_fineness;
+            int i = -1;
+            while (i <  static_cast<int>(t.size())-1){
+                i++;
+                if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){ 
+                    continue;
+                }            
+                switch(mode){
+                    case 0:
+                        // Make sure all "natom-dimensioned" objects are the size expected //TODO failsafe?
+                        assert(input_params.Store.size() == y[i].atomP.size());
+                        
+                        f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i].atomP[a]<<endl;   // prob. multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au                    
+                    break;
+                    case 1:                 
+                        f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i].cumulative_photo[a]<<endl;
+                    break;
+                    default:
+                        continue;
+                }
+                previous_t = t[i];
+            }
+            f.close();  
         }
-        f<<endl;
-        // Iterate over time.
-        double t_fineness = timespan_au  / num_steps_out;
-        double previous_t = t[0]-t_fineness;
-        int i = -1;
-        while (i <  static_cast<int>(t.size())-1){
-            i++;
-            if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){ 
-                continue;
-            }            
-            // Make sure all "natom-dimensioned" objects are the size expected
-            assert(input_params.Store.size() == y[i].atomP.size());
-            
-            f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i].atomP[a]<<endl;   // prob. multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au
-            previous_t = t[i];
-        }
-        f.close();           
-    }
     // save rates. // DISABLED as rates not integrated with solver properly yet.
     /*
     string fname = dir+"rates.csv";
@@ -670,12 +699,15 @@ void ElectronRateSolver::loadBound() {
 void ElectronRateSolver::log_config_settings(ofstream& _log){
     #ifdef NO_TBR
     _log << "[ Config ] Three Body Recombination disabled in config.h" << endl;
+    cout <<  "\033[101m[ Config ] Three Body Recombination disabled in config.h\033[0m"<<endl; 
     #endif
     #ifdef NO_EE
     _log << "[ Config ] Electron-Electron interactions disabled in config.h" << endl;
+    cout <<  "\033[101m[ Config ] Electron-Electron interactions disabled in config.h\033[0m"<<endl; 
     #endif
     #ifdef NO_EII
     _log << "[ Config ] Electron-Impact ionisation disabled in config.h" << endl;
+    cout <<  "\033[101m[ Config ] Electron-Impact ionisation disabled in config.h\033[0m"<<endl; 
     #endif
     #ifdef BOUND_GD_HACK
     _log << "[ Config ] hacky bound transport enabled" << endl;

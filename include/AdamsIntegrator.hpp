@@ -54,7 +54,7 @@ protected:
     virtual void set_zero_y() =0;
     T zero_y;
 
-    std::vector<T> y_bg;  // background
+    std::vector<T> y_bg;  // background to use for boundary exchange. (e.g. data from prior simulation of mother liquor)
 
 };
 
