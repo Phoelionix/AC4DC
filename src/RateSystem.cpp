@@ -34,6 +34,7 @@ state_type::state_type() {
     for (size_t i = 0; i < atomP.size(); i++) {
         atomP[i].resize(P_sizes[i]);
     }
+    cumulative_photo.resize(atomP.size());
 }
 
 
@@ -52,6 +53,7 @@ state_type& state_type::operator+=(const state_type &s) {
 
 state_type& state_type::operator*=(const double x) {
     for (size_t r = 0; r < atomP.size(); r++) {
+        cumulative_photo[r] *= x;
         for (size_t i = 0; i < atomP[r].size(); i++) {
             atomP[r][i] *= x;
         }
@@ -63,6 +65,8 @@ state_type& state_type::operator*=(const double x) {
 
 // convenience members
 state_type& state_type::operator=(const double x) {
+    for (auto&a : cumulative_photo)
+        a=x;
     for (auto& P : atomP) {
         for (auto& p : P) {
             p=x;

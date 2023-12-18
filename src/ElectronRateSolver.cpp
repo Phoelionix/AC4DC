@@ -66,6 +66,7 @@ state_type ElectronRateSolver::get_initial_state() {
         }
     }
     initial_condition.F=0;
+    initial_condition.cumulative_photo = std::vector(input_params.Store.size(),0.0);
     // std::cout<<"[ Rate Solver ] initial condition:"<<std::endl;
     // std::cout<<"[ Rate Solver ] "<<initial_condition<<std::endl;
     // std::cout << endl;
@@ -101,7 +102,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
     }
     
     
-
+    
     /// Set up the grid
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
         double old_trans_e = param_cutoffs.transition_e;

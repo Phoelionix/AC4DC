@@ -323,9 +323,9 @@ void Hybrid<T>::step_stiff_part(unsigned n){
     int excess_count = 0;
     int under_count = 0;
     int num_ministep_reductions = 0;
+    #endif
     old_mini_n = mini_n;
     old_y_transient = y_transient; // Stores final ministeps of step n-1.
-    #endif
     while (mini_n < old_mini_n + num_stiff_ministeps){  // mini_n = n if num_stiff_ministeps = 1.
         
         // Adams-Moulton step I believe -S.P.
