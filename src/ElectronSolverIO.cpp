@@ -189,7 +189,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
                 case 1:
                     fname = dir+"photo_"+input_params.Store[a].name+".csv";
                     header = string("# Cumulative photoionisation\n")
-                    + string("# Time (fs) | Total photoionised electron density \n");
+                    + string("# Time (fs) | Total photoionised electron density\n");
                     std::cout << "Rates: \033[94m'"<<fname<<"'\033[95m | "<<std::endl;
                 break;
                 default:
@@ -200,8 +200,8 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
                         
             f.open(fname);
             f << header<<std::flush;
-            f << "#           | ";
             if (mode == 0){
+                f << "#           | ";
                 // Index, Max_occ inherited from MolInp
                 for (auto& cfgname : input_params.Store[a].index_names) {
                     f << cfgname << " ";
