@@ -65,6 +65,7 @@ class Plotter:
         self.gridFile = self.outDir + "/knotHistory.csv"
 
         self.boundData={}
+        self.photoData={}
         self.chargeData={}
         self.freeData=None
         self.intensityData=None
@@ -133,7 +134,8 @@ class Plotter:
                         self.atomdict[a]={
                             'infile': file,
                             'mtime': path.getmtime(file),
-                            'outfile': self.outDir+"/dist_%s.csv"%a}
+                            'outfile': self.outDir+"/dist_%s.csv"%a,
+                            'photofile': self.outDir + "/photo_%s.csv"%a}
 
     def update_inputs(self):
         self.get_atoms()
@@ -583,7 +585,8 @@ class Plotter:
                 #print("FORM FACTOR IDEAL",ff)
         return ff,time_step    
     
-    def get_ground_state(self,atom):
+    # Used by scatter code. Returns ground state's shell occupancies. (Assumes only s and p orbitals).
+    def get_ground_state_shells(self,atom):
         orboccs = parse_elecs_from_latex(self.statedict[atom][0])
         occ_list = [-99]*10
         for orb, occ in orboccs.items():
@@ -652,6 +655,10 @@ class Plotter:
             raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
             self.boundData[a] = raw[:, 1:]
             self.statedict[a] = self.get_bound_config_spec(a)
+            # rates
+            raw = np.genfromtxt(self.atomdict[a]['photofile'], comments='#', dtype=np.float64)
+            self.photoData[a] = raw[:, 1] 
+
         self.atomic_numbers = self.get_atomic_numbers()
         self.grid_update_time_Data = []
         self.grid_point_Data = []
@@ -852,29 +859,39 @@ class Plotter:
         old_ytop = ax.get_ylim()[1]
         ax.set_ylim([-0.5,len(Y)-0.5])
 
-    def plot_orbitals_bar(self, a, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[0,1],orbitals=None,**kwargs):
-        if show_pulse_profile:  
-            ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),col="white")
-        else:
-            ax = self.get_next_ax()
-        self.aggregate_charges()
-        #print_idx = np.searchsorted(self.timeData,-7.5)
-        ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))                        
-
-        Z,labels = self.get_orbital_data(a,orbitals)
-        Y = range(len(Z))
-        ax.set_facecolor('black')
-        cm = ax.pcolormesh(self.timeData, Y, Z,cmap="Spectral",rasterized=True,vmin=0)
-        cbar = self.fig.colorbar(cm,ax=ax,label="Average "+a+" orbital occupancy")
-        ax.set_yticks(ticks=Y,labels=labels)
+    def plot_orbitals_bar(self, atoms = None, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],orbitals=None,normalise=False,**kwargs):
+        if atoms is None: 
+            atoms = self.atomdict
         
-        ax.set_xlabel("Time (fs)")            
+        for a in atoms:
+            if show_pulse_profile:  
+                ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),col="white")
+            else:
+                ax = self.get_next_ax()
+            self.aggregate_charges()
+            #print_idx = np.searchsorted(self.timeData,-7.5)
+            ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))                        
 
-        ax.set_ylabel(r"Orbital")
-        old_ytop = ax.get_ylim()[1]
-        ax.set_ylim([-0.5,len(Y)-0.5])     
-        if show_pulse_profile:   
-            ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
+            Z,labels = self.get_orbital_data(a,orbitals)
+            Y = range(len(Z))
+            if normalise:
+                Z = np.array(Z)[:]/np.array(Z)[:,0][:,None]
+            ax.set_facecolor('black')
+            vmax = None
+            cm = ax.pcolormesh(self.timeData, Y, Z,cmap="Spectral",rasterized=True,vmin=0)
+            z_label = "Avg. "+a.split("_")[0]+" orbital occupancy"
+            if normalise:
+                z_label = a.split("_")[0] + " orbital density"
+            cbar = self.fig.colorbar(cm,ax=ax,label=z_label,format="%.1f")            
+            ax.set_yticks(ticks=Y,labels=labels)
+            
+            ax.set_xlabel("Time (fs)")            
+
+            ax.set_ylabel(r"Orbital")
+            old_ytop = ax.get_ylim()[1]
+            ax.set_ylim([-0.5,len(Y)-0.5])     
+            if show_pulse_profile:   
+                ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
 
     def get_orbital_data(self,a,orbitals):
         self.aggregate_charges(False)
@@ -899,6 +916,17 @@ class Plotter:
                 tot += orboccs[subshell]*self.boundData[a][:,i]*norm
             orb_density.append(tot)      
         return orb_density, labels             
+    
+    def plot_photoionisation(self,atoms,show_pulse_profile=True):
+        if atoms is None: 
+            atoms = self.atomdict        
+        for a in atoms:
+            if show_pulse_profile:  
+                ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
+            else:
+                ax = self.get_next_ax()        
+            ax.scatter(self.timeData,self.photoData[a])
+            
 
     def plot_subshell(self, a, subshell='1s',rseed=404):
         if not hasattr(self, 'ax_subshell'):
@@ -917,13 +945,21 @@ class Plotter:
         self.fig.subplots_adjust(left=0.2, right=0.95, top=0.95, bottom=0.2)
 
 
-    def plot_tot_charge(self, every=1,densities = False,colours=None,atoms=None,plot_legend=True,charge_difference=True,ylim=[None,None],plot_derivative=False,legend_loc='upper left',**kwargs):
+    def plot_tot_charge(self, every=1,densities = False,colours=None,atoms=None,plot_legend=True,charge_difference=True,xlim=[None,None],ylim=[None,None],plot_derivative=False,legend_loc='upper left',**kwargs):
         '''
         plot_derivative (bool), if True, plots average ionisation rate instead of average charge. 
         '''
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
         #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
         T = self.timeData[::every]
+        T_start = 0
+        if xlim[0] is not None:
+            T_start = np.searchsorted(T,xlim[0])
+        T_end = len(T)
+        if xlim[1] is not None:
+            T_end = np.searchsorted(T,xlim[1])
+        T = self.timeData[T_start:T_end]
+        
         self.aggregate_charges(charge_difference)
         self.Q = np.zeros(T.shape[0]) # total charge
         colour = None
@@ -937,7 +973,7 @@ class Plotter:
             # Plot trace for the atom
             atomic_charge = np.zeros(T.shape[0])
             for i in range(self.chargeData[a].shape[1]):
-                atomic_charge += self.chargeData[a][::every,i]*i
+                atomic_charge += self.chargeData[a][::every,i][T_start:T_end]*i
             if not densities:
                 atomic_charge /= np.sum(self.chargeData[a][0])
             if not plot_derivative:
@@ -995,6 +1031,7 @@ class Plotter:
                 ax.set_ylabel("Average ionisation rate ($e \cdot fs^{-1}$)")
             elif charge_difference:
                 ax.set_ylabel("Avg. charge difference")  # Sometimes we start with charged states.
+        ax.set_xlim(xlim)
         ax.set_ylim(ylim)
         # ax.set_xlim(None,-18.6)
         # ax.set_ylim(0,5)
@@ -1002,13 +1039,21 @@ class Plotter:
             ax.legend(loc = legend_loc)
         return ax
     
-    def plot_orbitals_charge(self, every=1,densities = False,cmap=None,atom=None,orbitals = None,plot_legend=True,ylim=[None,None],plot_derivative=False,legend_loc='lower left',**kwargs):
+    def plot_orbitals_charge(self, every=1,densities = False,cmap=None,atom=None,orbitals = None,plot_legend=True,xlim=[None,None],ylim=[None,None],plot_derivative=False,legend_loc='lower left',**kwargs):
         '''
         plot_derivative (bool), if True, plots average ionisation rate instead of average charge. 
         '''
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
         #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
         T = self.timeData[::every]
+        T_start = 0
+        if xlim[0] is not None:
+            T_start = np.searchsorted(T,xlim[0])
+        T_end = len(T)
+        if xlim[1] is not None:
+            T_end = np.searchsorted(T,xlim[1])
+        T = self.timeData[T_start:T_end]        
+        
         avg_occupancies,labels = self.get_orbital_data(atom,orbitals)
 
         if cmap is None:
@@ -1017,6 +1062,7 @@ class Plotter:
         colours = [plt.get_cmap(cmap)((i)/len(avg_occupancies)) for i in range(len(avg_occupancies)) ]
 
         for Y, label, col in zip(avg_occupancies,labels,colours):
+            Y = Y[::every][T_start:T_end]
             if not plot_derivative:
                 ax.plot(T,Y,label=label,color=col,**kwargs)
             else:
@@ -1072,6 +1118,7 @@ class Plotter:
         #         ax.set_ylabel("Average ionisation rate ($e \cdot fs^{-1}$)")
         #     elif charge_difference:
         #         ax.set_ylabel("Avg. charge difference")  # Sometimes we start with charged states.
+        ax.set_xlim(xlim)
         ax.set_ylim(ylim)
         # ax.set_xlim(None,-18.6)
         # ax.set_ylim(0,5)

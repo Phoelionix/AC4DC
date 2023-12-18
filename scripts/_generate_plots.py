@@ -25,12 +25,13 @@ from QoL import set_highlighted_excepthook
 ####
 ELECTRON_DENSITY = False # energy density if False
 ###
-PLOT_ELEMENT_CHARGE= True
+PLOT_ELEMENT_CHARGE= False
 PLOT_FREE_CONTINUUM = False
 PLOT_FREE_SLICES=False
 PLOT_ION_RATIOS=False
 PLOT_ION_RATIOS_BARS=False
-PLOT_ORBITAL_DENSITIES = False
+PLOT_ORBITAL_DENSITIES = True
+PLOT_PHOTO_RATES = True
 ###
 FIGWIDTH = FIGWIDTH = 3.49751
 FIGHEIGHT = FIGWIDTH*2/4
@@ -56,9 +57,9 @@ def main():
     assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder."
     for data_folder in sys.argv[1:]:
         label = data_folder +'_Plt'
-        make_some_plots(data_folder,molecular_path,label,dname_Figures,PLOT_ELEMENT_CHARGE,PLOT_ION_RATIOS,PLOT_FREE_CONTINUUM,PLOT_FREE_SLICES,PLOT_ION_RATIOS_BARS,PLOT_ORBITAL_DENSITIES)
+        make_some_plots(data_folder,molecular_path,label,dname_Figures,PLOT_ELEMENT_CHARGE,PLOT_ION_RATIOS,PLOT_FREE_CONTINUUM,PLOT_FREE_SLICES,PLOT_ION_RATIOS_BARS,PLOT_ORBITAL_DENSITIES,PLOT_PHOTO_RATES)
 
-def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, charge_conservation=False,bound_ionisation=False,free=False,free_slices=False,bound_ionisation_bar=False,orbital_densities_bar=False):
+def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, charge_conservation=False,bound_ionisation=False,free=False,free_slices=False,bound_ionisation_bar=False,orbital_densities_bar=False,photo_rates = False):
     '''
     Arguments:
     mol_name: The name of the folder containing the simulation's data (the csv files). (By default this is the stem of the mol file.)
@@ -76,8 +77,11 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
 
     pl = Plotter(mol_name,sim_output_parent_dir,use_electron_density = ELECTRON_DENSITY)
     num_atoms = len(pl.statedict)
-    num_subplots = charge_conservation + bound_ionisation*num_atoms + free + free_slices + bound_ionisation_bar + orbital_densities_bar
+    num_subplots = charge_conservation + free + free_slices + bound_ionisation_bar + (bound_ionisation+ orbital_densities_bar+ photo_rates)*num_atoms 
     pl.setup_axes(num_subplots)
+    if num_subplots > 1:
+        pl.fig.tight_layout()
+        pl.fig.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.15, hspace=None)
 
     if charge_conservation: 
         pl.plot_tot_charge(every=10,charge_difference=True,legend_loc="best")  #TODO automatically set to charge_difference to True if starting with ions...
@@ -88,8 +92,10 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         pl.plot_charges_bar("C",show_pulse_profile=False)
         #plt.gcf().set_figwidth(15)        
     if orbital_densities_bar:
-        pl.plot_orbitals_bar("C",show_pulse_profile=True)
+        pl.plot_orbitals_bar(atoms=None,show_pulse_profile=True,normalise = True)
         #pl.plot_orbitals_bar("Gd_fast",show_pulse_profile=True,orbitals=["3p","4p","5p"])
+    if photo_rates:
+        pl.plot_photoionisation(atoms=None,show_pulse_profile=True)
     if bound_ionisation:
         pl.plot_all_charges(show_pulse_profile=False,ylim=[0,1])
 
@@ -249,8 +255,12 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
     # pl.ax_steps.set_xscale("linear")
     # pl.ax_steps.set_xlim([0,1800])
     # pl.ax_steps.set_ylim([0.5e-4,0.5])
-    plt.gcf().set_figwidth(FIGWIDTH)
-    plt.gcf().set_figheight(FIGHEIGHT)  
+    if num_subplots > 1:
+        plt.gcf().set_figwidth(FIGWIDTH*pl.axs.shape[0])
+        plt.gcf().set_figheight(FIGHEIGHT*pl.axs.shape[1])  
+    else:
+        plt.gcf().set_figwidth(FIGWIDTH)
+        plt.gcf().set_figheight(FIGHEIGHT)          
     #plt.tight_layout()
     plt.savefig(figure_output_dir + label + figures_ext)
     plt.close()
