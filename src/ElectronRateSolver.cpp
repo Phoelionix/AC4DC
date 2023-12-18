@@ -118,7 +118,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
                 param_cutoffs.transition_e = 250*e;
                 regimes.mb_peak=0; regimes.mb_min=Distribution::get_lowest_allowed_knot(); regimes.mb_max=10*e;
                 // cast a wide net to ensure we capture all dirac peaks. // TODO? there has to be a much better way than this.
-                double photo_peak = -1, photo_min = 1e9, photo_max = -1e9; 
+                double photo_min = 1e9, photo_max = -1e9; 
                 for(auto& atom : input_params.Store) {
                     for(auto& r : atom.Photo) {      
                         //photo_min = min(photo_min,r.energy*5/6);
@@ -257,15 +257,10 @@ void ElectronRateSolver::solve(ofstream & _log, const std::string& tmp_data_fold
     good_state = true;
     size_t npoints = (simulation_end_time - simulation_start_time)/this->dt + 1;
     this->iterate(_log,simulation_start_time, npoints, simulation_resume_time, steps_per_time_update); // Inherited from ABM
-
     
-    
-    // 12-04 leaving this for now since I'm using it to catch really bad errors, but it now serves no more than that in practice.
-    // (original: Uses finer time steps to attempt to resolve NaN encountered in ODE solving.) 
-    double time = this->t[0];
-    int retries = 0;  // int retries = 1;  <---- Turned off for now
-    while (!good_state) {
-        throw std::runtime_error("For an unexpected reason, a bad state was not or ceased being attempted to be resolved with finer timesteps.");
+    if (!good_state) {
+        _log<<"[ CRITICAL ERROR ] For an unexpected reason, a bad state was not, or ceased being, attempted to be resolved with finer timesteps."<<endl;
+        throw std::runtime_error("For an unexpected reason, a bad state was not, or ceased being, attempted to be resolved with finer timesteps.");
     }
 
     auto end = chrono::system_clock::now();
@@ -674,7 +669,7 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
                 // if t' = t(n) + u 
                 // y(t') = y(n) + [y(n+1) - y(n)] * u/[t(n+1)-t(n)]  = y(n) + dy
                 // find dy
-                assert(rel_idx < saved_times.size());
+                assert(rel_idx < static_cast<int>(saved_times.size()));
                 interpolated_states.at(i) = saved_states.at(rel_idx);
                 interpolated_states[i] *= -1;
                 interpolated_states[i] += saved_states.at(rel_idx +1);
@@ -692,7 +687,7 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     // Fill in rest of times.
     t.resize(n+1); t.resize(input_params.num_time_steps);
     // Set up the t grid       
-    for (size_t i=n+1; i<input_params.num_time_steps; i++){
+    for (int i=n+1; i<input_params.num_time_steps; i++){
         this->t[i] = this->t[i-1] + this->dt;
     }
     steps_per_grid_transform = round(steps_per_grid_transform*fact);
@@ -810,16 +805,16 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
     auto t_start_dyn_dt = std::chrono::high_resolution_clock::now();
     // store checkpoint
     if ((n-this->order+1)%checkpoint_gap == 0){  //
+        assert(n>this->order);
         old_checkpoint = checkpoint;
-
         // Find the nearest streak of states in the same knot basis. 
         // This looks for the most recent grid update, BEFORE the current step.
         // if the knot was changed on the current step, stop, as we are only saving the previous steps (which will not have been transformed), and this will correspond to the same point that was stopped by the corresponding previous call of this code. 
         size_t checkpoint_n = n;
-        while (int(checkpoint_n) - int(Distribution::most_recent_knot_change_idx(checkpoint_n-1)) < this->order) {
+        while (static_cast<int>(checkpoint_n) - static_cast<int>(Distribution::most_recent_knot_change_idx(checkpoint_n-1)) < static_cast<int>(this->order)) {
             checkpoint_n--;
             assert(checkpoint_n > this->order);
-            assert(int(checkpoint_n) > int(n) - this->order-1); // may trigger if knot changes too close together.
+            assert(static_cast<int>(checkpoint_n) > static_cast<int>(n) - static_cast<int>(this->order)-1); // may trigger if knot changes too close together.
         }           
         std::vector<state_type> check_states;
         std::vector<double> check_times;
@@ -906,7 +901,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
           std::cout.clear(); // enable character output
           y.resize(old_size); t.resize(old_size);
           // re-set the future t values       
-          for (int i=n+1; i<old_size; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
+          for (size_t i=n+1; i<old_size; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
               this->t[i] = this->t[i-1] + this->dt;
           }          
         backup_time += std::chrono::high_resolution_clock::now() - t_start_backup;
@@ -1056,7 +1051,6 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::ve
 
     if (rates_uninitialised == false){
         if(_log.is_open()){
-            double e = Constant::eV_per_Ha;
             _log << "------------------- [ Reloaded Step ] -------------------\n" 
             "Time: "<<t[load_step]*Constant::fs_per_au <<" fs; "<<"Step: "<<load_step<<"\n" 
             << endl;

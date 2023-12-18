@@ -144,7 +144,7 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, size_t npoints, const 
         // Try to set checkpoint to be at the starting step 
         // Check if need to set it before the last knot change.
         size_t checkpoint_n = resume_n;
-        while (int(checkpoint_n) - int(Distribution::most_recent_knot_change_idx(checkpoint_n-1)) < this->order) {
+        while (static_cast<int>(checkpoint_n) - static_cast<int>(Distribution::most_recent_knot_change_idx(checkpoint_n-1)) < static_cast<int>(this->order)) {
             checkpoint_n--;
             assert(checkpoint_n > this->order);
             assert(checkpoint_n > resume_n - this->order); // may trigger if knot changes too close together.
@@ -319,11 +319,13 @@ void Hybrid<T>::step_stiff_part(unsigned n){
     assert(this->y[n].F[3] == y_transient[last_rel_idx].F[3]);
     #endif
     
+    #ifndef NO_MINISTEP_UPDATING
     int excess_count = 0;
     int under_count = 0;
     int num_ministep_reductions = 0;
     old_mini_n = mini_n;
     old_y_transient = y_transient; // Stores final ministeps of step n-1.
+    #endif
     while (mini_n < old_mini_n + num_stiff_ministeps){  // mini_n = n if num_stiff_ministeps = 1.
         
         // Adams-Moulton step I believe -S.P.

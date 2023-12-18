@@ -205,7 +205,7 @@ void Adams_BM<T>::step_nonstiff_part(int n) {
     this->sys_bound(tmp2, tmp, this->y_bg[n+1], this->t[n+1]);
     tmp *= b_AM[0];
     // Now tmp goes back to being an aggregator
-    for (int i = 1; i < order; i++) {
+    for (size_t i = 1; i < order; i++) {
         this->sys_bound(this->y[n-i+1], ydot, this->y_bg[n-i+1], this->t[n-i+1]);
         ydot *= b_AM[i];
         tmp += ydot;
