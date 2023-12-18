@@ -20,14 +20,14 @@ def main():
   PULSE_PARAMETERS = 0; SOURCE_PARAMETERS = 1
 
   #MODE = PULSE_PARAMETERS
-  MODE = SOURCE_PARAMETERS
+  MODE = PULSE_PARAMETERS
 
   
   if MODE is PULSE_PARAMETERS:
   # https://www.xfel.eu/sites/sites_custom/site_xfel/content/e35165/e46561/e46876/e179573/e179574/xfel_file179576/19042023_Parameters_factsheet_2024-01_Final_eng.pdf
-    ENERGIES = [7000,8000,9000,10000,11000,12000,13000,14000,15000,16000,17000,18000]
+    ENERGIES = [7000,8000,9000,10000,11000,13000,15000]
     FWHMS = [15]
-    PHOTON_COUNTS = [1]
+    PHOTON_COUNTS = [10]
 
     SOURCE_FRACTION = None
     SOURCE_ENERGY = None
@@ -38,11 +38,11 @@ def main():
      ELECTRON_SOURCE = True 
      ENERGY = 10000
      FWHM = 15
-     PHOTON_COUNT = 1
+     PHOTON_COUNT = 10
 
-     SOURCE_FRACTIONS = [3]
-     SOURCE_ENERGIES = [0, 500,1000,1500,2000,2500,3000,3500,4000]
-     SOURCE_DURATIONS = [0.0278]
+     SOURCE_FRACTIONS = [0.75]
+     SOURCE_ENERGIES = [1000,1500,2000,2500,3000,4000]
+     SOURCE_DURATIONS = [0.3,0.5,1]
 
   ##########
 
@@ -65,7 +65,7 @@ def main():
   if not path.exists(batch_dir):
     os.makedirs(batch_dir)
 
-  atoms, volume = copy_params(infile_path,handle)
+  atoms, secondary_ion_exclusions, volume = copy_params(infile_path,handle)
   i = 1
   
   if MODE is PULSE_PARAMETERS:
@@ -73,6 +73,7 @@ def main():
     param_space = np.stack(np.meshgrid(FWHMS,PHOTON_COUNTS,ENERGIES),-1).reshape(-1,3)  # Note that last variable is the "inner loop", iterated over first and the most.
     feedin_dicts = [{
         'atoms' : atoms,
+        'scndry_exclusions' : secondary_ion_exclusions,
         'volume' : volume,
         'energy' : params[2],
         'photon_count' : params[1],    
@@ -87,6 +88,7 @@ def main():
     assert(ELECTRON_SOURCE is True)
     feedin_dicts = [{
           'atoms' : atoms,
+          'scndry_exclusions' : secondary_ion_exclusions,
           'volume' : volume,
           'energy' : ENERGY,
           'photon_count' : PHOTON_COUNT,    
@@ -114,34 +116,44 @@ def copy_params(mol_path,handle):
     input_path = "input/"
     molfile = find_mol_file_from_directory(input_path,handle)
     atom_lines = []
+    exclusion_lines = []
     volume = None    
     with open(molfile, 'r') as f:
         reading_atoms = False
         reading_volume = False
+        reading_secondary_ion_exclusions = False
         n = 0
         for line in f:
             if line.startswith("#ATOMS"):
                 reading_atoms = True
-                continue                
+                continue             
+            if line.startswith("#BOUND_FREE_EXCLUSIONS"):
+                reading_secondary_ion_exclusions = True
+                continue                     
             elif line.startswith("#VOLUME"):
                 reading_volume=True
                 continue
             elif line.startswith("#") or line.startswith("//") or len(line.strip()) == 0:
                 reading_atoms = False
                 reading_volume = False
+                reading_secondary_ion_exclusions = False
                 n = 0
                 continue
             if line.startswith("####END####"):
                 break
             if reading_atoms:
                 atom_lines.append(line)
+            if reading_secondary_ion_exclusions:
+               exclusion_lines.append(line)
             if reading_volume:
                 if n == 0:
                     volume = float(line.split(' ')[0])
                 n += 1
     print("Atoms:",atom_lines)
+    if len(exclusion_lines > 0):
+      print("Exclusions:",exclusion_lines)
     print("Volume:", volume)
-    return atom_lines, volume
+    return atom_lines, exclusion_lines, volume
 
 def make_mol_file(fname, outfile, param_dictionary):
   
@@ -162,6 +174,10 @@ def make_mol_file(fname, outfile, param_dictionary):
   plasma_file.write("""#ATOMS\n""")
   for line in P.atoms:
     plasma_file.write(line)
+
+  plasma_file.write("""EBOUND_FREE_EXCLUSIONS\n""")
+  for line in P.scndry_exclusions:
+    plasma_file.write(line)  
   
   plasma_file.write("""\n#VOLUME\n""")
   plasma_file.write("""%.2f      // Volume per molecule in Angstrom^3.\n""" % P.volume)
