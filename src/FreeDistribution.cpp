@@ -42,10 +42,10 @@ SplineIntegral Distribution::basis;
 size_t Distribution::size=0;  
 
 // Psuedo-constructor thing (Maybe not anymore... -S.P.)
-void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, ManualGridBoundaries elec_grid_regions, DynamicGridPreset dyn_grid_preset){
+void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, ManualGridBoundaries elec_grid_regions){
     // Defines a grid of num_funcs points (if manual, thsi is the total number of free-electron grid points specified in the .mol file.)
     // where num_funcs is the number of non-boundary (i.e. "usable") splines/knots.
-    basis.set_parameters(grid_style, elec_grid_regions,regimes,dyn_grid_preset);
+    basis.set_parameters(grid_style, elec_grid_regions,regimes);
     knots_history.push_back(indexed_knot{step,get_knot_energies()});
     Distribution::size=basis.num_funcs;
     Distribution::CoulombLog_cutoff = basis.i_from_e(param_cutoffs.transition_e);
@@ -60,11 +60,11 @@ void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_
 }
 
 
-void Distribution::set_basis(size_t step, Cutoffs param_cutoffs, FeatureRegimes regimes, std::vector<double> knots){
+void Distribution::set_basis(size_t step, Cutoffs param_cutoffs, FeatureRegimes regimes, std::vector<double> knots, bool update_knot_history){
     // Defines a grid of num_funcs points (if manual, thsi is the total number of free-electron grid points specified in the .mol file.)
     // where num_funcs is the number of non-boundary (i.e. "usable") splines/knots.
     basis.set_parameters(regimes, knots);
-    knots_history.push_back(indexed_knot{step,get_knot_energies()});
+    if(update_knot_history){knots_history.push_back(indexed_knot{step,get_knot_energies()});}
     Distribution::size=basis.num_funcs;
     Distribution::CoulombLog_cutoff = basis.i_from_e(param_cutoffs.transition_e);
     #ifdef INFINITE_COULOMBLOG_CUTOFF
@@ -189,12 +189,12 @@ void Distribution::add_maxwellian(double T, double N) {
 void Distribution::transform_basis(std::vector<double> new_knots){
     int new_basis_order = basis.BSPLINE_ORDER;
     //// Get knots that have densities
-    int num_new_splines = get_trimmed_knots(new_knots).size();   // TODO replace get_trimmed_knots with get_num_funcs?. 
+    int num_new_splines = static_cast<int>(get_trimmed_knots(new_knots).size());   // TODO replace get_trimmed_knots with get_num_funcs?. 
     //// Compute densities for knots
     std::vector<std::vector<double>> new_densities(num_new_splines, std::vector<double>(64, 0));
 
     // Cackle and iterate through each new spline.
-    for (size_t i=0; i<num_new_splines; i++){
+    for (size_t i=0; static_cast<int>(i)<num_new_splines; i++){
         // Use current basis to generate the density terms for gaussian integration at for each basis point.   
         // Black magic. ଘ(੭ˊᵕˋ)੭.*･｡ﾟ
         double a = new_knots[i];                  // i.e. <new_basis>.supp_min(i);
@@ -272,7 +272,7 @@ size_t Distribution::most_recent_knot_change_idx(size_t step_idx){
 
 
 size_t Distribution::next_knot_change_idx(size_t step_idx){
-    size_t next_knot_update = INFINITY;
+    size_t next_knot_update;
     // Find the step of the next knot update as of step_idx. (will return next update idx if given the step of the change.)
     for(auto elem: knots_history){
         if (elem.step > step_idx){

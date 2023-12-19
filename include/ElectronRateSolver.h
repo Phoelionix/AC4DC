@@ -87,9 +87,17 @@ public:
             simulation_end_time = min(input_params.Simulation_Cutoff(),simulation_end_time); 
         }
         simulation_resume_time = simulation_start_time;  // If loading simulation, is overridden by ElectronRateSolver::set_starting_state();
-         
 
-        set_grid_regions(input_params.elec_grid_regions);
+        switch (input_params.elec_grid_type.mode)  
+        {
+            case GridSpacing::manual:
+                set_grid_regions(input_params.elec_grid_regions);
+                break;
+            case GridSpacing::dynamic:
+            if (input_params.elec_grid_preset.selected != DynamicGridPreset::unknown)
+                Distribution::initialise_dynamic_regions(input_params.elec_grid_preset);
+             
+        }
 
         grid_update_period = input_params.Grid_Update_Period();  // TODO the grid update period should be made to be at least 3x (probably much more) longer with a gaussian pulse, since early times need it to be updated far less often to avoid instability for such a pulse. 
         steps_per_time_update = max(1 , (int)(input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
@@ -106,7 +114,7 @@ public:
     /// Sets up the rate equations, which requires computing the atomic cross-sections/avg. transition rates to get the coefficients.
     void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0,bool force_update = false); //bool recalc=true);
     /// creates the tensor of coefficients 
-    void initialise_rates();
+    void compute_free_grid_rates();
     void tokenise(std::string str, std::vector<double> &out, const size_t start_idx = 0, const char delim = ' ');
 
     /// Number of secs taken for simulation to run
@@ -131,7 +139,6 @@ private:
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)  // TODO need to refactor to store variables that we change later rather than alter input_params directly. Currently doing a hybrid of this.
     ManualGridBoundaries elec_grid_regions;
     Cutoffs param_cutoffs; 
-    double first_gp_min_E = 4/Constant::eV_per_Ha; // warning: going below ~4 eV leads to a much greater number of steps needed for little benefit. Though there's potential to increase dt once MB grid points go higher I suppose.
     Pulse pf;
     double timespan_au; // Atomic units
     double simulation_start_time;  // [Au]
@@ -140,7 +147,7 @@ private:
     double fraction_of_pulse_simulated;
     double grid_update_period; // time period between dynamic grid updates.
 
-    void load_filtration_file(){};
+    void load_filtration_file(){}; //TODO
     // Model parameters
 
     // arrays computed at class initialisation
@@ -219,9 +226,14 @@ private:
 
     void set_grid_regions(ManualGridBoundaries gb);
     void set_starting_state();
-    state_type get_ground_state();
+    /**
+     * @brief Sets zero_y.
+     * @details zero_y corresponds to a system with no electrons. Used as an initial empty container in each ODE step.
+     */
+    void set_zero_y(); // 
+    state_type get_initial_state();
     void update_grid(ofstream& _log, size_t latest_step, bool force_update = false);
-    void reload_grid(ofstream& _log, size_t latest_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used);
+    size_t reload_grid(ofstream& _log, size_t load_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used);
 
     //void high_energy_stability_check();
     string its_dinner_time(std::vector<std::chrono::duration<double, std::milli>> times, std::vector<std::string> tags);
@@ -232,12 +244,14 @@ private:
 
 
     // Rates tracking: (this should be a class esp. due to checkpoint loading but I don't have time to do this properly)
+    #ifdef RATES_TRACKING
     std::vector<double> bound_transport_rate;
     std::vector<double> photo_rate;
     std::vector<double> fluor_rate;
     std::vector<double> auger_rate;
     std::vector<double> eii_rate;
     std::vector<double> tbr_rate;
+    #endif
 };
 
 

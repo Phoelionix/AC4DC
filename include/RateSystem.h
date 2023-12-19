@@ -41,9 +41,13 @@ class state_type
 public:
     /// Probabilities of state for all atoms.
     std::vector<bound_t> atomP; 
+    // Tracks sum total of photoionisation for all atoms.
+    std::vector<double> cumulative_photo;     
     /// Energy distribution function
     Distribution F;   
     double bound_charge;
+
+
 
     state_type();
 

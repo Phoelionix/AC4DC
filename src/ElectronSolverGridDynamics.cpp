@@ -177,17 +177,28 @@ double ElectronRateSolver::nearest_inflection(size_t step, double start_energy,d
 }
 
 // min distance in eV
-double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min_distance, double min_inflection_fract, double _min, double _max){
+/**
+ * @brief 
+ * 
+ * @param step 
+ * @param start_energy 
+ * @param del_energy 
+ * @param min_sequential 
+ * @param min_distance 
+ * @param inflection_fract 
+ * @param _min 
+ * @param _max 
+ * @return double 
+ */
+double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min_distance, double inflection_fract, double _min, double _max){
     min_distance /= Constant::eV_per_Ha;
     // Find 0 of second derivative
     double inflection = nearest_inflection(step,start_energy,del_energy,min_sequential,_min,_max);
     std::cout << inflection*Constant::eV_per_Ha;
-    // TODO For dirac use a function that has this changed such that, from the inflection above, 
-    // it finds the next minimum OR the next point at the cutoff energy, whichever comes first. 
-    double A = 1/min_inflection_fract; // region between peak and inflection take up min_inflection_frac at min distance.
+    // TODO For dirac use a function that has this changed such that, from the inflection above, it finds the next minimum OR the next point at the cutoff energy, whichever comes first. 
+    double A = 1/inflection_fract; 
     double D = min_distance;
     int sign = (0 < del_energy) - (del_energy < 0);
-    //return sign*max(A*sqrt(abs(start_energy - inflection))*sqrt(D/A),D) + start_energy;
     return sign*max(A*abs(start_energy - inflection),D) + start_energy;
 }
 
@@ -296,7 +307,7 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, std::vector<double>& m
     #ifdef SWITCH_OFF_DYNAMIC_BOUNDS
     return;
     #endif
-    double min_photo_peak_considered = 1500/Constant::eV_per_Ha;  // An energy that is above auger energies but will catch significant peaks. //TODO replace with transition energy of last regimes?
+    double min_photo_peak_considered = input_params.elec_grid_preset.min_dirac_region_peak_energy;  // An energy that is above auger energies but will catch significant peaks. //TODO replace with transition energy of last regimes?
     min_photo_peak_considered = min(0.7*input_params.elec_grid_preset.pulse_omega/Constant::eV_per_Ha,min_photo_peak_considered); // just to better support really low energies, though it's not the intended use.
     double peak_search_step_size = 10/Constant::eV_per_Ha;
     // Find peaks
@@ -323,7 +334,7 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, std::vector<double>& m
         down_e_step = max(down_e_step, -10/Constant::eV_per_Ha);
 
         // Get bounds
-        double min_distance = input_params.elec_grid_preset.pulse_omega/10; // the minimum distance from the peak that the region must cover.
+        double min_distance = input_params.elec_grid_preset.pulse_omega/10; // the minimum distance from the peak that the region must cover. // TODO this is very high...
         std::cout << "Inflections of peak at " <<e_peak*Constant::eV_per_Ha <<" are... Lwr:";
         double lower_bound = approx_regime_bound(step,e_peak, down_e_step, num_sequential_needed,min_distance,1./4.);
         std::cout <<", Upr: ";
@@ -365,7 +376,11 @@ void ElectronRateSolver::mb_energy_bounds(size_t step, double& _max, double& _mi
 
     double kT = 2*peak;
     // CDF = Γ(3/2)γ(3/2,E/kT)
-    double new_min = max(first_gp_min_E,Distribution::get_mb_min()*kT);
+
+    // Only allow shrinkage if the new peak is away from the minimum (sometimes the lower knot 'snaps' just before diverging, creating an unphysical minimum).
+    //TODO would be better to  take samples of minimum a few times between grid updates and using the second last sample if it is much closer to the median than the grid at the point of the update.
+    allow_shrinkage = allow_shrinkage&&peak>15/Constant::eV_per_Ha;
+    double new_min = max(Distribution::get_lowest_allowed_knot(),Distribution::get_mb_min()*kT);
     if(_min < new_min || allow_shrinkage){
         _min = new_min;
     }

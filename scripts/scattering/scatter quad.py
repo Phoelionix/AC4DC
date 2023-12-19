@@ -1,11 +1,5 @@
 #%%
-#TODO
-## Important
-# - make it so reflections don't overwrite same orientation, as stochastic now.
-# - should have option to average out same miller indices be averaged out.
-# - normalise damaged I rather than using neutze-style k factor in R factor.
-## Not so important 
-# - implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector (or just do SPI)
+# Unfinished replacement of intensity integration through time with gaussian quadrature.
 
 '''
 /*===========================================================================
@@ -656,7 +650,7 @@ class Atomic_Species():
                     seed = idx
                 self.orb_occs[idx],_dummy,self.orb_occ_dict = self.crystal.ff_calculator.random_state_snapshots(self.name,seed) 
         else:
-           self.ground_state = self.crystal.ff_calculator.get_ground_state(self.name)           
+           self.ground_state = self.crystal.ff_calculator.get_ground_state_shells(self.name)           
     def set_coord_deviation(self):
         self.num_atoms = len(self.crystal.sym_rotations)*len(self.coords)
         self.error = np.empty((self.num_atoms,3))
@@ -888,7 +882,7 @@ class XFEL():
                 d = SPI_resolution/ang_per_bohr # resolution
                 rim_q = res_to_q(d)
                 if self.max_q < rim_q:
-                    print ("WARNING: resolution of " + str(SPI_resolution) + " angstroms requires q to go beyond its maximum. Using max_q instead.")
+                    print ("WARNING: resolution of " + str(SPI_resolution) + " angstroms requires q to go beyond its maximum. Using max_q="+str(self.max_q/ang_per_bohr)+" instead.")
                     rim_q = self.max_q
             print("rim q:",rim_q)
 
@@ -1771,7 +1765,8 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             I2 = tmp_I2[unique_values_mask]
             radial_axis = radial_axis[unique_values_mask]
             phi = phi[unique_values_mask] + np.pi/2 # to align with the SPI pixel plot
-
+            phi[phi>=np.pi] -= 2*np.pi
+            
             #sector_histogram += get_histogram_contribution(z,result.phi,radial_axis)
             if result2 != None:
                 ## Sectors/Fragmented rings ##

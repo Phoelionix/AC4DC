@@ -59,7 +59,7 @@ void ElectronRateSolver::save(const std::string& _dir) {
     int i = -1;
     while (i < static_cast<int>(t.size())-1){  //TODO make this some constructed function or something
         i++;
-        if(t[i] < previous_t + t_fineness && i<= t.size()-extra_fine_steps_out){
+        if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){
             continue;
         }        
         times.push_back(t[i]);
@@ -69,13 +69,14 @@ void ElectronRateSolver::save(const std::string& _dir) {
 }
 
 void ElectronRateSolver::file_delete_check(const std::string& fname){
+    // Commented out messages due to not playing nice with ncurses
     if(std::filesystem::exists(fname)){
         if( remove( fname.c_str() ) != 0 ){
-            perror( "[ Output ] Error saving file: could not delete existing file" );
+            //perror( "[ Output ] Error saving file: could not delete existing file" );
             return;
             }
         else
-            puts( "File successfully deleted" );
+           ;// puts( "File successfully deleted" );
     }    
 }
 
@@ -116,11 +117,11 @@ void ElectronRateSolver::saveFree(const std::string& fname) {
     size_t next_knot_update = 0;
     while (i <  static_cast<int>(t.size())-1){
         i++;
-        if (i + order == next_knot_update or i == 0){  // EDIT: No this seems to be broken Original: The knot update indices correspond to an update at that index that also transformed the last 'order' of states (as in the solver's order).
-            Distribution::load_knots_from_history(i+order);
-            next_knot_update = Distribution::next_knot_change_idx(i+order);
+        if (i == static_cast<int>(next_knot_update) or i == 0){
+            Distribution::load_knots_from_history(i);
+            next_knot_update = Distribution::next_knot_change_idx(i);
         } 
-        if(t[i] < previous_t + t_fineness && i<= t.size()-extra_fine_steps_out){
+        if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){
             continue;
         }
         f<<round_time(t[i]*Constant::fs_per_au)<<" "<<y[i].F.output_densities(this->input_params.Out_F_size(),reference_knots)<<endl;
@@ -153,11 +154,11 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     size_t next_knot_update = 0;
     while (i <  static_cast<int>(t.size())-1){
         i++;
-        if (i + order == next_knot_update or i == 0){
-            Distribution::load_knots_from_history(i+order);
-            next_knot_update = Distribution::next_knot_change_idx(i+order);
+        if (i == static_cast<int>(next_knot_update) or i == 0){
+            Distribution::load_knots_from_history(i);
+            next_knot_update = Distribution::next_knot_change_idx(i);
         } 
-        if(t[i] < previous_t + t_fineness && i<= t.size()-extra_fine_steps_out){
+        if(t[i] < previous_t + t_fineness && i<=static_cast<int>(t.size())-extra_fine_steps_out){
             continue;
         }
         f<<round_time(t[i]*Constant::fs_per_au)<<" "<<y[i].F<<endl;  // Note that the << operator divides the factors by Constant::eV_per_Ha.
@@ -171,39 +172,68 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
 void ElectronRateSolver::saveBound(const std::string& dir) {
     // saves a table of bound-electron dynamics , split by atom, to folder dir.
     assert(y.size() == t.size());
-    // Iterate over atom types
     ofstream f;    
-    for (size_t a=0; a<input_params.Store.size(); a++) {
-        string fname = dir+"dist_"+input_params.Store[a].name+".csv";
-        file_delete_check(fname);
-        
-        cout << "Bound: \033[94m'"<<fname<<"'\033[95m | ";
-        f.open(fname);
-        f << "# Ionic electron dynamics"<<endl;
-        f << "# Time (fs) | State occupancy (Probability times number of atoms)" <<endl;
-        f << "#           | ";
-        // Index, Max_occ inherited from MolInp
-        for (auto& cfgname : input_params.Store[a].index_names) {
-            f << cfgname << " ";
+    // Iterate over save file type { 0: bound | 1: photoionisation | }
+    for (size_t mode=0; mode < 2; mode++)
+        // Iterate over atom types
+        for (size_t a=0; a<input_params.Store.size(); a++) {
+            string fname;
+            string header;
+            switch(mode){
+                case 0:
+                    fname = dir+"dist_"+input_params.Store[a].name+".csv";
+                    header = string("# Ionic electron dynamics\n") 
+                    + string("# Time (fs) | State occupancy (Probability times number of atoms)\n");
+                    std::cout << "Bound: \033[94m'"<<fname<<"'\033[95m | "<<std::endl;
+                break;
+                case 1:
+                    fname = dir+"photo_"+input_params.Store[a].name+".csv";
+                    header = string("# Cumulative photoionisation\n")
+                    + string("# Time (fs) | Total photoionised electron density\n");
+                    std::cout << "Rates: \033[94m'"<<fname<<"'\033[95m | "<<std::endl;
+                break;
+                default:
+                    continue;
+            }
+             
+            file_delete_check(fname);
+                        
+            f.open(fname);
+            f << header<<std::flush;
+            if (mode == 0){
+                f << "#           | ";
+                // Index, Max_occ inherited from MolInp
+                for (auto& cfgname : input_params.Store[a].index_names) {
+                    f << cfgname << " ";
+                }
+                f<<endl;
+            }
+            // Iterate over time.
+            double t_fineness = timespan_au  / num_steps_out;
+            double previous_t = t[0]-t_fineness;
+            int i = -1;
+            while (i <  static_cast<int>(t.size())-1){
+                i++;
+                if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){ 
+                    continue;
+                }            
+                switch(mode){
+                    case 0:
+                        // Make sure all "natom-dimensioned" objects are the size expected //TODO failsafe?
+                        assert(input_params.Store.size() == y[i].atomP.size());
+                        
+                        f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i].atomP[a]<<endl;   // prob. multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au                    
+                    break;
+                    case 1:                 
+                        f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i].cumulative_photo[a]<<endl;
+                    break;
+                    default:
+                        continue;
+                }
+                previous_t = t[i];
+            }
+            f.close();  
         }
-        f<<endl;
-        // Iterate over time.
-        double t_fineness = timespan_au  / num_steps_out;
-        double previous_t = t[0]-t_fineness;
-        int i = -1;
-        while (i <  static_cast<int>(t.size())-1){
-            i++;
-            if(t[i] < previous_t + t_fineness && i<= t.size()-extra_fine_steps_out){ 
-                continue;
-            }            
-            // Make sure all "natom-dimensioned" objects are the size expected
-            assert(input_params.Store.size() == y[i].atomP.size());
-            
-            f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i].atomP[a]<<endl;   // prob. multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au
-            previous_t = t[i];
-        }
-        f.close();           
-    }
     // save rates. // DISABLED as rates not integrated with solver properly yet.
     /*
     string fname = dir+"rates.csv";
@@ -221,7 +251,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
         std::vector<double> tmp {photo_rate[i],fluor_rate[i],auger_rate[i],bound_transport_rate[i],eii_rate[i],tbr_rate[i]};
         for (size_t j = 0; j < density.size();j++)
             density[j] += tmp[j]*(t[i]-t[i-1]);            
-        if(t[i] < previous_t + t_fineness && i<= t.size()-extra_fine_steps_out){ 
+        if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){ 
             continue;
         }
         f<<round_time(t[i]*Constant::fs_per_au) << ' ' << density<<endl;
@@ -244,9 +274,9 @@ void ElectronRateSolver::saveKnots(const std::string& fname) {
     assert(y.size() == t.size());
     size_t next_knot_update = 0;
     for (size_t i=0; i<t.size(); i++) {
-        if (i + order == next_knot_update or i == 0){
-            Distribution::load_knots_from_history(i+order);
-            next_knot_update = Distribution::next_knot_change_idx(i+order);
+        if (i == next_knot_update or i == 0){
+            Distribution::load_knots_from_history(i);
+            next_knot_update = Distribution::next_knot_change_idx(i);
             f<<t[i]*Constant::fs_per_au<<" "<<Distribution::output_knots_eV()<<endl;
         } 
     }
@@ -349,7 +379,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         assert(dt < timespan_au);
         input_params.num_time_steps = std::round(this->timespan_au/dt);
     }
-    this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance); // Set up so we can load, but in load_bound we set zero_y to the correct basis.
+    this->setup(get_initial_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance); // Set up so we can load, but in load_bound we set zero_y to the correct basis.
     steps_per_time_update = max(1 , (int)(input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
 
 
@@ -398,7 +428,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         s >> str_time;
         saved_time[i] = convert_str_time(str_time);                
 
-        if(saved_time[i] > input_params.Load_Time_Max() || i >= y.size()){
+        if(saved_time[i] > input_params.Load_Time_Max() || i >= static_cast<int>(y.size())){
             // time is past the maximum
             y.resize(i); // (Resized later by integrator for full sim.)
             t.resize(i);
@@ -425,7 +455,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         else{
             y[i].F.set_spline_factors(saved_f);
             //Distribution::set_knot_history(0,saved_knots);
-            //this->setup(get_ground_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
+            //this->setup(get_initial_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
             // Starting knots are given by loadKnots()
         }
         t[i] = saved_time[i];
@@ -608,7 +638,7 @@ void ElectronRateSolver::loadBound() {
         }
         
         //  initialise - fill with initial state
-        for(size_t count = 1; count < num_steps; count++){
+        for(size_t count = 1; static_cast<int>(count) < num_steps; count++){
             this->y[count].atomP[a] = this->y[0].atomP[a];
         }
         
@@ -626,7 +656,7 @@ void ElectronRateSolver::loadBound() {
                 break;
             }            
             matching_idx = find(t.begin(),t.end(),elem_time) - t.begin(); 
-            if (matching_idx >= t.size()){
+            if (matching_idx >= static_cast<int>(t.size())){
                 std::cerr << "Warning, mismatch in points between bound and free files!" << std::endl;
                 continue;  //Error! Couldn't find a corresponding point...
             }
@@ -645,7 +675,7 @@ void ElectronRateSolver::loadBound() {
         // // Shave time and state containers to last matching state. (Disabled, this shouldn't happen now.)
         //y.resize(matching_idx + 1);
         //t.resize(matching_idx + 1);
-        if(t.size() != matching_idx + 1){
+        if(static_cast<int>(t.size()) != matching_idx + 1){
             throw std::runtime_error("No bound state found for the final loaded step or times mismatched in files."); 
         }
     }
@@ -662,21 +692,22 @@ void ElectronRateSolver::loadBound() {
         param_cutoffs.transition_e = max(param_cutoffs.transition_e,2*regimes.mb_max); // mainly for case that transition region continues to dip into negative (in which case the transition region doesn't update).   
         // Set basis
         Distribution::set_basis(n, param_cutoffs, regimes,  Distribution::get_knots_from_history(n));
-        state_type::set_P_shape(input_params.Store);
-        this->zero_y = get_ground_state();
-        this->zero_y *= 0.; // set it to Z E R O          
+        this->set_zero_y();     
     }    
 }
 
 void ElectronRateSolver::log_config_settings(ofstream& _log){
     #ifdef NO_TBR
     _log << "[ Config ] Three Body Recombination disabled in config.h" << endl;
+    cout <<  "\033[101m[ Config ] Three Body Recombination disabled in config.h\033[0m"<<endl; 
     #endif
     #ifdef NO_EE
     _log << "[ Config ] Electron-Electron interactions disabled in config.h" << endl;
+    cout <<  "\033[101m[ Config ] Electron-Electron interactions disabled in config.h\033[0m"<<endl; 
     #endif
     #ifdef NO_EII
     _log << "[ Config ] Electron-Impact ionisation disabled in config.h" << endl;
+    cout <<  "\033[101m[ Config ] Electron-Impact ionisation disabled in config.h\033[0m"<<endl; 
     #endif
     #ifdef BOUND_GD_HACK
     _log << "[ Config ] hacky bound transport enabled" << endl;

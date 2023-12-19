@@ -150,7 +150,7 @@ int reserve_output_name(string &outdir,string &tag){
     while(outdir == ""||string_in_file(FileContent,outdir)){
             count++;
             outdir = "output/__Molecular/"+tag+"_"+to_string(count)+"/";
-            if(count > 999){
+            if(count > 9999){
                 cerr << "Directory naming loop failsafe triggered in get_file_names() of main.cpp" << endl;
                 return 1;
             }

@@ -1,11 +1,19 @@
 import os
 import os.path as path
 import numpy as np
+import sys
+import re
 
-def get_sim_params(input_path,molecular_path,handle):
+def get_sim_params(handle,input_path=None,molecular_path=None,get_source_energy=False):
     '''
     Reads the control file and returns the relevant parameters within
+    By default use input_path = "input/"
     '''    
+    if input_path is None:
+        input_path = path.abspath(path.join(__file__ ,"../../input/")) + "/"
+    if molecular_path is None:
+        molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
+        
     molfile = get_mol_file(input_path,molecular_path,handle,"y",out_prefix_text = "Reading simulation parameters from")
     outDir = molecular_path + handle 
     intFile = outDir + "/intensity.csv"
@@ -18,8 +26,10 @@ def get_sim_params(input_path,molecular_path,handle):
     photon_measure = None  
     reading_photons = False
     reading_pulse = False    
+    reading_electron_source = False
     photon_unit = None
     photon_measure_val = None
+    source_energy = None
 
     def init_photon_read(param_type,unit):
         nonlocal reading_photons,photon_measure,photon_unit
@@ -42,10 +52,14 @@ def get_sim_params(input_path,molecular_path,handle):
                 continue
             elif line.startswith("#USE_INTENSITY"):
                 init_photon_read("Intensity","×10^19 W/cm^2")              
+                continue
+            elif line.startswith("#ELECTRON_SOURCE"):
+                reading_electron_source = True
                 continue                        
             elif line.startswith("#") or line.startswith("//") or len(line.strip()) == 0:
                 reading_photons = False
                 reading_pulse = False
+                reading_electron_source = False 
                 n = 0
                 continue
             if line.startswith("####END####"):
@@ -54,7 +68,7 @@ def get_sim_params(input_path,molecular_path,handle):
                 if n < 2:
                     val = float(line.split(' ')[0])         
                 if n == 0:
-                    energy = val
+                    photon_energy = val
                 elif n==1:
                     fwhm = val
                 n += 1
@@ -67,12 +81,46 @@ def get_sim_params(input_path,molecular_path,handle):
                 if n == 1:
                     photon_measure_val = float(line.split(' ')[0])
                 n += 1
+            if reading_electron_source:
+                if n == 1:
+                    source_energy = float(line.split(' ')[0])    
+                n+=1            
+    energy = photon_energy
+    if get_source_energy:
+        energy = source_energy
     print("Time range:",start_t,"-",end_t)
     print("Energy:", energy)
     param_dict = ["Energy","Width",photon_measure,"R"]  #TODO dont call dicts...
     unit_dict = [" eV"," fs",photon_unit,""]
     #TODO check that time range is satisfied by files.
-    return start_t,end_t, energy, fwhm, photon_measure_val, param_dict,unit_dict 
+    return start_t,end_t, energy, fwhm, photon_measure_val, param_dict,unit_dict
+
+def get_sim_elements(handle,input_path=None,molecular_path=None):
+    if input_path is None:
+        input_path = path.abspath(path.join(__file__ ,"../../input/")) + "/"
+    if molecular_path is None:
+        molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
+        
+    molfile = get_mol_file(input_path,molecular_path,handle,"y",out_prefix_text = "Reading elements from")
+    outDir = molecular_path + handle 
+    intFile = outDir + "/intensity.csv"
+    reading = False
+    elements = []
+    with open(molfile, 'r') as f:
+        n = 0
+        for line in f:
+            if line.startswith("#ATOM"):
+                reading=True            
+                continue        
+            elif line.startswith("#") or line.startswith("//") or len(line.strip()) == 0:
+                break
+            if line.startswith("####END####"):
+                break
+            if reading:
+                elem = line.split(' ')[0]         
+                elements.append(elem)
+    return elements
+    
 
 # Contender for world's most convoluted function.
 def get_mol_file(input_path, molecular_path, mol, output_mol_query = "",out_prefix_text = "Using"):
@@ -155,4 +203,52 @@ def find_mol_file_from_directory(input_directory, mol):
             else:
                 print("Continuing...")
                 selected_file = True
-    return molfile    
+    return molfile   
+def get_pdb_paths_dict(my_dir): 
+    '''
+    my_dir = calling file's directory
+    '''
+    PDB_PATHS = dict(
+        tetra = "targets/5zck.pdb",
+        lys = "targets/4et8.pdb", #"targets/2lzm.pdb",
+        test = "targets/4et8.pdb", 
+        lys_tmp = "targets/4et8.pdb",
+        lys_solvated = "solvate_1.0/lys_8_cell.xpdb",
+        fcc = "targets/FCC.pdb",
+        lys_empty = "targets/lys_points.pdb",
+        glycine = "targets/glycine.pdb",
+    )      
+    for key, value in PDB_PATHS.items():
+        PDB_PATHS[key] = my_dir + value
+    return PDB_PATHS
+
+def get_pdb_path(my_dir,key): 
+    '''
+    my_dir = calling file's directory
+    '''
+    return get_pdb_paths_dict(my_dir)[key]
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+def parse_elecs_from_latex(latexlike):
+    engine = re.compile(r'(\d[spdf])\^\{(\d+)\}')
+    # Parses a chemistry-style configuration to return dict of total number of electrons
+    # e.g. $1s^{1}2s^{1}$
+    # ignores anything non-numerical or spdf
+    qdict = {}
+    for match in engine.finditer(latexlike):
+        qdict[match.group(1)] = int(match.group(2))
+    return qdict
+
+ATOMS = ('H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'
+       +' Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe').split()
+ATOMNO = {}
+i = 1
+for symbol in ATOMS:
+    ATOMNO[symbol] = i
+    ATOMNO[symbol + '_fast'] = i
+    ATOMNO[symbol + '_faster'] = i
+    i += 1
+ATOMNO["Gd"] = ATOMNO["Gd_fast"] =ATOMNO["Gd_galli"]  = 64 

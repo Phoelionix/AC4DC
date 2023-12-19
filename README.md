@@ -129,7 +129,7 @@ EII parameters are stored in "sort-of-json" format - please note that the progra
 
 ## TODO
 
-1.  Refactor to decouple atomic physics from rate equation solving. Make Hartree-Fock atomic code interpolate the rates for a given beam energy and store them in a file, to be read by the dynamics solver. Very important for capability in simulating heavier atoms (i.e. with more electron configurations).
+1. Refactor to decouple atomic physics from rate equation solving. Make Hartree-Fock atomic code interpolate the rates for a given beam energy and store them in a file, to be read by the dynamics solver. Very important for capability in simulating heavier atoms (i.e. with more electron configurations).
 2. Fermi-sea collision kernel
 3. Finish implementation of electron filtration by the water background.
 4. Finish implementation of correction for bound transport.
@@ -148,6 +148,7 @@ EII parameters are stored in "sort-of-json" format - please note that the progra
 18. Restructure parameter input and rate output files to use JSON format
 19. GUI (Curent candidate framework: Qt)
 20. Optimise with static arrays - promote state_type to a N_FREE-dimensioned template for faster reads.
+21. Upgrade dynamic grid algorithm to handle low-energy photoelectron peaks - currently mistakes them for MB peaks and so the solver fails.
 
 ### Bibliography:
 
