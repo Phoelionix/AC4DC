@@ -237,7 +237,7 @@ private:
     state_type get_initial_state();
     void update_grid(ofstream& _log, size_t latest_step, bool force_update = false);
     size_t reload_grid(ofstream& _log, size_t& load_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used);
-    int reinitialise_solver_with_current_grid(ofstream& _log);
+    void reinitialise_solver_with_current_grid(ofstream& _log);
 
     //void high_energy_stability_check();
     string its_dinner_time(std::vector<std::chrono::duration<double, std::milli>> times, std::vector<std::string> tags);

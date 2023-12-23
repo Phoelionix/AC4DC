@@ -951,7 +951,8 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
         if (Distribution::reset_on_next_grid_update){
             dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
             Distribution::reset_on_next_grid_update = false;
-            return reinitialise_solver_with_current_grid(_log);            
+            reinitialise_solver_with_current_grid(_log);    
+            return 1;        
         } 
     }   
     // move from initial grid to dynamic grid shortly after a fresh simulation's start.
@@ -1122,7 +1123,7 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
 } 
 
 // TODO need option to take in dirac peaks...
-int ElectronRateSolver::reinitialise_solver_with_current_grid(ofstream& _log){
+void ElectronRateSolver::reinitialise_solver_with_current_grid(ofstream& _log){
     _log << "[ Dynamic Grid ] Restarting solver with new grid"<<endl;
     t.resize(1);
     y.resize(1);
@@ -1134,7 +1135,6 @@ int ElectronRateSolver::reinitialise_solver_with_current_grid(ofstream& _log){
     Distribution::knots_history.push_back(indexed_knot{0,Distribution::get_knot_energies()});
 
     solve_dynamics(_log,simulation_start_time, simulation_start_time, steps_per_time_update);
-    return 0;
 }
 
 
