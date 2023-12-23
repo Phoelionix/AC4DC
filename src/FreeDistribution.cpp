@@ -33,13 +33,19 @@ This file is part of AC4DC.
 
 // Initialise static things
 
-
 size_t Distribution::CoulombLog_cutoff=0;
 double Distribution::CoulombDens_min=0;
 std::vector<indexed_knot> Distribution::knots_history;
 // These variables are modified by set_distribution_STATIC_ONLY or by dynamic grid updates when set_basis is called.
 SplineIntegral Distribution::basis; 
 size_t Distribution::size=0;  
+
+#ifdef FIND_INITIAL_DIRAC 
+    bool Distribution::reset_on_next_grid_update = true;  // TODO duct tape implementation...
+#else
+    bool Distribution::reset_on_next_grid_update = false;
+#endif     
+
 
 // Psuedo-constructor thing (Maybe not anymore... -S.P.)
 void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, ManualGridBoundaries elec_grid_regions){

@@ -53,11 +53,13 @@ class Hybrid : public Adams_BM<T>{
     virtual void sys_ee(const T& q, T& qdot) =0;
     // virtual void Jacobian2(const T& q, T& qdot, double t) =0; 
     protected:
-
+    
     double stiff_rtol = 1e-4;  // relative tolerance
     unsigned stiff_max_iter = 300;//200; 
     double intolerable_stiff_divergence =0;//0.5; // allowed (relative) divergence  if stiff_max_iter exceeded
     
+    int num_steps; // Number of steps - tracked and updated through adaptive methods.
+
     // stiff ode intermediate steps (i.e. steps it does without the nonstiff part)
     int mini_n;
     int old_mini_n;
@@ -86,7 +88,7 @@ class Hybrid : public Adams_BM<T>{
     std::vector<double> times_to_increase_dt;  
     
     void run_steps(ofstream& _log, const double t_resume, const int steps_per_time_update);  // TODO clean up bootstrapping. -S.P.
-    void iterate(ofstream& _log, double t_initial, size_t npoints_initial, const double t_resume, const int steps_per_time_update);
+    void solve_dynamics(ofstream& _log, double t_initial, const double t_resume, const int steps_per_time_update);
     void initialise_transient_y(int n); // Approximates initial stiff intermediate steps
     void initialise_transient_y_v2(int n); // Uses lagrange interpolation to approximate initial stiff intermediate steps
     void modify_ministeps(const int n,const int num_ministeps);
@@ -115,11 +117,10 @@ template<typename T>
  * 
  * @param _log 
  * @param t_initial 
- * @param npoints Initial number of time steps, defining the end time along with this->dt. Thus allows flexibility in chosen end time. 
  * @param t_resume 
  * @param steps_per_time_update 
  */
-void Hybrid<T>::iterate(ofstream& _log, double t_initial, size_t npoints, const double t_resume, const int steps_per_time_update) {
+void Hybrid<T>::solve_dynamics(ofstream& _log, double t_initial, const double t_resume, const int steps_per_time_update) {
     if (this->dt < 1E-16) {
         std::cerr<<"WARN: step size "<<this->dt<<"is smaller than machine precision"<<std::endl;
     } else if (this->dt < 0) {
@@ -130,17 +131,17 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, size_t npoints, const 
 
     size_t resume_n = 0;
     if (resume_sim){
-        for (size_t n=1; n<npoints; n++){
+        for (size_t n=1; n<static_cast<size_t>(num_steps); n++){
             if (this->t[n] >= t_resume){
                 resume_n = n;
                 break;
             }
         }
-        // The time step size does not depend on previous run's time step size. i.e. step size is same as if there was no loading.
+        // resize num_steps to allow for differing dt in loaded data. 
         // TODO implement assertion that density isn't empty.
         size_t resume_n_if_const_dt = (t_resume-t_initial)/this->dt ;
-        npoints -= (resume_n_if_const_dt + 1);
-        npoints += this->t.size(); // 
+        num_steps -= (resume_n_if_const_dt + 1);
+        num_steps += this->t.size(); // 
         // Try to set checkpoint to be at the starting step 
         // Check if need to set it before the last knot change.
         size_t checkpoint_n = resume_n;
@@ -167,19 +168,19 @@ void Hybrid<T>::iterate(ofstream& _log, double t_initial, size_t npoints, const 
         assert(check_states.front().F.container_size() == check_states.back().F.container_size() && "Loaded too close to a grid update, try loading from a time farther from the most recent knot update.");
 
         checkpoint = {checkpoint_n, Distribution::get_knot_energies(),this->regimes,check_states,check_times};
+        old_checkpoint = checkpoint; 
     }
-    old_checkpoint = checkpoint; 
 
-    npoints = (npoints >= this->order) ? npoints : this->order;
+    num_steps = (num_steps >= static_cast<int>(this->order)) ? num_steps : static_cast<int>(this->order);
 
     // Set up the containers
-    this->t.resize(npoints,INFINITY);
-    this->y.resize(npoints);
+    this->t.resize(num_steps,INFINITY);
+    this->y.resize(num_steps);
 
     // Set up the t grid       
     this->t[0] = t_initial;
 
-    for (size_t n=1; n<npoints; n++){
+    for (size_t n=1; n<static_cast<size_t>(num_steps); n++){
         if (resume_sim && n <= resume_n){
             continue; // Don't reset already simulated states
         }
@@ -238,15 +239,6 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     while(this->t[n] < t_resume)
         n++;
     initialise_transient_y((int)n);
-
-    // Set up display
-    std::stringstream tol;
-    tol << "[ sim ] Implicit solver uses relative tolerance "<<stiff_rtol<<", max iterations "<<stiff_max_iter<<"\n\r";
-    std::cout << tol.str();  // Display in regular terminal even after ncurses screen is gone.
-    Display::header += tol.str(); 
-    Display::display_stream = std::stringstream(Display::header, ios_base::app | ios_base::out); // text shown that updates with frequency 1/steps_per_time_update.
-    Display::popup_stream = std::stringstream(std::string(), ios_base::app | ios_base::out);  // text displayed during step of special events like grid updates
-    Display::create_screen(); 
 
     // Run hybrid multistepping (nonstiff -> bound dynamics, stiff -> free dynamics). 
     while (n < this->t.size()-1) {

@@ -307,7 +307,7 @@ int main(int argc, const char *argv[]) {
         
         string backup_dir = "output/backup_data";
         try_mkdir(backup_dir);
-        S.solve(log, backup_dir);
+        S.execute_solver(log, backup_dir);
         try_mkdir(outdir);
         S.save(outdir);    
         //pybind11::finalize_interpreter(); Commented out so is never called (via this or scoped_interpreter) since it crashes due to a missing pointer for whatever reason.

@@ -55,7 +55,7 @@ class Distribution
 {
 public:
     Distribution() {
-        f.resize(size);
+        f.resize(size);   
     }
 
     /**
@@ -286,6 +286,8 @@ public:
     // history of grid points (for dynamic grid)
     static std::vector<indexed_knot> knots_history;  
     int container_size(){return f.size();}  
+    
+    static bool reset_on_next_grid_update; //TODO part of a duct tape implementation of FIND_INITIAL_DIRAC
 
 private:
     std::vector<double> f;  // Spline expansion factors

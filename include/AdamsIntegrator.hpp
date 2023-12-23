@@ -83,7 +83,7 @@ template<typename T>
 class Adams_BM : public IVPSolver<T>{
 public:
     Adams_BM(unsigned int order=4);
-    void iterate(double t_initial, double t_final);
+    void solve_dynamics(double t_initial, double t_final);
 
 protected:
     void run_steps();
@@ -226,7 +226,7 @@ void Adams_BM<T>::step_nonstiff_part(int n) {
 }
 
 template<typename T>
-void Adams_BM<T>::iterate(double t_initial, double t_final) {
+void Adams_BM<T>::solve_dynamics(double t_initial, double t_final) {
 
     if (this->dt < 1E-16) {
         std::cerr<<"WARN: step size "<<this->dt<<"is smaller than machine precision"<<std::endl;

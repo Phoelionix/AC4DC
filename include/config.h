@@ -29,6 +29,9 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 #define NO_MINISTEP_UPDATING  // ministep updates not working atm, possibly as lagrange polynomial is a bad thing to use here and I should just use linear interpolation.
 
 
+// Dynamic grid modifiers
+#define FIND_INITIAL_DIRAC // At point of first grid update (TODO make earlier) restart simulation, but using Dirac regions determined from the grid update. 
+
 /// Dynamic grid debugging
 //#define DEBUG_BOUND  // Turns on testing for negative bound state probabilities. Should narrow down cause (unless one is facing a dreaded memory corruption bug). Probably should be removed as this is no longer an issue.
 //#define SWITCH_OFF_ALL_DYNAMIC_UPDATES  // The initial grid (spline knot basis) is used for the whole simulation. 
@@ -40,7 +43,7 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 
 
 /// Thread capping. Often an easier option than regenerating batch files. (If multiple are left on, uses the lowest cap)
-//#define THREAD_MAX_16
+#define THREAD_MAX_16
 //#define THREAD_MAX_12
 //#define THREAD_MAX_8
 //#define THREAD_MAX_4
