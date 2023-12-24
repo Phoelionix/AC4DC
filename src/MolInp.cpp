@@ -181,6 +181,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (n == 0) stream >> electron_source_fraction;
 		if (n == 1) stream >> electron_source_energy;
 		if (n == 2) stream >> electron_source_duration;
+		if (n == 3) stream >> electron_source_type;
 	}	
 	for (size_t n = 0; n < FileContent["#FILTRATION"].size(); n++) {
 		stringstream stream(FileContent["#FILTRATION"][n]);
@@ -397,7 +398,6 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P. TODO 
 	if (omp_threads <= 0) { omp_threads = 4; cerr<<"Defaulting number of OMP threads to 4"; }
 	if (steps_per_live_plot_update < 1){steps_per_live_plot_update = 1; cerr<<"Steps per live plot was raised to 1 from given value of "<<steps_per_live_plot_update;}
 	if (electron_source_fraction != 0 && (electron_source_energy <= 0 || electron_source_fraction < 0)) {cerr<<"Invalid electron source parameters.";is_valid=false;}
-	if (electron_source_fraction !=0 && electron_source_energy > omega){cerr<<"Electron source energy cannot be above pulse photon energy.";is_valid=false;}
 
 	if (elec_grid_type.mode == GridSpacing::unknown) {
 	cerr<<"ERROR: Grid type not recognised - param corresponding to use of manual must start with (t)rue or (f)alse";

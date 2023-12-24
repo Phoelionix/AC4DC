@@ -49,13 +49,13 @@ struct indexed_knot
  * @brief Electron distribution class.
  * @details Represents a statistical distribution of electron density. Internal units are atomic units.
  * @note F is referred to as the distribution throughout the code. F[i] returns the i'th spline factor, but
- * F.f is the container that holds the spline factors. F(e) expands out the basis to return the density at energy e. 
+ * F.f is the container that holds the spline factors. F(e) expands out the basis to return the density at energy e divided by local knot width.
  */
 class Distribution
 {
 public:
     Distribution() {
-        f.resize(size);
+        f.resize(size);   
     }
 
     /**
@@ -286,6 +286,8 @@ public:
     // history of grid points (for dynamic grid)
     static std::vector<indexed_knot> knots_history;  
     int container_size(){return f.size();}  
+    
+    static bool reset_on_next_grid_update; //TODO part of a duct tape implementation of FIND_INITIAL_DIRAC
 
 private:
     std::vector<double> f;  // Spline expansion factors

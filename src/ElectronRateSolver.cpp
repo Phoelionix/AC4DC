@@ -41,19 +41,15 @@ This file is part of AC4DC.
 void ElectronRateSolver::set_starting_state(){
     // Set up the container class to have the correct size
     state_type::set_P_shape(input_params.Store);    
-
-     if (input_params.Load_Folder() != ""){ 
-        cout << "[ Plasma ] loading sim state from specified files." << endl;
-        loadFreeRaw_and_times();
-        if (input_params.elec_grid_type.mode == GridSpacing::dynamic)
-            loadKnots();            
-        loadBound();
-        simulation_resume_time = t.back();
+    if (input_params.Load_Folder() != ""){ 
+        load_simulation_state();
     }
     else{         
         cout << "[ Plasma ] Creating ground state" << endl;
-        this->setup(get_initial_state(), this->timespan_au/input_params.num_time_steps, IVP_step_tolerance);
+        double _dt = this->timespan_au/input_params.Num_Time_Steps();
+        this->setup(get_initial_state(), _dt, IVP_step_tolerance);
     }
+    num_steps = (simulation_end_time - simulation_start_time)/this->dt + 1;
 }
 
 state_type ElectronRateSolver::get_initial_state() {
@@ -138,12 +134,17 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             auto old_dirac_mins = regimes.dirac_minimums, old_dirac_maxs = regimes.dirac_maximums;
             
             double last_trans_e = param_cutoffs.transition_e;
-            double dirac_peak_cutoff_density = y[step].F(last_trans_e)*last_trans_e*2.5; 
+            
+            #ifndef NO_MIN_DIRAC_DENSITY
+            double dirac_peak_cutoff_density = y[step].F(last_trans_e)*last_trans_e*2.5;            
             // TODO this depending on last transition is dangerous for large grid update periods, or low fluences as the peaks tend to spread out.
             if (last_trans_e <= 600/Constant::eV_per_Ha){
                 // ad hoc fix - early on density at trans_e point in normalised density dist. is a bit higher than rest of sim since transition energy is stuck at default 250 eV 
                 dirac_peak_cutoff_density = y[step].F(last_trans_e)*last_trans_e*1.25; 
             }
+            # else 
+            double dirac_peak_cutoff_density = 0;
+            #endif // NO_MIN_DIRAC_DENSITY
             dirac_energy_bounds(step,regimes.dirac_maximums,regimes.dirac_minimums,regimes.dirac_peaks,true,regimes.num_dirac_peaks,dirac_peak_cutoff_density);
             mb_energy_bounds(step,regimes.mb_max,regimes.mb_min,regimes.mb_peak,true); //TODO make allowing shrinkage an input option?
             // Check whether we should update
@@ -214,7 +215,7 @@ void ElectronRateSolver::set_grid_regions(ManualGridBoundaries gb){
     elec_grid_regions = gb;
 }
 
-void ElectronRateSolver::solve(ofstream & _log, const std::string& tmp_data_folder) {
+void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_data_folder) {
     assert (hasRates || "Rates weren't calculated!\n");
     auto start = std::chrono::system_clock::now();
 
@@ -246,7 +247,7 @@ void ElectronRateSolver::solve(ofstream & _log, const std::string& tmp_data_fold
     plasma_header<<"[ Rate Solver ] Using initial timestep size of "<<this->dt*Constant::fs_per_au<<" fs"<<"\n\r";
     plasma_header<<banner<<"\n\r";
 
-    steps_per_grid_transform =  round(input_params.Num_Time_Steps()*(grid_update_period/timespan_au));
+    steps_per_grid_transform =  round(num_steps*(grid_update_period/timespan_au));
 
 
     std::cout << plasma_header.str()<<std::flush; // display in regular terminal, so that it is still visible after end of program
@@ -254,11 +255,22 @@ void ElectronRateSolver::solve(ofstream & _log, const std::string& tmp_data_fold
     Display::header += plasma_header.str(); // display this in ncurses screen
     //Display::deactivate();
 
+
+    // Set up display
+    std::stringstream tol;
+    tol << "[ sim ] Implicit solver uses relative tolerance "<<stiff_rtol<<", max iterations "<<stiff_max_iter<<"\n\r";
+    std::cout << tol.str();  // Display in regular terminal even after ncurses screen is gone.
+    Display::header += tol.str(); 
+    Display::display_stream = std::stringstream(Display::header, ios_base::app | ios_base::out); // text shown that updates with frequency 1/steps_per_time_update.
+    Display::popup_stream = std::stringstream(std::string(), ios_base::app | ios_base::out);  // text displayed during step of special events like grid updates
+    Display::create_screen(); 
+
     // Call hybrid integrator to iterate through the time steps (good state)
     good_state = true;
-    size_t npoints = (simulation_end_time - simulation_start_time)/this->dt + 1;
-    this->iterate(_log,simulation_start_time, npoints, simulation_resume_time, steps_per_time_update); // Inherited from ABM
-    
+    assert(num_steps == (simulation_end_time - simulation_start_time)/this->dt + 1);
+    steps_per_time_update = max(1 , (int)(input_params.time_update_gap/this->dt)); 
+    this->solve_dynamics(_log,simulation_start_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
+
     if (!good_state) {
         _log<<"[ CRITICAL ERROR ] For an unexpected reason, a bad state was not, or ceased being, attempted to be resolved with finer timesteps."<<endl;
         throw std::runtime_error("For an unexpected reason, a bad state was not, or ceased being, attempted to be resolved with finer timesteps.");
@@ -387,7 +399,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             Pdot[r.to] += tmp;
             Pdot[r.from] -= tmp;
             sdot.F.addDeltaSpike(r.energy, r.val*J*P[r.from]);  // TODO change to tmp?
-            sdot.bound_charge +=  tmp; // this is negative (confusingly).
+            sdot.bound_charge +=  tmp;
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
 
@@ -396,8 +408,21 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         #ifndef NO_ELECTRON_SOURCE
         //PHOTOION. SOURCE
         if(t < simulation_start_time + input_params.electron_source_duration*(timespan_au)){
-            double external_density = input_params.electron_source_fraction*(sdot.bound_charge-old_bound_charge);  // Additional electrons added at rate proportional to rest of sample. (Note this controls for differences in emission rate that normally would occur in the species producing photoelectrons of a different energy.)
-            sdot.F.addDeltaSpike(input_params.electron_source_energy,external_density);
+            double injected_density = 0; 
+            switch (input_params.electron_source_type){
+                case 'c':
+                {
+                    injected_density = input_params.electron_source_fraction * y[1].cumulative_photo[a] * (J / pf(this->t[1]));
+                break;
+                }
+                case 'p':
+                {
+                    injected_density = input_params.electron_source_fraction*(sdot.bound_charge-old_bound_charge);  // Additional electrons added at rate proportional to rest of sample. (Note this controls for differences in emission rate that normally would occur in the species producing photoelectrons of a different energy.)
+                break;
+                }
+            }
+            if (injected_density > 0)
+                sdot.F.addDeltaSpike(input_params.electron_source_energy,injected_density);
         }
         #endif //NO_ELECTRON_SOURCE
         
@@ -641,8 +666,8 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     this->dt/=fact;
     int remaining_steps = t.size() - (n+1);
     assert(remaining_steps > 0 && fact > 1);
-    input_params.num_time_steps = ceil(t.size() + (fact - 1)*remaining_steps); // todo separate num steps from input params  // TODO check potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
-    steps_per_time_update = max(1 , (int)(0.5+input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
+    num_steps = ceil(t.size() + (fact - 1)*remaining_steps);
+    steps_per_time_update = max(1 , (int)(0.5+input_params.time_update_gap/(this->dt))); 
 
     _log <<"Reloading grid"<<endl;
     // with the states loaded the spline factors are as they were, we just need to load the appropriate knots.
@@ -691,9 +716,9 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     }
 
     // Fill in rest of times.
-    t.resize(n+1); t.resize(input_params.num_time_steps);
+    t.resize(n+1); t.resize(num_steps);
     // Set up the t grid       
-    for (int i=n+1; i<input_params.num_time_steps; i++){
+    for (int i=n+1; i<num_steps; i++){
         this->t[i] = this->t[i-1] + this->dt;
     }
     steps_per_grid_transform = round(steps_per_grid_transform*fact);
@@ -759,14 +784,14 @@ void ElectronRateSolver::increase_dt(ofstream &_log, size_t current_n){
     // INCREASE time step size by factor, and reduce number of remaining steps.
     this->dt*=fact;
     assert(remaining_steps > 0 && fact > 1);
-    input_params.num_time_steps = input_params.num_time_steps - (1-1/fact)*remaining_steps; // todo separate from input params
-    t.resize(n+1); t.resize(input_params.num_time_steps);
-    y.resize(n+1); y.resize(input_params.num_time_steps);
+    num_steps = ceil(t.size() - (1-1/fact)*remaining_steps);
+    
+    t.resize(n+1); t.resize(num_steps);
+    y.resize(n+1); y.resize(num_steps);
     steps_per_grid_transform = round(steps_per_grid_transform/fact);
 
-    //TODO implement: size_t npoints = (t_final - t_initial)/this->dt + 1; input_params.num_time_steps is for the full number, not what we want.
     // Set up the t grid       
-    for (int i=n+1; i<input_params.num_time_steps; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
+    for (int i=n+1; i<num_steps; i++){   // note potential inconsistency(?) with hybrid's solve_dynamics(): npoints = (t_final - t_initial)/this->dt + 1
         this->t[i] = this->t[i-1] + this->dt;
     }
     // */
@@ -907,7 +932,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
           std::cout.clear(); // enable character output
           y.resize(old_size); t.resize(old_size);
           // re-set the future t values       
-          for (size_t i=n+1; i<old_size; i++){   // note potential inconsistency(?) with hybrid's iterate(): npoints = (t_final - t_initial)/this->dt + 1
+          for (size_t i=n+1; i<old_size; i++){   // note potential inconsistency(?) with hybrid's solve_dynamics(): npoints = (t_final - t_initial)/this->dt + 1
               this->t[i] = this->t[i-1] + this->dt;
           }          
         backup_time += std::chrono::high_resolution_clock::now() - t_start_backup;
@@ -923,11 +948,17 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
     //////  Dynamic grid updater ////// 
     #ifndef SWITCH_OFF_ALL_DYNAMIC_UPDATES
     auto t_start_grid = std::chrono::high_resolution_clock::now();
-    if (input_params.elec_grid_type.mode == GridSpacing::dynamic && (n-this->order+1)%steps_per_grid_transform == 0){ // TODO would be good to have a variable that this is equal to that is modified to account for changes in time step size. If a dt decreases you push back the grid update. If you increase dt you could miss it.
+    if (input_params.elec_grid_type.mode == GridSpacing::dynamic && (n-this->order+1)%steps_per_grid_transform == 0){ // TODO if adaptive time step algo is improved would be good to have a variable that this is equal to that is modified to account for changes in time step size. If a dt decreases you push back the grid update. If you increase dt (which currently doesn't happen) you could 'miss' it .
         Display::popup_stream << "\n\rUpdating grid... \n\r"; 
         _log << "[ Dynamic Grid ] Updating grid" << endl;
-        Display::show(Display::display_stream,Display::popup_stream);   
-        update_grid(_log,n+1,false);       
+        Display::show(Display::display_stream,Display::popup_stream);  
+        update_grid(_log,n+1,false);
+        if (Distribution::reset_on_next_grid_update){
+            dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
+            Distribution::reset_on_next_grid_update = false;
+            reinitialise_solver_with_current_grid(_log);    
+            return 1;        
+        } 
     }   
     // move from initial grid to dynamic grid shortly after a fresh simulation's start.
     /*
@@ -1008,7 +1039,7 @@ void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool fo
 // first_step = next_ode_states_used[0] 
 //
 // Does not resize containers
-size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used){
+size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used){
     assert(next_ode_states_used.size() == order);  
 
 
@@ -1051,7 +1082,7 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::ve
         y.push_back(state);
         n++;
     }    
-    y.resize(input_params.num_time_steps);  
+    y.resize(num_steps);  
     initialise_transient_y((int)load_step);
    
 
@@ -1095,6 +1126,22 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t load_step, std::ve
 
     // The next containers are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state. 
 } 
+
+// TODO need option to take in dirac peaks...
+void ElectronRateSolver::reinitialise_solver_with_current_grid(ofstream& _log){
+    _log << "[ Dynamic Grid ] Restarting solver with new grid"<<endl;
+    t.resize(1);
+    y.resize(1);
+    std::cout.setstate(std::ios_base::failbit);  // disable character output
+    set_starting_state();
+    std::cout.clear(); // enable character output    
+
+    Distribution::knots_history.resize(0);
+    Distribution::knots_history.push_back(indexed_knot{0,Distribution::get_knot_energies()});
+
+    solve_dynamics(_log,simulation_start_time, simulation_start_time, steps_per_time_update);
+}
+
 
 
 void ElectronRateSolver::compute_free_grid_rates(){

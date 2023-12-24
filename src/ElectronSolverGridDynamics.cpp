@@ -69,7 +69,7 @@ double ElectronRateSolver::approx_nearest_peak(size_t step, double start_energy,
         if (e > max){
             local_max = max; break;}
 
-        double density = y[step].F(e)*e;  //  electron energy density.
+        double density = y[step].F(e)*e;  //  electron energy density divided by local knot width. TODO multiply by local knot width.
         if(density < last_density && ascended_count >= min_sequential){
             if (num_sequential == 0){
                 local_max = e - del_energy;
@@ -202,6 +202,7 @@ double ElectronRateSolver::approx_regime_bound(size_t step, double start_energy,
     return sign*max(A*abs(start_energy - inflection),D) + start_energy;
 }
 
+// TODO just make a vector and find the max...
 double ElectronRateSolver::approx_regime_peak(size_t step, double lower_bound, double upper_bound, double del_energy){
     del_energy = abs(del_energy);
     assert(del_energy > 0);
@@ -219,11 +220,25 @@ double ElectronRateSolver::approx_regime_peak(size_t step, double lower_bound, d
     }
     return peak_e;
 }
-std::vector<double> ElectronRateSolver::approx_regime_peaks(size_t step, double lower_bound, double upper_bound, double del_energy, size_t num_peaks, double min_density){
+
+//
+/**
+ * @brief   Crude function that searches for peaks in the distribution and ignores narrow fluctuations.
+ * 
+ * @param step 
+ * @param lower_bound 
+ * @param upper_bound 
+ * @param del_energy 
+ * @param num_peaks 
+ * @param min_density 
+ * @todo del_energy*min_sequential should probably be made to span at least half the local knot separation.
+ * @return std::vector<double> 
+ */
+std::vector<double> ElectronRateSolver::approx_regime_peaks(size_t step, double lower_bound, double upper_bound, double del_energy, size_t num_peaks, double min_density, double separation_div_omega){
     assert(del_energy > 0);
     assert(num_peaks > 0);      
 
-    //double min_peak_separation = 400 / Constant::eV_per_Ha; 
+    double min_peak_separation = separation_div_omega*input_params.elec_grid_preset.pulse_omega/Constant::eV_per_Ha; 
     size_t min_sequential = 3;
     std::vector<double> peak_energies;  
     double last_peak_density = INFINITY; // for asserting expected behaviour.
@@ -235,13 +250,15 @@ std::vector<double> ElectronRateSolver::approx_regime_peaks(size_t step, double 
         while (e < upper_bound){
             // search for nearest peak, by looking for the nearest point that a) occurs after the density has been rising and b) is higher than the following min_sequential points separated by del_e
             e = approx_nearest_peak(step,e,del_energy,min_sequential,lower_bound,upper_bound);
+            // Skip over peaks already found. Note the peak energies are sorted from lowest to highest.
+            for (double p : peak_energies){
+                if (p < 0) continue;
+                if (abs(p - e) < min_peak_separation){ 
+                    e =  p + min_peak_separation;
+                    continue;
+                }
+            }          
             double density = y[step].F(e)*e; // electron energy density
-            // separate peaks by min_peak_separation... doesnt really work since the highest peaks are at the back ah well. TODO
-            if (std::find(peak_energies.begin(),peak_energies.end(),e)!= peak_energies.end()){
-                //e+= min_peak_separation; //not working atm
-                // continue;
-                break;
-            }
             if (peak_density < density){
                 assert(density <= last_peak_density);
                 peak_density = density;
@@ -252,6 +269,8 @@ std::vector<double> ElectronRateSolver::approx_regime_peaks(size_t step, double 
             peak_e = -1;
         last_peak_density = peak_density;
         peak_energies.push_back(peak_e);
+        // Sort from lowest to highest (for skipping over peaks.)
+        sort(peak_energies.begin(),peak_energies.end(),less<double>());
     }
     return peak_energies;
 }
@@ -308,7 +327,7 @@ void ElectronRateSolver::dirac_energy_bounds(size_t step, std::vector<double>& m
     return;
     #endif
     double min_photo_peak_considered = input_params.elec_grid_preset.min_dirac_region_peak_energy;  // An energy that is above auger energies but will catch significant peaks. //TODO replace with transition energy of last regimes?
-    min_photo_peak_considered = min(0.7*input_params.elec_grid_preset.pulse_omega/Constant::eV_per_Ha,min_photo_peak_considered); // just to better support really low energies, though it's not the intended use.
+    min_photo_peak_considered = min(0.7*input_params.elec_grid_preset.pulse_omega/Constant::eV_per_Ha,min_photo_peak_considered); // just to better support really low energies, though it's not the intended use of this program.
     double peak_search_step_size = 10/Constant::eV_per_Ha;
     // Find peaks
     size_t num_sequential_needed = 3;

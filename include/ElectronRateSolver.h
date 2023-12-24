@@ -57,6 +57,8 @@ public:
     {
         log_config_settings(log);
 
+        grid_update_period = input_params.Grid_Update_Period();  // TODO the grid update period should be made to be at least 3x (probably much more) longer with a gaussian pulse, since early times need it to be updated far less often to avoid instability for such a pulse. 
+
         param_cutoffs = input_params.param_cutoffs;
         
         pf.set_shape(input_params.pulse_shape);
@@ -99,17 +101,14 @@ public:
              
         }
 
-        grid_update_period = input_params.Grid_Update_Period();  // TODO the grid update period should be made to be at least 3x (probably much more) longer with a gaussian pulse, since early times need it to be updated far less often to avoid instability for such a pulse. 
-        steps_per_time_update = max(1 , (int)(input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
-
         if(input_params.Filtration_File() != ""){
             load_filtration_file();
         }
 
         time_of_last_save = std::chrono::high_resolution_clock::now(); 
     }
-    /// Solve the rate equations
-    void solve(ofstream & _log, const string& tmp_data_folder);
+    /// Motehr function for solving the rate equations, and running auxilliary functions (e.g. display, timers) 
+    void execute_solver(ofstream & _log, const string& tmp_data_folder);
     void save(const std::string& folder);
     /// Sets up the rate equations, which requires computing the atomic cross-sections/avg. transition rates to get the coefficients.
     void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0,bool force_update = false); //bool recalc=true);
@@ -164,7 +163,7 @@ private:
     double nearest_inflection(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
     double approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min_distance = 40, double min_inflection_fract = 1./4., double min = -1, double max=-1);  
     double approx_regime_peak(size_t step, double lower_bound, double upper_bound, double del_energy);  
-    std::vector<double> approx_regime_peaks(size_t step, double lower_bound, double upper_bound, double del_energy, size_t num_peaks = 1, double min_density = 0);
+    std::vector<double> approx_regime_peaks(size_t step, double lower_bound, double upper_bound, double del_energy, size_t num_peaks = 1, double min_density = 0, double separation_div_omega = 0.0667);
     void precompute_gamma_coeffs(); // populates above two tensors
     void set_initial_conditions();
 
@@ -202,7 +201,7 @@ private:
     /// Log macros defined in config.h
     void log_config_settings(ofstream& _log);
 
-    //// Saving/Loading
+    //// Saving
     /// Number of steps outputted, maximum determined by input_params.Out_T_size()
     double min_outputted_points = 25;
     int num_steps_out;
@@ -213,14 +212,18 @@ private:
     /// Saves a table of free-electron dynamics to file fname
     void saveFree(const std::string& file);
     void saveFreeRaw(const std::string& fname);
+    /// For each atom, saves a table of bound-electron dynamics to folder dir.
+    void saveBound(const std::string& folder);
+
+    //// Loading
+    void load_simulation_state(); // Controller function.
     /// Loads the table of free-electron dynamics at the given time
     void loadFreeRaw_and_times();
     void saveKnots(const std::string& fname);
     void loadKnots();
 
     void loadBound();
-    /// For each atom, saves a table of bound-electron dynamics to folder dir.
-    void saveBound(const std::string& folder);
+
     static double convert_str_time(string str_time);// Helper function to convert string from input file to time.
     static double round_time(double time, const bool ceil = false, const bool floor = false);
 
@@ -233,7 +236,8 @@ private:
     void set_zero_y(); // 
     state_type get_initial_state();
     void update_grid(ofstream& _log, size_t latest_step, bool force_update = false);
-    size_t reload_grid(ofstream& _log, size_t load_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used);
+    size_t reload_grid(ofstream& _log, size_t& load_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used);
+    void reinitialise_solver_with_current_grid(ofstream& _log);
 
     //void high_energy_stability_check();
     string its_dinner_time(std::vector<std::chrono::duration<double, std::milli>> times, std::vector<std::string> tags);

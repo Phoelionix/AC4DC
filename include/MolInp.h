@@ -93,6 +93,7 @@ public:
 	double electron_source_fraction = 0;
 	double electron_source_energy = -1;
 	double electron_source_duration = 1; // As fraction of entire pulse
+	char electron_source_type = 'c'; // (c)onstant: rate is ([intensity]/[initial intensity]) * [initial photoion. rate of atoms in target]  *  [electron source fraction]. | (p)roportional: rate is [source fraction] * [total photionisation rate of all atoms in target].   
 
 protected:
 
