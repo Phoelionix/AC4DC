@@ -58,6 +58,7 @@ void GridRegions::initialise_regions(DynamicGridPreset& preset){
     first_gp_min_E = first_gp_min_E*Constant::eV_per_Ha;  // Converted to eV for consistency. Convert to Ha at end.
     preset.min_dirac_region_peak_energy = 1500;  // eV. Convert to Ha at end.
     // Initialise regions
+    size_t num_dirac_regions = 4;
     char dirac_region = Region::dirac;
     regions = {};
     // Carbon target (a relatively divergent-prone example) good grid for the unstable early times:
@@ -190,7 +191,7 @@ void GridRegions::initialise_regions(DynamicGridPreset& preset){
             Region(25,-1,-1,Region::mb_log), // Maxwell-boltzmann distribution
         };        
         break;       
-      case DynamicGridPreset::mb_log_grid:  // Similar to preset "dirac", with lower min energy like "Galli_support". However regions are all logarithmic.
+      case DynamicGridPreset::mb_log_grid:  // Similar to preset "dirac", with lower min energy like "Galli_support". However MB region is logarithmic.
         preset_name = "Lower dirac regions, log MB";  // Support extends below bottom of transition region.
         preset.min_dirac_region_peak_energy  = 350;
         mb_max_over_kT = 2.3208*4/3;  
@@ -205,7 +206,22 @@ void GridRegions::initialise_regions(DynamicGridPreset& preset){
             Region(7,preset.pulse_omega*6/4,max_knot_energy,Region::fixed), // high tail
             Region(25,-1,-1,Region::mb_log), // Maxwell-boltzmann distribution
         };        
-        break;                   
+        break;      
+      case DynamicGridPreset::static_high_energy:  // i.e. Static dirac. Same as all_log_grid, except one big logarithmic static region past 1/4 photon energy.
+        preset_name = "Lower dirac regions, log all";  // Support extends below bottom of transition region.
+        preset.min_dirac_region_peak_energy  = 350;
+        mb_max_over_kT = 2.3208*4/3;  
+        mb_min_over_kT = 0.2922*1/4; 
+        pts_per_dirac = 15;  
+        regions = {
+            Region(7,10,20, Region::fixed_log), Region(8,20,50, Region::fixed_log),  // low support
+            Region(10,50,200,Region::fixed_log), 
+            Region(15,200,600,Region::fixed_log), // auger
+            Region((int)(0.5+ 14*trans_scaling),600,preset.pulse_omega/4,Region::fixed_log), // transition
+            Region(80,preset.pulse_omega/4,max_knot_energy,Region::fixed_log),  // high-energy
+            Region(25,-1,-1,Region::mb_log), // Maxwell-boltzmann distribution
+        };        
+        break;                       
       case DynamicGridPreset::dismal_acc:
         preset_name = "Dismal accuracy";
         pts_per_dirac = 5;
@@ -254,7 +270,7 @@ void GridRegions::initialise_regions(DynamicGridPreset& preset){
     // Region for electron source.
     if(preset.electron_source_energy != -1){
         char static_region = Region::fixed;
-        if (preset.selected == DynamicGridPreset::all_log_grid)
+        if (preset.selected == DynamicGridPreset::all_log_grid || preset.selected == DynamicGridPreset::static_high_energy)
             static_region = Region::fixed_log;
         // Inner region with high density of knots, outer region of support to ensure not too high a difference with surroundings.
         regions.push_back(Region(int(pts_per_dirac),preset.electron_source_energy*3/4,preset.electron_source_energy*1.5,static_region));
@@ -263,9 +279,10 @@ void GridRegions::initialise_regions(DynamicGridPreset& preset){
     std::vector<Region> common_regions = {
         Region(1,5,10,Region::fixed),  // low divergent (purpose is just placing a point at 5 eV. Below this is unnecessarily costly, and sometimes breaks - either because I have brittle code or it's fundamentally untenable.)
         // 4 Photoelectron peaks. need to include num regions defined here in FeatureRegimes. TODO fix this issue.
-        Region(pts_per_dirac,-1,-1,dirac_region), Region(pts_per_dirac,-1,-1,dirac_region), 
-        Region(pts_per_dirac,-1,-1,dirac_region), Region(pts_per_dirac,-1,-1,dirac_region)
     };     
+    for(size_t i = 0; i < num_dirac_regions; i++){
+                common_regions.push_back(Region(pts_per_dirac,-1,-1,dirac_region));
+    }
     regions.insert(regions.end(), common_regions.begin(), common_regions.end() );
     std::cout <<"\033[38:5:208m"<<"[ Dynamic Grid ] '"<< preset_name << "' preset used to initialise dynamic regions."<<"\033[0m"<< endl;
     
