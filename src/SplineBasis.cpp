@@ -272,7 +272,7 @@ void BasisSet::manual_set_knot(const GridSpacing& gt){
             //  Get the index of the region (rgn) that this point is part of.
             size_t rgn = 0;
             for( ; rgn < _region_powers.size(); rgn++){
-                if( i - start < _manual_region_bndry_index[rgn+1]
+                if( i - start < static_cast<size_t>(_manual_region_bndry_index[rgn+1])
                     || rgn == _region_powers.size() - 1){
                     break;
                     }
