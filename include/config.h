@@ -39,7 +39,7 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 
 
 /// Analytical testing
-//#define NO_ELECTRON_SOURCE
+//#define NO_ELECTRON_SOURCE  // Note this is equivalent to removing any #ELECTRON_SOURCE parameters in the .mol file.
 
 
 /// Thread capping. Often an easier option than regenerating batch files. (If multiple are left on, uses the lowest cap)
@@ -50,6 +50,9 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 //#define THREAD_MAX_1
 
 /// Experimental options for developers.
+
+// #define NO_MIN_DIRAC_DENSITY // If this is off, peaks have to be a certain factor above the algorithmically determined transition point, so long as that point is below 600 eV. Good for binomial free electron distribution.  (Note to developers: currently that implementation could be improved (perhaps allowing this macro to be avoided) if transition energy is separated from cutoff energy, and made to be between the light auger and photopeaks.)
+
 
 //#define BOUND_GD_HACK // A very primitive (unfinished) implementation of a bound transport correction. Not confirmed to be working as intended.
 

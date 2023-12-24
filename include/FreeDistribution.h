@@ -49,7 +49,7 @@ struct indexed_knot
  * @brief Electron distribution class.
  * @details Represents a statistical distribution of electron density. Internal units are atomic units.
  * @note F is referred to as the distribution throughout the code. F[i] returns the i'th spline factor, but
- * F.f is the container that holds the spline factors. F(e) expands out the basis to return the density at energy e. 
+ * F.f is the container that holds the spline factors. F(e) expands out the basis to return the density at energy e divided by local knot width.
  */
 class Distribution
 {

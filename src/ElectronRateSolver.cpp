@@ -134,12 +134,17 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             auto old_dirac_mins = regimes.dirac_minimums, old_dirac_maxs = regimes.dirac_maximums;
             
             double last_trans_e = param_cutoffs.transition_e;
-            double dirac_peak_cutoff_density = y[step].F(last_trans_e)*last_trans_e*2.5; 
+            
+            #ifndef NO_MIN_DIRAC_DENSITY
+            double dirac_peak_cutoff_density = y[step].F(last_trans_e)*last_trans_e*2.5;            
             // TODO this depending on last transition is dangerous for large grid update periods, or low fluences as the peaks tend to spread out.
             if (last_trans_e <= 600/Constant::eV_per_Ha){
                 // ad hoc fix - early on density at trans_e point in normalised density dist. is a bit higher than rest of sim since transition energy is stuck at default 250 eV 
                 dirac_peak_cutoff_density = y[step].F(last_trans_e)*last_trans_e*1.25; 
             }
+            # else 
+            double dirac_peak_cutoff_density = 0;
+            #endif // NO_MIN_DIRAC_DENSITY
             dirac_energy_bounds(step,regimes.dirac_maximums,regimes.dirac_minimums,regimes.dirac_peaks,true,regimes.num_dirac_peaks,dirac_peak_cutoff_density);
             mb_energy_bounds(step,regimes.mb_max,regimes.mb_min,regimes.mb_peak,true); //TODO make allowing shrinkage an input option?
             // Check whether we should update
@@ -394,7 +399,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             Pdot[r.to] += tmp;
             Pdot[r.from] -= tmp;
             sdot.F.addDeltaSpike(r.energy, r.val*J*P[r.from]);  // TODO change to tmp?
-            sdot.bound_charge +=  tmp; // this is negative (confusingly).
+            sdot.bound_charge +=  tmp;
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
 
@@ -407,7 +412,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             switch (input_params.electron_source_type){
                 case 'c':
                 {
-                    injected_density = J / pf(this->t[1]) * y[1].cumulative_photo[a];
+                    injected_density = input_params.electron_source_fraction * y[1].cumulative_photo[a] * (J / pf(this->t[1]));
                 break;
                 }
                 case 'p':

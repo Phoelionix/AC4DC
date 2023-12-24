@@ -163,7 +163,7 @@ private:
     double nearest_inflection(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
     double approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min_distance = 40, double min_inflection_fract = 1./4., double min = -1, double max=-1);  
     double approx_regime_peak(size_t step, double lower_bound, double upper_bound, double del_energy);  
-    std::vector<double> approx_regime_peaks(size_t step, double lower_bound, double upper_bound, double del_energy, size_t num_peaks = 1, double min_density = 0);
+    std::vector<double> approx_regime_peaks(size_t step, double lower_bound, double upper_bound, double del_energy, size_t num_peaks = 1, double min_density = 0, double separation_div_omega = 0.0667);
     void precompute_gamma_coeffs(); // populates above two tensors
     void set_initial_conditions();
 
