@@ -212,7 +212,7 @@ void GridRegions::initialise_regions(DynamicGridPreset& preset){
         preset.min_dirac_region_peak_energy  = 350;
         mb_max_over_kT = 2.3208*4/3;  
         mb_min_over_kT = 0.2922*1/4; 
-        pts_per_dirac = 25;  
+        pts_per_dirac = 15;  
         regions = {
             Region(7,10,20, Region::fixed_log), Region(8,20,50, Region::fixed_log),  // low support
             Region(10,50,200,Region::fixed_log), 
@@ -274,7 +274,8 @@ void GridRegions::initialise_regions(DynamicGridPreset& preset){
         if (preset.selected == DynamicGridPreset::all_log_grid || preset.selected == DynamicGridPreset::static_high_energy)
             static_region = Region::fixed_log;
         // Inner region with high density of knots, outer region of support to ensure not too high a difference with surroundings.
-        regions.push_back(Region(int(pts_per_dirac),preset.electron_source_energy*3/4,preset.electron_source_energy*1.5,static_region));
+        regions.push_back(Region(int(pts_per_dirac),preset.electron_source_energy*3/4,preset.electron_source_energy*4/3,static_region));
+        regions.push_back(Region(int(pts_per_dirac),preset.electron_source_energy*7/8,preset.electron_source_energy*8/7,static_region));
         regions.push_back(Region(int(pts_per_dirac),preset.electron_source_energy*1/2,preset.electron_source_energy*2,static_region));
     }    
     std::vector<Region> common_regions = {
