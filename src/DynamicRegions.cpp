@@ -208,17 +208,18 @@ void GridRegions::initialise_regions(DynamicGridPreset& preset){
         };        
         break;      
       case DynamicGridPreset::static_high_energy:  // i.e. Static dirac. Same as all_log_grid, except one big logarithmic static region past 1/4 photon energy.
-        preset_name = "Lower dirac regions, log all";  // Support extends below bottom of transition region.
+        preset_name = "Static high energy regions, log all";  // Support extends below bottom of transition region.
         preset.min_dirac_region_peak_energy  = 350;
         mb_max_over_kT = 2.3208*4/3;  
         mb_min_over_kT = 0.2922*1/4; 
-        pts_per_dirac = 15;  
+        pts_per_dirac = 25;  
         regions = {
             Region(7,10,20, Region::fixed_log), Region(8,20,50, Region::fixed_log),  // low support
             Region(10,50,200,Region::fixed_log), 
             Region(15,200,600,Region::fixed_log), // auger
-            Region((int)(0.5+ 14*trans_scaling),600,preset.pulse_omega/4,Region::fixed_log), // transition
-            Region(80,preset.pulse_omega/4,max_knot_energy,Region::fixed_log),  // high-energy
+            Region(30,600,preset.pulse_omega/3,Region::fixed_log), // transition
+            Region(50,preset.pulse_omega/3,max_knot_energy/2.5*6/4,Region::fixed_log),  // high-energy
+            Region(10,max_knot_energy/2.5*6/4,max_knot_energy,Region::fixed_log),  // tail
             Region(25,-1,-1,Region::mb_log), // Maxwell-boltzmann distribution
         };        
         break;                       
