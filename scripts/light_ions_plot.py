@@ -16,13 +16,13 @@ import os
 from QoL import set_highlighted_excepthook
 
 CHARGE_DIFFERENCE = False # Set True if want ionised atoms' trace to start from origin
-PLOT_DERIVATIVE = True # Plot the rate of avg charge gain
+PLOT_DERIVATIVE = False # Plot the rate of avg charge gain
 PLOT_MODE = 1  # 0: plot all charges, 1: plot element total charges # 2: plot orbital charges
 YLIM = [None,None]
 FIGWIDTH = 3.49751*2/3
 FIGHEIGHT = 3.49751/2
 #XLIM = [None,None]
-XLIM = [None,-17]
+XLIM = [None,None]
 #YLIM=[0,6]
 def main():
     set_highlighted_excepthook()
@@ -60,7 +60,7 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,plo
         fig, axs = plt.subplots(3, 3, sharey=True, facecolor='w')
 
         dashes = ["solid","dashed"]#"dotted"]
-        atoms = ("C","N","O","S","Fe_faster")
+        atoms = ("C","N","O","S")
         cmap = plt.get_cmap("Dark2")
         assert len(mol_names) <= 2
         # Hacky way to get overlaid plots TODO

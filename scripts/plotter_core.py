@@ -656,8 +656,12 @@ class Plotter:
             self.boundData[a] = raw[:, 1:]
             self.statedict[a] = self.get_bound_config_spec(a)
             # rates
-            raw = np.genfromtxt(self.atomdict[a]['photofile'], comments='#', dtype=np.float64)
-            self.photoData[a] = raw[:, 1] 
+            try:
+                raw = np.genfromtxt(self.atomdict[a]['photofile'], comments='#', dtype=np.float64)
+                self.photoData[a] = raw[:, 1] 
+            except:
+                print("Warning: Missing '" + self.atomdict[a]['photofile'] + "'.")
+                
 
         self.atomic_numbers = self.get_atomic_numbers()
         self.grid_update_time_Data = []
@@ -700,11 +704,19 @@ class Plotter:
             self.fig, self.axs = plt.subplots(num_subplots,figsize=(width,height*num_subplots))
             if type(self.axs) is not np.ndarray:
                 self.axs = np.array([self.axs])
+        self.num_subplots = num_subplots
 
     def get_next_ax(self):
         ax = self.axs.flat[self.num_plotted]
         self.num_plotted+=1
         return ax
+    def delete_remaining_axes(self):
+        if self.num_subplots == 1:
+            return
+        while self.num_plotted < self.axs.shape[0]*self.axs.shape[1]:
+            self.axs.flat[self.num_plotted].remove()
+            self.num_plotted+=1
+
         
     def plot_atom_total(self, a):
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
@@ -926,6 +938,8 @@ class Plotter:
             else:
                 ax = self.get_next_ax()        
             ax.scatter(self.timeData,self.photoData[a])
+            ax.ticklabel_format(style='sci',scilimits=(0,0))
+            ax.set_ylabel(a+" species-wide cumulative photoionisations")
             
 
     def plot_subshell(self, a, subshell='1s',rseed=404):

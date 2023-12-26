@@ -96,7 +96,8 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
         for dat_file in necessary_files: 
             assert path.isfile(plasma_output + "/" +dat_file), "Missing "+dat_file+" in "+plasma_output
         # Index parameters of simulation
-        start_time[i],end_time[i],energy[i],fwhm[i],photon_count[i],param_dict,unit_dict = get_sim_params(sim_handle,sim_input_dir,sim_data_batch_dir)
+        param_dict, param_name_list,unit_list = get_sim_params(sim_handle,sim_input_dir,sim_data_batch_dir)
+        start_time[i],end_time[i],energy[i],fwhm[i],photon_count[i] = param_dict["start_t"],param_dict["end_t"],param_dict["energy"],param_dict["width"],param_dict["fluence"]
     dmg_data = []
     pulse_params=[]
     names = []
@@ -114,8 +115,8 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
         #TODO print properly
         print(sim_handle)
         print(energy[i],fwhm[i],photon_count[i])
-        print(param_dict)
-        print(unit_dict)
+        print(param_name_list)
+        print(unit_list)
         exp_name1 = sim_handle + "_" + exp1_qualifier
         exp_name2 = sim_handle + "_" + exp2_qualifier
 
@@ -161,7 +162,7 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
         pulse_params.append([energy[i],fwhm[i],photon_count[i]])
         resolutions_vect.append(resolutions)
     
-    return np.array(pulse_params,dtype=float),np.array(dmg_data,dtype=object), np.array(resolutions_vect,dtype=object), names, param_dict
+    return np.array(pulse_params,dtype=float),np.array(dmg_data,dtype=object), np.array(resolutions_vect,dtype=object), names, param_name_list
 
 import pickle
 def save_data(fname, data):
@@ -173,7 +174,7 @@ def save_data(fname, data):
     
 def load_df(fname, resolution,check_batch_nums=True):
     with open(DATA_FOLDER+fname +".pickle", "rb") as file:
-        pulse_params, dmg_data,resolutions,names,param_dict = pickle.load(file) 
+        pulse_params, dmg_data,resolutions,names,param_name_list = pickle.load(file) 
     
     # Check that the resolution is at or above the minimum of all simulations
     print(dmg_data.shape)
@@ -203,8 +204,8 @@ def load_df(fname, resolution,check_batch_nums=True):
     # photon_size_thing = dmg_data[:,2] + np.max(dmg_data[:,2])/10
     photon_size_thing = 1+np.square(np.log(pulse_params[:,2])-np.min(np.log((pulse_params[:,2]))))
 
-    assert param_dict[3] == "R"
-    photon_measure = param_dict[2]
+    assert param_name_list[3] == "R"
+    photon_measure = param_name_list[2]
     photon_data = [1e12*p for p in pulse_params[:,2]]
     df = pd.DataFrame({
         "name": names, 
@@ -540,10 +541,10 @@ if __name__ == "__main__":
 # Surgery
 fname = "lys_all_light"
 with open(DATA_FOLDER+fname +".pickle", "rb") as file:
-    pulse_params, dmg_data,_,names,param_dict = pickle.load(file) 
+    pulse_params, dmg_data,_,names,param_name_list = pickle.load(file) 
 with open(DATA_FOLDER+"resolutions.pickle","rb") as file:
     _, _,resolutions,_,_ = pickle.load(file) 
-save_data(fname +"Res", (pulse_params,dmg_data, resolutions, names, param_dict))
+save_data(fname +"Res", (pulse_params,dmg_data, resolutions, names, param_name_list))
 '''
 
 #%%

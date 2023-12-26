@@ -36,7 +36,7 @@ from scipy.interpolate import InterpolatedUnivariateSpline,SmoothBivariateSpline
 FIGWIDTH_FACTOR = 1
 FIGWIDTH = 3.49751 *FIGWIDTH_FACTOR
 FIGHEIGHT = FIGWIDTH*3/4
-FIT = True
+FIT = False
 
 matplotlib.rcParams.update({
     'figure.subplot.left':0.14/FIGWIDTH_FACTOR,
@@ -46,37 +46,41 @@ matplotlib.rcParams.update({
 })
 
 
+###
+# INDEP_VARIABLE
+PHOTON_ENERGY = 0; EDGE_SEPARATION = 1; ELECTRON_SOURCE_ENERGY = 2
+# DEP_VARIABLE
+AVERAGE_CHARGE = 0; R_FACTOR = 1
+# BATCH
+REAL_ELEMENTS = 0; ELECTRON_SOURCE = 1
+
 ####### User parameters #########
+INDEP_VARIABLE = 2 # | 0: energy of photons |1: Energy separation from given edge |2: Artificial electron source energy
+DEP_VARIABLE = 1 # | 0: mean carbon charge | 1: R factors (performs scattering simulations for each) |
+BATCH = 1  #| 0: Real elements | 1: Electron source. 
+
 ## Graphical
 LEGEND = True
 LABEL_TIMES = False # Set True to graphically check times are all aligned.
 
 ## Numerical
-MODE = 1 # | 0: mean carbon charge | 1: R factors (performs scattering simulations for each) |
-SCATTERING_TARGET = 0 # Used if MODE = 1.  | 0: unit lysozyme (light atoms) | 1: 3x3x3 lysozyme (light atoms no solvent)|
-NORMALISING_STEM = None#"SH_N" # None  # None, or the stem (str) to normalise traces by. (s.t. normalised trace becomes horizontal line)
-INDEP_VARIABLE = 2 # | 0: energy of photons |1: Energy separation from given edge |2: Artificial electron source energy
+
+SCATTERING_TARGET = 0 # Used if DEP_VARIABLE = 1.  | 0: unit lysozyme (light atoms) | 1: 3x3x3 lysozyme (light atoms no solvent)|
+NORMALISING_STEM = None #"SH_N" # None  #Stem (str) to normalise traces by. (s.t. normalised trace becomes horizontal line). If None, does not normalise.
+#NORMALISING_STEM = "SH_N"
 
 ylim=[None,None]
-xlim = [None,None]
 
-#ylim = [,]
-xlim = [0, None]
-#xlim = [7, 18]#[7,18] # [5,18] [7,18]
-
-# Batch stems and index range (inclusive). currently assuming form of key"-"+n+"_1", where n is a number in range of stem[key]
-REAL_ELEMENTS = 0; ELECTRON_SOURCE = 1
-#batch = REAL_ELEMENTS
-
-batch = ELECTRON_SOURCE
-if batch is REAL_ELEMENTS:
+if BATCH is REAL_ELEMENTS:
+    assert(INDEP_VARIABLE != ELECTRON_SOURCE_ENERGY)
+    # Batch stems and index range (inclusive). currently assuming form of key"-"+n+"_1", where n is a number in range of stem[key]
     # e.g. item "Carbon":[2,4] means to plot simulations corresponding to outputs Carbon-2, Carbon-3, Carbon-4, mol files. Last simulation output is used in case of duplicates (highest run number).
     stem_dict = {
-            "SH_N":[2,11],
-            "SH_S":[2,11],  
-            "SH_Fe":[2,9],  
-            "SH_Zn":[2,11],
-            "SH_Se":[2,11],
+            "SH_N":[2,10], #[700,704],
+            "SH_S":[2,10],  
+            "SH_Fe":[2,10],  
+            "SH_Zn":[2,10],
+            "SH_Se":[2,10],
             "SH_Zr":[2,10],
             #-----L------
             "SH_Ag":[2,8],
@@ -87,14 +91,31 @@ if batch is REAL_ELEMENTS:
     additional_points_dict = {
 
     }    
-if batch is ELECTRON_SOURCE:
-    stem_dict = {
-        #"ES":[32,35],
-        "ES_L":[32,42],    # [43,46] -> + 77
-    }
-    additional_points_dict = {
-        "ES_L":[0],
-    }
+    
+if BATCH is ELECTRON_SOURCE:
+    #photon_energy = 10
+    fluence = 1
+    width = 15
+    source_fraction = 3
+    source_duration = 1
+
+    assert(INDEP_VARIABLE == ELECTRON_SOURCE_ENERGY)
+    # Manual mapping... TODO just pop outputs in folder or something.
+    def batch_mapping(fluence,width,source_fraction,source_duration):
+        params = fluence,width,source_fraction,source_duration
+        if params == (1,15,1,1):
+            return dict(ES_C = ([1,22],[0]))
+        if params == (1,15,3,1):
+            return  dict(ES_C = ([23,44],[0,902]))
+        if params == (1,30,1,1):
+            return dict(ES_C =([45,66],[]))
+        raise KeyError("Invalid/missing batch params")
+    stem_dict = {}
+    additional_points_dict = {}
+    for key, val in batch_mapping(fluence,width,source_fraction,source_duration).items():
+        stem_dict[key] = val[0]
+        additional_points_dict[key] = val[1]
+        
 # Ionisation edges of dopants
 edge_dict = {
     "SH_N": (0.3,"K"),
@@ -109,6 +130,7 @@ edge_dict = {
     
     "ES":(0.3,"K"),
     "ES_L":(0.3,"K"),
+    "ES_C":(0.3,"K"),
 }
 ground_charge_dict = {
     "SH_N": 0,
@@ -123,6 +145,7 @@ ground_charge_dict = {
 
     "ES":0,
     "ES_L":0,
+    "ES_C":0,
 }
 col_dict = {
     "SH_N": 0,
@@ -137,24 +160,25 @@ col_dict = {
 
     "ES":0,
     "ES_L":1,
+    "ES_C":2,
 }
 
 ################
 ## Constants
-# Dependent variable
-# MODE
-AVERAGE_CHARGE = 0
-R_FACTOR = 1
-# INDEP_VARIABLE
-PHOTON_ENERGY = 0
-PHOTOELECTRON_ENERGY = 1  # Not quite an accurate label.
-ELECTRON_SOURCE_ENERGY = 2
 
 SCATTERING_TARGET_DICT = {0: (imaging_params.goldilocks_dict_unit,"-unit"),1: (imaging_params.goldilocks_dict_3x3x3,"3x3x3")}
 #
 SCATTER_DIR = path.abspath(path.join(__file__ ,"../")) +"/scattering/"
 PDB_STRUCTURE = get_pdb_path(SCATTER_DIR,"lys") 
 MOLECULAR_PATH = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/" # directory of damage sim output folders
+
+xlim = [None,20]
+if INDEP_VARIABLE is EDGE_SEPARATION:
+    xlim[1] -= xlim[0]
+    xlim[0] = 0 
+if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
+    #xlim = [None,None]
+    xlim = [0,20]
 
 set_highlighted_excepthook()
 def main():       
@@ -187,24 +211,24 @@ def main():
                 break
             data_folders[i] = handle + "_"+str(max(run_nums))
         batches[key] = data_folders
-    for key, sims in additional_points_dict.items():
-        for sim_tag in sims:
-            handle = key+"-"+str(sim_tag)
-            matches = [match for match in all_outputs if match.startswith(handle+"_")]
-            run_nums = [int(R.split("_")[-1]) for R in matches if R.split("_")[-1].isdigit()] 
-            if len(run_nums) == 0: 
-                valid_folder_names = False
-                print("\033[91mInput error\033[0m (a run corresponding to \033[91m"+handle+"\033[0m): not found in"+MOLECULAR_PATH)
-                break
-            data_folder = handle + "_"+str(max(run_nums))
-            assert(data_folder not in data_folders)
-            data_folders.append(data_folder)             
+        if key in additional_points_dict:
+            for sim_tag in additional_points_dict[key]:
+                handle = key+"-"+str(sim_tag)
+                matches = [match for match in all_outputs if match.startswith(handle+"_")]
+                run_nums = [int(R.split("_")[-1]) for R in matches if R.split("_")[-1].isdigit()] 
+                if len(run_nums) == 0: 
+                    valid_folder_names = False
+                    print("\033[91mInput error\033[0m (a run corresponding to \033[91m"+handle+"\033[0m): not found in"+MOLECULAR_PATH)
+                    break
+                data_folder = handle + "_"+str(max(run_nums))
+                assert(data_folder not in data_folders)
+                data_folders.append(data_folder)             
 
 
     assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder. See input error message(s)"
     fig_title = "".join([stem.split("-")[0].split("_")[-1] for stem in batches.keys()])
-    label = fig_title+"_"+plot_type[MODE]
-    plot(batches,label,dname_Figures,mode=MODE)
+    label = fig_title+"_"+plot_type[DEP_VARIABLE]
+    plot(batches,label,dname_Figures,mode=DEP_VARIABLE)
 
 def plot(batches,label,figure_output_dir,mode = 0):
     ylabel = {AVERAGE_CHARGE:"Average carbon's charge",R_FACTOR:"$R_{dmg}$"}
@@ -226,27 +250,29 @@ def plot(batches,label,figure_output_dir,mode = 0):
     cmap = plt.get_cmap('tab10')
 
     output_tag = ""
-    if MODE == 1:
+    if DEP_VARIABLE == 1:
         im_params,output_tag = SCATTERING_TARGET_DICT[SCATTERING_TARGET]
-    if NORMALISING_STEM is not None:
+    if NORMALISING_STEM not in [None,False]:
         output_tag += "-normed"
-    if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
+    if INDEP_VARIABLE is EDGE_SEPARATION:
         output_tag +="-PhEl"  # X-ray photoelectron = XPhEl...
+    if BATCH is ELECTRON_SOURCE:
+        output_tag += str(fluence)+"-"+str(width)+"-"+str(source_fraction)+"-"+str(source_duration)
 
-    if NORMALISING_STEM is not None:
+    if NORMALISING_STEM not in [None,False]:
         print("Getting norm")
         mol_names = batches[NORMALISING_STEM]
         norm = []
         for mol_name in mol_names:
             if INDEP_VARIABLE is PHOTON_ENERGY: 
-                energy = get_sim_params(mol_name)[2]/1000
-            if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
-                energy = get_sim_params(mol_name)[2]/1000 - edge_dict[stem][0]
+                energy = get_sim_params(mol_name)[0]["energy"]
+            if INDEP_VARIABLE is EDGE_SEPARATION:
+                energy = get_sim_params(mol_name)[0]["energy"] - edge_dict[stem][0]*1000
             if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
-                energy = get_sim_params(mol_name,get_source_energy=True)[2]
+                energy = get_sim_params(mol_name)[0]["source_energy"]
                 if energy is None:
                     energy = 0
-                energy/=1000
+            energy/=1000
             pl = Plotter(mol_name)
             if mode is AVERAGE_CHARGE:
                 intensity_averaged = False
@@ -270,23 +296,12 @@ def plot(batches,label,figure_output_dir,mode = 0):
             pl = Plotter(mol_name)
             times.append(pl.timeData[-1])
 
-            if NORMALISING_STEM is not None and NORMALISING_STEM == stem:  #TODO tidy up by moving outside loop
+            if NORMALISING_STEM not in [None,False] and NORMALISING_STEM == stem:  #TODO tidy up by moving outside loop
                 for elem in norm:
                     X.append(elem[0])
                     Y.append(elem[1])
                 break
             else:
-                if INDEP_VARIABLE is PHOTON_ENERGY: 
-                    X.append(get_sim_params(mol_name)[2]/1000)
-                if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
-                    X.append(get_sim_params(mol_name)[2]/1000 - edge_dict[stem][0])
-                if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
-                    energy = get_sim_params(mol_name,get_source_energy=True)[2]
-                    if energy is None:
-                        energy = 0
-                    energy/=1000
-                    X.append(energy)
-
                 if mode is AVERAGE_CHARGE:
                     intensity_averaged = False
                     if intensity_averaged: 
@@ -296,12 +311,35 @@ def plot(batches,label,figure_output_dir,mode = 0):
                         Y.append(pl.get_total_charge(atoms="C")[step_index])
                 elif mode is R_FACTOR:            
                     Y.append(get_R(mol_name,MOLECULAR_PATH,im_params)[0][0])
+
+                if INDEP_VARIABLE is PHOTON_ENERGY: 
+                    energy = get_sim_params(mol_name)[0]["energy"]
+                if INDEP_VARIABLE is EDGE_SEPARATION:
+                    energy = get_sim_params(mol_name)[0]["energy"] - edge_dict[stem][0]*1000
+                if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
+                    s = get_sim_params(mol_name)[0]
+                    energy = s["source_energy"]
+                    if energy is None:
+                        # No source
+                        if (s["fluence"],s["width"]) != (fluence,width):
+                            print(s)
+                            print((s["fluence"],s["width"]),"!=",(fluence,width))
+                            raise ValueError("Params do not match expected values for batch")                        
+                        # Plot horizontal dashed line corresponding to damage with no artificial source.
+                        ax.axhline(y=Y[-1],ls=(5,(10,3)),color=cmap(0),label="No injected")
+                        Y.pop(-1)
+                        continue
+                    if (s["fluence"],s["width"],s["source_fraction"],s["source_duration"]) != (fluence,width,source_fraction,source_duration):
+                        print(s)
+                        print((s["fluence"],s["source_fraction"],s["source_duration"]),"!=",(fluence,width,source_fraction,source_duration))
+                        raise ValueError("Params do not match expected values for batch")                    
+                X.append(energy/1000)
         print("Energies:",X)
         if mode is AVERAGE_CHARGE:
             print("Charges:",Y)
         if mode is R_FACTOR:
             print("R factors:",Y)
-        if NORMALISING_STEM is not None:
+        if NORMALISING_STEM not in [None,False]:
             for i, energy in enumerate(X): 
                 for elem in norm:
                     if elem[0] == energy:
@@ -313,11 +351,14 @@ def plot(batches,label,figure_output_dir,mode = 0):
                 #     del(energies[i])
                 #     del(times[i])
 
-        _label = dopant 
-        if ground_charge_dict[stem]>1: 
-            _label+="$^{"+str(ground_charge_dict[stem])+"+}$"
-        elif ground_charge_dict[stem]==1:
-            _label+="$^{+}$"
+        if BATCH is REAL_ELEMENTS:
+            _label = dopant 
+            if ground_charge_dict[stem]>1: 
+                _label+="$^{"+str(ground_charge_dict[stem])+"+}$"
+            elif ground_charge_dict[stem]==1:
+                _label+="$^{+}$"
+        if BATCH is ELECTRON_SOURCE:
+            _label = "Injected"
         ax.scatter(X,Y,label=_label,color = cmap(c))
         
         k =2 # Spline order
@@ -327,7 +368,7 @@ def plot(batches,label,figure_output_dir,mode = 0):
             split_idx = 0
             if INDEP_VARIABLE is PHOTON_ENERGY:
                 split_idx = np.searchsorted(np.array([x[0] for x in ordered_dat]),edge_dict[stem][0])
-            if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
+            if INDEP_VARIABLE is EDGE_SEPARATION:
                 split_idx = np.searchsorted(np.array([x[0] for x in ordered_dat]),-0.000000001)
             splines = []
             finer_x = []
@@ -348,18 +389,23 @@ def plot(batches,label,figure_output_dir,mode = 0):
             for i, txt in enumerate(times):
                 ax.annotate(txt, (X[i],Y[i]))
         _ylab = ylabel[mode]
-        if NORMALISING_STEM is not None:
+        if NORMALISING_STEM not in [None,False]:
             _ylab += " relative difference" # TODO better clarity
         ax.set_ylabel(_ylab)
         if INDEP_VARIABLE is PHOTON_ENERGY:
             ax.set_xlabel("Photon energy (keV)")
-        if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
-            ax.set_xlabel("Dopant `photoelectron energy' (keV)")  # TODO define better
+        if INDEP_VARIABLE is EDGE_SEPARATION:
+            ax.set_xlabel("Dopant edge separation (keV)")  # TODO define better
         if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
             ax.set_xlabel("Source electron energy (keV)")  # TODO define better
         
+    if xlim[0] is None:
+        xlim[0] = np.min(X)
+    if xlim[1] is None:
+        xlim[1] = np.max(X)
     ax.set_ylim(ylim)
     ax.set_xlim(xlim)           
+
     if INDEP_VARIABLE is PHOTON_ENERGY: 
         for stem, mol_names in batches.items():
             c = col_dict[stem]
@@ -367,7 +413,7 @@ def plot(batches,label,figure_output_dir,mode = 0):
             if ax.get_xlim()[0] < edge_dict[stem][0] < ax.get_xlim()[1]:
                 ax.axvline(x=edge_dict[stem][0],ls=(5,(10,3)),color=cmap(c))
                 ax.text(edge_dict[stem][0]-0.1, 0.96*ax.get_ylim()[1] +0.04*ax.get_ylim()[0],dopant+"--$"+edge_dict[stem][1]+"$",verticalalignment='top',horizontalalignment='right',rotation=-90,color=cmap(c))
-    if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
+    if INDEP_VARIABLE is EDGE_SEPARATION:
         ax.axvline(x=0,ls=(5,(10,3)),color="black")
 
     
@@ -378,7 +424,11 @@ def plot(batches,label,figure_output_dir,mode = 0):
     #ax.set_yticklabels(([str(y/OOM) for y in yticks ]))
 
     if LEGEND:
-        ax.legend(title="Dopant",fancybox=True,ncol=2,loc='upper center',bbox_to_anchor=(0.75, 1.02),handletextpad=0.01,columnspacing=0.2,borderpad = 0.18)
+        if BATCH is REAL_ELEMENTS:
+            ax.legend(title="Dopant",fancybox=True,ncol=2,loc='upper center',bbox_to_anchor=(0.75, 1.02),handletextpad=0.01,columnspacing=0.2,borderpad = 0.18)
+        if BATCH is ELECTRON_SOURCE:
+            ax.legend(fancybox=True,ncol=1,loc='upper center',bbox_to_anchor=(0.8, 1.02),handletextpad=0.01,columnspacing=0.2,borderpad = 0.18)
+
     #ax.set_title(fig_title)
     #fig.tight_layout()
     fig.savefig(figure_output_dir + label + output_tag + figures_ext)#bbox_inches="tight", pad_inches=0)
@@ -409,8 +459,10 @@ def get_R(sim_handle,sim_handle_parent_folder,scattering_sim_parameters,allowed_
         exp_name1 = sim_handle + "_" + exp1_qualifier
         exp_name2 = sim_handle + "_" + exp2_qualifier
 
-        start_time,end_time,energy,fwhm,photon_count,param_dict,unit_dict = get_sim_params(sim_handle)
-
+        param_dict,_,_ = get_sim_params(sim_handle)
+        start_time = param_dict["start_t"]
+        end_time = param_dict["end_t"]
+        energy = param_dict["energy"]
         # 
         print("Preparing XFEL...")
         experiment1 = XFEL(exp_name1,energy,**run_params["experiment"])

@@ -28,7 +28,9 @@ normalise = False
 ELECTRON_DENSITY = False # if False, use energy density  
 ANIMATION = False # if true, generate animation rather than interactive figure (i.e. automatic slider movement) 
 ALSO_MAKE_PLOTS = False # Generate static plots for each simulation 
-SINGLE_FRAME = False
+SINGLE_FRAME = False # Save a png using plotly .
+
+NAMING_MODE = 0  # 0: full details of sim parameters + sim name | 1: elements in sim| 
 
 END_T = 9999  # Put at value to cutoff times early.
 POINTS = 70
@@ -68,7 +70,6 @@ inset_dict = dict(
     ),
 )
 
-NAMING_MODE = 1  # 0: full details of sim parameters + sim name | 1: elements in sim| 
 
 IDX = 0
 terminal_mode = True
@@ -244,11 +245,12 @@ def get_legend_labels(target_handles,sim_data_parent_dir,sim_input_dir=None):
         legend_title = "Elements present"        
     for handle in target_handles:
         if NAMING_MODE == 0:
-            sim_params = list(get_sim_params(handle,sim_input_dir,sim_data_parent_dir))
+            s = get_sim_params(handle,sim_input_dir,sim_data_parent_dir)
+            sim_params = [s[0]["energy"],s[0]["width"],s[0]["fluence"]]
             sim_params = sim_params[2:] # 0 and 1 are start and end time,
-            unit_dict = sim_params.pop()
-            param_dict = sim_params.pop()
-            name = ["  " + param_dict[i][0] + ": " +str(p) + unit_dict[i]  for i, p in enumerate(sim_params)]
+            unit_list = s[1]
+            param_list = s[2]
+            name = ["  " + param_list[i][0] + ": " +str(p) + unit_list[i]  for i, p in enumerate(sim_params)]
             name = ''.join(name) + " [" + handle + "]"
             name = name[2:]  
         elif NAMING_MODE == 1:

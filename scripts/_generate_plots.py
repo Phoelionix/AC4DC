@@ -81,7 +81,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
     pl.setup_axes(num_subplots)
     if num_subplots > 1:
         pl.fig.tight_layout()
-        pl.fig.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.15, hspace=None)
+        pl.fig.subplots_adjust(left=0.12/pl.axs.shape[0], bottom=None, right=None, top=None, wspace=0.2, hspace=None)
 
     if charge_conservation: 
         pl.plot_tot_charge(every=10,charge_difference=True,legend_loc="best")  #TODO automatically set to charge_difference to True if starting with ions...
@@ -255,6 +255,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
     # pl.ax_steps.set_xscale("linear")
     # pl.ax_steps.set_xlim([0,1800])
     # pl.ax_steps.set_ylim([0.5e-4,0.5])
+    pl.delete_remaining_axes()
     if num_subplots > 1:
         plt.gcf().set_figwidth(FIGWIDTH*pl.axs.shape[0])
         plt.gcf().set_figheight(FIGHEIGHT*pl.axs.shape[1])  

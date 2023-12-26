@@ -4,7 +4,7 @@ import numpy as np
 import sys
 import re
 
-def get_sim_params(handle,input_path=None,molecular_path=None,get_source_energy=False):
+def get_sim_params(handle,input_path=None,molecular_path=None):
     '''
     Reads the control file and returns the relevant parameters within
     By default use input_path = "input/"
@@ -30,6 +30,8 @@ def get_sim_params(handle,input_path=None,molecular_path=None,get_source_energy=
     photon_unit = None
     photon_measure_val = None
     source_energy = None
+    source_fraction = None
+    source_duration = None
 
     def init_photon_read(param_type,unit):
         nonlocal reading_photons,photon_measure,photon_unit
@@ -82,18 +84,31 @@ def get_sim_params(handle,input_path=None,molecular_path=None,get_source_energy=
                     photon_measure_val = float(line.split(' ')[0])
                 n += 1
             if reading_electron_source:
+                if n == 0:
+                    source_fraction = float(line.split(' ')[0])  
                 if n == 1:
                     source_energy = float(line.split(' ')[0])    
+                if n == 2:
+                    source_duration = float(line.split(' ')[0])  
                 n+=1            
-    energy = photon_energy
-    if get_source_energy:
-        energy = source_energy
     print("Time range:",start_t,"-",end_t)
-    print("Energy:", energy)
-    param_dict = ["Energy","Width",photon_measure,"R"]  #TODO dont call dicts...
-    unit_dict = [" eV"," fs",photon_unit,""]
+    print("Photon energy:", photon_energy)
+    if source_energy is not None:
+        print("Source energy:", source_energy)
+    param_name_list = ["Energy","Width",photon_measure,"R"]  #TODO Poor format given source energy is now a thing.
+    unit_list = [" eV"," fs",photon_unit,""]
     #TODO check that time range is satisfied by files.
-    return start_t,end_t, energy, fwhm, photon_measure_val, param_dict,unit_dict
+    param_dict = dict(
+        start_t=start_t,
+        end_t=end_t,
+        energy=photon_energy,
+        width=fwhm,
+        fluence=photon_measure_val,
+        source_fraction = source_fraction,
+        source_energy = source_energy,
+        source_duration = source_duration,
+    )
+    return param_dict, param_name_list,unit_list
 
 def get_sim_elements(handle,input_path=None,molecular_path=None):
     if input_path is None:
@@ -109,15 +124,15 @@ def get_sim_elements(handle,input_path=None,molecular_path=None):
     with open(molfile, 'r') as f:
         n = 0
         for line in f:
-            if line.startswith("#ATOM"):
+            if line.startswith("#ATOMS"):
                 reading=True            
                 continue        
-            elif line.startswith("#") or line.startswith("//") or len(line.strip()) == 0:
+            elif reading == True and (line.startswith("#") or line.startswith("//") or len(line.strip()) == 0):
                 break
             if line.startswith("####END####"):
                 break
             if reading:
-                elem = line.split(' ')[0]         
+                elem = line.split(' ')[0]      
                 elements.append(elem)
     return elements
     
