@@ -32,6 +32,7 @@ from scatter import XFEL,Crystal,stylin
 from damage_landscape import multi_damage
 from core_functions import get_pdb_path
 import imaging_params
+from mergedeep import merge
 
 
 FIGWIDTH_FACTOR = 1
@@ -57,8 +58,9 @@ REAL_ELEMENTS = 0; ELECTRON_SOURCE = 1
 
 ####### User parameters #########
 INDEP_VARIABLE = 0 # | 0: energy of photons |1: Energy separation from given edge |2: Artificial electron source energy
-DEP_VARIABLE = 0 # | 0: mean carbon charge | 1: R factors (performs scattering simulations for each) |
+DEP_VARIABLE = 1 # | 0: mean carbon charge | 1: R factors (performs scattering simulations for each) |
 BATCH = 0 #| 0: Real elements | 1: Electron source. 
+SCATTERING_TARGET = 1 # Used if DEP_VARIABLE = 1.  | 0: unit lysozyme (light atoms) | 1: 3x3x3 lysozyme (light atoms no solvent)|
 
 ## Graphical
 LEGEND = True
@@ -66,7 +68,6 @@ LABEL_TIMES = False # Set True to graphically check times are all aligned.
 
 ## Numerical
 
-SCATTERING_TARGET = 0 # Used if DEP_VARIABLE = 1.  | 0: unit lysozyme (light atoms) | 1: 3x3x3 lysozyme (light atoms no solvent)|
 NORMALISING_STEM = None #"SH_N" # None  #Stem (str) to normalise traces by. (s.t. normalised trace becomes horizontal line). If None, does not normalise.
 #NORMALISING_STEM = "SH_N"
 
@@ -168,7 +169,7 @@ col_dict = {
 ################
 ## Constants
 
-SCATTERING_TARGET_DICT = {0: (imaging_params.goldilocks_dict_unit,"-unit"),1: (imaging_params.goldilocks_dict_3x3x3,"3x3x3")}
+SCATTERING_TARGET_DICT = {0: (imaging_params.goldilocks_dict_unit,"-unit"),1: (imaging_params.goldilocks_dict_3x3x3,"3x3x3"),99:(imaging_params.goldilocks_dict_unit,"-unit")}
 #
 SCATTER_DIR = path.abspath(path.join(__file__ ,"../")) +"/scattering/"
 PDB_STRUCTURE = get_pdb_path(SCATTER_DIR,"lys") 
@@ -288,6 +289,10 @@ def plot(batches,label,figure_output_dir,mode = 0):
         for mol_name in mol_names:
             
             # Don't recalculate norm.
+            indep_variable_key = str(INDEP_VARIABLE)
+            dep_variable_key = str(DEP_VARIABLE)
+            if DEP_VARIABLE == 1:
+                dep_variable_key = str(DEP_VARIABLE)+"-"+str(SCATTERING_TARGET)
             if NORMALISING_STEM not in [None,False] and NORMALISING_STEM == stem:  #TODO tidy up by moving outside loop
                 for elem in norm:
                     X.append(elem[0])
@@ -298,7 +303,7 @@ def plot(batches,label,figure_output_dir,mode = 0):
                 dat= get_saved_data(mol_name) 
                 if dat is not None:
                         saved_x,                              saved_y,                            saved_end_time = (
-                        dat.get("x").get(str(INDEP_VARIABLE)),dat.get("y").get(str(DEP_VARIABLE)),dat.get("end_time")
+                        dat.get("x").get(indep_variable_key),dat.get("y").get(dep_variable_key),dat.get("end_time")
                     )
                 ## Get independent variable
                 if INDEP_VARIABLE is PHOTON_ENERGY: 
@@ -348,9 +353,9 @@ def plot(batches,label,figure_output_dir,mode = 0):
 
                 save_dict = {}
                 if saved_x is None:
-                    save_dict["x"] = {str(INDEP_VARIABLE):X[-1]}
+                    save_dict["x"] = {indep_variable_key:X[-1]}
                 if saved_y is None:    
-                    save_dict["y"] = {str(DEP_VARIABLE):Y[-1]}
+                    save_dict["y"] = {dep_variable_key:Y[-1]}
                 if saved_end_time is None:
                     save_dict["end_time"] = times[-1]
                 if save_dict is not {}:
@@ -460,7 +465,7 @@ def grow_crystals(run_params,pdb_path,allowed_atoms,identical_deviations=True,pl
     Ignores atoms not in allowed_atoms
     '''
     # The undamaged crystal form factor is constant (the initial state's) but still performs the same integration step with the pulse profile weighting.
-    crystal_dmged = Crystal(PDB_STRUCTURE,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=True, **run_params["crystal"])
+    crystal_dmged = Crystal(pdb_path,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=True, **run_params["crystal"])
     if identical_deviations:
         # we copy the other crystal so that it has the same deviations in coords
         crystal_undmged = copy.deepcopy(crystal_dmged)
@@ -490,7 +495,12 @@ def get_R(sim_handle,sim_handle_parent_folder,scattering_sim_parameters,allowed_
         experiment2 = XFEL(exp_name2,energy,**run_params["experiment"])
 
         print("Growing crystals at breakneck speeds...")     
-        crystal_real, crystal_ideal = grow_crystals(run_params,PDB_STRUCTURE,allowed_atoms,plot_crystal=False)
+        structure = PDB_STRUCTURE
+        if SCATTERING_TARGET == 99:
+            # Debug, use tetrapeptide (small structure, fast)
+            structure = get_pdb_path(SCATTER_DIR,"tetra")
+            
+        crystal_real, crystal_ideal = grow_crystals(run_params,structure,allowed_atoms,plot_crystal=False)
     
         if run_params["laser"]["SPI"]:
             SPI_result1 = experiment1.spooky_laser(start_time,end_time,sim_handle,sim_handle_parent_folder,crystal_real, **run_params["laser"])
@@ -533,7 +543,7 @@ def save_data(handle,output_data_dict):
     if os.path.exists(file_path):
         with open(GOLDI_RESULTS_PATH+handle+".json","r") as f:
             saved_data_dict = json.load(f)
-            data = data | saved_data_dict
+            data = merge(data,saved_data_dict)
 
     # Save data
     with open(GOLDI_RESULTS_PATH+handle+".json", 'w') as f: 

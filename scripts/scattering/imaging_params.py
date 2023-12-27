@@ -97,6 +97,8 @@ goldilocks_dict_3x3x3 = copy.deepcopy(goldilocks_dict_unit)
 goldilocks_dict_3x3x3["crystal"]["supercell_scale"] = 3
 
 
+
+
 # Water background
 background_dict = copy.deepcopy(default_dict_SPI)
 #background_dict["crystal"]["positional_stdv"] = 10  ### Idea: When we average over the distributions, this will form a background. 
