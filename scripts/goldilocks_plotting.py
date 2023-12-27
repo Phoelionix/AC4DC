@@ -23,14 +23,15 @@ import os.path as path
 import os
 from QoL import set_highlighted_excepthook
 import copy
+from scipy.interpolate import InterpolatedUnivariateSpline,SmoothBivariateSpline
 import math
+import json
 sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
 sys.path.append('/home/speno/AC4DC/scripts/scattering')
 from scatter import XFEL,Crystal,stylin
 from damage_landscape import multi_damage
 from core_functions import get_pdb_path
 import imaging_params
-from scipy.interpolate import InterpolatedUnivariateSpline,SmoothBivariateSpline
 
 
 FIGWIDTH_FACTOR = 1
@@ -39,7 +40,7 @@ FIGHEIGHT = FIGWIDTH*3/4
 FIT = False
 
 matplotlib.rcParams.update({
-    'figure.subplot.left':0.14/FIGWIDTH_FACTOR,
+    'figure.subplot.left':0.16/FIGWIDTH_FACTOR,
     'figure.subplot.right':1-0.02/FIGWIDTH_FACTOR,
     'figure.subplot.bottom': 0.16/FIGWIDTH_FACTOR,
     'figure.subplot.top':1-0.07/(FIGWIDTH_FACTOR*FIGHEIGHT/FIGWIDTH*4/3),
@@ -55,9 +56,9 @@ AVERAGE_CHARGE = 0; R_FACTOR = 1
 REAL_ELEMENTS = 0; ELECTRON_SOURCE = 1
 
 ####### User parameters #########
-INDEP_VARIABLE = 2 # | 0: energy of photons |1: Energy separation from given edge |2: Artificial electron source energy
-DEP_VARIABLE = 1 # | 0: mean carbon charge | 1: R factors (performs scattering simulations for each) |
-BATCH = 1  #| 0: Real elements | 1: Electron source. 
+INDEP_VARIABLE = 0 # | 0: energy of photons |1: Energy separation from given edge |2: Artificial electron source energy
+DEP_VARIABLE = 0 # | 0: mean carbon charge | 1: R factors (performs scattering simulations for each) |
+BATCH = 0 #| 0: Real elements | 1: Electron source. 
 
 ## Graphical
 LEGEND = True
@@ -77,15 +78,15 @@ if BATCH is REAL_ELEMENTS:
     # e.g. item "Carbon":[2,4] means to plot simulations corresponding to outputs Carbon-2, Carbon-3, Carbon-4, mol files. Last simulation output is used in case of duplicates (highest run number).
     stem_dict = {
             "SH_N":[2,10], #[700,704],
-            "SH_S":[2,10],  
-            "SH_Fe":[2,10],  
-            "SH_Zn":[2,10],
-            "SH_Se":[2,10],
-            "SH_Zr":[2,10],
+            #"SH_S":[2,10],  
+            #"SH_Fe":[2,10],  
+            #"SH_Zn":[2,10],
+            #"SH_Se":[2,10],
+            #"SH_Zr":[2,10],
             #-----L------
-            "SH_Ag":[2,8],
-            "SH_Xe":[2,9],
-            #"L_Gd":[1,1],
+            #"SH_Ag":[2,8],
+            #"SH_Xe":[2,9],
+            "L_Gd":[1,9],
     }
     # Each item corresponds to a list of additional simulations to add on
     additional_points_dict = {
@@ -93,13 +94,14 @@ if BATCH is REAL_ELEMENTS:
     }    
     
 if BATCH is ELECTRON_SOURCE:
+    assert(INDEP_VARIABLE == ELECTRON_SOURCE_ENERGY)
+    ##
     #photon_energy = 10
     fluence = 1
     width = 15
     source_fraction = 3
     source_duration = 1
-
-    assert(INDEP_VARIABLE == ELECTRON_SOURCE_ENERGY)
+    ##
     # Manual mapping... TODO just pop outputs in folder or something.
     def batch_mapping(fluence,width,source_fraction,source_duration):
         params = fluence,width,source_fraction,source_duration
@@ -171,8 +173,9 @@ SCATTERING_TARGET_DICT = {0: (imaging_params.goldilocks_dict_unit,"-unit"),1: (i
 SCATTER_DIR = path.abspath(path.join(__file__ ,"../")) +"/scattering/"
 PDB_STRUCTURE = get_pdb_path(SCATTER_DIR,"lys") 
 MOLECULAR_PATH = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/" # directory of damage sim output folders
+GOLDI_RESULTS_PATH = path.abspath(path.join(__file__ ,"../goldilocks_saves")) + "/" 
 
-xlim = [None,20]
+xlim = [7,20]
 if INDEP_VARIABLE is EDGE_SEPARATION:
     xlim[1] -= xlim[0]
     xlim[0] = 0 
@@ -198,7 +201,11 @@ def main():
     for key,val in stem_dict.items():
         data_folders = []
         # Get folder name, excluding run tag
-        for n in range(val[0],val[1]+1):
+        sim_tags = [*range(val[0],val[1]+1)]
+        if key in additional_points_dict:
+            for sim_tag in additional_points_dict[key]:
+                sim_tags.append(sim_tag)
+        for n in sim_tags:
             data_folders.append(key+"-"+str(n)) 
         # Add run tag "_"+n corresponding to latest run (n = highest "R" for "stem-n_R")
         for i, handle in enumerate(data_folders):
@@ -211,18 +218,6 @@ def main():
                 break
             data_folders[i] = handle + "_"+str(max(run_nums))
         batches[key] = data_folders
-        if key in additional_points_dict:
-            for sim_tag in additional_points_dict[key]:
-                handle = key+"-"+str(sim_tag)
-                matches = [match for match in all_outputs if match.startswith(handle+"_")]
-                run_nums = [int(R.split("_")[-1]) for R in matches if R.split("_")[-1].isdigit()] 
-                if len(run_nums) == 0: 
-                    valid_folder_names = False
-                    print("\033[91mInput error\033[0m (a run corresponding to \033[91m"+handle+"\033[0m): not found in"+MOLECULAR_PATH)
-                    break
-                data_folder = handle + "_"+str(max(run_nums))
-                assert(data_folder not in data_folders)
-                data_folders.append(data_folder)             
 
 
     assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder. See input error message(s)"
@@ -234,8 +229,6 @@ def plot(batches,label,figure_output_dir,mode = 0):
     ylabel = {AVERAGE_CHARGE:"Average carbon's charge",R_FACTOR:"$R_{dmg}$"}
     '''
     Arguments:
-    mol_name: The name of the folder containing the simulation's data (the csv files). (By default this is the stem of the mol file.)
-    sim_data_parent_dir: absolute path to the folder containing the folders specified by target_handles.
     '''    
     ############
     # File/directory names
@@ -293,25 +286,21 @@ def plot(batches,label,figure_output_dir,mode = 0):
         Y = []
         times = []  # last times of sims, for checking everything lines up.
         for mol_name in mol_names:
-            pl = Plotter(mol_name)
-            times.append(pl.timeData[-1])
-
+            
+            # Don't recalculate norm.
             if NORMALISING_STEM not in [None,False] and NORMALISING_STEM == stem:  #TODO tidy up by moving outside loop
                 for elem in norm:
                     X.append(elem[0])
                     Y.append(elem[1])
                 break
             else:
-                if mode is AVERAGE_CHARGE:
-                    intensity_averaged = False
-                    if intensity_averaged: 
-                        Y.append(np.average(pl.get_total_charge(atoms="C")*pl.intensityData)/np.average(pl.intensityData))
-                    else:
-                        step_index = -1  # Average charge at End-of-pulse 
-                        Y.append(pl.get_total_charge(atoms="C")[step_index])
-                elif mode is R_FACTOR:            
-                    Y.append(get_R(mol_name,MOLECULAR_PATH,im_params)[0][0])
-
+                saved_x = saved_y = saved_end_time = None
+                dat= get_saved_data(mol_name) 
+                if dat is not None:
+                        saved_x,                              saved_y,                            saved_end_time = (
+                        dat.get("x").get(str(INDEP_VARIABLE)),dat.get("y").get(str(DEP_VARIABLE)),dat.get("end_time")
+                    )
+                ## Get independent variable
                 if INDEP_VARIABLE is PHOTON_ENERGY: 
                     energy = get_sim_params(mol_name)[0]["energy"]
                 if INDEP_VARIABLE is EDGE_SEPARATION:
@@ -333,7 +322,39 @@ def plot(batches,label,figure_output_dir,mode = 0):
                         print(s)
                         print((s["fluence"],s["source_fraction"],s["source_duration"]),"!=",(fluence,width,source_fraction,source_duration))
                         raise ValueError("Params do not match expected values for batch")                    
-                X.append(energy/1000)
+                X.append(energy/1000)    
+                if saved_x is not None:
+                    assert saved_x == X[-1]                            
+                ## Measure damage 
+                if saved_y is None:              
+                    pl = Plotter(mol_name)
+                    if mode is AVERAGE_CHARGE:
+                        intensity_averaged = False
+                        if intensity_averaged: 
+                            Y.append(np.average(pl.get_total_charge(atoms="C")*pl.intensityData)/np.average(pl.intensityData))
+                        else:
+                            step_index = -1  # Average charge at End-of-pulse 
+                            Y.append(pl.get_total_charge(atoms="C")[step_index])
+                    elif mode is R_FACTOR:            
+                        Y.append(get_R(mol_name,MOLECULAR_PATH,im_params)[0][0])
+                else: 
+                    Y.append(saved_y)
+                if saved_end_time is None:
+                    if saved_y is not None:
+                        pl = Plotter(mol_name)
+                    times.append(pl.timeData[-1]) 
+                else:
+                    times.append(saved_end_time)                   
+
+                save_dict = {}
+                if saved_x is None:
+                    save_dict["x"] = {str(INDEP_VARIABLE):X[-1]}
+                if saved_y is None:    
+                    save_dict["y"] = {str(DEP_VARIABLE):Y[-1]}
+                if saved_end_time is None:
+                    save_dict["end_time"] = times[-1]
+                if save_dict is not {}:
+                    save_data(mol_name,save_dict)
         print("Energies:",X)
         if mode is AVERAGE_CHARGE:
             print("Charges:",Y)
@@ -488,6 +509,35 @@ def get_R(sim_handle,sim_handle_parent_folder,scattering_sim_parameters,allowed_
         '''
         #pulse_params = [energy,fwhm,photon_count]
         return R,resolutions  # resolution index 0 corresponds to the max resolution
+
+def get_saved_data(handle):
+    # Look for save of data
+    file_path = GOLDI_RESULTS_PATH+handle+".json"
+    if os.path.exists(file_path):
+        with open(file_path,"r") as f:
+            return json.load(f)
+    return None
+    
+    
+def save_data(handle,output_data_dict):
+    # Delete saves for smaller older simulations with this mol file.
+    all_outputs = os.listdir(MOLECULAR_PATH)
+    for match in all_outputs:
+        if match.startswith(handle+"_") and match != handle:
+            os.remove(GOLDI_RESULTS_PATH+match+".json")
+
+    os.makedirs(GOLDI_RESULTS_PATH,exist_ok=True)
+    file_path = GOLDI_RESULTS_PATH+handle+".json"
+    # Get any data from existing json file 
+    data = output_data_dict
+    if os.path.exists(file_path):
+        with open(GOLDI_RESULTS_PATH+handle+".json","r") as f:
+            saved_data_dict = json.load(f)
+            data = data | saved_data_dict
+
+    # Save data
+    with open(GOLDI_RESULTS_PATH+handle+".json", 'w') as f: 
+        json.dump(data, f)    
 
 if __name__ == "__main__":
     main()

@@ -14,6 +14,7 @@ import pandas as pd
 import plotly.express as px
 import colorcet as cc; import cmasher as cmr
 import matplotlib.pyplot as plt
+import pickle
 import inspect
 src_file_path = inspect.getfile(lambda: None)
 my_dir = path.abspath(path.join(src_file_path ,"../")) + "/"
@@ -164,7 +165,6 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
     
     return np.array(pulse_params,dtype=float),np.array(dmg_data,dtype=object), np.array(resolutions_vect,dtype=object), names, param_name_list
 
-import pickle
 def save_data(fname, data):
     os.makedirs(DATA_FOLDER,exist_ok=True)
 
