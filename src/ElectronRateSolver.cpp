@@ -49,7 +49,7 @@ void ElectronRateSolver::set_starting_state(){
         double _dt = this->timespan_au/input_params.Num_Time_Steps();
         this->setup(get_initial_state(), _dt, IVP_step_tolerance);
     }
-    num_steps = (simulation_end_time - simulation_start_time)/this->dt + 1;
+    num_steps = round((simulation_end_time - simulation_start_time)/this->dt + 1);
 }
 
 state_type ElectronRateSolver::get_initial_state() {
@@ -267,7 +267,7 @@ void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_
 
     // Call hybrid integrator to iterate through the time steps (good state)
     good_state = true;
-    assert(num_steps == (simulation_end_time - simulation_start_time)/this->dt + 1);
+    assert(num_steps == round((simulation_end_time - simulation_start_time)/this->dt + 1));
     steps_per_time_update = max(1 , (int)(input_params.time_update_gap/this->dt)); 
     this->solve_dynamics(_log,simulation_start_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
 
