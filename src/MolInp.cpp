@@ -396,7 +396,7 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P. TODO 
 	if (loss_geometry.L0 <= 0) { cerr<<"ERROR: radius must be positive"; is_valid=false; }
 	if (timespan_factor < 0 || negative_timespan_factor < 0) {cerr << "ERROR, timespan factors must be postive"; is_valid = false;}
 	if (timespan_factor < negative_timespan_factor){cerr << "ERROR, the timespan factor for the negative times must be smaller than the full timespan factor";is_valid=false;}
-	if (pulse_shape == PulseShape::square && timespan_factor < 1){cerr << "ERROR, timespan too short to capture full square pulse";is_valid=false;}
+	if (pulse_shape == PulseShape::square && (timespan_factor < 1 && timespan_factor !=0)){cerr << "ERROR, timespan too short to capture full square pulse";is_valid=false;}
 	if (pulse_shape == PulseShape::square && negative_timespan_factor != 0){cerr << "ERROR, timespan for negative times cannot be specified with square pulse";is_valid=false;}
 	if (use_fluence + use_count + use_intensity != 1) {cerr << "ERROR, require exactly one of #USE_FLUENCE, #USE_COUNT, and #USE_INTENSITY to be active ";is_valid = false;}
 	if (omp_threads <= 0) { omp_threads = 4; cerr<<"Defaulting number of OMP threads to 4"; }
