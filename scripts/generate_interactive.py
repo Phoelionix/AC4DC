@@ -247,7 +247,6 @@ def get_legend_labels(target_handles,sim_data_parent_dir,sim_input_dir=None):
         if NAMING_MODE == 0:
             s = get_sim_params(handle,sim_input_dir,sim_data_parent_dir)
             sim_params = [s[0]["energy"],s[0]["width"],s[0]["fluence"]]
-            sim_params = sim_params[2:] # 0 and 1 are start and end time,
             unit_list = s[1]
             param_list = s[2]
             name = ["  " + param_list[i][0] + ": " +str(p) + unit_list[i]  for i, p in enumerate(sim_params)]
