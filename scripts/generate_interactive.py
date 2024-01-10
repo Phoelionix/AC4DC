@@ -28,9 +28,11 @@ normalise = False
 ELECTRON_DENSITY = False # if False, use energy density  
 ANIMATION = False # if true, generate animation rather than interactive figure (i.e. automatic slider movement) 
 ALSO_MAKE_PLOTS = False # Generate static plots for each simulation 
-SINGLE_FRAME = False # Save a png using plotly .
+SINGLE_FRAME = True # Save a png using plotly .
 
-NAMING_MODE = 0  # 0: full details of sim parameters + sim name | 1: elements in sim| 
+NAMING_MODE = 1  # For legend. 0: full details of sim parameters + sim name | 1: elements in sim| 
+
+MULT_Y_THOUSAND = True # Whatever the units are, rename to this.
 
 END_T = 9999  # Put at value to cutoff times early.
 POINTS = 70
@@ -42,30 +44,43 @@ SINGLE_FRAME_DICT = dict(
     width = (7.24409436834*2/3),#3.49751*2*3/5,
     height = 7.24409436834/3, #3.49751*2/3
     line_width = 2,
-    times = [0],#[-10],#[0],#[-10,0], # fs.  Use multiple to plot traces from multiple times (colours will be same between frames however.)
+    times = [-10],#[-10],#[0],#[-10,0], # fs.  Use multiple to plot traces from multiple times (colours will be same between frames however.)
     font_size = 10,
     superscript_font_size = 8,
     
-    show_legend = False, 
+    show_legend = True, 
 
     ylog = False, # < uses linear scale if False 
     xlog = False, # <
 
-    y_range = [0,0.009],#[0,0.0014],#[0,0.019],#[0,0.09],# [-5,-1],      # < If axis is log scale, limits correspond to powers of 10.
+    y_range = [0,0.0014],#lin:[0,0.0014]/[0,0.009],#log: [-5,-1],      # < If axis is log scale, limits correspond to powers of 10.
     x_range = [None,7500], # None,         # < Use None for default. 
 )
 
 INSET = False #False
+subplot_ax_font_colour = "#495187"# "blue"
+subplot_ax_grid_color = "#c4c4eb"
+primary_grid_color = "#877F49"
 inset_dict = dict(
     axes_kwargs = dict(
         xaxis2 =dict(
             domain=[0.1, 0.4],
             range = [0,120], #[0,50],
             anchor='y2',
+            gridcolor=subplot_ax_grid_color, 
+            zeroline = False,
+            #zerolinecolor = subplot_ax_grid_color
         ),
         yaxis2=dict(
             domain=[0.15, 0.8],
+            range = [0,None],
             anchor='x2',
+            gridcolor=subplot_ax_grid_color, 
+            zeroline = False,
+            tickformat = ".1f",
+            tick0=SINGLE_FRAME_DICT['y_range'][0],
+            dtick = (SINGLE_FRAME_DICT['y_range'][1]- SINGLE_FRAME_DICT['y_range'][0])/3*2*(1+999*MULT_Y_THOUSAND),          
+            #zerolinecolor = subplot_ax_grid_color
         ),
     ),
 )
@@ -201,13 +216,34 @@ def set_up_interactive_axes(ipl,plot_title,font_size=35,superscript_font_size=30
     xmin,xmax = ipl.get_E_lims()
     xmin = max(1,xmin)
     xmax/=2.4 # Cut off tail
+
+    if MULT_Y_THOUSAND:
+        SINGLE_FRAME_DICT["y_range"] =[v*1000 for v in SINGLE_FRAME_DICT["y_range"]] 
     # TODO pop in units
-    ylabel = "Electron energy density"
-    if ANIMATION:
+    ylabel = "Electron energy density" 
+    if ANIMATION or SINGLE_FRAME:
         ylabel = "Energy density"
     if ELECTRON_DENSITY:
+    # Latex in plotly is broken. 
         ylabel = "Electron density"
-        log_ymin = 2e-7; log_ymax = 1e-2 
+        log_ymin = 2e-7; log_ymax = 1e-2
+        if not normalise and not ANIMATION:
+            #ylabel = "$\\text{"+ylabel+" (} \\AA^{-3}"
+            if MULT_Y_THOUSAND:
+                ylabel +=" x 1000"
+               # ylabel += " \\texttimes 1000 "
+           # ylabel += "$)"
+    else:
+        if not normalise:
+            #ylabel = "$\\text{"+ylabel+" (} "
+            if MULT_Y_THOUSAND:
+                ylabel += " x 1000"
+                #ylabel+="keV\\cdot "
+            #else:
+                #ylabel +="eV\\cdot "
+            #ylabel += "\\text{r{A}}^{-3}" 
+            #ylabel+=")$"
+        
     # Axis parameters, these define axis properties depending on what scale is used.
     xlabel = 'Energy (eV)'
     #ylabel = '$f(\\epsilon) \\Delta \\epsilon$' 
@@ -230,8 +266,11 @@ def set_up_interactive_axes(ipl,plot_title,font_size=35,superscript_font_size=30
     if ANIMATION:
         x_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": xlabel, "font":{"size": font_size*2-5,"family": "times new roman"}}, 'tickfont': {"size": superscript_font_size*2-5,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
         y_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": ylabel, "font":{"size": font_size*2-5,"family": "times new roman"}}, 'tickfont': {"size": superscript_font_size*2-5,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
-
-
+    if SINGLE_FRAME:
+        y_lin_args['tick0']=SINGLE_FRAME_DICT['y_range'][0] 
+        y_lin_args['dtick'] = (SINGLE_FRAME_DICT['y_range'][1]- SINGLE_FRAME_DICT['y_range'][0])/3
+        y_lin_args['exponentformat']='power' # does nothing?
+        y_lin_args['tickformat'] = ".1f"
     # Initialises graph object.
     ipl.initialise_figure(plot_title, x_log_args,y_log_args) 
     return (x_log_args,x_lin_args,y_log_args,y_lin_args)
@@ -359,6 +398,9 @@ def snapshot(target_handles,sim_data_parent_dir,fname_out,normalise,outdir):
         # Plot a trace for each simulation for the snapshot in time. 
         ipl.input_data_args["max_final_t"] = t
         ipl.initialise_data()
+        if MULT_Y_THOUSAND:
+            for i in range(len(ipl.target_data)):
+                ipl.target_data[i].freeData*=1000
         line = {'width': SINGLE_FRAME_DICT["line_width"]}
         ipl.plot_traces(normed=normalise, line_kwargs=[line]*len(target_handles))   
   
@@ -379,7 +421,6 @@ def snapshot(target_handles,sim_data_parent_dir,fname_out,normalise,outdir):
         tickfont = x_args["tickfont"],
         side= 'top',
     )
-    subplot_ax_font_colour = "blue"
     for k in ["yaxis2","xaxis2"]:
         inset_dict["axes_kwargs"][k]["tickfont"]["color"] = subplot_ax_font_colour
 
@@ -410,13 +451,13 @@ def save_interactive(ipl,outdir,fname_out):
 def save_snapshot(ipl,outdir,fname_out):
     import time
     import plotly.express as px
-    extension = ".pdf"
-    file_path = outdir + fname_out + extension 
+    file_format = "svg"
+    file_path = outdir + fname_out + "."+file_format
     # Workaround for loading mathjax graphical bug
-    ipl.fig.write_image(file_path,format="pdf")  
+    ipl.fig.write_image(file_path,format=file_format)  
     time.sleep(2)
 
-    ipl.fig.write_image(file_path,format="pdf")
+    ipl.fig.write_image(file_path,format=file_format)
 
     print("done!")
 

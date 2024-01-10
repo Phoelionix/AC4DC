@@ -31,10 +31,13 @@ PLOT_FREE_SLICES=False
 PLOT_ION_RATIOS=False
 PLOT_ION_RATIOS_BARS=False
 PLOT_ORBITAL_DENSITIES = True
-PLOT_PHOTO_RATES = True
+PLOT_PHOTO_RATES = False
 ###
 FIGWIDTH = FIGWIDTH = 3.49751
 FIGHEIGHT = FIGWIDTH*2/4
+##
+END_T = None
+END_T = 0.01 
 ##
 def main():
     set_highlighted_excepthook()
@@ -75,7 +78,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
     fname_HR_style = "HR_style"
     fname_bound_dynamics = "bound_dynamics"
 
-    pl = Plotter(mol_name,sim_output_parent_dir,use_electron_density = ELECTRON_DENSITY)
+    pl = Plotter(mol_name,sim_output_parent_dir,use_electron_density = ELECTRON_DENSITY,end_t = END_T)
     num_atoms = len(pl.statedict)
     num_subplots = charge_conservation + free + free_slices + bound_ionisation_bar + (bound_ionisation+ orbital_densities_bar+ photo_rates)*num_atoms 
     pl.setup_axes(num_subplots)

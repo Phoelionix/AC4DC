@@ -37,11 +37,12 @@ class Plotter:
     # Example initialisation: Plotter(water,molecular/path)
     # --> Data is contained in molecular/path/water. 
     # Will use mol file within by default, or (with a warning) search input for matching name if none exists.  
-    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None):
+    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None,end_t=None):
         '''
         abs_molecular_path: The path to the folder containing the simulation output folder of interest.
         use_electron_density: If True, plot electron density rather than energy density
         '''
+        self.end_t_plotting = end_t
         self.use_electron_density = use_electron_density
         self.molecular_path = abs_molecular_path
         if self.molecular_path is None:
@@ -646,11 +647,12 @@ class Plotter:
 
     def update_outputs(self):
         raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
-        self.intensityData = raw[:,1]
         self.timeData = raw[:, 0]
+        self.intensityData = raw[:,1]
         self.energyKnot = np.array(self.get_free_energy_spec(), dtype=np.float64)
         raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
         self.freeData = raw[:,1:]
+        photo_data_present = False
         for a in self.atomdict:
             raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
             self.boundData[a] = raw[:, 1:]
@@ -659,8 +661,19 @@ class Plotter:
             try:
                 raw = np.genfromtxt(self.atomdict[a]['photofile'], comments='#', dtype=np.float64)
                 self.photoData[a] = raw[:, 1] 
+                photo_data_present = True
             except:
                 print("Warning: Missing '" + self.atomdict[a]['photofile'] + "'.")
+        # Truncate data to time specified.
+        if self.end_t_plotting is not None: 
+            last_idx = np.searchsorted(self.timeData,self.end_t_plotting)
+            self.timeData = self.timeData[0:last_idx]
+            self.intensityData = self.intensityData[0:last_idx]
+            self.freeData = self.freeData[0:last_idx]
+            for a in self.atomdict:
+                self.boundData[a] = self.boundData[a][0:last_idx] 
+                if photo_data_present:
+                    self.photoData[a] = self.photoData[a][0:last_idx]
                 
 
         self.atomic_numbers = self.get_atomic_numbers()

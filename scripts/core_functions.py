@@ -266,4 +266,8 @@ for symbol in ATOMS:
     ATOMNO[symbol + '_fast'] = i
     ATOMNO[symbol + '_faster'] = i
     i += 1
+i = 1 
+for symbol in ATOMS:
+    ATOMNO[symbol + '_LDA'] = i
+    i += 1
 ATOMNO["Gd"] = ATOMNO["Gd_fast"] =ATOMNO["Gd_galli"]  = 64 
