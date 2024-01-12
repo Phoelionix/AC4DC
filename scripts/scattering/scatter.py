@@ -2139,7 +2139,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 resolutions = q_to_res(np.sqrt(np.apply_along_axis(np.sum,2, result1.q_xy**2))) 
                 #min_res = np.min(resolutions)  # THIS IS NOT FROM THE RIM!!! It includes all.
                 min_res = np.max([np.min(resolutions[:][:][0]),np.min(resolutions[:][:][1])])  # rim resolution
-                max_res = 6#min_res*4
+                max_res = np.min([6,np.max(resolutions[:][:])])#min_res*4
                 res_lims = np.linspace(min_res,max_res,20)
                 cc = np.zeros(len(res_lims)) # Pearson cc
                 R_vect = cc.copy() # R_dmg (for full dataset up to the given resolution)

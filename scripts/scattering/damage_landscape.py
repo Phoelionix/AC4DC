@@ -551,9 +551,8 @@ if __name__ == "__main__":
         
     else:
         bins = np.array([d["resolutions"] for d in dmg_data])   # TODO Use dict for this same as above
-    print(bins)
     names = []
-    # Iterate through different sims
+    # Iterate through different bins
     for bin_value in bins[0]:
         df = load_df(data_name, _damage_measure,bin_value, check_batch_nums=batch_mode) # resolution index 0 corresponds to the max resolution
         dmg.append(df[_damage_measure])
@@ -563,7 +562,13 @@ if __name__ == "__main__":
         assert np.array_equal(bins[i],bins[0])      # Assert that the sampled X points are identical between sims.
     X = bins[0]
 
-
+    print([d[-1] for d in dmg])
+    print(dmg[-1,:])
+    print( np.array(["nan"]*len(dmg[-1])))
+    while np.isnan(dmg[-1,:]).all():
+        print("Yo")
+        X.pop()
+        dmg = dmg[:-1,:]
 
     # Linear
     for i,name in enumerate(names):
