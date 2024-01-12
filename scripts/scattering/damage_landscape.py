@@ -19,7 +19,7 @@ import inspect
 src_file_path = inspect.getfile(lambda: None)
 my_dir = path.abspath(path.join(src_file_path ,"../")) + "/"
 from core_functions import get_sim_params, get_pdb_paths_dict
-from scatter import XFEL,Crystal,stylin
+from scatter import XFEL,Crystal,stylin,res_to_q
 
 
 
@@ -150,7 +150,7 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
             SPI_result1 = experiment1.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal, **run_params["laser"])
             SPI_result2 = experiment2.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal_undmged, **run_params["laser"])
             #TODO apply_background([SPI_result1,SPI_result2])
-            R,cc,resolutions = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=get_R_only,SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
+            damage_dict = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=get_R_only,SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
         else:
             exp1_orientations = experiment1.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal, results_parent_dir=sctr_results_batch_dir, **run_params["laser"])
             if exp_name2 != None:
@@ -158,12 +158,11 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
                 experiment2.set_orientation_set(exp1_orientations)  
                 run_params["laser"]["random_orientation"] = False 
                 experiment2.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal_undmged, results_parent_dir=sctr_results_batch_dir, **run_params["laser"])
-            R,cc = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=get_R_only,SPI=False,results_parent_dir = sctr_results_batch_dir)
-        dmg_data.append([R,cc]) 
+            damage_dict = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=get_R_only,SPI=False,results_parent_dir = sctr_results_batch_dir)
+        dmg_data.append(damage_dict) 
         pulse_params.append([energy[i],fwhm[i],photon_count[i]])
-        resolutions_vect.append(resolutions)
     
-    return np.array(pulse_params,dtype=float),np.array(dmg_data,dtype=object), np.array(resolutions_vect,dtype=object), names, param_name_list
+    return np.array(pulse_params,dtype=float),np.array(dmg_data,dtype=object), names, param_name_list
 
 def save_data(fname, data):
     os.makedirs(DATA_FOLDER,exist_ok=True)
@@ -172,25 +171,42 @@ def save_data(fname, data):
         pickle.dump(data, file)
 
     
-def load_df(fname, resolution,check_batch_nums=True):
+def load_df(fname, damage_measure,bin_limit,check_batch_nums=True):
     with open(DATA_FOLDER+fname +".pickle", "rb") as file:
-        pulse_params, dmg_data,resolutions,names,param_name_list = pickle.load(file) 
-    
-    # Check that the resolution is at or above the minimum of all simulations
-    print(dmg_data.shape)
-    assert resolution >= np.max(resolutions[:,0])
-    resolutions_idxes = np.empty(resolutions.shape)
-    unique_resolutions = []
-    dmg_vect = []
-    for i, vect in enumerate(resolutions):
-        res_idx = np.searchsorted(vect,resolution)
-        if vect[res_idx] not in unique_resolutions:
-            unique_resolutions.append(vect[res_idx])
-        dmg_vect.append(dmg_data[i,:,res_idx]) 
-    print("RESOLUTIONS USED",unique_resolutions)
-    # Sorry for this
-    assert(np.max(unique_resolutions) - np.min(unique_resolutions)) < 0.05 , "nearest resolution above the resolution specified for each simulation differ by a value above the tolerance - unique values: " + str(unique_resolutions) + " Try a different value (sorry for this bad coding)." 
-    resolution = np.average(unique_resolutions)
+        pulse_params, dmg_data,names,param_name_list = pickle.load(file) 
+    if damage_measure == "bin_q_R":
+        unique_bins = []
+        dmg_vect = []
+        for i, dmg_dict in enumerate(dmg_data):
+            bins = []
+            dmg = []
+            for k,v in dmg_dict[damage_measure].items():
+                bins.append(k)
+                dmg.append(v)
+            bins,dmg = zip(*(sorted(zip(bins,dmg), key=lambda x: x[0])))
+            bin_idx = np.searchsorted(bins,bin_limit)
+            if bins[bin_idx] not in unique_bins:
+                unique_bins.append(bins[bin_idx])
+            dmg_vect.append(dmg[bin_idx]) 
+        assert(np.max(unique_bins) - np.min(unique_bins)) < np.max(unique_bins)*0.025 , "nearest q  above the q specified for each simulation differ by a value above the tolerance - unique values: " + str(unique_bins) + " Try a different value (sorry for this bad coding)." 
+        average_bin_limit = np.average(unique_bins)
+    else:
+        resolutions = np.array([d["resolutions"] for d in dmg_data])
+        # Check that the resolution is at or above the minimum of all simulations
+        print(dmg_data.shape)
+        assert bin_limit >= np.max(resolutions[:,0])
+        resolutions_idxes = np.empty(resolutions.shape)
+        unique_resolutions = []
+        dmg_vect = []
+        for i, vect in enumerate(resolutions):
+            res_idx = np.searchsorted(vect,bin_limit)
+            if vect[res_idx] not in unique_resolutions:
+                unique_resolutions.append(vect[res_idx])
+            dmg_vect.append(dmg_data[i][damage_measure][res_idx]) 
+        print("RESOLUTIONS USED",unique_resolutions)
+        # Sorry for this
+        assert(np.max(unique_resolutions) - np.min(unique_resolutions)) < 0.05 , "nearest resolution above the resolution specified for each simulation differ by a value above the tolerance - unique values: " + str(unique_resolutions) + " Try a different value (sorry for this bad coding)." 
+        average_bin_limit = np.average(unique_resolutions)
     dmg_data = np.array(dmg_vect,dtype=float)
     
     
@@ -212,8 +228,8 @@ def load_df(fname, resolution,check_batch_nums=True):
         "energy": pulse_params[:,0],
         "fwhm": pulse_params[:,1],
         photon_measure: photon_data,
-        "R": dmg_data[:,0],
-        "cc": dmg_data[:,1],
+        damage_measure: dmg_data,
+        "damage_measure": damage_measure,
         #"log_photons": log_photons,
         "photon_size_thing": photon_size_thing, 
         "_": pulse_params[:,0]*0+1, # dummy column for size.
@@ -235,7 +251,7 @@ def load_df(fname, resolution,check_batch_nums=True):
                 print("Missing file? File number",elem,"was found after",nums[i-1])  
     df = df.sort_values(by=["energy","fwhm",photon_measure])
     df = df.reset_index(drop=True)
-    df.resolution = resolution
+    df.average_bin_limit = average_bin_limit
     return df   
     
 def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_units=False,name_of_set="",energy_key=9000,photon_key=1e14,fwhm_key=50,cmin_contour=0,cmax_contour=None,contour_colour = "amp",contour_interval=0.05,dmg_measure="R",photon_min=None,**kwargs,):
@@ -370,7 +386,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_unit
         fig.update_layout(width = 750, height = 600,)
         fig.update_layout(title= name_of_set + ", E = "+str(energy_key)+" eV")
         fig.show()
-        fig.write_image(out_folder+"/"+fig["layout"]["title"]["text"]+ext)
+        fig.write_image(out_folder+fig["layout"]["title"]["text"]+ext)
         df = original_df
         
     #Contour Energy-FWHM
@@ -383,7 +399,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_unit
         for key in data_frame_dict.keys():
             data_frame_dict[key] = df[:][df[photon_measure] == key]    
         df = data_frame_dict[photon_key]
-        print(df)
+        #print(df)
 
         fig = go.Figure(data =  
             go.Contour(
@@ -446,6 +462,8 @@ if __name__ == "__main__":
     mode = 1  #0 -> infinite crystal, 1 -> finite crystal/SPI, 2-> both  
     same_deviations = True # whether same position deviations between damaged and undamaged crystal (SPI only)
     
+    imaging_params_preset = copy.deepcopy(imaging_params.default_dict)
+
     # Change options here... #TODO make clearer this is for user options
     if batch_mode:
         allowed_atoms = ["C","N","O","S"] 
@@ -458,6 +476,7 @@ if __name__ == "__main__":
         kwargs["plasma_batch_handle"] = batch_handle
         fname = batch_handle
     else: # Compare specific simulations
+        #imaging_params_preset = copy.deepcopy(imaging_params.asymmetric_unit_dict)
         fname = "comparison"
         allowed_atoms = ["C","N","O"]; S_to_N = True
         #allowed_atoms = ["N"]; S_to_N = True
@@ -473,15 +492,17 @@ if __name__ == "__main__":
         #kwargs["plasma_handles"] = ["lys_full-typical","lys_all_light-typical"]  
         #kwargs["plasma_handles"] = ["glycine_abdullah_4"]
         #pdb_path = PDB_PATHS["fcc"]
-        pdb_path = PDB_PATHS["lys"]
+        #pdb_path = PDB_PATHS["lys"]
         #pdb_path = PDB_PATHS["lys_solvated"]
         #pdb_path = PDB_PATHS["glycine"]
-        #pdb_path = PDB_PATHS["tetra"]
+        pdb_path = PDB_PATHS["tetra"]
 
-    if MODE_DICT[mode] != "spi":
-        scatter_data = multi_damage(imaging_params.default_dict,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
-    if MODE_DICT[mode] != "crystal":
-        scatter_data = multi_damage(imaging_params.default_dict_SPI,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
+    if MODE_DICT[mode] == "crystal" or MODE_DICT[mode] == "both":
+        imaging_params_preset["laser"]["SPI"] = False         
+        scatter_data = multi_damage(imaging_params_preset,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
+    if MODE_DICT[mode] == "spi" or MODE_DICT[mode] == "both":
+        imaging_params_preset["laser"]["SPI"] = True         
+        scatter_data = multi_damage(imaging_params_preset,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
     
     save_data(fname,scatter_data)
     
@@ -497,7 +518,7 @@ if __name__ == "__main__":
     df = load_df(data_name, resolution, check_batch_nums=batch_mode) # resolution list is orders from best to worst resolutions.
     plot_2D_constants = dict(energy_key = 15000, photon_key = 1e12,fwhm_key = 25)
     neutze = False
-    name_of_set += "-res="+str("{:.1f}".format(df.resolution)) # Currently there's an uncertainty in the 2nd decimal because I coded bad, so 2 Sig figs it shall be.
+    name_of_set += df.damage_measure+"lim"+str("{:.1f}".format(df.resolution)) # Currently there's an uncertainty in the 2nd decimal because I coded bad, so 2 Sig figs it shall be.
     if MODE_DICT[mode] != "spi":
         print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
         plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units = neutze,cmax_contour=0.4) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
@@ -512,19 +533,42 @@ if __name__ == "__main__":
     data_name = "comparison"; batch_mode = False; mode = 1
     #####
     with open(DATA_FOLDER+data_name +".pickle", "rb") as file:
-        _, _,sim_resolutions,_,_ = pickle.load(file) 
+        _, dmg_data,_,_ = pickle.load(file) 
     
-    R_factors = []
-    for resolution in sim_resolutions[0]:
-        df = load_df(data_name, resolution, check_batch_nums=batch_mode) # resolution index 0 corresponds to the max resolution
-        R_factors.append(df["R"])
-        names = df["name"]
-    R_factors = np.array(R_factors)
-    names = np.array(names)
-    sim_resolutions = np.array(sim_resolutions)
+    #damage_measure = "R"
+    #_damage_measure = "bin_res_R"
+    _damage_measure = "bin_q_R"
+    #_damage_measure = "cc"
+    dmg = []
+    bins = []
+    if _damage_measure == "bin_q_R":
+        for elem in dmg_data:
+            tmp_X = []
+            for k, v in elem[_damage_measure].items():
+                tmp_X.append(k)
+            bins.append(tmp_X)
+            assert(tmp_X == bins[0])       
+        
+    else:
+        bins = np.array([d["resolutions"] for d in dmg_data])   # TODO Use dict for this same as above
+    print(bins)
+    names = []
+    # Iterate through different sims
+    for bin_value in bins[0]:
+        df = load_df(data_name, _damage_measure,bin_value, check_batch_nums=batch_mode) # resolution index 0 corresponds to the max resolution
+        dmg.append(df[_damage_measure])
+    dmg = np.array(dmg)
+    names = np.array(df["name"])
     for i,name in enumerate(names):
-        assert np.array_equal(sim_resolutions[i],sim_resolutions[0])
-        plt.plot(sim_resolutions[0],R_factors[:,i],label=name)
+        assert np.array_equal(bins[i],bins[0])      # Assert that the sampled X points are identical between sims.
+    X = bins[0]
+
+
+
+    # Linear
+    for i,name in enumerate(names):
+        plt.plot(bins[0],dmg[:,i],label=name)
+
     labels=["Lysozyme, no S","Lysozyme","Lysozyme.Gd"]
     #labels=["Gaussian pulse","Square pulse",]
     plt.legend(labels=labels,reverse=True)
@@ -533,6 +577,20 @@ if __name__ == "__main__":
     plt.xlabel("Resolution ($\AA$)")
     plt.xscale("log")
     plt.show()
+    #Radial
+    for i,name in enumerate(names):
+        #plt.plot(sim_resolutions[0],R_factors[:,i],label=name)
+        fig, ax = plt.subplots(subplot_kw={'projection':'polar'})
+        if _damage_measure in ["R","cc","bin_res_R"]:
+            q = np.array([res_to_q(r) for r in X])
+        if _damage_measure in ["bin_q_R"]:
+            q = np.array([r for r in X])
+        azm = np.linspace(0, 2 * np.pi, 100)
+        r, th = np.meshgrid(q, azm)
+        dmg_meshed = (r*0+1)*dmg[None,:,i]
+        cbar = ax.pcolormesh(th,r,dmg_meshed,vmin=0,vmax=0.1)
+        plt.colorbar(cbar)
+        plt.show()    
     print("Done")
 
 
@@ -554,14 +612,14 @@ contour_interval_percentage_difference = 0.05
 if __name__ == "__main__":
     batch_mode = True; mode = 1
     
-    resolution = 1.9#2.2
+    resolution = 2.45#2.2
     photon_min=1e10
     fname1 = "lys_full"; fname2 = "lys_all_light"
-    plot_2D_constants = dict(energy_key = 15000, photon_key = 1e14,fwhm_key = 100)
+    plot_2D_constants = dict(energy_key = 15000, photon_key = 1e12,fwhm_key = 15)
 
     statistics_calculation_R_cutoff = 0.1
     #for percentage_difference in [False,True]:
-    for percentage_difference in [False]:
+    for percentage_difference in [True]:
         if percentage_difference:
             contour_interval = contour_interval_percentage_difference
             contour_colour = "viridis"
@@ -573,7 +631,7 @@ if __name__ == "__main__":
             vmax = 0.1
 
         #name_of_set = "Difference" + "_"+fname1 + "_" + fname2
-        name_of_set = "Sulfur_impact"
+        name_of_set = "Sulfur_impact2"
         df1 =  load_df(fname1, resolution, check_batch_nums=batch_mode)
         df2 = load_df(fname2, resolution, check_batch_nums=batch_mode)
         neutze = False
@@ -584,8 +642,8 @@ if __name__ == "__main__":
             elif col != "name":
                 if percentage_difference:
                     df_diff[col] = df1[col]/df2[col] - 1
-                    mask = df1[col] < statistics_calculation_R_cutoff
-                    df_diff[col][mask] = None 
+                    #mask = df1[col] < statistics_calculation_R_cutoff
+                    #df_diff[col][mask] = None 
                 else:
                     df_diff[col] -= df2[col]
                     if col == "R":
@@ -614,7 +672,7 @@ if __name__ == "__main__":
             name_of_set+="_PERC"
         else:
             name_of_set+="_DIFF"
-        print(df_diff)                                                 #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
+        #print(df_diff)                                                 #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
         plot_that_funky_thing(df_diff,cmin=0,cmax=vmax,cmin_contour = 0, cmax_contour = vmax, contour_colour=contour_colour, contour_interval = contour_interval,name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units = neutze,dmg_measure=dmg_measure,photon_min=photon_min) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
     print("Done")
 # %%

@@ -189,7 +189,7 @@ def load_df(fname,check_batch_nums=True):
     df.resolution = resolution
     return df   
     
-def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_units=False,name_of_set="",energy_key=9000,photon_key=1e14,fwhm_key=50,cmin_contour=0,cmax_contour=None,contour_colour = "amp",contour_interval=0.05,dmg_measure="eop_charge",photon_min=None,**kwargs,):
+def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_units=False,name_of_set="",energy_key=9000,photon_key=1e14,fwhm_key=50,cmin_contour=0,cmax_contour=None,contour_colour = "amp",contour_interval=0.05,dmg_measure="eop_charge",photon_min=None,max_fwhm=None,**kwargs):
     out_folder = PLOT_FOLDER
     os.makedirs(out_folder,exist_ok=True)
     ext = ".svg"
@@ -203,6 +203,9 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_unit
         else:
             photon_measure = photon_measure_default
         df.rename(columns=dict(Count=photon_measure),inplace=True)
+        if max_fwhm is None:
+            max_fwhm = np.inf
+        df= df[df['fwhm'] <= max_fwhm]
         print(df)
     else:
         if use_neutze_units:
@@ -396,13 +399,14 @@ if __name__ == "__main__":
 
     mode = 1  #0 -> infinite crystal, 1 -> finite crystal/SPI, 2-> both  
     same_deviations = True # whether same position deviations between damaged and undamaged crystal (SPI only)
-    
+    imaging_params_preset = imaging_params.default_dict
+
     # Change options here... #TODO make clearer this is for user options
     if batch_mode:
         allowed_atoms = ["C","N","O","S"] 
         CNO_to_N = False
         S_to_N = True
-        batch_handle = "lys_all_light" 
+        batch_handle = "lys_full" 
         batch_dir = None # Optional: Specify existing parent folder for batch of results, to add these orientation results to.
         pdb_path = PDB_PATHS["lys"]
         # Params set to batch_handle
@@ -429,10 +433,12 @@ if __name__ == "__main__":
         #pdb_path = PDB_PATHS["glycine"]
         #pdb_path = PDB_PATHS["tetra"]
 
-    if MODE_DICT[mode] != "spi":
-        scatter_data = multi_damage(imaging_params.default_dict,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
-    if MODE_DICT[mode] != "crystal":
-        scatter_data = multi_damage(imaging_params.default_dict_SPI,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
+    if MODE_DICT[mode] == "crystal" or MODE_DICT[mode] == "both":
+        imaging_params_preset["laser"]["SPI"] = False         
+        scatter_data = multi_damage(imaging_params_preset,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
+    if MODE_DICT[mode] == "spi" or MODE_DICT[mode] == "both":
+        imaging_params_preset["laser"]["SPI"] = True         
+        scatter_data = multi_damage(imaging_params_preset,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
     
     save_data(fname,scatter_data)
     
@@ -441,7 +447,7 @@ if __name__ == "__main__":
 #%%
 #------------Plot----------------------
 if __name__ == "__main__":
-    data_name = "lys_all_light"; batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
+    data_name = "lys_full"; batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
     #####
     name_of_set = data_name
     resolution = 1.94 #1.9 2.8
@@ -456,76 +462,36 @@ if __name__ == "__main__":
         plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units=neutze,cmax_contour=6,contour_interval=1) # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
     print("Done")
 
-#%%
-# ------------- RESOLUTION MAP ------------ #
-if __name__ == "__main__":
-    data_name = "comparison"; batch_mode = False; mode = 1
-    #####
-    with open(DATA_FOLDER+data_name +".pickle", "rb") as file:
-        _, _,sim_resolutions,_,_ = pickle.load(file) 
-    
-    R_factors = []
-    for resolution in sim_resolutions[0]:
-        df = load_df(data_name, resolution, check_batch_nums=batch_mode) # resolution index 0 corresponds to the max resolution
-        R_factors.append(df["R"])
-        names = df["name"]
-    R_factors = np.array(R_factors)
-    names = np.array(names)
-    sim_resolutions = np.array(sim_resolutions)
-    for i,name in enumerate(names):
-        assert np.array_equal(sim_resolutions[i],sim_resolutions[0])
-        plt.plot(sim_resolutions[0],R_factors[:,i],label=name)
-    labels=["Lysozyme, no S","Lysozyme","Lysozyme.Gd"]
-    #labels=["Gaussian pulse","Square pulse",]
-    plt.legend(labels=labels,reverse=True)
-    plt.ylabel("$R_{dmg}$")
-    plt.ylim([None,0.105])
-    plt.xlabel("Resolution ($\AA$)")
-    plt.xscale("log")
-    plt.show()
-    print("Done")
-
-
-#%%
-'''
-# Surgery
-fname = "lys_all_light"
-with open(DATA_FOLDER+fname +".pickle", "rb") as file:
-    pulse_params, dmg_data,_,names,param_name_list = pickle.load(file) 
-with open(DATA_FOLDER+"resolutions.pickle","rb") as file:
-    _, _,resolutions,_,_ = pickle.load(file) 
-save_data(fname +"Res", (pulse_params,dmg_data, resolutions, names, param_name_list))
-'''
 
 #%%
 #------------Compare----------------------
-contour_interval_delta_difference = 0.01 # 0.01
+contour_interval_delta_difference = 0.3 # 0.01
 contour_interval_percentage_difference = 0.05
 if __name__ == "__main__":
     batch_mode = True; mode = 1
-    
     resolution = 1.9#2.2
     photon_min=1e10
     fname1 = "lys_full"; fname2 = "lys_all_light"
-    plot_2D_constants = dict(energy_key = 15000, photon_key = 1e14,fwhm_key = 100)
-    compared_damage_measure = "eop_charge" #"eop_charge" or "IA_charge" (end of pulse average carbon charge or intensity-averaged carbon charge)
+    plot_2D_constants = dict(energy_key = 9000, photon_key = 1e13,fwhm_key = 15)
+    compared_damage_measure = "IA_charge" #"eop_charge" or "IA_charge" (end of pulse average carbon charge or intensity-averaged carbon charge)
+    charge_cutoff = 1 # Just for printing alternate statistics, not important
+    max_fwhm = 100
 
     #for percentage_difference in [False,True]:
-    for percentage_difference in [False]:
+    for percentage_difference in [True]:
         if percentage_difference:
             contour_interval = contour_interval_percentage_difference
             contour_colour = "viridis"
-            vmax =  0.4
-            mask_below_value = 0.1
+            vmax =  0.5
         else:
             contour_interval = contour_interval_delta_difference
             contour_colour = "plasma"
-            vmax = 0.1
+            vmax = 3
 
         #name_of_set = "Difference" + "_"+fname1 + "_" + fname2
         name_of_set = "Sulfur_impact"
-        df1 =  load_df(fname1, resolution, check_batch_nums=batch_mode)
-        df2 = load_df(fname2, resolution, check_batch_nums=batch_mode)
+        df1 =  load_df(fname1, check_batch_nums=batch_mode)
+        df2 = load_df(fname2,  check_batch_nums=batch_mode)
         neutze = False
         df_diff = copy.deepcopy(df1)
         for col in df1.columns:
@@ -542,18 +508,20 @@ if __name__ == "__main__":
                         print("AVERAGE "+compared_damage_measure,np.sum(df1[col]/df2[col])/len(df1[col]))
                         print("MIN/MAXIMUM",np.min(df1[col]/df2[col]),"|",np.max(df1[col]/df2[col]))
                         print("sample STD",np.std(df1[col]/df2[col],ddof=1))
-                        print("==========")
-                        mask = np.array(df1[col] > statistics_calculation_R_cutoff,dtype=bool)
+                        print("====Cutoff v======")
+                        mask = np.array(df1[col] > charge_cutoff,dtype=bool)
                         print(np.sum(mask))
                         print("AVERAGE "+compared_damage_measure,np.nansum(np.array(df1[col]/df2[col]/np.sum(mask))[mask==True]))
                         print("MIN/MAXIMUM",np.nanmin((df1[col]/df2[col])[mask]),"|",np.max((df1[col]/df2[col])[mask]))
                         print("sample STD",np.std(np.array(df1[col]/df2[col])[mask],ddof=1))                        
                         
+        damage_variable = compared_damage_measure
+        dmg_measure = compared_damage_measure + " "
         if percentage_difference:
-            dmg_measure = "percentage difference"
+            dmg_measure += "fract diff"
         else:
-            dmg_measure = "difference"
-        df_diff = df_diff.rename(columns={"R":dmg_measure})
+            dmg_measure += "difference"
+        df_diff = df_diff.rename(columns={damage_variable:dmg_measure})
         df_diff.resolution = df1.resolution
         assert df_diff.resolution == df2.resolution
         if percentage_difference:
@@ -561,6 +529,6 @@ if __name__ == "__main__":
         else:
             name_of_set+="_DIFF"
         print(df_diff)                                                 #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-        plot_that_funky_thing(df_diff,cmin=0,cmax=vmax,cmin_contour = 0, cmax_contour = vmax, contour_colour=contour_colour, contour_interval = contour_interval,name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units = neutze,dmg_measure=dmg_measure,photon_min=photon_min) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+        plot_that_funky_thing(df_diff,max_fwhm=max_fwhm,cmin=0,cmax=vmax,cmin_contour = 0, cmax_contour = vmax, contour_colour=contour_colour, contour_interval = contour_interval,name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units = neutze,dmg_measure=dmg_measure,photon_min=photon_min) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
     print("Done")
 # %%

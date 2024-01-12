@@ -2140,13 +2140,26 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 #min_res = np.min(resolutions)  # THIS IS NOT FROM THE RIM!!! It includes all.
                 min_res = np.max([np.min(resolutions[:][:][0]),np.min(resolutions[:][:][1])])  # rim resolution
                 max_res = 6#min_res*4
-                res_lims = np.linspace(min_res,max_res,50)
+                res_lims = np.linspace(min_res,max_res,20)
                 cc = np.zeros(len(res_lims)) # Pearson cc
-                R_vect = cc.copy() # R_dmg
+                R_vect = cc.copy() # R_dmg (for full dataset up to the given resolution)
+                binned_R_vect = cc.copy() # R_dmg for individual resolution bins/rings
+                binned_q_R_dict = {}
+                # Generate dictionary of evenly spaced q, spanning the range of 0 to q corresponding to min_res. Bins centred on 1/2*delta_q, 3/2*delta_q and so on.
+                delta_q = 0
+                for i,val in enumerate(np.linspace(0,res_to_q(min_res),20)):
+                    binned_q_R_dict[val-0.5*delta_q] = 0
+                    if i == 1:
+                        delta_q = val
+                        binned_q_R_dict.pop(val)
+                        binned_q_R_dict[val-0.5*delta_q] = 0
+                binned_q_R_dict.pop(0)
+                binned_q_R_dict[np.max([k for k in binned_q_R_dict.keys()])+delta_q] = 0
+                
                 for i in range(len(res_lims)):
                     lower = resolutions * 0 + res_lims[i]
                     upper = np.Infinity
-                    # Select data up to a some resolution limit
+                    # Select data up to some resolution limit
                     x = np.extract((resolutions >= lower) * (resolutions < upper)*result1.I*result2.I >np.zeros(result1.I.shape),result1.I)
                     y = np.extract((resolutions >= lower) * (resolutions < upper)*result1.I*result2.I >np.zeros(result1.I.shape),result2.I)
                     # cc
@@ -2163,8 +2176,33 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real)   # normalises I_real to I_ideal's tot intensity
                     R_vect[i] = None
                     if np.sum(sqrt_ideal) != 0:
-                        R_vect[i] = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))
-                 
+                        R_vect[i] = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))                    
+                    # R factor but binned to resolution (note the resolutions still correspond to the maximum scattering angles for the bin, i.e. the bin is not centred on the corresponding q for the resolution.)
+                    delta_res = res_lims[1]-res_lims[0]
+                    lower = resolutions * 0 + res_lims[i]
+                    upper = resolutions * 0 + res_lims[i] + delta_res/2
+                    x = np.extract((resolutions >= lower) * (resolutions < upper)*result1.I*result2.I >np.zeros(result1.I.shape),result1.I)
+                    y = np.extract((resolutions >= lower) * (resolutions < upper)*result1.I*result2.I >np.zeros(result1.I.shape),result2.I)
+                    binned_sqrt_real = np.sqrt(x)
+                    binned_sqrt_ideal = np.sqrt(y)
+                    binned_inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real)   # normalises I_real to I_ideal's tot intensity
+                    binned_R_vect[i] = None                    
+                    if np.sum(binned_sqrt_ideal) != 0:
+                        binned_R_vect[i] = np.sum(np.abs((binned_inv_K*binned_sqrt_real - binned_sqrt_ideal)/np.sum(binned_sqrt_ideal)))
+                # R factor but bins separated by constant delta q.
+                for key in binned_q_R_dict.keys():
+                    lower = resolutions*0 + q_to_res(key+delta_q/2)
+                    upper = resolutions*0 + q_to_res(key-delta_q/2)
+                    x = np.extract((resolutions >= lower) * (resolutions < upper)*result1.I*result2.I >np.zeros(result1.I.shape),result1.I)
+                    y = np.extract((resolutions >= lower) * (resolutions < upper)*result1.I*result2.I >np.zeros(result1.I.shape),result2.I)
+                    sqrt_real = np.sqrt(x)
+                    sqrt_ideal = np.sqrt(y)
+                    inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real)   # normalises I_real to I_ideal's tot intensity
+                    binned_q_R_dict[key] = None   
+                    if np.sum(sqrt_ideal) != 0:
+                        binned_q_R_dict[key] = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))                         
+
+
                 #plt.plot((bin_lims[0:-1] + bin_lims[1:])/2,cc)
                 if not get_R_only:
                     plt.rcParams["text.usetex"] = True
@@ -2180,7 +2218,14 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     plt.ylim(0,0.2)
                     plt.gca().invert_xaxis()
                     plt.show()
-                return R_vect,cc,res_lims
+                damage_dict  = dict(
+                    R = R_vect,
+                    bin_res_R = binned_R_vect,
+                    cc = cc,
+                    resolutions = res_lims,
+                    bin_q_R = binned_q_R_dict,
+                )
+                return damage_dict
             
         ## Circle grid
         else:
@@ -2485,13 +2530,13 @@ def stylin(exp_name1,exp_name2,radial_lim,get_R_only = False,SPI=False,SPI_max_q
             print("----Intensity of experiment 2----")
             scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=show_labels,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity,**kwargs)
             print("----R Sectors aligned----")
-            R, cc, resolutions = scatter_scatter_plot(crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=show_labels,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity,**kwargs)
+            damage_dict = scatter_scatter_plot(crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=show_labels,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity,**kwargs)
             print("----Intensity of experiment 1 (damaged) aligned----") 
             scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity,**kwargs)
             print("----Intensity of experiment 2 (undamaged) aligned----")
             scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=show_labels,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity,**kwargs)
         else:
-            R, cc, resolutions = scatter_scatter_plot(get_R_only = True,crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=show_labels,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity,**kwargs)
+           damage_dict = scatter_scatter_plot(get_R_only = True,crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=show_labels,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity,**kwargs)
 
     else:
         use_q = True
@@ -2501,10 +2546,10 @@ def stylin(exp_name1,exp_name2,radial_lim,get_R_only = False,SPI=False,SPI_max_q
         cmap = "PiYG_r"# "plasma"
         cmap2 = "seismic"
         radial_lim = SPI_max_q
-        R, cc, resolutions = scatter_scatter_plot(get_R_only=get_R_only,log_I = log_I, cutoff_log_intensity = cutoff_log_intensity, SPI_result1=SPI_result1,SPI_result2=SPI_result2,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,cmap2=cmap2,**kwargs)
+        damage_dict = scatter_scatter_plot(get_R_only=get_R_only,log_I = log_I, cutoff_log_intensity = cutoff_log_intensity, SPI_result1=SPI_result1,SPI_result2=SPI_result2,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,cmap2=cmap2,**kwargs)
 
 
-    return R, cc, resolutions
+    return damage_dict
 
 def res_to_q(d):
     '''

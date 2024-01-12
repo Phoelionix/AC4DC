@@ -440,19 +440,9 @@ def get_R(sim_handle,sim_handle_parent_folder,scattering_sim_parameters,allowed_
             SPI_result1 = experiment1.spooky_laser(start_time,end_time,sim_handle,sim_handle_parent_folder,crystal_real, **run_params["laser"])
             SPI_result2 = experiment2.spooky_laser(start_time,end_time,sim_handle,sim_handle_parent_folder,crystal_ideal, **run_params["laser"])
             #TODO apply_background([SPI_result1,SPI_result2])
-            R,cc,resolutions = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=True,SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
-        '''
-        else:
-            exp1_orientations = experiment1.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal_real, results_parent_dir=sctr_results_batch_dir, **run_params["laser"])
-            if exp_name2 != None:
-                # sync orientation with damage simulation
-                experiment2.set_orientation_set(exp1_orientations)  
-                run_params["laser"]["random_orientation"] = False 
-                experiment2.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal_ideal, results_parent_dir=sctr_results_batch_dir, **run_params["laser"])
-            R,cc = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=True,SPI=False,results_parent_dir = sctr_results_batch_dir)
-        '''
+            damage_dict = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=True,SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
         #pulse_params = [energy,fwhm,photon_count]
-        return R,resolutions  # resolution index 0 corresponds to the max resolution
+        return damage_dict["R"],damage_dict["resolutions"]  # resolution index 0 corresponds to the max resolution
 
 def get_saved_data(handle):
     # Look for save of data
