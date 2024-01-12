@@ -2134,12 +2134,12 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     print("sum of real","{:e}".format(np.sum(sqrt_real)),"sum of ideal","{:e}".format(np.sum(sqrt_ideal)),"sum of abs difference","{:e}".format(R_num))       
                 
 
-                # R factor / Pearson Correlation Coefficient:
-                # Iterate through bins of resolutions:
+                ### Calculate damage measures
+                # Iterate through bins of resolutions
                 resolutions = q_to_res(np.sqrt(np.apply_along_axis(np.sum,2, result1.q_xy**2))) 
                 #min_res = np.min(resolutions)  # THIS IS NOT FROM THE RIM!!! It includes all.
-                min_res = np.max([np.min(resolutions[:][:][0]),np.min(resolutions[:][:][1])])  # rim resolution
-                max_res = np.min([6,np.max(resolutions[:][:])])#min_res*4
+                min_res = np.max([np.max(resolutions[0,:]),np.max(resolutions[:,0])])  # rim resolution
+                max_res = np.min([6,np.max(resolutions)])
                 res_lims = np.linspace(min_res,max_res,20)
                 cc = np.zeros(len(res_lims)) # Pearson cc
                 R_vect = cc.copy() # R_dmg (for full dataset up to the given resolution)
@@ -2147,14 +2147,14 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 binned_q_R_dict = {}
                 # Generate dictionary of evenly spaced q, spanning the range of 0 to q corresponding to min_res. Bins centred on 1/2*delta_q, 3/2*delta_q and so on.
                 delta_q = 0
-                for i,val in enumerate(np.linspace(0,res_to_q(min_res),20)):
-                    binned_q_R_dict[val-0.5*delta_q] = 0
+                for i,val in enumerate(np.linspace(0,res_to_q(min_res),20,endpoint=False)):
+                    binned_q_R_dict[val+0.5*delta_q] = np.nan
                     if i == 1:
                         delta_q = val
+                        binned_q_R_dict.pop(0)
                         binned_q_R_dict.pop(val)
-                        binned_q_R_dict[val-0.5*delta_q] = 0
-                binned_q_R_dict.pop(0)
-                binned_q_R_dict[np.max([k for k in binned_q_R_dict.keys()])+delta_q] = 0
+                        binned_q_R_dict[0.5*delta_q],binned_q_R_dict[1.5*delta_q] = [np.nan]*2
+                        
                 
                 for i in range(len(res_lims)):
                     lower = resolutions * 0 + res_lims[i]
@@ -2195,6 +2195,9 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     upper = resolutions*0 + q_to_res(key-delta_q/2)
                     x = np.extract((resolutions >= lower) * (resolutions < upper)*result1.I*result2.I >np.zeros(result1.I.shape),result1.I)
                     y = np.extract((resolutions >= lower) * (resolutions < upper)*result1.I*result2.I >np.zeros(result1.I.shape),result2.I)
+                    #tmp = copy.deepcopy(result1.I)
+                    #tmp[tmp == 0] = np.nan
+                    #plt.imshow(tmp)
                     sqrt_real = np.sqrt(x)
                     sqrt_ideal = np.sqrt(y)
                     inv_K = np.sum(sqrt_ideal)/np.sum(sqrt_real)   # normalises I_real to I_ideal's tot intensity

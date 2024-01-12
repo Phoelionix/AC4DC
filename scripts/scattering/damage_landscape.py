@@ -562,13 +562,11 @@ if __name__ == "__main__":
         assert np.array_equal(bins[i],bins[0])      # Assert that the sampled X points are identical between sims.
     X = bins[0]
 
-    print([d[-1] for d in dmg])
-    print(dmg[-1,:])
+    print(dmg)
     print( np.array(["nan"]*len(dmg[-1])))
-    while np.isnan(dmg[-1,:]).all():
-        print("Yo")
-        X.pop()
-        dmg = dmg[:-1,:]
+    # while np.isnan(dmg[-1,:]).all():
+    #     X.pop()
+    #     dmg = dmg[:-1,:]
 
     # Linear
     for i,name in enumerate(names):
@@ -586,13 +584,23 @@ if __name__ == "__main__":
     for i,name in enumerate(names):
         #plt.plot(sim_resolutions[0],R_factors[:,i],label=name)
         fig, ax = plt.subplots(subplot_kw={'projection':'polar'})
+        dmg_binned = dmg
         if _damage_measure in ["R","cc","bin_res_R"]:
             q = np.array([res_to_q(r) for r in X])
         if _damage_measure in ["bin_q_R"]:
             q = np.array([r for r in X])
+            
+            # Make the bloody centre point actually get filled. Pain for forgetting numpy intricacies
+            q = np.array(list(q) + [-np.min(q)])
+            ###dmg = [list(d) for d in dmg] + [[0]*len(names)]
+            ###dmg = np.array(dmg)
+            dmg_binned = np.append(dmg,np.array([np.array([0]*dmg.shape[-1])]),axis=0)
+            q, dmg_binned = zip(*(sorted(zip(q,dmg_binned), key=lambda x: x[0])))
+            q = np.array(q)
+            dmg_binned = np.array(dmg_binned)
         azm = np.linspace(0, 2 * np.pi, 100)
         r, th = np.meshgrid(q, azm)
-        dmg_meshed = (r*0+1)*dmg[None,:,i]
+        dmg_meshed = (r*0+1)*dmg_binned[None,:,i]
         cbar = ax.pcolormesh(th,r,dmg_meshed,vmin=0,vmax=0.1)
         plt.colorbar(cbar)
         plt.show()    
