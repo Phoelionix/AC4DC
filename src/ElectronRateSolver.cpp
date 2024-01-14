@@ -1041,11 +1041,21 @@ void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool fo
 // Does not resize containers
 size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used){
     assert(next_ode_states_used.size() == order);  
-    assert(y[load_step].atomP == next_ode_states_used[0].atomP);
+
+
+
+    size_t n = load_step;
+    assert(y[n].atomP == next_ode_states_used[0].atomP);
+    #ifdef RATES_TRACKING
+    photo_rate.resize(n); 
+    fluor_rate.resize(n); 
+    auger_rate.resize(n); 
+    tbr_rate.resize(n); 
+    eii_rate.resize(n);     
+    #endif
+
     std::cout.setstate(std::ios_base::failbit);  // disable character output
     
-    size_t n = load_step;
-
     bool rates_uninitialised = false;
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
         
@@ -1062,25 +1072,24 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
         }              
         // set basis to one given by knots
         if (rates_uninitialised)
-            Distribution::set_basis(n, param_cutoffs, regimes, knots, false);
-    }    
+            Distribution::set_basis(load_step, param_cutoffs, regimes, knots, false);
+    }
+
 
     // Load distributions and also the next few states that we need for the first ode step.
-    y.resize(n);   // final index is load_step-1
+    y.resize(n);    
     for(state_type state : next_ode_states_used){
         y.push_back(state);
         n++;
     }    
-    y.resize(num_steps);
-    
-    
-    initialise_transient_y((int)n);
+    y.resize(num_steps);  
+    initialise_transient_y((int)load_step);
    
 
     if (rates_uninitialised == false){
         if(_log.is_open()){
             _log << "------------------- [ Reloaded Step ] -------------------\n" 
-            "Time: "<<t[n]*Constant::fs_per_au <<" fs; "<<"Step: "<<n<<"\n" 
+            "Time: "<<t[load_step]*Constant::fs_per_au <<" fs; "<<"Step: "<<load_step<<"\n" 
             << endl;
         }           
         std::cout.clear();
@@ -1092,7 +1101,7 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
         if(_log.is_open()){
             double e = Constant::eV_per_Ha;
             _log << "------------------- [ Reloaded Step + Knots ] -------------------\n" 
-            "Time: "<<t[n]*Constant::fs_per_au <<" fs; "<<"Step: "<<n<<"\n" 
+            "Time: "<<t[load_step]*Constant::fs_per_au <<" fs; "<<"Step: "<<load_step<<"\n" 
             <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
             for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
                 _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
