@@ -67,7 +67,7 @@ void Distribution::set_basis(size_t step, GridSpacing grid_style, Cutoffs param_
 
 
 void Distribution::set_basis(size_t step, Cutoffs param_cutoffs, FeatureRegimes regimes, std::vector<double> knots, bool update_knot_history){
-    // Defines a grid of num_funcs points (if manual, thsi is the total number of free-electron grid points specified in the .mol file.)
+    // Defines a grid of num_funcs points (if manual, this is the total number of free-electron grid points specified in the .mol file.)
     // where num_funcs is the number of non-boundary (i.e. "usable") splines/knots.
     basis.set_parameters(regimes, knots);
     if(update_knot_history){knots_history.push_back(indexed_knot{step,get_knot_energies()});}

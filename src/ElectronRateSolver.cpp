@@ -1046,13 +1046,6 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
 
     size_t n = load_step;
     assert(y[n].atomP == next_ode_states_used[0].atomP);
-    #ifdef RATES_TRACKING
-    photo_rate.resize(n); 
-    fluor_rate.resize(n); 
-    auger_rate.resize(n); 
-    tbr_rate.resize(n); 
-    eii_rate.resize(n);     
-    #endif
 
     std::cout.setstate(std::ios_base::failbit);  // disable character output
     
@@ -1072,24 +1065,25 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
         }              
         // set basis to one given by knots
         if (rates_uninitialised)
-            Distribution::set_basis(load_step, param_cutoffs, regimes, knots, false);
+            Distribution::set_basis(0, param_cutoffs, regimes, knots, false);
     }
 
 
     // Load distributions and also the next few states that we need for the first ode step.
-    y.resize(n);    
+    y.resize(n); // Removes all steps corresponding to and past the steps to load    
     for(state_type state : next_ode_states_used){
         y.push_back(state);
         n++;
     }    
+    n-=1; // Set step back to the last updated step.
     y.resize(num_steps);  
-    initialise_transient_y((int)load_step);
+    initialise_transient_y((int)n);
    
 
     if (rates_uninitialised == false){
         if(_log.is_open()){
             _log << "------------------- [ Reloaded Step ] -------------------\n" 
-            "Time: "<<t[load_step]*Constant::fs_per_au <<" fs; "<<"Step: "<<load_step<<"\n" 
+            "Time: "<<t[load_step]*Constant::fs_per_au <<"-"<<t[n]*Constant::fs_per_au<<" fs; "<<"Step: "<<load_step<<"-"<<n<<"\n" 
             << endl;
         }           
         std::cout.clear();
@@ -1101,7 +1095,7 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
         if(_log.is_open()){
             double e = Constant::eV_per_Ha;
             _log << "------------------- [ Reloaded Step + Knots ] -------------------\n" 
-            "Time: "<<t[load_step]*Constant::fs_per_au <<" fs; "<<"Step: "<<load_step<<"\n" 
+            "Time: "<<t[load_step]*Constant::fs_per_au <<"-"<<t[n]*Constant::fs_per_au<<" fs; "<<"Step: "<<load_step<<"-"<<n<<"\n" 
             <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
             for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
                 _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";

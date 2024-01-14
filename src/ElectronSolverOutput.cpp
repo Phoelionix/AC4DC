@@ -222,7 +222,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
                         // Make sure all "natom-dimensioned" objects are the size expected //TODO failsafe?
                         assert(input_params.Store.size() == y[i].atomP.size());
                         
-                        f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i].atomP[a]<<endl;   // prob. multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au                    
+                        f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i].atomP[a]<<endl;   // Multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au                    
                     break;
                     case 1:                 
                         f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i].cumulative_photo[a]<<endl;

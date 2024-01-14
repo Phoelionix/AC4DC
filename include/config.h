@@ -43,10 +43,10 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 
 
 /// Thread capping. Often an easier option than regenerating batch files. (If multiple are left on, uses the lowest cap)
-//define THREAD_MAX_24
+#define THREAD_MAX_24
 //#define THREAD_MAX_20
 //#define THREAD_MAX_16
-#define THREAD_MAX_12
+//#define THREAD_MAX_12
 //#define THREAD_MAX_8
 //#define THREAD_MAX_4
 //#define THREAD_MAX_1
