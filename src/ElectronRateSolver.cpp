@@ -1044,7 +1044,7 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
     assert(y[load_step].atomP == next_ode_states_used[0].atomP);
     std::cout.setstate(std::ios_base::failbit);  // disable character output
     
-    size_t n = load_step-1;
+    size_t n = load_step;
 
     bool rates_uninitialised = false;
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
@@ -1066,7 +1066,7 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
     }    
 
     // Load distributions and also the next few states that we need for the first ode step.
-    y.resize(n);    
+    y.resize(n);   // final index is load_step-1
     for(state_type state : next_ode_states_used){
         y.push_back(state);
         n++;
@@ -1080,7 +1080,7 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
     if (rates_uninitialised == false){
         if(_log.is_open()){
             _log << "------------------- [ Reloaded Step ] -------------------\n" 
-            "Time: "<<t[load_step]*Constant::fs_per_au <<" fs; "<<"Step: "<<load_step<<"\n" 
+            "Time: "<<t[n]*Constant::fs_per_au <<" fs; "<<"Step: "<<n<<"\n" 
             << endl;
         }           
         std::cout.clear();
@@ -1092,7 +1092,7 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
         if(_log.is_open()){
             double e = Constant::eV_per_Ha;
             _log << "------------------- [ Reloaded Step + Knots ] -------------------\n" 
-            "Time: "<<t[load_step]*Constant::fs_per_au <<" fs; "<<"Step: "<<load_step<<"\n" 
+            "Time: "<<t[n]*Constant::fs_per_au <<" fs; "<<"Step: "<<n<<"\n" 
             <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
             for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
                 _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
