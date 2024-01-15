@@ -14,12 +14,13 @@ import pandas as pd
 import plotly.express as px
 import colorcet as cc; import cmasher as cmr
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
 import pickle
 import inspect
 src_file_path = inspect.getfile(lambda: None)
 my_dir = path.abspath(path.join(src_file_path ,"../")) + "/"
 from core_functions import get_sim_params, get_pdb_paths_dict
-from scatter import XFEL,Crystal,stylin,res_to_q
+from scatter import XFEL,Crystal,stylin,res_to_q,q_to_res
 
 
 
@@ -174,7 +175,7 @@ def save_data(fname, data):
 def load_df(fname, damage_measure,bin_limit,check_batch_nums=True):
     with open(DATA_FOLDER+fname +".pickle", "rb") as file:
         pulse_params, dmg_data,names,param_name_list = pickle.load(file) 
-    if damage_measure == "bin_q_R":
+    if damage_measure == "bin_q_R" or damage_measure == "bin_q_I":
         unique_bins = []
         dmg_vect = []
         for i, dmg_dict in enumerate(dmg_data):
@@ -193,7 +194,6 @@ def load_df(fname, damage_measure,bin_limit,check_batch_nums=True):
     else:
         resolutions = np.array([d["resolutions"] for d in dmg_data])
         # Check that the resolution is at or above the minimum of all simulations
-        print(dmg_data.shape)
         assert bin_limit >= np.max(resolutions[:,0])
         resolutions_idxes = np.empty(resolutions.shape)
         unique_resolutions = []
@@ -475,7 +475,7 @@ if __name__ == "__main__":
         # Params set to batch_handle
         kwargs["plasma_batch_handle"] = batch_handle
         fname = batch_handle
-    else: # Compare specific simulations
+    else: # Compare specific simulations.  Resolution map code intended to be used with this.
         #imaging_params_preset = copy.deepcopy(imaging_params.asymmetric_unit_dict)
         fname = "comparison"
         allowed_atoms = ["C","N","O"]; S_to_N = True
@@ -488,14 +488,15 @@ if __name__ == "__main__":
         #kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_HF","lys_nass_Gd_HF"]  
         #kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_square"]  
         kwargs["plasma_handles"] = ["lys_nass_no_S_3","lys_nass_gauss","lys_nass_Gd_full_1"]
+        #kwargs["plasma_handles"] = ["lys_nass_no_S_3","lys_nass_Gd_full_1"]
         #kwargs["plasma_handles"] = ["lys_nass_HF","lys_nass_Gd_HF"]  
         #kwargs["plasma_handles"] = ["lys_full-typical","lys_all_light-typical"]  
         #kwargs["plasma_handles"] = ["glycine_abdullah_4"]
         #pdb_path = PDB_PATHS["fcc"]
-        #pdb_path = PDB_PATHS["lys"]
+        pdb_path = PDB_PATHS["lys"]
         #pdb_path = PDB_PATHS["lys_solvated"]
         #pdb_path = PDB_PATHS["glycine"]
-        pdb_path = PDB_PATHS["tetra"]
+        #pdb_path = PDB_PATHS["tetra"]
 
     if MODE_DICT[mode] == "crystal" or MODE_DICT[mode] == "both":
         imaging_params_preset["laser"]["SPI"] = False         
@@ -535,13 +536,14 @@ if __name__ == "__main__":
     with open(DATA_FOLDER+data_name +".pickle", "rb") as file:
         _, dmg_data,_,_ = pickle.load(file) 
     
-    #damage_measure = "R"
+    #_damage_measure = "R"
     #_damage_measure = "bin_res_R"
-    _damage_measure = "bin_q_R"
+    #_damage_measure = "bin_q_R"
     #_damage_measure = "cc"
+    _damage_measure = "bin_q_I"
     dmg = []
     bins = []
-    if _damage_measure == "bin_q_R":
+    if _damage_measure in ["bin_q_R","bin_q_I"]:
         for elem in dmg_data:
             tmp_X = []
             for k, v in elem[_damage_measure].items():
@@ -560,7 +562,7 @@ if __name__ == "__main__":
     names = np.array(df["name"])
     for i,name in enumerate(names):
         assert np.array_equal(bins[i],bins[0])      # Assert that the sampled X points are identical between sims.
-    X = bins[0]
+    X = np.array(bins[0])
 
     print(dmg)
     print( np.array(["nan"]*len(dmg[-1])))
@@ -568,26 +570,55 @@ if __name__ == "__main__":
     #     X.pop()
     #     dmg = dmg[:-1,:]
 
+    cmap = "viridis"
+    y_label = ""
+    if _damage_measure == "bin_res_R":
+        y_label = "res. ring $R_{dmg}$"
+        vmax = 0.1
+    if _damage_measure == "bin_q_R":
+        y_label = "$q$ ring $R_{dmg}$"
+        vmax = 0.1      
+    if _damage_measure == "R":
+        y_label = "$R_{dmg}$"                  
+        vmax = 0.1
+    if _damage_measure == "cc":
+        y_label = "cc"
+        vmax = 0.1  
+    if _damage_measure == "bin_q_I":
+        y_label = "log(mean ring ratio)"
+        vmin = -0.4
+        vmax = 0.4
+        cmap = "seismic"
+
     # Linear
+    fig,ax = plt.subplots()
     for i,name in enumerate(names):
-        plt.plot(bins[0],dmg[:,i],label=name)
+        x = copy.deepcopy(X)
+        if _damage_measure in ["bin_q_R","bin_q_I"]:
+            x = q_to_res(x)
+        ax.scatter(x,dmg[:,i],label=name)
 
     labels=["Lysozyme, no S","Lysozyme","Lysozyme.Gd"]
     #labels=["Gaussian pulse","Square pulse",]
-    plt.legend(labels=labels,reverse=True)
-    plt.ylabel("$R_{dmg}$")
-    plt.ylim([None,0.105])
-    plt.xlabel("Resolution ($\AA$)")
-    plt.xscale("log")
+    ax.legend(labels=labels,reverse=True)
+    ax.set_ylabel(y_label)
+    ax.set_ylim([None,0.105])
+    ax.set_xlabel("Resolution ($\AA$)")
+    ax.set_xscale("log")
+    if _damage_measure in ["bin_q_R","bin_q_I"]:
+        ax.set_xlim([np.min(x),10])
+        ax.xaxis.set_minor_formatter(FormatStrFormatter("%.2f"))
+    else:
+        ax.set_xlim([np.min(x),np.max(x)])
     plt.show()
-    #Radial
+    #Radial note/TODO uses small angle approximation (plots against q rather than actual spatial distance.)
     for i,name in enumerate(names):
         #plt.plot(sim_resolutions[0],R_factors[:,i],label=name)
         fig, ax = plt.subplots(subplot_kw={'projection':'polar'})
         dmg_binned = dmg
         if _damage_measure in ["R","cc","bin_res_R"]:
             q = np.array([res_to_q(r) for r in X])
-        if _damage_measure in ["bin_q_R"]:
+        if _damage_measure in ["bin_q_R","bin_q_I"]:
             q = np.array([r for r in X])
             
             # Make the bloody centre point actually get filled. Pain for forgetting numpy intricacies
@@ -601,8 +632,9 @@ if __name__ == "__main__":
         azm = np.linspace(0, 2 * np.pi, 100)
         r, th = np.meshgrid(q, azm)
         dmg_meshed = (r*0+1)*dmg_binned[None,:,i]
-        cbar = ax.pcolormesh(th,r,dmg_meshed,vmin=0,vmax=0.1)
-        plt.colorbar(cbar)
+        cbar = ax.pcolormesh(th,r,dmg_meshed,vmin=vmin,vmax=vmax,cmap=cmap)          
+        cbar = plt.colorbar(cbar,shrink=0.8)
+        cbar.set_label(y_label,rotation = 0, y = 1.1,horizontalalignment='right')
         plt.show()    
     print("Done")
 

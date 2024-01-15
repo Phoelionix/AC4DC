@@ -95,7 +95,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, cha
         pl.plot_charges_bar("C",show_pulse_profile=False)
         #plt.gcf().set_figwidth(15)        
     if orbital_densities_bar:
-        pl.plot_orbitals_bar(atoms=None,show_pulse_profile=True,normalise = True)
+        pl.plot_orbitals_bar(atoms=None,atoms_excluded=["N","O"],show_pulse_profile=True,normalise = True)
         #pl.plot_orbitals_bar("Gd_fast",show_pulse_profile=True,orbitals=["3p","4p","5p"])
     if photo_rates:
         pl.plot_photoionisation(atoms=None,show_pulse_profile=True)

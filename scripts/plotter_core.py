@@ -711,7 +711,7 @@ class Plotter:
     def setup_axes(self,num_subplots):
         self.num_plotted = 0 # number of subplots plotted so far.
         width, height = 6, 3.3333  # 4.5,2.5 ~ abdallah
-        if num_subplots > 3 :
+        if num_subplots >= 3 :
             self.fig, self.axs = plt.subplots(int(0.999+(num_subplots**0.5)),int(0.999+(num_subplots**0.5)),figsize=(width*int((1+num_subplots)/2),height*int((1+num_subplots)/2)))
         else:
             self.fig, self.axs = plt.subplots(num_subplots,figsize=(width,height*num_subplots))
@@ -884,9 +884,14 @@ class Plotter:
         old_ytop = ax.get_ylim()[1]
         ax.set_ylim([-0.5,len(Y)-0.5])
 
-    def plot_orbitals_bar(self, atoms = None, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],orbitals=None,normalise=False,**kwargs):
+    def plot_orbitals_bar(self, atoms = None, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],orbitals=None,normalise=False,atoms_excluded = None,**kwargs):
         if atoms is None: 
             atoms = self.atomdict
+            if atoms_excluded is not None:
+                        for a in atoms_excluded:
+                            atoms.pop(a)          
+        else:
+            assert atoms_excluded is None
         
         for a in atoms:
             if show_pulse_profile:  
@@ -1147,6 +1152,7 @@ class Plotter:
         #         ax.set_ylabel("Avg. charge difference")  # Sometimes we start with charged states.
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
+        ax.set_ylabel("Average occupancy")
         # ax.set_xlim(None,-18.6)
         # ax.set_ylim(0,5)
         if plot_legend:

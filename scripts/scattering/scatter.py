@@ -904,7 +904,7 @@ class XFEL():
             result = Results_Grid()      
             
             ### Geometry
-            # In crystallography, for a resolution d we have q = 2*pi/d as lambda=2dsin(theta), q = (4pi/lambda)sin(theta). Possibly a questionable definition for SPI without periodicity, but it is used for consistency, and Nuetze 2000 makes no distinction.
+            # In crystallography, for a resolution d we have q = 2*pi/d [atomic units] as lambda=2dsin(theta), q = (4pi/lambda)sin(theta). Possibly a questionable definition for SPI without periodicity, but it is used for consistency, and Neutze 2000 makes no distinction.
                   
             # max q represents the actual limit of the change in momentum (at least in a 180 degree arc)
             # rim_q is the q we want to have at the largest unbroken ring
@@ -2145,6 +2145,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 R_vect = cc.copy() # R_dmg (for full dataset up to the given resolution)
                 binned_R_vect = cc.copy() # R_dmg for individual resolution bins/rings
                 binned_q_R_dict = {}
+                binned_q_I_ratio_dict  = {}
                 # Generate dictionary of evenly spaced q, spanning the range of 0 to q corresponding to min_res. Bins centred on 1/2*delta_q, 3/2*delta_q and so on.
                 delta_q = 0
                 for i,val in enumerate(np.linspace(0,res_to_q(min_res),20,endpoint=False)):
@@ -2154,7 +2155,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                         binned_q_R_dict.pop(0)
                         binned_q_R_dict.pop(val)
                         binned_q_R_dict[0.5*delta_q],binned_q_R_dict[1.5*delta_q] = [np.nan]*2
-                        
+                binned_q_I_ratio_dict  = copy.deepcopy(binned_q_R_dict)                        
                 
                 for i in range(len(res_lims)):
                     lower = resolutions * 0 + res_lims[i]
@@ -2204,7 +2205,16 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     binned_q_R_dict[key] = None   
                     if np.sum(sqrt_ideal) != 0:
                         binned_q_R_dict[key] = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)/np.sum(sqrt_ideal)))                         
-
+                # Average intensity
+                I1_centre = result1.I[int(len(result1.I)/2)][int(len(result1.I)/2)]
+                I2_centre = result2.I[int(len(result2.I)/2)][int(len(result2.I)/2)]
+                for key in binned_q_I_ratio_dict.keys():
+                    lower = resolutions*0 + q_to_res(key+delta_q/2)
+                    upper = resolutions*0 + q_to_res(key-delta_q/2)
+                    x = np.extract((resolutions >= lower) * (resolutions < upper)*result1.I*result2.I >np.zeros(result1.I.shape),result1.I)
+                    y = np.extract((resolutions >= lower) * (resolutions < upper)*result1.I*result2.I >np.zeros(result1.I.shape),result2.I)
+                    if np.sum(y) != 0:
+                        binned_q_I_ratio_dict[key] = log_function(np.mean( (x/I1_centre)/(y/I2_centre) ))                    
 
                 #plt.plot((bin_lims[0:-1] + bin_lims[1:])/2,cc)
                 if not get_R_only:
@@ -2227,6 +2237,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     cc = cc,
                     resolutions = res_lims,
                     bin_q_R = binned_q_R_dict,
+                    bin_q_I = binned_q_I_ratio_dict
                 )
                 return damage_dict
             
