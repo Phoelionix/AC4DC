@@ -44,20 +44,25 @@ SINGLE_FRAME_DICT = dict(
     width = (7.24409436834*2/3),#3.49751*2*3/5,
     height = 7.24409436834/3, #3.49751*2/3
     line_width = 2,
-    times = [-10],#[-10],#[0],#[-10,0], # fs.  Use multiple to plot traces from multiple times (colours will be same between frames however.)
     font_size = 10,
     superscript_font_size = 8,
     
-    show_legend = True, 
+    show_legend = False, 
 
     ylog = False, # < uses linear scale if False 
     xlog = False, # <
 
-    y_range = [0,0.0014],#lin:[0,0.0014]/[0,0.009],#log: [-5,-1],      # < If axis is log scale, limits correspond to powers of 10.
+    #times = [-10],#[-10],#[0],#[-10,0], # fs.  Use multiple to plot traces from multiple times (colours will be same between frames however.)
+    #y_range = [0,0.0014],#lin:[0,0.0014]/[0,0.009],#log: [-5,-1],      # < If axis is log scale, limits correspond to powers of 10.
+    
+    times = [-10],
+    y_range = [0,0.0014], # -10 fs
+    #times = [0],
+    #y_range = [0,0.009], # 0 fs
     x_range = [None,7500], # None,         # < Use None for default. 
 )
 
-INSET = False #False
+INSET = True #False
 subplot_ax_font_colour = "#495187"# "blue"
 subplot_ax_grid_color = "#c4c4eb"
 primary_grid_color = "#877F49"
@@ -230,14 +235,14 @@ def set_up_interactive_axes(ipl,plot_title,font_size=35,superscript_font_size=30
         if not normalise and not ANIMATION:
             #ylabel = "$\\text{"+ylabel+" (} \\AA^{-3}"
             if MULT_Y_THOUSAND:
-                ylabel +=" x 1000"
+                ylabel +=" (eV nm^{-3})" 
                # ylabel += " \\texttimes 1000 "
            # ylabel += "$)"
     else:
         if not normalise:
             #ylabel = "$\\text{"+ylabel+" (} "
             if MULT_Y_THOUSAND:
-                ylabel += " x 1000"
+                ylabel += " (eV nm^{-3})" 
                 #ylabel+="keV\\cdot "
             #else:
                 #ylabel +="eV\\cdot "
@@ -262,6 +267,11 @@ def set_up_interactive_axes(ipl,plot_title,font_size=35,superscript_font_size=30
     y_lin_args = {'tick0': None,'dtick':None,'title': {"text": ylabel, "font":{"size": font_size,"family": "times new roman"}}, 'tickfont': {"size": font_size}, 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
     x_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": xlabel, "font":{"size": font_size,"family": "times new roman"}}, 'tickfont': {"size": superscript_font_size,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
     y_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": ylabel, "font":{"size": font_size,"family": "times new roman"}}, 'tickfont': {"size": superscript_font_size,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
+
+
+    #for k,lab in zip(["yaxis2","xaxis2"],[ylabel,xlabel,]):
+    #    inset_dict["axes_kwargs"][k]["text"] = lab
+    inset_dict["axes_kwargs"]["xaxis2"]["title"] ={"text": xlabel, "standoff":0, "font":{"color":subplot_ax_font_colour, "size": font_size,"family": "times new roman"}}
 
     if ANIMATION:
         x_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": xlabel, "font":{"size": font_size*2-5,"family": "times new roman"}}, 'tickfont': {"size": superscript_font_size*2-5,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
