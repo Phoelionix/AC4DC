@@ -24,6 +24,9 @@ FIGHEIGHT = 3.49751/2
 #XLIM = [None,None]
 XLIM = [None,None]
 #YLIM=[0,6]
+
+CUSTOM_LEGEND=("1s: CNO","2s: CNO","2p: CNO","1s: CNO,S,Gd","2s: CNO,S,Gd","2p: CNO,S,Gd")
+
 def main():
     set_highlighted_excepthook()
 
@@ -59,7 +62,7 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,plo
 
         fig, axs = plt.subplots(3, 3, sharey=True, facecolor='w')
 
-        dashes = ["solid","dashed"]#"dotted"]
+        dashes = ["dashed","solid"]
         atoms = ("C","N","O","S")
         cmap = plt.get_cmap("Dark2")
         assert len(mol_names) <= 2
@@ -78,7 +81,16 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,plo
                 colours = [cmap(i) for i in range(len(atoms))]
                 pl.plot_tot_charge(every=1,linestyle=dashes[m],colours = colours,atoms = atoms,plot_legend=(m==0),xlim=XLIM,ylim=YLIM,charge_difference=CHARGE_DIFFERENCE,plot_derivative=PLOT_DERIVATIVE)
             if plot_mode == 2:
-                pl.plot_orbitals_charge(every=1,linestyle=dashes[m],atom = "C",plot_legend=(m==0),xlim=XLIM,ylim=YLIM,plot_derivative=PLOT_DERIVATIVE)
+                ax = pl.plot_orbitals_charge(every=1,linestyle=dashes[m],atom = "C",plot_legend=False,xlim=XLIM,ylim=YLIM,plot_derivative=PLOT_DERIVATIVE)       
+        if plot_mode == 2:
+            custom_legend = CUSTOM_LEGEND
+            if custom_legend is None: 
+                ax.legend(bbox_to_anchor=(1.02, 1),loc='upper left', ncol=1,handlelength=1)  # Top right legend.
+            else:
+                handles,_ = ax.get_legend_handles_labels()
+                handles = list(handles)
+                assert len(custom_legend)==len(handles)
+                ax.legend(handles,custom_legend,bbox_to_anchor=(1.02, 1),loc='upper left', ncol=1,handlelength=1)             
         plt.gcf().set_figwidth(FIGWIDTH)
         plt.gcf().set_figheight(FIGHEIGHT)
         #plt.gcf().tight_layout()

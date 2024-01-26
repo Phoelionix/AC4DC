@@ -1071,7 +1071,7 @@ class Plotter:
             ax.legend(loc = legend_loc)
         return ax
     
-    def plot_orbitals_charge(self, every=1,densities = False,cmap=None,atom=None,orbitals = None,plot_legend=True,xlim=[None,None],ylim=[None,None],plot_derivative=False,legend_loc='lower left',**kwargs):
+    def plot_orbitals_charge(self, every=1,densities = False,cmap=None,atom=None,orbitals = None,plot_legend=True,xlim=[None,None],ylim=[None,None],plot_derivative=False,legend_loc='lower left',custom_legend=None,**kwargs):
         '''
         plot_derivative (bool), if True, plots average ionisation rate instead of average charge. 
         '''
@@ -1157,7 +1157,13 @@ class Plotter:
         # ax.set_ylim(0,5)
         if plot_legend:
             #ax.legend(loc = legend_loc)
-            ax.legend(bbox_to_anchor=(1.02, 1),loc='upper left', ncol=1,handlelength=1)
+            if custom_legend is None: 
+                ax.legend(bbox_to_anchor=(1.02, 1),loc='upper left', ncol=1,handlelength=1)  # Top right legend.
+            else:
+                handles,_ = ax.get_legend_handles_labels()
+                handles = list(handles)
+                assert len(custom_legend)==len(handles)
+                ax.legend(handles,custom_legend,bbox_to_anchor=(1.02, 1),loc='upper left', ncol=1,handlelength=1)
         return ax    
     
  
