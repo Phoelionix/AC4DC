@@ -15,10 +15,12 @@ This file is part of AC4DC.
     along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
 ===========================================================================*/
 // (C) Spencer Passmore 2023
+
+[!!] WARNING: integrated with plasma simulation, edit at own risk! [!!]
 '''
 #%%
 import numpy as np
-from script_frame_plot_core import Plotter
+from PYBIND_script_frame_plot_core import Plotter
 from IPython.display import clear_output
 import plotly.io as pio
 import plotly.offline as plot_off

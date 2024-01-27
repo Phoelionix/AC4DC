@@ -990,12 +990,14 @@ class Plotter:
         T_end = len(T)
         if xlim[1] is not None:
             T_end = np.searchsorted(T,xlim[1])
-        T = self.timeData[T_start:T_end]
+        T = T[T_start:T_end]
         
         self.aggregate_charges(charge_difference)
         self.Q = np.zeros(T.shape[0]) # total charge
         colour = None
-        for j,a in enumerate(self.atomdict):
+        if atoms is None:
+            atoms = self.atomdict
+        for j,a in enumerate(atoms):
             if atoms is not None and a not in atoms:
                 continue
             if colours != None:

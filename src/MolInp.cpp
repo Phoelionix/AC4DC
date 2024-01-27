@@ -226,6 +226,8 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		omp_threads = min(20,omp_threads);
 	#elif defined THREAD_MAX_24
 		omp_threads = min(24,omp_threads);
+	#elif defined THREAD_MAX_28
+		omp_threads = min(28,omp_threads);		
 	#endif
 
 	// Get fluence (in 10^4 * J.cm^-2).

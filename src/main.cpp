@@ -279,10 +279,10 @@ int main(int argc, const char *argv[]) {
 
     string name, logpath, tmp_molfile, outdir;
 
-    cout<<"Copyright (C) 2020  Alaric Sanders and Alexander Kozlov"<<endl;
+    cout<<"Copyright (C) 2024  Alaric Sanders, Spencer Passmore, and Alexander Kozlov"<<endl;
     cout<<"This program comes with ABSOLUTELY NO WARRANTY; for details run `ac4dc -w'."<<endl;
-    cout<<"This is free software, and you are welcome to redistribute it"<<endl;
-    cout<<"under certain conditions; run `ac4dc -c' for details."<<endl;
+    cout<<"This is free software, and you are welcome to redistribute it under"<<endl;
+    cout<<"certain conditions; run `ac4dc -c' for details."<<endl;
 
     // Temporarily convert to string, so we can add .mol for ease of use.
     string input_file_path = string(argv[1]); 

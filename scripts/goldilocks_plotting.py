@@ -32,12 +32,13 @@ from damage_landscape import multi_damage
 from core_functions import get_sim_params, get_pdb_path
 from core_variables import *
 from mergedeep import merge
+import imaging_params
 
 
 FIGWIDTH_FACTOR = 1
 FIGWIDTH = 3.49751 *FIGWIDTH_FACTOR
 FIGHEIGHT = FIGWIDTH*3/4
-FIT = False
+FIT = True
 IGNORE_MISSING_SIMULATIONS = True  # If False, throws an error if not all specified simulations in the batch(es) are found.
 
 matplotlib.rcParams.update({
@@ -50,8 +51,8 @@ matplotlib.rcParams.update({
 
 
 ####### User parameters #########
-INDEP_VARIABLE = 0 # | 0: energy of photons |1: Energy separation from given edge |2: Artificial electron source energy
-DEP_VARIABLE = 0 # | 0: mean carbon charge (at end of pulse) | 1: R factors (performs scattering simulations for each) |
+INDEP_VARIABLE = 1 # | 0: energy of photons |1: Energy separation from given edge |2: Artificial electron source energy
+DEP_VARIABLE = 1 # | 0: mean carbon charge (at end of pulse) | 1: R factors (performs scattering simulations for each) |
 BATCH = 0 #| 0: Real elements | 1: Electron source. 
 SCATTERING_TARGET = 0 # Used if DEP_VARIABLE = 1.  | 0: unit lysozyme (light atoms) | 1: 3x3x3 lysozyme (light atoms no solvent)|
 
@@ -68,24 +69,27 @@ ylim=[None,None]
 
 if BATCH is REAL_ELEMENTS:
     assert(INDEP_VARIABLE != ELECTRON_SOURCE_ENERGY)
+    # Lists of ranges of simulations to plot
     # Batch stems and index range (inclusive). currently assuming form of key"-"+n+"_1", where n is a number in range of stem[key]
     # e.g. item "Carbon":[2,4] means to plot simulations corresponding to outputs Carbon-2, Carbon-3, Carbon-4, mol files. Last simulation output is used in case of duplicates (highest run number).
     stem_dict = {
-            "SH_N":[26,34], #[700,704],
-            #"SH_S":[2,10],  
-            #"SH_Fe":[2,10],  
-            #SH_Zn":[2,10],
-            "SH_excl_Zn":[1,9],
-            #"SH_Se":[2,10],
-            #"SH_Zr":[2,10],
+            "SH_N":[[1,10],[901,903]], #[700,704],
+            "SH_S":[[0,10],[901,903]],  
+            "SH_Fe":[[0,10],[901,904]],#,[20,40]],
+            "SH_Zn":[[0,10],[901,903]],
+            "SH_Se":[[0,13],],
+            "SH_Zr":[[0,10],[901,902]],
             #-----L------
-            #"SH_Ag":[2,8],
-            #"SH_Xe":[2,9],
+            "SH_Ag":[[0,8],[901,904]],
+            "SH_Xe":[[0,9],[901,907]],
+            "SH2_Gd":[[1,14]],
+            #------other------
+            #"SH_excl_Zn":[1,9],
             #"L_Gd":[1,9],
     }
     # Each item corresponds to a list of additional simulations to add on
     additional_points_dict = {
-
+            
     }    
     
 if BATCH is ELECTRON_SOURCE:
@@ -123,7 +127,7 @@ if BATCH is ELECTRON_SOURCE:
         if len(val) == 2:
             additional_points_dict[key] = val[1]
         
-# Ionisation edges of dopants
+# Ionisation edges of dopants. Highest absorption edge specified in first element in tuple is plotted if in energy range. Second element in the tuple is label for said edge.
 edge_dict = {
     "SH_N": (0.3,"K"),
     "SH_S": (1,"K"),
@@ -133,13 +137,17 @@ edge_dict = {
     "SH_Se":(12.7,"K"),
     "SH_Zr":(17.98,"K"),  # Slight offset for graphical purposes.
     "SH_Ag":(3.8,"L_{1}"),
-    "SH_Xe":(5.5,"L_{1}"),
+    "SH_Xe":([4.8,5.1,5.5],"L_{1}"),
+    "SH2_Gd":([7.2,7.9,8.4],"L_{1}"),  
     "L_Gd":(7.4,"L_{1}"),
-    
     "ES":(0.3,"K"),
     "ES_L":(0.3,"K"),
     "ES_C":(0.3,"K"),
 }
+for elem in edge_dict.keys():
+    if type(edge_dict[elem][0]) in [float,int]:
+        edge_dict[elem] = ([edge_dict[elem][0],],edge_dict[elem][1]) 
+         
 # Initial charges of dopant
 ground_charge_dict = {
     "SH_N": 0,
@@ -151,6 +159,8 @@ ground_charge_dict = {
     "SH_Zr":2,
     "SH_Ag":1,
     "SH_Xe":8,
+    "SH2_Gd":3,
+    
     "L_Gd":11,
 
     "ES":0,
@@ -167,6 +177,8 @@ col_dict = {
     "SH_Zr":5,
     "SH_Ag":8,
     "SH_Xe":6,
+    "SH2_Gd":2,    
+    
     "L_Gd":2,    
 
     "ES":0,
@@ -184,10 +196,10 @@ PDB_STRUCTURE = get_pdb_path(SCATTER_DIR,"lys")
 MOLECULAR_PATH = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/" # directory of damage sim output folders
 GOLDI_RESULTS_PATH = path.abspath(path.join(__file__ ,"../.goldilocks_saves")) + "/" 
 
-xlim = [7,20]
+xlim = [6,18]
 if INDEP_VARIABLE is EDGE_SEPARATION:
-    xlim[1] -= xlim[0]
-    xlim[0] = 0 
+    xlim[0] = -1.5
+    xlim[1] = 18
 if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
     #xlim = [None,None]
     xlim = [0,20]
@@ -207,16 +219,18 @@ def main():
     # Get folders names in molecular_path
     all_outputs = os.listdir(MOLECULAR_PATH)
     valid_folder_names= True
-    for key,val in stem_dict.items():
+    for key,val_range in stem_dict.items():
         data_folders = []
+        sim_tags = []
+        for val in val_range:
         # Get folder name, excluding run tag
-        sim_tags = [*range(val[0],val[1]+1)]
-        if key in additional_points_dict:
-            for sim_tag in additional_points_dict[key]:
-                sim_tags.append(sim_tag)
+            sim_tags += [*range(val[0],val[1]+1)]
+            if key in additional_points_dict:
+                for sim_tag in additional_points_dict[key]:
+                    sim_tags.append(sim_tag)
         for n in sim_tags:
             data_folders.append(key+"-"+str(n)) 
-        # Add run tag "_"+n corresponding to latest run (n = highest "R" for "stem-n_R")
+            # Add run tag "_"+n corresponding to latest run (n = highest "R" for "stem-n_R")
         for i, handle in enumerate(data_folders):
             matches = [match for match in all_outputs if match.startswith(handle+"_")]
             run_nums = [int(R.split("_")[-1]) for R in matches if R.split("_")[-1].isdigit()]            
@@ -280,15 +294,18 @@ def plot(batches,label,figure_output_dir,mode = 0):
         X = []
         Y = []
         times = []  # last times of sims, for checking everything lines up.
-        if mol_name == NORMALISING_STEM:
-            for x,y,t in norm:
-                if x is not None:
-                    X.append(x)
-                    Y.append(y)  
-                    times.append(t)                  
-        else:       
-            for mol_name in mol_names:
-                x,y,t = get_data_point(ax,stem,mol_name,mode)
+        for mol_name in mol_names:
+            if mol_name == NORMALISING_STEM:
+                for x,y,t in norm:
+                    if x is not None:
+                        X.append(x)
+                        Y.append(y)  
+                        times.append(t)                  
+          
+        for mol_name in mol_names:
+            if mol_name==NORMALISING_STEM:
+                continue
+            x,y,t = get_data_point(ax,stem,mol_name,mode)
             if x is not None: # Ignore any sourceless data points.
                 X.append(x)
                 Y.append(y)  
@@ -327,18 +344,18 @@ def plot(batches,label,figure_output_dir,mode = 0):
             # Split dataset with ionisation edge of dopant
             split_idx = 0
             if INDEP_VARIABLE is PHOTON_ENERGY:
-                split_idx = np.searchsorted(np.array([x[0] for x in ordered_dat]),edge_dict[stem][0])
+                split_idxes = [np.searchsorted(np.array([x[0] for x in ordered_dat]),edge) for edge in edge_dict[stem][0]]
             if INDEP_VARIABLE is EDGE_SEPARATION:
-                split_idx = np.searchsorted(np.array([x[0] for x in ordered_dat]),-0.000000001)
+                split_idxes = np.searchsorted(np.array([x[0] for x in ordered_dat]),[edge-max(edge_dict[stem][0]) - 0.000000001 for edge in edge_dict[stem][0]])
             splines = []
             finer_x = []
-            if split_idx in (0, len(X)):
+            if not [split_idx in (0, len(X)) for split_idx in split_idxes]:
                 # No split in fit
                 splines.append(InterpolatedUnivariateSpline(*zip(*ordered_dat),k=k))
                 finer_x.append(np.linspace(np.min(X),np.max(X),endpoint=True))
             else:
-                # Split in fit                  \\START           \\END
-                for start_idx,end_idx  in zip([0,split_idx],[split_idx-1,len(X)-1]):
+                # Split in fit                   START POINTS             END POINTS
+                for start_idx,end_idx  in zip([0,max(split_idxes)],[min(split_idxes)-1,len(X)-1]):
                     if end_idx+1 - start_idx>=k+1:
                         splines.append(InterpolatedUnivariateSpline(*zip(*ordered_dat[start_idx:end_idx+1]),k=k))
                         finer_x.append(np.linspace(ordered_dat[start_idx][0],ordered_dat[end_idx][0],endpoint=True))
@@ -355,7 +372,8 @@ def plot(batches,label,figure_output_dir,mode = 0):
         if INDEP_VARIABLE is PHOTON_ENERGY:
             ax.set_xlabel("Photon energy (keV)")
         if INDEP_VARIABLE is EDGE_SEPARATION:
-            ax.set_xlabel("Dopant edge separation (keV)")  # TODO define better
+            ax.set_xlabel("Lowest photoelectron emission energy (keV)")  
+            #ax.set_xlabel("LEIS photoelectron energy (keV)")  
         if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
             ax.set_xlabel("Source electron energy (keV)")  # TODO define better
         
@@ -370,9 +388,9 @@ def plot(batches,label,figure_output_dir,mode = 0):
         for stem, mol_names in batches.items():
             c = col_dict[stem]
             dopant = stem.split("-")[0].split("_")[-1]
-            if ax.get_xlim()[0] < edge_dict[stem][0] < ax.get_xlim()[1]:
-                ax.axvline(x=edge_dict[stem][0],ls=(5,(10,3)),color=cmap(c))
-                ax.text(edge_dict[stem][0]-0.1, 0.96*ax.get_ylim()[1] +0.04*ax.get_ylim()[0],dopant+"--$"+edge_dict[stem][1]+"$",verticalalignment='top',horizontalalignment='right',rotation=-90,color=cmap(c))
+            if ax.get_xlim()[0] < max(edge_dict[stem][0]) < ax.get_xlim()[1]:
+                ax.axvline(x=max(edge_dict[stem][0]),ls=(5,(10,3)),color=cmap(c))
+                ax.text(max(edge_dict[stem][0])-0.1, 0.96*ax.get_ylim()[1] +0.04*ax.get_ylim()[0],dopant+"--$"+edge_dict[stem][1]+"$",verticalalignment='top',horizontalalignment='right',rotation=-90,color=cmap(c))
     if INDEP_VARIABLE is EDGE_SEPARATION:
         ax.axvline(x=0,ls=(5,(10,3)),color="black")
 
@@ -514,7 +532,7 @@ def get_data_point(ax,stem,mol_name,mode):
     if INDEP_VARIABLE is PHOTON_ENERGY: 
         energy = get_sim_params(mol_name)[0]["energy"]
     if INDEP_VARIABLE is EDGE_SEPARATION:
-        energy = get_sim_params(mol_name)[0]["energy"] - edge_dict[stem][0]*1000
+        energy = get_sim_params(mol_name)[0]["energy"] - max(edge_dict[stem][0])*1000
     if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
         s = get_sim_params(mol_name)[0]
         energy = s["source_energy"]

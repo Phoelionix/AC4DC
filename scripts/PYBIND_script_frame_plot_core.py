@@ -15,6 +15,8 @@ This file is part of AC4DC.
     along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
 ===========================================================================*/
 // (C) Spencer Passmore 2023
+
+[!!] WARNING: integrated with plasma simulation, edit at own risk! [!!]
 '''
 
 import numpy as np
