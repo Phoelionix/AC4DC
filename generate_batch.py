@@ -18,31 +18,35 @@ from types import SimpleNamespace
 def main():
   # Choose set of parameters to vary
   PULSE_PARAMETERS = 0; SOURCE_PARAMETERS = 1
+  ####
+  MODE = 0
+  ####
+  GAUSSIAN = 0; SQUARE = 1
 
-  #MODE = PULSE_PARAMETERS
-  MODE = PULSE_PARAMETERS
-
-  
   if MODE is PULSE_PARAMETERS:
+    GRID_TYPE = "M"
   # https://www.xfel.eu/sites/sites_custom/site_xfel/content/e35165/e46561/e46876/e179573/e179574/xfel_file179576/19042023_Parameters_factsheet_2024-01_Final_eng.pdf
-    ENERGIES = [7000,8000,9000,10000,11000,13000,15000]
+    ENERGIES = [7650,7700,7750,7800,7850,7900,7950]
     FWHMS = [15]
-    PHOTON_COUNTS = [10]
+    PHOTON_COUNTS = [1]
 
     SOURCE_FRACTION = None
     SOURCE_ENERGY = None
     SOURCE_DURATION = None
+    PULSE_SHAPE = GAUSSIAN
 
 
   if MODE is SOURCE_PARAMETERS:
+     GRID_TYPE = "S"
      ELECTRON_SOURCE = True 
      ENERGY = 10000
      FWHM = 15
-     PHOTON_COUNT = 10
+     PHOTON_COUNT = 1000
 
-     SOURCE_FRACTIONS = [0.75]
-     SOURCE_ENERGIES = [1000,1500,2000,2500,3000,4000]
-     SOURCE_DURATIONS = [0.3,0.5,1]
+     SOURCE_FRACTIONS = [3]
+     SOURCE_ENERGIES = [0,50, 500, 1000, 1500, 2000, 3000, 4000, 5000,6000, 7000, 8000,9000, 10000,11000,12000,13000, 14000, 15000, 16000,17000,18000,19000,20000]
+     SOURCE_DURATIONS = [1]
+     PULSE_SHAPE = GAUSSIAN
 
   ##########
 
@@ -67,14 +71,21 @@ def main():
 
   atoms, secondary_ion_exclusions, volume = copy_params(infile_path,handle)
   i = 1
-  
+
+  pulse_shape = None
+  if PULSE_SHAPE is GAUSSIAN:
+     pulse_shape = "gaussian"
+  if PULSE_SHAPE is SQUARE:
+     pulse_shape = "square"
   if MODE is PULSE_PARAMETERS:
      
     param_space = np.stack(np.meshgrid(FWHMS,PHOTON_COUNTS,ENERGIES),-1).reshape(-1,3)  # Note that last variable is the "inner loop", iterated over first and the most.
     feedin_dicts = [{
+        'grid_type':GRID_TYPE,
         'atoms' : atoms,
         'scndry_exclusions' : secondary_ion_exclusions,
         'volume' : volume,
+        'pulse_shape':pulse_shape, 
         'energy' : params[2],
         'photon_count' : params[1],    
         'fwhm' : params[0],
@@ -87,15 +98,17 @@ def main():
 
     assert(ELECTRON_SOURCE is True)
     feedin_dicts = [{
+          'grid_type':GRID_TYPE,
           'atoms' : atoms,
           'scndry_exclusions' : secondary_ion_exclusions,
           'volume' : volume,
+          'pulse_shape':pulse_shape, 
           'energy' : ENERGY,
           'photon_count' : PHOTON_COUNT,    
           'fwhm' : FWHM,
           'source_energy':params[2],
           'source_fraction':params[1],    
-          'source_duration':params[0],    
+          'source_duration':params[0],   
       } for params in param_space]     
      
   for feedin_dict in feedin_dicts:
@@ -150,7 +163,7 @@ def copy_params(mol_path,handle):
                     volume = float(line.split(' ')[0])
                 n += 1
     print("Atoms:",atom_lines)
-    if len(exclusion_lines > 0):
+    if len(exclusion_lines) > 0:
       print("Exclusions:",exclusion_lines)
     print("Volume:", volume)
     return atom_lines, exclusion_lines, volume
@@ -166,7 +179,7 @@ def make_mol_file(fname, outfile, param_dictionary):
   print("Outputting to " + outfile)
 
   update_period = min(10,P.fwhm/2.91)
-  num_steps = max(1000,round(P.fwhm*50))
+  num_guess_steps = max(1000*(1+2*(P.pulse_shape == "square")),round(P.fwhm*50))
 
   # Creare plasma input file
   plasma_file = open(outfile, 'w')
@@ -175,7 +188,7 @@ def make_mol_file(fname, outfile, param_dictionary):
   for line in P.atoms:
     plasma_file.write(line)
 
-  plasma_file.write("""EBOUND_FREE_EXCLUSIONS\n""")
+  plasma_file.write("""\n#BOUND_FREE_EXCLUSIONS\n""")
   for line in P.scndry_exclusions:
     plasma_file.write(line)  
   
@@ -187,18 +200,18 @@ def make_mol_file(fname, outfile, param_dictionary):
   plasma_file.write("""\n#PULSE\n""")
   plasma_file.write("""%.0f         // Photon energy in eV.\n""" % P.energy)
   plasma_file.write("""%.1f         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.\n""" % P.fwhm)
-  plasma_file.write("""gaussian     // Pulse shape.\n""")
+  plasma_file.write(P.pulse_shape+"""     // Pulse shape.\n""")
 
   plasma_file.write("""\n#USE_COUNT\n""")
   plasma_file.write("""true         // enabled? true/false.\n""")
   plasma_file.write("""%.2f            // Photon density (x10^12 ph.µm-2)\n""" %P.photon_count)
 
   plasma_file.write("""\n#NUMERICAL\n""")
-  plasma_file.write("""%.0f         // Initial guess for number of time step points for rate equation (Note e-e scattering part takes num_stiff_ministeps = 500 substeps for each step).\n""" %num_steps)
+  plasma_file.write("""%.0f         // Initial guess for number of time step points for rate equation (Note e-e scattering part takes num_stiff_ministeps = 500 substeps for each step).\n""" %num_guess_steps)
   plasma_file.write("""26           // Number of threads in OpenMP.\n""")
 
   plasma_file.write("""\n#DYNAMIC_GRID\n""")
-  plasma_file.write("""M            // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).\n""")
+  plasma_file.write(P.grid_type+"""            // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).\n""")
   plasma_file.write("""%.2f         // Grid update period in fs, (dynamic grid only).\n""" %update_period)
 
   if P.source_fraction not in [None,0] and P.source_energy not in [None,0]:

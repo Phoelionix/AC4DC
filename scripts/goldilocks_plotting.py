@@ -51,8 +51,8 @@ matplotlib.rcParams.update({
 
 
 ####### User parameters #########
-INDEP_VARIABLE = 1 # | 0: energy of photons |1: Energy separation from given edge |2: Artificial electron source energy
-DEP_VARIABLE = 1 # | 0: mean carbon charge (at end of pulse) | 1: R factors (performs scattering simulations for each) |
+INDEP_VARIABLE = 0 # | 0: energy of photons |1: Energy separation from given edge |2: Artificial electron source energy
+DEP_VARIABLE = 0 # | 0: mean carbon charge (at end of pulse or I avged TODO) | 1: R factors (performs scattering simulations for each) |
 BATCH = 0 #| 0: Real elements | 1: Electron source. 
 SCATTERING_TARGET = 0 # Used if DEP_VARIABLE = 1.  | 0: unit lysozyme (light atoms) | 1: 3x3x3 lysozyme (light atoms no solvent)|
 
@@ -72,7 +72,7 @@ if BATCH is REAL_ELEMENTS:
     # Lists of ranges of simulations to plot
     # Batch stems and index range (inclusive). currently assuming form of key"-"+n+"_1", where n is a number in range of stem[key]
     # e.g. item "Carbon":[2,4] means to plot simulations corresponding to outputs Carbon-2, Carbon-3, Carbon-4, mol files. Last simulation output is used in case of duplicates (highest run number).
-    stem_dict = {
+    HF_10fs = { # 10^12 ph um^-2 fluence, 10 fs
             "SH_N":[[1,10],[901,903]], #[700,704],
             "SH_S":[[0,10],[901,903]],  
             "SH_Fe":[[0,10],[901,904]],#,[20,40]],
@@ -87,11 +87,10 @@ if BATCH is REAL_ELEMENTS:
             #"SH_excl_Zn":[1,9],
             #"L_Gd":[1,9],
     }
-    # Each item corresponds to a list of additional simulations to add on
-    additional_points_dict = {
-            
-    }    
-    
+    HF_20fs = {}
+    LF_10fs = {}
+    LF_20fs = {} 
+    stem_dict = HF_10fs
 if BATCH is ELECTRON_SOURCE:
     assert(INDEP_VARIABLE == ELECTRON_SOURCE_ENERGY)
     ##
@@ -136,10 +135,10 @@ edge_dict = {
     "SH_excl_Zn":(9.7,"K"),
     "SH_Se":(12.7,"K"),
     "SH_Zr":(17.98,"K"),  # Slight offset for graphical purposes.
-    "SH_Ag":(3.8,"L_{1}"),
-    "SH_Xe":([4.8,5.1,5.5],"L_{1}"),
-    "SH2_Gd":([7.2,7.9,8.4],"L_{1}"),  
-    "L_Gd":(7.4,"L_{1}"),
+    "SH_Ag":(3.8,["L_{1}",]),
+    "SH_Xe":([4.8,5.1,5.5],["L_{3}","L_{2}","L_{1}"]),
+    "SH2_Gd":([7.2,7.9,8.4],["L_{3}","L_{2}","L_{1}"]),  
+    "L_Gd":(7.4,["L_{1}",]),
     "ES":(0.3,"K"),
     "ES_L":(0.3,"K"),
     "ES_C":(0.3,"K"),
@@ -388,9 +387,13 @@ def plot(batches,label,figure_output_dir,mode = 0):
         for stem, mol_names in batches.items():
             c = col_dict[stem]
             dopant = stem.split("-")[0].split("_")[-1]
-            if ax.get_xlim()[0] < max(edge_dict[stem][0]) < ax.get_xlim()[1]:
-                ax.axvline(x=max(edge_dict[stem][0]),ls=(5,(10,3)),color=cmap(c))
-                ax.text(max(edge_dict[stem][0])-0.1, 0.96*ax.get_ylim()[1] +0.04*ax.get_ylim()[0],dopant+"--$"+edge_dict[stem][1]+"$",verticalalignment='top',horizontalalignment='right',rotation=-90,color=cmap(c))
+            for lin, text in zip(edge_dict[stem][0],edge_dict[stem][1]):
+                if ax.get_xlim()[0] < lin < ax.get_xlim()[1]:
+                    ax.axvline(x=lin,ls=(5,(10,3)),color=cmap(c))
+                    ax.text(lin-0.1, 0.96*ax.get_ylim()[1] +0.04*ax.get_ylim()[0],dopant+"--$"+text+"$",verticalalignment='top',horizontalalignment='right',rotation=-90,color=cmap(c))
+            #if ax.get_xlim()[0] < max(edge_dict[stem][0]) < ax.get_xlim()[1]:
+                #ax.axvline(x=max(edge_dict[stem][0]),ls=(5,(10,3)),color=cmap(c))
+                #ax.text(max(edge_dict[stem][0])-0.1, 0.96*ax.get_ylim()[1] +0.04*ax.get_ylim()[0],dopant+"--$"+edge_dict[stem][1]+"$",verticalalignment='top',horizontalalignment='right',rotation=-90,color=cmap(c))
     if INDEP_VARIABLE is EDGE_SEPARATION:
         ax.axvline(x=0,ls=(5,(10,3)),color="black")
 
@@ -501,6 +504,12 @@ def get_data_point(ax,stem,mol_name,mode):
     dep_variable_key = str(DEP_VARIABLE)
     if DEP_VARIABLE == 1:
         dep_variable_key = str(DEP_VARIABLE)+"-"+str(SCATTERING_TARGET)
+    intensity_averaged = True #TODO
+    if DEP_VARIABLE is AVERAGE_CHARGE:
+        if intensity_averaged: 
+            dep_variable_key += '_avged'
+        else:
+            dep_variable_key += '_EoP'
     saved_x = saved_y = saved_end_time = None
     dat= get_saved_data(mol_name) 
     if dat is not None:
@@ -511,7 +520,7 @@ def get_data_point(ax,stem,mol_name,mode):
     if saved_y is None:              
         pl = Plotter(mol_name)
         if mode is AVERAGE_CHARGE:
-            intensity_averaged = False
+            intensity_averaged = True
             if intensity_averaged: 
                 y = np.average(pl.get_total_charge(atoms="C")*pl.intensityData)/np.average(pl.intensityData)
             else:

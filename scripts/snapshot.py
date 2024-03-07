@@ -78,12 +78,26 @@ P.INSET_DICT = dict(
 if  len(sys.argv) < 3:
     print("Usage: Generate snapshots at some number of times, e.g. t = -10 and t = 0, with: 'python3 scripts/"+path.basename(__file__)+" lysozyme_3 -10 0'")
     exit()
-for snapshot_t in sys.argv[3:]:
+n=0
+for k in sys.argv:
+   print(k)
+   print(k.strip('-').isnumeric())
+   if  k.strip('-').isnumeric():
+       break 
+   n+=1
+   
+    
+if n >= len(sys.argv):
+    print("Times not provided.")
+    exit()
+for snapshot_t in sys.argv[n:]:
     print("Taking snapshot at t = "+snapshot_t+" fs")
-    P.END_T = snapshot_t  # Put at value to cutoff times early.
-    generate_graphs(P,sys_argv = sys.argv[0:2])
+    #P.END_T = float(snapshot_t)  # Put at value to cutoff times early.
+    P.SINGLE_FRAME_DICT["times"] = [float(snapshot_t)]  # Put at value to cutoff times early.
+    generate_graphs(P,sys_argv = sys.argv[0:n])
 
 
 ############### Scratchpad
 #python3.9 scripts/generate_interactive.py carbon_classic_static carbon_classic_dynamic
 #python3.9 scripts/generate_interactive.py lys_nass_no_S_3 lys_nass_gauss lys_nass_Gd_full_1 
+#python3.9 scripts/generate_snapshot.py lys_nass_no_S_3 lys_nass_gauss lys_nass_Gd_gauss_1 

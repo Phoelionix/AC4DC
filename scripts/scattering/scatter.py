@@ -233,7 +233,7 @@ class Crystal():
             self.num_cells = self.supercell_scale**3
             # Generate the coordinates of the cube (performance: defining scaling matrix/cube coords outside of here would be more efficient). But only runs once  \_( '_')_/ ¯\_(ツ)_/¯.
             x, y, z= np.meshgrid(np.arange(0, self.supercell_scale), np.arange(0, self.supercell_scale), np.arange(0, self.supercell_scale))
-            cube_coords = np.stack([ y.flatten(), x.flatten(), z.flatten()], axis = -1)
+            cube_coords = np.stack([ x.flatten(), y.flatten(), z.flatten()], axis = -1)
             # Construct the cube by adding the "unit cell translation" to the symmetry translation. 
             # (e.g. if crystal is centred on origin, in fractional crystallographic coordinates the index of the unit cell is equal to the unit cell's translation from the origin.) 
             print_thing = np.array(["][x]   [","][y] + [","][z]   ["],dtype=object)

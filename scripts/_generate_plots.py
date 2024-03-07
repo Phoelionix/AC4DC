@@ -30,8 +30,13 @@ PLOT_FREE_CONTINUUM = False
 PLOT_FREE_SLICES=False
 PLOT_ION_RATIOS=False
 PLOT_ION_RATIOS_BARS=False
+<<<<<<< Updated upstream
 PLOT_ORBITAL_DENSITIES = True
 PLOT_PHOTO_RATES = True
+=======
+PLOT_ORBITAL_DENSITIES = True#True
+PLOT_PHOTO_RATES = False#True
+>>>>>>> Stashed changes
 ###
 FIGWIDTH = FIGWIDTH = 3.49751
 FIGHEIGHT = FIGWIDTH*2/4
@@ -86,8 +91,15 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         pl.fig.subplots_adjust(left=0.12/pl.axs.shape[0], bottom=None, right=None, top=None, wspace=0.2, hspace=None)
 
     if tot_charge: 
+<<<<<<< Updated upstream
         pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=True,legend_loc="best")  #TODO automatically set to charge_difference to True if starting with ions...
         #plt.savefig(figure_output_dir + label + fname_tot_charge + figures_ext)
+=======
+        pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=True,legend_loc="best")  
+        #pl.plot_tot_charge(ylim=[0,6],plot_legend=False,every=1,charge_difference=True,legend_loc="best")  
+        #pl.plot_tot_charge(ylim=[0,2.5],plot_legend=False,every=1,charge_difference=True,scale_intensity=0.939)  #TODO automatically set to charge_difference to True if starting with ions...
+        #pl.plot_tot_charge(ylim=[0,2.5],xlim=[-15.5,0.5],plot_legend=False,every=1,charge_difference=True)  #TODO automatically set to charge_difference to True if starting with ions...
+>>>>>>> Stashed changes
  
 
     if bound_ionisation_bar:

@@ -18,11 +18,11 @@ from QoL import set_highlighted_excepthook
 CHARGE_DIFFERENCE = False # Set True if want ionised atoms' trace to start from origin
 PLOT_DERIVATIVE = False # Plot the rate of avg charge gain
 PLOT_MODE = 1  # 0: plot all charges, 1: plot element total charges # 2: plot orbital charges
-YLIM = [0,None]
+YLIM = [0,0.033]
 FIGWIDTH = 3.49751*2/3
 FIGHEIGHT = 3.49751/2
 #XLIM = [None,None]
-XLIM = [None,None]
+XLIM = [None,0]
 #YLIM=[0,6]
 
 CUSTOM_LEGEND=("1s: CNO","2s: CNO","2p: CNO","1s: CNO,S,Gd","2s: CNO,S,Gd","2p: CNO,S,Gd")
