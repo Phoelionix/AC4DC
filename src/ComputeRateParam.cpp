@@ -81,8 +81,9 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 		have_Pht = RateData::InterpolateRates(RateLocation, PHOTO, Store.Photo, input.Omega()); // Omega dependent
 		have_Flr = RateData::ReadRates(RateLocation + FLUOR, Store.Fluor);  // Parameter independent
 		have_Aug = RateData::ReadRates(RateLocation + AUGER, Store.Auger); // Parameter independent
-		//have_EII = (calculate_secondary_ionisation == false);
-		have_EII = RateData::ReadEIIParams(RateLocation + EII, Store.EIIparams) || (calculate_secondary_ionisation == false); // Dependent on the spline basis for electron distribution 
+		have_EII = (calculate_secondary_ionisation == false);
+		// Not sure if the below line will work properly, it would need to ensure that the energies of the knots are as expected. Not sure it does at present.
+		//have_EII = RateData::ReadEIIParams(RateLocation + EII, Store.EIIparams) || (calculate_secondary_ionisation == false); // Dependent on the spline basis for electron distribution 
 		
 		cout <<"======================================================="<<endl;
 		cout <<"Seeking rates for atom "<< input.Name() <<endl;

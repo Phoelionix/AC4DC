@@ -336,7 +336,7 @@ vector<vector<photo>> DecayRates::Photo_Ion(std::vector<double> omega_array, ofs
 			omega_independent_Result.push_back(PhotoTmp);
 		}
 	}
-	// Fill in for all omegas
+	// Fill in for all omegas TODO This logic is wrong at present.
 	for (size_t m = 0; m < dim; m++){
 		Result_array[m] = omega_independent_Result;
 		for (int i = 0; i < omega_independent_Result.size(); i++)
