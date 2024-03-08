@@ -40,7 +40,7 @@ using namespace CustomDataType;
 
 // Called for molecular inputs.
 // Computes molecular collision parameters.
-RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, vector<bool> shell_check, Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, ofstream & runlog)
+RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, vector<bool> shell_check, bool calculate_secondary_ionisation, Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, ofstream & runlog)
 {
 	// Uses BEB model to compute fundamental
 	// EII, Auger, Photoionisation and Fluorescence rates
@@ -81,8 +81,8 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 		have_Pht = RateData::InterpolateRates(RateLocation, PHOTO, Store.Photo, input.Omega()); // Omega dependent
 		have_Flr = RateData::ReadRates(RateLocation + FLUOR, Store.Fluor);  // Parameter independent
 		have_Aug = RateData::ReadRates(RateLocation + AUGER, Store.Auger); // Parameter independent
-		have_EII = (calculate_secondary_ionisation == false);
-		//have_EII = RateData::ReadEIIParams(RateLocation + EII, Store.EIIparams) || (calculate_secondary_ionisation == false); // Dependent on the spline basis for electron distribution 
+		//have_EII = (calculate_secondary_ionisation == false);
+		have_EII = RateData::ReadEIIParams(RateLocation + EII, Store.EIIparams) || (calculate_secondary_ionisation == false); // Dependent on the spline basis for electron distribution 
 		
 		cout <<"======================================================="<<endl;
 		cout <<"Seeking rates for atom "<< input.Name() <<endl;
@@ -125,7 +125,7 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 		// Note this is in eV here!
 		vector<double> photoion_omegas_to_save(0); 
 		if (!recalculate){
-			double spacing = 1000; 
+			double spacing = 100; 
 			double min_energy = 3000;
 			double max_energy = 18000;
 			for(double k = min_energy; k<max_energy; k+=spacing){
@@ -327,17 +327,17 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 
 		}
 		if (!have_Flr) {
-			string dummy = RateLocation + "_"+FLUOR;
+			string dummy = RateLocation +FLUOR;
 			cout<<"Saving fluorescence rates to "<<dummy<<"..."<<endl;
 			RateData::WriteRates(dummy, Store.Fluor);
 		}
 		if (!have_Aug) {
-			string dummy = RateLocation + "_"+AUGER;
+			string dummy = RateLocation +AUGER;
 			cout<<"Saving Auger rates to "<<dummy<<"..."<<endl;
 			RateData::WriteRates(dummy, Store.Auger);
 		}
 		if (!have_EII) {
-			string dummy = RateLocation + "_"+EII;
+			string dummy = RateLocation +EII;
 			cout<<"Saving EII data to "<<dummy<<"..."<<endl;
 			RateData::WriteEIIParams(dummy, Store.EIIparams);
 		}

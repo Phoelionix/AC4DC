@@ -436,7 +436,7 @@ void MolInp::calc_rates(ofstream &_log, bool recalc) {
 	for (size_t a = 0; a < Atomic.size(); a++) {
 
 		// This Computes the parameters for the rate equations to use, loading them into Init.
-		ComputeRateParam Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], recalc, false == Store[a].bound_free_excluded);
+		ComputeRateParam Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], recalc);
 		vector<int> final_occ(Orbits[a].size(), 0);
 		vector<int> max_occ(Orbits[a].size(), 0);
 		vector<bool> shell_check(Orbits[a].size(),0); // Store the indices of shell-approximated orbitals
@@ -454,10 +454,11 @@ void MolInp::calc_rates(ofstream &_log, bool recalc) {
 		// We may need to call HartreeFock HF(Latts[a], Orbits[a], Pots[a], Atomic[a], _log);
 		// However, calling it is expensive for heavier elements, so we only call it if haven't saved rates. // TODO Seems like this actually isn't expensive...
 		// So we need to pass these args through
-		Store[a] = Dynamics.SolveAtomicRatesAndPlasmaBEB(max_occ, final_occ, shell_check,Latts[a], Orbits[a], Pots[a], Atomic[a],_log);
+		Store[a].bound_free_excluded = bound_free_exclusions[a];
+		Store[a] = Dynamics.SolveAtomicRatesAndPlasmaBEB(max_occ, final_occ, shell_check, !Store[a].bound_free_excluded, Latts[a], Orbits[a], Pots[a], Atomic[a],_log);
 		Store[a].name = name;
 		Store[a].nAtoms = nAtoms;
-		Store[a].bound_free_excluded = bound_free_exclusions[a];
+		
 		// Store[a].R = dropl_R();
 		Index[a] = Dynamics.Get_Indexes();
 	}
