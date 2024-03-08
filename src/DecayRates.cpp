@@ -257,7 +257,6 @@ vector<vector<photo>> DecayRates::Photo_Ion(std::vector<double> omega_array, ofs
 	double ME = 0;
 
 // main loop over all the possible transitions, peformed largely independently of omega.
-	std::vector<bool> ME_omega_factor(Orbitals.size(),false); // tracks whether ME is to be divided by omega. 
 	std::vector<photo> omega_independent_Result(0);
 	std::vector<std::vector<double>> continuum_energies(dim);
 	for (int i = 0; i < Orbitals.size(); i++)
@@ -274,11 +273,11 @@ vector<vector<photo>> DecayRates::Photo_Ion(std::vector<double> omega_array, ofs
 			j = Orbitals[i].occupancy();
 			PhotoTmp.hole = i;
 			PhotoTmp.val = 0;
+			std::vector<photo> phototmps(dim,PhotoTmp);
 			if (input.Exited_Pot_Model() == "V_N-1no") Orbitals[i].set_occupancy(j - 1);//excite one electron...
 			double max_continuum_energy = 0;
 			for (size_t m = 0; m < dim; m++){
 				double cont_energy = omega_array[m] + Orbitals[i].Energy;
-				continuum_energies[m].push_back(cont_energy);//... into continuum
 				if (cont_energy > max_continuum_energy) max_continuum_energy = cont_energy;
 			}
 			Continuum.Energy = max_continuum_energy;
@@ -291,65 +290,71 @@ vector<vector<photo>> DecayRates::Photo_Ion(std::vector<double> omega_array, ofs
 					U.HF_upd_dir(&Continuum, Orbitals); // This line seems to give 'conditional jump or move depends on uninitialised values'
 				}
 				if (input.Exited_Pot_Model() == "V_N-1") U.HF_V_N1(&Continuum, Orbitals, i, true, false);
-
+				
 				for (int l = Orbitals[i].L() - 1; l <= Orbitals[i].L() + 1; l += 2)
 				{
 					if (l >= 0)
 					{
-						Continuum.set_L(l);   //TODO make sure this is fine - S.P.
-						if (IntegrateContinuum(Lattice, U, Orbitals, &Continuum, i) < 0) {
-						log << "====================================================================" << endl;
-							log << "Continuum didn't converge: " << endl;
-							for (int i = 0; i < orbitals.size(); i++)
-							{
-								log << i + 1 << ") n = " << orbitals[i].N() << " l = " << orbitals[i].L()
-									<< " Energy = " << orbitals[i].Energy << " Occup = " << orbitals[i].occupancy() << endl;
+						for (size_t m = 0; m < dim; m++){
+							Continuum.Energy = omega_array[m] + Orbitals[i].Energy;
+							if (Continuum.Energy <= 0) continue;
+							Continuum.set_L(l);   //TODO make sure this is fine - S.P.
+							if (IntegrateContinuum(Lattice, U, Orbitals, &Continuum, i) < 0) {
+							log << "====================================================================" << endl;
+								log << "Continuum didn't converge: " << endl;
+								for (int i = 0; i < orbitals.size(); i++)
+								{
+									log << i + 1 << ") n = " << orbitals[i].N() << " l = " << orbitals[i].L()
+										<< " Energy = " << orbitals[i].Energy << " Occup = " << orbitals[i].occupancy() << endl;
+								}
+								log.flush();
 							}
-							log.flush();
-						}
 
-						density.clear();
-						density.resize(infinity + 1);
-						if (input.Gauge() == "length") {
-								for (int s = 0; s < density.size(); s++)	{
-								density[s] = Lattice.R(s)*Continuum.F[s] * Orbitals[i].F[s];
+							density.clear();
+							density.resize(infinity + 1);
+							if (input.Gauge() == "length") {
+									for (int s = 0; s < density.size(); s++)	{
+									density[s] = Lattice.R(s)*Continuum.F[s] * Orbitals[i].F[s];
+								}
+								ME = I.Integrate(&density, 0, infinity);
 							}
-							ME = I.Integrate(&density, 0, infinity);
-						}
-						else {
-						// Velocity gauge.
-							double ang_coeff =  0.5*(Orbitals[i].L() - Continuum.L())*(Orbitals[i].L() + Continuum.L() + 1);
-								for (int s = 0; s < density.size(); s++)	{
-								density[s] = Continuum.F[s] *(Orbitals[i].G[s] + ang_coeff * Orbitals[i].F[s]/Lattice.R(s)) ;
+							else {
+							// Velocity gauge.
+								double ang_coeff =  0.5*(Orbitals[i].L() - Continuum.L())*(Orbitals[i].L() + Continuum.L() + 1);
+									for (int s = 0; s < density.size(); s++)	{
+									density[s] = Continuum.F[s] *(Orbitals[i].G[s] + ang_coeff * Orbitals[i].F[s]/Lattice.R(s)) ;
+								}
+								ME = I.Integrate(&density, 0, infinity)/omega_array[m]; //;
 							}
-							ME = I.Integrate(&density, 0, infinity); // /omega;
-							ME_omega_factor[i] = true;
-						}
 
-						if (Orbitals[i].L() > l) { L = Orbitals[i].L();	}
-						else { L = l; }
-						PhotoTmp.val += 4*Pi*Pi*Alpha*j*ME*ME*L / ((2*Orbitals[i].L()+1) * 3);// *omega; 
+							if (Orbitals[i].L() > l) { L = Orbitals[i].L();	}
+							else { L = l; }
+							phototmps[m].val += 4*Pi*Pi*Alpha*omega_array[m]*j*ME*ME*L / ((2*Orbitals[i].L()+1) * 3);; 
+						}
 					}
 				}
 			}
 			if (input.Exited_Pot_Model() == "V_N-1no") Orbitals[i].set_occupancy(j);
-			omega_independent_Result.push_back(PhotoTmp);
+			for (size_t m = 0; m < dim; m++){
+				Result_array[m].push_back(phototmps[m]);
+			}
 		}
 	}
 	// Fill in for all omegas TODO This logic is wrong at present.
 	for (size_t m = 0; m < dim; m++){
-		Result_array[m] = omega_independent_Result;
-		for (int i = 0; i < omega_independent_Result.size(); i++)
-		{
-			if (continuum_energies[m][i] < 0){
-				Result_array[m][i].val = 0;
-			}
-			// We multiply by ME twice and multiply by omega.
-			if (ME_omega_factor[i]) 
-				Result_array[m][i].val /= omega_array[m];
-			else
-				Result_array[m][i].val *= omega_array[m];
-		}
+		// Result_array[m] = omega_independent_Result;
+		// for (int i = 0; i < omega_independent_Result.size(); i++)
+		// {
+		// 	if (continuum_energies[m][i] < 0){
+		// 		Result_array[m][i].val = 0;
+		// 	}
+		// 	// We multiply by ME twice and multiply by omega.
+		// 	if (input.Gauge() == "length")
+		// 		Result_array[m][i].val *= omega_array[m];
+		// 	else
+		// 		Result_array[m][i].val /= omega_array[m];
+				
+		// }
 		// Remove the zero elements
 		Result_array[m].erase(
 			std::remove_if(
