@@ -71,7 +71,7 @@ public:
 	string name = "";
 
 	// Scans for atomic process rates in the folder output/[atom name]/Xsections and recalculates if absent.
-	// 'Recalculate' flag skips scanning and forces recomputation.
+	// 'Recalculate' flag skips scanning for primary ionization data and forces computation for the specific photon energy used. As it only generates data for a single photon energy, it is quicker than the initial generation of data for when recalc is False. However, the data is not (currently) stored for use in later runs.
 	// The result is available as Store.
     void calc_rates(ofstream &_log, bool recalc=true);
 

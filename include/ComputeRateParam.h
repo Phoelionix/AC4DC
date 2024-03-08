@@ -57,14 +57,14 @@ class ComputeRateParam
 public:
 	//Orbitals are HF wavefunctions. This configuration is an initial state.
 	//Assuming there are no unoccupied states in initial configuration!!!
-	ComputeRateParam(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, bool recalc=true) :
-	 	lattice(Lattice), input(Inp), orbitals(Orbitals), u(U), recalculate(recalc) {
+	ComputeRateParam(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, bool recalc=true, bool secondary_ion = true) :
+	 	lattice(Lattice), input(Inp), orbitals(Orbitals), u(U), recalculate(recalc), calculate_secondary_ionisation(secondary_ion) {
 		};
 	~ComputeRateParam();
 
 	// Halfwidth = 5/Constant::Time -> 5 fs half width.
 	int SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & log);
-	RateData::Atom SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, vector<bool> shell_check, ofstream & log);
+	RateData::Atom SolveAtomicRatesAndPlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, vector<bool> shell_check, Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, ofstream & log);
 	// // Atomic.
 	// int SetupAndSolve(ofstream & log);
 	// // Molecular.
@@ -99,6 +99,7 @@ protected:
 	vector<RadialWF> & orbitals;
 	Potential& u;
 	bool recalculate; // Flag to determine whether or not to force-recompute everything
+	bool calculate_secondary_ionisation; // Flag to determine whether to compute secondary ionization.
 
 	vector<CustomDataType::polarize> MixMe;
 	int dimension;//number of configurations

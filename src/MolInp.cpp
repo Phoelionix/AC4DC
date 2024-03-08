@@ -429,13 +429,14 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P. TODO 
 	return is_valid;
 }
 
+// if recalc is false, and atom's secondary ionization calcs are turned off, interpolates from stored primary ionization data (photoion., and fluor. + Auger decay rates).
+// Note that if the primary ionization data is missing, it will be generated. This will take a long time, but never has to be performed again
 void MolInp::calc_rates(ofstream &_log, bool recalc) {
 	// Loop through atomic species.
 	for (size_t a = 0; a < Atomic.size(); a++) {
-		HartreeFock HF(Latts[a], Orbits[a], Pots[a], Atomic[a], _log);
 
 		// This Computes the parameters for the rate equations to use, loading them into Init.
-		ComputeRateParam Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], recalc);
+		ComputeRateParam Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], recalc, false == Store[a].bound_free_excluded);
 		vector<int> final_occ(Orbits[a].size(), 0);
 		vector<int> max_occ(Orbits[a].size(), 0);
 		vector<bool> shell_check(Orbits[a].size(),0); // Store the indices of shell-approximated orbitals
@@ -446,11 +447,14 @@ void MolInp::calc_rates(ofstream &_log, bool recalc) {
 			shell_check[i] = Orbits[a][i].is_shell();
 		}
 
+
 		string name = Store[a].name;
 		double nAtoms = Store[a].nAtoms;
 
-
-		Store[a] = Dynamics.SolvePlasmaBEB(max_occ, final_occ, shell_check,_log);
+		// We may need to call HartreeFock HF(Latts[a], Orbits[a], Pots[a], Atomic[a], _log);
+		// However, calling it is expensive for heavier elements, so we only call it if haven't saved rates.
+		// So we need to pass these args through
+		Store[a] = Dynamics.SolveAtomicRatesAndPlasmaBEB(max_occ, final_occ, shell_check,Latts[a], Orbits[a], Pots[a], Atomic[a],_log);
 		Store[a].name = name;
 		Store[a].nAtoms = nAtoms;
 		Store[a].bound_free_excluded = bound_free_exclusions[a];

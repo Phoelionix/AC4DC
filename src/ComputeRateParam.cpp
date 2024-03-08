@@ -19,6 +19,7 @@ This file is part of AC4DC.
     along with AC4DC.  If not, see <https://www.gnu.org/licenses/>.
 ===========================================================================*/
 #include "ComputeRateParam.h"
+#include "Constant.h"
 
 inline bool exists_test(const std::string&);
 vector<double> generate_dT(int);
@@ -36,183 +37,20 @@ inline bool exists_test(const std::string& name)
 
 using namespace CustomDataType;
 
-// Called when atomic input is relevant.
-int ComputeRateParam::SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & runlog)
-{
-	// Calculates cross sections needed to solve rate equations.
-	// Final_occ defines the lowest possible occupancies for the initial orbital.
-	// Intermediate orbitals are recalculated to obtain the corresponding rates.
-
-	assert(Max_occ.size() == orbitals.size());
-	//DecayRates::set_Max_occ(Max_occ,orbitals);  // used when max_occ isn't valid. 
-
-	if (!SetupIndex(Max_occ, Final_occ, runlog)) return 1;
-
-	// Make an output folder, if it doesn't exist yet
-	if (!exists_test("./output")) {
-		mkdir("output", ACCESSPERMS);
-	}
-
-
-	string RateLocation = "./output/" + input.Name() + "/Xsections/";
-
-	// Make a data folder inside output
-	if (!exists_test("./output/" + input.Name())) {
-		string dirstring = "output/" + input.Name();
-		mkdir(dirstring.c_str(), ACCESSPERMS);
-	}
-
-	// Make a rate-containing folder inside the data folder
-	if (!exists_test(RateLocation)) {
-		mkdir(RateLocation.c_str(), ACCESSPERMS);
-	}
-
-	cout << "Check if there are pre-calculated rates..." << endl;
-	bool have_Pht = RateData::ReadRates(RateLocation + "Photo.txt", Store.Photo);
-	bool have_Flr = RateData::ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
-	bool have_Aug = RateData::ReadRates(RateLocation + "Auger.txt", Store.Auger);
-	bool saveFF = true; // TODO: Make MolInp control this
-
-	if (have_Pht) printf("Photoionization rates found. Reading...\n");
-	if (have_Flr) printf("Fluorescence rates found. Reading...\n");
-	if (have_Aug) printf("Auger rates found. Reading...\n");
-
-	string PolarFileName = "./output/Polar_" + input.Name() + ".txt";
-
-	if ( true || !have_Pht || !have_Flr || !have_Aug )
-	{
-		cout <<"======================================================="<<endl;
-		cout << "Total number of configurations: " << dimension << endl;
-		cout <<" Beginning Hartree-Fock Frozen calculations... "<<endl;
-		cout <<"======================================================="<<endl;
-		RateData::Rate Tmp;
-		vector<RateData::Rate> LocalPhoto(0);
-		vector<RateData::Rate> LocalFluor(0);
-		vector<RateData::Rate> LocalAuger(0);
-		vector<ffactor> LocalFF(0);
-
-		#pragma omp parallel default(none) num_threads(input.Num_Threads()) \
-		shared(cout, runlog, have_Aug, have_Flr, have_Pht, saveFF) private(Tmp, Max_occ, LocalPhoto, LocalAuger, LocalFluor, LocalFF)
-		{
-			#pragma omp for schedule(dynamic) nowait
-			for (int i = 0;i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
-			{
-				vector<RadialWF> Orbitals = orbitals;
-				cout << "[HF Frozen] configuration " << i << " thread " << omp_get_thread_num() << endl;
-				int N_elec = 0;
-				for (size_t j = 0;j < Orbitals.size(); j++)
-				{
-					Orbitals[j].set_occupancy(orbitals[j].occupancy() - Index[i][j]);
-					N_elec += Orbitals[j].occupancy();
-				}
-				Grid Lattice(lattice.size(), lattice.R(0), lattice.R(lattice.size() - 1) / (0.3*(u.NuclCharge() - N_elec) + 1), 4);
-				Potential U(&Lattice, u.NuclCharge(), u.Type());
-				HartreeFock HF(Lattice, Orbitals, U, input, runlog);
-
-				DecayRates Transit(Lattice, Orbitals, u, input);
-
-				// ======= Experimental =========
-				if (saveFF) LocalFF.push_back({i, Transit.FT_density()});
-				Tmp.from = i;
-
-				if (!have_Pht) {
-					vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega(), runlog);
-					for (size_t k = 0;k < PhotoIon.size(); k++)
-					{
-						if (PhotoIon[k].val <= 0) continue;
-						Tmp.val = PhotoIon[k].val;
-						Tmp.to = i + hole_posit[PhotoIon[k].hole];
-						Tmp.energy = input.Omega() - Orbitals[PhotoIon[k].hole].Energy;
-						LocalPhoto.push_back(Tmp);
-					}
-				}
-
-				if (i != 0)
-				{
-					if (!have_Flr) {
-						vector<fluor> Fluor = Transit.Fluor();
-						for (size_t k = 0;k < Fluor.size(); k++)
-						{
-							if (Fluor[k].val <= 0) continue;
-							Tmp.val = Fluor[k].val;
-							Tmp.to = i - hole_posit[Fluor[k].hole] + hole_posit[Fluor[k].fill];
-							Tmp.energy = Orbitals[Fluor[k].fill].Energy - Orbitals[Fluor[k].hole].Energy;
-							LocalFluor.push_back(Tmp);
-						}
-					}
-
-					if (!have_Aug) {
-						vector<auger> Auger = Transit.Auger(Max_occ, runlog);
-						for (size_t k = 0;k < Auger.size(); k++)
-						{
-							if (Auger[k].val <= 0) continue;
-							Tmp.val = Auger[k].val;
-							Tmp.to = i - hole_posit[Auger[k].hole] + hole_posit[Auger[k].fill] + hole_posit[Auger[k].eject];
-							Tmp.energy = Auger[k].energy;
-							LocalAuger.push_back(Tmp);
-						}
-					}
-				}
-			}
-
-			#pragma omp critical
-			{
-				Store.Photo.insert(Store.Photo.end(), LocalPhoto.begin(), LocalPhoto.end());
-				Store.Fluor.insert(Store.Fluor.end(), LocalFluor.begin(), LocalFluor.end());
-				Store.Auger.insert(Store.Auger.end(), LocalAuger.begin(), LocalAuger.end());
-				FF.insert(FF.end(), LocalFF.begin(), LocalFF.end());
-			}
-		}
-
-		sort(Store.Photo.begin(), Store.Photo.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
-		sort(Store.Auger.begin(), Store.Auger.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
-		sort(Store.Fluor.begin(), Store.Fluor.end(), [](RateData::Rate A, RateData::Rate B) { return (A.from < B.from); });
-		sort(FF.begin(), FF.end(), [](ffactor A, ffactor B) { return (A.index < B.index); });
-		GenerateRateKeys(Store.Auger);
-
-		if (!have_Pht) {
-			string dummy = RateLocation + "Photo.txt";
-			RateData::WriteRates(dummy, Store.Photo);
-		}
-		if (!have_Flr) {
-			string dummy = RateLocation + "Fluor.txt";
-			RateData::WriteRates(dummy, Store.Fluor);
-		}
-		if (!have_Pht) {
-			string dummy = RateLocation + "Auger.txt";
-			RateData::WriteRates(dummy, Store.Auger);
-		}
-		if (saveFF) {
-			string dummy = RateLocation + "Form_Factor.txt";
-			FILE * fl = fopen(dummy.c_str(), "w");
-			for (auto& ff : FF) {
-				for (size_t i = 0;i < ff.val.size(); i++) fprintf(fl, "%3.5f ", ff.val[i]);
-				fprintf(fl, "\n");
-			}
-			fclose(fl);
-		}
-	}
-
-	string IndexTrslt = "./output/" + input.Name() + "/index.txt";
-	ofstream config_out(IndexTrslt);
-	for (size_t i = 0;i < Index.size(); i++) {
-		for (size_t j = 0;j < Max_occ.size(); j++) {
-			config_out << Max_occ[j] - Index[i][j] << " ";
-		}
-		config_out << endl;
-	}
-
- 	return dimension;
-}
 
 // Called for molecular inputs.
 // Computes molecular collision parameters.
-RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, vector<bool> shell_check, ofstream & runlog)
+RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, vector<bool> shell_check, Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, ofstream & runlog)
 {
 	// Uses BEB model to compute fundamental
 	// EII, Auger, Photoionisation and Fluorescence rates
 	// Final_occ defines the lowest possible occupancies for the initial orbital.
 	// Intermediate orbitals are recalculated to obtain the corresponding rates.
+
+	const string PHOTO = "Photo.txt";
+	const string AUGER = "Auger.txt";
+	const string FLUOR = "Fluor.txt";
+	const string EII =  "EII.json";
 
 	if (!SetupIndex(Max_occ, Final_occ, runlog)) return Store;
 
@@ -231,29 +69,33 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 
 	bool have_Aug, have_EII, have_Pht, have_Flr;
 
-	bool saveFF = true; //exists_test(RateLocation + "Form_Factor.txt");
-
-	if (recalculate) {
+	
+	if (recalculate) { // Hartree Fock is calculated once, at molinp photon energy 
 		have_Aug=false;
-		have_EII=false;
+		have_EII = (calculate_secondary_ionisation == false);
 		have_Pht=false;
 		have_Flr=false;
-	} else {
+		HartreeFock HF(Lattice, Orbitals, U, Inp, runlog); 
+	} else { // First time: Save photoionization data for multiple photon energies. Second time: Interpolate from data.
 		// Check if there are pre-calculated rates
-		have_Pht = RateData::ReadRates(RateLocation + "Photo.txt", Store.Photo);
-		have_Flr = RateData::ReadRates(RateLocation + "Fluor.txt", Store.Fluor);
-		have_Aug = RateData::ReadRates(RateLocation + "Auger.txt", Store.Auger);
-		have_EII = RateData::ReadEIIParams(RateLocation + "EII.json", Store.EIIparams);
+		have_Pht = RateData::InterpolateRates(RateLocation, PHOTO, Store.Photo, input.Omega()); // Omega dependent
+		have_Flr = RateData::ReadRates(RateLocation + FLUOR, Store.Fluor);  // Parameter independent
+		have_Aug = RateData::ReadRates(RateLocation + AUGER, Store.Auger); // Parameter independent
+		have_EII = (calculate_secondary_ionisation == false);
+		//have_EII = RateData::ReadEIIParams(RateLocation + EII, Store.EIIparams) || (calculate_secondary_ionisation == false); // Dependent on the spline basis for electron distribution 
+		
 		cout <<"======================================================="<<endl;
 		cout <<"Seeking rates for atom "<< input.Name() <<endl;
 		if (have_Pht) cout<<"Photoionization rates found. Reading..." <<endl;
 		if (have_Flr) cout<<"Fluorescence rates found. Reading..."<<endl;
 		if (have_Aug) cout<<"Auger rates found. Reading..."<<endl;
-		if (have_EII) cout<<"EII Parameters found. Reading..."<<endl;
+		if (have_EII && calculate_secondary_ionisation) cout<<"EII Parameters found. Reading..."<<endl;
 	}
-
-	if (!have_Aug || !have_EII || !have_Pht || !have_Flr || saveFF)
+	if (!have_Aug || !have_EII || !have_Pht || !have_Flr)
 	{
+		HartreeFock HF(Lattice, Orbitals, U, Inp, runlog);
+		vector<vector<RateData::Rate>> PhotoArray(0);
+		vector<vector<RateData::Rate>> LocalPhotoArray(0);
 		cout <<"======================================================="<<endl;
 		cout << "Total number of configurations: " << dimension << endl;
 		cout <<"Beginning Hartree-Fock BEB calculations for missing parameters " <<endl;
@@ -279,16 +121,32 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 		tmpEIIparams.occ.resize(orbitals.size() - MaxBindInd, 0);
 		vector<RateData::EIIdata> LocalEIIparams(0);
 
+		// Omegas for which photoion. rates are calculated for.
+		// Note this is in eV here!
+		vector<double> photoion_omegas_to_save(0); 
+		if (!recalculate){
+			double spacing = 1000; 
+			double min_energy = 3000;
+			double max_energy = 18000;
+			for(double k = min_energy; k<max_energy; k+=spacing){
+				photoion_omegas_to_save.push_back(k);
+			}
+		}
+		PhotoArray.resize(photoion_omegas_to_save.size());
+
+
 		density.clear();
 
+
 	  	#pragma omp parallel default(none) num_threads(input.Num_Threads())\
-		shared(cout, runlog, shell_check, MaxBindInd, have_Aug, have_Flr, have_Pht, saveFF) \
-		private(Tmp, LocalPhoto, LocalAuger, LocalFluor, LocalEnergyConfig, LocalEIIparams, tmpEIIparams, LocalFF) \
-		firstprivate(Max_occ)  // I believe this should be shared, but it was in private() before (which I believe is a mistake, since this meant the value of max_occ was lost) so I'm putting it here to be safe. -S.P.
+		shared(cout, runlog, shell_check, MaxBindInd, have_Aug, have_Flr, have_Pht, have_EII, PhotoArray,photoion_omegas_to_save) \
+		private(Tmp, LocalPhoto, LocalPhotoArray, LocalAuger, LocalFluor, LocalEnergyConfig, LocalEIIparams, tmpEIIparams, LocalFF) \
+		firstprivate(Max_occ)  // I believe this should be shared, but it was in private() before (which I believe is a mistake, since this meant the value of Max_occ was lost) so I'm putting it here to be safe. -S.P. // Edit pretty sure this was unnecessary, Max_occ isn't set here.
 		{
 			#pragma omp for schedule(dynamic) nowait
 			for (int i = 0;i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
 			{
+				LocalPhotoArray.resize(photoion_omegas_to_save.size());
 				vector<RadialWF> Orbitals = orbitals;
 				cout << "[HF BEB] configuration " << i << " thread " << omp_get_thread_num() << endl;
 				int N_elec = 0;
@@ -373,19 +231,33 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 				}
 				DecayRates Transit(lattice, Orbitals, u, input);
 
-				if (saveFF) LocalFF.push_back({i, Transit.FT_density()});
+				LocalFF.push_back({i, Transit.FT_density()});
 				Tmp.from = i;
 
 				if (!have_Pht) {
-					vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega(), runlog);
-					for (size_t k = 0;k < PhotoIon.size(); k++)
+					// energy of this simulation
 					{
-						if (PhotoIon[k].val <= 0) continue;
-						Tmp.val = PhotoIon[k].val;
-						Tmp.to = i + hole_posit[PhotoIon[k].hole];
-						Tmp.energy = input.Omega() + Orbitals[PhotoIon[k].hole].Energy;
-						LocalPhoto.push_back(Tmp);
+						vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega(), runlog);
+						for (size_t k = 0;k < PhotoIon.size(); k++)
+						{
+							if (PhotoIon[k].val <= 0) continue;
+							Tmp.val = PhotoIon[k].val;
+							Tmp.to = i + hole_posit[PhotoIon[k].hole];
+							Tmp.energy = input.Omega() + Orbitals[PhotoIon[k].hole].Energy;
+							LocalPhoto.push_back(Tmp);
+						}
 					}
+					for (size_t j = 0; j < photoion_omegas_to_save.size(); j++){
+						vector<photo> PhotoIon = Transit.Photo_Ion(photoion_omegas_to_save[j]/Constant::eV_per_Ha, runlog);
+						for (size_t k = 0;k < PhotoIon.size(); k++)
+						{
+									if (PhotoIon[k].val <= 0) continue;
+							Tmp.val = PhotoIon[k].val;
+							Tmp.to = i + hole_posit[PhotoIon[k].hole];
+							Tmp.energy = photoion_omegas_to_save[j]/Constant::eV_per_Ha + Orbitals[PhotoIon[k].hole].Energy;
+							LocalPhotoArray[j].push_back(Tmp);
+						}
+					}				
 				}
 
 				if (i != 0)
@@ -418,10 +290,21 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 
 			#pragma omp critical
 			{
-				Store.Photo.insert(Store.Photo.end(), LocalPhoto.begin(), LocalPhoto.end());
-				Store.Fluor.insert(Store.Fluor.end(), LocalFluor.begin(), LocalFluor.end());
-				Store.Auger.insert(Store.Auger.end(), LocalAuger.begin(), LocalAuger.end());
-				Store.EIIparams.insert(Store.EIIparams.end(), LocalEIIparams.begin(), LocalEIIparams.end());
+				for (size_t j = 0; j < LocalPhotoArray.size(); j++){
+					PhotoArray[j].insert(PhotoArray[j].end(),LocalPhotoArray[j].begin(),LocalPhotoArray[j].end());
+				}
+				if(!have_Pht){
+					Store.Photo.insert(Store.Photo.end(), LocalPhoto.begin(), LocalPhoto.end());
+				}
+				if(!have_Flr){
+					Store.Fluor.insert(Store.Fluor.end(), LocalFluor.begin(), LocalFluor.end());
+				}
+				if(!have_Aug){
+					Store.Auger.insert(Store.Auger.end(), LocalAuger.begin(), LocalAuger.end());
+				}
+				if(!have_EII){
+					Store.EIIparams.insert(Store.EIIparams.end(), LocalEIIparams.begin(), LocalEIIparams.end());
+				}
 				FF.insert(FF.end(), LocalFF.begin(), LocalFF.end());
 				Store.EnergyConfig.insert(Store.EnergyConfig.end(), LocalEnergyConfig.begin(), LocalEnergyConfig.end());
 			}
@@ -436,38 +319,39 @@ RateData::Atom ComputeRateParam::SolvePlasmaBEB(vector<int> Max_occ, vector<int>
 
 		// Write rates to file
 		
-
+		// UNDERSCORES ARE USED FOR PARSING FILE NAMES.
 		if (!have_Pht) {
-			string dummy = RateLocation + "Photo.txt";
-			cout<<"Saving photoionisation rates to "<<dummy<<"..."<<endl;
-			RateData::WriteRates(dummy, Store.Photo);
+			for (size_t j = 0; j < photoion_omegas_to_save.size(); j++){
+				string dummy = RateLocation + std::to_string(photoion_omegas_to_save[j])+"_"+PHOTO;
+				cout<<"Saving photoionisation rates to "<<dummy<<"..."<<endl;
+				RateData::WriteRates(dummy, PhotoArray[j]);
+			}
 		}
 		if (!have_Flr) {
-			string dummy = RateLocation + "Fluor.txt";
+			string dummy = RateLocation + "_"+FLUOR;
 			cout<<"Saving fluorescence rates to "<<dummy<<"..."<<endl;
 			RateData::WriteRates(dummy, Store.Fluor);
 		}
 		if (!have_Aug) {
-			string dummy = RateLocation + "Auger.txt";
+			string dummy = RateLocation + "_"+AUGER;
 			cout<<"Saving Auger rates to "<<dummy<<"..."<<endl;
 			RateData::WriteRates(dummy, Store.Auger);
 		}
 		if (!have_EII) {
-			string dummy = RateLocation + "EII.json";
+			string dummy = RateLocation + "_"+EII;
 			cout<<"Saving EII data to "<<dummy<<"..."<<endl;
 			RateData::WriteEIIParams(dummy, Store.EIIparams);
 		}
 
-		if (saveFF) {
-			string dummy = RateLocation + "Form_Factor.txt";
-			cout<<"Saving form factor data to "<<dummy<<"..."<<endl;
-			FILE * fl = fopen(dummy.c_str(), "w");
-			for (auto& ff : FF) {
-				for (size_t i = 0;i < ff.val.size(); i++) fprintf(fl, "%3.5f ", ff.val[i]);
-				fprintf(fl, "\n");
-			}
-			fclose(fl);
+
+		string dummy = RateLocation + std::to_string(input.Omega()*Constant::eV_per_Ha) + "_FormFactor.txt";
+		cout<<"Saving form factor data to "<<dummy<<"..."<<endl;
+		FILE * fl = fopen(dummy.c_str(), "w");
+		for (auto& ff : FF) {
+			for (size_t i = 0;i < ff.val.size(); i++) fprintf(fl, "%3.5f ", ff.val[i]);
+			fprintf(fl, "\n");
 		}
+		fclose(fl);
 	}
 
 	string IndexTrslt = "./output/" + input.Name() + "/index.txt";
