@@ -452,7 +452,7 @@ void MolInp::calc_rates(ofstream &_log, bool recalc) {
 		double nAtoms = Store[a].nAtoms;
 
 		// We may need to call HartreeFock HF(Latts[a], Orbits[a], Pots[a], Atomic[a], _log);
-		// However, calling it is expensive for heavier elements, so we only call it if haven't saved rates.
+		// However, calling it is expensive for heavier elements, so we only call it if haven't saved rates. // TODO Seems like this actually isn't expensive...
 		// So we need to pass these args through
 		Store[a] = Dynamics.SolveAtomicRatesAndPlasmaBEB(max_occ, final_occ, shell_check,Latts[a], Orbits[a], Pots[a], Atomic[a],_log);
 		Store[a].name = name;

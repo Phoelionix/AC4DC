@@ -132,11 +132,15 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 				photoion_omegas_to_save.push_back(k);
 			}
 		}
+		photoion_omegas_to_save.push_back(input.Omega()); // Also calculate for this run's omega.
 		PhotoArray.resize(photoion_omegas_to_save.size());
 
 
 		density.clear();
 
+		// Convert to correct units of the sim
+		for (size_t j = 0; j < photoion_omegas_to_save.size(); j++)
+			photoion_omegas_to_save[j]/=Constant::eV_per_Ha;
 
 	  	#pragma omp parallel default(none) num_threads(input.Num_Threads())\
 		shared(cout, runlog, shell_check, MaxBindInd, have_Aug, have_Flr, have_Pht, have_EII, PhotoArray,photoion_omegas_to_save) \
@@ -235,29 +239,18 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 				Tmp.from = i;
 
 				if (!have_Pht) {
-					// energy of this simulation
-					{
-						vector<photo> PhotoIon = Transit.Photo_Ion(input.Omega(), runlog);
-						for (size_t k = 0;k < PhotoIon.size(); k++)
-						{
-							if (PhotoIon[k].val <= 0) continue;
-							Tmp.val = PhotoIon[k].val;
-							Tmp.to = i + hole_posit[PhotoIon[k].hole];
-							Tmp.energy = input.Omega() + Orbitals[PhotoIon[k].hole].Energy;
-							LocalPhoto.push_back(Tmp);
-						}
-					}
+					vector<vector<photo>> PhotoIon_array = Transit.Photo_Ion(photoion_omegas_to_save, runlog);
 					for (size_t j = 0; j < photoion_omegas_to_save.size(); j++){
-						vector<photo> PhotoIon = Transit.Photo_Ion(photoion_omegas_to_save[j]/Constant::eV_per_Ha, runlog);
+						vector<photo> PhotoIon = PhotoIon_array[j];
 						for (size_t k = 0;k < PhotoIon.size(); k++)
 						{
 									if (PhotoIon[k].val <= 0) continue;
 							Tmp.val = PhotoIon[k].val;
 							Tmp.to = i + hole_posit[PhotoIon[k].hole];
-							Tmp.energy = photoion_omegas_to_save[j]/Constant::eV_per_Ha + Orbitals[PhotoIon[k].hole].Energy;
+							Tmp.energy = photoion_omegas_to_save[j] + Orbitals[PhotoIon[k].hole].Energy;
 							LocalPhotoArray[j].push_back(Tmp);
 						}
-					}				
+					}			
 				}
 
 				if (i != 0)
@@ -293,9 +286,9 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 				for (size_t j = 0; j < LocalPhotoArray.size(); j++){
 					PhotoArray[j].insert(PhotoArray[j].end(),LocalPhotoArray[j].begin(),LocalPhotoArray[j].end());
 				}
-				if(!have_Pht){
-					Store.Photo.insert(Store.Photo.end(), LocalPhoto.begin(), LocalPhoto.end());
-				}
+				// if(!have_Pht){
+				// 	Store.Photo.insert(Store.Photo.end(), LocalPhoto.begin(), LocalPhoto.end());
+				// }
 				if(!have_Flr){
 					Store.Fluor.insert(Store.Fluor.end(), LocalFluor.begin(), LocalFluor.end());
 				}
@@ -317,6 +310,10 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 		sort(Store.EIIparams.begin(), Store.EIIparams.end(), [](RateData::EIIdata A, RateData::EIIdata B) {return (A.init < B.init);});
 		GenerateRateKeys(Store.Auger);
 
+		// Convert omegas back to eV
+		for (size_t j = 0; j < photoion_omegas_to_save.size(); j++)
+			photoion_omegas_to_save[j]*=Constant::eV_per_Ha;
+
 		// Write rates to file
 		
 		// UNDERSCORES ARE USED FOR PARSING FILE NAMES.
@@ -326,6 +323,8 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 				cout<<"Saving photoionisation rates to "<<dummy<<"..."<<endl;
 				RateData::WriteRates(dummy, PhotoArray[j]);
 			}
+			assert(RateData::InterpolateRates(RateLocation, PHOTO, Store.Photo, input.Omega()));
+
 		}
 		if (!have_Flr) {
 			string dummy = RateLocation + "_"+FLUOR;

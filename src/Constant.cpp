@@ -316,7 +316,7 @@ namespace RateData{
 			if (rate_file_type != saved_rate_file_type || rate_file_type.size() == saved_file_name.size()){
 				continue;}
 			double saved_omega = std::stod(saved_file_name.substr(0,split_pos)); // photon energy
-			if (saved_omega-tol < photon_energy || photon_energy < saved_omega + tol ){ // lazy 
+			if (saved_omega-tol < photon_energy && photon_energy < saved_omega + tol ){ // lazy 
 				// Saved this exact energy before. Reuse it.
 				
 				return ReadRates(rate_location+saved_file_name,PutHere);
