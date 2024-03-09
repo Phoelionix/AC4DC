@@ -126,14 +126,14 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 		// Note this is in eV here!
 		vector<double> photoion_omegas_to_save(0); 
 		if (!recalculate){
-			double spacing = 500; 
+			double spacing = 1000; 
 			double min_energy = 3000;
 			double max_energy = 18000;
 			for(double k = min_energy; k<=max_energy; k+=spacing){
 				photoion_omegas_to_save.push_back(k);
 			}
 		}
-		photoion_omegas_to_save.push_back(input.Omega()); // Also calculate for this run's omega.
+		photoion_omegas_to_save.push_back(input.Omega()*Constant::eV_per_Ha); // Also calculate for this run's omega.
 		PhotoArray.resize(photoion_omegas_to_save.size());
 
 
