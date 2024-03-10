@@ -351,6 +351,9 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 						}
 						Orbitals[i].Energy *= correction_scaling;
 						GreensMethod P(&Lattice, &Orbitals[i], &Potential);
+						if (std::isnan(Orbitals[i].F[0])){
+							throw std::runtime_error("Orbitals[i].F[i] is nan!");
+						}
 						if (Orbitals[i].check_nodes() == Orbitals[i].GetNodes()) {
 							correction_scaling = 1;
 							E_rel_change[i] = fabs(Orbitals[i].Energy / Orbitals_old[i].Energy - 1);
@@ -632,7 +635,7 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 		NumIntgr.Integrate(Psi, infinity, Turn);
 
 		F_right = Psi->F[Turn];
-		if (std::isnan(Psi->F[0])){throw std::runtime_error("Psi->F[i] is nan!");}
+		if (std::isnan(Psi->F[0])){throw std::runtime_error("Psi->F[i] is nan [HF1]!");}
 		G_right = Psi->G[Turn] / F_right;
 
 		for (int i = 0; i <= infinity; i++) {
@@ -643,7 +646,7 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 				Psi->F[i] /= F_left;
 				Psi->G[i] /= F_left;
 			}
-			if (std::isnan(Psi->F[i])){throw std::runtime_error("Psi->F[i] is nan!");}
+			if (std::isnan(Psi->F[i])){throw std::runtime_error("Psi->F[i] is nan [HF2]!");}
 			density[i] = Psi->F[i] * Psi->F[i];
 			if (std::isnan(density[i])){throw std::runtime_error("Density is nan!");}
 		}
@@ -742,6 +745,10 @@ GreensMethod::GreensMethod(Grid* Lattice, RadialWF* Psi, Potential* U) : Adams(*
 	for (int i = 0; i <= infinity; i++)
 	{
 		W = Psi_O.F[i] * Psi_Inf.G[i] - Psi_Inf.F[i] * Psi_O.G[i];
+		if (W == 0){ // No idea how to fix this. It kills the ability to calculate e.g. Zn. - SP
+			std::cerr << "Error, W is 0 Greensmethod!";
+			throw std::runtime_error("Exiting due to no error handling for W being 0.");
+		}
 		Y[i] = -2.*U->Exchange[i] / W;
 	}
 

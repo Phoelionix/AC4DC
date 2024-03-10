@@ -125,14 +125,18 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 		// Omegas for which photoion. rates are calculated for.
 		// Note this is in eV here!
 		vector<double> photoion_omegas_to_save(0); 
-		if (!recalculate){
-			double spacing = 1000; 
-			double min_energy = 3000;
-			double max_energy = 18000;
-			for(double k = min_energy; k<=max_energy; k+=spacing){
-				photoion_omegas_to_save.push_back(k);
+		// If LDA, it's cheap to calculate a full grid as well.
+		if (input.Hamiltonian() == 1){
+			if (!recalculate){
+				double spacing = 500; 
+				double min_energy = 3000;
+				double max_energy = 18000;
+				for(double k = min_energy; k<=max_energy; k+=spacing){
+					photoion_omegas_to_save.push_back(k);
+				}
 			}
 		}
+		//#endif
 		photoion_omegas_to_save.push_back(input.Omega()*Constant::eV_per_Ha); // Also calculate for this run's omega.
 		PhotoArray.resize(photoion_omegas_to_save.size());
 
@@ -151,6 +155,7 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 			#pragma omp for schedule(dynamic) nowait
 			for (int i = 0;i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
 			{
+				//if (i != 11164) continue;
 				LocalPhotoArray.resize(photoion_omegas_to_save.size());
 				vector<RadialWF> Orbitals = orbitals;
 				cout << "[HF BEB] configuration " << i << " thread " << omp_get_thread_num() << endl;
