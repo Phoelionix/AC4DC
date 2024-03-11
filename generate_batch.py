@@ -26,9 +26,9 @@ def main():
   if MODE is PULSE_PARAMETERS:
     GRID_TYPE = "M"
   # https://www.xfel.eu/sites/sites_custom/site_xfel/content/e35165/e46561/e46876/e179573/e179574/xfel_file179576/19042023_Parameters_factsheet_2024-01_Final_eng.pdf
-    ENERGIES = [7650,7700,7750,7800,7850,7900,7950]
-    FWHMS = [15]
-    PHOTON_COUNTS = [1]
+    ENERGIES = [6000,7000,8000,9000,10000,11000,12000,13000,14000,15000]
+    FWHMS = [5,10,20,25]#[15]
+    PHOTON_COUNTS = [1]#[0.1,10**(0.5)/10,1,10**(0.5), 10]
 
     SOURCE_FRACTION = None
     SOURCE_ENERGY = None
