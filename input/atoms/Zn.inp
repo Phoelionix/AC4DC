@@ -1,5 +1,5 @@
 // Average over configuration fractional occupancy is supported, atomic orbital occupancies are between 0 and 4L+2.
-// 14,553 configs with 1s, 4851 without.
+// 14,553 configs with 1s, 4851 without. HF code breaks at configuration index 11,164 
 
 #ATOM
 30           // Nuclear charge
