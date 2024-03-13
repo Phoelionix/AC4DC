@@ -85,10 +85,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
     if (!init && input_params.elec_grid_type.mode != GridSpacing::dynamic){
         return; 
     }
-    bool recalc = false;  // Note to prior developers, this now recalculates the Hartree fock code, NOT the dynamical code. The former is more useful where secondary ionization in the higher configuration species is switched off.
-    // #ifdef RECALC_HARTREE
-    // recalc = true;
-    // #endif
+    bool recalc = false;
     if (init ){
         std::cout << "[ HF ] Peforming Hartree-Fock calculations for species' allowed orbital configurations" << std::endl;
         input_params.calc_rates(_log, recalc);

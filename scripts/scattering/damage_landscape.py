@@ -492,12 +492,6 @@ if __name__ == "__main__":
         #kwargs["plasma_handles"] = ["lys_nass_HF","lys_nass_Gd_HF"]  
         #kwargs["plasma_handles"] = ["lys_full-typical","lys_all_light-typical"]  
         #kwargs["plasma_handles"] = ["glycine_abdullah_4"]
-<<<<<<< Updated upstream
-=======
-        #kwargs["plasma_handles"] = ["lys_galli_LF_11","lys_galli_LF_7keV_14"]
-        #kwargs["plasma_handles"] = ["lys_nass_Gd_gauss_1","lys_nass_Gd_square_2"]
-        kwargs["plasma_handles"] = ["lys_nass_Gd_gauss_1","lys_nass_Gd_9kev_1"]
->>>>>>> Stashed changes
         #pdb_path = PDB_PATHS["fcc"]
         pdb_path = PDB_PATHS["lys"]
         #pdb_path = PDB_PATHS["lys_solvated"]
@@ -518,12 +512,8 @@ if __name__ == "__main__":
 #%%
 #------------Plot----------------------
 if __name__ == "__main__":
-<<<<<<< Updated upstream
-    data_name = "lys_full"; batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
-=======
     #data_name = "lys_full"; batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
     data_name = "comparison"; batch_mode = False; mode = 1  #TODO store batch_mode and mode in saved object.
->>>>>>> Stashed changes
     #####
     name_of_set = data_name
     resolution = 1.94 #1.9 2.8

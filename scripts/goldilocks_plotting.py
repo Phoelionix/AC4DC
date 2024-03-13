@@ -51,8 +51,8 @@ matplotlib.rcParams.update({
 
 
 ####### User parameters #########
-INDEP_VARIABLE = 0 # | 0: energy of photons |1: Energy separation from given edge |2: Artificial electron source energy
-DEP_VARIABLE = 0 # | 0: mean carbon charge (at end of pulse or I avged TODO) | 1: R factors (performs scattering simulations for each) |
+INDEP_VARIABLE = 1 # | 0: energy of photons |1: Energy separation from edge given in edge_dict |2: Artificial electron source energy
+DEP_VARIABLE = 1 # | 0: mean carbon charge (at end of pulse or I avged TODO) | 1: R factors (performs scattering simulations for each) |
 BATCH = 0 #| 0: Real elements | 1: Electron source. 
 SCATTERING_TARGET = 0 # Used if DEP_VARIABLE = 1.  | 0: unit lysozyme (light atoms) | 1: 3x3x3 lysozyme (light atoms no solvent)|
 
@@ -66,13 +66,18 @@ NORMALISING_STEM = None #"SH_N" # None  #Stem (str) to normalise traces by. (s.t
 #NORMALISING_STEM = "SH_N"
 
 ylim=[None,None]
+additional_points_dict = {}
+
+
+L_TYPE = "two" # Which L edge to use. "one","two","three"; anything else plots all and uses separation from L1 edge.
+
 
 if BATCH is REAL_ELEMENTS:
     assert(INDEP_VARIABLE != ELECTRON_SOURCE_ENERGY)
     # Lists of ranges of simulations to plot
     # Batch stems and index range (inclusive). currently assuming form of key"-"+n+"_1", where n is a number in range of stem[key]
     # e.g. item "Carbon":[2,4] means to plot simulations corresponding to outputs Carbon-2, Carbon-3, Carbon-4, mol files. Last simulation output is used in case of duplicates (highest run number).
-    HF_10fs = { # 10^12 ph um^-2 fluence, 10 fs
+    HF_15fs = { # 10^12 ph um^-2 fluence, 10 fs
             "SH_N":[[1,10],[901,903]], #[700,704],
             "SH_S":[[0,10],[901,903]],  
             "SH_Fe":[[0,10],[901,904]],#,[20,40]],
@@ -87,10 +92,24 @@ if BATCH is REAL_ELEMENTS:
             #"SH_excl_Zn":[1,9],
             #"L_Gd":[1,9],
     }
-    HF_20fs = {}
-    LF_10fs = {}
-    LF_20fs = {} 
-    stem_dict = HF_10fs
+    LF_15fs = { 
+            "SH2_N":[[1,13]],
+            "SH2_S":[[1,13]],  
+            "SH2_Fe":[[1,13]],
+            "SH2_Zn":[[1,13]],
+            "SH2_Se":[[1,13]],
+            "SH2_Zr":[[1,13]],
+            #-----L------
+            "SH2_Ag":[[1,13]],
+            "SH2_Xe":[[1,13]],
+            "SH2_Gd":[[15,29]],
+            #------other------
+            #"SH_excl_Zn":[1,9],
+            #"L_Gd":[1,9],
+    }
+    HF_10fs = {}
+    LF_10fs = {} 
+    stem_dict = HF_15fs
 if BATCH is ELECTRON_SOURCE:
     assert(INDEP_VARIABLE == ELECTRON_SOURCE_ENERGY)
     ##
@@ -120,7 +139,6 @@ if BATCH is ELECTRON_SOURCE:
         return return_dict
     
     stem_dict = {}
-    additional_points_dict = {}
     for key, val in batch_mapping(fluence,width,source_fraction,source_duration).items():
         stem_dict[key] = val[0]
         if len(val) == 2:
@@ -129,14 +147,22 @@ if BATCH is ELECTRON_SOURCE:
 # Ionisation edges of dopants. Highest absorption edge specified in first element in tuple is plotted if in energy range. Second element in the tuple is label for said edge.
 edge_dict = {
     "SH_N": (0.3,"K"),
+    "SH2_N": (0.3,"K"),
     "SH_S": (1,"K"),
+    "SH2_S": (1,"K"),
     "SH_Fe":(7.1,"K"),  
+    "SH2_Fe":(7.1,"K"),  
     "SH_Zn":(9.7,"K"),
+    "SH2_Zn":(9.7,"K"),
     "SH_excl_Zn":(9.7,"K"),
     "SH_Se":(12.7,"K"),
+    "SH2_Se":(12.7,"K"),
     "SH_Zr":(17.98,"K"),  # Slight offset for graphical purposes.
-    "SH_Ag":(3.8,["L_{1}",]),
+    "SH2_Zr":(17.98,"K"),  # Slight offset for graphical purposes.
+    "SH_Ag":([3.3,3.5,3.8],["L_{3}","L_{2}","L_{1}"]),
+    "SH2_Ag":([3.3,3.5,3.8],["L_{3}","L_{2}","L_{1}"]),
     "SH_Xe":([4.8,5.1,5.5],["L_{3}","L_{2}","L_{1}"]),
+    "SH2_Xe":([4.8,5.1,5.5],["L_{3}","L_{2}","L_{1}"]),
     "SH2_Gd":([7.2,7.9,8.4],["L_{3}","L_{2}","L_{1}"]),  
     "L_Gd":(7.4,["L_{1}",]),
     "ES":(0.3,"K"),
@@ -150,14 +176,22 @@ for elem in edge_dict.keys():
 # Initial charges of dopant
 ground_charge_dict = {
     "SH_N": 0,
+    "SH2_N": 0,
     "SH_S": 0,
+    "SH2_S": 0,
     "SH_Fe":2,  
+    "SH2_Fe":2,  
     "SH_Zn": 2,
+    "SH2_Zn": 2,
     "SH_excl_Zn": 2,
     "SH_Se":0,
+    "SH2_Se":0,
     "SH_Zr":2,
+    "SH2_Zr":2,
     "SH_Ag":1,
+    "SH2_Ag":1,
     "SH_Xe":8,
+    "SH2_Xe":8,
     "SH2_Gd":3,
     
     "L_Gd":11,
@@ -168,14 +202,22 @@ ground_charge_dict = {
 }
 col_dict = {
     "SH_N": 0,
+    "SH2_N": 0,
     "SH_S": 1,
+    "SH2_S": 1,
     "SH_Fe":7,  
+    "SH2_Fe":7,  
     "SH_Zn": 3,
+    "SH2_Zn": 3,
     "SH_excl_Zn": 3,
     "SH_Se":4,
+    "SH2_Se":4,
     "SH_Zr":5,
+    "SH2_Zr":5,
     "SH_Ag":8,
+    "SH2_Ag":8,
     "SH_Xe":6,
+    "SH2_Xe":6,
     "SH2_Gd":2,    
     
     "L_Gd":2,    
@@ -345,7 +387,15 @@ def plot(batches,label,figure_output_dir,mode = 0):
             if INDEP_VARIABLE is PHOTON_ENERGY:
                 split_idxes = [np.searchsorted(np.array([x[0] for x in ordered_dat]),edge) for edge in edge_dict[stem][0]]
             if INDEP_VARIABLE is EDGE_SEPARATION:
-                split_idxes = np.searchsorted(np.array([x[0] for x in ordered_dat]),[edge-max(edge_dict[stem][0]) - 0.000000001 for edge in edge_dict[stem][0]])
+                done = False
+                if type (edge_dict[stem][0]) not in [int,float]:
+                    # Assume L-edge
+                    if L_TYPE in ["one","two","three"]:
+                        split_idxes = [np.searchsorted(np.array([x[0] for x in ordered_dat]),- 0.000000001),]
+                        done = True
+                # default case
+                if not done:
+                    split_idxes = np.searchsorted(np.array([x[0] for x in ordered_dat]),[edge-max(edge_dict[stem][0]) - 0.000000001 for edge in edge_dict[stem][0]])
             splines = []
             finer_x = []
             if not [split_idx in (0, len(X)) for split_idx in split_idxes]:
@@ -387,18 +437,31 @@ def plot(batches,label,figure_output_dir,mode = 0):
         for stem, mol_names in batches.items():
             c = col_dict[stem]
             dopant = stem.split("-")[0].split("_")[-1]
+            i = 0
+
             for lin, text in zip(edge_dict[stem][0],edge_dict[stem][1]):
+                i+=1
+                if L_TYPE == "one":
+                    if type(edge_dict[stem][1]) in (list,tuple) and  i!=len(edge_dict[stem][1]):
+                        continue  
+                if L_TYPE == "two":
+                    if type(edge_dict[stem][1]) in (list,tuple) and  i!=len(edge_dict[stem][1]) - 1:
+                        continue  
+                if L_TYPE == "three":
+                    if type(edge_dict[stem][1]) in (list,tuple) and  i!=len(edge_dict[stem][1]) - 2:
+                        continue 
                 if ax.get_xlim()[0] < lin < ax.get_xlim()[1]:
                     ax.axvline(x=lin,ls=(5,(10,3)),color=cmap(c))
                     ax.text(lin-0.1, 0.96*ax.get_ylim()[1] +0.04*ax.get_ylim()[0],dopant+"--$"+text+"$",verticalalignment='top',horizontalalignment='right',rotation=-90,color=cmap(c))
+
             #if ax.get_xlim()[0] < max(edge_dict[stem][0]) < ax.get_xlim()[1]:
                 #ax.axvline(x=max(edge_dict[stem][0]),ls=(5,(10,3)),color=cmap(c))
                 #ax.text(max(edge_dict[stem][0])-0.1, 0.96*ax.get_ylim()[1] +0.04*ax.get_ylim()[0],dopant+"--$"+edge_dict[stem][1]+"$",verticalalignment='top',horizontalalignment='right',rotation=-90,color=cmap(c))
     if INDEP_VARIABLE is EDGE_SEPARATION:
         ax.axvline(x=0,ls=(5,(10,3)),color="black")
 
-    
-    ax.ticklabel_format(style='sci', axis='y', scilimits=(-1,1),)
+    if DEP_VARIABLE is R_FACTOR:
+        ax.ticklabel_format(style='sci', axis='y', scilimits=(-1,1),)
     #yticks = ax.get_yticks()
     #OOM = math.floor(math.log10(np.max(yticks)))
     #ax.set_yticks((yticks//(10**(OOM-1))*(10**(OOM-1))))
@@ -502,6 +565,8 @@ def get_data_point(ax,stem,mol_name,mode):
     im_params,_ = SCATTERING_TARGET_DICT[SCATTERING_TARGET]
     indep_variable_key = str(INDEP_VARIABLE)
     dep_variable_key = str(DEP_VARIABLE)
+    if INDEP_VARIABLE == EDGE_SEPARATION:
+        indep_variable_key += "L" + L_TYPE
     if DEP_VARIABLE == 1:
         dep_variable_key = str(DEP_VARIABLE)+"-"+str(SCATTERING_TARGET)
     intensity_averaged = True #TODO
@@ -541,7 +606,14 @@ def get_data_point(ax,stem,mol_name,mode):
     if INDEP_VARIABLE is PHOTON_ENERGY: 
         energy = get_sim_params(mol_name)[0]["energy"]
     if INDEP_VARIABLE is EDGE_SEPARATION:
-        energy = get_sim_params(mol_name)[0]["energy"] - max(edge_dict[stem][0])*1000
+        if type(edge_dict[stem][1]) in (list,tuple) and L_TYPE == "one":
+            energy = get_sim_params(mol_name)[0]["energy"] - edge_dict[stem][0][2]*1000
+        elif type(edge_dict[stem][1]) in (list,tuple) and  L_TYPE == "two":
+            energy = get_sim_params(mol_name)[0]["energy"] - edge_dict[stem][0][1]*1000
+        elif type(edge_dict[stem][1]) in (list,tuple) and  L_TYPE == "three":
+            energy = get_sim_params(mol_name)[0]["energy"] - edge_dict[stem][0][0]*1000
+        else:
+            energy = get_sim_params(mol_name)[0]["energy"] - max(edge_dict[stem][0])*1000
     if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
         s = get_sim_params(mol_name)[0]
         energy = s["source_energy"]

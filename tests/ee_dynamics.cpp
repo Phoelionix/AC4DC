@@ -41,7 +41,7 @@ public:
     void run_sim(double final_time){
         try
         {
-            this->iterate(0, final_time);
+            this->solve_dynamics(0, final_time);
         }
         catch(const std::exception& e)
         {

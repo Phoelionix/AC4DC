@@ -49,4 +49,4 @@ scripts/scattering/reflections/*
 scripts/scattering/scalepack/*
 scripts/scattering/*.pdf
 *results/*
-*/goldilocks_saves/*
+*/.goldilocks_saves/*

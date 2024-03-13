@@ -11,11 +11,12 @@ The main code of the suite, AC4DC (the literal acronym is no longer apt), simula
 + Allows for an arbitrary form of the free-electron distribution f(E) interpolated over a basis of B-splines. 
   + The basis is adaptive; it is transformed periodically to automatically assign more splines where sharp, non-polynomial peaks are present in the distribution. 
 
+# DRAFT warning
+When the grid fails to cnverge, it loads a checkpoint and decreases time steps. However, sometimes ((always?)) the divergence to an oscillatory (incorrect) fit occurs over a small number of steps. If a grid update occurs during this period, the fit may then converge, and the fluctuation is uncaught. This is quite rare but means data should be double checked    
+
 ## Scatter
 
 An auxilliary simulation, Scatter, generates scattering patterns off realistic targets constructed from PDB structure files, with the atoms’ states selected entirely based off the probability distributions produced by AC4DC, without regard for selections of prior snapshots. These are then compared with the scattering pattern produced by a structure in the 'ideal', undamaged case where no ionisation occurs. 
-
-
 
 ### Installing AC4DC
 
@@ -68,6 +69,40 @@ Live plotting may be disabled by uncommenting `#define NO_PLOTTING` in include/c
 AC4DC reads the composition of the target, the pulse parameters, and various hyperparameters (e.g pertaining to the spline knot grid)  from the molecular (.mol) file it is provided. See AC4DC/input/mol_template.mol for the style of these files and the parameters available.     
 
 In AC4DC/include/config.h various features of the simulation can be disabled (e.g. plasma processes, live plotting, backing up of data).
+
+### Grid regions preset
+
+Relevant files:
+  include/GridSpacing.hpp
+  src/DynamicRegions.cpp
+
+        case 'd':
+            preset.selected = DynamicGridPreset::dismal_acc;
+            break;
+        case 'l':
+            preset.selected = DynamicGridPreset::low_acc;
+            break;
+        case 'm':
+            preset.selected = DynamicGridPreset::medium_acc;
+            break;
+        case 'h':
+            preset.selected = DynamicGridPreset::high_acc;
+            break;    
+        case 'n':
+            preset.selected = DynamicGridPreset::no_dirac;
+            break;         
+        case 't':
+            preset.selected = DynamicGridPreset::training_wheels;
+            break;                      
+        case 'A':
+            preset.selected = DynamicGridPreset::heavy_support;
+            break;  
+        case 'B':
+            preset.selected = DynamicGridPreset::Zr_support;
+            break;              
+        case 'D':
+            preset.selected = DynamicGridPreset::lower_dirac_support;
+            break;            
 
 ### Running AC4DC and workflow
 
