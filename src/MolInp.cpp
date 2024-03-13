@@ -222,6 +222,12 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		omp_threads = min(12,omp_threads);
 	#elif defined THREAD_MAX_16
 		omp_threads = min(16,omp_threads);
+	#elif defined THREAD_MAX_20
+		omp_threads = min(20,omp_threads);
+	#elif defined THREAD_MAX_24
+		omp_threads = min(24,omp_threads);
+	#elif defined THREAD_MAX_28
+		omp_threads = min(28,omp_threads);		
 	#endif
 
 	// Get fluence (in 10^4 * J.cm^-2).
@@ -392,7 +398,7 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P. TODO 
 	if (loss_geometry.L0 <= 0) { cerr<<"ERROR: radius must be positive"; is_valid=false; }
 	if (timespan_factor < 0 || negative_timespan_factor < 0) {cerr << "ERROR, timespan factors must be postive"; is_valid = false;}
 	if (timespan_factor < negative_timespan_factor){cerr << "ERROR, the timespan factor for the negative times must be smaller than the full timespan factor";is_valid=false;}
-	if (pulse_shape == PulseShape::square && timespan_factor < 1){cerr << "ERROR, timespan too short to capture full square pulse";is_valid=false;}
+	if (pulse_shape == PulseShape::square && (timespan_factor < 1 && timespan_factor !=0)){cerr << "ERROR, timespan too short to capture full square pulse";is_valid=false;}
 	if (pulse_shape == PulseShape::square && negative_timespan_factor != 0){cerr << "ERROR, timespan for negative times cannot be specified with square pulse";is_valid=false;}
 	if (use_fluence + use_count + use_intensity != 1) {cerr << "ERROR, require exactly one of #USE_FLUENCE, #USE_COUNT, and #USE_INTENSITY to be active ";is_valid = false;}
 	if (omp_threads <= 0) { omp_threads = 4; cerr<<"Defaulting number of OMP threads to 4"; }
@@ -423,10 +429,11 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P. TODO 
 	return is_valid;
 }
 
+// if recalc is false, and atom's secondary ionization calcs are turned off, interpolates from stored primary ionization data (photoion., and fluor. + Auger decay rates).
+// Note that if the primary ionization data is missing, it will be generated. This will take a long time, but never has to be performed again
 void MolInp::calc_rates(ofstream &_log, bool recalc) {
 	// Loop through atomic species.
 	for (size_t a = 0; a < Atomic.size(); a++) {
-		HartreeFock HF(Latts[a], Orbits[a], Pots[a], Atomic[a], _log);
 
 		// This Computes the parameters for the rate equations to use, loading them into Init.
 		ComputeRateParam Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], recalc);
@@ -440,14 +447,18 @@ void MolInp::calc_rates(ofstream &_log, bool recalc) {
 			shell_check[i] = Orbits[a][i].is_shell();
 		}
 
+
 		string name = Store[a].name;
 		double nAtoms = Store[a].nAtoms;
 
-
-		Store[a] = Dynamics.SolvePlasmaBEB(max_occ, final_occ, shell_check,_log);
+		// We may need to call HartreeFock HF(Latts[a], Orbits[a], Pots[a], Atomic[a], _log);
+		// However, calling it is expensive for heavier elements, so we only call it if haven't saved rates. // TODO Seems like this actually isn't expensive...
+		// So we need to pass these args through
+		Store[a].bound_free_excluded = bound_free_exclusions[a];
+		Store[a] = Dynamics.SolveAtomicRatesAndPlasmaBEB(max_occ, final_occ, shell_check, !Store[a].bound_free_excluded, Latts[a], Orbits[a], Pots[a], Atomic[a],_log);
 		Store[a].name = name;
 		Store[a].nAtoms = nAtoms;
-		Store[a].bound_free_excluded = bound_free_exclusions[a];
+		
 		// Store[a].R = dropl_R();
 		Index[a] = Dynamics.Get_Indexes();
 	}

@@ -129,8 +129,8 @@ namespace RateData {
 	{
 		//EIIdata() : init(0), fin(vector<int>(0)), occ(vector<int>(0)),ionB(vector<float>(0)),kin(vector<float>(0)) {}
 
-		int init; // initial state
 		vector<int> fin; // final states
+		int init; // initial state
 		vector<int> occ; // occupancy of state
 		vector<float> ionB; // ion binding energy
 		vector<float> kin; // u for atom in this state (see Kim and Rudd BEB for details)
@@ -194,6 +194,7 @@ namespace RateData {
 
 	bool ReadRates(const string & input, vector<RateData::Rate> & PutHere);
 	bool ReadEIIParams(const string & input, vector<RateData::EIIdata> & PutHere);
+	bool InterpolateRates(const string & rate_location, const string & rate_file_type,vector<RateData::Rate> & PutHere, double photon_energy,double allowed_interp = 1000);
 	void WriteRates(const string& fname, const vector<RateData::Rate>& rateVector);
 	void WriteEIIParams(const string& fname, const vector<RateData::EIIdata>& eiiVector);
 }

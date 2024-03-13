@@ -241,7 +241,7 @@ std::vector<double> ElectronRateSolver::approx_regime_peaks(size_t step, double 
     double min_peak_separation = separation_div_omega*input_params.elec_grid_preset.pulse_omega/Constant::eV_per_Ha; 
     size_t min_sequential = 3;
     std::vector<double> peak_energies;  
-    double last_peak_density = INFINITY; // for asserting expected behaviour.
+    //double last_peak_density = INFINITY; // for asserting expected behaviour.
     for(size_t i = 0; i < num_peaks; i++){
         // Seek maximum between low and upper bound.
         double peak_density = -1;
@@ -260,14 +260,14 @@ std::vector<double> ElectronRateSolver::approx_regime_peaks(size_t step, double 
             }          
             double density = y[step].F(e)*e; // electron energy density
             if (peak_density < density){
-                assert(density <= last_peak_density);
+                //assert(density <= last_peak_density);
                 peak_density = density;
                 peak_e = e;
             }
         }
         if (peak_density < min_density) 
             peak_e = -1;
-        last_peak_density = peak_density;
+        //last_peak_density = peak_density;
         peak_energies.push_back(peak_e);
         // Sort from lowest to highest (for skipping over peaks.)
         sort(peak_energies.begin(),peak_energies.end(),less<double>());

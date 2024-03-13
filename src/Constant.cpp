@@ -21,6 +21,7 @@ This file is part of AC4DC.
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <boost/filesystem.hpp>
 
 double LogFactorialFraction(double Num, double Denom);
 
@@ -286,6 +287,58 @@ namespace RateData{
 		infile.close();
 		return true; // Returns true if all went well
 
+	}
+
+	bool InterpolateRates(const string & rate_location, const string & rate_file_type, vector<Rate>& PutHere, double photon_energy,double allowed_interp) {
+		PutHere.clear();
+		photon_energy *= Constant::eV_per_Ha; // The energies in file names are in eV.
+		// get file with energy below , file with energy above. 
+		using namespace boost::filesystem; 
+		std::vector<double> energies_saved;
+		struct recursive_directory_range
+		{
+			typedef recursive_directory_iterator iterator;
+			recursive_directory_range(path p) : p_(p) {}
+
+			iterator begin() { return recursive_directory_iterator(p_); }
+			iterator end() { return recursive_directory_iterator(); }
+
+			path p_; 
+		};
+		double nearest_lower_energy = -INFINITY;
+		double nearest_upper_energy = +INFINITY;
+		double tol = 0.01;
+		for (auto saved_file : recursive_directory_range(rate_location))
+		{
+			std::string saved_file_name = saved_file.path().filename().string();
+			size_t split_pos = saved_file_name.find("_");
+			std::string saved_rate_file_type = saved_file_name.substr(split_pos+1,saved_file_name.size()-(split_pos+1));
+			if (rate_file_type != saved_rate_file_type || rate_file_type.size() == saved_file_name.size()){
+				continue;}
+			double saved_omega = std::stod(saved_file_name.substr(0,split_pos)); // photon energy
+			if (saved_omega-tol < photon_energy && photon_energy < saved_omega + tol ){ // lazy 
+				// Saved this exact energy before. Reuse it.
+				
+				return ReadRates(rate_location+saved_file_name,PutHere);
+			}
+			if (saved_omega < photon_energy && saved_omega > nearest_lower_energy){ // lower bound
+				nearest_lower_energy = saved_omega;
+			}
+			if (saved_omega > photon_energy && saved_omega < nearest_upper_energy){ // upper bound
+				nearest_upper_energy = saved_omega;
+			}
+		}
+		if (nearest_upper_energy - nearest_lower_energy > allowed_interp){
+			return false; // 	
+		} 
+		else{
+			std::cerr << "Interpolation unimplemented." << std::endl;
+			// ReadRates(std::to_string(nearest_lower_energy()) + "_"+rate_file_type);
+			// RateData::Atom store_lower = Store;
+			// ReadRates(std::to_string(nearest_lower_energy()) + "_"+rate_file_type);
+			// RateData::Atom store_upper = Store;
+			// // Do some interpolation
+		}
 	}
 
 	// reads a "JSON-style" file and stores the data in an EIIdata structure.

@@ -4,6 +4,10 @@ N 193
 O 185
 Zn_faster 10
 
+#BOUND_FREE_EXCLUSIONS
+Zn_faster
+
+
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.
 500         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons (assumes surrounded by a void).

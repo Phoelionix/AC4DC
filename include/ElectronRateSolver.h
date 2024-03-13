@@ -64,13 +64,13 @@ public:
         pf.set_shape(input_params.pulse_shape);
         pf.set_pulse(input_params.Fluence(), input_params.Width());
         
-        timespan_au = round_time(input_params.timespan_factor*input_params.Width());
+        timespan_au = round_time(input_params.timespan_factor*input_params.Width()); // 0 by default
         if (input_params.pulse_shape ==  PulseShape::square){  //-FWHM <= t <= 3FWHM (we've squished the pulse into the first FWHM.)
-            if (timespan_au <= 0)  // 0 by default
+            if (timespan_au <= 0)  // Default case
                 timespan_au = round_time(input_params.Width()*4,true); // 4*FWHM, capturing effectively entire pulse.
             simulation_start_time = -input_params.Width(); // e.g. if the timespan_au is 10 fwhm, the first fwhm is the pulse.
         } else { //-1.2FWHM <= t <= 1.2 FWHM
-            if (timespan_au <= 0) // 0 by default
+            if (timespan_au <= 0) // Default case
                 timespan_au = round_time(input_params.Width()*2.4,true);   // > 99% of pulse, (similar to Neutze)
             
             simulation_start_time = -timespan_au/2;

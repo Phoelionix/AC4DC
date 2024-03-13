@@ -48,8 +48,9 @@ default_dict = dict(
         orientation_axis_crys = None,#[1,1,0]   # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Incompatible with random_orientations   
     ),
 )
-default_dict_SPI = copy.deepcopy(default_dict)
-default_dict_SPI["laser"]["SPI"] = True 
+asymmetric_unit_dict = copy.deepcopy(default_dict)
+asymmetric_unit_dict["crystal"]["include_symmetries"] = False 
+
 
 
 goldilocks_dict_unit = dict( 
@@ -97,9 +98,12 @@ goldilocks_dict_3x3x3 = copy.deepcopy(goldilocks_dict_unit)
 goldilocks_dict_3x3x3["crystal"]["supercell_scale"] = 3
 
 
+
+
 # Water background
-background_dict = copy.deepcopy(default_dict_SPI)
+background_dict = copy.deepcopy(default_dict)
 #background_dict["crystal"]["positional_stdv"] = 10  ### Idea: When we average over the distributions, this will form a background. 
+background_dict["laser"]["SPI"] = True 
 background_dict["crystal"]["positional_stdv"] = 0  ### Idea:  generate multiple solvents
 background_dict["crystal"]["cell_scale"] = 1
 background_dict["crystal"]["include_symmetries"] = False 

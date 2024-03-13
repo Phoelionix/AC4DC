@@ -16,7 +16,7 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 /// Disable plasma processes  
 //#define NO_TBR    //Three body recombination
 //#define NO_EE   // Electron-electron scattering. This seems to break the dynamic grid late in the simulation depending on pulse parameters.
-//#define NO_EII    // Electron impact ionisation
+//#define NO_EII    // Electron impact ionisation0
 //#define NO_PLASMA // Disables all of the above. (i.e. primary - Photo,Auger,Fluoro, - ionisation only)
 
 /// Disable features
@@ -43,7 +43,10 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 
 
 /// Thread capping. Often an easier option than regenerating batch files. (If multiple are left on, uses the lowest cap)
-#define THREAD_MAX_16
+#define THREAD_MAX_28
+//#define THREAD_MAX_24
+//#define THREAD_MAX_20
+//#define THREAD_MAX_16
 //#define THREAD_MAX_12
 //#define THREAD_MAX_8
 //#define THREAD_MAX_4

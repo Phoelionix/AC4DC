@@ -17,150 +17,239 @@ matplotlib.rcParams.update({
 import matplotlib.pyplot as plt
 import numpy as np
 from plotter_core import Plotter
-from core_functions import get_sim_params
 import sys, traceback
 import os.path as path
 import os
 from QoL import set_highlighted_excepthook
 import copy
+from scipy.interpolate import InterpolatedUnivariateSpline,SmoothBivariateSpline
 import math
+import json
 sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
 sys.path.append('/home/speno/AC4DC/scripts/scattering')
 from scatter import XFEL,Crystal,stylin
 from damage_landscape import multi_damage
-from core_functions import get_pdb_path
+from core_functions import get_sim_params, get_pdb_path
+from core_variables import *
+from mergedeep import merge
 import imaging_params
-from scipy.interpolate import InterpolatedUnivariateSpline,SmoothBivariateSpline
 
 
 FIGWIDTH_FACTOR = 1
 FIGWIDTH = 3.49751 *FIGWIDTH_FACTOR
 FIGHEIGHT = FIGWIDTH*3/4
 FIT = True
+IGNORE_MISSING_SIMULATIONS = True  # If False, throws an error if not all specified simulations in the batch(es) are found.
 
 matplotlib.rcParams.update({
-    'figure.subplot.left':0.14/FIGWIDTH_FACTOR,
+    'figure.subplot.left':0.16/FIGWIDTH_FACTOR,
     'figure.subplot.right':1-0.02/FIGWIDTH_FACTOR,
     'figure.subplot.bottom': 0.16/FIGWIDTH_FACTOR,
     'figure.subplot.top':1-0.07/(FIGWIDTH_FACTOR*FIGHEIGHT/FIGWIDTH*4/3),
 })
 
 
+
 ####### User parameters #########
+INDEP_VARIABLE = 1 # | 0: energy of photons |1: Energy separation from edge given in edge_dict |2: Artificial electron source energy
+DEP_VARIABLE = 1 # | 0: mean carbon charge (at end of pulse or I avged TODO) | 1: R factors (performs scattering simulations for each) |
+BATCH = 0 #| 0: Real elements | 1: Electron source. 
+SCATTERING_TARGET = 0 # Used if DEP_VARIABLE = 1.  | 0: unit lysozyme (light atoms) | 1: 3x3x3 lysozyme (light atoms no solvent)|
+
 ## Graphical
 LEGEND = True
-LABEL_TIMES = False # Set True to graphically check times are all aligned.
+LABEL_TIMES = False # Set True to graphically check simulation end times are all aligned
 
 ## Numerical
-MODE = 1 # | 0: mean carbon charge | 1: R factors (performs scattering simulations for each) |
-SCATTERING_TARGET = 0 # Used if MODE = 1.  | 0: unit lysozyme (light atoms) | 1: 3x3x3 lysozyme (light atoms no solvent)|
-NORMALISING_STEM = None#"SH_N" # None  # None, or the stem (str) to normalise traces by. (s.t. normalised trace becomes horizontal line)
-INDEP_VARIABLE = 2 # | 0: energy of photons |1: Energy separation from given edge |2: Artificial electron source energy
+
+NORMALISING_STEM = None #"SH_N" # None  #Stem (str) to normalise traces by. (s.t. normalised trace becomes horizontal line). If None, does not normalise.
+#NORMALISING_STEM = "SH_N"
 
 ylim=[None,None]
-xlim = [None,None]
+additional_points_dict = {}
 
-#ylim = [,]
-xlim = [0, None]
-#xlim = [7, 18]#[7,18] # [5,18] [7,18]
 
-# Batch stems and index range (inclusive). currently assuming form of key"-"+n+"_1", where n is a number in range of stem[key]
-REAL_ELEMENTS = 0; ELECTRON_SOURCE = 1
-#batch = REAL_ELEMENTS
+L_TYPE = "two" # Which L edge to use. "one","two","three"; anything else plots all and uses separation from L1 edge.
 
-batch = ELECTRON_SOURCE
-if batch is REAL_ELEMENTS:
+
+if BATCH is REAL_ELEMENTS:
+    assert(INDEP_VARIABLE != ELECTRON_SOURCE_ENERGY)
+    # Lists of ranges of simulations to plot
+    # Batch stems and index range (inclusive). currently assuming form of key"-"+n+"_1", where n is a number in range of stem[key]
     # e.g. item "Carbon":[2,4] means to plot simulations corresponding to outputs Carbon-2, Carbon-3, Carbon-4, mol files. Last simulation output is used in case of duplicates (highest run number).
-    stem_dict = {
-            "SH_N":[2,11],
-            "SH_S":[2,11],  
-            "SH_Fe":[2,9],  
-            "SH_Zn":[2,11],
-            "SH_Se":[2,11],
-            "SH_Zr":[2,10],
+    HF_15fs = { # 10^12 ph um^-2 fluence, 10 fs
+            "SH_N":[[1,10],[901,903]], #[700,704],
+            "SH_S":[[0,10],[901,903]],  
+            "SH_Fe":[[0,10],[901,904]],#,[20,40]],
+            "SH_Zn":[[0,10],[901,903]],
+            "SH_Se":[[0,13],],
+            "SH_Zr":[[0,10],[901,902]],
             #-----L------
-            "SH_Ag":[2,8],
-            "SH_Xe":[2,9],
-            #"L_Gd":[1,1],
+            "SH_Ag":[[0,8],[901,904]],
+            "SH_Xe":[[0,9],[901,907]],
+            "SH2_Gd":[[1,14]],
+            #------other------
+            #"SH_excl_Zn":[1,9],
+            #"L_Gd":[1,9],
     }
-    # Each item corresponds to a list of additional simulations to add on
-    additional_points_dict = {
-
-    }    
-if batch is ELECTRON_SOURCE:
-    stem_dict = {
-        #"ES":[32,35],
-        "ES_L":[32,42],    # [43,46] -> + 77
+    LF_15fs = { 
+            "SH2_N":[[1,13]],
+            "SH2_S":[[1,13]],  
+            "SH2_Fe":[[1,13]],
+            "SH2_Zn":[[1,13]],
+            "SH2_Se":[[1,13]],
+            "SH2_Zr":[[1,13]],
+            #-----L------
+            "SH2_Ag":[[1,13]],
+            "SH2_Xe":[[1,13]],
+            "SH2_Gd":[[15,29]],
+            #------other------
+            #"SH_excl_Zn":[1,9],
+            #"L_Gd":[1,9],
     }
-    additional_points_dict = {
-        "ES_L":[0],
-    }
-# Ionisation edges of dopants
+    HF_10fs = {}
+    LF_10fs = {} 
+    stem_dict = HF_15fs
+if BATCH is ELECTRON_SOURCE:
+    assert(INDEP_VARIABLE == ELECTRON_SOURCE_ENERGY)
+    ##
+    #photon_energy = 10
+    fluence = 100
+    width = 15
+    source_fraction = 3
+    source_duration = 1
+    ##
+    # Manual mapping... TODO just pop outputs in folder or something.
+    def batch_mapping(fluence,width,source_fraction,source_duration):
+        params = fluence,width,source_fraction,source_duration
+        return_dict = None
+        if params == (1,15,1,1):
+            return_dict = dict(ES_C = ([1,22],[0]))
+        elif params == (1,15,3,1):
+            return_dict =  dict(ES_C = ([23,44],[0,902]))
+        elif params == (1,30,1,1):
+            return_dict = dict(ES_C =([45,66],))
+        elif params == (100,15,3,1):
+            return_dict = dict(ES_C=([90,113],))
+        elif return_dict is None:
+            raise KeyError("Invalid/missing batch params")
+        for val in return_dict.values():
+            assert len(val) < 3 or isinstance(val[0],int), "Batch mapping dict has too many entries"
+            assert len(val) == 2 or not isinstance(val[0],int), "Batch mapping dict single entry does not have two elements. It should be an inclusive range of simulation numbers. For specific simulations (e.g. my_stem-3_# and my_stem-8_#) batch_mapping should return dict(my_stem=([],[3,8]))"    
+        return return_dict
+    
+    stem_dict = {}
+    for key, val in batch_mapping(fluence,width,source_fraction,source_duration).items():
+        stem_dict[key] = val[0]
+        if len(val) == 2:
+            additional_points_dict[key] = val[1]
+        
+# Ionisation edges of dopants. Highest absorption edge specified in first element in tuple is plotted if in energy range. Second element in the tuple is label for said edge.
 edge_dict = {
     "SH_N": (0.3,"K"),
+    "SH2_N": (0.3,"K"),
     "SH_S": (1,"K"),
-    "SH_Fe":[7.1,"K"],  
+    "SH2_S": (1,"K"),
+    "SH_Fe":(7.1,"K"),  
+    "SH2_Fe":(7.1,"K"),  
     "SH_Zn":(9.7,"K"),
+    "SH2_Zn":(9.7,"K"),
+    "SH_excl_Zn":(9.7,"K"),
     "SH_Se":(12.7,"K"),
+    "SH2_Se":(12.7,"K"),
     "SH_Zr":(17.98,"K"),  # Slight offset for graphical purposes.
-    "SH_Ag":(3.8,"L_{1}"),
-    "SH_Xe":(5.5,"L_{1}"),
-    "L_Gd":(7.4,"L_{1}"),
-    
+    "SH2_Zr":(17.98,"K"),  # Slight offset for graphical purposes.
+    "SH_Ag":([3.3,3.5,3.8],["L_{3}","L_{2}","L_{1}"]),
+    "SH2_Ag":([3.3,3.5,3.8],["L_{3}","L_{2}","L_{1}"]),
+    "SH_Xe":([4.8,5.1,5.5],["L_{3}","L_{2}","L_{1}"]),
+    "SH2_Xe":([4.8,5.1,5.5],["L_{3}","L_{2}","L_{1}"]),
+    "SH2_Gd":([7.2,7.9,8.4],["L_{3}","L_{2}","L_{1}"]),  
+    "L_Gd":(7.4,["L_{1}",]),
     "ES":(0.3,"K"),
     "ES_L":(0.3,"K"),
+    "ES_C":(0.3,"K"),
 }
+for elem in edge_dict.keys():
+    if type(edge_dict[elem][0]) in [float,int]:
+        edge_dict[elem] = ([edge_dict[elem][0],],edge_dict[elem][1]) 
+         
+# Initial charges of dopant
 ground_charge_dict = {
     "SH_N": 0,
+    "SH2_N": 0,
     "SH_S": 0,
+    "SH2_S": 0,
     "SH_Fe":2,  
+    "SH2_Fe":2,  
     "SH_Zn": 2,
+    "SH2_Zn": 2,
+    "SH_excl_Zn": 2,
     "SH_Se":0,
+    "SH2_Se":0,
     "SH_Zr":2,
+    "SH2_Zr":2,
     "SH_Ag":1,
+    "SH2_Ag":1,
     "SH_Xe":8,
+    "SH2_Xe":8,
+    "SH2_Gd":3,
+    
     "L_Gd":11,
 
     "ES":0,
     "ES_L":0,
+    "ES_C":0,
 }
 col_dict = {
     "SH_N": 0,
+    "SH2_N": 0,
     "SH_S": 1,
+    "SH2_S": 1,
     "SH_Fe":7,  
+    "SH2_Fe":7,  
     "SH_Zn": 3,
+    "SH2_Zn": 3,
+    "SH_excl_Zn": 3,
     "SH_Se":4,
+    "SH2_Se":4,
     "SH_Zr":5,
+    "SH2_Zr":5,
     "SH_Ag":8,
+    "SH2_Ag":8,
     "SH_Xe":6,
+    "SH2_Xe":6,
+    "SH2_Gd":2,    
+    
     "L_Gd":2,    
 
     "ES":0,
     "ES_L":1,
+    "ES_C":2,
 }
 
 ################
 ## Constants
-# Dependent variable
-# MODE
-AVERAGE_CHARGE = 0
-R_FACTOR = 1
-# INDEP_VARIABLE
-PHOTON_ENERGY = 0
-PHOTOELECTRON_ENERGY = 1  # Not quite an accurate label.
-ELECTRON_SOURCE_ENERGY = 2
 
-SCATTERING_TARGET_DICT = {0: (imaging_params.goldilocks_dict_unit,"-unit"),1: (imaging_params.goldilocks_dict_3x3x3,"3x3x3")}
+SCATTERING_TARGET_DICT = {0: (imaging_params.goldilocks_dict_unit,"-unit"),1: (imaging_params.goldilocks_dict_3x3x3,"3x3x3"),99:(imaging_params.goldilocks_dict_unit,"-unit")}
 #
 SCATTER_DIR = path.abspath(path.join(__file__ ,"../")) +"/scattering/"
 PDB_STRUCTURE = get_pdb_path(SCATTER_DIR,"lys") 
 MOLECULAR_PATH = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/" # directory of damage sim output folders
+GOLDI_RESULTS_PATH = path.abspath(path.join(__file__ ,"../.goldilocks_saves")) + "/" 
+
+xlim = [6,18]
+if INDEP_VARIABLE is EDGE_SEPARATION:
+    xlim[0] = -1.5
+    xlim[1] = 18
+if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
+    #xlim = [None,None]
+    xlim = [0,20]
 
 set_highlighted_excepthook()
 def main():       
 
 
-    assert all([k in edge_dict.keys() and k in ground_charge_dict.keys() for k in stem_dict.keys()])
+    assert all([k in edge_dict.keys() and k in ground_charge_dict.keys() and k in col_dict for k in stem_dict.keys()])
     # Plot tag
     plot_type = {AVERAGE_CHARGE:'avg_charge_plot',R_FACTOR:'R_dmg'}      
 
@@ -171,47 +260,45 @@ def main():
     # Get folders names in molecular_path
     all_outputs = os.listdir(MOLECULAR_PATH)
     valid_folder_names= True
-    for key,val in stem_dict.items():
+    for key,val_range in stem_dict.items():
         data_folders = []
+        sim_tags = []
+        for val in val_range:
         # Get folder name, excluding run tag
-        for n in range(val[0],val[1]+1):
+            sim_tags += [*range(val[0],val[1]+1)]
+            if key in additional_points_dict:
+                for sim_tag in additional_points_dict[key]:
+                    sim_tags.append(sim_tag)
+        for n in sim_tags:
             data_folders.append(key+"-"+str(n)) 
-        # Add run tag "_"+n corresponding to latest run (n = highest "R" for "stem-n_R")
+            # Add run tag "_"+n corresponding to latest run (n = highest "R" for "stem-n_R")
         for i, handle in enumerate(data_folders):
             matches = [match for match in all_outputs if match.startswith(handle+"_")]
             run_nums = [int(R.split("_")[-1]) for R in matches if R.split("_")[-1].isdigit()]            
             # no folders - > not valid 
             if len(run_nums) == 0: 
                 valid_folder_names = False
-                print("\033[91mInput error\033[0m (a run corresponding to \033[91m"+handle+"\033[0m): not found in"+MOLECULAR_PATH)
+                error_string_prefix = "\033[91mInput error\033[0m a"
+                if IGNORE_MISSING_SIMULATIONS:
+                    error_string_prefix = "A"
+                print(error_string_prefix+" run corresponding to \033[91m"+handle+"\033[0m was not found in"+MOLECULAR_PATH)
+                if IGNORE_MISSING_SIMULATIONS:
+                    data_folders[i] = None
+                    continue
                 break
             data_folders[i] = handle + "_"+str(max(run_nums))
-        batches[key] = data_folders
-    for key, sims in additional_points_dict.items():
-        for sim_tag in sims:
-            handle = key+"-"+str(sim_tag)
-            matches = [match for match in all_outputs if match.startswith(handle+"_")]
-            run_nums = [int(R.split("_")[-1]) for R in matches if R.split("_")[-1].isdigit()] 
-            if len(run_nums) == 0: 
-                valid_folder_names = False
-                print("\033[91mInput error\033[0m (a run corresponding to \033[91m"+handle+"\033[0m): not found in"+MOLECULAR_PATH)
-                break
-            data_folder = handle + "_"+str(max(run_nums))
-            assert(data_folder not in data_folders)
-            data_folders.append(data_folder)             
+        batches[key] = [f for f in data_folders if f is not None]
 
-
-    assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder. See input error message(s)"
+    if not IGNORE_MISSING_SIMULATIONS:
+        assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder. See input error message(s)"
     fig_title = "".join([stem.split("-")[0].split("_")[-1] for stem in batches.keys()])
-    label = fig_title+"_"+plot_type[MODE]
-    plot(batches,label,dname_Figures,mode=MODE)
+    label = fig_title+"_"+plot_type[DEP_VARIABLE]
+    plot(batches,label,dname_Figures,mode=DEP_VARIABLE)
 
 def plot(batches,label,figure_output_dir,mode = 0):
     ylabel = {AVERAGE_CHARGE:"Average carbon's charge",R_FACTOR:"$R_{dmg}$"}
     '''
     Arguments:
-    mol_name: The name of the folder containing the simulation's data (the csv files). (By default this is the stem of the mol file.)
-    sim_data_parent_dir: absolute path to the folder containing the folders specified by target_handles.
     '''    
     ############
     # File/directory names
@@ -226,38 +313,20 @@ def plot(batches,label,figure_output_dir,mode = 0):
     cmap = plt.get_cmap('tab10')
 
     output_tag = ""
-    if MODE == 1:
-        im_params,output_tag = SCATTERING_TARGET_DICT[SCATTERING_TARGET]
-    if NORMALISING_STEM is not None:
+    if DEP_VARIABLE == 1:
+        _,output_tag = SCATTERING_TARGET_DICT[SCATTERING_TARGET]
+    if NORMALISING_STEM not in [None,False]:
         output_tag += "-normed"
-    if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
+    if INDEP_VARIABLE is EDGE_SEPARATION:
         output_tag +="-PhEl"  # X-ray photoelectron = XPhEl...
-
-    if NORMALISING_STEM is not None:
-        print("Getting norm")
-        mol_names = batches[NORMALISING_STEM]
+    if BATCH is ELECTRON_SOURCE:
+        output_tag += str(fluence)+"-"+str(width)+"-"+str(source_fraction)+"-"+str(source_duration)
+                 
+    if NORMALISING_STEM not in [None,False]:
         norm = []
+        mol_names = batches[NORMALISING_STEM]
         for mol_name in mol_names:
-            if INDEP_VARIABLE is PHOTON_ENERGY: 
-                energy = get_sim_params(mol_name)[2]/1000
-            if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
-                energy = get_sim_params(mol_name)[2]/1000 - edge_dict[stem][0]
-            if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
-                energy = get_sim_params(mol_name,get_source_energy=True)[2]
-                if energy is None:
-                    energy = 0
-                energy/=1000
-            pl = Plotter(mol_name)
-            if mode is AVERAGE_CHARGE:
-                intensity_averaged = False
-                if intensity_averaged: 
-                    norm.append(np.average(pl.get_total_charge(atoms="C")*pl.intensityData)/np.average(pl.intensityData))
-                else:
-                    step_index = -1  # Average charge at End-of-pulse 
-                    norm.append((energy,pl.get_total_charge(atoms="C")[step_index]))
-            elif mode is R_FACTOR:            
-                norm.append((energy,get_R(mol_name,MOLECULAR_PATH,im_params)[0][0]))
-
+            norm.append(get_data_point(ax,NORMALISING_STEM,mol_name,mode))
 
     for stem, mol_names in batches.items():
         print("Plotting "+stem+" trace.")
@@ -267,41 +336,28 @@ def plot(batches,label,figure_output_dir,mode = 0):
         Y = []
         times = []  # last times of sims, for checking everything lines up.
         for mol_name in mol_names:
-            pl = Plotter(mol_name)
-            times.append(pl.timeData[-1])
-
-            if NORMALISING_STEM is not None and NORMALISING_STEM == stem:  #TODO tidy up by moving outside loop
-                for elem in norm:
-                    X.append(elem[0])
-                    Y.append(elem[1])
-                break
-            else:
-                if INDEP_VARIABLE is PHOTON_ENERGY: 
-                    X.append(get_sim_params(mol_name)[2]/1000)
-                if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
-                    X.append(get_sim_params(mol_name)[2]/1000 - edge_dict[stem][0])
-                if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
-                    energy = get_sim_params(mol_name,get_source_energy=True)[2]
-                    if energy is None:
-                        energy = 0
-                    energy/=1000
-                    X.append(energy)
-
-                if mode is AVERAGE_CHARGE:
-                    intensity_averaged = False
-                    if intensity_averaged: 
-                        Y.append(np.average(pl.get_total_charge(atoms="C")*pl.intensityData)/np.average(pl.intensityData))
-                    else:
-                        step_index = -1  # Average charge at End-of-pulse 
-                        Y.append(pl.get_total_charge(atoms="C")[step_index])
-                elif mode is R_FACTOR:            
-                    Y.append(get_R(mol_name,MOLECULAR_PATH,im_params)[0][0])
+            if mol_name == NORMALISING_STEM:
+                for x,y,t in norm:
+                    if x is not None:
+                        X.append(x)
+                        Y.append(y)  
+                        times.append(t)                  
+          
+        for mol_name in mol_names:
+            if mol_name==NORMALISING_STEM:
+                continue
+            x,y,t = get_data_point(ax,stem,mol_name,mode)
+            if x is not None: # Ignore any sourceless data points.
+                X.append(x)
+                Y.append(y)  
+                times.append(t)            
+                    
         print("Energies:",X)
         if mode is AVERAGE_CHARGE:
             print("Charges:",Y)
         if mode is R_FACTOR:
             print("R factors:",Y)
-        if NORMALISING_STEM is not None:
+        if NORMALISING_STEM not in [None,False]:
             for i, energy in enumerate(X): 
                 for elem in norm:
                     if elem[0] == energy:
@@ -313,11 +369,14 @@ def plot(batches,label,figure_output_dir,mode = 0):
                 #     del(energies[i])
                 #     del(times[i])
 
-        _label = dopant 
-        if ground_charge_dict[stem]>1: 
-            _label+="$^{"+str(ground_charge_dict[stem])+"+}$"
-        elif ground_charge_dict[stem]==1:
-            _label+="$^{+}$"
+        if BATCH is REAL_ELEMENTS:
+            _label = dopant 
+            if ground_charge_dict[stem]>1: 
+                _label+="$^{"+str(ground_charge_dict[stem])+"+}$"
+            elif ground_charge_dict[stem]==1:
+                _label+="$^{+}$"
+        if BATCH is ELECTRON_SOURCE:
+            _label = "Injected"
         ax.scatter(X,Y,label=_label,color = cmap(c))
         
         k =2 # Spline order
@@ -326,18 +385,26 @@ def plot(batches,label,figure_output_dir,mode = 0):
             # Split dataset with ionisation edge of dopant
             split_idx = 0
             if INDEP_VARIABLE is PHOTON_ENERGY:
-                split_idx = np.searchsorted(np.array([x[0] for x in ordered_dat]),edge_dict[stem][0])
-            if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
-                split_idx = np.searchsorted(np.array([x[0] for x in ordered_dat]),-0.000000001)
+                split_idxes = [np.searchsorted(np.array([x[0] for x in ordered_dat]),edge) for edge in edge_dict[stem][0]]
+            if INDEP_VARIABLE is EDGE_SEPARATION:
+                done = False
+                if type (edge_dict[stem][0]) not in [int,float]:
+                    # Assume L-edge
+                    if L_TYPE in ["one","two","three"]:
+                        split_idxes = [np.searchsorted(np.array([x[0] for x in ordered_dat]),- 0.000000001),]
+                        done = True
+                # default case
+                if not done:
+                    split_idxes = np.searchsorted(np.array([x[0] for x in ordered_dat]),[edge-max(edge_dict[stem][0]) - 0.000000001 for edge in edge_dict[stem][0]])
             splines = []
             finer_x = []
-            if split_idx in (0, len(X)):
+            if not [split_idx in (0, len(X)) for split_idx in split_idxes]:
                 # No split in fit
                 splines.append(InterpolatedUnivariateSpline(*zip(*ordered_dat),k=k))
                 finer_x.append(np.linspace(np.min(X),np.max(X),endpoint=True))
             else:
-                # Split in fit                  \\START           \\END
-                for start_idx,end_idx  in zip([0,split_idx],[split_idx-1,len(X)-1]):
+                # Split in fit                   START POINTS             END POINTS
+                for start_idx,end_idx  in zip([0,max(split_idxes)],[min(split_idxes)-1,len(X)-1]):
                     if end_idx+1 - start_idx>=k+1:
                         splines.append(InterpolatedUnivariateSpline(*zip(*ordered_dat[start_idx:end_idx+1]),k=k))
                         finer_x.append(np.linspace(ordered_dat[start_idx][0],ordered_dat[end_idx][0],endpoint=True))
@@ -348,37 +415,64 @@ def plot(batches,label,figure_output_dir,mode = 0):
             for i, txt in enumerate(times):
                 ax.annotate(txt, (X[i],Y[i]))
         _ylab = ylabel[mode]
-        if NORMALISING_STEM is not None:
+        if NORMALISING_STEM not in [None,False]:
             _ylab += " relative difference" # TODO better clarity
         ax.set_ylabel(_ylab)
         if INDEP_VARIABLE is PHOTON_ENERGY:
             ax.set_xlabel("Photon energy (keV)")
-        if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
-            ax.set_xlabel("Dopant `photoelectron energy' (keV)")  # TODO define better
+        if INDEP_VARIABLE is EDGE_SEPARATION:
+            ax.set_xlabel("Lowest photoelectron emission energy (keV)")  
+            #ax.set_xlabel("LEIS photoelectron energy (keV)")  
         if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
             ax.set_xlabel("Source electron energy (keV)")  # TODO define better
         
+    if xlim[0] is None:
+        xlim[0] = np.min(X)
+    if xlim[1] is None:
+        xlim[1] = np.max(X)
     ax.set_ylim(ylim)
     ax.set_xlim(xlim)           
+
     if INDEP_VARIABLE is PHOTON_ENERGY: 
         for stem, mol_names in batches.items():
             c = col_dict[stem]
             dopant = stem.split("-")[0].split("_")[-1]
-            if ax.get_xlim()[0] < edge_dict[stem][0] < ax.get_xlim()[1]:
-                ax.axvline(x=edge_dict[stem][0],ls=(5,(10,3)),color=cmap(c))
-                ax.text(edge_dict[stem][0]-0.1, 0.96*ax.get_ylim()[1] +0.04*ax.get_ylim()[0],dopant+"--$"+edge_dict[stem][1]+"$",verticalalignment='top',horizontalalignment='right',rotation=-90,color=cmap(c))
-    if INDEP_VARIABLE is PHOTOELECTRON_ENERGY:
+            i = 0
+
+            for lin, text in zip(edge_dict[stem][0],edge_dict[stem][1]):
+                i+=1
+                if L_TYPE == "one":
+                    if type(edge_dict[stem][1]) in (list,tuple) and  i!=len(edge_dict[stem][1]):
+                        continue  
+                if L_TYPE == "two":
+                    if type(edge_dict[stem][1]) in (list,tuple) and  i!=len(edge_dict[stem][1]) - 1:
+                        continue  
+                if L_TYPE == "three":
+                    if type(edge_dict[stem][1]) in (list,tuple) and  i!=len(edge_dict[stem][1]) - 2:
+                        continue 
+                if ax.get_xlim()[0] < lin < ax.get_xlim()[1]:
+                    ax.axvline(x=lin,ls=(5,(10,3)),color=cmap(c))
+                    ax.text(lin-0.1, 0.96*ax.get_ylim()[1] +0.04*ax.get_ylim()[0],dopant+"--$"+text+"$",verticalalignment='top',horizontalalignment='right',rotation=-90,color=cmap(c))
+
+            #if ax.get_xlim()[0] < max(edge_dict[stem][0]) < ax.get_xlim()[1]:
+                #ax.axvline(x=max(edge_dict[stem][0]),ls=(5,(10,3)),color=cmap(c))
+                #ax.text(max(edge_dict[stem][0])-0.1, 0.96*ax.get_ylim()[1] +0.04*ax.get_ylim()[0],dopant+"--$"+edge_dict[stem][1]+"$",verticalalignment='top',horizontalalignment='right',rotation=-90,color=cmap(c))
+    if INDEP_VARIABLE is EDGE_SEPARATION:
         ax.axvline(x=0,ls=(5,(10,3)),color="black")
 
-    
-    ax.ticklabel_format(style='sci', axis='y', scilimits=(-1,1),)
+    if DEP_VARIABLE is R_FACTOR:
+        ax.ticklabel_format(style='sci', axis='y', scilimits=(-1,1),)
     #yticks = ax.get_yticks()
     #OOM = math.floor(math.log10(np.max(yticks)))
     #ax.set_yticks((yticks//(10**(OOM-1))*(10**(OOM-1))))
     #ax.set_yticklabels(([str(y/OOM) for y in yticks ]))
 
     if LEGEND:
-        ax.legend(title="Dopant",fancybox=True,ncol=2,loc='upper center',bbox_to_anchor=(0.75, 1.02),handletextpad=0.01,columnspacing=0.2,borderpad = 0.18)
+        if BATCH is REAL_ELEMENTS:
+            ax.legend(title="Dopant",fancybox=True,ncol=2,loc='upper center',bbox_to_anchor=(0.75, 1.02),handletextpad=0.01,columnspacing=0.2,borderpad = 0.18)
+        if BATCH is ELECTRON_SOURCE:
+            ax.legend(fancybox=True,ncol=1,loc='upper center',bbox_to_anchor=(0.8, 1.02),handletextpad=0.01,columnspacing=0.2,borderpad = 0.18)
+
     #ax.set_title(fig_title)
     #fig.tight_layout()
     fig.savefig(figure_output_dir + label + output_tag + figures_ext)#bbox_inches="tight", pad_inches=0)
@@ -389,7 +483,7 @@ def grow_crystals(run_params,pdb_path,allowed_atoms,identical_deviations=True,pl
     Ignores atoms not in allowed_atoms
     '''
     # The undamaged crystal form factor is constant (the initial state's) but still performs the same integration step with the pulse profile weighting.
-    crystal_dmged = Crystal(PDB_STRUCTURE,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=True, **run_params["crystal"])
+    crystal_dmged = Crystal(pdb_path,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=True, **run_params["crystal"])
     if identical_deviations:
         # we copy the other crystal so that it has the same deviations in coords
         crystal_undmged = copy.deepcopy(crystal_dmged)
@@ -409,33 +503,146 @@ def get_R(sim_handle,sim_handle_parent_folder,scattering_sim_parameters,allowed_
         exp_name1 = sim_handle + "_" + exp1_qualifier
         exp_name2 = sim_handle + "_" + exp2_qualifier
 
-        start_time,end_time,energy,fwhm,photon_count,param_dict,unit_dict = get_sim_params(sim_handle)
-
+        param_dict,_,_ = get_sim_params(sim_handle)
+        start_time = param_dict["start_t"]
+        end_time = param_dict["end_t"]
+        energy = param_dict["energy"]
         # 
         print("Preparing XFEL...")
         experiment1 = XFEL(exp_name1,energy,**run_params["experiment"])
         experiment2 = XFEL(exp_name2,energy,**run_params["experiment"])
 
         print("Growing crystals at breakneck speeds...")     
-        crystal_real, crystal_ideal = grow_crystals(run_params,PDB_STRUCTURE,allowed_atoms,plot_crystal=False)
+        structure = PDB_STRUCTURE
+        if SCATTERING_TARGET == 99:
+            # Debug, use tetrapeptide (small structure, fast)
+            structure = get_pdb_path(SCATTER_DIR,"tetra")
+            
+        crystal_real, crystal_ideal = grow_crystals(run_params,structure,allowed_atoms,plot_crystal=False)
     
         if run_params["laser"]["SPI"]:
             SPI_result1 = experiment1.spooky_laser(start_time,end_time,sim_handle,sim_handle_parent_folder,crystal_real, **run_params["laser"])
             SPI_result2 = experiment2.spooky_laser(start_time,end_time,sim_handle,sim_handle_parent_folder,crystal_ideal, **run_params["laser"])
             #TODO apply_background([SPI_result1,SPI_result2])
-            R,cc,resolutions = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=True,SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
-        '''
-        else:
-            exp1_orientations = experiment1.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal_real, results_parent_dir=sctr_results_batch_dir, **run_params["laser"])
-            if exp_name2 != None:
-                # sync orientation with damage simulation
-                experiment2.set_orientation_set(exp1_orientations)  
-                run_params["laser"]["random_orientation"] = False 
-                experiment2.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal_ideal, results_parent_dir=sctr_results_batch_dir, **run_params["laser"])
-            R,cc = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=True,SPI=False,results_parent_dir = sctr_results_batch_dir)
-        '''
+            damage_dict = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=True,SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
         #pulse_params = [energy,fwhm,photon_count]
-        return R,resolutions  # resolution index 0 corresponds to the max resolution
+        return damage_dict["R"],damage_dict["resolutions"]  # resolution index 0 corresponds to the max resolution
+
+def get_saved_data(handle):
+    # Look for save of data
+    file_path = GOLDI_RESULTS_PATH+handle+".json"
+    if os.path.exists(file_path):
+        with open(file_path,"r") as f:
+            return json.load(f)
+    return None
+    
+    
+def save_data(handle,output_data_dict,delete_old = False):
+    os.makedirs(GOLDI_RESULTS_PATH,exist_ok=True)
+    if output_data_dict == {}:
+        return
+    if delete_old:
+        # Delete saves for older simulations (smaller run number) with this mol file.
+        all_outputs = os.listdir(MOLECULAR_PATH)
+        for match in all_outputs:
+            if match.startswith(handle+"_") and match != handle:
+                os.remove(GOLDI_RESULTS_PATH+match+".json")
+
+    file_path = GOLDI_RESULTS_PATH+handle+".json"
+    # Get any data from existing json file 
+    data = output_data_dict
+    if os.path.exists(file_path):
+        with open(GOLDI_RESULTS_PATH+handle+".json","r") as f:
+            saved_data_dict = json.load(f)
+            data = merge(data,saved_data_dict)
+
+    # Save data
+    with open(GOLDI_RESULTS_PATH+handle+".json", 'w') as f: 
+        json.dump(data, f)    
+
+
+def get_data_point(ax,stem,mol_name,mode):
+    im_params,_ = SCATTERING_TARGET_DICT[SCATTERING_TARGET]
+    indep_variable_key = str(INDEP_VARIABLE)
+    dep_variable_key = str(DEP_VARIABLE)
+    if INDEP_VARIABLE == EDGE_SEPARATION:
+        indep_variable_key += "L" + L_TYPE
+    if DEP_VARIABLE == 1:
+        dep_variable_key = str(DEP_VARIABLE)+"-"+str(SCATTERING_TARGET)
+    intensity_averaged = True #TODO
+    if DEP_VARIABLE is AVERAGE_CHARGE:
+        if intensity_averaged: 
+            dep_variable_key += '_avged'
+        else:
+            dep_variable_key += '_EoP'
+    saved_x = saved_y = saved_end_time = None
+    dat= get_saved_data(mol_name) 
+    if dat is not None:
+            saved_x,                              saved_y,                            saved_end_time = (
+            dat.get("x").get(indep_variable_key),dat.get("y").get(dep_variable_key),dat.get("end_time")
+        )                          
+    ## Measure damage 
+    if saved_y is None:              
+        pl = Plotter(mol_name)
+        if mode is AVERAGE_CHARGE:
+            intensity_averaged = True
+            if intensity_averaged: 
+                y = np.average(pl.get_total_charge(atoms="C")*pl.intensityData)/np.average(pl.intensityData)
+            else:
+                step_index = -1  # Average charge at End-of-pulse 
+                y = pl.get_total_charge(atoms="C")[step_index]
+        elif mode is R_FACTOR:            
+            y = get_R(mol_name,MOLECULAR_PATH,im_params)[0][0]
+    else: 
+        y = saved_y
+    # Get end times (for purposes of checking all simulations ran to completion)
+    if saved_end_time is None:
+        if saved_y is not None:
+            pl = Plotter(mol_name)
+        t = pl.timeData[-1] 
+    else:
+        t = saved_end_time        
+    ## Get independent variable (must be last because of sourceless case)
+    if INDEP_VARIABLE is PHOTON_ENERGY: 
+        energy = get_sim_params(mol_name)[0]["energy"]
+    if INDEP_VARIABLE is EDGE_SEPARATION:
+        if type(edge_dict[stem][1]) in (list,tuple) and L_TYPE == "one":
+            energy = get_sim_params(mol_name)[0]["energy"] - edge_dict[stem][0][2]*1000
+        elif type(edge_dict[stem][1]) in (list,tuple) and  L_TYPE == "two":
+            energy = get_sim_params(mol_name)[0]["energy"] - edge_dict[stem][0][1]*1000
+        elif type(edge_dict[stem][1]) in (list,tuple) and  L_TYPE == "three":
+            energy = get_sim_params(mol_name)[0]["energy"] - edge_dict[stem][0][0]*1000
+        else:
+            energy = get_sim_params(mol_name)[0]["energy"] - max(edge_dict[stem][0])*1000
+    if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
+        s = get_sim_params(mol_name)[0]
+        energy = s["source_energy"]
+        if energy is None:
+            # No source
+            if (s["fluence"],s["width"]) != (fluence,width):
+                print(s)
+                print((s["fluence"],s["width"]),"!=",(fluence,width))
+                raise ValueError("Params do not match expected values for batch")                        
+            # Plot horizontal dashed line corresponding to damage with no artificial source.
+            ax.axhline(y=y,ls=(5,(10,3)),color=cmap(0),label="No injected")
+        elif (s["fluence"],s["width"],s["source_fraction"],s["source_duration"]) != (fluence,width,source_fraction,source_duration):
+            print(s)
+            print((s["fluence"],s["source_fraction"],s["source_duration"]),"!=",(fluence,width,source_fraction,source_duration))
+            raise ValueError("Params do not match expected values for batch")                    
+    if energy!= None:
+        # Standard case
+        x = energy/1000    
+    if saved_x is not None:
+        assert saved_x == x                                 
+    save_dict = {}
+    if saved_x is None:
+        save_dict["x"] = {indep_variable_key:x}
+    if saved_y is None:    
+        save_dict["y"] = {dep_variable_key:y}
+    if saved_end_time is None:
+        save_dict["end_time"] = t
+    save_data(mol_name,save_dict,delete_old=True)
+    return x,y,t
 
 if __name__ == "__main__":
     main()

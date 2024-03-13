@@ -39,6 +39,7 @@ struct DynamicGridPreset{
     const static char Galli_support = 9;
     const static char all_log_grid = 10;
     const static char mb_log_grid = 11;
+    const static char static_high_energy = 12;
     const static char unknown = 101;
     char selected = unknown;  
     double pulse_omega = -1;  // Photon energy [eV]
@@ -118,9 +119,10 @@ namespace {
             gs.mode = GridSpacing::dynamic;
             break;          
         default:
-            std::cerr<<"Unrecognised grid mode \""<<tmp<<"\", defaulting to dynamic mode..."<<std::endl;
-            gs.mode = GridSpacing::dynamic;
-            break;
+            std::cerr<<"Unrecognised grid mode \""<<tmp<<"\""<<std::endl;
+            assert(false);
+            //gs.mode = GridSpacing::dynamic;
+            //break;
         }
         return is;
     }
@@ -170,11 +172,15 @@ namespace {
             break;          
         case 'M':
             preset.selected = DynamicGridPreset::mb_log_grid;
-            break;                                          
+            break;           
+        case 'S':
+            preset.selected = DynamicGridPreset::static_high_energy;
+            break;                                                     
         default:
-            std::cerr<<"Unrecognised grid preset \""<<tmp<<"\", defaulting to medium accuracy..."<<std::endl;
-            preset.selected = DynamicGridPreset::medium_acc;
-            break;
+            std::cerr<<"Unrecognised grid preset \""<<tmp<<"\""<<std::endl;
+            assert(false);
+            //preset.selected = DynamicGridPreset::medium_acc;
+            //break;
         }
         return is;
     }    

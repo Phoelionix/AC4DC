@@ -37,11 +37,12 @@ class Plotter:
     # Example initialisation: Plotter(water,molecular/path)
     # --> Data is contained in molecular/path/water. 
     # Will use mol file within by default, or (with a warning) search input for matching name if none exists.  
-    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None):
+    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None,end_t=None):
         '''
         abs_molecular_path: The path to the folder containing the simulation output folder of interest.
         use_electron_density: If True, plot electron density rather than energy density
         '''
+        self.end_t_plotting = end_t
         self.use_electron_density = use_electron_density
         self.molecular_path = abs_molecular_path
         if self.molecular_path is None:
@@ -646,18 +647,34 @@ class Plotter:
 
     def update_outputs(self):
         raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
-        self.intensityData = raw[:,1]
         self.timeData = raw[:, 0]
+        self.intensityData = raw[:,1]
         self.energyKnot = np.array(self.get_free_energy_spec(), dtype=np.float64)
         raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
         self.freeData = raw[:,1:]
+        photo_data_present = False
         for a in self.atomdict:
             raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
             self.boundData[a] = raw[:, 1:]
             self.statedict[a] = self.get_bound_config_spec(a)
             # rates
-            raw = np.genfromtxt(self.atomdict[a]['photofile'], comments='#', dtype=np.float64)
-            self.photoData[a] = raw[:, 1] 
+            try:
+                raw = np.genfromtxt(self.atomdict[a]['photofile'], comments='#', dtype=np.float64)
+                self.photoData[a] = raw[:, 1] 
+                photo_data_present = True
+            except:
+                print("Warning: Missing '" + self.atomdict[a]['photofile'] + "'.")
+        # Truncate data to time specified.
+        if self.end_t_plotting is not None: 
+            last_idx = np.searchsorted(self.timeData,self.end_t_plotting)
+            self.timeData = self.timeData[0:last_idx]
+            self.intensityData = self.intensityData[0:last_idx]
+            self.freeData = self.freeData[0:last_idx]
+            for a in self.atomdict:
+                self.boundData[a] = self.boundData[a][0:last_idx] 
+                if photo_data_present:
+                    self.photoData[a] = self.photoData[a][0:last_idx]
+                
 
         self.atomic_numbers = self.get_atomic_numbers()
         self.grid_update_time_Data = []
@@ -694,17 +711,25 @@ class Plotter:
     def setup_axes(self,num_subplots):
         self.num_plotted = 0 # number of subplots plotted so far.
         width, height = 6, 3.3333  # 4.5,2.5 ~ abdallah
-        if num_subplots > 3 :
+        if num_subplots >= 3 :
             self.fig, self.axs = plt.subplots(int(0.999+(num_subplots**0.5)),int(0.999+(num_subplots**0.5)),figsize=(width*int((1+num_subplots)/2),height*int((1+num_subplots)/2)))
         else:
             self.fig, self.axs = plt.subplots(num_subplots,figsize=(width,height*num_subplots))
             if type(self.axs) is not np.ndarray:
                 self.axs = np.array([self.axs])
+        self.num_subplots = num_subplots
 
     def get_next_ax(self):
         ax = self.axs.flat[self.num_plotted]
         self.num_plotted+=1
         return ax
+    def delete_remaining_axes(self):
+        if self.num_subplots == 1:
+            return
+        while self.num_plotted < self.axs.shape[0]*self.axs.shape[1]:
+            self.axs.flat[self.num_plotted].remove()
+            self.num_plotted+=1
+
         
     def plot_atom_total(self, a):
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
@@ -859,9 +884,14 @@ class Plotter:
         old_ytop = ax.get_ylim()[1]
         ax.set_ylim([-0.5,len(Y)-0.5])
 
-    def plot_orbitals_bar(self, atoms = None, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],orbitals=None,normalise=False,**kwargs):
+    def plot_orbitals_bar(self, atoms = None, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],orbitals=None,normalise=False,atoms_excluded = None,**kwargs):
         if atoms is None: 
             atoms = self.atomdict
+            if atoms_excluded is not None:
+                        for a in atoms_excluded:
+                            atoms.pop(a)          
+        else:
+            assert atoms_excluded is None
         
         for a in atoms:
             if show_pulse_profile:  
@@ -926,6 +956,8 @@ class Plotter:
             else:
                 ax = self.get_next_ax()        
             ax.scatter(self.timeData,self.photoData[a])
+            ax.ticklabel_format(style='sci',scilimits=(0,0))
+            ax.set_ylabel(a+" species-wide cumulative photoionisations")
             
 
     def plot_subshell(self, a, subshell='1s',rseed=404):
@@ -958,12 +990,14 @@ class Plotter:
         T_end = len(T)
         if xlim[1] is not None:
             T_end = np.searchsorted(T,xlim[1])
-        T = self.timeData[T_start:T_end]
+        T = T[T_start:T_end]
         
         self.aggregate_charges(charge_difference)
         self.Q = np.zeros(T.shape[0]) # total charge
         colour = None
-        for j,a in enumerate(self.atomdict):
+        if atoms is None:
+            atoms = self.atomdict
+        for j,a in enumerate(atoms):
             if atoms is not None and a not in atoms:
                 continue
             if colours != None:
@@ -1039,7 +1073,7 @@ class Plotter:
             ax.legend(loc = legend_loc)
         return ax
     
-    def plot_orbitals_charge(self, every=1,densities = False,cmap=None,atom=None,orbitals = None,plot_legend=True,xlim=[None,None],ylim=[None,None],plot_derivative=False,legend_loc='lower left',**kwargs):
+    def plot_orbitals_charge(self, every=1,densities = False,cmap=None,atom=None,orbitals = None,plot_legend=True,xlim=[None,None],ylim=[None,None],plot_derivative=False,legend_loc='lower left',custom_legend=None,**kwargs):
         '''
         plot_derivative (bool), if True, plots average ionisation rate instead of average charge. 
         '''
@@ -1120,11 +1154,18 @@ class Plotter:
         #         ax.set_ylabel("Avg. charge difference")  # Sometimes we start with charged states.
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
+        ax.set_ylabel("Average occupancy")
         # ax.set_xlim(None,-18.6)
         # ax.set_ylim(0,5)
         if plot_legend:
             #ax.legend(loc = legend_loc)
-            ax.legend(bbox_to_anchor=(1.02, 1),loc='upper left', ncol=1,handlelength=1)
+            if custom_legend is None: 
+                ax.legend(bbox_to_anchor=(1.02, 1),loc='upper left', ncol=1,handlelength=1)  # Top right legend.
+            else:
+                handles,_ = ax.get_legend_handles_labels()
+                handles = list(handles)
+                assert len(custom_legend)==len(handles)
+                ax.legend(handles,custom_legend,bbox_to_anchor=(1.02, 1),loc='upper left', ncol=1,handlelength=1)
         return ax    
     
  

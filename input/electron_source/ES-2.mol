@@ -19,15 +19,16 @@ true         // enabled? true/false.
 
 #NUMERICAL
 1000        // Initial guess for number of time step points for rate equation (Note e-e scattering part takes num_stiff_ministeps = 500 substeps for each step).
-28           // Number of threads in OpenMP.
+26           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 L       // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
 5.15         // Grid update period in fs, (dynamic grid only).
 
 #ELECTRON_SOURCE
-0.05    // Additional electrons as fraction of other photoion. events
+3    // Additional electrons as fraction of other photoion. events
 1000     // Electron energy in eV
+0.0278    // Fraction of pulse to emit over
 
 #OUTPUT
 800          // Number of time steps in the output files.

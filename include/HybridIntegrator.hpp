@@ -89,7 +89,7 @@ class Hybrid : public Adams_BM<T>{
     
     void run_steps(ofstream& _log, const double t_resume, const int steps_per_time_update);  // TODO clean up bootstrapping. -S.P.
     void solve_dynamics(ofstream& _log, double t_initial, const double t_resume, const int steps_per_time_update);
-    void initialise_transient_y(int n); // Approximates initial stiff intermediate steps
+    void initialise_transient_y(int latest_step); // Approximates initial stiff intermediate steps
     void initialise_transient_y_v2(int n); // Uses lagrange interpolation to approximate initial stiff intermediate steps
     void modify_ministeps(const int n,const int num_ministeps);
     #ifdef NO_MINISTEP_UPDATING
@@ -405,7 +405,7 @@ void Hybrid<T>::step_stiff_part(unsigned n){
 /// Initialises intermediate steps needed for stiff solver to get going.
 // For order 3, transient y is indexed as: [mini_n-3,mini_n-2,mini_n-1,mini_n]
 template<typename T>
-void Hybrid<T>::initialise_transient_y(int n) {
+void Hybrid<T>::initialise_transient_y(int n) {  // n is the last calculated step.
     assert(this->y[n-1].F.container_size() == this->y[n].F.container_size());
 
     y_transient.resize(this->order);

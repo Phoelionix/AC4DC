@@ -49,7 +49,7 @@ void ElectronRateSolver::set_starting_state(){
         double _dt = this->timespan_au/input_params.Num_Time_Steps();
         this->setup(get_initial_state(), _dt, IVP_step_tolerance);
     }
-    num_steps = (simulation_end_time - simulation_start_time)/this->dt + 1;
+    num_steps = round((simulation_end_time - simulation_start_time)/this->dt + 1);
 }
 
 state_type ElectronRateSolver::get_initial_state() {
@@ -85,12 +85,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
     if (!init && input_params.elec_grid_type.mode != GridSpacing::dynamic){
         return; 
     }
-    // recalc being tuned off seems to be broken currently. We only do it once so I'm not bothering to deal with it. -S.P.
-    // bool recalc = false;
-    // #ifdef RECALC_HARTREE
-    // recalc = true;
-    // #endif
-    bool recalc = true;
+    bool recalc = false;
     if (init ){
         std::cout << "[ HF ] Peforming Hartree-Fock calculations for species' allowed orbital configurations" << std::endl;
         input_params.calc_rates(_log, recalc);
@@ -267,7 +262,7 @@ void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_
 
     // Call hybrid integrator to iterate through the time steps (good state)
     good_state = true;
-    assert(num_steps == (simulation_end_time - simulation_start_time)/this->dt + 1);
+    assert(num_steps == round((simulation_end_time - simulation_start_time)/this->dt + 1));
     steps_per_time_update = max(1 , (int)(input_params.time_update_gap/this->dt)); 
     this->solve_dynamics(_log,simulation_start_time, simulation_resume_time, steps_per_time_update); // Inherited from ABM
 
@@ -1046,13 +1041,6 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
 
     size_t n = load_step;
     assert(y[n].atomP == next_ode_states_used[0].atomP);
-    #ifdef RATES_TRACKING
-    photo_rate.resize(n); 
-    fluor_rate.resize(n); 
-    auger_rate.resize(n); 
-    tbr_rate.resize(n); 
-    eii_rate.resize(n);     
-    #endif
 
     std::cout.setstate(std::ios_base::failbit);  // disable character output
     
@@ -1072,24 +1060,25 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
         }              
         // set basis to one given by knots
         if (rates_uninitialised)
-            Distribution::set_basis(load_step, param_cutoffs, regimes, knots, false);
+            Distribution::set_basis(0, param_cutoffs, regimes, knots, false);
     }
 
 
     // Load distributions and also the next few states that we need for the first ode step.
-    y.resize(n);    
+    y.resize(n); // Removes all steps corresponding to and past the steps to load    
     for(state_type state : next_ode_states_used){
         y.push_back(state);
         n++;
     }    
+    n-=1; // Set step back to the last updated step.
     y.resize(num_steps);  
-    initialise_transient_y((int)load_step);
+    initialise_transient_y((int)n);
    
 
     if (rates_uninitialised == false){
         if(_log.is_open()){
             _log << "------------------- [ Reloaded Step ] -------------------\n" 
-            "Time: "<<t[load_step]*Constant::fs_per_au <<" fs; "<<"Step: "<<load_step<<"\n" 
+            "Time: "<<t[load_step]*Constant::fs_per_au <<"-"<<t[n]*Constant::fs_per_au<<" fs; "<<"Step: "<<load_step<<"-"<<n<<"\n" 
             << endl;
         }           
         std::cout.clear();
@@ -1101,7 +1090,7 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
         if(_log.is_open()){
             double e = Constant::eV_per_Ha;
             _log << "------------------- [ Reloaded Step + Knots ] -------------------\n" 
-            "Time: "<<t[load_step]*Constant::fs_per_au <<" fs; "<<"Step: "<<load_step<<"\n" 
+            "Time: "<<t[load_step]*Constant::fs_per_au <<"-"<<t[n]*Constant::fs_per_au<<" fs; "<<"Step: "<<load_step<<"-"<<n<<"\n" 
             <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
             for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
                 _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
