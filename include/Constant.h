@@ -102,6 +102,22 @@ namespace CustomDataType
 		vector<double> Dipoles; // Reduced transition dipole matrix elements form 'reference' to 'excited'.
 		int index = 0;
 	};
+
+	struct bound_transport //
+	{
+		int from_heavy; // Index of configuration of heavy atom.
+		int from_light; // Index of configuration of light atom.
+		int to_heavy; // Index of configuration for heavy atom corresponding to allowed configuration with lowest energy for the complex
+		int to_light; // Index of configuration for light atom corresponding to allowed configuration with lowest energy for the complex
+	};	
+	// Idea: If donate electron, go to donator_index. If receive electron, go to receiver index. 
+	struct energy_config
+	{
+		int index;
+		double valence_energy; // Energy of valence electron - for our bound transport correction the electron automatically chooses to hop in to a valence orbital if its binding energy is stronger.
+		int receiver_index;
+		int donator_index;
+	};	
 }
 
 typedef std::vector<double> bound_t; // TODO I'm debating removing this since there are lots of std::vector<double> declarations that this makes confusing -S.P.
@@ -111,8 +127,10 @@ namespace RateData {
 
 	struct EIIdata
 	{
-		int init; // initial state
+		//EIIdata() : init(0), fin(vector<int>(0)), occ(vector<int>(0)),ionB(vector<float>(0)),kin(vector<float>(0)) {}
+
 		vector<int> fin; // final states
+		int init; // initial state
 		vector<int> occ; // occupancy of state
 		vector<float> ionB; // ion binding energy
 		vector<float> kin; // u for atom in this state (see Kim and Rudd BEB for details)
@@ -160,6 +178,7 @@ namespace RateData {
 
 	struct Atom
 	{
+		bool bound_free_excluded = false; // Whether to skip calculation of EII and TBR for this species.
 		vector<string> index_names = vector<string>(0);
 		std::string name = "";
 		double nAtoms = 1.;// atomic number density
@@ -169,10 +188,13 @@ namespace RateData {
 		vector<RateData::Rate> Fluor = vector<RateData::Rate>(0);
 		vector<RateData::Rate> Auger = vector<RateData::Rate>(0);
 		vector<RateData::EIIdata> EIIparams = vector<RateData::EIIdata>(0);
+		// Tacked on energy_config here.
+		vector<CustomDataType::energy_config> EnergyConfig = vector<CustomDataType::energy_config>(0);
 	};
 
 	bool ReadRates(const string & input, vector<RateData::Rate> & PutHere);
 	bool ReadEIIParams(const string & input, vector<RateData::EIIdata> & PutHere);
+	bool InterpolateRates(const string & rate_location, const string & rate_file_type,vector<RateData::Rate> & PutHere, double photon_energy,double allowed_interp = 1000);
 	void WriteRates(const string& fname, const vector<RateData::Rate>& rateVector);
 	void WriteEIIParams(const string& fname, const vector<RateData::EIIdata>& eiiVector);
 }
@@ -208,3 +230,7 @@ static const double gaussX_64[64] = {-0.024350293,0.024350293,-0.072993122,0.072
 -0.783972359,0.783972359,-0.813265315,0.813265315,-0.840629296,0.840629296,-0.865999398,0.865999398,-0.889315446,0.889315446,-0.910522137,0.910522137,-0.929569172,
 0.929569172,-0.946411375,0.946411375,-0.9610088,0.9610088,-0.973326828,0.973326828,-0.983336254,0.983336254,-0.991013371,0.991013371,-0.996340117,0.996340117,
 -0.999305042,0.999305042};
+
+/// Ensures we have consistent removal of decimal places which is important for loading sims.
+/// Necessary due to high precision of Constant::fs_per_au
+static const double loading_t_precision = 9;

@@ -1,5 +1,6 @@
 // Template AC4DC input file created from  5zck.pdb
 // Ignores salt water
+//OUTDATED
 #ATOMS
 C_fast 17
 N_fast 5

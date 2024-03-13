@@ -28,6 +28,7 @@ This file is part of AC4DC.
 #include <iostream>
 #include "GridSpacing.hpp"
 #include "DynamicRegions.h"
+#include "config.h"
 
 static constexpr bool USING_SQRTE_PREFACTOR = true;
 
@@ -35,7 +36,7 @@ class BasisSet  : public GridRegions
 {
 public:
     BasisSet() : GridRegions::GridRegions() {} 
-    void set_parameters(const GridSpacing& gt, ManualGridBoundaries& elec_grid_regions, FeatureRegimes& regimes,DynamicGridPreset dyn_grid_preset);
+    void set_parameters(const GridSpacing& gt, ManualGridBoundaries& elec_grid_regions, FeatureRegimes& regimes);
     void set_parameters(FeatureRegimes& regimes, std::vector<double> new_grid_knots);
     void compute_overlap(size_t num_funcs);
     /// Returns S_inverse(deltaf) 
@@ -67,7 +68,7 @@ public:
     double min_elec_e() {return _min;};
     double max_elec_e() {return _max;};  
     size_t num_funcs;
-    const static int BSPLINE_ORDER = 3; // 1 = rectangles, 2=linear, 3=quadratic
+    const static int BSPLINE_ORDER = GLOBAL_BSPLINE_ORDER; // 1 = rectangles, 2=linear, 3=quadratic
     std::vector<double> avg_e;
     std::vector<double> log_avg_e;
     std::vector<double> areas;
@@ -82,6 +83,8 @@ protected:
     
     void manual_set_knot(const GridSpacing& gt); 
     
+    int Z_0 = -1;
+    int Z_inf = -1;
     double _min;
     double _max;
     std::vector<int> _manual_region_bndry_index;

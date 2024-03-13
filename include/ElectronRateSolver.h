@@ -53,50 +53,70 @@ class ElectronRateSolver : private ode::Hybrid<state_type>
 {
 public:
     ElectronRateSolver(const char* filename, ofstream& log) :
-    Hybrid(3), input_params(filename, log), pf() // (order Adams method)
+    Hybrid(3), input_params(filename, log), pf() // (order Adams method), argument of Hybrid = order. num steps used for implicit adams-moulton = order - 1.
     {
+        log_config_settings(log);
+
+        grid_update_period = input_params.Grid_Update_Period();  // TODO the grid update period should be made to be at least 3x (probably much more) longer with a gaussian pulse, since early times need it to be updated far less often to avoid instability for such a pulse. 
+
+        param_cutoffs = input_params.param_cutoffs;
+        
         pf.set_shape(input_params.pulse_shape);
         pf.set_pulse(input_params.Fluence(), input_params.Width());
         
-        
+        timespan_au = round_time(input_params.timespan_factor*input_params.Width()); // 0 by default
         if (input_params.pulse_shape ==  PulseShape::square){  //-FWHM <= t <= 3FWHM (we've squished the pulse into the first FWHM.)
-            timespan_au = input_params.Width()*4; // 4*FWHM, capturing effectively entire pulse.
-            simulation_start_time = -timespan_au/4;
-            simulation_end_time =  3*timespan_au/4; 
+            if (timespan_au <= 0)  // Default case
+                timespan_au = round_time(input_params.Width()*4,true); // 4*FWHM, capturing effectively entire pulse.
+            simulation_start_time = -input_params.Width(); // e.g. if the timespan_au is 10 fwhm, the first fwhm is the pulse.
         } else { //-1.2FWHM <= t <= 1.2 FWHM
-            timespan_au = input_params.Width()*2.4;   // 99% of pulse, (similar to Neutze)
-            std::cout<<"Imaging using -1.2 FWHM to 1.2 FWHM"<<std::endl;
+            if (timespan_au <= 0) // Default case
+                timespan_au = round_time(input_params.Width()*2.4,true);   // > 99% of pulse, (similar to Neutze)
+            
             simulation_start_time = -timespan_au/2;
-            simulation_end_time = timespan_au/2; 
+            if (input_params.negative_timespan_factor != 0)
+                simulation_start_time = -input_params.negative_timespan_factor*input_params.Width();
         }
+        simulation_start_time = round_time(simulation_start_time);
+        simulation_end_time =  simulation_start_time + timespan_au; 
+        std::cout<<"\033[33m"<<"Imaging from "<<simulation_start_time/input_params.Width() <<" FWHM to " 
+        << simulation_end_time/input_params.Width() <<" FWHM"<<"\033[0m"<<std::endl;
+        
         if (input_params.Cutoff_Inputted()){
             if (input_params.Simulation_Cutoff() > simulation_end_time){
                 std::cout <<"Ignoring cutoff, as cutoff is past the end time."<<endl;
             }
             simulation_end_time = min(input_params.Simulation_Cutoff(),simulation_end_time); 
         }
-        simulation_resume_time = simulation_start_time;
-        set_grid_regions(input_params.elec_grid_regions);
+        simulation_resume_time = simulation_start_time;  // If loading simulation, is overridden by ElectronRateSolver::set_starting_state();
 
-        grid_update_period = input_params.Grid_Update_Period();  // TODO the grid update period should be made to be at least 3x (probably much more) longer with a gaussian pulse, since early times need it to be updated far less often to avoid instability for such a pulse. 
-        steps_per_time_update = max(1 , (int)(input_params.time_update_gap/(timespan_au/input_params.num_time_steps))); 
+        switch (input_params.elec_grid_type.mode)  
+        {
+            case GridSpacing::manual:
+                set_grid_regions(input_params.elec_grid_regions);
+                break;
+            case GridSpacing::dynamic:
+            if (input_params.elec_grid_preset.selected != DynamicGridPreset::unknown)
+                Distribution::initialise_dynamic_regions(input_params.elec_grid_preset);
+             
+        }
 
         if(input_params.Filtration_File() != ""){
             load_filtration_file();
         }
 
-        #ifndef HPC
+        #if !defined NO_BACKUP_SAVING
         time_of_last_save = std::chrono::high_resolution_clock::now();
         #endif 
     }
-    /// Solve the rate equations
-    void solve(ofstream & _log, const string& tmp_data_folder);
+    /// Motehr function for solving the rate equations, and running auxilliary functions (e.g. display, timers) 
+    void execute_solver(ofstream & _log, const string& tmp_data_folder);
     void save(const std::string& folder);
     /// Sets up the rate equations, which requires computing the atomic cross-sections/avg. transition rates to get the coefficients.
     void set_up_grid_and_compute_cross_sections(std::ofstream& _log, bool init,size_t step = 0,bool force_update = false); //bool recalc=true);
     /// creates the tensor of coefficients 
-    void initialise_rates();
-    void tokenise(std::string str, std::vector<double> &out, const char delim = ' ');
+    void compute_free_grid_rates();
+    void tokenise(std::string str, std::vector<double> &out, const size_t start_idx = 0, const char delim = ' ');
 
     /// Number of secs taken for simulation to run
     long secs;
@@ -105,12 +125,11 @@ public:
     std::chrono::duration<double, std::milli> 
     display_time, plot_time, dyn_dt_time, backup_time, pre_ode_time, // pre_ode
     dyn_grid_time, user_input_time, post_ode_time,  // post_ode
-    pre_tbr_time, eii_time, tbr_time,  // sys_bound
+    pre_tbr_time, transport_time, eii_time, tbr_time,  // sys_bound
     ee_time, apply_delta_time; //sys_ee 
 
-    #ifndef HPC
+    #if !defined NO_BACKUP_SAVING
     std::chrono::_V2::system_clock::time_point time_of_last_save;   
-    std::chrono::minutes minutes_per_save{60};
     #endif
 
 private:
@@ -126,7 +145,7 @@ private:
     double fraction_of_pulse_simulated;
     double grid_update_period; // time period between dynamic grid updates.
 
-    void load_filtration_file(){};
+    void load_filtration_file(){}; //TODO
     // Model parameters
 
     // arrays computed at class initialisation
@@ -138,12 +157,12 @@ private:
     void mb_energy_bounds(size_t step, double& max, double& min, double& peak_density, bool allow_shrinkage);
     void transition_energy(size_t step, double& g_min);
     double approx_nearest_peak(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
-    double approx_regime_trough(size_t step, double lower_bound, double upper_bound, double del_energy);
+    double approx_nearest_trough(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1,bool accept_negatives = false);  
+    double approx_regime_trough(size_t step, double lower_bound, double upper_bound_global,double upper_bound_local, double del_energy);
     double nearest_inflection(size_t step, double start_energy,double del_energy, size_t min_sequential, double min = -1, double max =-1);  
     double approx_regime_bound(size_t step, double start_energy,double del_energy, size_t min_sequential, double min_distance = 40, double min_inflection_fract = 1./4., double min = -1, double max=-1);  
     double approx_regime_peak(size_t step, double lower_bound, double upper_bound, double del_energy);  
-    std::vector<double> approx_regime_peaks(size_t step, double lower_bound, double upper_bound, double del_energy, size_t num_peaks = 1, double min_density = 0);
-    double approx_regime_trough(size_t step, double lower_bound, double upper_bound, double del_energy,size_t min_sequential);
+    std::vector<double> approx_regime_peaks(size_t step, double lower_bound, double upper_bound, double del_energy, size_t num_peaks = 1, double min_density = 0, double separation_div_omega = 0.0667);
     void precompute_gamma_coeffs(); // populates above two tensors
     void set_initial_conditions();
 
@@ -166,7 +185,7 @@ private:
     /// general dynamics (uses explicit method)
     void sys_bound(const state_type& s, state_type& sdot, state_type& s_bg, const double t); 
     /// electron-electron (uses implicit method)
-    void sys_ee(const state_type& s, state_type& sdot, const double t); 
+    void sys_ee(const state_type& s, state_type& sdot); 
     /**
      * @brief 
      * @details 1. Handles dynamic grid updates 
@@ -178,24 +197,46 @@ private:
 
     bool hasRates = false; // flags whether Store has been populated yet.
     void copyInput(const std::string& src,const std::string& dir);
+    /// Log macros defined in config.h
+    void log_config_settings(ofstream& _log);
 
-    // handling deletion of present file
+    //// Saving
+    /// Number of steps outputted, maximum determined by input_params.Out_T_size()
+    double min_outputted_points = 25;
+    int num_steps_out;
+    /// We save last few steps so we can load simulations. This member determines how many of those sequential last steps are outputted
+    const int extra_fine_steps_out = 10;
+    /// handles deletion of given file
     void file_delete_check(const std::string& fname);
     /// Saves a table of free-electron dynamics to file fname
     void saveFree(const std::string& file);
     void saveFreeRaw(const std::string& fname);
+    /// For each atom, saves a table of bound-electron dynamics to folder dir.
+    void saveBound(const std::string& folder);
+
+    //// Loading
+    void load_simulation_state(); // Controller function.
     /// Loads the table of free-electron dynamics at the given time
     void loadFreeRaw_and_times();
+    void saveKnots(const std::string& fname);
+    void loadKnots();
+
     void loadBound();
-    /// saves a table of bound-electron dynamics , split by atom, to folder dir.
-    void saveBound(const std::string& folder);
-    void saveBoundRaw(const std::string& folder);
+
+    static double convert_str_time(string str_time);// Helper function to convert string from input file to time.
+    static double round_time(double time, const bool ceil = false, const bool floor = false);
 
     void set_grid_regions(ManualGridBoundaries gb);
     void set_starting_state();
-    state_type get_ground_state();
+    /**
+     * @brief Sets zero_y.
+     * @details zero_y corresponds to a system with no electrons. Used as an initial empty container in each ODE step.
+     */
+    void set_zero_y(); // 
+    state_type get_initial_state();
     void update_grid(ofstream& _log, size_t latest_step, bool force_update = false);
-    void reload_grid(ofstream& _log, size_t latest_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used);
+    size_t reload_grid(ofstream& _log, size_t& load_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used);
+    void reinitialise_solver_with_current_grid(ofstream& _log);
 
     //void high_energy_stability_check();
     string its_dinner_time(std::vector<std::chrono::duration<double, std::milli>> times, std::vector<std::string> tags);
@@ -204,6 +245,16 @@ private:
 
     /// Folder that saves data periodically (period determined by minutes_per_save)
     string data_backup_folder;     
+
+    // Rates tracking: (this should be a class esp. due to checkpoint loading but I don't have time to do this properly)
+    #ifdef RATES_TRACKING
+    std::vector<double> bound_transport_rate;
+    std::vector<double> photo_rate;
+    std::vector<double> fluor_rate;
+    std::vector<double> auger_rate;
+    std::vector<double> eii_rate;
+    std::vector<double> tbr_rate;
+    #endif
 };
 
 

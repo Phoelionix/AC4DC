@@ -41,7 +41,7 @@ public:
     void run_sim(double final_time){
         try
         {
-            this->iterate(0, final_time);
+            this->solve_dynamics(0, final_time);
         }
         catch(const std::exception& e)
         {
@@ -70,7 +70,7 @@ protected:
     void sys_bound(const Distribution& q, Distribution& qdot, const double t) {
         qdot=0;
     }
-    void sys_ee(const Distribution& q, Distribution& qdot, const double t) {
+    void sys_ee(const Distribution& q, Distribution& qdot) {
         qdot=0;
         Eigen::VectorXd v = Eigen::VectorXd::Zero(Distribution::size);
         q.get_Q_ee(v);

@@ -57,14 +57,13 @@ class ComputeRateParam
 public:
 	//Orbitals are HF wavefunctions. This configuration is an initial state.
 	//Assuming there are no unoccupied states in initial configuration!!!
-	ComputeRateParam(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, bool recalc=true) :
-	 	lattice(Lattice), input(Inp), orbitals(Orbitals), u(U), recalculate(recalc) {
+	ComputeRateParam(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, bool recalc=true, bool secondary_ion = true) :
+	 	lattice(Lattice), input(Inp), orbitals(Orbitals), u(U), recalculate(recalc){
 		};
 	~ComputeRateParam();
 
 	// Halfwidth = 5/Constant::Time -> 5 fs half width.
-	int SolveFrozen(vector<int> Max_occ, vector<int> Final_occ, ofstream & log);
-	RateData::Atom SolvePlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, vector<bool> shell_check, ofstream & log);
+	RateData::Atom SolveAtomicRatesAndPlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, vector<bool> shell_check, bool calculate_secondary_ionisation, Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, ofstream & log);
 	// // Atomic.
 	// int SetupAndSolve(ofstream & log);
 	// // Molecular.
@@ -85,7 +84,6 @@ public:
 	vector<double> Probs(int i) { return P[i]; }
 	vector<vector<double>> AllProbs() {return P;}
 
-
 	bool SetupIndex(vector<int> Max_occ, vector<int> Final_occ, ofstream & log);
 	vector<vector<int>> Get_Indexes() { return Index; }
 
@@ -100,7 +98,6 @@ protected:
 	vector<RadialWF> & orbitals;
 	Potential& u;
 	bool recalculate; // Flag to determine whether or not to force-recompute everything
-
 	vector<CustomDataType::polarize> MixMe;
 	int dimension;//number of configurations
 	vector<vector<double>> charge;

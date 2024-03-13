@@ -1,0 +1,94 @@
+// Template file, more detailed explanations of parameter options are included here.
+
+// Determines the composition, and is used alongside the volume per molecule to determine the atomic density.
+// These atoms must be defined in AC4DC/input/atoms. C.inp defines C, and so on.  
+#ATOMS
+C 613
+N 193
+O 185
+S 10
+
+// Loose geometrical aspects of the target. 
+// The most important parameter is the volume per molecule, as it determines the density of the atoms. 
+#VOLUME
+20000.00      // Volume per molecule in Angstrom^3.
+2000         // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+none         // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
+
+//
+#PULSE
+9000         // Photon energy in eV.
+40.0         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
+gaussian       // Pulse shape (square or gaussian). Note that t = 0 fs is defined as the end of the pulse and the peak of the pulse respectively.
+5 //  Total simulation time in fwhm (so 200 fs in this case). <Optional, default = 2.4> 
+1.2  //  (Gaussian pulse shape only) time before pulse peak to start at in fwhm.  <Optional, default = 1.2> 
+
+//------Fluence--------
+//// Various measures to determine the pulse's amplitude are provided for convenience.  
+//// Important: Only one of these options should be enabled.
+
+// Total photon count per unit area   
+#USE_COUNT
+true          // enabled? true/false.
+10.00         // Photon density (x10^12 ph.µm-2)
+
+// Total fluence 
+#USE_FLUENCE
+false         // enabled? true/false.
+25         // Pulse fluence in 10^4 * J/cm^2.
+
+// Maximum intensity
+#USE_INTENSITY
+false         // enabled? true/false.
+15            // Maximum intensity in 10^19 * W/cm^2. Will give different fluence between square and gaussian.
+
+//--------------------
+
+//-------Grid---------
+//// Grid settings, with a choice of a dynamic or static (manual) grid.  Only one of these categories 
+//// should be included. The manual grid is disabled by default. 
+
+// Dynamic grid settings. Presets are defined in AC4DC/src/DynamicRegions.cpp.
+// New presets can be defined, but must be added to input options in AC4DC/include/GridSpacing.hpp
+#DYNAMIC_GRID
+medium          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
+10         // Grid update period in fs, (dynamic grid only).
+
+// Allows for an arbitrary static grid to be defined. 
+// NB: The transition/cutoff energy for electrons to be considered thermalised is also static with this method.
+#MANUAL_GRID
+false               // Use manual grid? If false (the default), dynamic grid is used.
+2000                // Transition energy.  The temperature, and thus coulomb logarithm, is approximated by calculating the equilibrium definition of temperature for the energy distribution below this cutoff.
+1|30|110|120        // manual grid boundary indices, with point at 0 excluded. No spaces. Last point overrides num free-e pnts for now. TODO could make it the num electrons in region or smth?
+4|100|3000|10000    // manual grid boundary energies, with point at 0 excluded. No spaces. 2.8571 is what I thought the min value that corresponds to the original powerlaw grid was but it isn't. 
+1|1|2               // power law for each region to follow. In this example, 10 points follow a square power distribution between 3 and 10 keV.
+//--------------------
+
+// The initial guess for number of steps generally should be kept above 500-1000. The number of steps are increased 
+// automatically by the solver when divergence is detected in the free-electron distribution. 
+// However, it does not check for convergence in the atomic/bound states.
+#NUMERICAL
+5000        // Initial guess for number of time step points for rate equation.
+18           // Number of threads in OpenMP (i.e. maximum number of parallel threads to be used by the program).
+
+// Determines output data's fineness in dimensions of time and energy. The output folder will be < 50 MB with these settings.
+#OUTPUT
+800          // Number of time steps in the output files.
+4000         // Number of free-electron energy points in the output file freeDist.csv. (Not freeDistRaw.csv, as this saves the splines) 
+
+// 
+#LOAD
+mol_template_backup  // Folder handle/name. The folder must be within AC4DC/output/__Molecular.
+99999               // The time to load from <optional, default = +infinity>
+// Whether to start with a time step size based on that defined in this file. If true, 
+// the step size will start as the number of steps divided by the total simulation timespan.
+// If false, the step size will be the difference in time between the step loaded and the previous step. <optional, default = false>
+false            
+
+#DEBUG
+999           // Simulation cutoff time in fs. If this time is reached, the simulation will end and output the data as normal. Does not affect the time step size. <Optional>
+0.01          // Interval to display current timestep [fs]. <Optional, default = 0>
+####END####
+
+Notes:
+The parser stops at the line "####END####", so any further notes can be kept here.

@@ -15,6 +15,7 @@ import matplotlib
 matplotlib.rcParams.update({
     "pgf.texsystem": "pdflatex",
     'font.family': 'serif',
+    'font.size': 10,
     'text.usetex': True,
     'pgf.rcfonts': False,
 })
@@ -28,53 +29,67 @@ import numpy as np
 
 set_highlighted_excepthook()
 
-############
-# File/directory names
-#######  
-dname_Figures = "../../AC4DC_Figures/"
-figures_ext = "" #.png
-dname_Box_Sync = "~/Box Sync/" 
-fname_charge_conservation = "charge_conservation"
-fname_free = "free"
-fname_HR_style = "HR_style"
-fname_bound_dynamics = "bound_dynamics"  #Was called both _bound and dynamics so I assume it's bound dynamics or something.
-
-handle =  "C_tetrapeptide_4"#"Naive_Lys_mid_21"#"Carbon_294"#"Carbon_Wiggleless_2500_Fluence"#"Carbon_Sanders"""
+FIGWIDTH = 3.49751
+FIGHEIGHT = FIGWIDTH*2/3
+###
+ANG_TO_BOHR =0.529177
+HIGH_RES = 1
+LOW_RES = 4
+NUM_TRACES = 5
+SHOW_AVG=False
+PLOT_DIFF = True
+YLIM = [-35,5]
+###
+handles = ["lys_nass_no_S_3","lys_nass_gauss","lys_nass_Gd_full_1"]
+#handles=["lys_nass_no_S_3"]
+##
+#atoms = pl.atomdict
+#atoms = ["N","Gd_fast"]
+#atoms = ["C","N","O"]
+atoms = ["C"]
 #######
+dname_Figures = "../../output/_Graphs/plots/"
+dname_Figures = path.abspath(path.join(__file__ ,dname_Figures)) + "/"
+for handle in handles:
+    label = handle +'_' 
 
-label = handle +'_' 
+    name = handle.replace('_',' ')
 
-name = handle.replace('_',' ')
-
-pl = Plotter(handle)
-plt.close()
-photon_energy = 6000
-q_max = 2#pl.theta_to_q(22,photon_energy) # In units of bohr^-1. 
-pl.initialise_coherence_params(-10,0,q_max,photon_energy,50,100,True)
-
-
-
-
-# form factors dependent on q 
-#pl.plot_ffactor_get_R_sanders("C_fast")
-# Atomic form factor at time as a function of q
+    pl = Plotter(handle)
+    plt.close()
+    photon_energy = 6000
+    # q_max is in units of bohr^-1 (atomic units). 
+    q_max = 2*np.pi/HIGH_RES*ANG_TO_BOHR
+    pl.initialise_form_factor_params(-18,18,q_max,photon_energy,50,100,True)
 
 
+    
+    for atom in atoms:
+        # Plot atomic form factor at different times as a function of q
+        #pl.plot_ffactor_get_R_sanders(atom)   # More accurate form factors from AC4DC
 
-pl.plot_form_factor(6) 
+        # Slater form factors. Should be fine for light atoms.
+        pl.plot_form_factor(NUM_TRACES,[atom],resolution=True,q_min=2*np.pi/LOW_RES*ANG_TO_BOHR,fig_width=FIGWIDTH,fig_height=FIGHEIGHT,show_average=SHOW_AVG,percentage_change=PLOT_DIFF)
+        #plt.title(handle+" - "+atom) 
+        plt.tight_layout()
+        plt.ylim(YLIM)
+        plt.savefig(dname_Figures+atom+"-ff-"+handle+".pdf")
+    if len(atoms) > 1:
+        pl.plot_form_factor(NUM_TRACES,atoms,resolution=True,q_min=2*np.pi/LOW_RES*ANG_TO_BOHR,fig_width=FIGWIDTH,fig_height=FIGHEIGHT,show_average=SHOW_AVG,percentage_change=PLOT_DIFF)
+        plt.title(handle+" - combined") 
 
-#print(pl.get_A_bar(-10,-7.5,12,12,"C_fast","C_fast",100))
+    #print(pl.get_A_bar(-10,-7.5,12,12,"C_fast","C_fast",100))
 
-vmin = 0
-vmax = 1
+    vmin = 0
+    vmax = 1
 
-#pl.plot_A_map("C_fast","C_fast",vmin=vmin,vmax=vmax)
-#pl.plot_A_map("C_fast","C_fast",vmin=vmin,vmax=vmax,title = r"Naive Foreground coherence $\bar{A}$")
-#pl.plot_R_factor()
-#pl.print_bound_slice(-10)
-#print(" GAP ")
-#pl.print_bound_slice(-7.5)
+    #pl.plot_A_map("C_fast","C_fast",vmin=vmin,vmax=vmax)
+    #pl.plot_A_map("C_fast","C_fast",vmin=vmin,vmax=vmax,title = r"Naive Foreground coherence $\bar{A}$")
+    #pl.plot_R_factor()
+    #pl.print_bound_slice(-10)
+    #print(" GAP ")
+    #pl.print_bound_slice(-7.5)
 
-print("Done! Remember to stretch!")
+    print("Done! Remember to stretch!")
 
 # %%

@@ -1,0 +1,42 @@
+#ATOMS
+Al 1
+
+#VOLUME
+16.59       // Volume per molecule in Angstrom^3.
+14000          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons. Not sure what radius means for planar... doesnt seem to matter anyway.
+planar    // geometry of sample (may be spherical, cylindrical or planar)
+
+#PULSE
+1700         // Photon energy in eV.
+80           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). 
+gaussian     // Pulse temporal shape
+2.5           // Total timespan, as a multiple of fwhm
+
+#USE_INTENSITY
+true         // enabled? true/false.
+0.0136            // Maximum intensity in 10^19 * W/cm^2. Will give different fluence between square and gaussian. 
+
+#NUMERICAL
+5000         // Initial guess for number of time step points for rate equation.
+18           // Number of threads in OpenMP.
+
+#DYNAMIC_GRID
+A - heavy         // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
+8         // Grid update period in fs, (dynamic grid only).
+
+#OUTPUT
+800          // Number of time steps in the output files.
+4000         // Number of free-electron grid points in output file.
+N            // Write atomic charges in a separate file (Y/N)?
+Y            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
+
+#DEBUG
+9999          // Simulation cutoff time in fs 
+0.01          // Interval to display current timestep [fs].
+####END####
+
+
+
+Notes:
+From: https://doi.org/10.1103/PhysRevE.95.063203

@@ -1,0 +1,363 @@
+<!DOCTYPE HTML PUBLIC "-//W3O//DTD W3 HTML 2.0//EN">
+<!Converted with LaTeX2HTML 95.1 (Fri Jan 20 1995) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds >
+<HR>
+<CENTER>
+<A href="t0_l.gif"><IMG ALIGN=MIDDLE ALT=" " SRC="t0_ss.gif"></A>
+<IMG ALIGN=MIDDLE ALT=" " SRC="solvate.gif">
+<A href="t8_l.gif"><IMG ALIGN=MIDDLE ALT=" " SRC="t8_ss.gif"></A><BR>
+</CENTER>
+<HR>
+<HEAD>
+<TITLE> How  SOLVATE works</TITLE>
+</HEAD>
+<BODY>
+<meta name="description" value=" How  SOLVATE works">
+<meta name="keywords" value="docu">
+<meta name="resource-type" value="document">
+<meta name="distribution" value="global">
+<P>
+<H1><A NAME=SECTION00040000000000000000> How  SOLVATE works</A></H1>
+<P>
+<tt> SOLVATE</tt> creates the solute/solvent/ion simulation system
+in a number of steps. For optimal use of <tt> SOLVATE</tt>, knowledge of these
+steps is advantageous. As an example, the accompanying pictures
+show the generation of a solvent shell around
+a protein complex (immunoglobulin/lysozyme), 6&#197; thick, including ions.
+Starting from the coordinate- and structure-file of the complex (<tt> glob.pdb</tt>
+and <tt> glob.psf</tt>), the shell was created with the command
+<P>
+<tt>     solvate -t 6.0 -n 8 -ion glob globsol</tt>
+<P>
+yielding the file <tt> globsol.pdb</tt>.
+<P>
+<HR>
+
+<b> STEP 1: Read in solute</b>
+<P>
+<A href="t0_l.gif"><IMG ALIGN=RIGHT ALT=" " SRC="t0_s.gif"></A><BR>
+
+<tt> SOLVATE</tt> reads the atom 
+coordinates <IMG  ALIGN=MIDDLE ALT="" SRC="img2.gif"> and atom names 
+of the solute (Figure) from the pdb-file specified on the 
+command line.
+From the atom names <tt> SOLVATE</tt> derives approximate
+van der Waals parameters (radii <IMG  ALIGN=MIDDLE ALT="" SRC="img3.gif"> and interaction 
+strengths <IMG  ALIGN=MIDDLE ALT="" SRC="img4.gif">). If ions are to be placed (as in
+our case), <tt> SOLVATE</tt> must
+know about the electrostatics of the solute, which it derives
+from the atomic partial charges read from the psf-file.
+<P>
+If no pdb-file is given, or if the pdb-file contains
+no atoms, one `dummy-atom' (with zero radius) is created at
+the cartesian origin as the `solute'. By that means a `pure' spherical
+water droplet can be created.
+<P>
+<HR>
+
+<b> STEP 2: Create minimal convex volume</b>
+<P>
+<A href="t1_l.gif"><IMG ALIGN=RIGHT ALT=" " SRC="t1_s.gif"></A><BR>
+
+<em> (a) Bounding sphere</em>
+<P>
+On the basis of the atomic positions of the solute 
+the smallest convex volume containing 
+the solute is computed and represented by a regular
+set of `grid points' with <IMG  ALIGN=BOTTOM ALT="" SRC="img5.gif">&#197; spacing.
+To that end, in a first step center and radius of the solute's 
+`bounding sphere',
+i.e., the smallest sphere containing the solute,
+are computed. This bounding sphere is then filled with grid points 
+(see Figure; the solute seems not to completely fill the bounding sphere;
+however it does, since 
+the sphere and the solute are three-dimensional objects).
+<P>
+<em> (b) Slicing</em>
+<P>
+<A href="t2_l.gif"><IMG ALIGN=RIGHT ALT=" " SRC="t2_s.gif"></A><BR>
+
+From that spherical volume the minimal convex volume is 
+subsequently constructed
+by `slicing away' parts of the spherical volume in many different
+directions by a `knife' (solid lines) that just touches the solute.
+To vary the flatness of the surface of the minimal convex volume, a
+`bended knife' (dashed lines) can be used by specifying a
+maximum boundary curvature radius. The <IMG  ALIGN=MIDDLE ALT="" SRC="img6.gif"> grid points 
+<IMG  ALIGN=MIDDLE ALT="" SRC="img7.gif"> which
+survive the slicing procedure span the desired
+minimal convex volume.
+<P>
+An ideal solute-adapted boundary would be given by
+a surface enclosing the minimal convex volume at a given
+constant distance <b>d</b>.
+<P>
+<A href="ta_l.gif"><IMG ALIGN=RIGHT ALT=" " SRC="ta_s.gif"></A><BR>
+
+To a good approximation, such an ideal surface can be defined as an
+iso-surface of a density function <IMG  ALIGN=MIDDLE ALT="" SRC="img8.gif">,
+<P><A NAME=eqdensityfunction>&#160;</A><IMG  ALIGN=BOTTOM ALT="" SRC="img9.gif"><P>
+by requiring <IMG  ALIGN=MIDDLE ALT="" SRC="img10.gif"> with suitably 
+chosen <IMG  ALIGN=MIDDLE ALT="" SRC="img11.gif">.
+The figure shows a cut through this density function, <IMG  ALIGN=MIDDLE ALT="" SRC="img12.gif">,
+for our example solute.
+<P>
+This boundary certainly fulfills the geometric requirements,
+but its computational treatment is highly inefficient, since the
+number <IMG  ALIGN=MIDDLE ALT="" SRC="img13.gif"> of exponentials to be computed in Eq. <A HREF="node4.html#eqdensityfunction">1</A>
+(the number of grid points spanning the convex volume) is
+typically of the order <IMG  ALIGN=BOTTOM ALT="" SRC="img14.gif">.
+<P>
+<HR>
+
+<b> STEP 3: Compute an approximate density function</b>
+<P>
+Note, however, that the density function <IMG  ALIGN=MIDDLE ALT="" SRC="img15.gif"> defined above
+is quite smooth, since the distance between 
+grid points (<IMG  ALIGN=BOTTOM ALT="" SRC="img16.gif">&#197;) is much smaller than the width of the (univariate)
+gaussians used (typically <IMG  ALIGN=BOTTOM ALT="" SRC="img17.gif">&#197;). 
+Therefore, <IMG  ALIGN=MIDDLE ALT="" SRC="img18.gif"> can be approximated to sufficient accuracy by a sum
+of much fewer (<IMG  ALIGN=MIDDLE ALT="" SRC="img19.gif">) <em> multivariate</em> gaussians,
+<P><A NAME=eqdensityfunction1>&#160;</A><IMG  ALIGN=BOTTOM ALT="" SRC="img20.gif"><P>
+<A href="t3_l.gif"><IMG ALIGN=RIGHT ALT=" " SRC="t3_s.gif"></A><BR>
+
+where <IMG  ALIGN=MIDDLE ALT="" SRC="img21.gif"> are the heights and 
+<IMG  ALIGN=MIDDLE ALT="" SRC="img22.gif"> are the centers of the 
+<IMG  ALIGN=MIDDLE ALT="" SRC="img23.gif"> gaussians. The matrices 
+<IMG  ALIGN=MIDDLE ALT="" SRC="img24.gif">
+specify the shapes of the gaussians; their overall 
+extension in space can be varied 
+by a scale-factor <b>s</b>. Experience shows that usually very few (less than 10)
+gaussians are sufficient, so that the computational cost for the 
+necessary distance 
+computations in MD simulations becomes negligible. To find optimal
+heights, centers and shape matrices, <tt> SOLVATE</tt> uses a recently proposed
+maximum likelihood density estimation method [<A HREF="node6.html#Kloppenburg96">8</A>].
+After having computed these parameters, they are written to the file 
+<tt> gaussians.lis</tt>.
+<P>
+The Figure shows a set of dots, the density of which obeys the
+density function <b>f</b>.
+<P>
+<HR>
+
+<b> STEP 4: Adjust boundary distance from solute</b>
+<P>
+<tt> SOLVATE</tt> uses a fixed isosurface level <IMG  ALIGN=MIDDLE ALT="" SRC="img25.gif">
+(where <IMG  ALIGN=MIDDLE ALT="" SRC="img26.gif"> is the average height of the gaussians).
+Obviously, the distance of the solvent surface from
+the solute, as defined by <IMG  ALIGN=MIDDLE ALT="" SRC="img27.gif">, is not known at this point.
+To ensure that the smallest distance equals a given distance <b>d</b>,
+<tt> SOLVATE</tt> iteratively varies the scale-factor <b>s</b> (i.e.,
+the widths of the gaussians) until the 
+minimum distance between solute and solvent surface approaches
+the desired value.
+<P>
+All parameters necessary to
+define <IMG  ALIGN=MIDDLE ALT="" SRC="img28.gif"> 
+(<IMG  ALIGN=MIDDLE ALT="" SRC="img29.gif">, 
+<IMG  ALIGN=MIDDLE ALT="" SRC="img30.gif">, 
+and <IMG  ALIGN=MIDDLE ALT="" SRC="img31.gif">)
+are now written to the file <tt> boundary.lis</tt> for later use by an
+MD-program, e.g., by 
+<A NAME=tex2html8 HREF="http://www.imo.physik.uni-muenchen.de/ego.html">EGO</A>.
+<P>
+<HR>
+
+<b> STEP 5: Create solvent volume</b>
+<P>
+<A href="t4_l.gif"><IMG ALIGN=RIGHT ALT=" " SRC="t4_s.gif"></A><BR>
+
+In a similar way as in STEP 2, the
+boundary surface <IMG  ALIGN=MIDDLE ALT="" SRC="img32.gif"> is filled with
+a number of grid points <IMG  ALIGN=MIDDLE ALT="" SRC="img33.gif"> (see figure). For every grid point
+the minimum distance to the solute, <IMG  ALIGN=MIDDLE ALT="" SRC="img34.gif">,
+is determined and stored; the grid points are then sorted by 
+increasing minimum distance,
+which will be useful to efficiently place the solute (water) molecules.
+Those grid points which are located very close to the boundary
+can be used to visualize that boundary and are therefore written to the file
+<tt> surface_stat.lis</tt> if desired.
+<P>
+<HR>
+
+<b> STEP 6: Perform distance approximation statistics</b>
+<P>
+<A href="t5_l.gif"><IMG ALIGN=RIGHT ALT=" " SRC="t5_s.gif"></A><BR>
+
+As will be described in Sec. <A HREF="node7.html#secdistanceestimate">6</A>, the distance
+of a given point <IMG  ALIGN=MIDDLE ALT="" SRC="img35.gif"> 
+of the solvent volume to the boundary can be efficiently
+estimated from <IMG  ALIGN=MIDDLE ALT="" SRC="img36.gif"> (shown in the figure, colour-coded)
+to a sufficient accuracy (<IMG  ALIGN=BOTTOM ALT="" SRC="img37.gif">&#197;). 
+To check the accuracy of
+the distance computation, for each grid point <IMG  ALIGN=MIDDLE ALT="" SRC="img38.gif"> 
+the efficiently
+estimated distance is compared with the accurate distance, 
+and, if the <tt> -s</tt> option is set, the resulting error
+statistics is appended to the file <tt> surface_stat.lis</tt>.
+<P>
+In our example, this statistics reads
+<P>
+<tt>
+[MINIMUM INVALID DENSITY]<BR> 
+0.935194<BR> 
+[DISTANCE ERROR STATISTICS (ABS. ERR / DENSITY / DISTANCE)]<BR> 
+0.01  0.401408 3.245818<BR> 
+0.02  0.451980 4.120950<BR> 
+0.05  0.538697 5.512379<BR> 
+0.10  0.631438 6.651468<BR> 
+0.20  0.753683 8.271388<BR> 
+0.50  0.985918 10.718131<BR> 
+1.00  100000000000000000000.000000 62.000000<BR> 
+</tt>
+<P>
+which means that all distances smaller than 3.245818 &#197; (for
+these, <b>f&lt;</b>0.401408),
+are computed within an error of 0.01 &#197;; all
+distances smaller than 4.120950 &#197; (<b>f&lt;</b>0.451980)
+within an error of 0.02 &#197; and so on. No error of 1.0 &#197;
+or larger occurred. Distance computations are valid for all
+locations within the boundary where <b>f</b> is below the
+minimum invalid density (0.935194).
+<P>
+<HR>
+
+<b> STEP 7: Place water molecules</b>
+<P>
+<A href="t6_l.gif"><IMG ALIGN=RIGHT ALT=" " SRC="t6_s.gif"></A><BR>
+
+Using the sorted grid points <IMG  ALIGN=MIDDLE ALT="" SRC="img39.gif">, and starting at points
+closest to the solute, the solvent volume is 
+filled with water molecules, one molecule after the other. 
+In this process, for each grid point <IMG  ALIGN=MIDDLE ALT="" SRC="img40.gif"> <tt> SOLVATE</tt>
+checks whether the distances of <IMG  ALIGN=MIDDLE ALT="" SRC="img41.gif"> to all
+solute atoms as well as to all water molecules already placed
+is larger or equal to the appropriate van der Waals distance.
+If not, the respective grid point is discarded; if yes,
+a water molecule is placed at location <IMG  ALIGN=MIDDLE ALT="" SRC="img42.gif"> and, by steepest
+descent, subsequently moved to a nearby energetically favorable position
+(only van der Waals energies are considered here).
+By this procedure, water molecules close to the solute are placed
+first (drawn in blue in the figure), followed by water molecules further apart
+(the ones placed last are drawn in red).
+<P>
+<HR>
+
+<b> STEP 8: Group water molecules</b>
+<P>
+<A href="t9_l.gif"><IMG ALIGN=RIGHT ALT=" " SRC="t9_s.gif"></A><BR>
+
+Water molecules closest to the solute are likely ones placed
+in `caves' <em> inside</em> the solute (such caves exist, e.g., inside
+proteins). To distinguish such `buried' water molecules (drawn as
+balls in the figure) from
+bulk water (small angles), all water molecules are grouped according to their
+connectivity. Typically a few dozen `groups' consisting of just
+one isolated molecule, of a pair or a triplet of molecules
+(depending on the size of the `cave') will be identified as well
+as the bulk group containing all the other water molecules.
+The groups are consecutively numbered, starting with <IMG  ALIGN=MIDDLE ALT="" SRC="img43.gif"> for
+the bulk group.
+<P>
+Note that <tt> solvate</tt> places buried water molecules only
+according to steric criteria, <b> not</b> according to
+energetic criteria. If buried water molecules found by
+<tt> solvate</tt> are to be included within a subsequent MD-simulations,
+it has to be checked whether their free energy is low
+enough so that they are likely to really be there.
+A good estimate is provided by the program 
+<tt> Dowser</tt> (<A NAME=tex2html9 HREF="http://femto.med.unc.edu/Research/dowser.html">http://femto.med.unc.edu/Research/dowser.html</A> 
+or similar software.
+<P>
+<HR>
+
+<b> STEP 9: Place ions</b> (optional)
+<P>
+<A href="t8_l.gif"><IMG ALIGN=RIGHT ALT=" " SRC="t8_s.gif"></A><BR>
+
+Sodium (light blue) and chloride ions (green) are placed in the solvent volume
+at isotonic (physiological) concentration (<IMG  ALIGN=BOTTOM ALT="" SRC="img44.gif">mol/l) obeying
+the Debye-H&#252;ckel distribution, which depends on
+the locations of charged atoms of the solute (red, blue): on average,
+each charged atom at the surface of the
+solute is surrounded by a `cloud' of socalled counter-ions. The
+size of this cloud is given by the Debye-H&#252;ckel length <IMG  ALIGN=BOTTOM ALT="" SRC="img45.gif">,
+<IMG  ALIGN=MIDDLE ALT="" SRC="img46.gif">, where 
+<b>e</b> is the
+elementary charge, <IMG  ALIGN=MIDDLE ALT="" SRC="img47.gif"> is the dielectric constant,
+<IMG  ALIGN=MIDDLE ALT="" SRC="img48.gif"> is the Boltzmann constant, 
+and <b>T=300K</b> the temperature.
+The density <IMG  ALIGN=MIDDLE ALT="" SRC="img49.gif"> 
+(<b>i=</b>Na,Cl) of an ion cloud caused by a solute
+atom with partial charge <IMG  ALIGN=MIDDLE ALT="" SRC="img50.gif"> is a function of the 
+distance <b>r</b> from the charged atom, approaches the isotonic concentration
+<IMG  ALIGN=MIDDLE ALT="" SRC="img51.gif"> for large 
+<b>r</b>, and is computed in linear approximation,
+<P><IMG  ALIGN=BOTTOM ALT="" SRC="img52.gif"><P>
+with <IMG  ALIGN=MIDDLE ALT="" SRC="img53.gif"> and 
+<IMG  ALIGN=MIDDLE ALT="" SRC="img54.gif">. Due to the linear approximation,
+<IMG  ALIGN=MIDDLE ALT="" SRC="img55.gif"> may become negative, in which case it is set to zero.
+The total ionic density is the determined from the linear superposition of
+all the ion clouds around the charged solute atoms.
+In a first step, all ions (the number of which is
+determined from the charge
+density integral over the solvent volume) are placed at random
+according to that Debye-H&#252;ckel total ionic density.
+<P>
+Since the Debye-H&#252;ckel approximation is a mean field description,
+at this point ion-ion correlations are not yet described. To 
+find ionic positions which obey also these higher order
+correlations, and to avoid artifacts due to the 
+linear approximation, the ions are subsequently subjected to a large number 
+(2,000,000) of Monte-Carlo moves, where the Coulomb field
+of the solute, and now also the inter-ionic Coulomb field
+is considered.
+<P>
+The current version of <tt> SOLVATE</tt> does not yet allow 
+to use a salt concentration
+different from the isotonic concentration, neither is it
+possible to include ions other tan sodium and chloride or to
+set a temperature different from <IMG  ALIGN=BOTTOM ALT="" SRC="img56.gif">K.
+<P>
+<HR>
+
+<b> STEP 10: Place Hydrogens</b>
+<P>
+Since up to now,
+the water molecules have been treated as simple van der Waals
+spheres (one per molecule) representing only the oxygen positions,
+two hydrogen atoms per water molecule have to be added. These are
+oriented at random; a realistic short range order of these
+dipoles can be created within a short MD run (10 picoseconds
+is long enough).
+<P>
+<HR>
+
+<b> STEP 11: Write pdb-file</b>
+<P>
+Finally, a pdb-file is written, containing the solute, the
+positions of the water molecules, and, if present,
+the positions of the ions.
+<P>
+In the pdb-file each group of water molecules is assigned a
+unique segment-identifier, starting with <tt> W100</tt> for the innermost
+group, <tt> W101</tt> for the second and so on. Bulk water is stored last.
+<P>
+If present, ions are appended at the end of the pdb-file; sodium
+ions first (atom name <tt> NA</tt>, `molecule' <tt> INA</tt>, segment-identifier
+<tt> NA</tt>), then the chloride ions 
+(atom name <tt> CL</tt>, `molecule' <tt> ICL</tt>, segment-identifier <tt> CL</tt>)
+<P>
+Optionally, <tt> SOLVATE</tt> generates 
+an X-PLOR-script to create a (psf-) structure file for
+the final solute/solvent-system. Appropriate topology-files
+and parameter-files to describe the water molecules
+from the X-PLOR distribution (e.g., <tt> toph19.sol</tt> and <tt> param19.sol</tt>)
+are required to generate a psf-file.
+<P>
+<BR> <HR>
+<P><ADDRESS>
+<I>Helmut Grubmueller <BR>
+Wed Jun 19 19:00:00 MET DST 1996</I>
+</ADDRESS>
+</BODY>

@@ -16,8 +16,8 @@ video
 video
 *.mp4
 .ipynb_checkpoints
-ac4dc
-ac4dc_*
+#Intended as names for compiled programs
+ac4dc*    
 MakefileDebug
 debug_ac4dc.out
 doxygen/*
@@ -25,8 +25,8 @@ slurm*
 load_python_modules.sh
 *.slurm
 Makefile_S
-scripts/scattering/results*
-scripts/scattering/reflections*
+scripts/scattering/results/*
+scripts/scattering/reflections/*
 input/debug/Debug.mol
 scripts/scattering/scratchpad.ipynb
 MakefileTest
@@ -35,4 +35,19 @@ test_build/
 test_src/
 <ipython*
 __pycache__
+*.xpdb
+*input/batch_*
+core
+*.html
+*.svg
+scripts/scattering/R_plots
+*.pickle
+scripts/scattering/dmg_data
+valgrind-out*
+input/_batches/*
+scripts/scattering/reflections/*
+scripts/scattering/scalepack/*
+scripts/scattering/*.pdf
+*results/*
+*/.goldilocks_saves/*
 *.out

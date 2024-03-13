@@ -1,6 +1,7 @@
 import stringprep
 import matplotlib.rcsetup as rcsetup
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import numpy as np
 # from scipy.interpolate import BSpline
 from math import log
@@ -11,39 +12,17 @@ import sys
 # import glob
 import csv
 import subprocess
-import re
 from matplotlib.ticker import LogFormatter 
 import random
 from scipy.optimize import curve_fit
 from scipy.stats import linregress
+from core_functions import get_mol_file, parse_elecs_from_latex, ATOMS, ATOMNO
+from scipy.interpolate import splrep, splev
+from scipy.signal import savgol_filter
 
 #plt.rcParams.update(plt.rcParamsDefault)
 #plt.style.use('seaborn-muted')
 #plt.style.use('turrell-style')
-plt.rcParams["font.size"] = 9
-
-engine = re.compile(r'(\d[spdf])\^\{(\d+)\}')
-
-def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
-
-def parse_elecs_from_latex(latexlike):
-    # Parses a chemistry-style configuration to return total number of electrons
-    # e.g. $1s^{1}2s^{1}$
-    # ignores anything non-numerical or spdf
-    qdict = {}
-    for match in engine.finditer(latexlike):
-        qdict[match.group(1)] = int(match.group(2))
-    return qdict
-
-
-ATOMS = 'H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'.split()
-ATOMNO = {}
-i = 1
-for symbol in ATOMS:
-    ATOMNO[symbol] = i
-    ATOMNO[symbol + '_fast'] = i
-    i += 1
 
 
 def get_colors(num, seed):
@@ -55,31 +34,39 @@ def get_colors(num, seed):
     return C(idx)
 
 class Plotter:
-    # Example initialisation: Plotter(water)
-    # --> expects there to be a control file named water.mol within AC4DC/input/ or a subdirectory.
-    def __init__(self, mol_name, abs_molecular_path = None, num_subplots=None):
+    # Example initialisation: Plotter(water,molecular/path)
+    # --> Data is contained in molecular/path/water. 
+    # Will use mol file within by default, or (with a warning) search input for matching name if none exists.  
+    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None,end_t=None):
         '''
         abs_molecular_path: The path to the folder containing the simulation output folder of interest.
+        use_electron_density: If True, plot electron density rather than energy density
         '''
+        self.end_t_plotting = end_t
+        self.use_electron_density = use_electron_density
         self.molecular_path = abs_molecular_path
-        if self.molecular_path == None:
+        if self.molecular_path is None:
             self.molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
         AC4DC_dir = path.abspath(path.join(__file__ ,"../../"))  + "/"
         self.input_path = AC4DC_dir + 'input/'
-        molfile = self.get_mol_file(mol_name,"y") 
+        if out_prefix_text is None:
+            out_prefix_text = "Initialising plotting with"
+        molfile = get_mol_file(self.input_path,self.molecular_path,data_folder_name,"y",out_prefix_text = "Initialising plotting with") 
 
-        self.mol = {'name': mol_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}        
-        
+        self.mol = {'name': data_folder_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}        
+
         # Stores the atomic input files read by ac4dc
         self.atomdict = {}
         self.statedict = {}
 
         # Outputs
-        self.outDir = self.molecular_path + mol_name
+        self.outDir = self.molecular_path + data_folder_name
         self.freeFile = self.outDir +"/freeDist.csv"
         self.intFile = self.outDir + "/intensity.csv"
+        self.gridFile = self.outDir + "/knotHistory.csv"
 
         self.boundData={}
+        self.photoData={}
         self.chargeData={}
         self.freeData=None
         self.intensityData=None
@@ -91,56 +78,6 @@ class Plotter:
         self.autorun=False
         if num_subplots is not None:
             self.setup_axes(num_subplots)
-    
-    # Contender for world's most convoluted function.
-    def get_mol_file(self, mol,output_mol_query = ""):
-        #### Inputs ####
-        #Check if .mol file in outputs
-        use_input_mol_file = False
-        output_folder  = self.molecular_path + mol + '/'
-        if not os.path.isdir(output_folder):
-            raise Exception("\033[91m Cannot find simulation output folder '" + mol + "'\033[0m" + "(In directory: " +output_folder + ")" )
-        molfile = output_folder + mol + '.mol'
-        # Use same-named mol file in output folder by default
-        if path.isfile(molfile):
-             print("Mol file found in output folder " + output_folder)
-        # Use any mol file in output folder, (allowing for changing folder name).
-        else: 
-            molfile = ""
-            for file in os.listdir(output_folder):
-                if file.endswith(".mol"):
-                    if molfile != "": 
-                        molfile = ""
-                        print("\033[91m[ Warning: File Ambiguity ]\033[0m Multiple **.mol files in output folder.")
-                        break
-                    molfile = os.path.join(output_folder, file)
-            if molfile != "":
-                print(".mol file found in output folder " + output_folder)
-        
-        if path.isfile(molfile):
-            y_n_index = 2 
-            if output_mol_query != "":
-                y_n_check = output_mol_query
-                unknown_response_qualifier = "argument \033[92m'"   + output_mol_query + "'\033[0m not understood, using default .mol file."
-            else:
-                print('\033[95m' + "Use \033[94m'" + os.path.basename(molfile) +"'\033[95m found in output? ('y' - yes, 'n' - use a mol file from input/ directory.)" + '\033[0m')
-                y_n_check = input("Input: ")
-                unknown_response_qualifier = "Response not understood" + ", using 'y'."
-            if y_n_check.casefold() not in map(str.casefold,["n","no"]):  #  User didn't say to use input\
-                if y_n_check.casefold() not in map(str.casefold,["y","yes"]):
-                    print(unknown_response_qualifier)
-                if output_mol_query != "":
-                    print('\033[95m' + "Using \033[94m'" + os.path.basename(molfile) +"'\033[95m found in output." + '\033[0m')
-            else:
-                print("Using mol file from " + self.input_path)
-                use_input_mol_file = True
-        else: 
-            print("\033[93m[ Missing Mol File ]\033[0m copy of mol file used to generate output not found, searching input/ directory.\033[0m'" )
-            use_input_mol_file = True
-        if use_input_mol_file:       
-            molfile = self.find_mol_file_from_directory(self.input_path,mol) 
-            print("Using: " + molfile)
-        return molfile
     
     def find_mol_file_from_directory(self, input_directory, mol):
         # Get molfile from all subdirectories in input folder.
@@ -198,7 +135,8 @@ class Plotter:
                         self.atomdict[a]={
                             'infile': file,
                             'mtime': path.getmtime(file),
-                            'outfile': self.outDir+"/dist_%s.csv"%a}
+                            'outfile': self.outDir+"/dist_%s.csv"%a,
+                            'photofile': self.outDir + "/photo_%s.csv"%a}
 
     def update_inputs(self):
         self.get_atoms()
@@ -288,13 +226,12 @@ class Plotter:
     
 
 
-    def initialise_coherence_params(self, start_t,end_t, q_max, photon_energy, q_fineness=50,t_fineness=50,naive=False):
+    def initialise_form_factor_params(self, start_t,end_t, q_max, photon_energy, q_fineness=50,t_fineness=50,naive=False):
         args = locals()
         self.__dict__ .update(args)  # Is this a coding sin?  ...yes.
-        self.k_max = 2*np.pi * self.q_max  # Change to wavenumber.
  
     
-    # k in units of bohr^-1
+    # q in units of bohr^-1
     def theta_to_q(self,scattering_angle_deg,photon_energy=None):
         if photon_energy == None:
             photon_energy = self.photon_energy
@@ -303,82 +240,29 @@ class Plotter:
         wavelength =  h*c_nm/photon_energy
         wavelength *= bohr_per_nm
         return 4*np.pi*np.sin(theta)/wavelength
-    # k in units of bohr^-1
-    def q_to_theta(self,k,photon_energy=None):
+    # q in units of bohr^-1
+    def q_to_theta(self,q,photon_energy=None):
         if photon_energy == None:
             photon_energy = self.photon_energy        
         bohr_per_nm = 18.8973; c_nm = 2.99792458e17; h = 6.582119569e-16 *2 *np.pi
         wavelength =  h*c_nm/photon_energy   
         wavelength *= bohr_per_nm
-        return 180/np.pi*np.arcsin(k*wavelength/(4*np.pi))     
+        return 180/np.pi*np.arcsin(q*wavelength/(4*np.pi))     
 
 
-    def get_A_bar_matrix(self,atom1,atom2,ideal=False): #TODO change to getting just A_bar vector, since q's are the same.
-        # Matrix constructor to be vectorised and passed to np.fromfunction
-        def A_maker(i,j,atom1,atom2):
-            # Transform indices to desired k
-            q1 = i*self.k_max/self.q_fineness
-            q2 = j*self.k_max/self.q_fineness
-            if self.naive == False:
-                return self.get_A_bar(self.start_t,self.end_t,q1,q2,atom1,atom2,self.t_fineness)
-            elif self.naive == True:
-                return self.get_naive_A_bar(self.start_t,self.end_t,q1,q2,atom1,atom2,self.t_fineness,ideal=ideal)         
-                   
-        #A_norm = 1/A_maker(0,0,atom1,atom2) WHYYYYYYY DID YOU DO THISSS
-        A_norm = 1
-        return A_norm*np.fromfunction(np.vectorize(A_maker),(self.q_fineness,self.q_fineness,),atom1=atom1,atom2=atom2)
     
     def plot_R_factor(self, atoms_subset=None):   #TODO Would be best to integrate with Sanders' code since that uses the simulation's calculated struct. factors which are presumably more accurate.
         atoms = atoms_subset
-        if atoms_subset == None:
+        if atoms == None:
             atoms = self.atomdict
 
-        I_real = None
-        I_ideal = None
-
-        ### I_real
-        for atom1 in atoms:
-            for atom2 in atoms:
-                A_matrix = self.get_A_bar_matrix(atom1,atom2)
-                if I_real == None:
-                    I_real = A_matrix
-                else:
-                    I_real += A_matrix
-        ### I_ideal.
-        # Intensity corresponding to no damage, A_bar will be intensity squared, scaled by the same factor as I_real is due to integration.
-        old_naive = self.naive
-        self.naive = True
-        for atom1 in atoms:
-            for atom2 in atoms:
-                A_matrix_ideal = self.get_A_bar_matrix(atom1,atom2,ideal = True)
-                if I_ideal == None:
-                    I_ideal = A_matrix_ideal
-                else:
-                    I_ideal += A_matrix_ideal
-        self.naive = old_naive
-        
         # Plot R over different k ranges, up to k_max which corresponds to the best resolution but should have the lowest R-factor.
 
-        k_points = np.linspace(0,self.k_max,self.q_fineness-1)  #TODO make better and don't try and do in head...     
+        q_points = np.linspace(0,self.q_max,self.q_fineness-1)  #TODO make better and don't try and do in head...     
 
         R_factor = []
-        # Compute single term of R's sum
-        def get_R_num_term(idx):
-            I_r = I_real[idx][idx]
-            I_i = I_ideal[idx][idx]
-            return abs(np.sqrt(I_r)-np.sqrt(I_i))
-        def get_R_den_term(idx):
-            I_i = I_ideal[idx][idx]    
-            return np.sqrt(I_i)        
-        #Get R for each q_length
-        cumulative_R_num = 0
-        cumulative_R_den = 0
-        # for i,k in enumerate(k_points): 
-        #     cumulative_R_num += get_R_num_term(i)
-        #     cumulative_R_den += get_R_den_term(i)
-        #     R_factor.append(cumulative_R_num/cumulative_R_den)  
-        for i,k in enumerate(k_points): 
-            R_factor.append(get_R_num_term(i)/get_R_den_term(i))    
+        for q in q_points:
+           self.get_average_form_factor() 
 
         F_i = []
         F_r = []
@@ -390,8 +274,7 @@ class Plotter:
 
       
         
-        #q_resolution = np.array([[3.2,1],[0.032,100]])  #TODO
-        q_points = k_points/2/np.pi    
+        #q_resolution = np.array([[3.2,1],[0.032,100]])  #TODO   
         q_theta = []
         for i, q in enumerate(q_points):
             if i%(int(self.q_fineness/5)) == 1:
@@ -427,77 +310,6 @@ class Plotter:
         ax2.set_xticks(top_tick_locations)
         ax2.set_xlabel(top_label)
         
-    
-
-    def plot_A_map(self, atom1, atom2, vmin=0.,vmax=1.,title=r"Foreground coherence $\bar{A}$"): #TODO Remove this.
-        q_fineness = self.q_fineness
-        
-        A_matrix = self.get_A_bar_matrix(atom1,atom2)
-
-        fig_size = 5
-        self.fig = plt.figure(figsize=(fig_size,fig_size))
-        ax = self.fig.add_subplot(111)
-        ax.set_title(title)
-        ax.set_xlabel("$k_{1}$",fontsize=12)
-        ax.set_ylabel("$k_{2}$", rotation=0,labelpad = 7,fontsize=12)
-        ax.set_xlim(0,q_fineness-1)  
-        ax.set_ylim(0,q_fineness-1)  
-        ticks = np.linspace(0,q_fineness-1,5)
-        ticklabels = ["{:6.2f}".format(i) for i in ticks/(q_fineness-1)*self.k_max/(2*np.pi)]
-        
-        
-        ax.set_xticks(ticks)
-        ax.set_xticklabels(ticklabels)
-        ax.set_yticks(ticks)
-        ax.set_yticklabels(ticklabels)  
-
-        im = ax.imshow(
-            A_matrix,
-            cmap = plt.get_cmap('PiYG'),
-            vmin=vmin,
-            vmax=vmax,
-        )
-        cbar = self.fig.colorbar(im, ax=ax, extend='both')
-        cbar.minorticks_on()
-        
-
-    # Get the foreground coherence matrix A bar.(Martin A.V. & Quiney H.M., 2016)
-    # a1, str, atomic name key
-    # a2, str, other atomic name key
-    def get_A_bar(self, start_t, end_t, q1, q2, atom1, atom2, t_fineness = 50):
-        # f_1 = scattering factor of atomic species 1.
-        #Integrand = <(f_1)(f_2)*> = (f_Z1)(f_Z2) since real scatt. factors   TODO check where imaginary f may be relevant
-        
-        def integrand(idx):
-            # We pass in indices from 0 to fineness-1, transform to time:
-            t = start_t + idx/t_fineness*(end_t-start_t) 
-            val = self.get_average_form_factor(q1,[atom1],t)*self.get_average_form_factor(q2,[atom2],t)
-            return val
-        form_factor_product = np.fromfunction(integrand,(t_fineness,))   # Happily it works without using np.vectorise, which is far more costly.
-        time = np.linspace(start_t,end_t,t_fineness)
-        #Approximate integral with composite trapezoidal rule.
-        A_bar = np.trapz(form_factor_product,time)/(time[-1]-time[0])    
-        return A_bar
-
-    def get_naive_A_bar(self, start_t, end_t, q1, q2, atom1, atom2, t_fineness = 50, ideal=False):
-        if ideal: 
-            actual_end_t = end_t
-            end_t = start_t
-        time = np.linspace(start_t,end_t,t_fineness)
-        form_factor_1 = self.get_average_form_factor(q1,[atom1],time)  
-        form_factor_2 = self.get_average_form_factor(q2,[atom2],time)
-        
-        #Average form factors 
-        average_form_factor_1 = np.average(form_factor_1)
-        average_form_factor_2 = np.average(form_factor_2)
-        form_factor_product = average_form_factor_1 * average_form_factor_2
-        # Integrate via same method as get_A_bar to ensure same scale. (Alternatively could divide get_A_bar output by the timespan)
-        form_factor_product = np.tile(form_factor_product, (t_fineness))
-        if ideal:
-            time = np.linspace(start_t,actual_end_t,t_fineness)
-        A_bar = np.trapz(form_factor_product,time)/(time[-1]-time[0])
-        return A_bar        
-
 
     def f_snapshots(self,q,atom,stochastic=False):
         '''
@@ -511,110 +323,91 @@ class Plotter:
             # We pass in indices from 0 to fineness-1, transform to time:
             t = self.start_t + idx/self.t_fineness*(self.end_t-self.start_t)
             if stochastic:
-                val, time_used = self.get_stochastic_form_factor(q,atom,t)
+                val, time_step = self.get_stochastic_form_factor(q,atom,t)
             else:
-                val,time_used = self.get_average_form_factor(q,[atom],t)
+                val,time_step = self.get_average_form_factor(q,[atom],t)
             idx = np.searchsorted(self.timeData,t)  # SAME AS IN get_average_form_factor()
             val *= np.sqrt(self.intensityData[idx])
-            return val, time_used
-        form_factors_sqrt_I,times_used = np.fromfunction(snapshot,(self.t_fineness,))   # (Need to double check working as expected - not using np.vectorise)
-        if len(times_used) != len(np.unique(times_used)):
-            print("times used:", times_used)
-            print("Error, used same times! Choose a different fineness or a larger range.")
-            return None
-        return form_factors_sqrt_I, times_used
+            return val, time_step
+        form_factors_sqrt_I,time_steps = np.fromfunction(snapshot,(self.t_fineness,))   # (Need to double check working as expected - not using np.vectorise)
+        if len(time_steps) != len(np.unique(time_steps)):
+            print("times used:", time_steps)
+            raise Exception("Error, used same times! Choose a different fineness or a larger range.")
+        return form_factors_sqrt_I, time_steps
     
 
     #############Important bit#######################
-    def random_state_snapshots(self,atom):
+    def random_state_snapshots(self,atom,seed=None):
         '''
         Get t_fineness form factors, distributed as evenly between plotter_obj.start_t and plotter_obj.end_t as possible.
         t_fineness = number of snapshots
         f is modified from the typical definition is multiplied by the scalar sqrt(I(t)) to deal with gaussian case.
         '''
-        def snapshot(idx):
-            # We pass in indices from 0 to fineness-1, transform to time:
-            t = self.start_t + idx/self.t_fineness*(self.end_t-self.start_t)
-            val, time_used = self.get_random_state(t,atom)
-            return val, time_used
-        orb_occs,times_used = np.fromfunction(snapshot,(self.t_fineness,))   # (Need to double check working as expected - not using np.vectorise)
-        if len(times_used) != len(np.unique(times_used)):
-            print("times used:", times_used)
-            print("Error, used same times! Choose a different fineness or a larger range.")
-            return None
-        return orb_occs, times_used
-        
-    def random_states_to_f_snapshots(self,times_used,orb_occ_arr, q, atom):
-        idx = np.searchsorted(self.timeData,times_used)  # SAME AS IN get_average_form_factor()
-        if type(q) is np.ndarray:
-            if len(q.shape) == 1:
-                form_factors_sqrt_I = self.ff_from_state(times_used,orb_occ_arr,q,atom) * np.sqrt(self.intensityData[idx][...,None])   # (Need to double check working as expected - not using np.vectorise)
-            elif len(q.shape) == 2:
-                form_factors_sqrt_I = self.ff_from_state(times_used,orb_occ_arr,q,atom) * np.sqrt(self.intensityData[idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
-            else:
-                raise Exception("unexpected q shape",q.shape)
-        else:
-            form_factors_sqrt_I = self.ff_from_state(times_used,orb_occ_arr,q,atom) * np.sqrt(self.intensityData[idx][...])   # (Need to double check working as expected - not using np.vectorise)
-        return form_factors_sqrt_I, times_used        
-            
-    def ff_from_state(self,time,orb_occ_arr,k,atom):
-        a = atom
-        atomic_density = np.sum(self.boundData[a][0, :])
-        #ff = np.zeros(shape=(len(np.array(k)),len(time)))
-        ff_shape = ()
-        if type(orb_occ_arr) is np.ndarray:
-            ff_shape += (orb_occ_arr.shape[0],)
-        ff_shape += (len(time),)
-        if type(k) is np.ndarray:
-            ff_shape += k.shape 
-        ff = np.zeros(shape=ff_shape)
-        #temp: move time axis to front...
-        #orb_occ_arr = np.moveaxis(orb_occ_arr,1,0)
-        shielding = SlaterShielding(self.atomic_numbers[a],orb_occ_arr)              
-        #ff[:,j] = shielding.get_atomic_ff(k,atomic_density)  
-        if type(orb_occ_arr) is np.ndarray:
-            ff = shielding.get_atomic_ff(k,atomic_density)
-        else:
-            ff = shielding.get_atomic_ff(k,atomic_density)  # ff[i] = [f(t_i,q0),f(t_i,q1),...,f(t_i,qn)]
-        return ff      
-
-    def get_random_state(self,time,atom):
-        idx = np.searchsorted(self.timeData,time)      
-        time_used = self.timeData[idx]  # The actual time used
-
-        a = atom
-        states = self.statedict[a]   
-        atomic_density = np.sum(self.boundData[a][0, :])
-        
-        # if atomic_density != self.boundData[a][0,0]: 
-        #     print("Warning, initial state appears to be damaged!")
-        #     print(self.boundData[a][0,:])
-
-        # Sample a configuration from the discrete set
-        roll = np.random.rand(len(time))
-        orboccs = np.empty(shape=(len(time)),dtype="object")
-        for j, indiv_time in enumerate(time):  # array compatibility
-            cumulative_chance = 0 
-            for i in range(len(states)):
-                cumulative_chance += self.boundData[a][idx[j], i]/atomic_density
-                if cumulative_chance >= roll[j]:
-                    orboccs[j] = parse_elecs_from_latex(states[i]) 
-                    break
-                if i == len(states) - 1:
-                    print("WARNING, cumulative chance check failed (likely a floating point error if this only happened a few times)",atomic_density, self.boundData[a][idx[j], :])
-                    orboccs[j] = parse_elecs_from_latex(states[i]) 
-        # convert to an np array format, giving the occupancy at each subshell.
-        occ_arr = np.empty((len(time),len(orboccs[j])))   
-        for j, indiv_time in enumerate(time): 
+        occ_dict = {} # dictionary that converts state index to subshell occupation list
+        try:
+            states = self.statedict[atom]
+        except:
+            raise Exception("species "+str(atom)+" data is is missing - data is only present for "+''.join([k + " " for k in self.statedict.keys()]))
+        for i in range(len(states)):
+            orboccs = parse_elecs_from_latex(states[i])
             occ_list = [-99]*10
-            for orb, occ in orboccs[j].items():
+            for orb, occ in orboccs.items():
                 l = int(orb[0]) - 1
                 if occ_list[l] == -99:
                     occ_list[l] = 0
                 occ_list[l] += occ
-            occ_arr[j] = np.array(occ_list[:len(occ_list)-occ_list.count(-99)]) 
-        occ_arr = occ_arr.astype(int)       
-        return occ_arr,time_used
+            occ_dict[i] = occ_list[:len(occ_list)-occ_list.count(-99)] 
+
+        time_steps = self.get_times_used()
+        orb_occs,time_steps = self.get_random_states(time_steps,atom,seed)
+
+        return orb_occs, time_steps, occ_dict
+        
+    def random_states_to_f_snapshots(self,time_steps,orb_occ_arr, q, atom,orb_occ_dict):
+        idx = np.searchsorted(self.timeData,time_steps)  # SAME AS IN get_average_form_factor()
+        if type(q) is np.ndarray:
+            if len(q.shape) == 1:
+                form_factors_sqrt_I = self.ff_from_state(time_steps,orb_occ_arr,q,atom,orb_occ_dict) * np.sqrt(self.intensityData[idx][...,None])   # (Need to double check working as expected - not using np.vectorise)
+            elif len(q.shape) == 2:
+                form_factors_sqrt_I = self.ff_from_state(time_steps,orb_occ_arr,q,atom,orb_occ_dict) * np.sqrt(self.intensityData[idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
+            else:
+                raise Exception("unexpected q shape",q.shape)
+        else:
+            form_factors_sqrt_I = self.ff_from_state(time_steps,orb_occ_arr,q,atom,orb_occ_dict) * np.sqrt(self.intensityData[idx][...])   # (Need to double check working as expected - not using np.vectorise)
+        return form_factors_sqrt_I, time_steps        
+    
+    def ff_from_state(self,time,orb_occ_arr,k,atom,orb_occ_dict):
+        shielding = SlaterShielding(self.atomic_numbers[atom])    
+        return shielding.get_ff(orb_occ_arr,k,orb_occ_dict)       
+
+    def get_random_states(self,time_steps,atom,seed):  
+        '''
+        returns single list of random states corresponding to single atom throughout times.   
+        '''
+        rng = np.random.default_rng(seed)
+        idx = np.searchsorted(self.timeData,time_steps)      
+        if not np.array_equal(time_steps,self.timeData[idx]):
+            raise Exception ("inconsistent_times")   
+        num_times = len(time_steps)
+        
+        a = atom
+        states = self.statedict[a]   
+        atomic_density = np.sum(self.boundData[a][0, :])
+
+        # Sample configurations from the discrete set
+        orboccs = np.empty(shape=num_times)
+        roll = rng.random(num_times)  
+        for j in range(num_times):  # array compatibility
+            cumulative_chance = 0 
+            for i in range(len(states)):
+                cumulative_chance += max(0,self.boundData[a][idx[j], i]/atomic_density) #TODO figure out why ground state goes slightly neg (~-1/300 of atomic density).
+                if cumulative_chance >= roll[j]:
+                    orboccs[j] = i 
+                    break
+                if i == len(states) - 1:
+                    print("WARNING, cumulative chance topped below 1 (likely insignificant if only happened a few times). Atomic density:", atomic_density, "state densities:",self.boundData[a][idx[j], :])
+                    orboccs[j] = i      
+        return orboccs,time_steps
 
     
 
@@ -623,13 +416,13 @@ class Plotter:
         Returns a stochastic form factor for each momentum transfer 'k' at 'time' [fs], and time used.
         Returns array with element f(t_i, q_j) given by f_{i,j}
         '''        
-        orb_occs, times_used = self.get_random_state(time,atom)
+        orb_occs, time_steps = self.get_random_states(self.get_times_used(),atom)
 
         ff = self.ff_from_state(time,orb_occs,k,atom) 
 
-        return ff,times_used      
+        return ff,time_steps      
 
-    def f_undamaged(self,q,atom):
+    def f_undamaged(self,q,atom,ground_state):
         '''        
         Compared to f_average, we now include the stochastic contribution by picking the atomic state from the distribution.
         
@@ -644,22 +437,36 @@ class Plotter:
         Returns row matrix, with element f(t_i,q_j) = f_{i,j}
         '''
         # return undamaged form factor, multiplied by sqrt of average pulse intensity
-        I_avg, times_used = self.I_avg()
-        f_sqrt_I = self.get_average_form_factor(q,[atom],self.start_t)[0][...,None] * np.array(np.sqrt(I_avg)*np.ones(len(times_used)))
-        return np.moveaxis(f_sqrt_I,len(f_sqrt_I.shape)-1,0), times_used                     
-    # def f_damaged(self,q,atom):
-    #     return self.f_snapshots(q,atom,stochastic=True)
+        I_avg, time_steps = self.I_avg()
+        shielding = SlaterShielding(self.atomic_numbers[atom])             
+        ff = shielding.get_ff("dummy",q,{"dummy":ground_state})
+        f_sqrt_I = ff[...,None] * np.array(np.sqrt(I_avg)*np.ones(len(time_steps)))
+        return np.moveaxis(f_sqrt_I,len(f_sqrt_I.shape)-1,0), time_steps                     
+    # why did I do thissss
+    def get_times_used(self):
+        def snapshot(idx):
+            # We pass in indices from 0 to fineness-1, transform to time:
+            idx = np.searchsorted(self.timeData, self.start_t + idx/self.t_fineness*(self.end_t-self.start_t))            
+            try:
+                return self.timeData[idx]
+            except:
+                raise Exception("Start and end times provided seem to be outside the range of the output data.")
+        time_steps = np.fromfunction(snapshot,(self.t_fineness,))
+        if len(time_steps) != len(np.unique(time_steps)):
+            print("times used:", time_steps)
+            raise Exception("Error, used same times! Choose a different fineness or a larger range.")
+        return time_steps      
     def I_avg(self): # average intensity for pulse 
         def snapshot(idx):
             # We pass in indices from 0 to fineness-1, transform to time:
             t = self.start_t + idx/self.t_fineness*(self.end_t-self.start_t)
             idx = np.searchsorted(self.timeData,t)  # SAME AS IN get_average_form_factor()
-            time_used = self.timeData[idx]
+            time_step = self.timeData[idx]
             val = self.intensityData[idx]
-            return val, time_used      
-        I,times_used = np.fromfunction(snapshot,(self.t_fineness,))
-        I_avg = np.trapz(I,times_used)/(times_used[-1]-times_used[0])
-        return I_avg,times_used
+            return val, time_step      
+        I,time_steps = np.fromfunction(snapshot,(self.t_fineness,))
+        I_avg = np.trapz(I,time_steps)/(time_steps[-1]-time_steps[0])
+        return I_avg,time_steps
 
     ####################################
     def f_average(self,q,atom): 
@@ -676,34 +483,14 @@ class Plotter:
         if self.end_t == self.start_t:
             return self.get_average_form_factor(q,[atom],self.end_t)[0]
 
-        form_factors_sqrt_I, times_used = self.f_snapshots(q,atom)
+        form_factors_sqrt_I, time_steps = self.f_snapshots(q,atom)
         #Approximate integral with composite trapezoidal rule.
-        f_avg = np.trapz(form_factors_sqrt_I,times_used)/(times_used[-1]-times_used[0])
-        return f_avg 
+        f_avg = np.trapz(form_factors_sqrt_I,time_steps)/(time_steps[-1]-time_steps[0])
+        return f_avg         
 
-
-    # Coherence stuff, relevant for when have different atomic species (Martin A. Quiney H.M. 2016).  Assuming I haven't misunderstood notation.
-    # Useful under the assumption of the nuclei being static. (i.e. the spatial component T(q) is not time dependent)
-    def get_A_bar(self, start_t, end_t, q1, q2, atom1, atom2, t_fineness = 50):
-        # f_1 = scattering factor of atomic species 1.
-        #Integrand = <(f_1)(f_2)*> = (f_Z1)(f_Z2) since real scatt. factors   TODO check where imaginary f may be relevant
+    def plot_form_factor(self,num_snapshots = 8, atoms=None,resolution=False,q_min=0,fig_width=5,fig_height=6,show_average=True,percentage_change=False):  # k = 4*np.pi = 2*q. c.f. Sanders plot.
         
-        def integrand(idx):
-            # We pass in indices from 0 to fineness-1, transform to time:
-            t = start_t + idx/t_fineness*(end_t-start_t) 
-            val = self.get_average_form_factor(q1,[atom1],t)[0]*self.get_average_form_factor(q2,[atom2],t)[0]
-            return val
-        form_factor_product = np.fromfunction(integrand,(t_fineness,))   # Happily it works without using np.vectorise, which is far more costly.
-        time = np.linspace(start_t,end_t,t_fineness)
-        #Approximate integral with composite trapezoidal rule.
-        A_bar = np.trapz(form_factor_product,time)/(time[-1]-time[0])    
-        return A_bar        
-
-    def plot_form_factor(self,num_plots = 8,k_max = None, atoms=None):  # k = 4*np.pi = 2*q. c.f. Sanders plot.
-        
-        times = np.linspace(self.start_t,self.end_t,num_plots)
-        if k_max == None:  #TODO check if can remove argument entirely.
-            k_max = self.k_max
+        times = np.linspace(self.start_t,self.end_t,num_snapshots)
         if atoms == None:
             atoms = self.atomdict  # All atoms
 
@@ -711,11 +498,9 @@ class Plotter:
 
 
         #TODO figure out overlaying.
-        k = np.linspace(0,k_max,self.q_fineness)  # Wavenumber
-        q = k/2/np.pi
-        q_max = self.q_max 
-        if self.q_max != k_max /2/np.pi: (print("Warning q_max does not match with k_max."))
-
+        q = np.linspace(q_min,self.q_max,self.q_fineness)
+        if resolution:
+            q = q[q!=0]
         self.fig = plt.figure(figsize=(3,2.5))
         ax = self.fig.add_subplot(111)
 
@@ -728,31 +513,52 @@ class Plotter:
 
         f_avg =[]
         print(times)
+        ang_per_bohr = 0.529177
+        angstrom_mom = [k/ang_per_bohr for k in q]
+        X = np.array(angstrom_mom)
+        if resolution:
+            X = 2*np.pi/X       
+        if percentage_change:
+            f_init = np.array([self.get_average_form_factor(x,atoms,time=self.timeData[0])[0] for x in q])
         for time in times:
-            f = [self.get_average_form_factor(x,atoms,time=time)[0] for x in k]
+            f = np.array([self.get_average_form_factor(x,atoms,time=time)[0] for x in q])
+            if percentage_change:
+                f = -100*(1-f/f_init)
             f_avg.append(f)
-            ax.plot(q, f,label="t = " + str(time)+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))     
-        f_avg = np.average(f_avg,axis=0)
-        ax.plot(q, f_avg,'k--',label="Average")  
+            #ax.plot(X, f,label="t = " + str(time)+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))     
+            ax.plot(X, f,label="%.1f"%time+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))     
+            # Percentage difference from initital state
+        if show_average:
+            f_avg = np.average(f_avg,axis=0)
+            ax.plot(X, f_avg,'k--',label="Average")  
 
         ax.set_title("")
-        ax.set_xlabel("q")
-        ax.set_ylabel("Form factor (normed)")
-        ax.set_xlim(0,q_max)   
-        ax.legend()
-        self.fig.set_size_inches(6,5)           
+        ax.set_xlabel("Resolution ($\\AA^{-1}$)")
+        ax.set_ylabel("Form factor")
+        if percentage_change:
+            ax.set_ylabel("Change in $f(q)$ (\\%)")
+        #ax.set_xlim(0,self.q_max/ang_per_bohr)   
+        ax.set_xlim(np.min(X),np.max(X))
+        if resolution:
+            ax.invert_xaxis()
+        loc = "upper right"
+        if percentage_change:
+            loc = "lower right"
+        ax.legend(loc=loc)
+        self.fig.set_size_inches(fig_width,fig_height)           
 
     
     # Note this combines form factors when supplied multiple species, which is not necessarily interesting.
+    # TODO overly complicated..
     def get_average_form_factor(self,k,atoms,time=-7.5,n=None):
         '''
         Returns the form factor(s) at 'time' [fs], and time(s) used.
         use n for average form factor of a specific shell.
         '''        
         idx = np.searchsorted(self.timeData,time)      
-        time_used = self.timeData[idx]  # The actual time used
+        time_step = self.timeData[idx]  # The actual time used
 
-        # Get relevant prevalence of each species
+        # Get relevant prevalence of each species for atoms provided.
         tot_density = 0
         for a in atoms:   
             tot_density += self.boundData[a][0, 0]
@@ -761,11 +567,9 @@ class Plotter:
         for a in atoms:
             states = self.statedict[a]   
             atomic_density = self.boundData[a][0, 0]
-            atomic_prop = atomic_density/tot_density
             for i in range(len(states)):
                 if n != None:
-                    if n != i+1:
-                        continue
+                    if n != i+1: continue
                 orboccs = parse_elecs_from_latex(states[i])             
                 state_density = self.boundData[a][idx, i]       
                 # Get the form factors for each subshell
@@ -776,11 +580,22 @@ class Plotter:
                         occ_list[l] = 0
                     occ_list[l] += occ
                 occ_list = occ_list[:len(occ_list)-occ_list.count(-99)]
-                shielding = SlaterShielding(self.atomic_numbers[a],occ_list)              
-                ff += atomic_prop * shielding.get_atomic_ff(k,atomic_density,density=state_density)
-        return ff,time_used    
+                occ_dict = {1:occ_list}
+                shielding = SlaterShielding(self.atomic_numbers[a])             
+                ff += state_density/tot_density * shielding.get_ff(1,k,occ_dict)
+                #print("FORM FACTOR IDEAL",ff)
+        return ff,time_step    
     
-    
+    # Used by scatter code. Returns ground state's shell occupancies. (Assumes only s and p orbitals).
+    def get_ground_state_shells(self,atom):
+        orboccs = parse_elecs_from_latex(self.statedict[atom][0])
+        occ_list = [-99]*10
+        for orb, occ in orboccs.items():
+            l = int(orb[0]) - 1
+            if occ_list[l] == -99:
+                occ_list[l] = 0
+            occ_list[l] += occ     
+        return occ_list[:len(occ_list)-occ_list.count(-99)]
 
 
     def print_bound_slice(self,time=-7.5):
@@ -811,7 +626,7 @@ class Plotter:
             print("Average occupancy:",average_occupancy)
             print("Atomic density:", atomic_density)
 
-    def aggregate_charges(self):
+    def aggregate_charges(self,charge_difference=False):
         # populates self.chargeData based on contents of self.boundData
         for a in self.atomdict:
             states = self.statedict[a]
@@ -820,25 +635,58 @@ class Plotter:
                 msg += ' (got %d, expected %d)' % (len(states), self.boundData[a].shape[1])
                 raise RuntimeError(msg)
 
+            initial_charge = 0
+            if charge_difference:
+                initial_charge = ATOMNO[a] - sum(parse_elecs_from_latex(states[0]).values()) 
             self.chargeData[a] = np.zeros((self.boundData[a].shape[0], ATOMNO[a]+1))
             for i in range(len(states)):
                 orboccs = parse_elecs_from_latex(states[i])
-                charge = ATOMNO[a] - sum(orboccs.values())
+                charge = ATOMNO[a] - sum(orboccs.values()) - initial_charge 
                 self.chargeData[a][:, charge] += self.boundData[a][:, i]
 
 
     def update_outputs(self):
         raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
-        self.intensityData = raw[:,1]
         self.timeData = raw[:, 0]
+        self.intensityData = raw[:,1]
         self.energyKnot = np.array(self.get_free_energy_spec(), dtype=np.float64)
         raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
         self.freeData = raw[:,1:]
+        photo_data_present = False
         for a in self.atomdict:
             raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
             self.boundData[a] = raw[:, 1:]
             self.statedict[a] = self.get_bound_config_spec(a)
+            # rates
+            try:
+                raw = np.genfromtxt(self.atomdict[a]['photofile'], comments='#', dtype=np.float64)
+                self.photoData[a] = raw[:, 1] 
+                photo_data_present = True
+            except:
+                print("Warning: Missing '" + self.atomdict[a]['photofile'] + "'.")
+        # Truncate data to time specified.
+        if self.end_t_plotting is not None: 
+            last_idx = np.searchsorted(self.timeData,self.end_t_plotting)
+            self.timeData = self.timeData[0:last_idx]
+            self.intensityData = self.intensityData[0:last_idx]
+            self.freeData = self.freeData[0:last_idx]
+            for a in self.atomdict:
+                self.boundData[a] = self.boundData[a][0:last_idx] 
+                if photo_data_present:
+                    self.photoData[a] = self.photoData[a][0:last_idx]
+                
+
         self.atomic_numbers = self.get_atomic_numbers()
+        self.grid_update_time_Data = []
+        self.grid_point_Data = []
+        with open(self.gridFile) as file:
+            for n, row in enumerate(csv.reader(file)):
+                if n < 2:
+                    continue
+                self.grid_update_time_Data.append(float(row[0].split()[0])) 
+                self.grid_point_Data.append([float(elem) for elem in row[0].split()[1:]])
+        self.grid_update_time_Data = np.array(self.grid_update_time_Data,dtype=np.float64)
+        self.grid_point_Data = np.array(self.grid_point_Data,dtype=object)
 
     def go(self):
         if not self.check_current():
@@ -846,30 +694,42 @@ class Plotter:
             self.update_outputs()
 
     # makes a blank plot showing the intensity curve
-    def setup_intensity_plot(self,ax):
+    def setup_intensity_plot(self,ax,show_pulse_profile=True,col='black'):
         ax2 = ax.twinx()
-        ax2.plot(self.timeData, self.intensityData, lw = 1, c = 'black', ls = ':', alpha = 0.7)
+        if show_pulse_profile:
+            ax2.plot(self.timeData, self.intensityData, lw = 2, c = col, ls = ':', alpha = 0.7)
         # ax2.set_ylabel('Pulse Intensity (photons cm$^{-2}$ s$^{-1}$)')
         ax.set_xlabel("Time (fs)")
         ax.tick_params(direction='in')
         ax2.axes.get_yaxis().set_visible(False)
         # ax2.tick_params(None)
         ax.get_xaxis().get_major_formatter().labelOnlyBase = False
+        ax2.set_ylim([0,ax2.get_ylim()[1]-ax2.get_ylim()[0]])
         #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)   
         return (ax, ax2)
     
     def setup_axes(self,num_subplots):
         self.num_plotted = 0 # number of subplots plotted so far.
-        width, height = 3.4, 2.5
-        if num_subplots > 3 :
-            self.fig, self.axs = plt.subplots(int((1+num_subplots)/2),int(1+num_subplots/2),figsize=(width*int((1+num_subplots)/2),height*int((1+num_subplots)/2)))
+        width, height = 6, 3.3333  # 4.5,2.5 ~ abdallah
+        if num_subplots >= 3 :
+            self.fig, self.axs = plt.subplots(int(0.999+(num_subplots**0.5)),int(0.999+(num_subplots**0.5)),figsize=(width*int((1+num_subplots)/2),height*int((1+num_subplots)/2)))
         else:
             self.fig, self.axs = plt.subplots(num_subplots,figsize=(width,height*num_subplots))
+            if type(self.axs) is not np.ndarray:
+                self.axs = np.array([self.axs])
+        self.num_subplots = num_subplots
 
     def get_next_ax(self):
         ax = self.axs.flat[self.num_plotted]
         self.num_plotted+=1
         return ax
+    def delete_remaining_axes(self):
+        if self.num_subplots == 1:
+            return
+        while self.num_plotted < self.axs.shape[0]*self.axs.shape[1]:
+            self.axs.flat[self.num_plotted].remove()
+            self.num_plotted+=1
+
         
     def plot_atom_total(self, a):
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
@@ -888,22 +748,217 @@ class Plotter:
         ax.set_ylabel("Density")
         #self.fig.subplots_adjust(left=0.2, right=0.92, top=0.93, bottom=0.1)
 
-    def plot_charges(self, ax, a, rseed=404):
+    def plot_charges(self, a, ion_fract = True, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[0,1],**kwargs):
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=show_pulse_profile)
         self.aggregate_charges()
         #print_idx = np.searchsorted(self.timeData,-7.5)
         ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))
+        max_at_zero = np.max(self.chargeData[a][0,:]) 
+        norm = 1
+        if ion_fract:
+            norm = 1/max_at_zero            
+        num_traces = 0 
         for i in range(self.chargeData[a].shape[1]):
-            max_at_zero = np.max(self.chargeData[a][0,:])
             mask = self.chargeData[a][:,i] > max_at_zero*2
             mask |= self.chargeData[a][:,i] < -max_at_zero*2
-            Y = np.ma.masked_where(mask, self.chargeData[a][:,i])
-            ax.plot(self.timeData, Y, label = "%d+" % i)
+            Y = np.ma.masked_where(mask, self.chargeData[a][:,i])     
+            if np.sum(Y) == 0:
+                continue                 
+            ax.plot(self.timeData, Y*norm, label = "%d+" % i,**kwargs)
+            num_traces+=1 
             #print("Charge: ", i ,", time: ",self.timeData[print_idx], ", density: ",self.chargeData[a][print_idx,i])
         # ax.set_title("Charge state dynamics")
         ax.set_ylabel(r"Density (\AA$^{-3}$)")
-        
+        if ion_fract:
+            ax.set_ylabel(r"Ion Fractions")
+        old_ytop = ax.get_ylim()[1]
+        ax.set_ylim(ylim)
+        ax.set_xlim(xlim)
+        ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
+
+        num_cols = 1+round(num_traces/30-num_traces%30/30)
         #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)
-        ax.legend(loc='upper left',bbox_to_anchor=(1, 1),fontsize=4)
+        if plot_legend:
+            ax.legend(loc='upper left',bbox_to_anchor=(1, 1),fontsize=4,ncol=num_cols)
+    # TODO Remove this function (not the royle one though it's different enough)
+    def plot_charges_leonov_style(self, a, ion_fract = True, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[0,1],**kwargs):
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=show_pulse_profile)
+        self.aggregate_charges()
+        #print_idx = np.searchsorted(self.timeData,-7.5)
+        max_at_zero = np.max(self.chargeData[a][0,:]) 
+        norm = 1
+        if ion_fract:
+            norm = 1/max_at_zero            
+        num_traces = 0 
+        colours = ["#000000","#CF5346","#91E95C","#3E5CE7","#BDF9E1","#9D83CC","#EEE483","#858F2F","#3C44A1","#7541D9","#A77375","#59B535","#64A68E","#5465ED","#F0A078"]
+        for i in range(self.chargeData[a].shape[1]):
+            mask = self.chargeData[a][:,i] > max_at_zero*2
+            mask |= self.chargeData[a][:,i] < -max_at_zero*2
+            Y = np.ma.masked_where(mask, self.chargeData[a][:,i])     
+            if np.sum(Y) == 0:
+                continue                 
+            ax.plot(self.timeData, Y*norm, label = a+r"$^{%d+}$" % i,color=colours[i],**kwargs)
+            num_traces+=1 
+            #print("Charge: ", i ,", time: ",self.timeData[print_idx], ", density: ",self.chargeData[a][print_idx,i])
+        # ax.set_title("Charge state dynamics")
+        ax.set_ylabel(r"Density (\AA$^{-3}$)")
+        if ion_fract:
+            ax.set_ylabel("Ion Fractions")
+        old_ytop = ax.get_ylim()[1]
+        ax.set_ylim(ylim)
+        ax.set_xlim(xlim)
+        ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
+        num_cols = 1+round(num_traces/30-num_traces%30/30)
+        #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)
+        if plot_legend:
+            ax.legend(loc='upper left',bbox_to_anchor=(1, 1),fontsize=4,ncol=num_cols)  
+
+    def plot_charges_royle_style(self, a, ion_fract = True,max_charge=11):
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=False)
+        self.aggregate_charges()
+        max_at_zero = np.max(self.chargeData[a][0,:]) 
+        norm = 1
+        if ion_fract:
+            norm = 1/max_at_zero            
+        num_traces = 0
+        under_three_charge = None
+        colours = ["#000000","#942192","#FF2600","#FF7C00","#F6D800","#008F00","#4180FF","#0433FF","#021CA1"]
+        linestyle = ["dashed"] + ["solid"]*8
+        for i in range(self.chargeData[a].shape[1]):
+            if i >max_charge:
+                break
+            mask = self.chargeData[a][:,i] > max_at_zero*2
+            mask |= self.chargeData[a][:,i] < -max_at_zero*2
+            Y = np.ma.masked_where(mask, self.chargeData[a][:,i])     
+            if np.sum(Y) == 0:
+                continue                 
+            if i == 0:
+                under_three_charge = Y
+                continue
+            elif i <=3:
+                under_three_charge+=Y
+                if i != 3:
+                    continue
+                Y = under_three_charge
+
+            ax.plot(self.timeData, Y*norm, label = "%d+" % i,color=colours[i-3],linestyle=linestyle[i-3])
+            ax.set_ylim([0,0.8])
+            ax.set_xlim([-100,100])
+            num_traces+=1 
+            #print("Charge: ", i ,", time: ",self.timeData[print_idx], ", density: ",self.chargeData[a][print_idx,i])
+        # ax.set_title("Charge state dynamics")
+        ax.set_ylabel(r"Density (\AA$^{-3}$)")
+        if ion_fract:
+            ax.set_ylabel(r"Ion Fraction")
+
+        num_cols = 1+round(num_traces/30-num_traces%30/30)
+        ax.legend(loc='upper left',bbox_to_anchor=(1, 1),fontsize=4,ncol=num_cols)
+
+    def plot_charges_bar(self, a, ion_fract = True, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[0,1],**kwargs):
+        ax = self.get_next_ax()
+        self.aggregate_charges()
+        #print_idx = np.searchsorted(self.timeData,-7.5)
+        ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))
+        max_at_zero = np.max(self.chargeData[a][0,:]) 
+        norm = 1
+        if ion_fract:
+            norm = 1/max_at_zero            
+        num_traces = 0             
+
+        Y = []
+        Z = []
+        for i in range(self.chargeData[a].shape[1]):
+            Y.append(i)   
+            Z.append(norm*self.chargeData[a][:,i])  
+            num_traces+=1 
+
+        ax.set_facecolor('black')
+        cm = ax.pcolormesh(self.timeData, Y, Z, shading='inferno',cmap="inferno",rasterized=True)
+        cbar = self.fig.colorbar(cm,ax=ax,label="State density")
+
+        ax.set_xlabel("Time (fs)")            
+
+        ax.set_ylabel(r"Density (\AA$^{-3}$)")
+        if ion_fract:
+            ax.set_ylabel(a+r" charge")
+        old_ytop = ax.get_ylim()[1]
+        ax.set_ylim([-0.5,len(Y)-0.5])
+
+    def plot_orbitals_bar(self, atoms = None, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],orbitals=None,normalise=False,atoms_excluded = None,**kwargs):
+        if atoms is None: 
+            atoms = self.atomdict
+            if atoms_excluded is not None:
+                        for a in atoms_excluded:
+                            atoms.pop(a)          
+        else:
+            assert atoms_excluded is None
+        
+        for a in atoms:
+            if show_pulse_profile:  
+                ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),col="white")
+            else:
+                ax = self.get_next_ax()
+            self.aggregate_charges()
+            #print_idx = np.searchsorted(self.timeData,-7.5)
+            ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))                        
+
+            Z,labels = self.get_orbital_data(a,orbitals)
+            Y = range(len(Z))
+            if normalise:
+                Z = np.array(Z)[:]/np.array(Z)[:,0][:,None]
+            ax.set_facecolor('black')
+            vmax = None
+            cm = ax.pcolormesh(self.timeData, Y, Z,cmap="Spectral",rasterized=True,vmin=0)
+            z_label = "Avg. "+a.split("_")[0]+" orbital occupancy"
+            if normalise:
+                z_label = a.split("_")[0] + " orbital density"
+            cbar = self.fig.colorbar(cm,ax=ax,label=z_label,format="%.1f")            
+            ax.set_yticks(ticks=Y,labels=labels)
+            
+            ax.set_xlabel("Time (fs)")            
+
+            ax.set_ylabel(r"Orbital")
+            old_ytop = ax.get_ylim()[1]
+            ax.set_ylim([-0.5,len(Y)-0.5])     
+            if show_pulse_profile:   
+                ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
+
+    def get_orbital_data(self,a,orbitals):
+        self.aggregate_charges(False)
+        max_at_zero = np.max(self.chargeData[a][0,:]) 
+        norm = 1/max_at_zero        
+
+        colour = None
+        states = self.statedict[a]
+        orb_dict = parse_elecs_from_latex(states[0])
+        if orbitals is not None:
+            orb_dict = {k: v for k, v in orb_dict.items() if k in orbitals}
+
+        orbital_idx = []
+        orb_density = []
+        labels = []
+        for j, subshell in enumerate(orb_dict.keys()):
+            orbital_idx.append(j)
+            labels.append(subshell)
+            tot = np.zeros_like(self.boundData[a][:,0])
+            for i in range(len(states)):
+                orboccs = parse_elecs_from_latex(states[i])
+                tot += orboccs[subshell]*self.boundData[a][:,i]*norm
+            orb_density.append(tot)      
+        return orb_density, labels             
+    
+    def plot_photoionisation(self,atoms,show_pulse_profile=True):
+        if atoms is None: 
+            atoms = self.atomdict        
+        for a in atoms:
+            if show_pulse_profile:  
+                ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
+            else:
+                ax = self.get_next_ax()        
+            ax.scatter(self.timeData,self.photoData[a])
+            ax.ticklabel_format(style='sci',scilimits=(0,0))
+            ax.set_ylabel(a+" species-wide cumulative photoionisations")
+            
 
     def plot_subshell(self, a, subshell='1s',rseed=404):
         if not hasattr(self, 'ax_subshell'):
@@ -922,38 +977,227 @@ class Plotter:
         self.fig.subplots_adjust(left=0.2, right=0.95, top=0.95, bottom=0.2)
 
 
-    def plot_tot_charge(self, every=1):
+    def plot_tot_charge(self, every=1,densities = False,colours=None,atoms=None,plot_legend=True,charge_difference=True,xlim=[None,None],ylim=[None,None],plot_derivative=False,legend_loc='upper left',**kwargs):
+        '''
+        plot_derivative (bool), if True, plots average ionisation rate instead of average charge. 
+        '''
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
-        self.aggregate_charges()
         #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
-
         T = self.timeData[::every]
-        self.Q = np.zeros(T.shape[0])
-        for a in self.atomdict:
+        T_start = 0
+        if xlim[0] is not None:
+            T_start = np.searchsorted(T,xlim[0])
+        T_end = len(T)
+        if xlim[1] is not None:
+            T_end = np.searchsorted(T,xlim[1])
+        T = T[T_start:T_end]
+        
+        self.aggregate_charges(charge_difference)
+        self.Q = np.zeros(T.shape[0]) # total charge
+        colour = None
+        if atoms is None:
+            atoms = self.atomdict
+        for j,a in enumerate(atoms):
+            if atoms is not None and a not in atoms:
+                continue
+            if colours != None:
+                colour = colours[j]
+            kwargs["label"] = a
+            kwargs["color"] = colour
+            # Plot trace for the atom
+            atomic_charge = np.zeros(T.shape[0])
+            for i in range(self.chargeData[a].shape[1]):
+                atomic_charge += self.chargeData[a][::every,i][T_start:T_end]*i
+            if not densities:
+                atomic_charge /= np.sum(self.chargeData[a][0])
+            if not plot_derivative:
+                ax.plot(T,atomic_charge,**kwargs)
+            else:
+                smooth = False
+                dydx = np.gradient(atomic_charge,T)
+                if not smooth:
+                    ax.plot(T, dydx,**kwargs)
+                else:
+                    w = np.zeros(len(T))
+                    w+=1
+                    from scipy.ndimage import uniform_filter1d
+                    spikiness = np.abs(uniform_filter1d(splev(T,splrep(T,atomic_charge,k=3,s=0),der=3),size=10))
+                    w/=np.sqrt(spikiness)
+                    w /= np.median(w)
+                    w[0] = 100
+                    smoothed = splev(T,splrep(T,atomic_charge,w=w,k=3,s=0.015),der=1)
+                    smoothed *= np.max(dydx)/np.max(smoothed)
+                    
+                    #smoothed = uniform_filter1d(atomic_charge,size=200,mode="reflect")
+                    #smoothed = splev(T,splrep(T,smoothed,k=3,s=0),der=1)
+                    #smoothed *= np.max(dydx)/np.max(smoothed)
+
+                    YY = smoothed
+
+                    ax.plot(T, YY,**kwargs)
+                
+                
+                #dt = np.append(T, T[-1]*2 - T[-2])   
+                #dt = dt[1:] - dt[:-1]
+                #dydx = savgol_filter(atomic_charge, window_length=11, polyorder=4, deriv=1)*10
+                #ax.plot(T,dydx,**kwargs)
+                
+
+            self.Q += atomic_charge
+
+        # Free data
+        if densities:
+            de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])   
+            de = de [1:] - de[:-1]
+            tot_free_Q =-1*np.dot(self.freeData, de)
+            ax.plot(T, tot_free_Q[::every], label = 'Free')
+            self.Q += tot_free_Q[::every]
+            # ax.set_title("Charge Conservation")
+            if not plot_derivative:
+                ax.plot(T, self.Q, label='total')
+                ax.set_ylabel("Charge density ($e$ \AA$^{-3}$)")
+            else:
+                ax.plot(T, np.gradient(self.Q,T), label='total')
+                ax.set_ylabel("dQ/dt ($e$ \AA$^{-3} \cdot fs^{-1}$)")
+        else:
+            ax.set_ylabel("Average charge")
+            if plot_derivative:
+                ax.set_ylabel("Average ionisation rate ($e \cdot fs^{-1}$)")
+            elif charge_difference:
+                ax.set_ylabel("Avg. charge difference")  # Sometimes we start with charged states.
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        # ax.set_xlim(None,-18.6)
+        # ax.set_ylim(0,5)
+        if plot_legend:
+            ax.legend(loc = legend_loc)
+        return ax
+    
+    def plot_orbitals_charge(self, every=1,densities = False,cmap=None,atom=None,orbitals = None,plot_legend=True,xlim=[None,None],ylim=[None,None],plot_derivative=False,legend_loc='lower left',custom_legend=None,**kwargs):
+        '''
+        plot_derivative (bool), if True, plots average ionisation rate instead of average charge. 
+        '''
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
+        #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
+        T = self.timeData[::every]
+        T_start = 0
+        if xlim[0] is not None:
+            T_start = np.searchsorted(T,xlim[0])
+        T_end = len(T)
+        if xlim[1] is not None:
+            T_end = np.searchsorted(T,xlim[1])
+        T = self.timeData[T_start:T_end]        
+        
+        avg_occupancies,labels = self.get_orbital_data(atom,orbitals)
+
+        if cmap is None:
+            cmap = "tab20"
+
+        colours = [plt.get_cmap(cmap)((i)/len(avg_occupancies)) for i in range(len(avg_occupancies)) ]
+
+        for Y, label, col in zip(avg_occupancies,labels,colours):
+            Y = Y[::every][T_start:T_end]
+            if not plot_derivative:
+                ax.plot(T,Y,label=label,color=col,**kwargs)
+            else:
+                smooth = False
+                dydx = np.gradient(Y,T)
+                if not smooth:
+                    ax.plot(T, dydx,label=label,**kwargs)
+                else:
+                    w = np.zeros(len(T))
+                    w+=1
+                    from scipy.ndimage import uniform_filter1d
+                    spikiness = np.abs(uniform_filter1d(splev(T,splrep(T,Y,k=3,s=0),der=3),size=10))
+                    w/=np.sqrt(spikiness)
+                    w /= np.median(w)
+                    w[0] = 100
+                    smoothed = splev(T,splrep(T,Y,w=w,k=3,s=0.015),der=1)
+                    smoothed *= np.max(dydx)/np.max(smoothed)
+                    
+                    #smoothed = uniform_filter1d(atomic_charge,size=200,mode="reflect")
+                    #smoothed = splev(T,splrep(T,smoothed,k=3,s=0),der=1)
+                    #smoothed *= np.max(dydx)/np.max(smoothed)
+
+                    YY = smoothed
+
+                    ax.plot(T, YY,label=label**kwargs)
+                
+                
+                #dt = np.append(T, T[-1]*2 - T[-2])   
+                #dt = dt[1:] - dt[:-1]
+                #dydx = savgol_filter(atomic_charge, window_length=11, polyorder=4, deriv=1)*10
+                #ax.plot(T,dydx,**kwargs)
+                
+
+
+        # Free data
+        if densities:
+            assert False,"Densities not implemented with orbitals charge plot"
+        #     de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])   
+        #     de = de [1:] - de[:-1]
+        #     tot_free_Q =-1*np.dot(self.freeData, de)
+        #     ax.plot(T, tot_free_Q[::every], label = 'Free')
+        #     self.Q += tot_free_Q[::every]
+        #     # ax.set_title("Charge Conservation")
+        #     if not plot_derivative:
+        #         ax.plot(T, self.Q, label='total')
+        #         ax.set_ylabel("Charge density ($e$ \AA$^{-3}$)")
+        #     else:
+        #         ax.plot(T, np.gradient(self.Q,T), label='total')
+        #         ax.set_ylabel("dQ/dt ($e$ \AA$^{-3} \cdot fs^{-1}$)")
+        # else:
+        #     ax.set_ylabel("Average charge")
+        #     if plot_derivative:
+        #         ax.set_ylabel("Average ionisation rate ($e \cdot fs^{-1}$)")
+        #     elif charge_difference:
+        #         ax.set_ylabel("Avg. charge difference")  # Sometimes we start with charged states.
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        ax.set_ylabel("Average occupancy")
+        # ax.set_xlim(None,-18.6)
+        # ax.set_ylim(0,5)
+        if plot_legend:
+            #ax.legend(loc = legend_loc)
+            if custom_legend is None: 
+                ax.legend(bbox_to_anchor=(1.02, 1),loc='upper left', ncol=1,handlelength=1)  # Top right legend.
+            else:
+                handles,_ = ax.get_legend_handles_labels()
+                handles = list(handles)
+                assert len(custom_legend)==len(handles)
+                ax.legend(handles,custom_legend,bbox_to_anchor=(1.02, 1),loc='upper left', ncol=1,handlelength=1)
+        return ax    
+    
+ 
+    
+    def get_total_charge(self,every=1,densities=False,atoms=None,charge_difference=False):
+        T = self.timeData[::every]
+        self.aggregate_charges(charge_difference)
+        self.Q = np.zeros(T.shape[0]) # total charge
+        for j,a in enumerate(self.atomdict):
+            if atoms is not None and a not in atoms:
+                continue
             atomic_charge = np.zeros(T.shape[0])
             for i in range(self.chargeData[a].shape[1]):
                 atomic_charge += self.chargeData[a][::every,i]*i
-            ax.plot(T, atomic_charge, label = a)
+            if not densities:
+                atomic_charge /= np.sum(self.chargeData[a][0])
             self.Q += atomic_charge
+        # Free data
+        if densities:
+            de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])   
+            de = de [1:] - de[:-1]
+            tot_free_Q =-1*np.dot(self.freeData, de)
+            self.Q += tot_free_Q[::every]
+        return self.Q
+            
+        
 
-        de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])
-        de = de [1:] - de[:-1]
-        tot_free_Q =-1*np.dot(self.freeData, de)
-        ax.plot(T, tot_free_Q[::every], label = 'Free')
-        ax.set_ylabel("Charge density ($e$ \AA$^{-3}$)")
-        self.Q += tot_free_Q[::every]
-        # ax.set_title("Charge Conservation")
-        ax.plot(T, self.Q, label='total')
-        ax.legend(loc = 'upper left')
-        return ax
-
-
-    def plot_all_charges(self, rseed=404):
-        ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
+    def plot_all_charges(self, ion_fract = True, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[None,None],**kwargs):
         for a in self.atomdict:
-            self.plot_charges(ax, a, rseed)
-
-    def plot_free(self, N=100, log=False, min = 0, max=None, every = None):
+            self.plot_charges(a, ion_fract, rseed,plot_legend,show_pulse_profile=show_pulse_profile,xlim=xlim,ylim=ylim,**kwargs)
+        
+    def plot_free(self, N=100, log=False, cmin = 0, cmax=None, every = None,mask_below_min=True,cmap='magma',ymax=np.Infinity,leonov_style = False):
         ax = self.get_next_ax()
         #self.fig_free.subplots_adjust(left=0.12, top=0.96, bottom=0.16,right=0.95)
 
@@ -964,27 +1208,40 @@ class Plotter:
             Z = self.freeData.T [:, ::every]
             T = self.timeData [::every]
         
-        Z = np.ma.masked_where(Z < min, Z)
-
-        if max is not None:
-            Z = np.ma.masked_where(Z > max, Z)
-        else:
-            max = Z.max()
+        if mask_below_min:
+            min_col = 0 
+            if leonov_style:  
+                min_col = 20
+                Z = np.ma.masked_where(Z <= 0,Z)
+                Z = np.ma.masked_where(Z*4200*np.linalg.norm(np.log10(Z[Z.mask==False]))<min_col,Z) # 2550  4200 no time for math time for eye. Desperate times...
+            else:
+                Z = np.ma.masked_where(Z < cmin, Z)
+            cmap = plt.get_cmap(cmap)
+            cmap.set_over(cmap(np.inf))
+            cmap.set_under(cmap(min_col))    
+            cmap.set_extremes(bad=cmap(min_col))        
+            if max is not None:
+                pass
+            #     Z = np.ma.masked_where(Z > max, Z)
+            else:
+                cmax = Z.max()
 
         # if log:
         #     Z = np.log10(Z)
 
-        
         ax.set_facecolor('black')
         if log:
-            cm = ax.pcolormesh(T, self.energyKnot*1e-3, Z, shading='gouraud',norm=colors.LogNorm(vmin=min, vmax=max),cmap='magma',rasterized=True)
+            cm = ax.pcolormesh(T, self.energyKnot[self.energyKnot<ymax]*1e-3, Z[self.energyKnot<ymax], shading='gouraud',norm=colors.LogNorm(vmin=cmin, vmax=cmax),cmap=cmap,rasterized=True)
             cbar = self.fig.colorbar(cm,ax=ax)
         else:
-            cm = ax.contourf(T, self.energyKnot, Z, N, cmap='magma',rasterized=True)
+            if cmap != None:
+                shading='gouraud'            
+            cm = ax.contourf(T, self.energyKnot, Z, N, cmap=cmap,rasterized=True)
             cbar = self.fig.colorbar(cm,ax=ax)
 
         ax.set_ylabel("Energy (keV)")
         ax.set_xlabel("Time (fs)")
+       
         
         # if log:
         #     minval = np.floor(np.min(Z, axis=(0,1)))
@@ -1002,15 +1259,20 @@ class Plotter:
         ax2.plot(T, self.intensityData[::every],'w:',linewidth=1)
 
         ax2.get_yaxis().set_visible(False)
+        ax2.set_ylim([0,ax2.get_ylim()[1]-ax2.get_ylim()[0]])
 
     # Plots a single point in time.
     def initialise_step_slices_ax(self):
         self.ax_steps = self.get_next_ax()
         self.fig_steps = self.fig
     
-    def plot_step(self, t, normed=True, fitE=None, **kwargs):        
+    #TODO get rid of hacky multiply_by_netural_state.
+    def plot_step(self, t, prefactor_function = None, prefactor_power = 1, prefactor_args = {}, normed=True, fitE=None, multiply_by_neutral_state=None, **kwargs):        
         self.ax_steps.set_xlabel('Energy (eV)')
-        self.ax_steps.set_ylabel('$f(\\epsilon) \\Delta \\epsilon$')
+        #self.ax_steps.set_ylabel('$f(\\epsilon) \\epsilon $') # \\Delta \\epsilon is implied now. Want to distinguish from Hau-Riege whose f(e) is our f(e)e
+        self.ax_steps.set_ylabel('Energy density (eV/$\\AA^{3}$)') # \\Delta \\epsilon is implied now. Want to distinguish from Hau-Riege whose f(e) is our f(e)e
+        if self.use_electron_density:
+            self.ax_steps.set_ylabel('Electron density ($\\AA^{-3}$)')#self.ax_steps.set_ylabel('$f(\\epsilon)')
         self.ax_steps.loglog()
         # norm = np.sum(self.freeData[n,:])
         n = self.timeData.searchsorted(t)
@@ -1022,8 +1284,44 @@ class Plotter:
             data /= tot
             data/=4*3.14
         
-        return self.ax_steps.plot(X, data*X, label='%1.1f fs' % t, **kwargs)
+        prefactor = 1
+        if prefactor_function != None or prefactor_power not in [1,None]:
+            assert prefactor_function != None and prefactor_power != None
+            prefactor_function = np.vectorize(prefactor_function,otypes=[np.double])
+            prefactor = prefactor_function(X,**prefactor_args)
+            data = data[prefactor!=0]
+            X = X[prefactor!=0]
+            prefactor = prefactor[prefactor!=0]
+            prefactor **= prefactor_power
+        if multiply_by_neutral_state:
+            #Multiply by proportion of states that are neutral
+            self.aggregate_charges(False)
+            t_idx = self.timeData.searchsorted(t)
+            prefactor*=self.chargeData[multiply_by_neutral_state][t_idx,0]/np.sum(self.chargeData[multiply_by_neutral_state][0])
+        density_factor = X # energy density
+        if self.use_electron_density:
+            density_factor = 1 
 
+        return self.ax_steps.plot(X, prefactor*data*density_factor, label='%1.1f fs' % t, **kwargs)
+
+    def plot_the_knots(self,times,vert_anchors,colours,padding=0.01):
+        assert len(self.grid_update_time_Data == len(self.grid_point_Data))
+        ylims = self.ax_steps.get_ylim()
+        xlims = self.ax_steps.get_xlim()
+        # Add a background for the knots
+        tangle_top = np.e**(np.log(ylims[0]) + ( np.max(vert_anchors) )*(np.log(ylims[1]) - (1+padding)*np.log(ylims[0])))
+        tangle_bot = np.e**(np.log(ylims[0]) - ( np.min(vert_anchors) )*(np.log(ylims[1]) - (1+padding)*np.log(ylims[0])))
+        under_tangle =  patches.Rectangle((xlims[0]*0.1,tangle_bot), xlims[1], tangle_top, lw=0, edgecolor='none', facecolor='white',alpha=0.8,zorder=98)
+        self.ax_steps.add_patch(under_tangle)
+        # Plot the knots
+        for t,y_anchor,col in zip(times,vert_anchors,colours):
+            if self.grid_update_time_Data[-1] <= t:
+                update_idx = len(self.grid_update_time_Data) - 1
+            else:
+                update_idx = self.grid_update_time_Data.searchsorted(t+1e-12) -1 # we increase the time slightly, as the indices of the knot updates correspond to the first step in the new basis.
+            knots_to_plot = self.grid_point_Data[update_idx]
+            y = [np.e**(np.log(ylims[0]) + y_anchor*(np.log(ylims[1]) - np.log(ylims[0])))]* len(knots_to_plot)
+            self.ax_steps.scatter(knots_to_plot,y,color = col,s=80,zorder=99,lw=0.8, marker="|") #marker="|" or 10 work well.       
     def plot_fit(self, t, fitE, normed=True, **kwargs):
         t_idx = self.timeData.searchsorted(t)
         fit = self.energyKnot.searchsorted(fitE)
@@ -1033,17 +1331,24 @@ class Plotter:
             data /= tot
             data/=4*3.14
 
+        density_factor = self.energyKnot # energy density
+        if self.use_electron_density:
+            density_factor = 1 
+
         Xdata = self.energyKnot[:fit]
         Ydata = data[:fit]
         mask = np.where(Ydata > 0)
         T, n = fit_maxwell(Xdata, Ydata)
         return self.ax_steps.plot(self.energyKnot, 
-            maxwell(self.energyKnot, T, n)*self.energyKnot,
+            maxwell(self.energyKnot, T, n)*density_factor,
             '--',label='%3.1f eV' % T, **kwargs)
 
     def plot_maxwell(self, kT, n, **kwargs):
+        density_factor = self.energyKnot # energy density
+        if self.use_electron_density:
+            density_factor = 1         
         return self.ax_steps.plot(self.energyKnot, 
-            maxwell(self.energyKnot, kT, n)*self.energyKnot,
+            maxwell(self.energyKnot, kT, n)*density_factor,
             '--',label='%3.1f eV' % kT, **kwargs)
 
 
@@ -1066,7 +1371,7 @@ class Plotter:
     def plot_ffactor_get_R_sanders(self, a, num_tsteps = 10, timespan = None, show_avg = True, **kwargs):
 
         if timespan is None:
-            timespan = (self.timeData[0], self.timeData[-1])
+            timespan = (self.start_t,self.end_t)#(self.timeData[0], self.timeData[-1])
 
         start_idx = self.timeData.searchsorted(timespan[0])
         stop_idx = self.timeData.searchsorted(timespan[1])
@@ -1080,26 +1385,29 @@ class Plotter:
         kgrid = np.linspace(KMIN,KMAX,fdists.shape[0 if dim == 1 else 1])
         fig2 = plt.figure()
         ax = fig2.add_subplot(111)
-        ax.set_xlabel('$q$ (atomic units)')
+        ax.set_xlabel('$u$ (spatial frequency, atomic units)')
         ax.set_ylabel('Form factor (arb. units)')
         
         timedata = self.boundData[a][:,:-1] # -1 excludes the bare nucleus
-        temporary_fact = 3/0.994/0.99992  # Just normalising carbon - S.P.
-        dynamic_k = temporary_fact*np.tensordot(fdists.T, timedata.T,axes=1)   # Getting all k points? This has equal spacing -S.P. 
+        dynamic_k = np.tensordot(fdists.T, timedata.T,axes=1)   # Getting all k points? This has equal spacing -S.P. 
         step = (stop_idx - start_idx) // num_tsteps
         cmap=plt.get_cmap('plasma')
         fbar = np.zeros_like(dynamic_k[:,0])
 
         n=0
+        times_used = []
         for i in range(start_idx, stop_idx, step):
+            times_used.append(self.timeData[i])
             ax.plot(kgrid, dynamic_k[:,i], label='%1.1f fs' % self.timeData[i], color=cmap((i-start_idx)/(stop_idx - start_idx)))
             fbar += dynamic_k[:,i]
             n += 1
 
+        print("Times used:",times_used)
         fbar /= n
         if show_avg:
             ax.plot(kgrid, fbar, 'k--', label=r'Effective Form Factor')
         freal = dynamic_k[:,0]  # Real as in the real structure? - S.P.
+        print("Warning, does not account for altering time step sizes.")
         print("R = ", np.sum(np.abs(fbar - freal))/np.sum(freal))    # Struct fact defn. of R (essentially equivalent to intensity definition)
         print("freal",freal)
         print("fbar",fbar)
@@ -1131,69 +1439,59 @@ def moving_average(a, n=3) :
     return ret[n - 1:] / n
 
 # Slater form factor
+# TODO array of form factors for each state for each atom in species and each mom. transfer q
+
+
 # Warning: Only for states with exclusively s, p orbitals
 class SlaterShielding:
     # Z:  nuclear charge
     # shell_config: The number of electrons in each shell, passed as a list e.g. [1,8,8]
-    def __init__(self,Z,shell_occs):
+    def __init__(self,Z):
         self.Z = Z 
-        self.shell_occs = shell_occs
-        self.s_p_slater_shielding()
-    def s_p_slater_shielding(self):
+    def get_ff(self,occ_indices,k, occ_dict):
         
-        # Slater's Rules #TODO could just calc a dictionary for each possible config, might be slowing down program currently. 
-        if type(self.shell_occs) == np.ndarray:
-            self.s = np.empty(shape=self.shell_occs.shape)
-            num_atoms = self.shell_occs.shape[0]; num_times = self.shell_occs.shape[1]; num_subshells = self.shell_occs.shape[2]
-            for n in range(num_subshells): 
-                s = np.zeros(shape=(num_atoms,num_times))
-                for m in range(num_subshells): # N_e = num (screening) electrons
-                    N_e = self.shell_occs[...,m]
-                    if m > n:
-                        continue
-                    if m == n:
-                        s_factor = 0.35
-                        if n == 0:
-                            s_factor = 0.30
-                        #s += s_factor * max(0, N_e - 1)
-                        tmp = N_e - 1; tmp[tmp < 0] = 0
-                        s += s_factor * tmp
-                    elif m == n - 1:
-                        s += 0.85*N_e
-                    else:
-                        s += N_e           
-                self.s[...,n] = s
-                        #if s > self.Z:
-                            #print("Warning, s =",self.s)        
+        all_possible_occs = occ_dict.values()
+        ff_shape = () 
+        if type(occ_indices) == np.ndarray:
+            num_atoms = occ_indices.shape[0]
+            num_times = occ_indices.shape[1]
+            ff_shape += (num_atoms,num_times,)  # [atoms,times]       
+        if type(k) == np.ndarray:
+            ff_shape += k.shape  # [atoms,times, qx, qy]
+        ff = 0
+        if ff_shape != ():
+            ff = np.zeros(ff_shape)
+        if type(ff) == np.ndarray:
+            for occ in occ_dict.keys():
+                s = self.s_p_slater_shielding(occ,occ_dict)
+                ff[occ_indices == occ] = self.calculate_config_ff(occ,k,s,occ_dict)[None,None]     # shell_occs -> [atoms,times,qx,qy]
         else:
-            self.s = []
-            for n in range(len(self.shell_occs)): 
-                s = 0
-                for m, N_e in enumerate(self.shell_occs): # N_e = num (screening) electrons
-                    if m > n:
-                        continue
-                    if m == n:
-                        s_factor = 0.35
-                        if n == 0:
-                            s_factor = 0.30
-                        s += s_factor * max(0, N_e - 1)
-                    elif m == n - 1:
-                        s += 0.85*N_e
-                    else:
-                        s += N_e           
-                self.s.append(s) 
-                if s > self.Z:
-                    print("Warning, s =",self.s)        
+            s = self.s_p_slater_shielding(occ_indices,occ_dict)
+            ff = self.calculate_config_ff(occ_indices,k,s,occ_dict)
+        return ff
+
+    def s_p_slater_shielding(self,occ_index,occ_dict):
+        shells_occ = occ_dict[occ_index]
+        s_list = []
+        for n in range(len(shells_occ)): 
+            s = 0
+            for m, N_e in enumerate(shells_occ): # N_e = num (screening) electrons
+                if m > n:
+                    continue
+                if m == n:
+                    s_factor = 0.35
+                    if n == 0:
+                        s_factor = 0.30
+                    s += s_factor * max(0, N_e - 1)
+                elif m == n - 1:
+                    s += 0.85*N_e
+                else:
+                    s += N_e           
+            s_list.append(s) 
+        return s_list # s for each subshell
                     
-    def get_shell_ff(self, k, shell_num):    #dim = scalar or [num_atoms]
-        if type(self.s) == np.ndarray:
-            lamb = self.Z - self.s[...,shell_num-1]
-            if len(k.shape) == 2:
-                lamb = lamb[...,None,None]
-            elif len(k.shape) == 1:
-                lamb = lamb[...,None]
-        else:
-            lamb = self.Z - self.s[shell_num-1]
+    def get_shell_ff(self, k, shell_num,s):    #dim = scalar or [num_atoms]
+        lamb = self.Z - s[shell_num-1]
         lamb/=shell_num
         D = 4*lamb**2+np.power(k,2)
         if shell_num == 1:  
@@ -1201,63 +1499,31 @@ class SlaterShielding:
         if shell_num == 2:
             return 64*lamb**6*(4*lamb**2-np.power(k,2))/np.power(D,4)
         if shell_num == 3:
-            return 128*lamb**7/6*(192*lamb**5-160*lamb**3*np.power(k,2)+12*lamb*np.power(k,4))/np.power(D,6)
+            return 128/6*lamb**7*(192*lamb**5-160*lamb**3*np.power(k,2)+12*lamb*np.power(k,4))/np.power(D,6)
         else:
-            raise Exception("ERROR! shell_ff")
+            raise Exception("ERROR! shell_num = "+str(shell_num))
         
-    # Gets a single configuration's normalised form factor (* density for purpose of finding average). 
-    def get_atomic_ff(self, k, atomic_density,density=None):
-        if density == None:
-            density = atomic_density
-        ff = 0
-        num_subshells = len(self.shell_occs) 
-        ff_shape = () 
-        if type(self.shell_occs) == np.ndarray:
-            num_atoms = self.shell_occs.shape[0]
-            num_times = self.shell_occs.shape[1]
-            num_subshells = self.shell_occs.shape[2]    
-            ff_shape += (num_atoms,num_times,)  # [times, subshells]       
-        if type(k) == np.ndarray:
-            ff_shape += k.shape  # [times, subshells, qx, qy]
-        if ff_shape != ():
-            ff = np.zeros(ff_shape)
-        norm = density/atomic_density   # /self.Z # If perform the normalisation of division by Z ->  for no ionisation at q = 0, form factor = 1. (no ionisation -> we have neutral config density = atomic density.)
+    # Gets a configuration's form factor for array of k. 
+    def calculate_config_ff(self,occ_index, k,  s,occ_dict):
         # We calculate the form factor for each subshell, then we multiply by the corresponding subshell occupancies to get the form factor.
         debug_old_ff = "0"
+        occ = occ_dict[occ_index]
+        num_subshells = len(occ)
+        ff = 0
         for i in range(num_subshells):  
-            if type(self.shell_occs) == np.ndarray:
-                if len(k.shape) == 2: # cell case
-                    ff += self.get_shell_ff(k,i+1)*norm * self.shell_occs[...,i,None,None]   # [atoms,times, qx,qy] * [atoms,times,subshells]
-                elif len(k.shape) == 1:
-                    ff += self.get_shell_ff(k,i+1)*norm * self.shell_occs[...,i,None] # [atoms,times, q] * [atoms,times,subshells]
-                else:
-                    raise Exception("unexpected ff shape of " + str(ff.shape))
-            else: 
-                ff += self.get_shell_ff(k,i+1)*norm*self.shell_occs[i]
+            ff += self.get_shell_ff(k,i+1,s)*occ[i]
             # check atomic ff is below Z.
             atomic_ff = "{:e}".format(np.array(ff).flatten()[-1])
             # Sanity check: each electron contributes at most 1 to the form factor (corresponding to free electron scattering)
             if np.array(ff).flatten()[-1] > self.Z:
-                shell_ff = "{:e}".format(np.array(self.get_shell_ff(k,i+1)).flatten()[-1])
-                if type(self.shell_occs[i]) == int:
-                    shell_occ = "{:e}".format(self.shell_occs[i])
+                shell_ff = "{:e}".format(np.array(self.get_shell_ff(k,i+1,s)).flatten()[-1])
+                if type(occ[i]) == int:
+                    shell_occ = "{:e}".format(occ[i])
                 else:
-                    shell_occ = str(np.array(self.shell_occs.astype(float)).reshape(-1,np.array(self.shell_occs.astype(float)).shape[-1])[-1][i])
-                raise Exception("Form factor (sample) of " + debug_old_ff + " + " + shell_ff + " x " + str(norm) + " x " + shell_occ + " = " + atomic_ff + " above atomic number " + str(self.Z))
+                    shell_occ = str(np.array(occ.astype(float)).reshape(-1,np.array(occ.astype(float)).shape[-1])[-1][i])
+                raise Exception("Form factor (sample) of " + debug_old_ff + " + " + shell_ff +  " x " + shell_occ + " = " + atomic_ff + " above atomic number " + str(self.Z))
             debug_old_ff = atomic_ff
         return ff
-
-    # def get_atomic_ff(self, k, atomic_density,density=None):
-    #     if density == None:
-    #         density = atomic_density
-    #     ff = 0
-    #     if type(k) == np.ndarray:
-    #         ff = np.zeros(k.shape)
-    #     norm = 1/atomic_density   # /self.Z # If perform the normalisation of division by Z ->  for no ionisation at q = 0, form factor = 1. (At t = 0, we have neutral config density = atomic density.)
-    #     for i in range(len(self.shell_occs)):  #TODO vectorise
-    #         ff += self.get_shell_ff(k,i+1)*norm*self.shell_occs[i]
-    #     return ff * density
-    
 
 if __name__ == "__main__":
     pl = Plotter(sys.argv[1])

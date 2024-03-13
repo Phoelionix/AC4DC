@@ -1,0 +1,3 @@
+solvate:
+	cc -O -Aa -o solvate solvate.c -lm
+

@@ -1,17 +1,23 @@
-# Instructions for a fresh install (more painful if not fresh but then you probably know what you're doing.)
-# (0. sudo apt-get install build-essential )
+# Instructions for a fresh install for C++ beginners.
+# --Compiling--
+#(0. Run 'sudo apt-get install build-essential' )
 # 1. Install brew (e.g. linux: https://docs.brew.sh/Homebrew-on-Linux#requirements)
-# 2. brew install: gcc@10, eigen, and (optionally) python3.9
-# 3. (Optional python for live plotting and will [TODO] be ignored if not setup correctly)
-# 3.1 pip3.9 install  pybind11. (brew version doesn't work for me.)
-# 3.2 pip3.9 install plotly, and scipy
-# 4. ensure correct links for INC and LIB. 
-# 5. As of chatgpt compiling is a lot less painful.
-# working for wsl2.
+# 2. Run 'brew install [formula]' on following formulae: gcc@10, eigen, ncurses
+# 3. Ensure correct links for INC and LIB in this file. 
+# 4. Run 'make'
+#
+# Optional (well not yet optional TODO), live plotting:
+# 'brew install python3.9' 
+# Run 'pip3.9 install' on: pybind11, plotly, scipy.
+#
+# --Running (see README.md)--
+# 'mv bin/ac4dc ac4dc'
+# './ac4dc input/carbon_example.mol'  
+# If the file cannot execute it may be a linking error. Run ldd ac4dc to check dependencies.
 
 CPP := g++
 
-LIB := -lncurses -fopenmp -lpython3.9 # Link special external libraries here! (-L for directory of libraries). Eigen contains no source files (pure header implementation) thus is excluded. 
+LIB := -lncurses -fopenmp -lpython3.9 -lboost_system -lboost_filesystem  # Link special external libraries here! (-L for directory of libraries). Eigen contains no source files (pure header implementation) thus is excluded. 
 
 INC := -Iinclude -I../eigen3 -I/usr/include/ncursesw $(shell python3.9 -m pybind11 --includes)
 

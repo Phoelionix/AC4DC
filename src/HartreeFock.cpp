@@ -101,7 +101,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 			//std::cout << "Slater orbital energy is: " << Orbitals[i].Energy << " (x2)Ry"<<endl;
 		}
 	}
-	// Quick and dirty approximation of shells to a 2p orbital. TODO
+	// Quick and dirty approximation of shells to a p orbital. TODO
 	for (int i = 0; i < Orbitals.size();i++){
 		if(Orbitals[i].L() == -10){ 
 			Orbitals[i].set_L(1,false);  
@@ -351,6 +351,9 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 						}
 						Orbitals[i].Energy *= correction_scaling;
 						GreensMethod P(&Lattice, &Orbitals[i], &Potential);
+						if (std::isnan(Orbitals[i].F[0])){
+							throw std::runtime_error("Orbitals[i].F[i] is nan!");
+						}
 						if (Orbitals[i].check_nodes() == Orbitals[i].GetNodes()) {
 							correction_scaling = 1;
 							E_rel_change[i] = fabs(Orbitals[i].Energy / Orbitals_old[i].Energy - 1);
@@ -520,7 +523,6 @@ int SetBoundaryValuesApprox(Grid * Lattice, RadialWF * Psi, Potential* U)
 		//set boundary values for inwards integration
 		lambda = sqrt(-2 * Psi->Energy);
 		sigma = (U->V[infinity] * Lattice->R(infinity) - 1.) / lambda;
-		if(Psi->Energy > -0.01){std::cout << "Low orbital energy: "<< Psi->Energy <<", which leads lambda and sigma to be:"<<lambda<<" "<<sigma<<endl;}
 
 		a[0] = 1;
 		b[0] = -lambda;
@@ -547,7 +549,7 @@ int SetBoundaryValuesApprox(Grid * Lattice, RadialWF * Psi, Potential* U)
 			Psi->F[Inf] *= S;
 			Psi->G[Inf] *= S;
 			if (std::isinf(Psi->F[Inf])){
-				throw std::runtime_error("Psi has inf value!");
+				throw std::runtime_error("Psi has inf value! Sigma may be too high (Psi->Energy too small?).");
 			}
 		}
 	}
@@ -613,7 +615,8 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 			Psi->Energy *= 2;
 			continue;
 		}
-		if (std::isinf(Psi->F[infinity-1])){throw std::runtime_error("Psi has inf value!");}
+		if (std::isinf(Psi->F[infinity-1])){
+			throw std::runtime_error("Psi has inf value!");}
 
 		NumIntgr.StartAdams(Psi, 0, true);
 
@@ -626,12 +629,13 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 
 		F_left = Psi->F[Turn];
 		G_left = Psi->G[Turn] / F_left;
-		if (std::isinf(Psi->F[infinity-1])){throw std::runtime_error("Psi has inf value!");}
+		if (std::isinf(Psi->F[infinity-1])){
+			throw std::runtime_error("Psi has inf value!");}
 		NumIntgr.StartAdams(Psi, infinity, false);
 		NumIntgr.Integrate(Psi, infinity, Turn);
 
 		F_right = Psi->F[Turn];
-		if (std::isnan(Psi->F[0])){throw std::runtime_error("Psi->F[i] is nan!");}
+		if (std::isnan(Psi->F[0])){throw std::runtime_error("Psi->F[i] is nan [HF1]!");}
 		G_right = Psi->G[Turn] / F_right;
 
 		for (int i = 0; i <= infinity; i++) {
@@ -642,7 +646,7 @@ int HartreeFock::Master(Grid* Lattice, RadialWF* Psi, Potential* U, double Epsil
 				Psi->F[i] /= F_left;
 				Psi->G[i] /= F_left;
 			}
-			if (std::isnan(Psi->F[i])){throw std::runtime_error("Psi->F[i] is nan!");}
+			if (std::isnan(Psi->F[i])){throw std::runtime_error("Psi->F[i] is nan [HF2]!");}
 			density[i] = Psi->F[i] * Psi->F[i];
 			if (std::isnan(density[i])){throw std::runtime_error("Density is nan!");}
 		}
@@ -741,6 +745,10 @@ GreensMethod::GreensMethod(Grid* Lattice, RadialWF* Psi, Potential* U) : Adams(*
 	for (int i = 0; i <= infinity; i++)
 	{
 		W = Psi_O.F[i] * Psi_Inf.G[i] - Psi_Inf.F[i] * Psi_O.G[i];
+		if (W == 0){ // No idea how to fix this. It kills the ability to calculate e.g. Zn. - SP
+			std::cerr << "Error, W is 0 Greensmethod!";
+			throw std::runtime_error("Exiting due to no error handling for W being 0.");
+		}
 		Y[i] = -2.*U->Exchange[i] / W;
 	}
 

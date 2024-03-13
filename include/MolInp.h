@@ -29,6 +29,7 @@ This file is part of AC4DC.
 #include "LossGeometry.hpp"
 #include "Pulse.h"
 
+
 class MolInp
 {
 	// Molecular input for coupled atom/electron plasma calculations.
@@ -54,11 +55,6 @@ public:
 	int Num_Time_Steps() {return num_time_steps;}
 	double dropl_R() {return radius;}
 
-  	// void Set_Fluence(double new_fluence) {fluence = new_fluence;}
-	bool Write_Charges() {return write_charges; }
-	bool Write_Intensity() {return write_intensity; }
-	bool Write_MD_data() {return write_md_data; }
-
 	int Out_T_size() {return out_T_size; }
 	int Out_F_size() {return out_F_size; }
 
@@ -75,7 +71,7 @@ public:
 	string name = "";
 
 	// Scans for atomic process rates in the folder output/[atom name]/Xsections and recalculates if absent.
-	// 'Recalculate' flag skips scanning and forces recomputation.
+	// 'Recalculate' flag skips scanning for primary ionization data and forces computation for the specific photon energy used. As it only generates data for a single photon energy, it is quicker than the initial generation of data for when recalc is False. However, the data is not (currently) stored for use in later runs.
 	// The result is available as Store.
     void calc_rates(ofstream &_log, bool recalc=true);
 
@@ -85,10 +81,20 @@ public:
 	ManualGridBoundaries elec_grid_regions;
 	LossGeometry loss_geometry;
 	PulseShape pulse_shape = PulseShape::none;
+	// Gaussian modifications
+	double timespan_factor = 0;  // if set, is the total simulated timespan in units of the pulse width (fwhm) 
+	double negative_timespan_factor = 0; // if set, the total simulated timespan of the pulse before the t=0 point.
 
 	int num_time_steps = -1; // Number of time steps for time dynamics
 
-	double time_update_gap = 0; // interval between each cout'd time.	 
+	double time_update_gap = 0; // interval **in fs** between each cout'd time.	May be useful to set to a high number for HPC or when otherwise not using ncurses.
+    int steps_per_live_plot_update = 20; // Interval  **in steps** between plotting of the free electron distribution to _live_plot.png. Setting to 1 (updating every step) has a negligible effect on speed outside of very fast high step count simulations. 
+
+	double electron_source_fraction = 0;
+	double electron_source_energy = -1;
+	double electron_source_duration = 1; // As fraction of entire pulse
+	char electron_source_type = 'c'; // (c)onstant: rate is ([intensity]/[initial intensity]) * [initial photoion. rate of atoms in target]  *  [electron source fraction]. | (p)roportional: rate is [source fraction] * [total photionisation rate of all atoms in target].   
+
 protected:
 
 	bool validate_inputs();
@@ -98,10 +104,10 @@ protected:
 
 	bool use_fluence = false;
 	bool use_count = false;
-	bool use_intensity = false;
+	bool use_intensity = false; // peak intensity
 	double fluence = -1; // XFEL pulse fluence, au.
 	double photon_count = -1;
-	double max_intensity = -1;
+	double peak_intensity = -1;
 	
 	// Simulation end time, inputted as fs. Note that simulation (w/ rate equations) temporal width is 4*FWHM.
 	double simulation_cutoff_time = 1; 
@@ -113,22 +119,22 @@ protected:
 	double radius = -1; // Droplet radius
 	int omp_threads = 1;
 
-	// Flags for outputting
-	bool write_charges = false;
-	bool write_intensity = false;
-	bool write_md_data = true;
-
 	// unit volume.
 	double unit_V = -1.;
 
 	// Simulation loading parameters
-	double simulation_resume_time_max; // will attempt to load closest to this time but not after.
+	double simulation_resume_time_max = INFINITY; // will attempt to load closest to this time but not after.
 	string load_folder = ""; // If "" don't load anything. 
 	string filtration_file = ""; // If "" don't load anything.
 	bool loading_uses_input_timestep = false; // 
 
 	// Dynamic grid
 	double grid_update_period; // time period between dynamic grid updates, fs.
+
+	// Rate calc exclusions
+	std::vector<bool> bound_free_exclusions;
+
+
 };
 
 

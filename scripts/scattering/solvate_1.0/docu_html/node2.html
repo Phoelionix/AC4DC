@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3O//DTD W3 HTML 2.0//EN">
+<!Converted with LaTeX2HTML 95.1 (Fri Jan 20 1995) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds >
+<HR>
+<CENTER>
+<A href="t0_l.gif"><IMG ALIGN=MIDDLE ALT=" " SRC="t0_ss.gif"></A>
+<IMG ALIGN=MIDDLE ALT=" " SRC="solvate.gif">
+<A href="t8_l.gif"><IMG ALIGN=MIDDLE ALT=" " SRC="t8_ss.gif"></A><BR>
+</CENTER>
+<HR>
+<HEAD>
+<TITLE> Getting and Installing  SOLVATE</TITLE>
+</HEAD>
+<BODY>
+<meta name="description" value=" Getting and Installing  SOLVATE">
+<meta name="keywords" value="docu">
+<meta name="resource-type" value="document">
+<meta name="distribution" value="global">
+<P>
+<H1><A NAME=SECTION00020000000000000000> Getting and Installing  SOLVATE</A></H1>
+<P>
+<tt> Solvate 1.0</tt> can be obtained as a compressed tar-file from anonymous ftp
+(<A NAME=tex2html5 HREF="ftp://ftp.imo.physik.uni-muenchen.de/pub/solvate_1.0/solvate_1.0.tar.Z">ftp.imo.physik.uni-muenchen.de/pub/solvate_1.0/solvate_1.0.tar.Z</A>).
+<P>
+To install it, move the tar-file  to your favourite directory and enter:
+<P>
+<tt>   zcat solvate_1.0.tar.Z | tar -xvf -</tt>
+<P>
+The source <tt> solvate.c</tt> is just one ANSI-C-file without any 
+system-specific stuff 
+(except for <tt> malloc()</tt> --- RS6000 and NeXT users: pay attention!), 
+so it should compile right away with something like
+<P>
+<tt>   cc -ansi -O -o solvate solvate.c -lm</tt>
+<P>
+It is tested under IRIX System V.4 (SGI), HP-UX, and Digital UNIX V3.2C;
+appropriate <tt> Makefile</tt>s are included.
+<P>
+The distribution contains a postscript version of this manual
+(<tt> docu.ps</tt>) as well as an html-version (<tt> html/docu.html</tt> with
+references to all other files in the <tt> html</tt>-directory).
+<P>
+The distribution also contains two sample-solutes,
+<tt> bpti.pdb</tt>/<tt> bpti.psf</tt> and <tt> globh.pdb</tt>/<tt> globh.psf</tt>. 
+To check your installation, try:
+<P>
+<tt>   solvate -t 5.0 -n 2 -ion bpti solbpti</tt>
+<P>
+After a while (approx. 10 minutes on a DEC ALPHA/2100)
+you should see the following output:
+ <BR> 
+ 
+<HR>
+
+
+<PRE>  .:::::..    SOLVATE 1.0   (C) 1996 Helmut Grubmueller
+ ::oOOOoo::        Purpose: make a water shell around solutes
+ ::OOO::::        http://www.imo.physik.uni-muenchen.de/~grubi
+  :::::         Helmut.Grubmueller@Physik.uni-muenchen.de
+
+Reading solute from file bpti.pdb ... 568 atoms read.
+Reading atomic charges from file bpti.psf ... total charge is +6.00 e.
+
+Calculating bounding sphere ... done.
+Creating convex volume (max. radius is 100000.000000) ... done.
+Gauss-sampling convex volume ... done.
+Approximating volume with 2 gaussians: Phase 1/4...2/4...3/4...4/4...done.
+Saving parameter for 2 gaussians to file gaussians.lis ... done.
+
+Adjusting boundary distance by varying gaussian widths ...   5.046 A
+Gaussian widths are being scaled by a factor of 1.579210
+Saving boundary parameters to file boundary.lis ... done.
+
+Creating volume within boundary ... done.
+Sorting grid points according to distance from solute ... done.
+Performing distance approximation statistics with 58283 grid points ... 100%
+Checking approximation for distance from boundary ... 100%
+
+Estimated number of water molecules: 2297
+Placing water molecules ... found 1692
+Grouping water molecules ... 100%
+
+The water molecules form 2 groups.
+Group 1 contains 1691 water molecules
+Group 2 contains 1 water molecule
+So we have one single, 0 twins, and 0 triplets
+
+Placing ions ... placed 2 sodium ions and 8 chloride ions.
+Equilibrating ions (2000000 Monte Carlo moves) ... 100%
+
+Saving solute, 1682 water molecules, and 10 ions to file solbpti.pdb ... done.
+
+Solvate ready. No errors.
+</PRE>
+
+<P>
+<BR> <HR>
+<P><ADDRESS>
+<I>Helmut Grubmueller <BR>
+Wed Jun 19 19:00:00 MET DST 1996</I>
+</ADDRESS>
+</BODY>

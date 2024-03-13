@@ -41,7 +41,7 @@ This file is part of AC4DC.
 
 struct indexed_knot
 {
-    size_t step; // Step that this grid of knots was set
+    size_t step; // Step that the grid of B-spline knots was set/updated
     std::vector<double> energy; // knots
 };
 
@@ -49,13 +49,13 @@ struct indexed_knot
  * @brief Electron distribution class.
  * @details Represents a statistical distribution of electron density. Internal units are atomic units.
  * @note F is referred to as the distribution throughout the code. F[i] returns the i'th spline factor, but
- * F.f is the container that holds the spline factors. F(e) expands out the basis to return the density at energy e. 
+ * F.f is the container that holds the spline factors. F(e) expands out the basis to return the density at energy e divided by local knot width.
  */
 class Distribution
 {
 public:
     Distribution() {
-        f.resize(size);
+        f.resize(size);   
     }
 
     /**
@@ -126,6 +126,8 @@ public:
 
     static vector<double> get_knot_energies(){return basis.get_knot();}
     static double num_basis_funcs(){return basis.num_funcs;}
+    static void initialise_dynamic_regions(DynamicGridPreset& preset){basis.initialise_regions(preset);}
+
 
     /**
      * @brief Returns an order-preserved copy of knots with points that overlap with the basis's boundary removed.
@@ -144,7 +146,8 @@ public:
      * @return Distribution& 
      * @todo make clearer this is only for static grid case or just put into one function.
      */
-    void set_distribution(vector<double> new_knot, vector<double> new_f);
+    void set_distribution_STATIC_ONLY(vector<double> new_knot, vector<double> new_f);
+    void set_spline_factors(vector<double> new_f);
     // loads the knot and appropriately updates params like the overlap matrix as done in set_parameters.
     static void load_knot(vector<double> loaded_knot);
 
@@ -159,15 +162,15 @@ public:
      * This seems correct, given that dfdt is inputted for the spline basis's Sinv (S_inverse * <VectorXd input>) function, which names the input deltaf.
      * @param v deltaf
      */
-    void applyDeltaF(const Eigen::VectorXd& dfdt);
+    void applyDeltaF(const Eigen::VectorXd& dfdt, const int & threads);
     
 
     // Q functions
     // Computes the dfdt vector v based on internal f
     // e.g. dfdt v; F.calc_Qee(v);
-    void get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P, const int threads) const;
-    void get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P, const int threads) const;
-    void get_Q_ee  (Eigen::VectorXd& v, const int threads) const;
+    void get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const;
+    void get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const;
+    void get_Q_ee  (Eigen::VectorXd& v, const int & threads) const;
 
     void get_Jac_ee (Eigen::MatrixXd& J) const; // Returns the Jacobian of Qee
     
@@ -251,8 +254,8 @@ public:
      * @param max_e max elec energy
      * @param grid_style 
      */
-    static void set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, ManualGridBoundaries elec_grid_regions, DynamicGridPreset dyn_grid_preset = DynamicGridPreset());
-    static void set_basis(size_t step, Cutoffs param_cutoffs, FeatureRegimes regimes, std::vector<double> knots);
+    static void set_basis(size_t step, GridSpacing grid_style, Cutoffs param_cutoffs, FeatureRegimes regimes, ManualGridBoundaries elec_grid_regions);
+    static void set_basis(size_t step, Cutoffs param_cutoffs, FeatureRegimes regimes, std::vector<double> knots,bool update_knot_history = true);
     
     //void prep_adapt_knots(const FeatureRegimes& regimes);
     int adapt_knots(bool init, GridSpacing gt, Distribution original_distribution, std::vector<double> original_knots, std::vector<double> reference_energies = {}, std::vector<double> prev_Edens = {},size_t iteration = 0);
@@ -260,10 +263,19 @@ public:
     static double get_min_E(){
         return basis.min_elec_e();
     }
+    static double get_lowest_allowed_knot(){
+        return basis.first_gp_min_E;
+    }
+
     static double get_max_E(){
         return basis.max_elec_e();
     }
-
+    static double get_mb_min(){
+        return basis.mb_min_over_kT;
+    }
+    static double get_mb_max(){
+        return basis.mb_max_over_kT;
+    }
     static size_t size;
     double my_size(){return f.size();}
     static std::vector<double> load_knots_from_history(size_t step_idx);
@@ -272,7 +284,11 @@ public:
     static std::vector<double> get_knots_from_history(size_t step_idx);
     static void set_knot_history(size_t i, std::vector<double> replacement_knot){knots_history[i]={i,replacement_knot};}
     // history of grid points (for dynamic grid)
-    static std::vector<indexed_knot> knots_history;    
+    static std::vector<indexed_knot> knots_history;  
+    int container_size(){return f.size();}  
+    
+    static bool reset_on_next_grid_update; //TODO part of a duct tape implementation of FIND_INITIAL_DIRAC
+
 private:
     std::vector<double> f;  // Spline expansion factors
     static SplineIntegral basis;

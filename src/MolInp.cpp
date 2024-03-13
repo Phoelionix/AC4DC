@@ -25,6 +25,7 @@ This file is part of AC4DC.
 #include <cmath>
 #include "HartreeFock.h"
 #include "ComputeRateParam.h"
+#include <assert.h>
 
 
 MolInp::MolInp(const char* filename, ofstream & _log)
@@ -61,19 +62,24 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (!line.compare(0, 2, comment)) continue;   
 		if (!line.compare(0, 1, "")) continue;
 		if (!line.compare(0,end_file.length(),end_file)) break; 
-		// A category of inputs
+		// A header, defining a category of inputs
 		if (!line.compare(0, 1, "#")) {
 			if ( FileContent.find(line) == FileContent.end() ) {
 				FileContent[line] = vector<string>(0);
 			}
+			while (line.back() == ' '){
+				line.resize(line.size()-1);
+			}
 			curr_key = line;
-		// An input
+			
+		// A line below the header, defining an input
 		} else {
 			FileContent[curr_key].push_back(line);
 		}
 	}
 
 	size_t num_atoms = FileContent["#ATOMS"].size();
+	size_t num_bound_free_exclusions = FileContent["#BOUND_FREE_EXCLUSIONS"].size();
 
 	Orbits.clear();
 	Orbits.resize(num_atoms);
@@ -97,22 +103,12 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 
 	for (size_t n = 0; n < FileContent["#OUTPUT"].size(); n++) {
 		stringstream stream(FileContent["#OUTPUT"][n]);
-		char tmp;
-
 		if (n == 0) stream >> out_T_size;
 		if (n == 1) stream >> out_F_size;
-		if (n == 2) {
-			stream >> tmp;
-			if (tmp == 'Y') write_charges = true;
-		}
-		if (n == 3) {
-			stream >> tmp;
-			if (tmp == 'Y') write_intensity = true;
-		}
-		if (n == 4) {
-			stream >> tmp;
-			if (tmp != 'Y') write_md_data = false;
-		}
+		// if (n == 2) {
+		// 	stream >> tmp;
+		// 	if (tmp == 'Y') write_<placeholder> = true;
+		// }
 	}
 	
 	for (size_t n = 0; n < FileContent["#PULSE"].size(); n++) {  
@@ -121,6 +117,8 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (n == 0) stream >> omega;
 		if (n == 1) stream >> width;
 		if (n == 2) stream >> pulse_shape;  // (Note user-defined operators)
+		if (n == 3) stream >> timespan_factor;
+		if (n == 4) stream >> negative_timespan_factor;
 	}
 
 	string tmp = "";
@@ -140,7 +138,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (n == 0) stream >> tmp;
 		if (tmp[0] == 't' || tmp[0] == 'T'){
 			use_intensity = true; 
-			if (n == 1) stream >> max_intensity;
+			if (n == 1) stream >> peak_intensity;
 		}		
 		
 	}
@@ -162,14 +160,13 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (n == 0) stream >> num_time_steps;
 		if (n == 1) stream >> omp_threads;
 		if (n == 2) stream >> param_cutoffs.min_coulomb_density;
-		
-
 	}
+
 	for (size_t n = 0; n < FileContent["#MANUAL_GRID"].size(); n++) {
 		stringstream stream(FileContent["#MANUAL_GRID"][n]);
 		if (n == 0) stream >> elec_grid_type; // "true" for manual.		
 		//#GRID ,
-		if (n == 1) stream >> param_cutoffs.transition_e;
+		if (n == 1) stream >> param_cutoffs.transition_e; 
 		if (n == 2) stream >> elec_grid_regions; //elec_grid_regions.bndry_idx
 		if (n == 3) stream >> elec_grid_regions; //elec_grid_regions.bndry_E
 		if (n == 4) stream >> elec_grid_regions; //elec_grid_regions.powers
@@ -179,7 +176,13 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (n == 0) stream >> elec_grid_preset;
 		if (n == 1) stream >> grid_update_period;
 	}	
-
+	for (size_t n = 0; n < FileContent["#ELECTRON_SOURCE"].size(); n++) {
+		stringstream stream(FileContent["#ELECTRON_SOURCE"][n]);
+		if (n == 0) stream >> electron_source_fraction;
+		if (n == 1) stream >> electron_source_energy;
+		if (n == 2) stream >> electron_source_duration;
+		if (n == 3) stream >> electron_source_type;
+	}	
 	for (size_t n = 0; n < FileContent["#FILTRATION"].size(); n++) {
 		stringstream stream(FileContent["#FILTRATION"][n]);
 		if (n == 0){ stream >> filtration_file;
@@ -204,31 +207,52 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 
 		if (n == 0){ stream >> simulation_cutoff_time; cutoff_flag = true;}
 		if (n == 1) stream >> time_update_gap;
+		if (n == 2) stream >> steps_per_live_plot_update;
 
 	}	
 
+	// Thread capping
+	#if defined THREAD_MAX_1
+		omp_threads = 1
+	#elif defined THREAD_MAX_4
+		omp_threads = min(4,omp_threads);
+	#elif defined THREAD_MAX_8
+		omp_threads = min(8,omp_threads);
+	#elif defined THREAD_MAX_12
+		omp_threads = min(12,omp_threads);
+	#elif defined THREAD_MAX_16
+		omp_threads = min(16,omp_threads);
+	#elif defined THREAD_MAX_20
+		omp_threads = min(20,omp_threads);
+	#elif defined THREAD_MAX_24
+		omp_threads = min(24,omp_threads);
+	#elif defined THREAD_MAX_28
+		omp_threads = min(28,omp_threads);		
+	#endif
 
-	// Get fluence  (if not use_fluence)
-	if (use_count){
-		double SPOT_RAD = 50; // nm
-		fluence = photon_count*omega*Constant::J_per_eV*1e12 * 1e10/(Constant::Pi*pow(SPOT_RAD,2)); 
-	}
+	// Get fluence (in 10^4 * J.cm^-2).
+	if (use_count){  // [10^12 ph.µm^-2]
+		fluence = photon_count*omega*Constant::J_per_eV*1e12; // [J µm^-2]
+		fluence *= 1e4;  // [10^4 J cm^-2]
+	}	
 	if (use_intensity){
-		// TODO Need to test this is working as expected
+		// TODO Need to double check that this was working as expected  
 		// fluence = I0 * fwhm. I0 = I_avg*timespan/(fwhm). NB: var width = fwhm
 		// if square: Ipeak = I0.  
-		// if gaussian, I_peak = I0/norm. 
-		double t_units = pow(10,-15);   // Convert to units of input, fluence is 10^4 * J/cm^2.
-		double I_units = pow(10,15);
+		// if gaussian, I_peak = I0/norm, where norm = sqrt(pi/4/log(2)). 
+		
+		// Convert units, Peak intensity is units of 10^19 W/cm^2, fluence is in 10^4 * J/cm^2.
+		double t_units = pow(10,-15);   
+		double I_units = pow(10,15); 
 		switch (pulse_shape)
 		{
 		case PulseShape::gaussian:{
 			const double norm = sqrt(Constant::Pi/4/log(2)); // from  Pulse::operator() 
-			fluence = max_intensity*I_units*norm*(width*t_units);
+			fluence = peak_intensity*I_units*norm*(width*t_units);
 			break;
 			}
 		case PulseShape::square:{
-			fluence = max_intensity*I_units*(width*t_units);
+			fluence = peak_intensity*I_units*(width*t_units);
 			break;
 			}
 		default:
@@ -236,14 +260,27 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 			break;
 		}    
 	}
+	if (use_fluence){
+		// already set.
+	}
 
-	// Give dynamic grid regions eV pulse energy 
+
+	
+	// Give dynamic grid regions pulse energy in eV 
 	elec_grid_preset.pulse_omega = omega;
+	// Give energy for electron source in eV
+	#ifndef NO_ELECTRON_SOURCE
+	if (electron_source_energy > 0){
+		elec_grid_preset.electron_source_energy = electron_source_energy;
+	}
+	#endif //NO_ELECTRON_SOURCE
+
 
 	// Hardcode the boundary conditions
 	elec_grid_type.zero_degree_inf = 3;
 	elec_grid_type.zero_degree_0 = 0;
 
+	// TODO update this.
 	const string bc = "\033[33m"; // begin colour escape code
 	const string clr = "\033[0m"; // clear escape code
 	// 80 equals signs
@@ -251,7 +288,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	cout<<banner<<endl;
 	cout<<bc<<"Unit cell size: "<<clr<<unit_V<<" A^3"<<endl;
 	cout<<bc<<"Droplet L0:     "<<clr<<loss_geometry.L0<<" A"<<endl;
-	cout<<bc<<"Droplet Shape:  "<<clr<<loss_geometry<<endl<<endl;
+	cout<<bc<<"Droplet shape:  "<<clr<<loss_geometry<<endl<<endl;
 
 	cout<<bc<<"Photon energy:  "<<clr<<omega<<" eV"<<endl;
 	cout<<bc<<"Pulse fluence:  "<<clr<<fluence*10000<<" J/cm^2 = "<<10000*fluence/omega/Constant::J_per_eV<<"ph cm^-2"<<endl;
@@ -279,6 +316,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	
 	// Convert to number of photon flux.
 	omega /= Constant::eV_per_Ha;
+	electron_source_energy/= Constant::eV_per_Ha;
 	fluence *= 10000/Constant::Jcm2_per_Haa02/omega;
 
 	// Convert to atomic units.
@@ -325,6 +363,22 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 
 		Pots[i] = U;
 	}
+		// For specified atoms turn off secondary ionisation, i.e. EII and TBR. (Useful if have only small number of a species present and photoionisation dominates their contribution to the dynamics).
+		bound_free_exclusions = std::vector<bool>(num_atoms,false);
+		for (size_t i = 0; i < num_bound_free_exclusions; i++){
+			stringstream stream(FileContent["#BOUND_FREE_EXCLUSIONS"][i]);
+			string at_name;
+			stream >> at_name;
+			bool found_atom = false;
+			for (size_t j = 0; j < num_atoms; j++){
+				if(at_name == Store[j].name){
+					bound_free_exclusions[j] = true;
+					found_atom = true;
+					break;
+				}
+			}
+			assert(found_atom&&"Could not find matching atom present in #ATOMS that was specified in #BOUND_FREE_EXCLUSIONS");  
+		}
 
 	if (!validate_inputs()) {
 		cerr<<endl<<endl<<endl<<"Exiting..."<<endl;
@@ -342,11 +396,17 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P. TODO 
 	if (out_T_size <= 0) { cerr<<"ERROR: system set to output zero timesteps"; is_valid=false; }
 	if (out_F_size <= 0) { cerr<<"ERROR: system set to output zero energy grid points"; is_valid=false; }
 	if (loss_geometry.L0 <= 0) { cerr<<"ERROR: radius must be positive"; is_valid=false; }
+	if (timespan_factor < 0 || negative_timespan_factor < 0) {cerr << "ERROR, timespan factors must be postive"; is_valid = false;}
+	if (timespan_factor < negative_timespan_factor){cerr << "ERROR, the timespan factor for the negative times must be smaller than the full timespan factor";is_valid=false;}
+	if (pulse_shape == PulseShape::square && (timespan_factor < 1 && timespan_factor !=0)){cerr << "ERROR, timespan too short to capture full square pulse";is_valid=false;}
+	if (pulse_shape == PulseShape::square && negative_timespan_factor != 0){cerr << "ERROR, timespan for negative times cannot be specified with square pulse";is_valid=false;}
 	if (use_fluence + use_count + use_intensity != 1) {cerr << "ERROR, require exactly one of #USE_FLUENCE, #USE_COUNT, and #USE_INTENSITY to be active ";is_valid = false;}
 	if (omp_threads <= 0) { omp_threads = 4; cerr<<"Defaulting number of OMP threads to 4"; }
+	if (steps_per_live_plot_update < 1){steps_per_live_plot_update = 1; cerr<<"Steps per live plot was raised to 1 from given value of "<<steps_per_live_plot_update;}
+	if (electron_source_fraction != 0 && (electron_source_energy <= 0 || electron_source_fraction < 0)) {cerr<<"Invalid electron source parameters.";is_valid=false;}
 
 	if (elec_grid_type.mode == GridSpacing::unknown) {
-	cerr<<"ERROR: Grid type not recognised - param corresponding to use of manual must start with (t)rue or (f)alse,";
+	cerr<<"ERROR: Grid type not recognised - param corresponding to use of manual must start with (t)rue or (f)alse";
 	is_valid=false;
 	}
 	if (elec_grid_type.mode == GridSpacing::manual){
@@ -369,10 +429,11 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P. TODO 
 	return is_valid;
 }
 
+// if recalc is false, and atom's secondary ionization calcs are turned off, interpolates from stored primary ionization data (photoion., and fluor. + Auger decay rates).
+// Note that if the primary ionization data is missing, it will be generated. This will take a long time, but never has to be performed again
 void MolInp::calc_rates(ofstream &_log, bool recalc) {
 	// Loop through atomic species.
 	for (size_t a = 0; a < Atomic.size(); a++) {
-		HartreeFock HF(Latts[a], Orbits[a], Pots[a], Atomic[a], _log);
 
 		// This Computes the parameters for the rate equations to use, loading them into Init.
 		ComputeRateParam Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], recalc);
@@ -380,18 +441,24 @@ void MolInp::calc_rates(ofstream &_log, bool recalc) {
 		vector<int> max_occ(Orbits[a].size(), 0);
 		vector<bool> shell_check(Orbits[a].size(),0); // Store the indices of shell-approximated orbitals
 		for (size_t i = 0; i < Orbits[a].size(); i++) {
-			if (fabs(Orbits[a][i].Energy) > Omega()) final_occ[i] = Orbits[a][i].occupancy();
+			// locks in electrons that are in a potential deeper than the (mean) photon energy
+			if (fabs(Orbits[a][i].Energy) > Omega()) final_occ[i] = Orbits[a][i].occupancy();  // TODO what about continuum lowering/IPD or electrons with energies above the photon energy? -S.P.  
 			max_occ[i] = Orbits[a][i].occupancy();
 			shell_check[i] = Orbits[a][i].is_shell();
 		}
 
+
 		string name = Store[a].name;
 		double nAtoms = Store[a].nAtoms;
 
-
-		Store[a] = Dynamics.SolvePlasmaBEB(max_occ, final_occ, shell_check,_log);
+		// We may need to call HartreeFock HF(Latts[a], Orbits[a], Pots[a], Atomic[a], _log);
+		// However, calling it is expensive for heavier elements, so we only call it if haven't saved rates. // TODO Seems like this actually isn't expensive...
+		// So we need to pass these args through
+		Store[a].bound_free_excluded = bound_free_exclusions[a];
+		Store[a] = Dynamics.SolveAtomicRatesAndPlasmaBEB(max_occ, final_occ, shell_check, !Store[a].bound_free_excluded, Latts[a], Orbits[a], Pots[a], Atomic[a],_log);
 		Store[a].name = name;
 		Store[a].nAtoms = nAtoms;
+		
 		// Store[a].R = dropl_R();
 		Index[a] = Dynamics.Get_Indexes();
 	}

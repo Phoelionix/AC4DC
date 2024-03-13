@@ -97,12 +97,12 @@ int BasisSet::lower_i_from_e(double e) {
  * @param gt grid type, also referred to as grid_style. Only used for zero_degree_0 and zero_degree_inf. TODO really need to refactor around how we are using gt.
  */
 
-std::vector<double> BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rgm, bool trial, bool do_not_update_regions){
+std::vector<double> BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rgm, bool trial, bool do_not_update_regions){ // 'trial' isn't used by program currently
     if (!do_not_update_regions){
         update_regions(rgm);
     }
-    int Z_0 = gt.zero_degree_0;
-    int Z_inf = gt.zero_degree_inf;
+    Z_0 = gt.zero_degree_0;
+    Z_inf = gt.zero_degree_inf;
     if( BSPLINE_ORDER - Z_0 < 0){
         std::cerr <<"Failed to set boundary condition at 0, defaulting to "<<0<<std::endl;
         Z_0 = 0;
@@ -122,7 +122,7 @@ std::vector<double> BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rg
     std::cout<<"[ Dynamic Knot ] (i.e. piecewise polynomial has leading order x^"<<BSPLINE_ORDER-1<<")"<<std::endl;
 
     std::vector<double> new_knots;
-    new_knots.reserve(170+BSPLINE_ORDER+1);
+    new_knots.reserve(400+BSPLINE_ORDER+1);
 
     // Set the k - zero_deg repeated knots
     for (size_t i=0; i<start; i++) {
@@ -138,7 +138,7 @@ std::vector<double> BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rg
         // Find the smallest grid point that regions that the point is within want.
         double next_point = INFINITY;
         for (size_t r = 0; r < regions.size(); r ++){
-            double point =  regions[r].get_next_knot(new_knots[i-1]);
+            double point =  regions[r].get_next_knot(new_knots[i-1],i==start+1); // If first non_zero point, we get the minimum of the regions since it is safe to do so (we don't do it at other points so that no knots are closer together than the regions it is within/neighbouring.)
             if (point > new_knots[i-1]){
                 next_point = min(next_point,point);
             }
@@ -176,8 +176,8 @@ std::vector<double> BasisSet::set_knot(const GridSpacing& gt, FeatureRegimes& rg
 
 
 void BasisSet::manual_set_knot(const GridSpacing& gt){
-    int Z_0 = gt.zero_degree_0;
-    int Z_inf = gt.zero_degree_inf;
+    Z_0 = gt.zero_degree_0;
+    Z_inf = gt.zero_degree_inf;
     if( BSPLINE_ORDER - Z_0 < 0){
         std::cerr <<"Failed to set boundary condition at 0, defaulting to "<<0<<std::endl;
         Z_0 = 0;
@@ -219,6 +219,20 @@ void BasisSet::manual_set_knot(const GridSpacing& gt){
         
         hyb_powlaw_factor[rgn] = (E_N - E_M)/pow(n_N-n_M, p);
     }
+    // classic power law
+    bool classic_mode = false;
+    #ifdef CLASSIC_MANUAL_GRID
+        classic_mode = true;
+    #endif
+    double p_powlaw;
+    double A_powlaw;
+    if (classic_mode){
+        double transition_e  = 2000/Constant::eV_per_Ha;
+        size_t num_low = 35;
+        size_t M = num_low + 1;
+        p_powlaw = (log(_max-_min) - log(transition_e - _min))/(log(1.*num_funcs/M));
+        A_powlaw = (_max - _min)/pow(num_funcs, p_powlaw);
+    }
 
     std::cout<<"[ Manual Knot ] Using splines of "<<BSPLINE_ORDER<<"th order "<<std::endl;
     std::cout<<"[ Manual Knot ] (i.e. piecewise polynomial has leading order x^"<<BSPLINE_ORDER-1<<")"<<std::endl;
@@ -250,22 +264,30 @@ void BasisSet::manual_set_knot(const GridSpacing& gt){
 
     // Keep in mind: At i=0, the value of knot will still be _min
     bool used_good_grid = false;
+
     for(size_t i=start; i<=num_funcs + Z_inf; i++) {
-        // Generalised custom spacing
-        //  Get the index of the region (rgn) that this point is part of.
-        size_t rgn = 0;
-        for( ; rgn < _region_powers.size(); rgn++){
-            if( i - start < _manual_region_bndry_index[rgn+1]
-                || rgn == _region_powers.size() - 1){
-                break;
-                }
+        if (!classic_mode){
+            used_good_grid = true;        
+            // Generalised custom spacing
+            //  Get the index of the region (rgn) that this point is part of.
+            size_t rgn = 0;
+            for( ; rgn < _region_powers.size(); rgn++){
+                if( i - start < static_cast<size_t>(_manual_region_bndry_index[rgn+1])
+                    || rgn == _region_powers.size() - 1){
+                    break;
+                    }
+            }
+            n_M = _manual_region_bndry_index[rgn];
+            E_M = _manual_region_bndry_energy[rgn];
+            p = _region_powers[rgn];            
+            // Calculate the knot energy
+            knot[i] = hyb_powlaw_factor[rgn] * pow(i - n_M - start, p) + E_M;
         }
-        n_M = _manual_region_bndry_index[rgn];
-        E_M = _manual_region_bndry_energy[rgn];
-        p = _region_powers[rgn];            
-        // Calculate the knot energy
-        knot[i] = hyb_powlaw_factor[rgn] * pow(i - n_M - start, p) + E_M;
+        else{
+            knot[i] = A_powlaw * pow(i-start, p_powlaw) + _min;
+        }        
     }
+
     if(!used_good_grid) std::cout << "WARNING, this grid type is obsolete, if a dynamic grid is not possible, using a targeted grid is favourable. See README." <<std::endl; 
     // t_{n+1+z_infinity} has been set now. Repeat it until the end.
     for (size_t i= num_funcs + 1 + Z_inf; i< num_funcs+BSPLINE_ORDER; i++) {
@@ -292,14 +314,10 @@ void BasisSet::manual_set_knot(const GridSpacing& gt){
  * @param gt gt.zero_degree_0: The number of derivatives to set to zero: 0 = open conditions, 1=impose f(0)=0, 2=impose f(0)=f'(0) =0
  * @param  
  */
-void BasisSet::set_parameters(const GridSpacing& gt, ManualGridBoundaries& manual_elec_grid_regions, FeatureRegimes& regimes,DynamicGridPreset dyn_grid_preset) {
+void BasisSet::set_parameters(const GridSpacing& gt, ManualGridBoundaries& manual_elec_grid_regions, FeatureRegimes& regimes) {
     this->_manual_region_bndry_index = manual_elec_grid_regions.bndry_idx;   // TODO: refactor, can replace min and max with array of region start and region ends. -S.P.
     this -> _manual_region_bndry_energy = manual_elec_grid_regions.bndry_E;   
     this -> _region_powers = manual_elec_grid_regions.powers;   
-
-    if (dyn_grid_preset.selected != DynamicGridPreset::unknown)
-        initialise_regions(dyn_grid_preset);
-    assert(regions.size() > 0);
 
     // Idea: Want num_funcs usable B-splines
     // If grid has num_funcs+k+1 points, num_funcs of these are usable splines (num_int = num_funcs + Z_inf - start)
@@ -310,23 +328,26 @@ void BasisSet::set_parameters(const GridSpacing& gt, ManualGridBoundaries& manua
     // Neumann boundary:
     // t0=t1=...=tk-3, tn+3=...=tn+k
     
-    // boundary at minimm energy enforces energy conservation 
+    // boundary at minimum energy enforces energy conservation 
     this->_min = 0;
-    if(gt.mode == GridSpacing::manual){    
+    if (gt.mode == GridSpacing::dynamic){
+        assert(regions.size() > 0);
+        this->_max = dynamic_max_inner_knot();  
+        set_knot(gt,regimes);        
+    }
+    else{    
+        assert(gt.mode == GridSpacing::manual);
         this->_max = manual_elec_grid_regions.bndry_E.back();
         num_funcs = manual_elec_grid_regions.bndry_idx.back();
         manual_set_knot(gt);
     }    
-    else{
-        this->_max = dynamic_max_inner_knot();  
-        set_knot(gt,regimes);
-    }
     // std::cout << "Knots set to: ";
     // for (double e: knot)
     //     std::cout << e*Constant::eV_per_Ha << ' ';
     // cout << std::endl;
     compute_overlap(num_funcs);
 }
+
 
 void BasisSet::compute_overlap(size_t num_funcs){
     std::vector<Eigen::Triplet<double>> tripletList;
@@ -377,9 +398,11 @@ void BasisSet::compute_overlap(size_t num_funcs){
 
 
 void BasisSet::set_parameters(FeatureRegimes& regimes, std::vector<double> new_grid_knots) {
-    knot = new_grid_knots;
-    num_funcs = knot.size()- (BSPLINE_ORDER+1);
+    assert(Z_0 !=-1 && "Z_0 hasn't been set");
+    assert( BSPLINE_ORDER - Z_0 >= 0);      
     update_regions(regimes);
+    knot = new_grid_knots;
+    num_funcs = knot.size()-(BSPLINE_ORDER-Z_0)-1; //knot.size()- (BSPLINE_ORDER+1); 
     compute_overlap(num_funcs);
 }
 

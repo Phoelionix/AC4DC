@@ -159,10 +159,7 @@ def make_plasma_input(fname, outfile, **kwargs):
 
   plasma_file.write("""\n#OUTPUT\n""")
   plasma_file.write("""800          // Number of time steps in the output files.\n""")
-  plasma_file.write("""4000         // Number of free-electron grid points in output file.\n""")  
-  plasma_file.write("""N            // Write atomic charges in a separate file (Y/N)?\n""")
-  plasma_file.write("""Y            // Write intensity in a separate file (Y/N)?\n""")
-  plasma_file.write("""Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?\n""")
+  plasma_file.write("""4000         // Number of free-electron grid points in output file.\n""")
 
   plasma_file.write("""\n#DEBUG\n""")
   plasma_file.write("""1         // Proportion of time steps to iterate through before stopping early.\n""")

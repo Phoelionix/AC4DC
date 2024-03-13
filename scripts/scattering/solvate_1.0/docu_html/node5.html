@@ -1,0 +1,158 @@
+<!DOCTYPE HTML PUBLIC "-//W3O//DTD W3 HTML 2.0//EN">
+<!Converted with LaTeX2HTML 95.1 (Fri Jan 20 1995) by Nikos Drakos (nikos@cbl.leeds.ac.uk), CBLU, University of Leeds >
+<HR>
+<CENTER>
+<A href="t0_l.gif"><IMG ALIGN=MIDDLE ALT=" " SRC="t0_ss.gif"></A>
+<IMG ALIGN=MIDDLE ALT=" " SRC="solvate.gif">
+<A href="t8_l.gif"><IMG ALIGN=MIDDLE ALT=" " SRC="t8_ss.gif"></A><BR>
+</CENTER>
+<HR>
+<HEAD>
+<TITLE> Command line options and parameters</TITLE>
+</HEAD>
+<BODY>
+<meta name="description" value=" Command line options and parameters">
+<meta name="keywords" value="docu">
+<meta name="resource-type" value="document">
+<meta name="distribution" value="global">
+<P>
+<H1><A NAME=SECTION00050000000000000000> Command line options and parameters</A></H1>
+<P>
+<tt> SOLVATE</tt> receives all input parameters from the command line, so
+it can easily be used within shell-scripts.
+<P>
+Available options are:
+<P>
+<PRE>solvate [-t thick] [-r radius] [-n ngauss] [-ug] [-ub]
+        [-s] [-v] [-bulk] [-w] [-ion] [-psf] [infile] outfile
+</PRE>
+<P>
+<DL COMPACT><DT><tt> thick</tt>
+<DD> 
+specifies the minimum water shell thickness in Angstrom (default: 10.0).
+Nowhere will the solute be closer to the surface of the solvent
+than this value. Attention: Values smaller than 3.0 may confuse
+<tt> SOLVATE</tt>.
+<P>
+<DT><tt> radius</tt>
+<DD> 
+specifies the maximum boundary curvature radius of the
+solvent surface in Angstrom (default: 100000.0). A very large
+value (e.g., the default value) means that the surface can (but not
+necessarily does) have rather flat parts. Smaller values generate
+`rounder' solvent volumes, and, as a consequence, more solvent
+molecules. The value of <tt> radius</tt> should not be considerably
+smaller than the size of the solute.
+<P>
+<DT><tt> ngauss</tt>
+<DD> 
+specifies the number of gaussians to be used
+to define the solvent surface (default: 1). The more detailed
+irregular features of the surface are required,
+the more gaussians should be used. Consequently,
+thin water shells typically require more gaussians than thicker ones.
+Note, however, that a large number may slow down subsequent 
+molecular dynamics simulations. Typical values for <tt> ngauss</tt>
+are five to ten.
+<P>
+<DT><tt> -s</tt>
+<DD>
+If the <tt> -s</tt> option is set, the file <tt> surface_stat</tt> is
+written, which contains (i) a set of grid points specifying
+the solvent surface, (ii) the error statistics for the distance
+estimate described above, and (iii) information about how many
+water molecules belong to which group of molecules.
+<P>
+<DT><tt> -v</tt>
+<DD>
+If the <tt> -v</tt> option is set, the file <tt> volume_stat</tt> is
+written (attention: this file may become quite large!),
+which lists for every grid point within the solvent volume
+its <b>x</b>-, 
+<b>y</b>-, 
+and <b>z</b>-coordinate,
+the value <IMG  ALIGN=MIDDLE ALT="" SRC="img57.gif"> of the density function at this
+point,
+its accurate distance and the approximate distance (which is the
+efficient estimate used in subsequent MD-simulations) from the 
+solute surface, as well as
+an approximate value of the curvature of the surface at the point
+next to  <IMG  ALIGN=MIDDLE ALT="" SRC="img58.gif"> (which also is an efficient estimate that can be used
+in MD-simulations).
+<P>
+<DT><tt> -ug</tt>
+<DD>
+If the <tt> -ug</tt> (use gaussians) option is 
+set, all steps required for
+the computation of the approximate density function <b>f</b>
+(STEPs 2 and 3)
+are skipped, and the required parameters for defining <b>f</b>
+are read from the file <tt> gaussians.lis</tt> instead, which
+is always written when <b>f</b> is computed.
+The reason for this option is that STEP 3 is quite time
+consuming.
+<P>
+<DT><tt> -ub</tt>
+<DD>
+If the <tt> -ub</tt> (use boundary) option is set, 
+all steps required for
+the computation of the boundary description through <b>f</b>
+(STEPs 2, 3, and 4)
+are skipped, and the required parameters for defining <b>f</b>
+and the scale factor <b>s</b>
+are read from the file <tt> boundary.lis</tt> instead, which
+is always written after the boundary distance from the solute has been
+adjusted (STEP 4).
+The reason for this option is that STEP 4 is quite time
+consuming.
+<P>
+<DT><tt> -bulk</tt>
+<DD>
+The <tt> -bulk</tt> option suppresses output of buried water molecules,
+i.e., only bulk water is written to the output pdb-file.
+<P>
+<DT><tt> -w</tt>
+<DD>
+The <tt> -w</tt> option suppresses output of the solute,
+i.e., only water molecules (usually with a hole in the middle, where the
+solute is located) and ions are written to the output pdb-file.
+<P>
+<DT><tt> -ion</tt>
+<DD>
+If the <tt> -ion</tt> option is set, STEP 9 is carried out to place
+sodium and chloride ions into the solvent according to
+a isotonic Debye-H&#252;ckel density. If the option is not given,
+STEP 9 is skipped, and no ions are output.
+<P>
+<DT><tt> -psf</tt>
+<DD>
+If the <tt> -psf</tt> option is set, <tt> SOLVATE</tt> writes
+an X-PLOR-script <tt> mkpsf.inp&quot;</tt> which can be used to
+generate a structure file for the solute/solvent-system,
+as required for subsequent MD-simulations (the command
+<tt>   xplor &lt; mkpsf.inp</tt> will do the job).
+<P>
+<DT><tt> infile</tt>
+<DD>
+specifies the name of the
+input pdb-/psf-file of the solute.
+If the <tt> -ion</tt> option is set, both pdb- and psf-file are required;
+otherwise only the pdb-file is needed. No extension must be given!<BR> 
+The input file name may be omitted, in which case <tt> SOLVATE</tt>
+creates a pure spherical water droplet centered at the origin.
+<P>
+<DT><tt> outfile</tt>
+<DD>
+specifies the name of the output file for
+the solute/solvent-system. No extension should be given.
+<P>
+ </DL>
+<P>
+The command line options can be given in arbitrary sequence.
+<P>
+<BR> <HR>
+<P><ADDRESS>
+<I>Helmut Grubmueller <BR>
+Wed Jun 19 19:00:00 MET DST 1996</I>
+</ADDRESS>
+</BODY>

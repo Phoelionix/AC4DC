@@ -21,6 +21,7 @@ This file is part of AC4DC.
 #include "ElectronRateSolver.h"
 #include "Input.h"
 #include "Constant.h"
+#include "config.h"
 #include <iostream>
 #include <filesystem>
 #include <ctime>
@@ -149,7 +150,7 @@ int reserve_output_name(string &outdir,string &tag){
     while(outdir == ""||string_in_file(FileContent,outdir)){
             count++;
             outdir = "output/__Molecular/"+tag+"_"+to_string(count)+"/";
-            if(count > 999){
+            if(count > 9999){
                 cerr << "Directory naming loop failsafe triggered in get_file_names() of main.cpp" << endl;
                 return 1;
             }
@@ -278,10 +279,10 @@ int main(int argc, const char *argv[]) {
 
     string name, logpath, tmp_molfile, outdir;
 
-    cout<<"Copyright (C) 2020  Alaric Sanders and Alexander Kozlov"<<endl;
+    cout<<"Copyright (C) 2024  Alaric Sanders, Spencer Passmore, and Alexander Kozlov"<<endl;
     cout<<"This program comes with ABSOLUTELY NO WARRANTY; for details run `ac4dc -w'."<<endl;
-    cout<<"This is free software, and you are welcome to redistribute it"<<endl;
-    cout<<"under certain conditions; run `ac4dc -c' for details."<<endl;
+    cout<<"This is free software, and you are welcome to redistribute it under"<<endl;
+    cout<<"certain conditions; run `ac4dc -c' for details."<<endl;
 
     // Temporarily convert to string, so we can add .mol for ease of use.
     string input_file_path = string(argv[1]); 
@@ -295,8 +296,8 @@ int main(int argc, const char *argv[]) {
     ofstream log(logpath); 
     cout << "\033[1;32mInitialising... \033[0m" <<endl;
     const char* const_path = input_file_path.c_str();
-    #ifndef HPC 
-    pybind11::initialize_interpreter();     
+    #if !defined NO_PLOTTING  
+    pybind11::initialize_interpreter();  
     #endif
     ElectronRateSolver S(const_path, log); // Contains all of the collision parameters.
     cout << "\033[1;32mComputing cross sections... \033[0m" <<endl;
@@ -306,10 +307,10 @@ int main(int argc, const char *argv[]) {
         
         string backup_dir = "output/backup_data";
         try_mkdir(backup_dir);
-        S.solve(log, backup_dir);
+        S.execute_solver(log, backup_dir);
         try_mkdir(outdir);
         S.save(outdir);    
-        //pybind11::finalize_interpreter(); just never call finalize (via this or scoped_interpreter) since it crashes due to a missing pointer for whatever reason.
+        //pybind11::finalize_interpreter(); Commented out so is never called (via this or scoped_interpreter) since it crashes due to a missing pointer for whatever reason.
     }
     move_mol_file(tmp_molfile,outdir,name); 
     move_log_file(logpath,outdir,name);
