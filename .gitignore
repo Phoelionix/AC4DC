@@ -50,3 +50,4 @@ scripts/scattering/scalepack/*
 scripts/scattering/*.pdf
 *results/*
 */.goldilocks_saves/*
+*.out
