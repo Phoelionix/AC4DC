@@ -9,11 +9,11 @@
 # 5. As of chatgpt compiling is a lot less painful.
 # working for wsl2.
 
-CPP := g++-10#/home/linuxbrew/.linuxbrew/bin/g++-10 #(not g++-11) 
+CPP := g++
 
-LIB := -lncurses -fopenmp -lpython3.9 # Link special external libraries here! (-L for directory of libraries) #-L/usr/lib #-lpython3.9
+LIB := -lncurses -fopenmp -lpython3.9 # Link special external libraries here! (-L for directory of libraries). Eigen contains no source files (pure header implementation) thus is excluded. 
 
-INC := -Iinclude -I/home/linuxbrew/.linuxbrew/include/eigen3 -I/usr/include/ncursesw $(shell python3.9 -m pybind11 --includes)#-I$(CONDA_PREFIX)/lib/python3.9/site-packages/pybind11/include   -I$(CONDA_PREFIX)/include/python3.9 # $(PY_LDFLAGS)  # $(PY_CFLAGS)  #-I/usr/include   #-I/opt/homebrew/include/eigen3 -   # 
+INC := -Iinclude -I../eigen3 -I/usr/include/ncursesw $(shell python3.9 -m pybind11 --includes)
 
 SRCDIR := src
 BUILDDIR := build

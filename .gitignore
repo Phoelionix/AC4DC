@@ -23,6 +23,7 @@ debug_ac4dc.out
 doxygen/*
 slurm*
 load_modules.sh
+load_python_modules.sh
 *.slurm
 Makefile_S
 scripts/scattering/results*
@@ -35,3 +36,4 @@ test_build/
 test_src/
 <ipython*
 __pycache__
+*.out

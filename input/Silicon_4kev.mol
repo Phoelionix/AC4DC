@@ -1,21 +1,22 @@
-// AC4DC input file generated from: input/templates/tetra.mol
+// Silicon crystal comparable to Leonov et al
+// "Time dependence of X-ray polarizability of a crystal induced by an intense femtosecond X-ray pulse"
 
 #ATOMS
-N_fast 30
+Si_fast 8         // Single conventional FCC (diamond) unit cell
 
 #VOLUME
-515.69      // Volume per molecule in Angstrom^3.
-2000         // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
-none         // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
+160.19         // Volume per molecule in Angstrom^3.
+10000          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+cylinder       // Geometry specifier - options are none, spherical, cylindrical, planar
 
 #PULSE
-9000         // Photon energy in eV.
-25         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
-gaussian     // Pulse shape.
+4000         // Photon energy in eV.
+13           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+gaussian
 
-#USE_COUNT
+#USE_FLUENCE
 true         // enabled? true/false.
-0.01            // Number of photons in trillions (10^12) in a 100 nm diameter spot.
+16           // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
 20000        // Initial guess for number of time step points for rate equation.
@@ -36,5 +37,3 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 999           // Simulation cutoff time in fs (can end before but not after).
 0.01          // Interval to display current timestep [fs].
 ####END####
-
-Notes:

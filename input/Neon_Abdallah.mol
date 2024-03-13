@@ -1,21 +1,26 @@
-// AC4DC input file generated from: input/templates/tetra.mol
+// Neon, taken from J Abdallah Jr et al 2013 J. Phys. B: At. Mol. Opt. Phys. 46 235004
 
 #ATOMS
-N_fast 30
+Ne_fast 1
 
 #VOLUME
-515.69      // Volume per molecule in Angstrom^3.
-2000         // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
-none         // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
+62500      // Volume per molecule in Angstrom^3.
+17500          // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+cylindrical    // geometry of sample (may be spherical, cylindrical or planar)
 
 #PULSE
-9000         // Photon energy in eV.
-25         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
-gaussian     // Pulse shape.
+1070         // Photon energy in eV.
+40           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse). 
+square     // as done by abdallah
 
-#USE_COUNT
+#PULSE
+4000         // Photon energy in eV.
+40           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+gaussian
+
+#USE_FLUENCE
 true         // enabled? true/false.
-1.00            // Number of photons in trillions (10^12) in a 100 nm diameter spot.
+8            // Pulse fluence in 10^4 * J/cm^2.
 
 #NUMERICAL
 20000        // Initial guess for number of time step points for rate equation.
@@ -33,8 +38,7 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-999           // Simulation cutoff time in fs (can end before but not after).
+0           // Simulation cutoff time in fs - as done by abdallah.
 0.01          // Interval to display current timestep [fs].
 ####END####
-
-Notes:
+square pulse, sim ends at end of pulse.

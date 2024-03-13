@@ -10,12 +10,12 @@ none         // Spatial boundary shape - options are none (confined system), sph
 
 #PULSE
 6000         // Photon energy in eV.
-15         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
+5.0         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
 gaussian     // Pulse shape.
 
 #USE_COUNT
 true         // enabled? true/false.
-1.00            // Number of photons in trillions (10^12) in a 100 nm diameter spot.
+0.10            // Number of photons in trillions (10^12) in a 100 nm diameter spot.
 
 #NUMERICAL
 20000        // Initial guess for number of time step points for rate equation.

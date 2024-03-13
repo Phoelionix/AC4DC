@@ -57,18 +57,15 @@ public:
     {
         pf.set_shape(input_params.pulse_shape);
         pf.set_pulse(input_params.Fluence(), input_params.Width());
-        // AC4DC V2
-        timespan_au = input_params.Width()*4;   // 4*FWHM, capturing effectively entire pulse.
-        // NEUTZE  (TODO have option to set FWHM coverage. Though it's better for the sim to get out of that early stage)
-        // would be interesting to see how much of a difference only simulating this amount is with a gaussian, since you're cutting off a lot of time
-        // for electron impact (even if the pulse intensity is miniscule). 
-        timespan_au = input_params.Width()*2.4; 
-        std::cout<<"Imaging using -1.2 FWHM to 1.2 FWHM"<<std::endl;
         
-        if (input_params.pulse_shape ==  PulseShape::square){  //-FWHM <= t <= 3FWHM
+        
+        if (input_params.pulse_shape ==  PulseShape::square){  //-FWHM <= t <= 3FWHM (we've squished the pulse into the first FWHM.)
+            timespan_au = input_params.Width()*4; // 4*FWHM, capturing effectively entire pulse.
             simulation_start_time = -timespan_au/4;
             simulation_end_time =  3*timespan_au/4; 
-        } else { //-2FWHM <= t <= 2FWHM
+        } else { //-1.2FWHM <= t <= 1.2 FWHM
+            timespan_au = input_params.Width()*2.4;   // 99% of pulse, (similar to Neutze)
+            std::cout<<"Imaging using -1.2 FWHM to 1.2 FWHM"<<std::endl;
             simulation_start_time = -timespan_au/2;
             simulation_end_time = timespan_au/2; 
         }
