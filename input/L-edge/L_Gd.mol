@@ -2,10 +2,12 @@
 C 613
 N 193
 O 185
-Zr_fast 10
+S 10
+Gd_galli 2
 
 #BOUND_FREE_EXCLUSIONS
-Zr_fast
+S
+Gd_galli
 
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.
@@ -13,7 +15,7 @@ Zr_fast
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-7112         // Photon energy in eV.
+9000         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
 2.4  // total sim time in fwhm
@@ -21,15 +23,15 @@ gaussian       // Pulse shape
 
 #USE_COUNT
 true    // active (using count)?
-1.75  // Photon density (x10^12 ph.µm-2)
+1  // Photon density (x10^12 ph.µm-2)
 
 #NUMERICAL
-1500      // Initial guess for number of time step points for rate equation.
-18            // Number of threads in OpenMP.
+3375      // Initial guess for number of time step points for rate equation.
+28            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
-B              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
-5.05           // Grid update period in fs, (dynamic grid only).
+D              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
+5.15           // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
 800         // Number of time steps in the output files.
@@ -41,6 +43,7 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 #DEBUG
 999 //10     // Simulation (early) cutoff time in fs
 0.01    // Interval to update current timestep [fs].
+1 // Live plotting interval [steps]
 ####END#####
 
 Notes:

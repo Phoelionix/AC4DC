@@ -2,7 +2,10 @@
 C 613
 N 193
 O 185
-Kr_fast 10
+Ar 10
+
+#BOUND_FREE_EXCLUSIONS
+Ar
 
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.

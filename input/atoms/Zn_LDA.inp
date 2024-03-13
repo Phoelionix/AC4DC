@@ -1,16 +1,17 @@
 // Average over configuration fractional occupancy is supported, atomic orbital occupancies are between 0 and 4L+2.
-// Zn2+
-// 2673 configs with 1s, 891 without.
+// 14,553 configs with 1s, 4851 without.
 
 #ATOM
 30           // Nuclear charge
 coulomb      // Nuclear potential model. Can be "coulomb" for point-like nucleus, "sphere" for spherical nucleus.
-HF           // Hamiltonian form. Can be HF, LDA.
+LDA           // Hamiltonian form. Can be HF, LDA.
 // Orbitals and their occupancies
-4	           // Number of orbitals. Can include virtual orbitals which have occupancy = 0.
+6	           // Number of orbitals. Can include virtual orbitals which have occupancy = 0.
 1s 2
-2N 8
-3N 8
+2s 2
+2p 6
+2s 2
+2p 6
 3d 10
 V_N          // Potential model. Can be "V_N" for Hartree-Fock, "V_N-1no" for non-orthogonal excited state orbitals, "V_N-1" for classical potential.
 length       // Gauge type for matrix elements involving photon absorption/emission. Can be either "length" or "velocity".

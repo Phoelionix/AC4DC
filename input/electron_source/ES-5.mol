@@ -27,8 +27,8 @@ L       // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) 
 
 #ELECTRON_SOURCE
 3    // Additional electrons as fraction of other photoion. events
-1000     // Electron energy in eV
-0.0278    // Fraction of pulse to emit over
+2500     // Electron energy in eV
+0.0278     // Fraction of pulse to emit over
 
 #OUTPUT
 800          // Number of time steps in the output files.

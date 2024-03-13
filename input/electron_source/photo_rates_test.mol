@@ -1,15 +1,20 @@
 // Carbon (amorphous similar to Hau-Riege). Assumes 100nm cylindrical beam fired into much larger target.
-// Confirmed to work with AC4DCv2 (Sanders 2020 thesis).
 #ATOMS
-C 1
+C 300
+N 300
+O 300
+S 300
+Fe_faster 300
+Zn_faster 300
+
 
 #VOLUME
-18.11        // Volume per molecule in Angstrom^3.
-2000         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
-none // Spatial boundary shape - options are none, spherical, cylindrical, planar
+20000.00      // Volume per molecule in Angstrom^3.
+2000         // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
+none         // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
 
 #PULSE
-10000         // Photon energy in eV.
+8000         // Photon energy in eV.
 15.0         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
 gaussian     // Pulse shape.
 
@@ -22,13 +27,13 @@ true         // enabled? true/false.
 26           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
-L       // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
+medium       // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
 5.15         // Grid update period in fs, (dynamic grid only).
 
 #ELECTRON_SOURCE
-3    // Additional electrons as fraction of other photoion. events
-1000     // Electron energy in eV
-0.0278    // Fraction of pulse to emit over
+3.32    // Additional electrons as fraction of other photoion. events
+1250     // Electron energy in eV
+0.0278     // Fraction of pulse to emit over
 
 #OUTPUT
 800          // Number of time steps in the output files.
@@ -41,3 +46,4 @@ L       // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) 
 ####END####
 
 Notes:
+Trying to mimic early photopeak of zn-6, see if get similar effect

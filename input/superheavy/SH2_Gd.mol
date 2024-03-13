@@ -1,7 +1,11 @@
 #ATOMS
-Gd_fast 2
-S_fast 10
-N 991
+C 613
+N 193
+O 185
+Gd_fast 10
+
+#BOUND_FREE_EXCLUSIONS
+Gd_fast
 
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.
@@ -12,18 +16,20 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 7112         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
+2.4  // total sim time in fwhm
+1.2 // time before pulse peak to start at in fwhm 
 
 #USE_COUNT
 true    // active (using count)?
-1.75  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
+1.75  // Photon density (x10^12 ph.µm-2)
 
 #NUMERICAL
-1000      // Initial guess for number of time step points for rate equation.
+1500      // Initial guess for number of time step points for rate equation.
 18            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
-l              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
-5.05            // Grid update period in fs, (dynamic grid only).
+B              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
+5.05           // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
 800         // Number of time steps in the output files.
@@ -33,13 +39,11 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-99 //10     // Simulation cutoff time in fs
+999 //10     // Simulation (early) cutoff time in fs
 0.01    // Interval to update current timestep [fs].
 ####END#####
 
 Notes:
-gadolinium included
-
 Parameters approximate (pump) pulse used in Nass et al 2020 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7156470/
 Hen egg-white lysozyme https://files.rcsb.org/pub/pdb/validation_reports/et/4et8/4et8_full_validation.pdf
 Ignores:

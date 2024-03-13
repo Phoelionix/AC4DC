@@ -1,5 +1,4 @@
-// Carbon (amorphous similar to Hau-Riege). Assumes 100nm cylindrical beam fired into much larger target.
-// Confirmed to work with AC4DCv2 (Sanders 2020 thesis).
+// Electron source template file.
 #ATOMS
 C 1
 
@@ -26,9 +25,7 @@ L       // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) 
 5.15         // Grid update period in fs, (dynamic grid only).
 
 #ELECTRON_SOURCE
-3    // Additional electrons as fraction of other photoion. events
-1000     // Electron energy in eV
-0.0278    // Fraction of pulse to emit over
+0    // Additional electrons as fraction of other photoion. events
 
 #OUTPUT
 800          // Number of time steps in the output files.

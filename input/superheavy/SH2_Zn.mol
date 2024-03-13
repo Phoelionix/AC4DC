@@ -2,7 +2,11 @@
 C 613
 N 193
 O 185
-Ne_fast 10
+Zn_fast 10
+
+#BOUND_FREE_EXCLUSIONS
+Zn_fast
+
 
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.

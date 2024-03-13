@@ -1,30 +1,33 @@
-// AC4DC input file generated from: input/superheavy/SH2_Zn.mol
+// AC4DC input file generated from: input/superheavy/SH_excl_Fe.mol
+// Atomic ratio just approximation. Missing Mg.
 
 #ATOMS
-C 613
-N 193
-O 185
-Zn_fast 10
+C 15868
+N 4132
+O 4078
+S 113
+Fe_LDA 4
 
 #BOUND_FREE_EXCLUSIONS
-Zn_fast
+Fe_LDA
 
 #VOLUME
-20000.00      // Volume per molecule in Angstrom^3.
+400000.00      // Volume per molecule in Angstrom^3.
 2000         // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
 none         // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
 
 #PULSE
-11000         // Photon energy in eV.
-15.0         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
-gaussian     // Pulse shape.
+1800         // Photon energy in eV.
+70.0         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
+square       // Pulse shape.  Square is assumed more appropriate for long pulse.
+1 // simulation total timespan, as a multiple of fwhm
 
 #USE_COUNT
 true         // enabled? true/false.
-0.10            // Photon density (x10^12 ph.µm-2)
+0.01            // Photon density (x10^12 ph.µm-2)
 
 #NUMERICAL
-1000         // Initial guess for number of time step points for rate equation (Note e-e scattering part takes num_stiff_ministeps = 500 substeps for each step).
+5000         // Initial guess for number of time step points for rate equation (Note e-e scattering part takes num_stiff_ministeps = 500 substeps for each step).
 26           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
