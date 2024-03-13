@@ -22,7 +22,6 @@ MakefileDebug
 debug_ac4dc.out
 doxygen/*
 slurm*
-load_modules.sh
 load_python_modules.sh
 *.slurm
 Makefile_S
