@@ -40,7 +40,7 @@ using namespace CustomDataType;
 
 // Called for molecular inputs.
 // Computes molecular collision parameters.
-RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, vector<bool> shell_check, bool calculate_secondary_ionisation, Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, ofstream & runlog)
+RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, vector<bool> shell_check, bool calculate_secondary_ionisation, ofstream & runlog)
 {
 	// Uses BEB model to compute fundamental
 	// EII, Auger, Photoionisation and Fluorescence rates
@@ -75,7 +75,6 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 		have_EII = (calculate_secondary_ionisation == false);
 		have_Pht=false;
 		have_Flr=false;
-		HartreeFock HF(Lattice, Orbitals, U, Inp, runlog); 
 	} else { // First time: Save photoionization data for multiple photon energies. Second time: Interpolate from data.
 		// Check if there are pre-calculated rates
 		have_Pht = RateData::InterpolateRates(RateLocation, PHOTO, Store.Photo, input.Omega()); // Omega dependent
@@ -94,7 +93,6 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 	}
 	if (!have_Aug || !have_EII || !have_Pht || !have_Flr)
 	{
-		HartreeFock HF(Lattice, Orbitals, U, Inp, runlog);
 		vector<vector<RateData::Rate>> PhotoArray(0);
 		vector<vector<RateData::Rate>> LocalPhotoArray(0);
 		cout <<"======================================================="<<endl;
@@ -125,7 +123,7 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 		// Omegas for which photoion. rates are calculated for.
 		// Note this is in eV here!
 		vector<double> photoion_omegas_to_save(0); 
-		// If LDA, it's cheap to calculate a full grid as well.
+		// If LDA, it's much cheaper to calculate a full grid all at once. So do that.
 		if (input.Hamiltonian() == 1){
 			if (!recalculate){
 				double spacing = 500; 

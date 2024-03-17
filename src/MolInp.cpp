@@ -434,6 +434,7 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P. TODO 
 void MolInp::calc_rates(ofstream &_log, bool recalc) {
 	// Loop through atomic species.
 	for (size_t a = 0; a < Atomic.size(); a++) {
+		HartreeFock HF(Latts[a], Orbits[a], Pots[a], Atomic[a], _log);
 
 		// This Computes the parameters for the rate equations to use, loading them into Init.
 		ComputeRateParam Dynamics(Latts[a], Orbits[a], Pots[a], Atomic[a], recalc);
@@ -442,7 +443,7 @@ void MolInp::calc_rates(ofstream &_log, bool recalc) {
 		vector<bool> shell_check(Orbits[a].size(),0); // Store the indices of shell-approximated orbitals
 		for (size_t i = 0; i < Orbits[a].size(); i++) {
 			// locks in electrons that are in a potential deeper than the (mean) photon energy
-			if (fabs(Orbits[a][i].Energy) > Omega()) final_occ[i] = Orbits[a][i].occupancy();  // TODO what about continuum lowering/IPD or electrons with energies above the photon energy? -S.P.  
+			if (fabs(Orbits[a][i].Energy) > Omega()) final_occ[i] = Orbits[a][i].occupancy();  // TODO CRITICAL  check working with multiple photon energy calculations (in LDA) as expected.  
 			max_occ[i] = Orbits[a][i].occupancy();
 			shell_check[i] = Orbits[a][i].is_shell();
 		}
@@ -455,7 +456,7 @@ void MolInp::calc_rates(ofstream &_log, bool recalc) {
 		// However, calling it is expensive for heavier elements, so we only call it if haven't saved rates. // TODO Seems like this actually isn't expensive...
 		// So we need to pass these args through
 		Store[a].bound_free_excluded = bound_free_exclusions[a];
-		Store[a] = Dynamics.SolveAtomicRatesAndPlasmaBEB(max_occ, final_occ, shell_check, !Store[a].bound_free_excluded, Latts[a], Orbits[a], Pots[a], Atomic[a],_log);
+		Store[a] = Dynamics.SolveAtomicRatesAndPlasmaBEB(max_occ, final_occ, shell_check, !Store[a].bound_free_excluded,_log);
 		Store[a].name = name;
 		Store[a].nAtoms = nAtoms;
 		
