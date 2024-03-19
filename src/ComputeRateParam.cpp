@@ -69,7 +69,7 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 
 	bool have_Aug, have_EII, have_Pht, have_Flr;
 
-	
+	//TODO CRITICAL - Currently broken when running simulations with different locked out electrons to the data being read.
 	if (recalculate) { // Hartree Fock is calculated once, at molinp photon energy 
 		have_Aug=false;
 		have_EII = (calculate_secondary_ionisation == false);
@@ -153,7 +153,6 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 			#pragma omp for schedule(dynamic) nowait
 			for (int i = 0;i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
 			{
-				//if (i != 11164) continue;
 				LocalPhotoArray.resize(photoion_omegas_to_save.size());
 				vector<RadialWF> Orbitals = orbitals;
 				cout << "[HF BEB] configuration " << i << " thread " << omp_get_thread_num() << endl;
