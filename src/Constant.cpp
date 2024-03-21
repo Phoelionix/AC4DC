@@ -259,9 +259,16 @@ namespace RateData{
 		return src.substr(first_idx+1, last_idx-first_idx-1);
 	}
 
-	// Reads a ratefile input and stores the data in PutHere
-	// Returns true on successful opening
-	bool ReadRates(const string & input, vector<Rate>& PutHere) {
+
+	/**
+	 * @brief Reads a ratefile input and stores the data in PutHere. Returns true on successful opening. 
+	 * @param input 
+	 * @param PutHere 
+	 * @param num_configs The number of configs to be filled.  Indices are allocated such that configs allowed by photon energies above a given absorption  edge come before configs that do not. (if the photon energy is below an edge,, then the configs will be smaller than might be contained in the saved file). If -1, assumes file is correct.
+	 * @return true success
+	 * @return false fail
+	 */
+	bool ReadRates(const string & input, vector<Rate>& PutHere,int num_allowed_configs) {
 		PutHere.clear();
 
 		Rate Tmp;
@@ -280,9 +287,15 @@ namespace RateData{
 
 			stringstream stream(line);
 			stream >> Tmp.val >> Tmp.from >> Tmp.to >> Tmp.energy;
-
+			
 			PutHere.push_back(Tmp);
+			if (num_allowed_configs != -1 && static_cast<int>(PutHere.size()) == num_allowed_configs){
+				break; // we have filled all configs accessible at this simulation's photon energy
+			}
 		}
+		if (num_allowed_configs != -1 && static_cast<int>(PutHere.size()) != num_allowed_configs){
+			// The rate file likely does not contain configs that correspond to deeper shells being depleted.
+			return false;}
 
 		infile.close();
 		return true; // Returns true if all went well
@@ -319,7 +332,7 @@ namespace RateData{
 			if (saved_omega-tol < photon_energy && photon_energy < saved_omega + tol ){ // lazy 
 				// Saved this exact energy before. Reuse it.
 				
-				return ReadRates(rate_location+saved_file_name,PutHere);
+				return ReadRates(rate_location+saved_file_name,PutHere,-1);
 			}
 			if (saved_omega < photon_energy && saved_omega > nearest_lower_energy){ // lower bound
 				nearest_lower_energy = saved_omega;

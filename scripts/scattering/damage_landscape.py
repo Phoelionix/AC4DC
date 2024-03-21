@@ -240,6 +240,8 @@ def load_df(fname, damage_measure,bin_limit,check_batch_nums=True):
         for elem in df["name"]:
             elem = elem.split('-')[-1]
             elem = elem.split('_')[0]
+            # extract only numbers.
+            elem = ''.join([l for l in elem if l.isnumeric()])
             nums.append(int(elem))
         nums.sort()
         print("R values found for",len(nums),"simulations.")

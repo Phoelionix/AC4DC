@@ -35,7 +35,7 @@ MODE_DICT = {0:'crystal',1:'spi',2:'both'}
 PDB_PATHS = get_pdb_paths_dict(my_dir) # <value:> the target that should be used for <key:> the name of simulation output batch folder.
 
 DATA_FOLDER = "dmg_data/charge_data/"
-PLOT_FOLDER = "R_plots/"
+PLOT_FOLDER = "../../output/_Graphs/R_plots/"
 
 def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations,plasma_batch_handle = "", plasma_handles = None, sctr_results_batch_dir = None, get_R_only=True, realistic_crystal_growing_mode = False,specific_energy = None):
     '''
@@ -175,6 +175,8 @@ def load_df(fname,check_batch_nums=True):
         for elem in df["name"]:
             elem = elem.split('-')[-1]
             elem = elem.split('_')[0]
+            # extract only numbers.
+            elem = ''.join([l for l in elem if l.isnumeric()])
             nums.append(int(elem))
         nums.sort()
         print("R values found for",len(nums),"simulations.")
@@ -188,13 +190,16 @@ def load_df(fname,check_batch_nums=True):
     df = df.reset_index(drop=True)
     df.resolution = resolution
     return df   
-    
-def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_units=False,name_of_set="",energy_key=9000,photon_key=1e14,fwhm_key=50,cmin_contour=0,cmax_contour=None,contour_colour = "amp",contour_interval=0.05,dmg_measure="eop_charge",photon_min=None,max_fwhm=None,**kwargs):
+
+from math import log10,floor
+def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_units=False,name_of_set="",energy_key=9000,photon_key=1e14,fwhm_key=50,cmin_contour=0,cmax_contour=None,contour_colour = "amp",contour_interval=0.05,dmg_measure="eop_charge",photon_min=None,max_fwhm=None,connect_contour_gaps=False,round_fluence=False,**kwargs):
     out_folder = PLOT_FOLDER
     os.makedirs(out_folder,exist_ok=True)
     ext = ".svg"
     photon_measure = df.columns[3]
-
+    # TODO temporary patch - rounds to two sig figs
+    if round_fluence:
+        df[photon_measure] = [round(p, 1 -int(floor(log10(abs(p))))) for p in df[photon_measure]] 
     if photon_measure[:5] == "Count":
         photon_measure_default = "ph per um^2"
         if use_neutze_units:
@@ -276,7 +281,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_unit
     contour_args = dict(
         colorscale = contour_colour,#clr_scale, #'electric',
         line_smoothing=0,
-        connectgaps = False,
+        connectgaps = connect_contour_gaps,
         zmin = 0, zmax = 0.4,
         #contours_coloring='heatmap',
         contours = go.contour.Contours(start = contour_interval, end= cmax_contour, size = contour_interval),
@@ -345,14 +350,14 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_unit
                 #x=unique_fwhm, 
                 #y=unique_photons,
                 z = df[dmg_measure],
-                x = df["fwhm"],
-                y = df["energy"],
+                y = df["fwhm"],
+                x = df["energy"],
                 **contour_args,
             ))
         fig.update_layout(width = 750, height = 600)
         fig.update_layout(title = name_of_set + ", " +str(photon_key_for_title)+" " +photon_measure)
-        fig.update_xaxes(title="FWHM (fs)",type="log")
-        fig.update_yaxes(title="Energy (eV)")
+        fig.update_yaxes(title="FWHM (fs)",type="log")
+        fig.update_xaxes(title="Energy (eV)")
 
         fig.show()   
         fig.write_image(out_folder+name_of_set + ", " +str(default_unit_photon_key)+" " +photon_measure_default+ext)
@@ -371,14 +376,14 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_unit
                 #x=unique_fwhm, 
                 #y=unique_photons,
                 z = df[dmg_measure],
-                y = df["energy"],
-                x = [p for p in df[photon_measure]],
+                x = df["energy"],
+                y = [p for p in df[photon_measure]],
                **contour_args,
             ))
         fig.update_layout(width = 750, height = 600,)
         fig.update_layout(title=name_of_set + ", FWHM = "+str(fwhm_key)+" fs")
-        fig.update_yaxes(title="Energy (eV)")
-        fig.update_xaxes(title=photon_measure,type="log",range=np.log10(ranges[photon_measure]),tickvals = [1e8,1e9,1e10,1e11,1e12,1e13,1e14,1e15],tickformat = '.0e')
+        fig.update_xaxes(title="Energy (eV)")
+        fig.update_yaxes(title=photon_measure,type="log",range=np.log10(ranges[photon_measure]),tickvals = [1e8,1e9,1e10,1e11,1e12,1e13,1e14,1e15],tickformat = '.0e')
         fig.show()    
         fig.write_image(out_folder+fig["layout"]["title"]["text"]+ext)    
         df = original_df
@@ -403,10 +408,10 @@ if __name__ == "__main__":
 
     # Change options here... #TODO make clearer this is for user options
     if batch_mode:
-        allowed_atoms = ["C","N","O","S"] 
+        allowed_atoms = ["C","N","O"] 
         CNO_to_N = False
-        S_to_N = True
-        batch_handle = "lys_full" 
+        S_to_N = False
+        batch_handle = "SH2_Fe" 
         batch_dir = None # Optional: Specify existing parent folder for batch of results, to add these orientation results to.
         pdb_path = PDB_PATHS["lys"]
         # Params set to batch_handle
@@ -447,19 +452,24 @@ if __name__ == "__main__":
 #%%
 #------------Plot----------------------
 if __name__ == "__main__":
-    data_name = "lys_full"; batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
+    data_name = "SH2_Fe"; batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
+    damage_measure = "eop_charge"
+    cmax_contour = 6; contour_interval = 0.5
+    connect_contour_gaps=False; round_fluence = True # These should be FALSE for any professional work.
+    #damage_measure = "IA_charge"
+    #cmax_contour = 3; contour_interval = 0.25
     #####
     name_of_set = data_name
     resolution = 1.94 #1.9 2.8
     df = load_df(data_name,check_batch_nums=batch_mode) # resolution list is orders from best to worst resolutions.
-    plot_2D_constants = dict(energy_key = 15000, photon_key = 1e12,fwhm_key = 25)
+    plot_2D_constants = dict(energy_key = 15000, photon_key = 1e12,fwhm_key = 15)
     neutze = False
     if MODE_DICT[mode] != "spi":
         print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-        plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units = neutze,cmax_contour=6,contour_interval=1) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+        plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",connect_contour_gaps=connect_contour_gaps,round_fluence=round_fluence,use_neutze_units = neutze,cmax_contour=cmax_contour,contour_interval=contour_interval,dmg_measure = damage_measure) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
     if MODE_DICT[mode] != "crystal":
         print("-------------------SPI------------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-        plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units=neutze,cmax_contour=6,contour_interval=1) # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+        plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",connect_contour_gaps=connect_contour_gaps,round_fluence=round_fluence,use_neutze_units=neutze,cmax_contour=cmax_contour,contour_interval=contour_interval,dmg_measure = damage_measure) # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
     print("Done")
 
 

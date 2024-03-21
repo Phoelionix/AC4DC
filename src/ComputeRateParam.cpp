@@ -69,7 +69,6 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 
 	bool have_Aug, have_EII, have_Pht, have_Flr;
 
-	
 	if (recalculate) { // Hartree Fock is calculated once, at molinp photon energy 
 		have_Aug=false;
 		have_EII = (calculate_secondary_ionisation == false);
@@ -78,8 +77,8 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 	} else { // First time: Save photoionization data for multiple photon energies. Second time: Interpolate from data.
 		// Check if there are pre-calculated rates
 		have_Pht = RateData::InterpolateRates(RateLocation, PHOTO, Store.Photo, input.Omega()); // Omega dependent
-		have_Flr = RateData::ReadRates(RateLocation + FLUOR, Store.Fluor);  // Parameter independent
-		have_Aug = RateData::ReadRates(RateLocation + AUGER, Store.Auger); // Parameter independent
+		have_Flr = RateData::ReadRates(RateLocation + FLUOR, Store.Fluor,dimension);  // Parameter independent
+		have_Aug = RateData::ReadRates(RateLocation + AUGER, Store.Auger,dimension); // Parameter independent
 		have_EII = (calculate_secondary_ionisation == false);
 		// Not sure if the below line will work properly, it would need to ensure that the energies of the knots are as expected. Not sure it does at present.
 		//have_EII = RateData::ReadEIIParams(RateLocation + EII, Store.EIIparams) || (calculate_secondary_ionisation == false); // Dependent on the spline basis for electron distribution 
@@ -123,7 +122,7 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 		// Omegas for which photoion. rates are calculated for.
 		// Note this is in eV here!
 		vector<double> photoion_omegas_to_save(0); 
-		// If LDA, it's cheap to calculate a full grid as well.
+		// If LDA, it's much cheaper to calculate a full grid all at once. So do that.
 		if (input.Hamiltonian() == 1){
 			if (!recalculate){
 				double spacing = 500; 
@@ -153,7 +152,6 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 			#pragma omp for schedule(dynamic) nowait
 			for (int i = 0;i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
 			{
-				//if (i != 11164) continue;
 				LocalPhotoArray.resize(photoion_omegas_to_save.size());
 				vector<RadialWF> Orbitals = orbitals;
 				cout << "[HF BEB] configuration " << i << " thread " << omp_get_thread_num() << endl;
