@@ -192,9 +192,10 @@ namespace RateData {
 		vector<CustomDataType::energy_config> EnergyConfig = vector<CustomDataType::energy_config>(0);
 	};
 
-	bool ReadRates(const string & input, vector<RateData::Rate> & PutHere,int num_allowed_configs);
+	bool ReadRates(const string & input, vector<RateData::Rate> & PutHere);
 	bool ReadEIIParams(const string & input, vector<RateData::EIIdata> & PutHere);
-	bool InterpolateRates(const string & rate_location, const string & rate_file_type,vector<RateData::Rate> & PutHere, double photon_energy,double allowed_interp = 1000);
+	bool ReadDecayRates(const string & rate_location, const string & rate_file_type, vector<RateData::Rate> & PutHere,int num_allowed_configs);
+	bool InterpolateRates(const string & rate_location, const string & rate_file_type, vector<RateData::Rate> & PutHere, double photon_energy,double allowed_interp = 1000);
 	void WriteRates(const string& fname, const vector<RateData::Rate>& rateVector);
 	void WriteEIIParams(const string& fname, const vector<RateData::EIIdata>& eiiVector);
 }

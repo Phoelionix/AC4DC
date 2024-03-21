@@ -268,7 +268,7 @@ namespace RateData{
 	 * @return true success
 	 * @return false fail
 	 */
-	bool ReadRates(const string & input, vector<Rate>& PutHere,int num_allowed_configs) {
+	bool ReadRates(const string & input, vector<Rate>& PutHere) {
 		PutHere.clear();
 
 		Rate Tmp;
@@ -289,18 +289,45 @@ namespace RateData{
 			stream >> Tmp.val >> Tmp.from >> Tmp.to >> Tmp.energy;
 			
 			PutHere.push_back(Tmp);
-			if (num_allowed_configs != -1 && static_cast<int>(PutHere.size()) == num_allowed_configs){
-				break; // we have filled all configs accessible at this simulation's photon energy
-			}
 		}
-		if (num_allowed_configs != -1 && static_cast<int>(PutHere.size()) != num_allowed_configs){
-			// The rate file likely does not contain configs that correspond to deeper shells being depleted.
-			return false;}
-
 		infile.close();
 		return true; // Returns true if all went well
 
 	}
+
+	bool ReadDecayRates(const string & rate_location, const string & rate_file_type, vector<RateData::Rate> & PutHere, int num_allowed_configs){
+		PutHere.clear();
+		using namespace boost::filesystem; 
+		std::vector<double> energies_saved;
+		struct recursive_directory_range
+		{
+			typedef recursive_directory_iterator iterator;
+			recursive_directory_range(path p) : p_(p) {}
+
+			iterator begin() { return recursive_directory_iterator(p_); }
+			iterator end() { return recursive_directory_iterator(); }
+
+			path p_; 
+		};
+		double nearest_lower_energy = -INFINITY;
+		double nearest_upper_energy = +INFINITY;
+		double tol = 0.01;
+		for (auto saved_file : recursive_directory_range(rate_location))
+		{
+			std::string saved_file_name = saved_file.path().filename().string();
+			size_t split_pos = saved_file_name.find("_");
+			std::string saved_rate_file_type = saved_file_name.substr(split_pos+1,saved_file_name.size()-(split_pos+1));
+			if (rate_file_type != saved_rate_file_type || rate_file_type.size() == saved_file_name.size()){
+				continue;}
+			double saved_configs = std::stod(saved_file_name.substr(0,split_pos)); // photon energy
+			if (saved_configs==num_allowed_configs){ 
+				// Saved this set of allowed configs before. Reuse them.
+				return ReadRates(rate_location+saved_file_name,PutHere);
+			}
+		}
+		return false;
+	}
+
 
 	bool InterpolateRates(const string & rate_location, const string & rate_file_type, vector<Rate>& PutHere, double photon_energy,double allowed_interp) {
 		PutHere.clear();
@@ -332,7 +359,7 @@ namespace RateData{
 			if (saved_omega-tol < photon_energy && photon_energy < saved_omega + tol ){ // lazy 
 				// Saved this exact energy before. Reuse it.
 				
-				return ReadRates(rate_location+saved_file_name,PutHere,-1);
+				return ReadRates(rate_location+saved_file_name,PutHere);
 			}
 			if (saved_omega < photon_energy && saved_omega > nearest_lower_energy){ // lower bound
 				nearest_lower_energy = saved_omega;

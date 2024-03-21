@@ -77,8 +77,8 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 	} else { // First time: Save photoionization data for multiple photon energies. Second time: Interpolate from data.
 		// Check if there are pre-calculated rates
 		have_Pht = RateData::InterpolateRates(RateLocation, PHOTO, Store.Photo, input.Omega()); // Omega dependent
-		have_Flr = RateData::ReadRates(RateLocation + FLUOR, Store.Fluor,dimension);  // Parameter independent
-		have_Aug = RateData::ReadRates(RateLocation + AUGER, Store.Auger,dimension); // Parameter independent
+		have_Flr = RateData::ReadDecayRates(RateLocation, FLUOR, Store.Fluor,dimension);  // Dependent on ionizable shells
+		have_Aug = RateData::ReadDecayRates(RateLocation, AUGER, Store.Auger,dimension);  // Dependent on ionizable shells
 		have_EII = (calculate_secondary_ionisation == false);
 		// Not sure if the below line will work properly, it would need to ensure that the energies of the knots are as expected. Not sure it does at present.
 		//have_EII = RateData::ReadEIIParams(RateLocation + EII, Store.EIIparams) || (calculate_secondary_ionisation == false); // Dependent on the spline basis for electron distribution 
@@ -122,17 +122,19 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 		// Omegas for which photoion. rates are calculated for.
 		// Note this is in eV here!
 		vector<double> photoion_omegas_to_save(0); 
-		// If LDA, it's much cheaper to calculate a full grid all at once. So do that.
-		if (input.Hamiltonian() == 1){
-			if (!recalculate){
-				double spacing = 500; 
-				double min_energy = 3000;
-				double max_energy = 18000;
-				for(double k = min_energy; k<=max_energy; k+=spacing){
-					photoion_omegas_to_save.push_back(k);
-				}
-			}
-		}
+		
+		// TODO need to only calculate for energies with same allowed configs. 
+		// // If LDA, it's much cheaper to calculate a full grid all at once. So do that.
+		// if (input.Hamiltonian() == 1){
+		// 	if (!recalculate){
+		// 		double spacing = 500; 
+		// 		double min_energy = 3000;
+		// 		double max_energy = 18000;
+		// 		for(double k = min_energy; k<=max_energy; k+=spacing){
+		// 			photoion_omegas_to_save.push_back(k);
+		// 		}
+		// 	}
+		// }
 		//#endif
 		photoion_omegas_to_save.push_back(input.Omega()*Constant::eV_per_Ha); // Also calculate for this run's omega.
 		PhotoArray.resize(photoion_omegas_to_save.size());
@@ -329,12 +331,12 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 
 		}
 		if (!have_Flr) {
-			string dummy = RateLocation +FLUOR;
+			string dummy = RateLocation + std::to_string(dimension)+"_"+FLUOR ;
 			cout<<"Saving fluorescence rates to "<<dummy<<"..."<<endl;
 			RateData::WriteRates(dummy, Store.Fluor);
 		}
 		if (!have_Aug) {
-			string dummy = RateLocation +AUGER;
+			string dummy = RateLocation +  std::to_string(dimension)+"_"+AUGER;
 			cout<<"Saving Auger rates to "<<dummy<<"..."<<endl;
 			RateData::WriteRates(dummy, Store.Auger);
 		}
