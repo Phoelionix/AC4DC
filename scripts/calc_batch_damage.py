@@ -51,8 +51,6 @@ matplotlib.rcParams.update({
 
 ###
 INDEP_VARIABLE = PHOTON_ENERGY # photon energy.
-# DEP_VARIABLE
-AVERAGE_CHARGE = 0; R_FACTOR = 1
 
 ####### User parameters #########
 INDEP_VARIABLE = PHOTON_ENERGY
@@ -178,7 +176,7 @@ def plot(batches,sim_tags,label,figure_output_dir,mode = 0):
     output_tag = ""
     if INTENSITY_AVERAGED:
         output_tag+="-IAvg"    
-    if DEP_VARIABLE == 1:
+    if DEP_VARIABLE is R_FACTOR:
         _,output_tag = SCATTERING_TARGET_DICT[SCATTERING_TARGET]
     if NORMALISING_STEM not in [None,False]:
         output_tag += "-normed"
@@ -329,8 +327,10 @@ def get_data_point(ax,stem,mol_name,mode):
     indep_variable_key = str(INDEP_VARIABLE)
     dep_variable_key = str(DEP_VARIABLE)
     if INTENSITY_AVERAGED:
-        dep_variable_key+="-I"    
-    if DEP_VARIABLE == 1:
+        dep_variable_key += '_avged'
+    else:
+        dep_variable_key += '_EoP'  
+    if DEP_VARIABLE is R_FACTOR:
         dep_variable_key = str(DEP_VARIABLE)+"-"+str(SCATTERING_TARGET)
     saved_x = saved_y = saved_end_time = None
     dat= get_saved_data(mol_name,subdir=folder_dict[stem]) 

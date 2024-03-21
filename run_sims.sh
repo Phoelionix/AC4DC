@@ -34,18 +34,19 @@ set -x
 # for f in input/_batches/batch_SH2_I/*; do ./ac4dc "$f"; done
 # for f in input/_batches/batch_SH2_Gd/*; do ./ac4dc "$f"; done
 
-for f in input/_batches/batch_SH2_N/SH2_N-{14..53}.mol; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_S/SH2_S-{14..53}.mol; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_Fe/SH2_Fe-{14..53}.mol; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_Se/SH2_Se-{1..53}.mol; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_N/SH2_N-{54..93}.mol; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_S/SH2_S-{54..93}.mol; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_Fe/SH2_Fe-{54..93}.mol; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_Se/SH2_Se-{54..93}.mol; do ./ac4dc "$f"; done
+#for f in input/_batches/batch_SH2_N/SH2_N-{14..53}.mol; do ./ac4dc "$f"; done
+#for f in input/_batches/batch_SH2_S/SH2_S-{14..53}.mol; do ./ac4dc "$f"; done
+#for f in input/_batches/batch_SH2_Fe/SH2_Fe-{14..53}.mol; do ./ac4dc "$f"; done
+#for f in input/_batches/batch_SH2_Se/SH2_Se-{1..53}.mol; do ./ac4dc "$f"; done
+#for f in input/_batches/batch_SH2_N/SH2_N-{54..93}.mol; do ./ac4dc "$f"; done
+#for f in input/_batches/batch_SH2_S/SH2_S-{71..93}.mol; do ./ac4dc "$f"; done
+#for f in input/_batches/batch_SH2_Fe/SH2_Fe-{54..93}.mol; do ./ac4dc "$f"; done
+for f in input/_batches/batch_SH2_Se/SH2_Se-{87..93}.mol; do ./ac4dc "$f"; done
 
-for f in input/_batches/batch_SH2_Gd/*; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_Kr/*; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_I/*; do ./ac4dc "$f"; done
+# vvv TO BE DONE LATER
+#for f in input/_batches/batch_SH2_Gd/*; do ./ac4dc "$f"; done
+#for f in input/_batches/batch_SH2_Kr/*; do ./ac4dc "$f"; done
+#for f in input/_batches/batch_SH2_I/*; do ./ac4dc "$f"; done
 
 
 

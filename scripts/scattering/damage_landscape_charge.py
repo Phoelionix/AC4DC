@@ -411,7 +411,7 @@ if __name__ == "__main__":
         allowed_atoms = ["C","N","O"] 
         CNO_to_N = False
         S_to_N = False
-        batch_handle = "SH2_Se" 
+        batch_handle = "SH2_Fe" 
         batch_dir = None # Optional: Specify existing parent folder for batch of results, to add these orientation results to.
         pdb_path = PDB_PATHS["lys"]
         # Params set to batch_handle
@@ -452,10 +452,10 @@ if __name__ == "__main__":
 #%%
 #------------Plot----------------------
 if __name__ == "__main__":
-    data_name = "SH2_Se"; batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
+    data_name = "SH2_Fe"; batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
     damage_measure = "eop_charge"
     cmax_contour = 6; contour_interval = 0.5
-    connect_contour_gaps=False; round_fluence = False # These should be FALSE for any professional work.
+    connect_contour_gaps=False; round_fluence = True # These should be FALSE for any professional work.
     #damage_measure = "IA_charge"
     #cmax_contour = 3; contour_interval = 0.25
     #####

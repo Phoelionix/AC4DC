@@ -51,9 +51,12 @@ matplotlib.rcParams.update({
 
 
 ####### User parameters #########
-INDEP_VARIABLE = 1 # | 0: energy of photons |1: Energy separation from edge given in edge_dict |2: Artificial electron source energy
-DEP_VARIABLE = 1 # | 0: mean carbon charge (at end of pulse or I avged TODO) | 1: R factors (performs scattering simulations for each) |
+INDEP_VARIABLE = 0 # | 0: energy of photons |1: Energy separation from edge given in edge_dict |2: Artificial electron source energy
+DEP_VARIABLE = 0 # | 0: mean carbon charge (at end of pulse) or I avged TODO) | 1: R factors (performs scattering simulations for each) |
 BATCH = 0 #| 0: Real elements | 1: Electron source. 
+
+## Subcategories of dependent variables
+INTENSITY_AVERAGED = False # Used if DEP_VARIABLE = 0 (average charge). | False: Average carbon charge at the simulation's termination | True: Average charge throughout the pulse, weighted by the pulse profile -- NOT the same as the mean "observed" charge by elastic scattering, as does not account for loss of scattering power. 
 SCATTERING_TARGET = 0 # Used if DEP_VARIABLE = 1.  | 0: unit lysozyme (light atoms) | 1: 3x3x3 lysozyme (light atoms no solvent)|
 
 ## Graphical
@@ -107,9 +110,22 @@ if BATCH is REAL_ELEMENTS:
             #"SH_excl_Zn":[1,9],
             #"L_Gd":[1,9],
     }
+    HF_15fs_SH2 = { 
+            #"SH2_N":[[24,33]],
+            #"SH2_S":[[24,33]], 
+            "SH2_Fe":[[24,33]],
+            "SH_Fe":[[0,10],[901,904]],
+            #"SH2_Zn":[[24,33]],
+            "SH2_Se":[[24,33]],
+            "SH_Se":[[0,13],],
+            #"SH2_Zr":[[24,33]],
+            #-----L------
+            #"SH2_Ag":[[24,33]],
+            #"SH2_Xe":[[24,33]],
+    }
     HF_10fs = {}
     LF_10fs = {} 
-    stem_dict = HF_15fs
+    stem_dict = HF_15fs_SH2
 if BATCH is ELECTRON_SOURCE:
     assert(INDEP_VARIABLE == ELECTRON_SOURCE_ENERGY)
     ##
@@ -313,7 +329,7 @@ def plot(batches,label,figure_output_dir,mode = 0):
     cmap = plt.get_cmap('tab10')
 
     output_tag = ""
-    if DEP_VARIABLE == 1:
+    if DEP_VARIABLE is R_FACTOR:
         _,output_tag = SCATTERING_TARGET_DICT[SCATTERING_TARGET]
     if NORMALISING_STEM not in [None,False]:
         output_tag += "-normed"
@@ -567,11 +583,10 @@ def get_data_point(ax,stem,mol_name,mode):
     dep_variable_key = str(DEP_VARIABLE)
     if INDEP_VARIABLE == EDGE_SEPARATION:
         indep_variable_key += "L" + L_TYPE
-    if DEP_VARIABLE == 1:
+    if DEP_VARIABLE is R_FACTOR:
         dep_variable_key = str(DEP_VARIABLE)+"-"+str(SCATTERING_TARGET)
-    intensity_averaged = True #TODO
     if DEP_VARIABLE is AVERAGE_CHARGE:
-        if intensity_averaged: 
+        if INTENSITY_AVERAGED: 
             dep_variable_key += '_avged'
         else:
             dep_variable_key += '_EoP'
@@ -585,8 +600,7 @@ def get_data_point(ax,stem,mol_name,mode):
     if saved_y is None:              
         pl = Plotter(mol_name)
         if mode is AVERAGE_CHARGE:
-            intensity_averaged = True
-            if intensity_averaged: 
+            if INTENSITY_AVERAGED: 
                 y = np.average(pl.get_total_charge(atoms="C")*pl.intensityData)/np.average(pl.intensityData)
             else:
                 step_index = -1  # Average charge at End-of-pulse 

@@ -25,7 +25,7 @@ from QoL import set_highlighted_excepthook
 ####
 ELECTRON_DENSITY = False # Whether to use electron density for free distribution plots. Energy density if False
 ###
-PLOT_ELEMENT_CHARGE= True
+PLOT_ELEMENT_CHARGE= False
 PLOT_FREE_CONTINUUM = False
 PLOT_FREE_SLICES=False
 PLOT_ION_RATIOS=False
