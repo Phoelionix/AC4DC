@@ -51,7 +51,7 @@ Plotting::Plotting(){
         py::print("Python path:",sys.attr("path"));
         throw std::runtime_error("plotting failure1. See above for error message from python.");
     }
-    #endif //HPC/NO_PLOTTING
+    #endif //NO_PLOTTING
 
 }
 void Plotting::plot_frame(std::vector<double> energies, std::vector<double> density,std::vector<double> knot_to_plot){
@@ -75,6 +75,4 @@ void Plotting::plot_frame(std::vector<double> energies, std::vector<double> dens
     }   
     #endif
     //py_clear_frame();
-    //py_plot_frame(knot,density);   
-    #endif //HPC 
 }
