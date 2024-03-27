@@ -1,15 +1,15 @@
 #ATOMS
 C 613
-N 203
-O 185
+N 200
+O 1192
 
 #VOLUME
-20000        // Volume per molecule in Angstrom^3.
+40000        // Volume per molecule in Angstrom^3.
 500         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons (assumes surrounded by a void).
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-7112         // Photon energy in eV.
+9000         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
 

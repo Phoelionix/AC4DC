@@ -21,9 +21,27 @@ my_dir = path.abspath(path.join(src_file_path ,"../")) + "/"
 from core_functions import get_sim_params, get_pdb_paths_dict
 from scatter import XFEL,Crystal,stylin
 from plotter_core import Plotter
+#############
+COLUMNWIDTH = 523.5307
+FIGWIDTH = COLUMNWIDTH/2
+FIGHEIGHT = FIGWIDTH*10/16
+FIGWIDTH -=20 
+margin=go.layout.Margin(
+    l=0, 
+    r=0, 
+    b=0, 
+    t=0, 
+)
 
+#Stupid thing have to do with plotly to get the plot content to have the same scale.
+BUFFER1 = 0 
+BUFFER2 = -15
+BUFFER3 = 0
+show_colorbar = False
 
+SCALE = 5 
 
+###############
 # full sim that does point sampling, thus assumes a "smooth" distribution. Thus good for low cell count input. Num cells is entire whole target.
 # Compared with non-SPI (crystal) which assumes crystal and does bragg points. Num cells is supercell.
 #TODO rename the diff sims, 'non-SPI' unclear.
@@ -39,7 +57,7 @@ PLOT_FOLDER = "../../output/_Graphs/R_plots/"
 
 def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations,plasma_batch_handle = "", plasma_handles = None, sctr_results_batch_dir = None, get_R_only=True, realistic_crystal_growing_mode = False,specific_energy = None):
     '''
-    NB: "Plasma" is used a shortened way to refer to the output of the damage simulation  
+    NB: "Plasma" is used as a shortened way to refer to the output of the damage simulation  
     parameters:
 
     If plasma_batch_handle is not provided, handle_list must be provided to prevent.
@@ -160,7 +178,7 @@ def load_df(fname,check_batch_nums=True):
     photon_data = [1e12*p for p in pulse_params[:,2]]
     df = pd.DataFrame({
         "name": names, 
-        "energy": pulse_params[:,0],
+        "energy": pulse_params[:,0]/1000,
         "fwhm": pulse_params[:,1],
         photon_measure: photon_data,
         "eop_charge": dmg_data[:,0], # End of pulse average carbon charge
@@ -195,13 +213,13 @@ from math import log10,floor
 def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_units=False,name_of_set="",energy_key=9000,photon_key=1e14,fwhm_key=50,cmin_contour=0,cmax_contour=None,contour_colour = "amp",contour_interval=0.05,dmg_measure="eop_charge",photon_min=None,max_fwhm=None,connect_contour_gaps=False,round_fluence=False,**kwargs):
     out_folder = PLOT_FOLDER
     os.makedirs(out_folder,exist_ok=True)
-    ext = ".svg"
+    ext = ".png"
     photon_measure = df.columns[3]
     # TODO temporary patch - rounds to two sig figs
     if round_fluence:
         df[photon_measure] = [round(p, 1 -int(floor(log10(abs(p))))) for p in df[photon_measure]] 
     if photon_measure[:5] == "Count":
-        photon_measure_default = "ph per um^2"
+        photon_measure_default = "$\\text{Fluence (ph um}^{-2}\\text{)}$"
         if use_neutze_units:
             df[photon_measure] = [7.854e-3*p for p in df[photon_measure]] # square micrometre to 100 nm diameter spot
             photon_measure = "photons per 100 nm spot"
@@ -246,7 +264,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_unit
         fig.update_traces(textposition='top center')
         fig.update_layout(title=name_of_set+df['name'][0]+''.join(df['name'][:min(2,len(df['name']))]) + "-comparison")  
         fig.show()
-        fig.write_image(out_folder+fig["layout"]["title"]["text"]+ext)
+        fig.write_image(out_folder+fig["layout"]["title"]["text"]+ext,scale=SCALE)
 
     # 'intuitive' plot, where:
     # Dot size represents num photons
@@ -259,7 +277,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_unit
               **kwargs)
     fig.update_layout(title=name_of_set+"-Flat")     
     fig.show()    
-    fig.write_image(out_folder+fig["layout"]["title"]["text"]+ext)
+    fig.write_image(out_folder+fig["layout"]["title"]["text"]+ext,scale=SCALE)
 
 
     ranges = {}
@@ -307,7 +325,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_unit
         fig.update_yaxes(type="log",range=np.log10(ranges[photon_measure]))
         fig.update_layout(title = name_of_set + ", E = "+str(energy)+" eV")
         fig.show()
-        fig.write_image(out_folder+fig["layout"]["title"]["text"]+"-Sctr"+ext)
+        fig.write_image(out_folder+fig["layout"]["title"]["text"]+"-Sctr"+ext,scale=SCALE)
     """
     # Contour: Fluence-FWHM
     if energy_key in data_frame_dict.keys(): 
@@ -326,10 +344,13 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_unit
         fig.update_xaxes(title="FWHM (fs)",type="log")
         fig.update_yaxes(title=photon_measure)
         fig.update_yaxes(type="log",range=np.log10(ranges[photon_measure]),tickvals = [1e8,1e9,1e10,1e11,1e12,1e13,1e14,1e15],tickformat = '.0e')
-        fig.update_layout(width = 750, height = 600,)
-        fig.update_layout(title= name_of_set + ", E = "+str(energy_key)+" eV")
+        fig.update_layout(width = FIGWIDTH + BUFFER1, height = FIGHEIGHT,font_family="Serif", font=dict(size=10),margin=margin,)
+        fig.update_traces(showscale=show_colorbar)
+        #fig.update_layout(title= name_of_set + ", E = "+str(energy_key)+" eV")
+        title = name_of_set + ", E = "+str(energy_key)+" eV"
+        print(title)
         fig.show()
-        fig.write_image(out_folder+"/"+fig["layout"]["title"]["text"]+ext)
+        fig.write_image(out_folder+title+ext,scale=SCALE)
         df = original_df
         
     #Contour Energy-FWHM
@@ -354,13 +375,17 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_unit
                 x = df["energy"],
                 **contour_args,
             ))
-        fig.update_layout(width = 750, height = 600)
-        fig.update_layout(title = name_of_set + ", " +str(photon_key_for_title)+" " +photon_measure)
+        fig.update_layout(width = FIGWIDTH+BUFFER2, height = FIGHEIGHT,font_family="Serif", font=dict(size=10),margin=margin,)
+        fig.update_traces(showscale=show_colorbar)
+        #fig.update_layout(title = name_of_set + ", " +str(photon_key_for_title)+" " +photon_measure)
+        title = name_of_set + ", FWHM = "+str(fwhm_key)+" fs"
+        print(title)
         fig.update_yaxes(title="FWHM (fs)",type="log")
-        fig.update_xaxes(title="Energy (eV)")
+        fig.update_xaxes(title="Energy (keV)")
 
         fig.show()   
-        fig.write_image(out_folder+name_of_set + ", " +str(default_unit_photon_key)+" " +photon_measure_default+ext)
+        #fig.write_image(out_folder+name_of_set + ", " +str(default_unit_photon_key)+" " +photon_measure_default+ext,scale=SCALE)
+        fig.write_image(out_folder+name_of_set + ", " +str(default_unit_photon_key)+" " +"ph"+ext,scale=SCALE)
         df = original_df
 
     #Contour: Energy-Fluence
@@ -380,12 +405,15 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_unit
                 y = [p for p in df[photon_measure]],
                **contour_args,
             ))
-        fig.update_layout(width = 750, height = 600,)
-        fig.update_layout(title=name_of_set + ", FWHM = "+str(fwhm_key)+" fs")
-        fig.update_xaxes(title="Energy (eV)")
+        fig.update_layout(width = FIGWIDTH+ BUFFER3, height = FIGHEIGHT,font_family="Serif", font=dict(size=10),margin=margin,)
+        fig.update_traces(showscale=show_colorbar)
+        #fig.update_layout(title=name_of_set + ", FWHM = "+str(fwhm_key)+" fs")
+        title = name_of_set + ", FWHM = "+str(fwhm_key)+" fs"
+        print(title)
+        fig.update_xaxes(title="Energy (keV)")
         fig.update_yaxes(title=photon_measure,type="log",range=np.log10(ranges[photon_measure]),tickvals = [1e8,1e9,1e10,1e11,1e12,1e13,1e14,1e15],tickformat = '.0e')
         fig.show()    
-        fig.write_image(out_folder+fig["layout"]["title"]["text"]+ext)    
+        fig.write_image(out_folder+title+ext,scale=SCALE)    
         df = original_df
 #%%
 #------------Generate data (get R)--------------------
@@ -400,23 +428,29 @@ if __name__ == "__main__":
     )
 
 
-    batch_mode = True # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
+    batch_mode = False # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
+    multi_batch_mode = True
 
     mode = 1  #0 -> infinite crystal, 1 -> finite crystal/SPI, 2-> both  
     same_deviations = True # whether same position deviations between damaged and undamaged crystal (SPI only)
     imaging_params_preset = imaging_params.default_dict
 
     # Change options here... #TODO make clearer this is for user options
-    if batch_mode:
+    assert (batch_mode == False or multi_batch_mode == False)
+    if batch_mode or multi_batch_mode:
         allowed_atoms = ["C","N","O"] 
         CNO_to_N = False
         S_to_N = False
-        batch_handle = "SH2_Fe" 
         batch_dir = None # Optional: Specify existing parent folder for batch of results, to add these orientation results to.
         pdb_path = PDB_PATHS["lys"]
         # Params set to batch_handle
+    if batch_mode:
+        batch_handle = "SH2_Fe" 
         kwargs["plasma_batch_handle"] = batch_handle
         fname = batch_handle
+    elif multi_batch_mode:
+        batch_handles = ["SH2_Gd","SH2_Fe", "SH2_Se","SH2_S","SH2_N","SH2_Zn"] 
+        #batch_handles = ["SH2_Gd"] 
     else: # Compare specific simulations
         fname = "comparison"
         allowed_atoms = ["C","N","O"]; S_to_N = True
@@ -437,39 +471,47 @@ if __name__ == "__main__":
         #pdb_path = PDB_PATHS["lys_solvated"]
         #pdb_path = PDB_PATHS["glycine"]
         #pdb_path = PDB_PATHS["tetra"]
-
-    if MODE_DICT[mode] == "crystal" or MODE_DICT[mode] == "both":
-        imaging_params_preset["laser"]["SPI"] = False         
-        scatter_data = multi_damage(imaging_params_preset,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
-    if MODE_DICT[mode] == "spi" or MODE_DICT[mode] == "both":
-        imaging_params_preset["laser"]["SPI"] = True         
-        scatter_data = multi_damage(imaging_params_preset,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
     
-    save_data(fname,scatter_data)
+
+    num_loops = 1 if not multi_batch_mode else len(batch_handles)
+    for i in range(num_loops):
+        if multi_batch_mode: 
+            kwargs["plasma_batch_handle"] = fname = batch_handles[i] 
+            
+        if MODE_DICT[mode] == "crystal" or MODE_DICT[mode] == "both":
+            imaging_params_preset["laser"]["SPI"] = False         
+            scatter_data = multi_damage(imaging_params_preset,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
+        if MODE_DICT[mode] == "spi" or MODE_DICT[mode] == "both":
+            imaging_params_preset["laser"]["SPI"] = True         
+            scatter_data = multi_damage(imaging_params_preset,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
+    
+        save_data(fname,scatter_data)
     
 
 #--------------------------------------
 #%%
 #------------Plot----------------------
 if __name__ == "__main__":
-    data_name = "SH2_Fe"; batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
+    #data_names = ["SH2_Fe","SH2_S","SH2_N","SH2_Zn","SH2_Gd","SH2_Kr"] 
+    data_names = ["SH2_Se"]
+    batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
     damage_measure = "eop_charge"
     cmax_contour = 6; contour_interval = 0.5
-    connect_contour_gaps=False; round_fluence = True # These should be FALSE for any professional work.
     #damage_measure = "IA_charge"
     #cmax_contour = 3; contour_interval = 0.25
-    #####
-    name_of_set = data_name
-    resolution = 1.94 #1.9 2.8
-    df = load_df(data_name,check_batch_nums=batch_mode) # resolution list is orders from best to worst resolutions.
-    plot_2D_constants = dict(energy_key = 15000, photon_key = 1e12,fwhm_key = 15)
-    neutze = False
-    if MODE_DICT[mode] != "spi":
-        print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-        plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",connect_contour_gaps=connect_contour_gaps,round_fluence=round_fluence,use_neutze_units = neutze,cmax_contour=cmax_contour,contour_interval=contour_interval,dmg_measure = damage_measure) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
-    if MODE_DICT[mode] != "crystal":
-        print("-------------------SPI------------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-        plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",connect_contour_gaps=connect_contour_gaps,round_fluence=round_fluence,use_neutze_units=neutze,cmax_contour=cmax_contour,contour_interval=contour_interval,dmg_measure = damage_measure) # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+    connect_contour_gaps=False; round_fluence = True # Warning: enabling these options will create misleading graphs!
+    for data_name in data_names:
+        name_of_set = data_name
+        resolution = 1.94 #1.9 2.8
+        df = load_df(data_name,check_batch_nums=batch_mode) # resolution list is orders from best to worst resolutions.
+        plot_2D_constants = dict(energy_key = 15000, photon_key = 1e12,fwhm_key = 15)
+        neutze = False
+        if MODE_DICT[mode] != "spi":
+            print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
+            plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",connect_contour_gaps=connect_contour_gaps,round_fluence=round_fluence,use_neutze_units = neutze,cmax_contour=cmax_contour,contour_interval=contour_interval,dmg_measure = damage_measure) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+        if MODE_DICT[mode] != "crystal":
+            print("-------------------SPI------------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
+            plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",connect_contour_gaps=connect_contour_gaps,round_fluence=round_fluence,use_neutze_units=neutze,cmax_contour=cmax_contour,contour_interval=contour_interval,dmg_measure = damage_measure) # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
     print("Done")
 
 

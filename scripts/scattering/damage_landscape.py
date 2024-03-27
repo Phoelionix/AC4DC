@@ -489,7 +489,7 @@ if __name__ == "__main__":
         #kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_square"]  
         #kwargs["plasma_handles"] = ["lys_nass_no_S_3","lys_nass_gauss","lys_nass_Gd_full_1"]
         #kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_Gd_full_1","lys_nass_gauss_solvated_1","lys_nass_Gd_gauss_solvated_2"]
-        kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_gauss_excl_3"]
+        kwargs["plasma_handles"] = ["lys_nass_gauss_solvated_light_9kev_1","lys_nass_gauss_solvated_light_1"]
         #kwargs["plasma_handles"] = ["lys_nass_no_S_3","lys_nass_Gd_full_1"]
         #kwargs["plasma_handles"] = ["lys_nass_HF","lys_nass_Gd_HF"]  
         #kwargs["plasma_handles"] = ["lys_full-typical","lys_all_light-typical"]  

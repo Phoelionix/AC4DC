@@ -25,18 +25,20 @@ from QoL import set_highlighted_excepthook
 ####
 ELECTRON_DENSITY = False # Whether to use electron density for free distribution plots. Energy density if False
 ###
-PLOT_ELEMENT_CHARGE= False
+PLOT_ELEMENT_CHARGE= True
 PLOT_FREE_CONTINUUM = False
 PLOT_FREE_SLICES=False
 PLOT_ION_RATIOS=False
 PLOT_ION_RATIOS_BARS=False
-PLOT_ORBITAL_DENSITIES = True#True
+PLOT_ORBITAL_DENSITIES = False#True
 PLOT_PHOTO_RATES = False#True
 ###
-FIGWIDTH = FIGWIDTH = 3.49751
-FIGHEIGHT = FIGWIDTH*2/4
+COLUMNWIDTH = 3.4975
+FIGWIDTH = COLUMNWIDTH#/2
+FIGHEIGHT = FIGWIDTH*9/16
+DPI = 300
 ##
-END_T = None
+END_T = None#None
 ##
 def main():
     set_highlighted_excepthook()
@@ -71,7 +73,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     ############
     # File/directory names
     #######  
-    figures_ext = "" #.png
+    figures_ext = ".png" #.png
     fname_tot_charge = "tot_charge"
     fname_free = "free"
     fname_HR_style = "HR_style"
@@ -86,7 +88,9 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         pl.fig.subplots_adjust(left=0.12/pl.axs.shape[0], bottom=None, right=None, top=None, wspace=0.2, hspace=None)
 
     if tot_charge: 
-        pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=True,legend_loc="best")  
+        #pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=True,legend_loc="best")  
+        #pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O"])  
+        pl.plot_tot_charge(ylim=[0,6],every=1,charge_difference=False,legend_loc="best",atoms=["C","N","O"])  
         #pl.plot_tot_charge(ylim=[0,6],plot_legend=False,every=1,charge_difference=True,legend_loc="best")  
         #pl.plot_tot_charge(ylim=[0,2.5],plot_legend=False,every=1,charge_difference=True,scale_intensity=0.939)  #TODO automatically set to charge_difference to True if starting with ions...
         #pl.plot_tot_charge(ylim=[0,2.5],xlim=[-15.5,0.5],plot_legend=False,every=1,charge_difference=True)  #TODO automatically set to charge_difference to True if starting with ions...
@@ -267,7 +271,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         plt.gcf().set_figwidth(FIGWIDTH)
         plt.gcf().set_figheight(FIGHEIGHT)          
     #plt.tight_layout()
-    plt.savefig(figure_output_dir + label + figures_ext)
+    plt.savefig(figure_output_dir + label + figures_ext,dpi=DPI)
     plt.close()
 
 if __name__ == "__main__":

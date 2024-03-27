@@ -3,10 +3,11 @@ C 613
 N 193
 O 185
 S 10
-Gd_fast_LDA 2
+Gd_fast 2
 
 #BOUND_FREE_EXCLUSIONS
-Gd_fast_LDA
+Gd_fast
+S
 
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.
@@ -23,11 +24,11 @@ true    // active (using count)?
 1.75  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
-1000      // Initial guess for number of time step points for rate equation.
-18            // Number of threads in OpenMP.
+2000      // Initial guess for number of time step points for rate equation.
+26            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
-l              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
+M              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
 5.05            // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT

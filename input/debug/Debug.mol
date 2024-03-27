@@ -1,13 +1,10 @@
-// AC4DC input file generated from: input/superheavy/SH2_Zn.mol
+// AC4DC input file generated from: input/superheavy/SH2_Se/SH2_Se.mol
 
 #ATOMS
-C 613
-N 193
-O 185
-Zn_fast 10
+Se_faster 10
 
 #BOUND_FREE_EXCLUSIONS
-Zn_fast
+Se_faster
 
 #VOLUME
 20000.00      // Volume per molecule in Angstrom^3.
@@ -15,21 +12,21 @@ Zn_fast
 none         // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
 
 #PULSE
-11000         // Photon energy in eV.
-15.0         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
+9000         // Photon energy in eV.
+10.0         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
 gaussian     // Pulse shape.
 
 #USE_COUNT
 true         // enabled? true/false.
-0.10            // Photon density (x10^12 ph.µm-2)
+1.00            // Photon density (x10^12 ph.µm-2)
 
 #NUMERICAL
-1000         // Initial guess for number of time step points for rate equation (Note e-e scattering part takes num_stiff_ministeps = 500 substeps for each step).
+3500         // Initial guess for number of time step points for rate equation (Note e-e scattering part takes num_stiff_ministeps = 500 substeps for each step).
 26           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 M            // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
-5.15         // Grid update period in fs, (dynamic grid only).
+10.00         // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
 800          // Number of time steps in the output files.

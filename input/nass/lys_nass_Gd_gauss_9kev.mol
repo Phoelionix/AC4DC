@@ -1,7 +1,13 @@
 #ATOMS
 C 613
-N 203
+N 193
 O 185
+S 10
+Gd_fast 2
+
+#BOUND_FREE_EXCLUSIONS
+Gd_fast
+S
 
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.
@@ -9,7 +15,7 @@ O 185
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-7112         // Photon energy in eV.
+9000         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
 

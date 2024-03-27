@@ -51,7 +51,7 @@ class Plotter:
         self.input_path = AC4DC_dir + 'input/'
         if out_prefix_text is None:
             out_prefix_text = "Initialising plotting with"
-        molfile = get_mol_file(self.input_path,self.molecular_path,data_folder_name,"y",out_prefix_text = "Initialising plotting with") 
+        molfile = get_mol_file(self.input_path,self.molecular_path,data_folder_name,"y",out_prefix_text = out_prefix_text) 
 
         self.mol = {'name': data_folder_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}        
 
@@ -884,7 +884,7 @@ class Plotter:
         old_ytop = ax.get_ylim()[1]
         ax.set_ylim([-0.5,len(Y)-0.5])
 
-    def plot_orbitals_bar(self, atoms = None, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],orbitals=None,normalise=False,atoms_excluded = None,**kwargs):
+    def plot_orbitals_bar(self, atoms = None, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],orbitals=None,normalise=False,atoms_excluded = None,label_all_yaxes=False,**kwargs):
         if atoms is None: 
             atoms = self.atomdict
             if atoms_excluded is not None:
@@ -893,7 +893,10 @@ class Plotter:
         else:
             assert atoms_excluded is None
         
+        yaxis_plotted = False
         for a in atoms:
+            # if a not in self.atomdict:
+            #     continue
             if show_pulse_profile:  
                 ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),col="white")
             else:
@@ -912,16 +915,30 @@ class Plotter:
             z_label = "Avg. "+a.split("_")[0]+" orbital occupancy"
             if normalise:
                 z_label = a.split("_")[0] + " orbital density"
-            cbar = self.fig.colorbar(cm,ax=ax,label=z_label,format="%.1f")            
             ax.set_yticks(ticks=Y,labels=labels)
             
             ax.set_xlabel("Time (fs)")            
-
-            ax.set_ylabel(r"Orbital")
+            if label_all_yaxes or yaxis_plotted is False:
+                ax.set_ylabel(r"Orbital")
+                yaxis_plotted = True
             old_ytop = ax.get_ylim()[1]
-            ax.set_ylim([-0.5,len(Y)-0.5])     
+            ax.set_ylim([-0.5,len(Y)-0.5])  
+                
+                   
             if show_pulse_profile:   
                 ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
+        if len(atoms) == 2:
+            cbar_ax = self.fig.add_axes([0.9, 0.492, 0.02, 0.433])
+            cbar = self.fig.colorbar(cm, cax=cbar_ax)
+            plt.subplots_adjust(left=0.105, right=0.875, top=0.93, bottom=0)
+        elif len(atoms) == 1:
+            cbar_ax = self.fig.add_axes([0.9, 0.492, 0.02, 0.433])
+            cbar = self.fig.colorbar(cm, cax=cbar_ax)
+            plt.subplots_adjust(left=0.105, right=0.875, top=0.93, bottom=0)
+
+        else:
+            cbar = self.fig.colorbar(cm,ax=ax,label=z_label,format="%.1f",)        
+        
 
     def get_orbital_data(self,a,orbitals):
         self.aggregate_charges(False)

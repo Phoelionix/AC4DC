@@ -1,7 +1,11 @@
 #ATOMS
 C 613
-N 203
+N 193
 O 185
+S 10
+
+#BOUND_FREE_EXCLUSIONS
+S
 
 #VOLUME
 20000        // Volume per molecule in Angstrom^3.
@@ -12,6 +16,8 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 7112         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
+4.4  // total sim time in fwhm
+1.2 // time before pulse peak to start at in fwhm 
 
 #USE_COUNT
 true    // active (using count)?
@@ -19,7 +25,7 @@ true    // active (using count)?
 
 #NUMERICAL
 2000      // Initial guess for number of time step points for rate equation.
-26            // Number of threads in OpenMP.
+26           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 M              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
