@@ -25,18 +25,18 @@ from QoL import set_highlighted_excepthook
 ####
 ELECTRON_DENSITY = False # Whether to use electron density for free distribution plots. Energy density if False
 ###
-PLOT_ELEMENT_CHARGE= True
-PLOT_FREE_CONTINUUM = False
+PLOT_ELEMENT_CHARGE= False  #
+PLOT_FREE_CONTINUUM = True
 PLOT_FREE_SLICES=False
 PLOT_ION_RATIOS=False
 PLOT_ION_RATIOS_BARS=False
-PLOT_ORBITAL_DENSITIES = False#True
-PLOT_PHOTO_RATES = False#True
+PLOT_ORBITAL_DENSITIES = False  #
+PLOT_PHOTO_RATES = False
 ###
 COLUMNWIDTH = 3.4975
 FIGWIDTH = COLUMNWIDTH#/2
-FIGHEIGHT = FIGWIDTH*9/16
-DPI = 300
+FIGHEIGHT = FIGWIDTH*1/2#*9/16
+DPI = 800
 ##
 END_T = None#None
 ##
@@ -90,8 +90,11 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     if tot_charge: 
         #pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=True,legend_loc="best")  
         #pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O"])  
-        pl.plot_tot_charge(ylim=[0,6],every=1,charge_difference=False,legend_loc="best",atoms=["C","N","O"])  
+        #pl.plot_tot_charge(ylim=[0,6],every=1,charge_difference=False,legend_loc="best",atoms=["C","N","O"])  
         #pl.plot_tot_charge(ylim=[0,6],plot_legend=False,every=1,charge_difference=True,legend_loc="best")  
+        pl.plot_tot_charge(ylim=[0,1],plot_legend=False,every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O","S","Gd_fast"])  
+        #pl.plot_tot_charge(ylim=[0,1],plot_legend=False,every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O","S"])  
+        #pl.plot_tot_charge(ylim=[0,6],plot_legend=False,every=1,charge_difference=False,legend_loc="best",atoms=["C","N","O","S"])  
         #pl.plot_tot_charge(ylim=[0,2.5],plot_legend=False,every=1,charge_difference=True,scale_intensity=0.939)  #TODO automatically set to charge_difference to True if starting with ions...
         #pl.plot_tot_charge(ylim=[0,2.5],xlim=[-15.5,0.5],plot_legend=False,every=1,charge_difference=True)  #TODO automatically set to charge_difference to True if starting with ions...
  
@@ -122,11 +125,12 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         # pl.fig.set_figheight(6*0.7)  
         
     if free:
-        #Leonov
-        ymax = 9e3
-        pl.plot_free(log=True, cmin=10**(-6.609),cmax = 10**(-2), every=5,mask_below_min=True,cmap='turbo',ymax=ymax,leonov_style=True)
-        pl.fig.set_figwidth(6.662*0.7*1.16548042705)  
-        pl.fig.set_figheight(6*0.7)      
+        pl.plot_free(log=True,cmin=1e-9,ymax = 12000)
+        # #Leonov
+        # ymax = 9e3
+        # pl.plot_free(log=True, cmin=10**(-6.609),cmax = 10**(-2), every=5,mask_below_min=True,cmap='turbo',ymax=ymax,leonov_style=True)
+        # pl.fig.set_figwidth(6.662*0.7*1.16548042705)  
+        # pl.fig.set_figheight(6*0.7)      
     if free_slices:
         pl.initialise_step_slices_ax()
         from plotter_core import fit_maxwell, maxwell

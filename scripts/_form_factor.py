@@ -66,7 +66,7 @@ for handle in handles:
     
     for atom in atoms:
         # Plot atomic form factor at different times as a function of q
-        #pl.plot_ffactor_get_R_sanders(atom)   # More accurate form factors from AC4DC
+        #pl.plot_ffactor_get_R_AC4DC(atom)   # More accurate form factors from AC4DC
 
         # Slater form factors. Should be fine for light atoms.
         pl.plot_form_factor(NUM_TRACES,[atom],resolution=True,q_min=2*np.pi/LOW_RES*ANG_TO_BOHR,fig_width=FIGWIDTH,fig_height=FIGHEIGHT,show_average=SHOW_AVG,percentage_change=PLOT_DIFF)

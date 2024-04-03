@@ -1,13 +1,8 @@
 #ATOMS
 C 613
-N 193
-O 1185
+N 195
+O 1187
 S 10
-Gd_fast 4
-
-#BOUND_FREE_EXCLUSIONS
-Gd_fast
-
 
 #VOLUME
 40000        // Volume per molecule in Angstrom^3.

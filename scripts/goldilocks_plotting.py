@@ -62,7 +62,7 @@ SCATTERING_TARGET = 0 # Used if DEP_VARIABLE = 1.  | 0: unit lysozyme (light ato
 ## Graphical
 LEGEND = True
 LABEL_TIMES = False # Set True to graphically check simulation end times are all aligned
-DPI = 300
+DPI = 800
 MAX_TICKS = 5
 
 ## Numerical
@@ -216,8 +216,9 @@ edge_dict = {
     "SH2_Ag":([3.3,3.5,3.8],["L_{3}","L_{2}","L_{1}"]),
     "SH_Xe":([4.8,5.1,5.5],["L_{3}","L_{2}","L_{1}"]),
     "SH2_Xe":([4.8,5.1,5.5],["L_{3}","L_{2}","L_{1}"]),
-    "SH2_Gd":([7.2,7.9,8.4],["L_{3}","L_{2}","L_{1}"]),  
-    "L_Gd":(7.4,["L_{1}",]),
+    #"SH2_Gd":([7.2,7.9,8.4],["L_{3}","L_{2}","L_{1}"]),  
+    "SH2_Gd":(7.4,["L_{2}",]),  
+    "L_Gd":(7.4,["L_{2}",]),
     "ES":(0.3,"K"),
     "ES_L":(0.3,"K"),
     "ES_C":(0.3,"K"),

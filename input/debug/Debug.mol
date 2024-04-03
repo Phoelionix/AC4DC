@@ -1,41 +1,43 @@
-// AC4DC input file generated from: input/superheavy/SH2_Se/SH2_Se.mol
-
 #ATOMS
-Se_faster 10
-
-#BOUND_FREE_EXCLUSIONS
-Se_faster
+C 613
+N 195
+O 1187
+S 10
 
 #VOLUME
-20000.00      // Volume per molecule in Angstrom^3.
-2000         // Radius of a sample in Angstrom. Used for effective escape rate of photo-electrons.
-none         // Spatial boundary shape - options are none (confined system), spherical, cylindrical, planar.
+40000        // Volume per molecule in Angstrom^3.
+500         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons (assumes surrounded by a void).
+none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-9000         // Photon energy in eV.
-10.0         // Pulse-dependent definition of duration in femtoseconds: FWHM for Gaussian pulse, pulse width for square pulse.
-gaussian     // Pulse shape.
+8480         // Photon energy in eV.
+40           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+gaussian       // Pulse shape
 
 #USE_COUNT
-true         // enabled? true/false.
-1.00            // Photon density (x10^12 ph.µm-2)
+true    // active (using count)?
+0.13  // Photon density (x10^12 ph.µm-2)
 
 #NUMERICAL
-3500         // Initial guess for number of time step points for rate equation (Note e-e scattering part takes num_stiff_ministeps = 500 substeps for each step).
-26           // Number of threads in OpenMP.
+4000      // Initial guess for number of time step points for rate equation.
+26            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
-M            // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
-10.00         // Grid update period in fs, (dynamic grid only).
+M           // L  // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
+10.05            // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
-800          // Number of time steps in the output files.
-4000         // Number of free-electron grid points in output file.
+800         // Number of time steps in the output files.
+4000        // number of free-electron grid points in output file.
+N            // Write atomic charges in a separate file (Y/N)?
+Y            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-999           // Simulation cutoff time in fs (can end before but not after).
-0.01          // Interval to display current timestep [fs].
-5             // Interval to update live plot (steps).
-####END####
+99 //10     // Simulation cutoff time in fs
+0.01    // Interval to update current timestep [fs].
+####END#####
 
 Notes:
+Requires a very large amount of memory as the second shell is able to be ionised.
+Pulse set so that theoretical average of 1 photoionisation event per Gd 

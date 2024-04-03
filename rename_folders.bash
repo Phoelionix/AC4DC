@@ -1,5 +1,7 @@
-for i in output/Sprtn-SH2_Gd/*
+TAG=("N" "S" "Fe" "Zn" "Se" "Gd")
+for t in ${TAG[@]}; do
+for i in output/Sprtn-out/*;
 do
-  mv -- "$i" "${i/SH2_Gd-/SH2_Gd-SPRT}"
-  #echo -- "$i" "${i/SH2_Se-/SH2_Se-SPRT}"
+ mv -- "$i" "${i/SH2_${t}-/SH2_${t}-SPRT}"
+done;
 done

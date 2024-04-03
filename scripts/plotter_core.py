@@ -37,12 +37,13 @@ class Plotter:
     # Example initialisation: Plotter(water,molecular/path)
     # --> Data is contained in molecular/path/water. 
     # Will use mol file within by default, or (with a warning) search input for matching name if none exists.  
-    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None,end_t=None):
+    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None,end_t=None,load_specific_atoms=None,sample_end_points_only=False):
         '''
         abs_molecular_path: The path to the folder containing the simulation output folder of interest.
         use_electron_density: If True, plot electron density rather than energy density
         '''
         self.end_t_plotting = end_t
+        self.sample_end_points = sample_end_points_only
         self.use_electron_density = use_electron_density
         self.molecular_path = abs_molecular_path
         if self.molecular_path is None:
@@ -73,7 +74,7 @@ class Plotter:
         self.energyKnot=None
         self.timeData=None
 
-        self.get_atoms()
+        self.get_atoms(load_specific_atoms)
         self.update_outputs()
         self.autorun=False
         if num_subplots is not None:
@@ -115,7 +116,7 @@ class Plotter:
 
     # Reads the control file specified by self.mol['infile']
     # and populates the atomdict data structure accordingly
-    def get_atoms(self):
+    def get_atoms(self,atoms_to_load = None):
         self.atomdict = {}
         with open(self.mol['infile'], 'r') as f:
             reading = False
@@ -130,7 +131,7 @@ class Plotter:
                     break
                 if reading:
                     a = line.split(' ')[0].strip()
-                    if len(a) != 0:
+                    if len(a) != 0 and (atoms_to_load is None or a in atoms_to_load):
                         file = self.input_path + 'atoms/' + a + '.inp'
                         self.atomdict[a]={
                             'infile': file,
@@ -138,8 +139,8 @@ class Plotter:
                             'outfile': self.outDir+"/dist_%s.csv"%a,
                             'photofile': self.outDir + "/photo_%s.csv"%a}
 
-    def update_inputs(self):
-        self.get_atoms()
+    def update_inputs(self,load_specific_atoms=None):
+        self.get_atoms(load_specific_atoms)
         self.mol['mtime'] = path.getmtime(self.mol['infile'])
 
     # def rerun_ac4dc(self):
@@ -251,7 +252,7 @@ class Plotter:
 
 
     
-    def plot_R_factor(self, atoms_subset=None):   #TODO Would be best to integrate with Sanders' code since that uses the simulation's calculated struct. factors which are presumably more accurate.
+    def plot_R_factor(self, atoms_subset=None):   #TODO Would be best to integrate with plot_ffactor_get_R_AC4DC since that uses the simulation's calculated struct. factors which are presumably more accurate.
         atoms = atoms_subset
         if atoms == None:
             atoms = self.atomdict
@@ -646,20 +647,45 @@ class Plotter:
 
 
     def update_outputs(self):
-        raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
+        
+        num_sample_lines = 10
+        if self.sample_end_points:
+            with open(self.intFile,'rb') as f:
+                lines = f.readlines()
+                raw = np.genfromtxt(lines[-num_sample_lines:], comments='#', dtype=np.float64)
+        else:
+            raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
         self.timeData = raw[:, 0]
         self.intensityData = raw[:,1]
         self.energyKnot = np.array(self.get_free_energy_spec(), dtype=np.float64)
-        raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
+        if self.sample_end_points:
+            with open(self.freeFile,'rb') as f:
+                lines = f.readlines()
+                raw = np.genfromtxt(lines[-num_sample_lines:], comments='#', dtype=np.float64)
+        else:
+            raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
+
         self.freeData = raw[:,1:]
         photo_data_present = False
         for a in self.atomdict:
-            raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
+            if self.sample_end_points:
+                with open(self.atomdict[a]['outfile'],'rb') as f:
+                    lines = f.readlines()
+                    raw = np.genfromtxt(lines[-num_sample_lines:], comments='#', dtype=np.float64)
+            else:
+                raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
+
             self.boundData[a] = raw[:, 1:]
             self.statedict[a] = self.get_bound_config_spec(a)
             # rates
             try:
-                raw = np.genfromtxt(self.atomdict[a]['photofile'], comments='#', dtype=np.float64)
+                if self.sample_end_points:
+                    with open(self.atomdict[a]['photofile'],'rb') as f:
+                        lines = f.readlines()
+                        raw = np.genfromtxt(lines[-num_sample_lines:], comments='#', dtype=np.float64)
+                else:
+                    raw = np.genfromtxt(self.atomdict[a]['photofile'], comments='#', dtype=np.float64)
+                
                 self.photoData[a] = raw[:, 1] 
                 photo_data_present = True
             except:
@@ -1081,9 +1107,12 @@ class Plotter:
             if plot_derivative:
                 ax.set_ylabel("Average ionisation rate ($e \cdot fs^{-1}$)")
             elif charge_difference:
-                ax.set_ylabel("Avg. charge difference")  # Sometimes we start with charged states.
-        ax.set_xlim(xlim)
+                #ax.set_ylabel("Avg. charge difference")  # Sometimes we start with charged states.
+                ax.set_ylabel("Charge gain")  # Sometimes we start with charged states.
+        ax.set_xlim([T[0],T[-1]])
         ax.set_ylim(ylim)
+        #ax.yaxis.set_ticks([0,0.2,0.4,0.6,0.8,1])
+        #ax.yaxis.set_major_locator(plt.MaxNLocator(4))
         # ax.set_xlim(None,-18.6)
         # ax.set_ylim(0,5)
         if plot_legend:
@@ -1214,7 +1243,7 @@ class Plotter:
         for a in self.atomdict:
             self.plot_charges(a, ion_fract, rseed,plot_legend,show_pulse_profile=show_pulse_profile,xlim=xlim,ylim=ylim,**kwargs)
         
-    def plot_free(self, N=100, log=False, cmin = 0, cmax=None, every = None,mask_below_min=True,cmap='magma',ymax=np.Infinity,leonov_style = False):
+    def plot_free(self, N=100, log=False, cmin = 1e-9, cmax=None, every = None,mask_below_min=True,cmap='magma',ymax=np.Infinity,leonov_style = False):
         ax = self.get_next_ax()
         #self.fig_free.subplots_adjust(left=0.12, top=0.96, bottom=0.16,right=0.95)
 
@@ -1232,23 +1261,27 @@ class Plotter:
                 Z = np.ma.masked_where(Z <= 0,Z)
                 Z = np.ma.masked_where(Z*4200*np.linalg.norm(np.log10(Z[Z.mask==False]))<min_col,Z) # 2550  4200 no time for math time for eye. Desperate times...
             else:
-                Z = np.ma.masked_where(Z < cmin, Z)
+                Z = np.ma.masked_where(Z <= cmin, Z)
             cmap = plt.get_cmap(cmap)
             cmap.set_over(cmap(np.inf))
             cmap.set_under(cmap(min_col))    
             cmap.set_extremes(bad=cmap(min_col))        
-            if max is not None:
+            if cmax is not None:
                 pass
             #     Z = np.ma.masked_where(Z > max, Z)
             else:
                 cmax = Z.max()
+        if cmin == 0 and log:
+            cmin = Z.min()
 
         # if log:
         #     Z = np.log10(Z)
 
         ax.set_facecolor('black')
+        
+        norm = colors.LogNorm(vmin=cmin, vmax=cmax)
         if log:
-            cm = ax.pcolormesh(T, self.energyKnot[self.energyKnot<ymax]*1e-3, Z[self.energyKnot<ymax], shading='gouraud',norm=colors.LogNorm(vmin=cmin, vmax=cmax),cmap=cmap,rasterized=True)
+            cm = ax.pcolormesh(T, self.energyKnot[self.energyKnot<ymax]*1e-3, Z[self.energyKnot<ymax], shading='gouraud',norm=norm,cmap=cmap,rasterized=True)
             cbar = self.fig.colorbar(cm,ax=ax)
         else:
             if cmap != None:
@@ -1385,7 +1418,7 @@ class Plotter:
     
     # Seems to plot ffactors through time, "timedata" is where the densities come from - the form factor text file corresponds to specific configurations (vertical axis) at different k (horizontal axis)
     # In any case, my ffactor function is probably bugged since it doesn't match this. - S.P.
-    def plot_ffactor_get_R_sanders(self, a, num_tsteps = 10, timespan = None, show_avg = True, **kwargs):
+    def plot_ffactor_get_R_AC4DC(self, a, num_tsteps = 10, timespan = None, show_avg = True, plot=True,**kwargs):
 
         if timespan is None:
             timespan = (self.start_t,self.end_t)#(self.timeData[0], self.timeData[-1])
@@ -1400,28 +1433,31 @@ class Plotter:
         KMAX = 2
         dim = len(fdists.shape)
         kgrid = np.linspace(KMIN,KMAX,fdists.shape[0 if dim == 1 else 1])
-        fig2 = plt.figure()
-        ax = fig2.add_subplot(111)
-        ax.set_xlabel('$u$ (spatial frequency, atomic units)')
-        ax.set_ylabel('Form factor (arb. units)')
+        if plot:
+            fig2 = plt.figure()
+            ax = fig2.add_subplot(111)
+            ax.set_xlabel('$u$ (spatial frequency, atomic units)')
+            ax.set_ylabel('Form factor (arb. units)')
         
         timedata = self.boundData[a][:,:-1] # -1 excludes the bare nucleus
         dynamic_k = np.tensordot(fdists.T, timedata.T,axes=1)   # Getting all k points? This has equal spacing -S.P. 
         step = (stop_idx - start_idx) // num_tsteps
-        cmap=plt.get_cmap('plasma')
-        fbar = np.zeros_like(dynamic_k[:,0])
+        if plot:
+            cmap=plt.get_cmap('plasma')
+            fbar = np.zeros_like(dynamic_k[:,0])
 
         n=0
         times_used = []
         for i in range(start_idx, stop_idx, step):
             times_used.append(self.timeData[i])
-            ax.plot(kgrid, dynamic_k[:,i], label='%1.1f fs' % self.timeData[i], color=cmap((i-start_idx)/(stop_idx - start_idx)))
+            if plot:
+                ax.plot(kgrid, dynamic_k[:,i], label='%1.1f fs' % self.timeData[i], color=cmap((i-start_idx)/(stop_idx - start_idx)))
             fbar += dynamic_k[:,i]
             n += 1
 
         print("Times used:",times_used)
         fbar /= n
-        if show_avg:
+        if show_avg and plot:
             ax.plot(kgrid, fbar, 'k--', label=r'Effective Form Factor')
         freal = dynamic_k[:,0]  # Real as in the real structure? - S.P.
         print("Warning, does not account for altering time step sizes.")

@@ -39,7 +39,7 @@ BUFFER2 = -15
 BUFFER3 = 0
 show_colorbar = False
 
-SCALE = 5 
+SCALE = 8 
 
 ###############
 # full sim that does point sampling, thus assumes a "smooth" distribution. Thus good for low cell count input. Num cells is entire whole target.
@@ -55,7 +55,7 @@ PDB_PATHS = get_pdb_paths_dict(my_dir) # <value:> the target that should be used
 DATA_FOLDER = "dmg_data/charge_data/"
 PLOT_FOLDER = "../../output/_Graphs/R_plots/"
 
-def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations,plasma_batch_handle = "", plasma_handles = None, sctr_results_batch_dir = None, get_R_only=True, realistic_crystal_growing_mode = False,specific_energy = None):
+def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations,plasma_batch_handle = "", plasma_handles = None, sctr_results_batch_dir = None, get_R_only=True, realistic_crystal_growing_mode = False,specific_energy = None,eop_charge_only=False,element_considered="C"):
     '''
     NB: "Plasma" is used as a shortened way to refer to the output of the damage simulation  
     parameters:
@@ -139,9 +139,13 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
         print(unit_list)
 
         pulse_params.append([energy[i],fwhm[i],photon_count[i]])
-        pl = Plotter(sim_handle,abs_molecular_path=sim_data_batch_dir)
-        c = pl.get_total_charge(atoms="C")[-1]  # Average charge at end of pulse 
-        c_IA = np.average(pl.get_total_charge(atoms="C")*pl.intensityData)/np.average(pl.intensityData)  # Intensity scaled Average charge 
+        pl = Plotter(sim_handle,abs_molecular_path=sim_data_batch_dir,load_specific_atoms=[element_considered],sample_end_points_only=eop_charge_only)
+        c = pl.get_total_charge(atoms=element_considered)[-1]  # Average charge at end of pulse 
+        if eop_charge_only:
+            c_IA = None
+        else:
+            c_IA = np.average(pl.get_total_charge(atoms=element_considered)*pl.intensityData)/np.average(pl.intensityData)  # Intensity scaled Average charge 
+            
         dmg_data.append([c,c_IA])   
         print("Average final carbon charge:",c)
         print("Intensity-averaged carbon charge:",c_IA)
@@ -416,7 +420,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_unit
         fig.write_image(out_folder+title+ext,scale=SCALE)    
         df = original_df
 #%%
-#------------Generate data (get R)--------------------
+#------------Generate data--------------------
 
 if __name__ == "__main__":
     # Initialise kwargs
@@ -425,6 +429,8 @@ if __name__ == "__main__":
         plasma_handles = None, 
         sctr_results_batch_dir = None, 
         get_R_only=True,
+        eop_charge_only=False,
+        element_considered = "C"#"C"
     )
 
 
@@ -449,8 +455,8 @@ if __name__ == "__main__":
         kwargs["plasma_batch_handle"] = batch_handle
         fname = batch_handle
     elif multi_batch_mode:
-        batch_handles = ["SH2_Gd","SH2_Fe", "SH2_Se","SH2_S","SH2_N","SH2_Zn"] 
-        #batch_handles = ["SH2_Gd"] 
+        #batch_handles = ["SH2_Gd","SH2_Fe","SH2_Se","SH2_S","SH2_N","SH2_Zn"] 
+        batch_handles = ["SH2_S","SH2_N"] 
     else: # Compare specific simulations
         fname = "comparison"
         allowed_atoms = ["C","N","O"]; S_to_N = True
@@ -492,8 +498,10 @@ if __name__ == "__main__":
 #%%
 #------------Plot----------------------
 if __name__ == "__main__":
-    #data_names = ["SH2_Fe","SH2_S","SH2_N","SH2_Zn","SH2_Gd","SH2_Kr"] 
-    data_names = ["SH2_Se"]
+    #data_names = ["SH2_Gd","SH2_Fe","SH2_Se","SH2_S","SH2_N","SH2_Zn"] 
+    data_names = ["SH2_N"] 
+    #data_names = batch_handles
+    #data_names = ["SH2_Se"]
     batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
     damage_measure = "eop_charge"
     cmax_contour = 6; contour_interval = 0.5
@@ -517,15 +525,20 @@ if __name__ == "__main__":
 
 #%%
 #------------Compare----------------------
-contour_interval_delta_difference = 0.3 # 0.01
+contour_interval_delta_difference = 0.05 # 0.01
 contour_interval_percentage_difference = 0.05
 if __name__ == "__main__":
+    show_colorbar = False
+    num_remaining_electrons_mode = True
+    connect_contour_gaps=False; round_fluence = True  # Warning: enabling these options will create misleading graphs!
     batch_mode = True; mode = 1
     resolution = 1.9#2.2
-    photon_min=1e10
-    fname1 = "lys_full"; fname2 = "lys_all_light"
-    plot_2D_constants = dict(energy_key = 9000, photon_key = 1e13,fwhm_key = 15)
-    compared_damage_measure = "IA_charge" #"eop_charge" or "IA_charge" (end of pulse average carbon charge or intensity-averaged carbon charge)
+    photon_min=None # seems slightly bugged
+    fname1 = "SH2_S"; fname2 = "SH2_N"; 
+    outfig_base_name = "X_impact" #Output base name
+    #fname1 = "lys_full"; fname2 = "lys_all_light"
+    plot_2D_constants = dict(energy_key = 15000, photon_key = 1e12,fwhm_key = 15)
+    compared_damage_measure = "eop_charge" #"eop_charge" or "IA_charge" (end of pulse average carbon charge or intensity-averaged carbon charge)
     charge_cutoff = 1 # Just for printing alternate statistics, not important
     max_fwhm = 100
 
@@ -533,25 +546,39 @@ if __name__ == "__main__":
     for percentage_difference in [True]:
         if percentage_difference:
             contour_interval = contour_interval_percentage_difference
-            contour_colour = "viridis"
-            vmax =  0.5
+            #contour_colour = "viridis"
+            contour_colour = "plasma"
+            vmax =  1
         else:
             contour_interval = contour_interval_delta_difference
             contour_colour = "plasma"
-            vmax = 3
+            vmax = 1.5
 
         #name_of_set = "Difference" + "_"+fname1 + "_" + fname2
-        name_of_set = "Sulfur_impact"
-        df1 =  load_df(fname1, check_batch_nums=batch_mode)
+        name_of_set = outfig_base_name
+        df1 = load_df(fname1, check_batch_nums=batch_mode)
         df2 = load_df(fname2,  check_batch_nums=batch_mode)
+        if num_remaining_electrons_mode:
+            df_old = df1
+            df1 = df2 
+            df2 = df_old
+            df1[compared_damage_measure] = 6 - df1[compared_damage_measure]
+            df2[compared_damage_measure] = 6 - df2[compared_damage_measure]
         neutze = False
         df_diff = copy.deepcopy(df1)
+        with pd.option_context('display.max_rows', None, 'display.max_columns', None):  #
+            print(df1)
+            print(df2)
+
         for col in df1.columns:
             if col != "eop_charge" and col != "IA_charge" and col!="name":
+                print("Checking all datapoints align...")
                 assert np.array_equal(df_diff[col], df2[col]) and np.array_equal(df1[col], df_diff[col])
+                
             elif col != "name":
                 if percentage_difference:
-                    df_diff[col] = df1[col]/df2[col] - 1
+                    #df_diff[col] = df1[col]/df2[col] - 1
+                    df_diff[col] = (df1[col]-df2[col])/df1[col]
                 else:
                     df_diff[col] -= df2[col]
                     if col == compared_damage_measure:
@@ -573,14 +600,17 @@ if __name__ == "__main__":
             dmg_measure += "fract diff"
         else:
             dmg_measure += "difference"
+        if num_remaining_electrons_mode:
+            dmg_measure+= " remaining"
         df_diff = df_diff.rename(columns={damage_variable:dmg_measure})
         df_diff.resolution = df1.resolution
         assert df_diff.resolution == df2.resolution
+        name_of_set += "_"+compared_damage_measure 
         if percentage_difference:
             name_of_set+="_PERC"
         else:
             name_of_set+="_DIFF"
         print(df_diff)                                                 #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-        plot_that_funky_thing(df_diff,max_fwhm=max_fwhm,cmin=0,cmax=vmax,cmin_contour = 0, cmax_contour = vmax, contour_colour=contour_colour, contour_interval = contour_interval,name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units = neutze,dmg_measure=dmg_measure,photon_min=photon_min) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+        plot_that_funky_thing(df_diff,max_fwhm=max_fwhm,cmin=0,cmax=vmax,cmin_contour = 0, cmax_contour = vmax, contour_colour=contour_colour, contour_interval = contour_interval,name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",connect_contour_gaps=connect_contour_gaps,round_fluence=round_fluence,use_neutze_units = neutze,dmg_measure=dmg_measure,photon_min=photon_min) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
     print("Done")
 # %%
