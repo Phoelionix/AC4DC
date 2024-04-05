@@ -22,7 +22,7 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 /// Disable features
 //#define NO_PLOTTING // Turns off live saves of the free-electron energy distribution to _live_plot.png. Disables use of python 
 //#define NO_BACKUP_SAVING // Disables the hourly saves of the data to  
-
+//#define SINGLE_CONTINUUM_TRACKING
 
 /// Asynchronous solver
 //#define NO_MINISTEPS   // Disables the asynchronous implementation of the solver, stepping the free (E-E) and bound (everything else) solvers together.

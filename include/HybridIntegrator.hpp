@@ -351,7 +351,7 @@ void Hybrid<T>::step_stiff_part(unsigned n){
             y_transient[next_rel_idx] = tmp;
             y_transient[next_rel_idx] += dydt;
             prev += y_transient[next_rel_idx];
-            diff = prev.norm()/y_transient[next_rel_idx].norm(); // Seeking convergence
+            diff = prev.norm(0)/y_transient[next_rel_idx].norm(0); // Seeking convergence
             idx++;
         }
         if(idx==stiff_max_iter){
@@ -596,7 +596,7 @@ void Hybrid<T>::backward_Euler(unsigned n){
         
         tmp *= -1;
         tmp += this->y[n+1];
-        diff = tmp.norm()/this->y[n].norm();
+        diff = tmp.norm(0)/this->y[n].norm(0);
         idx++;
     }
     this->y[n+1] += old;
