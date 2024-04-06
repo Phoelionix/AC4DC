@@ -246,7 +246,7 @@ void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_
     plasma_header<<"[ Rate Solver ] Using initial timestep size of "<<this->dt*Constant::fs_per_au<<" fs"<<"\n\r";
     plasma_header<<banner<<"\n\r";
 
-    steps_per_grid_transform =  round(num_steps*(grid_update_period/timespan_au));
+    steps_per_grid_transform =  round(num_steps*(grid_update_period/(simulation_end_time-simulation_start_time)));
 
 
     std::cout << plasma_header.str()<<std::flush; // display in regular terminal, so that it is still visible after end of program
@@ -593,7 +593,7 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot) {
     // Add change to distribution
     auto t7 = std::chrono::high_resolution_clock::now();
     #ifdef TRACK_SINGLE_CONTINUUM
-    sdot.F.applyDeltaF(vec_dqdt,threads);
+    sdot.F.applyDeltaF(-99,vec_dqdt,threads);
     #else
     for (size_t a = 0; a < s.atomP.size(); a++) {
         sdot.F.applyDeltaF_element_scaled(a, vec_dqdt,threads);
