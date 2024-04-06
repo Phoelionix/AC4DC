@@ -24,7 +24,7 @@ true    // active (using count)?
 7.8  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
-4000      // Initial guess for number of time step points for rate equation.
+10000      // Initial guess for number of time step points for rate equation.
 18            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID

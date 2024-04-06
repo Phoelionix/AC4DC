@@ -430,12 +430,12 @@ if __name__ == "__main__":
         sctr_results_batch_dir = None, 
         get_R_only=True,
         eop_charge_only=False,
-        element_considered = "C"#"C"
+        element_considered = "O"#"C"
     )
 
 
     batch_mode = False # Just doing this as I want to quickly switch between doing batches and comparing specific runs.
-    multi_batch_mode = True
+    multi_batch_mode = False
 
     mode = 1  #0 -> infinite crystal, 1 -> finite crystal/SPI, 2-> both  
     same_deviations = True # whether same position deviations between damaged and undamaged crystal (SPI only)
@@ -468,7 +468,7 @@ if __name__ == "__main__":
         #kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_6","lys_nass_Gd_16"]  
         #kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_HF","lys_nass_Gd_HF"]  
         #kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_square"]  
-        kwargs["plasma_handles"] = ["lys_nass_no_S_3","lys_nass_gauss","lys_nass_Gd_full_1"]
+        kwargs["plasma_handles"] = ["lys_galli_LF_no_Gd_6","lys_galli_LF_17"]
         #kwargs["plasma_handles"] = ["lys_nass_HF","lys_nass_Gd_HF"]  
         #kwargs["plasma_handles"] = ["lys_full-typical","lys_all_light-typical"]  
         #kwargs["plasma_handles"] = ["glycine_abdullah_4"]
@@ -499,11 +499,12 @@ if __name__ == "__main__":
 #------------Plot----------------------
 if __name__ == "__main__":
     #data_names = ["SH2_Gd","SH2_Fe","SH2_Se","SH2_S","SH2_N","SH2_Zn"] 
-    data_names = ["SH2_N"] 
+    #data_names = ["SH2_N"] 
+    data_names = ["comparison"]
     #data_names = batch_handles
     #data_names = ["SH2_Se"]
-    batch_mode = True; mode = 1  #TODO store batch_mode and mode in saved object.
-    damage_measure = "eop_charge"
+    batch_mode = False; mode = 1  #TODO store batch_mode and mode in saved object.
+    damage_measure = "IA_charge"
     cmax_contour = 6; contour_interval = 0.5
     #damage_measure = "IA_charge"
     #cmax_contour = 3; contour_interval = 0.25

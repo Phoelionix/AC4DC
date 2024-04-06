@@ -439,11 +439,11 @@ void Hybrid<T>::initialise_transient_y(int n) {  // n is the last calculated ste
         }
     }
     // sample to catch the error of y(n) != y_transient(mini_n).
-    assert(this->y[n].F[0] == y_transient[mini_n].F[0]);
+    assert(this->y[n].F[0][0] == y_transient[mini_n].F[0][0]);
     if (this->y[n].F.container_size() > 3)
-        assert(this->y[n].F[3] == y_transient[mini_n].F[3]);
+        assert(this->y[n].F[0][3] == y_transient[mini_n].F[0][3]);
     if (this->y[n].F.container_size() > 5)
-        assert(this->y[n].F[5] == y_transient[mini_n].F[5]);
+        assert(this->y[n].F[0][5] == y_transient[mini_n].F[0][5]);
 }
 
 
@@ -566,7 +566,7 @@ void Hybrid<T>::initialise_transient_y_v2(int n){
             y_transient[mini_n-i] = this->y[n-i];
         }
     }
-    assert(this->y[n].F[3] == y_transient[(mini_n)%(this->order)].F[3]);  
+    assert(this->y[n].F[0][3] == y_transient[(mini_n)%(this->order)].F[0][3]);  
 }
 
 

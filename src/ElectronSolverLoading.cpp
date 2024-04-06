@@ -259,7 +259,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             cout << "Source gp "<<j <<" | " + col
             << "(" << saved_knots[j] << " , " << saved_f[j] << ")" << clrline
             << "New gp "<<j <<"   | " + col                                              
-            << "(" << starting_knots[j] << " , " << y.back().F[j] << ")" 
+            << "(" << starting_knots[j] << " , " << y.back().F[0][j] << ")" 
             << clrline << "------------------" << clrline;
         }
         cout << endl;

@@ -87,9 +87,6 @@ void Distribution::set_spline_factors(size_t _c, vector<double> new_spline_facto
     f_array[_c] = new_spline_factors; 
 }
 void Distribution::set_distribution_STATIC_ONLY(size_t _c, vector<double> new_knot, vector<double> new_spline_factors) {
-    #ifdef TRACK_SINGLE_CONTINUUM
-    assert(false)
-    #endif
     f_array[_c] = new_spline_factors; 
     load_knot(new_knot);
     f_array[_c].resize(size);
@@ -101,7 +98,7 @@ void Distribution::load_knot(vector<double> loaded_knot) {
 }
 
 // Adds Q_eii to the parent Distribution
-void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const {
+void Distribution::get_Q_eii (size_t _c, Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const {
     assert(basis.has_Qeii());
     assert(P.size() == basis.Q_EII[a].size());
     assert((unsigned) v.size() == size);
@@ -111,11 +108,7 @@ void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P, co
         #pragma omp parallel for num_threads(threads) reduction(+ : v_copy) // Do NOT use collapse(2), it's about twice as slow.
         for (size_t J=0; J<size; J++) {
             for (size_t K=0; K<size; K++) {
-                v_copy[J] += P[xi]*f_array[0][K]*basis.Q_EII[a][xi][J][K];
-                #ifndef TRACK_SINGLE_CONTINUUM
-                v_copy[J] += P[xi]*f_array[a+1][K]*basis.Q_EII[a][xi][J][K];
-                #endif
-
+                v_copy[J] += P[xi]*f_array[_c][K]*basis.Q_EII[a][xi][J][K];
             }
         }
         v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
@@ -131,19 +124,16 @@ void Distribution::get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P, co
  * @param P probabilities of each atomic state;  d/dt P[i] = \sum_i=1^N W_ij - W_ji ~~~~ P[j] = d/dt(average-atomic-state)
  */
 // Puts the Q_TBR changes in the supplied vector v
-void Distribution::get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const {
+void Distribution::get_Q_tbr (size_t _c, Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const {
     assert(basis.has_Qtbr());
     assert(P.size() == basis.Q_TBR[a].size());
     double v_copy [size] = {0}; 
     #pragma omp parallel for num_threads(threads) reduction(+ : v_copy) collapse(2)
-    for (size_t eta=0; eta<P.size(); eta++) {          // size = num configurations
+    for (size_t eta=0; eta<P.size(); eta++) {          // eta -> configuration
         // Loop over configurations that P refers to
-        for (size_t J=0; J<size; J++) {                   // size = num grid points
+        for (size_t J=0; J<size; J++) {                   // J -> grid point
             for (auto& q : basis.Q_TBR[a][eta][J]) {   // Thousands of iterations for each J - S.P.
-                v_copy[J] += q.val * P[eta] * f_array[0][q.K] * f_array[0][q.L];
-                #ifndef TRACK_SINGLE_CONTINUUM
-                v_copy[J] += q.val * P[eta] * f_array[a+1][q.K] * f_array[a+1][q.L];
-                #endif
+                v_copy[J] += q.val * P[eta] * f_array[_c][q.K] * f_array[_c][q.L];
             }
         }
     }
@@ -207,6 +197,7 @@ void Distribution::transform_basis(std::vector<double> new_knots){
     int new_basis_order = basis.BSPLINE_ORDER;
     //// Get knots that have densities
     int num_new_splines = static_cast<int>(get_trimmed_knots(new_knots).size());   // TODO replace get_trimmed_knots with get_num_funcs?. 
+    std::vector<std::vector<std::vector<double>>> new_densities_container;
     for (size_t _c = 0; _c < num_continuums; _c++){
         //// Compute densities for knots
         std::vector<std::vector<double>> new_densities(num_new_splines, std::vector<double>(64, 0));
@@ -223,10 +214,18 @@ void Distribution::transform_basis(std::vector<double> new_knots){
             }
         }
         // Change distribution to empty one in new basis.    
+        new_densities_container.push_back(new_densities);
+    }
+    for (size_t _c = 0; _c < num_continuums; _c++){
         vector<double> new_f(num_new_splines,0);
-        set_distribution_STATIC_ONLY(_c,new_knots,new_f);
+        f_array[_c] = new_f; 
+    }
+    load_knot(new_knots);
+    for (size_t _c = 0; _c < num_continuums; _c++){
+        f_array[_c].resize(size);
         // Add densities in new basis.
-        add_density_distribution(_c, new_densities);
+        add_density_distribution(_c, new_densities_container[_c]);
+
     }
 }
 
@@ -499,9 +498,9 @@ void Distribution::addLoss(size_t a, const Distribution& d, const LossGeometry &
     double escape_e = 1.333333333*Constant::Pi*l.L0*l.L0*rho;
     for (size_t i=basis.i_from_e(escape_e); i<size; i++) {
         
-        f_array[0][i] -= d[i] * sqrt(basis.avg_e[i]/2) * l.factor();
+        f_array[0][i] -= d[0][i] * sqrt(basis.avg_e[i]/2) * l.factor();
         #ifndef TRACK_SINGLE_CONTINUUM
-        f_array[a+1][i] -= d[i] * sqrt(basis.avg_e[i]/2) * l.factor();
+        f_array[a+1][i] -= d[a+1][i] * sqrt(basis.avg_e[i]/2) * l.factor();
         #endif
     }
 }
@@ -540,9 +539,9 @@ void Distribution :: addFiltration(size_t a, const Distribution& d, const Distri
     double factor = 2./3*Constant::Pi*pow(l.L0,2);
     for (size_t i=0; i < size; i++){
          double v = c*sqrt( 1 - pow((1+basis.avg_e[i]/(m*c*c)), -2) );
-        f_array[0][i] += factor*v*(bg[i] - d[i]);
+        f_array[0][i] += factor*v*(bg[0][i] - d[0][i]);
         #ifndef TRACK_SINGLE_CONTINUUM
-        f_array[a+1][i] += factor*v*(bg[i] - d[i]);
+        f_array[a+1][i] += factor*v*(bg[a+1][i] - d[a+1][i]);
         #endif
     }
 }
@@ -651,9 +650,10 @@ double Distribution::CoulombLogarithm() const {
 //     return retval;
 // }
 
+// Outputs the combined continuum.
 ostream& operator<<(ostream& os, const Distribution& dist) {
     for (size_t i= 0; i < Distribution::size; i++) {
-        os<<" "<<dist[i]/Constant::eV_per_Ha;
+        os<<" "<<dist[0][i]/Constant::eV_per_Ha;
     }
     return os;
 }

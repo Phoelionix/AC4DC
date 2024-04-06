@@ -63,6 +63,7 @@ class Plotter:
         # Outputs
         self.outDir = self.molecular_path + data_folder_name
         self.freeFile = self.outDir +"/freeDist.csv"
+        self.freeFiles = []  # Distributions for each element's cascdes.
         self.intFile = self.outDir + "/intensity.csv"
         self.gridFile = self.outDir + "/knotHistory.csv"
 
@@ -138,7 +139,10 @@ class Plotter:
                             'mtime': path.getmtime(file),
                             'outfile': self.outDir+"/dist_%s.csv"%a,
                             'photofile': self.outDir + "/photo_%s.csv"%a}
-
+                        if atoms_to_load is not None:
+                            self.freeFiles.append(self.outDir +"/freeDist_"+a+".csv")
+        if atoms_to_load is None:
+            self.freeFiles.append(self.freeFile)
     def update_inputs(self,load_specific_atoms=None):
         self.get_atoms(load_specific_atoms)
         self.mol['mtime'] = path.getmtime(self.mol['infile'])
@@ -663,7 +667,12 @@ class Plotter:
                 lines = f.readlines()
                 raw = np.genfromtxt(lines[-num_sample_lines:], comments='#', dtype=np.float64)
         else:
-            raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
+            tmp = []
+            for elemContinuum in self.freeFiles:
+                tmp.append(np.genfromtxt(elemContinuum, comments='#', dtype=np.float64))
+            raw = tmp[0]
+            for r in tmp[1:]:
+                raw += r
 
         self.freeData = raw[:,1:]
         photo_data_present = False
@@ -1243,7 +1252,7 @@ class Plotter:
         for a in self.atomdict:
             self.plot_charges(a, ion_fract, rseed,plot_legend,show_pulse_profile=show_pulse_profile,xlim=xlim,ylim=ylim,**kwargs)
         
-    def plot_free(self, N=100, log=False, cmin = 1e-9, cmax=None, every = None,mask_below_min=True,cmap='magma',ymax=np.Infinity,leonov_style = False):
+    def plot_free(self, N=100, log=True, cmin = 1e-9, cmax=None, every = None,mask_below_min=True,cmap='magma',ylim=[None,None],ymax=np.Infinity,leonov_style = False,keV=False,ylog=False):
         ax = self.get_next_ax()
         #self.fig_free.subplots_adjust(left=0.12, top=0.96, bottom=0.16,right=0.95)
 
@@ -1281,7 +1290,10 @@ class Plotter:
         
         norm = colors.LogNorm(vmin=cmin, vmax=cmax)
         if log:
-            cm = ax.pcolormesh(T, self.energyKnot[self.energyKnot<ymax]*1e-3, Z[self.energyKnot<ymax], shading='gouraud',norm=norm,cmap=cmap,rasterized=True)
+            scale = 1
+            if keV:
+                scale = 1e-3
+            cm = ax.pcolormesh(T, self.energyKnot[self.energyKnot<ymax]*scale, Z[self.energyKnot<ymax], shading='gouraud',norm=norm,cmap=cmap,rasterized=True)
             cbar = self.fig.colorbar(cm,ax=ax)
         else:
             if cmap != None:
@@ -1289,19 +1301,28 @@ class Plotter:
             cm = ax.contourf(T, self.energyKnot, Z, N, cmap=cmap,rasterized=True)
             cbar = self.fig.colorbar(cm,ax=ax)
 
-        ax.set_ylabel("Energy (keV)")
+        if keV:
+            ax.set_ylabel("Energy (keV)")
+        else:
+            ax.set_ylabel("Energy (eV)")
+            
         ax.set_xlabel("Time (fs)")
        
-        
-        # if log:
-        #     minval = np.floor(np.min(Z, axis=(0,1)))
-        #     maxval = np.ceil(np.max(Z,axis=(0,1)))
-        #     formatter = LogFormatter(10, labelOnlyBase=True) 
+        if ylog:
+            ax.set_yscale('log')
+        if keV:
+            ylim = [y*1e-3 for y in ylim]
+        ax.set_ylim(ylim)
+        if log:
+            # minval = np.floor(np.min(Z, axis=(0,1)))
+            # maxval = np.ceil(np.max(Z,axis=(0,1)))
+            # formatter = LogFormatter(10, labelOnlyBase=True) 
             
-        #     cbar.ax.yaxis.set_ticks(vals)
-        #     cbar.ax.yaxis.set_ticklabels(10**vals)
-        # else:
-        #     cbar = self.fig_free.colorbar(cm)
+            # cbar.ax.yaxis.set_ticks(vals)
+            # cbar.ax.yaxis.set_ticklabels(10**vals)
+            cbar.ax.yaxis.set_ticks((1e-8,1e-7,1e-6,1e-5,1e-4))
+        else:
+            cbar = self.fig_free.colorbar(cm)
         cbar.ax.set_ylabel('Free Electron Density, Å$^{-3}$', rotation=270,labelpad=20)
 
         # plot the intensity

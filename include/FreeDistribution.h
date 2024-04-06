@@ -61,13 +61,13 @@ public:
     }
 
 
-    // inline std::vector<double>& operator[](size_t _c) {
-    //     return this->f_array[_c];
-    // }
+    inline std::vector<double>& operator[](size_t _c) {
+        return this->f_array[_c];
+    }
 
-    // inline std::vector<double> operator[](size_t _c) const{
-    //     return this->f_array[_c];
-    // }
+    inline std::vector<double> operator[](size_t _c) const{
+        return this->f_array[_c];
+    }
 
     // /**
     //  * @brief Get spline factors at 
@@ -81,14 +81,14 @@ public:
     //     return this->f_array[_c][n];
     // }
     
-    // Accesses the continuum, not atom-split parts of it.
-    inline double& operator[](size_t n) {
-        return this->f_array[0][n];
-    }
+    // // Accesses the continuum, not atom-split parts of it.
+    // inline double& operator[](size_t n) {
+    //     return this->f_array[0][n];
+    // }
 
-    inline double operator[](size_t n) const{
-        return this->f_array[0][n];
-    }
+    // inline double operator[](size_t n) const{
+    //     return this->f_array[0][n];
+    // }
 
     // vector-space algebra
 
@@ -196,8 +196,8 @@ public:
     // Q functions
     // Computes the dfdt vector v based on internal f
     // e.g. dfdt v; F.calc_Qee(v);
-    void get_Q_eii (Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const;
-    void get_Q_tbr (Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const;
+    void get_Q_eii (size_t _c, Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const;
+    void get_Q_tbr (size_t _c, Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const;
     void get_Q_ee  (Eigen::VectorXd& v, const int & threads) const;
 
     void get_Jac_ee (Eigen::MatrixXd& J) const; // Returns the Jacobian of Qee

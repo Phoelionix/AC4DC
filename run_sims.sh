@@ -20,9 +20,16 @@ set -x
 
 #############################
 
-./ac4dc input/galli/lys_galli_LF_no_Gd
-./ac4dc input/galli/lys_galli_LF
-./ac4dc input/galli/lys_galli_HF_no_Gd
+
+#./ac4dc input/nass/lys_nass_water_solvent
+#./ac4dc input/nass/lys_nass_water_solvent_9kev
+#./ac4dc input/nass/lys_nass_gd_solvent
+./ac4dc input/debug/Debug_correct
+./ac4dc input/nass/lys_nass_gd_solvent_9kev
+
+#./ac4dc input/galli/lys_galli_LF_no_Gd
+# ./ac4dc input/galli/lys_galli_LF
+# ./ac4dc input/galli/lys_galli_HF_no_Gd
 ./ac4dc input/galli/lys_galli_HF
 #./ac4dc_consta input/_batches/batch_ES_C/ES_C-0
 

@@ -1,10 +1,10 @@
 #ATOMS
-C 1000
-N 500
-O 500
+C 613
+N 203
+O 185
 
 #VOLUME
-20000        // Volume per molecule in Angstrom^3.
+40000        // Volume per molecule in Angstrom^3.
 500         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons (assumes surrounded by a void).
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
@@ -19,7 +19,7 @@ true    // active (using count)?
 
 #NUMERICAL
 2000      // Initial guess for number of time step points for rate equation.
-26           // Number of threads in OpenMP.
+26            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 M              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
@@ -33,9 +33,8 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-0       // Simulation cutoff time in fs
+99 //10     // Simulation cutoff time in fs
 0.01    // Interval to update current timestep [fs].
-0
 ####END#####
 
 Notes:
@@ -53,3 +52,4 @@ Ignores:
 from many runs, distributions are very well-approximated by low accuracy grid, 
 for the purposes of both a) atomic form factor determination and b) debye length 
 determination for hybrid models.
+

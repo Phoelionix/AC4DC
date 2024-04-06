@@ -463,7 +463,15 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         #endif        
         // Secondary ionization
         // EII / TBR bound-state dynamics
-        if(!input_params.Store[a].bound_free_excluded){
+        #ifdef TRACK_SINGLE_CONTINUUM
+        size_t _c = 0; 
+        #else
+        size_t _c = 1;  // Iterates through the continuum corresponding to each element's initiated cascades and adds separately. // TODO check if having the full continuum contribute to the actual calcs is better.
+        #endif 
+        for (;_c < Distribution::num_continuums; _c++){
+            Eigen::VectorXd vec_dqdt_scndry = Eigen::VectorXd::Zero(Distribution::size);
+            if(input_params.Store[a].bound_free_excluded) continue;
+
             double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
             double sdot_bound_charge_eii_subst = 0; 
             double sdot_bound_charge_tbr_subst = 0; 
@@ -475,7 +483,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
                 #ifndef NO_EII
                 for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
                     for (auto& finPair : RATE_EII[a][n][init]) {
-                        tmp = finPair.val*s.F[n]*P[init];
+                        tmp = finPair.val*s.F[_c][n]*P[init];
                         Pdot_subst[finPair.idx] += tmp;
                         Pdot_subst[init] -= tmp;
                         sdot_bound_charge_eii_subst += tmp;   //TODO Not a minus sign like others, double check that's intentional. -S.P.
@@ -493,7 +501,11 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
                     // W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
                     for (size_t init=0;  init<RATE_TBR[a][k].size(); init++) {
                         for (auto& finPair : RATE_TBR[a][k][init]) {
-                            tmp = finPair.val*s.F[n]*s.F[m]*P[init]*2;
+                            #ifdef TRACK_SINGLE_CONTINUUM
+                            tmp = finPair.val*s.F[_c][n]*s.F[_c][m]*P[init]*2;   // _c = 0 (total continuum)
+                            #else
+                            tmp = finPair.val*(s.F[_c][n]*s.F[0][m] + s.F[_c][m]*s.F[0][n])*P[init]; // as we are distinguishing the electron continuum of interest from the full continuum now.
+                            #endif
                             Pdot_subst[finPair.idx] += tmp;
                             Pdot_subst[init] -= tmp;
                             sdot_bound_charge_tbr_subst -= tmp;
@@ -504,7 +516,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
                 // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
                 for (size_t init=0;  init<RATE_TBR[a][n].size(); init++) {
                     for (auto& finPair : RATE_TBR[a][n][init]) {
-                        tmp = finPair.val*s.F[n]*s.F[n]*P[init];
+                        tmp = finPair.val*s.F[_c][n]*s.F[0][n]*P[init];
                         Pdot_subst[finPair.idx] += tmp;
                         Pdot_subst[init] -= tmp;
                         sdot_bound_charge_tbr_subst -= tmp;
@@ -537,7 +549,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             #warning No impact ionisation
             #else
             auto t1 = std::chrono::high_resolution_clock::now();
-            s.F.get_Q_eii(vec_dqdt, a, P, threads);
+            s.F.get_Q_eii(_c,vec_dqdt_scndry, a, P, threads);
             auto t2 = std::chrono::high_resolution_clock::now();
             eii_time += t2 - t1;
             #endif
@@ -545,12 +557,19 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             #warning No three-body recombination
             #else
             auto t3 = std::chrono::high_resolution_clock::now();
-            s.F.get_Q_tbr(vec_dqdt, a, P, threads);  // Serially, this is the computational bulk of the program - S.P.
+            s.F.get_Q_tbr(_c,vec_dqdt_scndry, a, P, threads);  // Serially, this is the computational bulk of the program - S.P.
             auto t4 = std::chrono::high_resolution_clock::now();
             tbr_time += t4 - t3;
             #endif
+            // Add secondary ionization to distributions
+            auto t7 = std::chrono::high_resolution_clock::now();
+            sdot.F.applyDeltaF(_c-1,vec_dqdt_scndry,threads);
+            sdot.F.addLoss(_c-1,s.F, input_params.loss_geometry, s.bound_charge);
+            auto t8 = std::chrono::high_resolution_clock::now();
+            apply_delta_time += t8 - t7;
+
         }
-        // Add change to distribution
+        // Add primary ionization to distributions
         auto t7 = std::chrono::high_resolution_clock::now();
         sdot.F.applyDeltaF(a,vec_dqdt,threads);
         sdot.F.addLoss(a,s.F, input_params.loss_geometry, s.bound_charge);
@@ -1084,7 +1103,6 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
     // The next containers are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state. 
 } 
 
-// TODO need option to take in dirac peaks...
 void ElectronRateSolver::reinitialise_solver_with_current_grid(ofstream& _log){
     _log << "[ Dynamic Grid ] Restarting solver with new grid"<<endl;
     t.resize(1);
