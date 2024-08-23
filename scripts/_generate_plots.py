@@ -26,16 +26,21 @@ from QoL import set_highlighted_excepthook
 ELECTRON_DENSITY = False # Whether to use electron density for free distribution plots. Energy density if False
 ###
 PLOT_ELEMENT_CHARGE= False  #
-PLOT_FREE_CONTINUUM = True
+PLOT_FREE_CONTINUUM = False
 PLOT_FREE_SLICES=False
 PLOT_ION_RATIOS=False
 PLOT_ION_RATIOS_BARS=False
-PLOT_ORBITAL_DENSITIES = False  #
+PLOT_ORBITAL_DENSITIES = True  #
 PLOT_PHOTO_RATES = False
 ###
 COLUMNWIDTH = 3.4975
+COLUMNWIDTH = 2
 FIGWIDTH = COLUMNWIDTH#/2
 FIGHEIGHT = FIGWIDTH*1/2#*9/16
+
+# FIGWIDTH = COLUMNWIDTH/2
+# FIGHEIGHT = FIGWIDTH*9/16
+
 DPI = 800
 ##
 END_T = None#None
@@ -78,7 +83,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     fname_free = "free"
     fname_HR_style = "HR_style"
     fname_bound_dynamics = "bound_dynamics"
-    load_specific_atoms = None#["C,N,O"] #None
+    load_specific_atoms = None#["C","N","O"] #None
     if load_specific_atoms is not None:
         label+="_"
         for elem in load_specific_atoms:
@@ -93,13 +98,14 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         pl.fig.subplots_adjust(left=0.12/pl.axs.shape[0], bottom=None, right=None, top=None, wspace=0.2, hspace=None)
 
     if tot_charge: 
-        #pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=True,legend_loc="best")  
+        #NOTE ensure load_specific_atoms is None or does not exclude `atoms` if `atoms` is passed.
+        pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=True,legend_loc="best")  
         #pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O"])  
         #pl.plot_tot_charge(ylim=[0,6],every=1,charge_difference=False,legend_loc="best",atoms=["C","N","O"])  
         #pl.plot_tot_charge(ylim=[0,6],plot_legend=False,every=1,charge_difference=True,legend_loc="best")  
         #pl.plot_tot_charge(ylim=[0,6],plot_legend=False,every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O","S","Gd_fast"])  
         #pl.plot_tot_charge(ylim=[0,1.1],plot_legend=False,every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O","S","Gd_fast"])  
-        pl.plot_tot_charge(ylim=[0,1.1],plot_legend=False,every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O","S"])  
+        #pl.plot_tot_charge(ylim=[0,1.1],plot_legend=False,every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O","S"])  
         #pl.plot_tot_charge(ylim=[0,6],plot_legend=False,every=1,charge_difference=False,legend_loc="best",atoms=["C","N","O","S"])  
         #pl.plot_tot_charge(ylim=[0,2.5],plot_legend=False,every=1,charge_difference=True,scale_intensity=0.939)  #TODO automatically set to charge_difference to True if starting with ions...
         #pl.plot_tot_charge(ylim=[0,2.5],xlim=[-15.5,0.5],plot_legend=False,every=1,charge_difference=True)  #TODO automatically set to charge_difference to True if starting with ions...
@@ -109,7 +115,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         pl.plot_charges_bar("C",show_pulse_profile=False)
         #plt.gcf().set_figwidth(15)        
     if orbital_densities_bar:
-        pl.plot_orbitals_bar(atoms=None,atoms_excluded=["N","O"],show_pulse_profile=True,normalise = True)
+        pl.plot_orbitals_bar(atoms=None,atoms_excluded=["N","O"],show_pulse_profile=False,normalise = True)
         #pl.plot_orbitals_bar("Gd_fast",show_pulse_profile=True,orbitals=["3p","4p","5p"])
     if photo_rates:
         pl.plot_photoionisation(atoms=None,show_pulse_profile=True)

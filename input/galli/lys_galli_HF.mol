@@ -25,7 +25,7 @@ true    // active (using count)?
 
 #NUMERICAL
 10000      // Initial guess for number of time step points for rate equation.
-18            // Number of threads in OpenMP.
+26            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 M              // support for 50-200 eV //Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
@@ -37,6 +37,9 @@ M              // support for 50-200 eV //Grid regions preset, options are: dism
 N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
+
+#LOAD
+galli_HF_backup
 
 #DEBUG
 99 //10  // Simulation cutoff time in fs

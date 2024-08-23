@@ -38,7 +38,7 @@ import imaging_params
 FIGWIDTH_FACTOR = 1
 FIGWIDTH = 3.49751 *FIGWIDTH_FACTOR
 FIGHEIGHT = FIGWIDTH*3/4
-FIT = False
+FIT = True
 IGNORE_MISSING_SIMULATIONS = True  # If False, throws an error if not all specified simulations in the batch(es) are found.
 
 matplotlib.rcParams.update({
@@ -51,8 +51,8 @@ matplotlib.rcParams.update({
 
 
 ####### User parameters #########
-INDEP_VARIABLE = 0 # | 0: energy of photons |1: Energy separation from edge given in edge_dict |2: Artificial electron source energy
-DEP_VARIABLE = 1 # | 0: mean carbon charge (at end of pulse) or I avged TODO) | 1: R factors (performs scattering simulations for each) |
+INDEP_VARIABLE = 1 # | 0: energy of photons |1: Energy separation from edge given in edge_dict |2: Artificial electron source energy
+DEP_VARIABLE = 0 # | 0: mean carbon charge, either integrated over intensity or at end of pulse ) | 1: R factors (performs scattering simulations for each) |
 BATCH = 0 #| 0: Real elements | 1: Electron source. 
 
 ## Subcategories of dependent variables
@@ -75,29 +75,29 @@ CUSTOM_YLABEL = None#"$R_{dmg}^{CNO,Zn}-R_{dmg}^{CNO}$"
 #ylim=[None,2.3-0.7]
 #CUSTOM_YLABEL = None
 #ylim=[None,2.3]
-L_TYPE = "two" # Which L edge to use. "one","two","three"; anything else plots all and uses separation from L1 edge.
+L_TYPE = "three" # Which L edge to use. "one","two","three"; anything else plots all and uses separation from L1 edge.
 
-#### TEMPORARY
-#mode_A
-A = False
-if A:
-    ylim=[0,0.025]
-    INDEP_VARIABLE= 0
-    BATCH = 0
-    NORMALISING_STEM = None
-#mode_B
-else:
-    ylim=[None,None]
-    INDEP_VARIABLE = 2
-    BATCH = 1
-    NORMALISING_STEM = None
+# #### TEMPORARY
+# #mode_A
+# A = False
+# if A:
+#     ylim=[0,0.025]
+#     INDEP_VARIABLE= 0
+#     BATCH = 0
+#     NORMALISING_STEM = None
+# #mode_B
+# else:
+#     ylim=[None,None]
+#     INDEP_VARIABLE = 2
+#     BATCH = 1
+#     NORMALISING_STEM = None
 ##########
 
 xlim = [6,18]
-xlim = [9.7,19.7]
+#xlim = [9.7,19.7]
 if INDEP_VARIABLE is EDGE_SEPARATION:
     xlim[0] = -1.5
-    xlim[1] = 8.5
+    xlim[1] = 18#8.5
 if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
     #xlim = [None,None]
     xlim = [0,15]
@@ -112,14 +112,14 @@ if BATCH is REAL_ELEMENTS:
     # e.g. item "Carbon":[2,4] means to plot simulations corresponding to outputs Carbon-2, Carbon-3, Carbon-4, mol files. Last simulation output is used in case of duplicates (highest run number).
     HF_15fs = { # 10^12 ph um^-2 fluence, 10 fs
             "SH_N":[[1,10],[901,903]], #[700,704],
-            #"SH_S":[[0,10],[901,903]],  
-            #"SH_Fe":[[0,10],[901,904]],#,[20,40]],
+            "SH_S":[[0,10],[901,903]],  
+            "SH_Fe":[[0,10],[901,904]],#,[20,40]],
             "SH_Zn":[[0,10],[901,903]],
-            #"SH_Se":[[0,13],],
-            #"SH_Zr":[[0,10],[901,902]],
+            "SH_Se":[[0,13],],
+            "SH_Zr":[[0,10],[901,902]],
             #-----L------
-            #"SH_Ag":[[0,8],[901,904]],
-            #"SH_Xe":[[0,9],[901,907]],
+            "SH_Ag":[[0,8],[901,904]],
+            "SH_Xe":[[0,9],[901,907]],
             #"SH2_Gd":[[1,14]],
             #------other------
             #"SH_excl_Zn":[1,9],
@@ -162,7 +162,7 @@ if BATCH is REAL_ELEMENTS:
     }
     HF_10fs = {}
     LF_10fs = {} 
-    stem_dict = Zn_N_comp
+    stem_dict = HF_15fs
 
 same_targets_dict = dict(
     SH2_N=["SH2_N_1e12",], 
@@ -348,7 +348,7 @@ def main():
     plot(batches,label,dname_Figures,mode=DEP_VARIABLE)
 
 def plot(batches,label,figure_output_dir,mode = 0):
-    ylabel = {AVERAGE_CHARGE:"Average carbon's charge",R_FACTOR:"$R_{dmg}$"}
+    ylabel = {AVERAGE_CHARGE:"Averaged carbon charge",R_FACTOR:"$R_{dmg}$"}
     '''
     Arguments:
     '''    
@@ -460,6 +460,7 @@ def plot(batches,label,figure_output_dir,mode = 0):
                     # Assume L-edge
                     if L_TYPE in ["one","two","three"]:
                         split_idxes = [np.searchsorted(np.array([x[0] for x in ordered_dat]),- 0.000000001),]
+                        if stem == "SH_Xe": split_idxes = [3,4] # Xenon temporary thing.
                         done = True
                 # default case
                 if not done:
@@ -541,7 +542,7 @@ def plot(batches,label,figure_output_dir,mode = 0):
 
     if LEGEND:
         if BATCH is REAL_ELEMENTS:
-            ax.legend(title="Dopant",fancybox=True,ncol=2,loc='upper center',bbox_to_anchor=(0.75, 1.02),handletextpad=0.01,columnspacing=0.2,borderpad = 0.18)
+            ax.legend(title="Dopant",fancybox=True,ncol=2,loc='upper center',bbox_to_anchor=(0.758, 1.02),handletextpad=0.01,columnspacing=0,handlelength=1.35,borderpad = 0.18,frameon=True)
         if BATCH is ELECTRON_SOURCE:
             handles, labels = ax.get_legend_handles_labels()
             handles.reverse()

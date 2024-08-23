@@ -668,11 +668,17 @@ class Plotter:
                 raw = np.genfromtxt(lines[-num_sample_lines:], comments='#', dtype=np.float64)
         else:
             tmp = []
-            for elemContinuum in self.freeFiles:
-                tmp.append(np.genfromtxt(elemContinuum, comments='#', dtype=np.float64))
-            raw = tmp[0]
-            for r in tmp[1:]:
-                raw += r
+            try:
+                for elemContinuum in self.freeFiles:
+                        tmp.append(np.genfromtxt(elemContinuum, comments='#', dtype=np.float64))
+                raw = tmp[0]
+            except:
+                # In case of not tracking split continuums.
+                tmp = [np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)]
+            if len(tmp) > 1:
+                for r in tmp[1:]:
+                    raw += r
+
 
         self.freeData = raw[:,1:]
         photo_data_present = False
@@ -958,8 +964,8 @@ class Plotter:
                 yaxis_plotted = True
             old_ytop = ax.get_ylim()[1]
             ax.set_ylim([-0.5,len(Y)-0.5])  
-                
-                   
+            #ax.set_xlim([None,0])
+            #ax.set_xticks(np.arange(-15,0.1,5))
             if show_pulse_profile:   
                 ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
         if len(atoms) == 2:
@@ -1323,7 +1329,8 @@ class Plotter:
             cbar.ax.yaxis.set_ticks((1e-8,1e-7,1e-6,1e-5,1e-4))
         else:
             cbar = self.fig_free.colorbar(cm)
-        cbar.ax.set_ylabel('Free Electron Density, Å$^{-3}$', rotation=270,labelpad=20)
+        #cbar.ax.set_ylabel('Free Electron Density, Å$^{-3}$', rotation=270,labelpad=20)
+        cbar.ax.set_ylabel('Energy density (Å$^{-3}$)', rotation=270,labelpad=20)
 
         # plot the intensity
         ax2 = ax.twinx()

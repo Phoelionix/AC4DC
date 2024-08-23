@@ -133,7 +133,9 @@ void Distribution::get_Q_tbr (size_t _c, Eigen::VectorXd& v, size_t a, const bou
         // Loop over configurations that P refers to
         for (size_t J=0; J<size; J++) {                   // J -> grid point
             for (auto& q : basis.Q_TBR[a][eta][J]) {   // Thousands of iterations for each J - S.P.
-                v_copy[J] += q.val * P[eta] * f_array[_c][q.K] * f_array[_c][q.L];
+                v_copy[J] += q.val * P[eta] * (f_array[_c][q.K] * f_array[0][q.L] + f_array[0][q.K] * f_array[_c][q.L])*0.5; //Correct?
+                //v_copy[J] += q.val * P[eta] * f_array[_c][q.K] * f_array[_c][q.L];
+
             }
         }
     }
@@ -478,15 +480,18 @@ void Distribution::applyDeltaF(size_t a,const Eigen::VectorXd& v,const int & thr
 }
 
 void Distribution::applyDeltaF_element_scaled(size_t a,const Eigen::VectorXd& v,const int & threads){
-    #ifndef TRACK_SINGLE_CONTINUUM
+
+    #ifdef TRACK_SINGLE_CONTINUUM
+    throw std::runtime_error("Function was called that is incompatible with single continuum tracking.");
+    #endif
     Eigen::VectorXd u(size);
     u= (this->basis.Sinv(v)); 
     #pragma omp for schedule(dynamic) nowait
     for (size_t i=0; i<size; i++) {
+        u[i] *= f_array[a+1][i];
         f_array[0][i] += u[i];
-        f_array[a+1][i] += u[i]*f_array[a+1][i];
+        f_array[a+1][i] += u[i];
     }   
-    #endif 
 }
 
 

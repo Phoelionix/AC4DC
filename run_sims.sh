@@ -24,8 +24,7 @@ set -x
 #./ac4dc input/nass/lys_nass_water_solvent
 #./ac4dc input/nass/lys_nass_water_solvent_9kev
 #./ac4dc input/nass/lys_nass_gd_solvent
-./ac4dc input/debug/Debug_correct
-./ac4dc input/nass/lys_nass_gd_solvent_9kev
+./ac4dc_continuum input/nass/lys_nass_gauss
 
 #./ac4dc input/galli/lys_galli_LF_no_Gd
 # ./ac4dc input/galli/lys_galli_LF

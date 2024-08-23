@@ -48,6 +48,7 @@ void ElectronRateSolver::set_starting_state(){
         cout << "[ Plasma ] Creating ground state" << endl;
         double _dt = this->timespan_au/input_params.Num_Time_Steps();
         this->setup(get_initial_state(), _dt, IVP_step_tolerance);
+        this->t[0] = simulation_start_time; // This is a fix so that log shows correct time for initial grid.
     }
     num_steps = round((simulation_end_time - simulation_start_time)/this->dt + 1);
 }
@@ -197,7 +198,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
                 _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
             }
-            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<"\n"  
+            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<" eV\n"  
             << "Grid size: "<<Distribution::size<<"\n"
             << "-----------------------------------------------------" 
             << endl;
@@ -564,7 +565,6 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             // Add secondary ionization to distributions
             auto t7 = std::chrono::high_resolution_clock::now();
             sdot.F.applyDeltaF(_c-1,vec_dqdt_scndry,threads);
-            sdot.F.addLoss(_c-1,s.F, input_params.loss_geometry, s.bound_charge);
             auto t8 = std::chrono::high_resolution_clock::now();
             apply_delta_time += t8 - t7;
 
@@ -596,30 +596,30 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
 // 'badly-behaved' i.e. stiff part of the system. Electron-electron interactions.
 void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot) {
     sdot=0;
-    Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
-    const int threads = input_params.Plasma_Threads(); 
-    // compute the dfdt vector
     #ifdef NO_EE
     #warning No electron-electron interactions
     #else
-    // Electron-electon repulsions
-    auto t5 = std::chrono::high_resolution_clock::now();
-    s.F.get_Q_ee(vec_dqdt, threads); 
-    auto t6 = std::chrono::high_resolution_clock::now();
-    ee_time += t6 - t5;
-    #endif
-    // 
-    // Add change to distribution
-    auto t7 = std::chrono::high_resolution_clock::now();
-    #ifdef TRACK_SINGLE_CONTINUUM
-    sdot.F.applyDeltaF(-99,vec_dqdt,threads);
-    #else
     for (size_t a = 0; a < s.atomP.size(); a++) {
+        Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
+        const int threads = input_params.Plasma_Threads(); 
+        // compute the dfdt vector
+        // Electron-electon repulsions
+        auto t5 = std::chrono::high_resolution_clock::now();
+        s.F.get_Q_ee(vec_dqdt, threads); 
+        auto t6 = std::chrono::high_resolution_clock::now();
+        ee_time += t6 - t5;
+        // 
+        // Add change to distribution
+        auto t7 = std::chrono::high_resolution_clock::now();
+        #ifdef TRACK_SINGLE_CONTINUUM
+        sdot.F.applyDeltaF(-99,vec_dqdt,threads);  // -99 is a dummy value
+        #else
         sdot.F.applyDeltaF_element_scaled(a, vec_dqdt,threads);
+        auto t8 = std::chrono::high_resolution_clock::now();
+        apply_delta_time += t8 - t7;
+        #endif
     }
-    #endif
-    auto t8 = std::chrono::high_resolution_clock::now();
-    apply_delta_time += t8 - t7;
+    #endif // NO_EE
 }
 
 
@@ -1082,7 +1082,7 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
             for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
                 _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
             }
-            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<"\n"  
+            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<" eV\n"  
             << "Grid size: "<<Distribution::size<<"\n"
             << "-----------------------------------------------------" 
             << endl;

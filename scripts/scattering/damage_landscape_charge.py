@@ -429,8 +429,8 @@ if __name__ == "__main__":
         plasma_handles = None, 
         sctr_results_batch_dir = None, 
         get_R_only=True,
-        eop_charge_only=False,
-        element_considered = "O"#"C"
+        eop_charge_only=False, # Only calculate the end of pulse charge (much faster as doesn't load whole data file)
+        element_considered = "Gd_fast"#"Gd_fast"#"C"
     )
 
 
@@ -454,6 +454,7 @@ if __name__ == "__main__":
         batch_handle = "SH2_Fe" 
         kwargs["plasma_batch_handle"] = batch_handle
         fname = batch_handle
+    # Equivalent to performing `batch_mode` for each element of `batch_handles` as `batch_handle`
     elif multi_batch_mode:
         #batch_handles = ["SH2_Gd","SH2_Fe","SH2_Se","SH2_S","SH2_N","SH2_Zn"] 
         batch_handles = ["SH2_S","SH2_N"] 
@@ -468,7 +469,9 @@ if __name__ == "__main__":
         #kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_6","lys_nass_Gd_16"]  
         #kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_HF","lys_nass_Gd_HF"]  
         #kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_square"]  
-        kwargs["plasma_handles"] = ["lys_galli_LF_no_Gd_6","lys_galli_LF_17"]
+        #kwargs["plasma_handles"] = ["lys_galli_LF_no_Gd_6","lys_galli_LF_17"]
+        #kwargs["plasma_handles"] = ["lys_galli_HF_15","lys_galli_LF_17","lys_galli_HF_no_Gd_2","lys_galli_LF_no_Gd_6",]
+        kwargs["plasma_handles"] = ["lys_galli_HF_15","lys_galli_LF_17","lys_galli_LF_19"]
         #kwargs["plasma_handles"] = ["lys_nass_HF","lys_nass_Gd_HF"]  
         #kwargs["plasma_handles"] = ["lys_full-typical","lys_all_light-typical"]  
         #kwargs["plasma_handles"] = ["glycine_abdullah_4"]
@@ -483,7 +486,7 @@ if __name__ == "__main__":
     for i in range(num_loops):
         if multi_batch_mode: 
             kwargs["plasma_batch_handle"] = fname = batch_handles[i] 
-            
+
         if MODE_DICT[mode] == "crystal" or MODE_DICT[mode] == "both":
             imaging_params_preset["laser"]["SPI"] = False         
             scatter_data = multi_damage(imaging_params_preset,pdb_path,allowed_atoms,CNO_to_N,S_to_N,same_deviations,**kwargs)
@@ -498,13 +501,14 @@ if __name__ == "__main__":
 #%%
 #------------Plot----------------------
 if __name__ == "__main__":
+    # data_names corresponds to fname passed to save_data in previous cell. "comparison" if not batch mode, otherwise
     #data_names = ["SH2_Gd","SH2_Fe","SH2_Se","SH2_S","SH2_N","SH2_Zn"] 
     #data_names = ["SH2_N"] 
-    data_names = ["comparison"]
+    data_names = ["comparison"]   
     #data_names = batch_handles
     #data_names = ["SH2_Se"]
     batch_mode = False; mode = 1  #TODO store batch_mode and mode in saved object.
-    damage_measure = "IA_charge"
+    damage_measure = "eop_charge"
     cmax_contour = 6; contour_interval = 0.5
     #damage_measure = "IA_charge"
     #cmax_contour = 3; contour_interval = 0.25
@@ -525,7 +529,7 @@ if __name__ == "__main__":
 
 
 #%%
-#------------Compare----------------------
+#------------Generate damage landscape difference maps----------------------
 contour_interval_delta_difference = 0.05 # 0.01
 contour_interval_percentage_difference = 0.05
 if __name__ == "__main__":
