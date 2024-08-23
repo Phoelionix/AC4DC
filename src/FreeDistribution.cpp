@@ -143,7 +143,7 @@ void Distribution::get_Q_tbr (size_t _c, Eigen::VectorXd& v, size_t a, const bou
 }
 
 // Puts the Q_EE changes in the supplied vector v
-void Distribution::get_Q_ee(Eigen::VectorXd& v, const int & threads) const {
+void Distribution::get_Q_ee(size_t _c, Eigen::VectorXd& v, const int & threads) const {
     assert(basis.has_Qee());
     double CoulombLog = this->CoulombLogarithm();
     // double CoulombLog = 3.4;
@@ -160,7 +160,8 @@ void Distribution::get_Q_ee(Eigen::VectorXd& v, const int & threads) const {
     for (size_t J=0; J<size; J++) {
         for (size_t K=0; K<size; K++) {
             for (auto& q : basis.Q_EE[J][K]) {
-                 v_copy[J] += q.val * f_array[0][K] * f_array[0][q.idx] * CoulombLog;   
+                 //v_copy[J] += q.val * f_array[0][K] * f_array[0][q.idx] * CoulombLog;  
+                 v_copy[J] += q.val * (f_array[_c][K] * f_array[0][q.idx] + f_array[0][K] * f_array[_c][q.idx])*0.5 * CoulombLog; 
             }
         }
     }

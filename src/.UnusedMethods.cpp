@@ -26,7 +26,7 @@ void Distribution::from_backwards_Euler(double dt, const Distribution& prev_step
         
         old_curr_step = curr_step;
         v = Eigen::VectorXd::Zero(size);
-        this->get_Q_ee(v, size/3); // calculates v based on curr_step
+        this->get_Q_ee(0, v, size/3); // calculates v based on curr_step
         
         // Newton iterator
         get_Jac_ee(M);

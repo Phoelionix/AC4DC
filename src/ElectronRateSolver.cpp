@@ -599,25 +599,33 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot) {
     #ifdef NO_EE
     #warning No electron-electron interactions
     #else
-    for (size_t a = 0; a < s.atomP.size(); a++) {
+    #ifdef TRACK_SINGLE_CONTINUUM
+    size_t _c = 0; 
+    #else
+    size_t _c = 1;  // Iterates through the continuum corresponding to each element's initiated cascades and adds separately. // TODO check if having the full continuum contribute to the actual calcs is better.
+    #endif 
+    for (;_c < Distribution::num_continuums; _c++){
         Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
         const int threads = input_params.Plasma_Threads(); 
         // compute the dfdt vector
         // Electron-electon repulsions
         auto t5 = std::chrono::high_resolution_clock::now();
-        s.F.get_Q_ee(vec_dqdt, threads); 
+        s.F.get_Q_ee(_c, vec_dqdt, threads); 
         auto t6 = std::chrono::high_resolution_clock::now();
         ee_time += t6 - t5;
         // 
         // Add change to distribution
         auto t7 = std::chrono::high_resolution_clock::now();
+        /*
         #ifdef TRACK_SINGLE_CONTINUUM
         sdot.F.applyDeltaF(-99,vec_dqdt,threads);  // -99 is a dummy value
         #else
-        sdot.F.applyDeltaF_element_scaled(a, vec_dqdt,threads);
+        sdot.F.applyDeltaF_element_scaled(_c, vec_dqdt,threads);
+        #endif
+        */
+        sdot.F.applyDeltaF(_c-1,vec_dqdt,threads);
         auto t8 = std::chrono::high_resolution_clock::now();
         apply_delta_time += t8 - t7;
-        #endif
     }
     #endif // NO_EE
 }
