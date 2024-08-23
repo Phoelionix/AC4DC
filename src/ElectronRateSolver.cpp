@@ -242,7 +242,7 @@ void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_
     plasma_header<<"[ Rate Solver ] Using initial timestep size of "<<this->dt*Constant::fs_per_au<<" fs"<<"\n\r";
     plasma_header<<banner<<"\n\r";
 
-    steps_per_grid_transform =  round(num_steps*(grid_update_period/timespan_au));
+    steps_per_grid_transform =  round(num_steps*(grid_update_period/(simulation_end_time-simulation_start_time)));
 
 
     std::cout << plasma_header.str()<<std::flush; // display in regular terminal, so that it is still visible after end of program
