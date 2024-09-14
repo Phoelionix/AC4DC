@@ -66,9 +66,9 @@ Live plotting may be disabled by uncommenting `#define NO_PLOTTING` in include/c
 
 ### Configuration
 
-AC4DC reads the composition of the target, the pulse parameters, and various hyperparameters (e.g pertaining to the spline knot grid)  from the molecular (.mol) file it is provided. See AC4DC/input/mol_template.mol for the style of these files and the parameters available.     
+AC4DC reads the composition of the target, the pulse parameters, and various hyperparameters (e.g pertaining to the spline knot grid) from the molecular (.mol) file it is provided. See AC4DC/input/mol_template.mol for the style of these files and the parameters available.     
 
-In AC4DC/include/config.h various features of the simulation can be disabled (e.g. plasma processes, live plotting, backing up of data).
+In AC4DC/include/config.h various features of the simulation can be disabled (e.g. plasma processes, live plotting, backing up of data). Most features are enabled by default, with the exception of tracking the electron cascades seeded by each element ("TRACK_SINGLE_CONTINUUM"), as this is computationally costly. 
 
 ### Grid regions preset
 
