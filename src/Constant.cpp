@@ -259,8 +259,15 @@ namespace RateData{
 		return src.substr(first_idx+1, last_idx-first_idx-1);
 	}
 
-	// Reads a ratefile input and stores the data in PutHere
-	// Returns true on successful opening
+
+	/**
+	 * @brief Reads a ratefile input and stores the data in PutHere. Returns true on successful opening. 
+	 * @param input 
+	 * @param PutHere 
+	 * @param num_configs The number of configs to be filled.  Indices are allocated such that configs allowed by photon energies above a given absorption  edge come before configs that do not. (if the photon energy is below an edge,, then the configs will be smaller than might be contained in the saved file). If -1, assumes file is correct.
+	 * @return true success
+	 * @return false fail
+	 */
 	bool ReadRates(const string & input, vector<Rate>& PutHere) {
 		PutHere.clear();
 
@@ -280,14 +287,47 @@ namespace RateData{
 
 			stringstream stream(line);
 			stream >> Tmp.val >> Tmp.from >> Tmp.to >> Tmp.energy;
-
+			
 			PutHere.push_back(Tmp);
 		}
-
 		infile.close();
 		return true; // Returns true if all went well
 
 	}
+
+	bool ReadDecayRates(const string & rate_location, const string & rate_file_type, vector<RateData::Rate> & PutHere, int num_allowed_configs){
+		PutHere.clear();
+		using namespace boost::filesystem; 
+		std::vector<double> energies_saved;
+		struct recursive_directory_range
+		{
+			typedef recursive_directory_iterator iterator;
+			recursive_directory_range(path p) : p_(p) {}
+
+			iterator begin() { return recursive_directory_iterator(p_); }
+			iterator end() { return recursive_directory_iterator(); }
+
+			path p_; 
+		};
+		double nearest_lower_energy = -INFINITY;
+		double nearest_upper_energy = +INFINITY;
+		double tol = 0.01;
+		for (auto saved_file : recursive_directory_range(rate_location))
+		{
+			std::string saved_file_name = saved_file.path().filename().string();
+			size_t split_pos = saved_file_name.find("_");
+			std::string saved_rate_file_type = saved_file_name.substr(split_pos+1,saved_file_name.size()-(split_pos+1));
+			if (rate_file_type != saved_rate_file_type || rate_file_type.size() == saved_file_name.size()){
+				continue;}
+			double saved_configs = std::stod(saved_file_name.substr(0,split_pos)); // photon energy
+			if (saved_configs==num_allowed_configs){ 
+				// Saved this set of allowed configs before. Reuse them.
+				return ReadRates(rate_location+saved_file_name,PutHere);
+			}
+		}
+		return false;
+	}
+
 
 	bool InterpolateRates(const string & rate_location, const string & rate_file_type, vector<Rate>& PutHere, double photon_energy,double allowed_interp) {
 		PutHere.clear();

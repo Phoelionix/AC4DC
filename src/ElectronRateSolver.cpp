@@ -48,6 +48,7 @@ void ElectronRateSolver::set_starting_state(){
         cout << "[ Plasma ] Creating ground state" << endl;
         double _dt = this->timespan_au/input_params.Num_Time_Steps();
         this->setup(get_initial_state(), _dt, IVP_step_tolerance);
+        this->t[0] = simulation_start_time; // This is a fix so that log shows correct time for initial grid.
     }
     num_steps = round((simulation_end_time - simulation_start_time)/this->dt + 1);
 }
@@ -90,6 +91,10 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
         std::cout << "[ HF ] Peforming Hartree-Fock calculations for species' allowed orbital configurations" << std::endl;
         input_params.calc_rates(_log, recalc);
         hasRates = true;
+        Distribution::num_continuums = 1;
+        #ifndef TRACK_SINGLE_CONTINUUM
+        Distribution::num_continuums = 1 + input_params.Store.size(); // Total + 1 for each atom
+        #endif
     }
     
     
@@ -131,11 +136,11 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             double last_trans_e = param_cutoffs.transition_e;
             
             #ifndef NO_MIN_DIRAC_DENSITY
-            double dirac_peak_cutoff_density = y[step].F(last_trans_e)*last_trans_e*2.5;            
+            double dirac_peak_cutoff_density = y[step].F(0,last_trans_e)*last_trans_e*2.5;            
             // TODO this depending on last transition is dangerous for large grid update periods, or low fluences as the peaks tend to spread out.
             if (last_trans_e <= 600/Constant::eV_per_Ha){
                 // ad hoc fix - early on density at trans_e point in normalised density dist. is a bit higher than rest of sim since transition energy is stuck at default 250 eV 
-                dirac_peak_cutoff_density = y[step].F(last_trans_e)*last_trans_e*1.25; 
+                dirac_peak_cutoff_density = y[step].F(0,last_trans_e)*last_trans_e*1.25; 
             }
             # else 
             double dirac_peak_cutoff_density = 0;
@@ -193,7 +198,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
                 _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
             }
-            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<"\n"  
+            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<" eV\n"  
             << "Grid size: "<<Distribution::size<<"\n"
             << "-----------------------------------------------------" 
             << endl;
@@ -242,7 +247,7 @@ void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_
     plasma_header<<"[ Rate Solver ] Using initial timestep size of "<<this->dt*Constant::fs_per_au<<" fs"<<"\n\r";
     plasma_header<<banner<<"\n\r";
 
-    steps_per_grid_transform =  round(num_steps*(grid_update_period/timespan_au));
+    steps_per_grid_transform =  round(num_steps*(grid_update_period/(simulation_end_time-simulation_start_time)));
 
 
     std::cout << plasma_header.str()<<std::flush; // display in regular terminal, so that it is still visible after end of program
@@ -364,18 +369,10 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
     sdot=0;
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
 
-    #ifdef RATES_TRACKING
-    // Incorrect currently, Need to implement this with the ODE solver somehow :/
-    photo_rate = fluor_rate = auger_rate = bound_transport_rate = tbr_rate = eii_rate = {0}; 
-    // photo_rate.push_back(0); 
-    // fluor_rate.push_back(0); 
-    // auger_rate.push_back(0); 
-    // bound_transport_rate.push_back(0);
-    // tbr_rate.push_back(0); 
-    // eii_rate.push_back(0); 
-    #endif 
-
     if (!good_state) return;
+
+
+    // Bound and bound-free interactions
     for (size_t a = 0; a < s.atomP.size(); a++) {
         auto t9 = std::chrono::high_resolution_clock::now();
         const bound_t& P = s.atomP[a];
@@ -393,7 +390,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             double tmp = r.val*J*P[r.from];
             Pdot[r.to] += tmp;
             Pdot[r.from] -= tmp;
-            sdot.F.addDeltaSpike(r.energy, r.val*J*P[r.from]);  // TODO change to tmp?
+            sdot.F.addDeltaSpike(a,r.energy, r.val*J*P[r.from]);  // TODO change to tmp?
             sdot.bound_charge +=  tmp;
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
@@ -417,7 +414,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
                 }
             }
             if (injected_density > 0)
-                sdot.F.addDeltaSpike(input_params.electron_source_energy,injected_density);
+                sdot.F.addDeltaSpike(a,input_params.electron_source_energy,injected_density);
         }
         #endif //NO_ELECTRON_SOURCE
         
@@ -450,7 +447,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             double tmp = r.val*P[r.from];
             Pdot[r.to] += tmp;
             Pdot[r.from] -= tmp;
-            sdot.F.addDeltaSpike(r.energy, r.val*P[r.from]);
+            sdot.F.addDeltaSpike(a,r.energy, r.val*P[r.from]);
             // sdot.F.add_maxwellian(r.energy*2./3., r.val*P[r.from]);
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
             sdot.bound_charge +=  tmp;
@@ -458,53 +455,24 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         #ifdef RATES_TRACKING
         auger_rate.back() += sdot.bound_charge - old_bound_charge;
         #endif
-        old_bound_charge = sdot.bound_charge;
-        /// CHARGE TRANSPORT
-        auto t_transport = std::chrono::high_resolution_clock::now();
-        // Every heavy atom state is moved (or not moved) in ratios corresponding to the population of light atom states, and divided by the user-defined charge transport timescale.
-        // average charge transferred to heavy atoms is tracked. this charge, divided by the user-defined number of light atom neighbours, is a first order approximation for the local drainage of electrons. 
-        // If the local drainage of electrons is 1, then we modify the ratios by assigning the population of a light atom state to the light atom state with 1 less valence electron. If it's 1.5, then we do the same, and then move half of those down to the state corresponding to 2 less valence electrons. (we just go to next orbital if we run out of valence electrons)
-        /// Upper bound quick hack version, taking first index, transferring to next 3 indices. Should be relatively accurate for low fluences like in Galli 2015.
-        #ifdef BOUND_GD_HACK
-        size_t heavy_idx = 0;  // Gd
-        std::vector<double> light_fractions = {0,0,0.5,0.5,0}; // Fraction of complex light atoms make up, in index order ({Gd,C,N, O, S} in this case)
-        if (a == heavy_idx){
-            for (auto& r : input_params.Store[a].EnergyConfig){
-                if (r.receiver_index < 0) continue;
-
-                for (size_t a2 = 0; a2 < s.atomP.size(); a2++) {
-                    if (light_fractions[a2] == 0 || a2 == a) 
-                        continue;
-                    double transfer_factor = light_fractions[a2]*P[r.index]/y[0].atomP[a2][0]/dt/10; // VERY lazy OOM approximation corresponding to a very conservatively overestimated lifetime of 0.24 fs.
-                    // Iterate through each donor state
-                    // valence energy is *negative*
-                    for (auto& r2 : input_params.Store[a2].EnergyConfig){
-                        if (r.valence_energy >= r2.valence_energy || r2.donator_index < 0) 
-                            continue;
-                        double tmp = s.atomP[a2][r2.index]*transfer_factor;
-                        // Donor state loses an electron
-                        sdot.atomP[a2][r2.index] -= tmp; 
-                        sdot.atomP[a2][r2.donator_index] += tmp;
-                        // Receiver state gains an electron
-                        Pdot[r.receiver_index] += tmp;
-                        Pdot[r.index] -= tmp;             
-                        // track rate
-                        bound_transport_rate.back()+=tmp;                   
-                    }
-                }            
-            }
-        }
-        #endif  //BOUND_GD_HACK
-        transport_time += std::chrono::high_resolution_clock::now() - t_transport;        
+        old_bound_charge = sdot.bound_charge;       
 
         #ifdef DEBUG_BOUND
         for(size_t i=0;i < Pdot.size();i++){
             assert(Pdot[i] + P[i] >= 0);
         }
         #endif        
-
+        // Secondary ionization
         // EII / TBR bound-state dynamics
-        if(!input_params.Store[a].bound_free_excluded){
+        #ifdef TRACK_SINGLE_CONTINUUM
+        size_t _c = 0; 
+        #else
+        size_t _c = 1;  // Iterates through the continuum corresponding to each element's initiated cascades and adds separately. // TODO check if having the full continuum contribute to the actual calcs is better.
+        #endif 
+        for (;_c < Distribution::num_continuums; _c++){
+            Eigen::VectorXd vec_dqdt_scndry = Eigen::VectorXd::Zero(Distribution::size);
+            if(input_params.Store[a].bound_free_excluded) continue;
+
             double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
             double sdot_bound_charge_eii_subst = 0; 
             double sdot_bound_charge_tbr_subst = 0; 
@@ -516,7 +484,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
                 #ifndef NO_EII
                 for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
                     for (auto& finPair : RATE_EII[a][n][init]) {
-                        tmp = finPair.val*s.F[n]*P[init];
+                        tmp = finPair.val*s.F[_c][n]*P[init];
                         Pdot_subst[finPair.idx] += tmp;
                         Pdot_subst[init] -= tmp;
                         sdot_bound_charge_eii_subst += tmp;   //TODO Not a minus sign like others, double check that's intentional. -S.P.
@@ -534,7 +502,11 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
                     // W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
                     for (size_t init=0;  init<RATE_TBR[a][k].size(); init++) {
                         for (auto& finPair : RATE_TBR[a][k][init]) {
-                            tmp = finPair.val*s.F[n]*s.F[m]*P[init]*2;
+                            #ifdef TRACK_SINGLE_CONTINUUM
+                            tmp = finPair.val*s.F[_c][n]*s.F[_c][m]*P[init]*2;   // _c = 0 (total continuum)
+                            #else
+                            tmp = finPair.val*(s.F[_c][n]*s.F[0][m] + s.F[_c][m]*s.F[0][n])*P[init]; // as we are distinguishing the electron continuum of interest from the full continuum now.
+                            #endif
                             Pdot_subst[finPair.idx] += tmp;
                             Pdot_subst[init] -= tmp;
                             sdot_bound_charge_tbr_subst -= tmp;
@@ -545,7 +517,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
                 // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
                 for (size_t init=0;  init<RATE_TBR[a][n].size(); init++) {
                     for (auto& finPair : RATE_TBR[a][n][init]) {
-                        tmp = finPair.val*s.F[n]*s.F[n]*P[init];
+                        tmp = finPair.val*s.F[_c][n]*s.F[0][n]*P[init];
                         Pdot_subst[finPair.idx] += tmp;
                         Pdot_subst[init] -= tmp;
                         sdot_bound_charge_tbr_subst -= tmp;
@@ -578,7 +550,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             #warning No impact ionisation
             #else
             auto t1 = std::chrono::high_resolution_clock::now();
-            s.F.get_Q_eii(vec_dqdt, a, P, threads);
+            s.F.get_Q_eii(_c,vec_dqdt_scndry, a, P, threads);
             auto t2 = std::chrono::high_resolution_clock::now();
             eii_time += t2 - t1;
             #endif
@@ -586,24 +558,33 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             #warning No three-body recombination
             #else
             auto t3 = std::chrono::high_resolution_clock::now();
-            s.F.get_Q_tbr(vec_dqdt, a, P, threads);  // Serially, this is the computational bulk of the program - S.P.
+            s.F.get_Q_tbr(_c,vec_dqdt_scndry, a, P, threads);  // Serially, this is the computational bulk of the program - S.P.
             auto t4 = std::chrono::high_resolution_clock::now();
             tbr_time += t4 - t3;
             #endif
+            // Add secondary ionization to distributions
+            auto t7 = std::chrono::high_resolution_clock::now();
+            sdot.F.applyDeltaF(_c-1,vec_dqdt_scndry,threads);
+            auto t8 = std::chrono::high_resolution_clock::now();
+            apply_delta_time += t8 - t7;
+
         }
+        // Add primary ionization to distributions
+        auto t7 = std::chrono::high_resolution_clock::now();
+        sdot.F.applyDeltaF(a,vec_dqdt,threads);
+        sdot.F.addLoss(a,s.F, input_params.loss_geometry, s.bound_charge);
+        auto t8 = std::chrono::high_resolution_clock::now();
+        apply_delta_time += t8 - t7;
     }
 
-    // Add change to distribution
-    sdot.F.applyDeltaF(vec_dqdt,threads);
     // if(input_params.Filtration_File() == "")
     //     // No background, use geometric-dependent loss.
     //     sdot.F.addLoss(s.F, input_params.loss_geometry, s.bound_charge);
     // else
     //     // background handles loss, apply photoelectron filtration with background
     //     sdot.F.addFiltration(s.F, s_bg.F,input_params.loss_geometry);
-    sdot.F.addLoss(s.F, input_params.loss_geometry, s.bound_charge);
     
-    if (isnan(s.norm()) || isnan(sdot.norm())) {
+    if (isnan(s.norm(0)) || isnan(sdot.norm(0))) {
         cerr<<"NaN encountered in ODE iteration."<<endl;
         cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
         good_state = false;
@@ -615,24 +596,38 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
 // 'badly-behaved' i.e. stiff part of the system. Electron-electron interactions.
 void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot) {
     sdot=0;
-    Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
-    const int threads = input_params.Plasma_Threads(); 
-    // compute the dfdt vector
     #ifdef NO_EE
     #warning No electron-electron interactions
     #else
-    // Electron-electon repulsions
-    auto t5 = std::chrono::high_resolution_clock::now();
-    s.F.get_Q_ee(vec_dqdt, threads); 
-    auto t6 = std::chrono::high_resolution_clock::now();
-    ee_time += t6 - t5;
-    #endif
-    // 
-    // Add change to distribution
-    auto t7 = std::chrono::high_resolution_clock::now();
-    sdot.F.applyDeltaF(vec_dqdt,threads);
-    auto t8 = std::chrono::high_resolution_clock::now();
-    apply_delta_time += t8 - t7;
+    #ifdef TRACK_SINGLE_CONTINUUM
+    size_t _c = 0; 
+    #else
+    size_t _c = 1;  // Iterates through the continuum corresponding to each element's initiated cascades and adds separately. // TODO check if having the full continuum contribute to the actual calcs is better.
+    #endif 
+    for (;_c < Distribution::num_continuums; _c++){
+        Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
+        const int threads = input_params.Plasma_Threads(); 
+        // compute the dfdt vector
+        // Electron-electon repulsions
+        auto t5 = std::chrono::high_resolution_clock::now();
+        s.F.get_Q_ee(_c, vec_dqdt, threads); 
+        auto t6 = std::chrono::high_resolution_clock::now();
+        ee_time += t6 - t5;
+        // 
+        // Add change to distribution
+        auto t7 = std::chrono::high_resolution_clock::now();
+        /*
+        #ifdef TRACK_SINGLE_CONTINUUM
+        sdot.F.applyDeltaF(-99,vec_dqdt,threads);  // -99 is a dummy value
+        #else
+        sdot.F.applyDeltaF_element_scaled(_c, vec_dqdt,threads);
+        #endif
+        */
+        sdot.F.applyDeltaF(_c-1,vec_dqdt,threads);
+        auto t8 = std::chrono::high_resolution_clock::now();
+        apply_delta_time += t8 - t7;
+    }
+    #endif // NO_EE
 }
 
 
@@ -821,7 +816,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         size_t num_pts = 4000;
         py_plotter.plot_frame(
             Distribution::get_energies_eV(num_pts),
-            this->y[n].F.get_densities(num_pts,Distribution::get_knot_energies()), 
+            this->y[n].F.get_densities(0,num_pts,Distribution::get_knot_energies()), 
             Distribution::get_trimmed_knots(Distribution::get_knot_energies())
         );
     }        
@@ -1095,7 +1090,7 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
             for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
                 _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
             }
-            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<"\n"  
+            _log <<"Transition energy: "<<param_cutoffs.transition_e*e<<" eV\n"  
             << "Grid size: "<<Distribution::size<<"\n"
             << "-----------------------------------------------------" 
             << endl;
@@ -1116,7 +1111,6 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
     // The next containers are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state. 
 } 
 
-// TODO need option to take in dirac peaks...
 void ElectronRateSolver::reinitialise_solver_with_current_grid(ofstream& _log){
     _log << "[ Dynamic Grid ] Restarting solver with new grid"<<endl;
     t.resize(1);

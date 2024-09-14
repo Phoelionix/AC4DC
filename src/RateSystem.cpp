@@ -87,14 +87,14 @@ void state_type::set_P_shape(const vector<RateData::Atom>& atomsys) {
 }
 
 // Returns the L1 norm
-double state_type::norm() const {
+double state_type::norm(size_t _c) const {
     double n = 0;
     for (auto& P : atomP) {
         for (auto& p : P) {
             n += fabs(p);
         }
     }
-    n += F.norm();
+    n += F.norm(_c);
     return n;
 }
 

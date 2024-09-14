@@ -40,7 +40,7 @@ using namespace CustomDataType;
 
 // Called for molecular inputs.
 // Computes molecular collision parameters.
-RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, vector<bool> shell_check, bool calculate_secondary_ionisation, Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, ofstream & runlog)
+RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, vector<bool> shell_check, bool calculate_secondary_ionisation, ofstream & runlog)
 {
 	// Uses BEB model to compute fundamental
 	// EII, Auger, Photoionisation and Fluorescence rates
@@ -69,18 +69,16 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 
 	bool have_Aug, have_EII, have_Pht, have_Flr;
 
-	
 	if (recalculate) { // Hartree Fock is calculated once, at molinp photon energy 
 		have_Aug=false;
 		have_EII = (calculate_secondary_ionisation == false);
 		have_Pht=false;
 		have_Flr=false;
-		HartreeFock HF(Lattice, Orbitals, U, Inp, runlog); 
 	} else { // First time: Save photoionization data for multiple photon energies. Second time: Interpolate from data.
 		// Check if there are pre-calculated rates
 		have_Pht = RateData::InterpolateRates(RateLocation, PHOTO, Store.Photo, input.Omega()); // Omega dependent
-		have_Flr = RateData::ReadRates(RateLocation + FLUOR, Store.Fluor);  // Parameter independent
-		have_Aug = RateData::ReadRates(RateLocation + AUGER, Store.Auger); // Parameter independent
+		have_Flr = RateData::ReadDecayRates(RateLocation, FLUOR, Store.Fluor,dimension);  // Dependent on ionizable shells
+		have_Aug = RateData::ReadDecayRates(RateLocation, AUGER, Store.Auger,dimension);  // Dependent on ionizable shells
 		have_EII = (calculate_secondary_ionisation == false);
 		// Not sure if the below line will work properly, it would need to ensure that the energies of the knots are as expected. Not sure it does at present.
 		//have_EII = RateData::ReadEIIParams(RateLocation + EII, Store.EIIparams) || (calculate_secondary_ionisation == false); // Dependent on the spline basis for electron distribution 
@@ -94,7 +92,6 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 	}
 	if (!have_Aug || !have_EII || !have_Pht || !have_Flr)
 	{
-		HartreeFock HF(Lattice, Orbitals, U, Inp, runlog);
 		vector<vector<RateData::Rate>> PhotoArray(0);
 		vector<vector<RateData::Rate>> LocalPhotoArray(0);
 		cout <<"======================================================="<<endl;
@@ -125,17 +122,19 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 		// Omegas for which photoion. rates are calculated for.
 		// Note this is in eV here!
 		vector<double> photoion_omegas_to_save(0); 
-		// If LDA, it's cheap to calculate a full grid as well.
-		if (input.Hamiltonian() == 1){
-			if (!recalculate){
-				double spacing = 500; 
-				double min_energy = 3000;
-				double max_energy = 18000;
-				for(double k = min_energy; k<=max_energy; k+=spacing){
-					photoion_omegas_to_save.push_back(k);
-				}
-			}
-		}
+		
+		// TODO need to only calculate for energies with same allowed configs. 
+		// // If LDA, it's much cheaper to calculate a full grid all at once. So do that.
+		// if (input.Hamiltonian() == 1){
+		// 	if (!recalculate){
+		// 		double spacing = 500; 
+		// 		double min_energy = 3000;
+		// 		double max_energy = 18000;
+		// 		for(double k = min_energy; k<=max_energy; k+=spacing){
+		// 			photoion_omegas_to_save.push_back(k);
+		// 		}
+		// 	}
+		// }
 		//#endif
 		photoion_omegas_to_save.push_back(input.Omega()*Constant::eV_per_Ha); // Also calculate for this run's omega.
 		PhotoArray.resize(photoion_omegas_to_save.size());
@@ -155,7 +154,6 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 			#pragma omp for schedule(dynamic) nowait
 			for (int i = 0;i < dimension - 1; i++)//last configuration is lowest electron count state//dimension-1
 			{
-				//if (i != 11164) continue;
 				LocalPhotoArray.resize(photoion_omegas_to_save.size());
 				vector<RadialWF> Orbitals = orbitals;
 				cout << "[HF BEB] configuration " << i << " thread " << omp_get_thread_num() << endl;
@@ -333,12 +331,12 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 
 		}
 		if (!have_Flr) {
-			string dummy = RateLocation +FLUOR;
+			string dummy = RateLocation + std::to_string(dimension)+"_"+FLUOR ;
 			cout<<"Saving fluorescence rates to "<<dummy<<"..."<<endl;
 			RateData::WriteRates(dummy, Store.Fluor);
 		}
 		if (!have_Aug) {
-			string dummy = RateLocation +AUGER;
+			string dummy = RateLocation +  std::to_string(dimension)+"_"+AUGER;
 			cout<<"Saving Auger rates to "<<dummy<<"..."<<endl;
 			RateData::WriteRates(dummy, Store.Auger);
 		}

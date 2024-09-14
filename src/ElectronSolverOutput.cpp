@@ -46,7 +46,7 @@ void ElectronRateSolver::save(const std::string& _dir) {
     // output at least min_outputted_points, and above that output with spacing that is unaffected if simulation was cut off early.
     // (assumes t and y have been truncated to last point calculated when save() is called.)
     num_steps_out = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front())));
-    saveFree(dir+"freeDist.csv");
+    saveFree(dir+"freeDist");
     saveFreeRaw(dir+"freeDistRaw.csv");
     saveKnots(dir + "knotHistory.csv");
     saveBound(dir);
@@ -81,55 +81,64 @@ void ElectronRateSolver::file_delete_check(const std::string& fname){
 }
 
 /// Save the free electron density distribution
-void ElectronRateSolver::saveFree(const std::string& fname) {
-    file_delete_check(fname);
-
-    // Saves a table of free-electron dynamics to file fname
-    ofstream f;
-    cout << "Free: \033[94m'"<<fname<<"'\033[95m | ";
-    f.open(fname);
-    f << "# Free electron dynamics"<<endl;
-    f << "# Time (fs) | Density @ energy (eV):" <<endl;
-    // We need to output to the same energies, so we choose the final knots for reference.
-    std::vector<double> reference_knots = Distribution::load_knots_from_history(t.size()); 
-    /* Alternative: Constant spacing reference knots:
-    std::vector<double> reference_knots;
-    std::vector<double>::iterator x;
-    double max_e = Distribution::get_knots_from_history(0).back(); 
-    double spacing = max_e/100;
-    double val;
-    for (x = reference_knots.begin(), val = 0; x != reference_knots.end(); ++x, val += spacing) {
-        *x = val;
-    }  
-    */  
-    f << "#           | "<<Distribution::output_energies_eV(this->input_params.Out_F_size())<<endl;
-    #ifdef DEBUG
-    cout << "[ Dynamic Grid ], writing densities to reference knot energies: \n";
-    for (double elem : reference_knots) cout << elem *Constant::eV_per_Ha<< ' ';
-    cout << endl;
-    #endif  
-
-    assert(y.size() == t.size());
-    
-    double t_fineness = timespan_au  / num_steps_out;
-    double previous_t = t[0]-t_fineness;
-    int i = -1; 
-    size_t next_knot_update = 0;
-    while (i <  static_cast<int>(t.size())-1){
-        i++;
-        if (i == static_cast<int>(next_knot_update) or i == 0){
-            Distribution::load_knots_from_history(i);
-            next_knot_update = Distribution::next_knot_change_idx(i);
-        } 
-        if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){
-            continue;
+void ElectronRateSolver::saveFree(const std::string& base_fname) {
+    for (size_t _c = 0; _c < Distribution::num_continuums; _c++){
+        std::string fname = base_fname;
+        if (_c >= 1){
+            fname.append("_");
+            fname.append(input_params.Store[_c-1].name); 
         }
-        f<<round_time(t[i]*Constant::fs_per_au)<<" "<<y[i].F.output_densities(this->input_params.Out_F_size(),reference_knots)<<endl;
-        previous_t = t[i];
+        fname.append(".csv");
+        file_delete_check(fname);
+
+        // Saves a table of free-electron dynamics to file fname
+        ofstream f;
+        cout << "Free: \033[94m'"<<fname<<"'\033[95m | ";
+        f.open(fname);
+        f << "# Free electron dynamics"<<endl;
+        f << "# Time (fs) | Density @ energy (eV):" <<endl;
+        // We need to output to the same energies, so we choose the final knots for reference.
+        std::vector<double> reference_knots = Distribution::load_knots_from_history(t.size()); 
+        /* Alternative: Constant spacing reference knots:
+        std::vector<double> reference_knots;
+        std::vector<double>::iterator x;
+        double max_e = Distribution::get_knots_from_history(0).back(); 
+        double spacing = max_e/100;
+        double val;
+        for (x = reference_knots.begin(), val = 0; x != reference_knots.end(); ++x, val += spacing) {
+            *x = val;
+        }  
+        */  
+        f << "#           | "<<Distribution::output_energies_eV(this->input_params.Out_F_size())<<endl;
+        #ifdef DEBUG
+        cout << "[ Dynamic Grid ], writing densities to reference knot energies: \n";
+        for (double elem : reference_knots) cout << elem *Constant::eV_per_Ha<< ' ';
+        cout << endl;
+        #endif  
+
+        assert(y.size() == t.size());
         
+        double t_fineness = timespan_au  / num_steps_out;
+
+        double previous_t = t[0]-t_fineness;
+        int i = -1; 
+        size_t next_knot_update = 0;
+        while (i <  static_cast<int>(t.size())-1){
+            i++;
+            if (i == static_cast<int>(next_knot_update) or i == 0){
+                Distribution::load_knots_from_history(i);
+                next_knot_update = Distribution::next_knot_change_idx(i);
+            } 
+            if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){
+                continue;
+            }
+            f<<round_time(t[i]*Constant::fs_per_au)<<" "<<y[i].F.output_densities(_c,this->input_params.Out_F_size(),reference_knots)<<endl;
+            previous_t = t[i];
+            
+        }
+        f.close();
+        Distribution::load_knots_from_history(t.size()); // back to original state
     }
-    f.close();
-    Distribution::load_knots_from_history(t.size()); // back to original state
 }
 
 /**

@@ -43,7 +43,7 @@ core
 scripts/scattering/R_plots
 *.pickle
 scripts/scattering/dmg_data
-valgrind-out*
+valgrind*
 input/_batches/*
 scripts/scattering/reflections/*
 scripts/scattering/scalepack/*

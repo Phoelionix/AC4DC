@@ -63,7 +63,7 @@ public:
 	~ComputeRateParam();
 
 	// Halfwidth = 5/Constant::Time -> 5 fs half width.
-	RateData::Atom SolveAtomicRatesAndPlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, vector<bool> shell_check, bool calculate_secondary_ionisation, Grid &Lattice, vector<RadialWF> &Orbitals, Potential &U, Input & Inp, ofstream & log);
+	RateData::Atom SolveAtomicRatesAndPlasmaBEB(vector<int> Max_occ, vector<int> Final_occ, vector<bool> shell_check, bool calculate_secondary_ionisation, ofstream & log);
 	// // Atomic.
 	// int SetupAndSolve(ofstream & log);
 	// // Molecular.

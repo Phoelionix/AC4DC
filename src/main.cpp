@@ -294,6 +294,7 @@ int main(int argc, const char *argv[]) {
     cout<<"Running simulation for target "<<name<<endl;
     cout << "logfile name: " << logpath <<endl;
     ofstream log(logpath); 
+    log << string(argv[0])  << endl;
     cout << "\033[1;32mInitialising... \033[0m" <<endl;
     const char* const_path = input_file_path.c_str();
     #ifndef NO_PLOTTING

@@ -33,7 +33,7 @@ P.ALSO_MAKE_PLOTS = False # Generate static plots for each simulation using _gen
 P.SINGLE_FRAME = False # Save a png using plotly .
 P.NAMING_MODE = 0  # For legend. 0: full details of sim parameters + sim name | 1: elements in sim| 
 P.SCALE_DENSITY_BY_THOUSAND = False # Use cubic nm rather than cubic angstrom for measuring energy density  
-P.END_T = 9999  # Put at value to cutoff times early.
+P.END_T = 9999  # Put at value to cutoff times early. Note if multiple handles inputted will cutoff all to earliest end time.
 P.POINTS = 70
 
 generate_graphs(P)

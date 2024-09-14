@@ -16,6 +16,7 @@ import sys
 import os.path as path
 from types import SimpleNamespace 
 from interactive_handler import generate_graphs
+from copy import deepcopy
 
 P = SimpleNamespace()
 P.NORMALISE = False
@@ -76,7 +77,7 @@ P.INSET_DICT = dict(
 )
 
 if  len(sys.argv) < 3:
-    print("Usage: Generate snapshots at some number of times, e.g. t = -10 and t = 0, with: 'python3 scripts/"+path.basename(__file__)+" lysozyme_3 -10 0'")
+    print("Usage: Generate snapshots at some number of times, e.g. t = -10 and t = 0, with: 'python3 scripts/"+path.basename(__file__)+" lysozyme_3 tetrapeptide_1 -10 0'")
     exit()
 n=0
 for k in sys.argv:
@@ -94,7 +95,7 @@ for snapshot_t in sys.argv[n:]:
     print("Taking snapshot at t = "+snapshot_t+" fs")
     #P.END_T = float(snapshot_t)  # Put at value to cutoff times early.
     P.SINGLE_FRAME_DICT["times"] = [float(snapshot_t)]  # Put at value to cutoff times early.
-    generate_graphs(P,sys_argv = sys.argv[0:n])
+    generate_graphs(deepcopy(P),sys_argv = sys.argv[0:n]) # deepcopy because plotly modifies the dicts
 
 
 ############### Scratchpad

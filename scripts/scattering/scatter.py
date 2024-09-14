@@ -58,6 +58,7 @@ from scipy.spatial.transform import Rotation as Rotation
 from matplotlib.colors import to_rgb
 import matplotlib as mpl
 from matplotlib import cm
+from matplotlib.colors import TwoSlopeNorm
 import copy
 import pickle
 import colorcet as cc; import cmasher as cmr
@@ -956,7 +957,8 @@ class XFEL():
             result.cell_width = screen_width/len(cell)
             q_grid = np.empty(cell.shape)
             result.xy = np.empty(cell.shape+(2,))
-            result.I = np.zeros(cell.shape)            
+            result.I = np.zeros(cell.shape) 
+            result.zero_angle_I = 0 # In case dim of axis has even number of pixels           
             for i, x in enumerate(cell):
                 for j, y in enumerate(x):
                     x = result.cell_width*(i-(len(cell)-1)/2)
@@ -987,6 +989,7 @@ class XFEL():
                     self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))      
                     self.y_rotation += 2*np.pi/self.y_orientations              
                     result.I += self.generate_cell_intensity(q_grid,result.xy)
+                    result.zero_angle_I += self.generate_cell_intensity(np.array([[0]]),np.array([[[0,0]]]))
 
                 self.x_rotation += 2*np.pi/self.x_orientations             
             # convert to angstrom
@@ -1139,7 +1142,7 @@ class XFEL():
                 times_used = species.times_used
             if (times_used[-1] == times_used[0]):   
                 raise Exception("Intensity array's final time equals its initial time")                  
-            # Technically sum of F(t)*sqrt(J(t)), where F = sum(f(q,t)*T(q)), and J(t) is the incident intensity, thus accounting for the pulse profile.
+            # Technically sum of F(t)*sqrt(J(t)), where F = sum(f(q,t)*T(q)), and J(t) is the incident intensity, thus accounting for the pulse profile. (J(t) is accounted for in get_stochastic_f)
             F_sum = np.zeros(F_shape,dtype="complex_")  
             for species in self.target.species_dict.values():
                 print("------------------------------------------------------------")
@@ -1162,7 +1165,7 @@ class XFEL():
                         # Rotate to target's current orientation 
                         # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
                         R = np.array(species.coords[relative_atm_idx[0]:relative_atm_idx[-1]+1]) 
-                        coord = self.target.get_sym_xfmed_point(R,s)  + species.error[atm_idx] # dim = [ N, 3], where N is number of coords.
+                        coord = self.target.get_sym_xfmed_point(R,s)  + species.error[relative_atm_idx] # dim = [ N, 3], where N is number of coords.
                         coord = coord @ self.x_rot_matrix  
                         coord = coord @ self.y_rot_matrix
                         coord = coord @ self.z_rot_matrix
@@ -1223,7 +1226,7 @@ class XFEL():
         I*= r_e_sqr*(1/2)*(1+np.square(np.cos(2*thet))) 
 
         if SPI:
-            # For crystal we can approximate infinitely small pixels and just consider bragg points. (i.e. The intensity will be the same so long as the pixel isn't covering multiple points.)
+            # For crystal we can approximate infinitely small pixels and just consider bragg points.
             # But for SPI need to take the pixel's size into account. Neutze 2000 makes the following approximation:
             I *=  SPI_proj_solid_angle    # equiv. to *= solid_angle
         
@@ -1552,7 +1555,7 @@ def E_to_lamb(photon_energy):
         # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
 def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_frame = False ,SPI_result1 = None, SPI_result2 = None, full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, results_parent_dir = RESULTS_LOCAL_PATH, compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, 
-                         bg_colour = "grey",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None,spi_full_rings_only=True,min_R_dmg_pixel = 0.1,cmap2=None,log_range=None,custom_fig_width=None,custom_fig_height=None):
+                         bg_colour = "grey",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None,spi_full_rings_only=True,min_R_dmg_pixel = 0.1,cmap2=None,log_range=None,custom_fig_width=None,custom_fig_height=None,log_diff_vmin = -0.5, log_diff_vmax = 0.5, normalize_to_centre = True, dpi=100):
     ''' (Complete spaghetti at this point.)
     Plots the simulated scattering image.
     result_handle:
@@ -1984,6 +1987,24 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
     else:
         result1 = copy.deepcopy(SPI_result1)
         result2 = copy.deepcopy(SPI_result2)     
+        if normalize_to_centre:
+            # # Normalize I to 1 at centre 
+            # # Average out centre pixels/select central pixels depending on axis dimension's integer parity.
+            # A,B,C,D = ( int(np.floor((result1.I.shape[0]+1)/2)), int(np.ceil((result1.I.shape[0]+1)/2)), 
+            #             int(np.floor((result1.I.shape[1]+1)/2)), int(np.ceil((result1.I.shape[1]+1)/2)) )
+            # result1.I/=np.average(result1.I[A:B+1, C:D+1])
+            # if result2 != None:
+            #     result2.I/=np.average(result2.I[A:B+1, C:D+1])  
+            result1.I/=result1.zero_angle_I
+            result2.I/=result2.zero_angle_I
+            result1.zero_angle_I = result2.zero_angle_I = 1
+        else:
+            # Normalize  total magnitude of intensity to 1.
+            result1.I/=np.sum(result1.I)
+            result1.zero_angle_I/=np.sum(result1.I)
+            if result2 != None:
+                result2.I/=np.sum(result2.I)
+                result2.zero_angle_I/=np.sum(result2.I)
         ## Square grid
         if len(result1.I.shape) > 1:#if type(result1) == Results_Grid:
             if spi_full_rings_only:
@@ -1992,20 +2013,22 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 result2.I *= (result2.full_ring_mask+0.1)/1.1 
 
             if log_I: 
-                z1 = log_function(result1.I/np.sum(result1.I))   # normalised intensity   
+                z1 = log_function(result1.I)   
+                result1.zero_angle_I = log_function(result1.zero_angle_I)
                 z1[result1.I == 0] = None
                 if result2 != None:
-                    z2 = log_function(result2.I/np.sum(result2.I))
+                    z2 = log_function(result2.I)
+                    result2.zero_angle_I = log_function(result2.zero_angle_I)
                     z2[result2.I == 0] = None
-            else:
+            #else:
                 #TODO fix up this masked stuff i didnt finish 
                 # z1 -= cutoff_log_intensity
                 # z1[z1<0] = 0
-                z1 = result1.I.copy()/np.sum(result1.I)    
-                if result2 != None:
+                #z1 = result1.I.copy()/np.sum(result1.I)    
+                #if result2 != None:
                     #z2 -= cutoff_log_intensity
                     #z2[z2<0] = 0
-                    z2 = result2.I.copy()/np.sum(result2.I)        
+                    #z2 = result2.I.copy()/np.sum(result2.I)        
             if log_I and cutoff_log_intensity != None:
                 np.ma.array(z1, mask=(z1<cutoff_log_intensity)*(np.isnan(z2)))
                 if result2 != None:
@@ -2018,7 +2041,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 # Now remove the non-full rings
                 result1.I *=  result1.full_ring_mask          
                 result2.I *= result2.full_ring_mask
-
+                        
             if result2 != None:
                 alpha2 = (result2.full_ring_mask + 1)/2             
             print("Result 1 (Damaged):")
@@ -2033,19 +2056,19 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             current_cmap = plt.colormaps.get_cmap("plasma")
             current_cmap.set_bad(color='black')
             if not get_R_only:
-                z1_map = plt.imshow(z1,vmin=z_min,vmax=z_max,cmap=current_cmap)
+                z1_map = plt.imshow(z1,vmin=z_min,vmax=result1.zero_angle_I,cmap=current_cmap)
                 plt.colorbar(z1_map)
                 plt.gcf().set_figwidth(custom_fig_width); plt.gcf().set_figheight(custom_fig_height)
-                plt.savefig("tmp_I_real.pdf",format="pdf")
+                plt.savefig("tmp_I_real.pdf",format="pdf",dpi=dpi)
                 plt.show()
-            if result2 != None:
+            if result2 != None:       
                 if not get_R_only:
                     print("Result 2 (Undamaged):")
                     print("Total screen-incident intensity:","{:e}".format(np.sum(result2.I)))
-                    z2_map = plt.imshow(z2,vmin=z_min,vmax=z_max,cmap=current_cmap)
+                    z2_map = plt.imshow(z2,vmin=z_min,vmax=result2.zero_angle_I,cmap=current_cmap)
                     plt.colorbar(z2_map)
                     plt.gcf().set_figwidth(custom_fig_width); plt.gcf().set_figheight(custom_fig_height)
-                    plt.savefig("tmp_I_ideal.pdf",format="pdf")
+                    plt.savefig("tmp_I_ideal.pdf",format="pdf",dpi=dpi)
                     plt.show()
                     print("R:")
                     fig, ax = plt.subplots()
@@ -2079,7 +2102,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     plt.xticks(ticks,ticklabels)
                     plt.yticks(ticks,ticklabels)
                     plt.gcf().set_figwidth(custom_fig_width); plt.gcf().set_figheight(custom_fig_height)
-                    plt.savefig("tmp_R_contributions.pdf",format="pdf")
+                    plt.savefig("tmp_R_contributions.pdf",format="pdf",dpi=dpi)
                     plt.show()
 
                     R_num = np.sum(np.abs((inv_K*sqrt_real - sqrt_ideal)))        
@@ -2099,7 +2122,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                         plt.xticks(ticks,ticklabels)
                         plt.yticks(ticks,ticklabels)
                         plt.gcf().set_figwidth(custom_fig_width); plt.gcf().set_figheight(custom_fig_height)
-                        plt.savefig("tmp_R_pixel.pdf",format="pdf")
+                        plt.savefig("tmp_R_pixel.pdf",format="pdf",dpi=dpi)
                         plt.show()   
                         # print("Plotting change map") 
                         # fig, ax = plt.subplots()
@@ -2115,11 +2138,19 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     print ("Plotting log ratio")
                     I1 = result1.I #real
                     I2 = result2.I #ideal
-                    log_ratio = log_function((I1/I1[int(len(I1)/2)][int(len(I1)/2)])/(I2/I2[int(len(I2)/2)][int(len(I2)/2)]))
+                    # Average out centre pixels/select central pixels depending on axis dimension's integer parity.
+                    A,B,C,D = ( int(np.floor((I1.shape[0]+1)/2)), int(np.ceil((I1.shape[0]+1)/2)), 
+                                int(np.floor((I1.shape[1]+1)/2)), int(np.ceil((I1.shape[1]+1)/2)) )
+                    I1_divisor = np.average(I1[A:B+1, C:D+1])
+                    I2_divisor = np.average(I2[A:B+1, C:D+1])                    
+                        
+                    log_ratio = log_function((I1/I1_divisor)/(I2/I2_divisor))
                     fig, ax = plt.subplots()
                     ax.imshow(bg)
-                    I_map = ax.imshow(log_ratio,vmin=-0.5,vmax=0.5,cmap = cmap2)#cmap="plasma")#"nipy_spectral_r")
-                    plt.colorbar(I_map)
+                    norm = TwoSlopeNorm(vmin=log_diff_vmin, vcenter=0, vmax=log_diff_vmax)
+                    I_map = ax.imshow(log_ratio,norm=norm,cmap = cmap2)#cmap="plasma")#"nipy_spectral_r")
+                    cb = plt.colorbar(I_map)
+                    cb.ax.set_yscale('linear')
                     ticks = np.linspace(0,len(result1.xy)-1,len(result1.xy))
                     ticklabels = ["{:6.2f}".format(q_row_0_el[1]) for q_row_0_el in result1.q_xy[0]]
                     ticks = ticks[len(ticks)//10::len(ticks)//5]
@@ -2127,7 +2158,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     plt.xticks(ticks,ticklabels)
                     plt.yticks(ticks,ticklabels)
                     plt.gcf().set_figwidth(custom_fig_width); plt.gcf().set_figheight(custom_fig_height)
-                    plt.savefig("tmp_log_diff.pdf",format="pdf")
+                    plt.savefig("tmp_log_diff.pdf",format="pdf",dpi=dpi)
                     plt.show()                      
 
 
@@ -2601,7 +2632,7 @@ if __name__ == "__main__":
         # pixel sampling method (Neutze) if True - Miller indices if False
         SPI = True,  # sampling method, if False, bragg spots. if True, detector pixels. TODO change name
         SPI_resolution = best_resolution,
-        pixels_across = 150,  # for SPI, shld go on xfel params.
+        pixels_across = 300,  # for SPI, shld go on xfel params.
         # miller
         random_orientation = True, #bragg spot sampling only, TODO refactor to be in same place as other orients...# orientation is synced with second 
     )
@@ -2704,9 +2735,9 @@ if __name__ == "__main__":
         # folder = "lys"
         #'''
         # Light + Heavy atoms handles.
-        #target_handle = "lys_nass_Gd_full_1"#"lys_nass_Gd_full_1"#"lys_nass_no_S_3" #"lys_all_light-typical"#"lys_full-94_1"#"lys_nass_15"#"lys-5_3"#" #12keV, 0.1/0.01 count, 10 fs
+        target_handle = "lys_nass_Gd_full_1"#"lys_nass_Gd_full_1"#"lys_nass_no_S_3" #"lys_all_light-typical"#"lys_full-94_1"#"lys_nass_15"#"lys-5_3"#" #12keV, 0.1/0.01 count, 10 fs
         # Light atoms only
-        target_handle = "lys_nass_no_S_3"
+        #target_handle = "lys_nass_no_S_3"
         #folder = "lys" 
         folder = "" 
         #background_targets = "lys_water"
@@ -2783,8 +2814,12 @@ if __name__ == "__main__":
 #^^^^^^^
 #%% Pixels/SPI
 if __name__ == "__main__":
-    stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2,
-           min_R_dmg_pixel=0,spi_full_rings_only=False,log_range=None,custom_fig_height=fig_height,custom_fig_width=fig_width)
+    #fig_width = 3.49751 # 20
+    #fig_height = fig_width*3/4 # 20
+    stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2, custom_fig_height=fig_height,custom_fig_width=fig_width,
+           min_R_dmg_pixel=0,spi_full_rings_only=False,log_range=None,
+           log_diff_vmin = -0.4, 
+           log_diff_vmax = 0.6, dpi=800,)
 #%% Miller/macrocrystal
 if interactive and __name__ == "__main__":
     stylin(exp_name1,exp_name2,experiment1.q_to_X(experiment1.max_q)/1e7,show_labels=False) # Note we are passing the max q, not max q_scr.

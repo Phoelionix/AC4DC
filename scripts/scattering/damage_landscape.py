@@ -193,8 +193,6 @@ def load_df(fname, damage_measure,bin_limit,check_batch_nums=True):
         average_bin_limit = np.average(unique_bins)
     else:
         resolutions = np.array([d["resolutions"] for d in dmg_data])
-        # Check that the resolution is at or above the minimum of all simulations
-        assert bin_limit >= np.max(resolutions[:,0])
         resolutions_idxes = np.empty(resolutions.shape)
         unique_resolutions = []
         dmg_vect = []
@@ -240,6 +238,8 @@ def load_df(fname, damage_measure,bin_limit,check_batch_nums=True):
         for elem in df["name"]:
             elem = elem.split('-')[-1]
             elem = elem.split('_')[0]
+            # extract only numbers.
+            elem = ''.join([l for l in elem if l.isnumeric()])
             nums.append(int(elem))
         nums.sort()
         print("R values found for",len(nums),"simulations.")
@@ -321,7 +321,7 @@ def plot_that_funky_thing(df,cmin=0.1,cmax=0.3,clr_scale="temps",use_neutze_unit
 
     ranges = {}
     for col in df:
-        if col == "name":
+        if col in ["name","damage_measure"]:
             continue
         #rng = df[col].agg(['min','max'])
         rng = [df[col].min(),df[col].max()]
@@ -487,7 +487,11 @@ if __name__ == "__main__":
         #kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_6","lys_nass_Gd_16"]  
         #kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_HF","lys_nass_Gd_HF"]  
         #kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_square"]  
-        kwargs["plasma_handles"] = ["lys_nass_no_S_3","lys_nass_gauss","lys_nass_Gd_full_1"]
+        #kwargs["plasma_handles"] = ["lys_nass_no_S_3","lys_nass_gauss","lys_nass_Gd_full_1"]
+        #kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_Gd_full_1","lys_nass_gauss_solvated_1","lys_nass_Gd_gauss_solvated_2"]
+        #kwargs["plasma_handles"] = ["lys_nass_gauss_dry_9kev_1","lys_nass_gauss_dry_1","lys_nass_light_dry_9kev_1","lys_nass_light_dry_1","lys_nass_Gd_gauss_dry_1","lys_nass_Gd_gauss_dry_9kev_1"]
+        kwargs["plasma_handles"] = ["lys_nass_water_solvent_2","lys_nass_water_solvent_9kev_2","lys_nass_gd_solvent_5","lys_nass_gd_solvent_9kev_5"]
+        #kwargs["plasma_handles"] = ["lys_nass_water_solvent_1","lys_nass_water_solvent_9kev_1","lys_nass_gd_solvent_2","lys_nass_gd_solvent_9kev_1"]
         #kwargs["plasma_handles"] = ["lys_nass_no_S_3","lys_nass_Gd_full_1"]
         #kwargs["plasma_handles"] = ["lys_nass_HF","lys_nass_Gd_HF"]  
         #kwargs["plasma_handles"] = ["lys_full-typical","lys_all_light-typical"]  
@@ -516,11 +520,12 @@ if __name__ == "__main__":
     data_name = "comparison"; batch_mode = False; mode = 1  #TODO store batch_mode and mode in saved object.
     #####
     name_of_set = data_name
-    resolution = 1.94 #1.9 2.8
-    df = load_df(data_name, resolution, check_batch_nums=batch_mode) # resolution list is orders from best to worst resolutions.
+    _damage_measure = "R"
+    resolution = 2 #1.9 2.8
+    df = load_df(data_name, damage_measure=_damage_measure, bin_limit=resolution, check_batch_nums=batch_mode) # resolution list is orders from best to worst resolutions.
     plot_2D_constants = dict(energy_key = 15000, photon_key = 1e12,fwhm_key = 25)
     neutze = False
-    name_of_set += df.damage_measure+"lim"+str("{:.1f}".format(df.resolution)) # Currently there's an uncertainty in the 2nd decimal because I coded bad, so 2 Sig figs it shall be.
+    name_of_set += _damage_measure+"lim"+str("{:.1f}".format(df.average_bin_limit)) # Currently there's an uncertainty in the 2nd decimal because I coded bad, so 2 Sig figs it shall be.
     if MODE_DICT[mode] != "spi":
         print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
         plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",use_neutze_units = neutze,cmax_contour=0.4) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r

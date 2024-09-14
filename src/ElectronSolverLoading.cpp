@@ -206,12 +206,12 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         // FREE DISTRIBUTION    
         std::vector<double> new_knots;
         if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
-            y[i].F.set_spline_factors(saved_f);
+            y[i].F.set_spline_factors(0,saved_f);  // TODO integrate with split continuum tracking
         }    
         //******/////static grid////******//
             else{
                 new_knots =  y[0].F.get_knot_energies();  
-                y[i].F.set_distribution_STATIC_ONLY(saved_knots,saved_f);  
+                y[i].F.set_distribution_STATIC_ONLY(0,saved_knots,saved_f);  
                 // Set knots manually
                 // To ensure compatibility, transform old distribution to new grid points.    
                 // TODO should remove transforming basis unless last step (and check still works)
@@ -233,8 +233,8 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
         // }
     }
     // Shave off end until get a starting point that isn't obviously divergent.
-    auto too_large = [](vector<state_type>& y){return y.end()[-1].F(0) > y.end()[-2].F(0);};
-    auto too_small = [](vector<state_type>& y){return y.end()[-1].F(0) > 0;};
+    auto too_large = [](vector<state_type>& y){return y.end()[-1].F(0,0) > y.end()[-2].F(0,0);};
+    auto too_small = [](vector<state_type>& y){return y.end()[-1].F(0,0) > 0;};
     while (too_large(y) || too_small(y)){
         assert(y.size()>0);
         y.resize(y.size()-1);
@@ -259,7 +259,7 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             cout << "Source gp "<<j <<" | " + col
             << "(" << saved_knots[j] << " , " << saved_f[j] << ")" << clrline
             << "New gp "<<j <<"   | " + col                                              
-            << "(" << starting_knots[j] << " , " << y.back().F[j] << ")" 
+            << "(" << starting_knots[j] << " , " << y.back().F[0][j] << ")" 
             << clrline << "------------------" << clrline;
         }
         cout << endl;

@@ -271,3 +271,88 @@ ATOMNO["Gd"] = ATOMNO["Gd_fast"] = ATOMNO["Gd_galli"]  = 64
 for symbol in list(ATOMNO.keys()):
     ATOMNO[symbol + '_LDA'] = i
     i += 1
+
+
+
+def get_data_point(ax,stem,mol_name,mode,SCATTERING_TARGET_DICT,SCATTERING_TARGET,EDGE_SEPARATION,INDEP_VARIABLE,DEP_VARIABLE):
+    im_params,_ = SCATTERING_TARGET_DICT[SCATTERING_TARGET]
+    indep_variable_key = str(INDEP_VARIABLE)
+    dep_variable_key = str(DEP_VARIABLE)
+    if INDEP_VARIABLE == EDGE_SEPARATION:
+        indep_variable_key += "L" + L_TYPE
+    if DEP_VARIABLE is R_FACTOR:
+        dep_variable_key = str(DEP_VARIABLE)+"-"+str(SCATTERING_TARGET)
+    intensity_averaged = True #TODO
+    if DEP_VARIABLE is AVERAGE_CHARGE:
+        if intensity_averaged: 
+            dep_variable_key += '_avged'
+        else:
+            dep_variable_key += '_EoP'
+    saved_x = saved_y = saved_end_time = None
+    dat= get_saved_data(mol_name) 
+    if dat is not None:
+            saved_x,                              saved_y,                            saved_end_time = (
+            dat.get("x").get(indep_variable_key),dat.get("y").get(dep_variable_key),dat.get("end_time")
+        )                          
+    ## Measure damage 
+    if saved_y is None:              
+        pl = Plotter(mol_name)
+        if mode is AVERAGE_CHARGE:
+            intensity_averaged = True
+            if intensity_averaged: 
+                y = np.average(pl.get_total_charge(atoms="C")*pl.intensityData)/np.average(pl.intensityData)
+            else:
+                step_index = -1  # Average charge at End-of-pulse 
+                y = pl.get_total_charge(atoms="C")[step_index]
+        elif mode is R_FACTOR:            
+            y = get_R(mol_name,MOLECULAR_PATH,im_params)[0][0]
+    else: 
+        y = saved_y
+    # Get end times (for purposes of checking all simulations ran to completion)
+    if saved_end_time is None:
+        if saved_y is not None:
+            pl = Plotter(mol_name)
+        t = pl.timeData[-1] 
+    else:
+        t = saved_end_time        
+    ## Get independent variable (must be last because of sourceless case)
+    if INDEP_VARIABLE is PHOTON_ENERGY: 
+        energy = get_sim_params(mol_name)[0]["energy"]
+    if INDEP_VARIABLE is EDGE_SEPARATION:
+        if type(edge_dict[stem][1]) in (list,tuple) and L_TYPE == "one":
+            energy = get_sim_params(mol_name)[0]["energy"] - edge_dict[stem][0][2]*1000
+        elif type(edge_dict[stem][1]) in (list,tuple) and  L_TYPE == "two":
+            energy = get_sim_params(mol_name)[0]["energy"] - edge_dict[stem][0][1]*1000
+        elif type(edge_dict[stem][1]) in (list,tuple) and  L_TYPE == "three":
+            energy = get_sim_params(mol_name)[0]["energy"] - edge_dict[stem][0][0]*1000
+        else:
+            energy = get_sim_params(mol_name)[0]["energy"] - max(edge_dict[stem][0])*1000
+    if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
+        s = get_sim_params(mol_name)[0]
+        energy = s["source_energy"]
+        if energy is None:
+            # No source
+            if (s["fluence"],s["width"]) != (fluence,width):
+                print(s)
+                print((s["fluence"],s["width"]),"!=",(fluence,width))
+                raise ValueError("Params do not match expected values for batch")                        
+            # Plot horizontal dashed line corresponding to damage with no artificial source.
+            ax.axhline(y=y,ls=(5,(10,3)),color=cmap(0),label="No injected")
+        elif (s["fluence"],s["width"],s["source_fraction"],s["source_duration"]) != (fluence,width,source_fraction,source_duration):
+            print(s)
+            print((s["fluence"],s["source_fraction"],s["source_duration"]),"!=",(fluence,width,source_fraction,source_duration))
+            raise ValueError("Params do not match expected values for batch")                    
+    if energy!= None:
+        # Standard case
+        x = energy/1000    
+    if saved_x is not None:
+        assert saved_x == x                                 
+    save_dict = {}
+    if saved_x is None:
+        save_dict["x"] = {indep_variable_key:x}
+    if saved_y is None:    
+        save_dict["y"] = {dep_variable_key:y}
+    if saved_end_time is None:
+        save_dict["end_time"] = t
+    save_data(mol_name,save_dict,delete_old=True)
+    return x,y,t

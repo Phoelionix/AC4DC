@@ -21,6 +21,15 @@ set -x
 #############################
 
 
+#./ac4dc input/nass/lys_nass_water_solvent
+#./ac4dc input/nass/lys_nass_water_solvent_9kev
+#./ac4dc input/nass/lys_nass_gd_solvent
+./ac4dc_continuum input/nass/lys_nass_gauss
+
+#./ac4dc input/galli/lys_galli_LF_no_Gd
+# ./ac4dc input/galli/lys_galli_LF
+# ./ac4dc input/galli/lys_galli_HF_no_Gd
+./ac4dc input/galli/lys_galli_HF
 #./ac4dc_consta input/_batches/batch_ES_C/ES_C-0
 
 # #for f in input/_batches/batch_SH2_N/*; do ./ac4dc "$f"; done
@@ -34,19 +43,16 @@ set -x
 # for f in input/_batches/batch_SH2_I/*; do ./ac4dc "$f"; done
 # for f in input/_batches/batch_SH2_Gd/*; do ./ac4dc "$f"; done
 
-for f in input/_batches/batch_SH2_N/SH2_N-{14..53}.mol; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_S/SH2_S-{14..53}.mol; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_Fe/SH2_Fe-{14..53}.mol; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_Se/SH2_Se-{1..53}.mol; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_N/SH2_N-{54..93}.mol; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_S/SH2_S-{54..93}.mol; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_Fe/SH2_Fe-{54..93}.mol; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_Se/SH2_Se-{54..93}.mol; do ./ac4dc "$f"; done
+#for f in input/_batches/batch_SH2_N/SH2_N-{14..53}.mol; do ./ac4dc "$f"; done
+#for f in input/_batches/batch_SH2_S/SH2_S-{14..53}.mol; do ./ac4dc "$f"; done
+#for f in input/_batches/batch_SH2_Fe/SH2_Fe-{14..53}.mol; do ./ac4dc "$f"; done
+#for f in input/_batches/batch_SH2_Se/SH2_Se-{1..53}.mol; do ./ac4dc "$f"; done
+#for f in input/_batches/batch_SH2_N/SH2_N-{54..93}.mol; do ./ac4dc "$f"; done
+#for f in input/_batches/batch_SH2_S/SH2_S-{71..93}.mol; do ./ac4dc "$f"; done
+#for f in input/_batches/batch_SH2_Fe/SH2_Fe-{54..93}.mol; do ./ac4dc "$f"; done
 
-for f in input/_batches/batch_SH2_Gd/*; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_Kr/*; do ./ac4dc "$f"; done
-for f in input/_batches/batch_SH2_I/*; do ./ac4dc "$f"; done
 
+# vvv TO BE DONE LATER
 
 
 # ###########

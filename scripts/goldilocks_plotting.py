@@ -43,7 +43,7 @@ IGNORE_MISSING_SIMULATIONS = True  # If False, throws an error if not all specif
 
 matplotlib.rcParams.update({
     'figure.subplot.left':0.16/FIGWIDTH_FACTOR,
-    'figure.subplot.right':1-0.02/FIGWIDTH_FACTOR,
+    'figure.subplot.right':1-0.02/FIGWIDTH_FACTOR-0.02,
     'figure.subplot.bottom': 0.16/FIGWIDTH_FACTOR,
     'figure.subplot.top':1-0.07/(FIGWIDTH_FACTOR*FIGHEIGHT/FIGWIDTH*4/3),
 })
@@ -52,24 +52,57 @@ matplotlib.rcParams.update({
 
 ####### User parameters #########
 INDEP_VARIABLE = 1 # | 0: energy of photons |1: Energy separation from edge given in edge_dict |2: Artificial electron source energy
-DEP_VARIABLE = 1 # | 0: mean carbon charge (at end of pulse or I avged TODO) | 1: R factors (performs scattering simulations for each) |
+DEP_VARIABLE = 0 # | 0: mean carbon charge, either integrated over intensity or at end of pulse ) | 1: R factors (performs scattering simulations for each) |
 BATCH = 0 #| 0: Real elements | 1: Electron source. 
+
+## Subcategories of dependent variables
+INTENSITY_AVERAGED = True # Used if DEP_VARIABLE = 0 (average charge). | False: Average carbon charge at the simulation's termination | True: Average charge throughout the pulse, weighted by the pulse profile -- NOT the same as the mean "observed" charge by elastic scattering, as does not account for loss of scattering power. 
 SCATTERING_TARGET = 0 # Used if DEP_VARIABLE = 1.  | 0: unit lysozyme (light atoms) | 1: 3x3x3 lysozyme (light atoms no solvent)|
 
 ## Graphical
 LEGEND = True
 LABEL_TIMES = False # Set True to graphically check simulation end times are all aligned
+DPI = 800
+MAX_TICKS = 5
 
 ## Numerical
 
-NORMALISING_STEM = None #"SH_N" # None  #Stem (str) to normalise traces by. (s.t. normalised trace becomes horizontal line). If None, does not normalise.
+NORMALISING_STEM = None#"SH2_N_1e12" #"SH_N" # None  #Stem (str) to normalise traces by. (s.t. normalised trace becomes horizontal line). If None, does not normalise.
+SUBTRACT_NORMALISING_STEM = True # If false, divide
 #NORMALISING_STEM = "SH_N"
-
 ylim=[None,None]
-additional_points_dict = {}
+CUSTOM_YLABEL = None#"$R_{dmg}^{CNO,Zn}-R_{dmg}^{CNO}$"
+#ylim=[None,2.3-0.7]
+#CUSTOM_YLABEL = None
+#ylim=[None,2.3]
+L_TYPE = "three" # Which L edge to use. "one","two","three"; anything else plots all and uses separation from L1 edge.
+
+# #### TEMPORARY
+# #mode_A
+# A = False
+# if A:
+#     ylim=[0,0.025]
+#     INDEP_VARIABLE= 0
+#     BATCH = 0
+#     NORMALISING_STEM = None
+# #mode_B
+# else:
+#     ylim=[None,None]
+#     INDEP_VARIABLE = 2
+#     BATCH = 1
+#     NORMALISING_STEM = None
+##########
+
+xlim = [6,18]
+#xlim = [9.7,19.7]
+if INDEP_VARIABLE is EDGE_SEPARATION:
+    xlim[0] = -1.5
+    xlim[1] = 18#8.5
+if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
+    #xlim = [None,None]
+    xlim = [0,15]
 
 
-L_TYPE = "two" # Which L edge to use. "one","two","three"; anything else plots all and uses separation from L1 edge.
 
 
 if BATCH is REAL_ELEMENTS:
@@ -87,7 +120,7 @@ if BATCH is REAL_ELEMENTS:
             #-----L------
             "SH_Ag":[[0,8],[901,904]],
             "SH_Xe":[[0,9],[901,907]],
-            "SH2_Gd":[[1,14]],
+            #"SH2_Gd":[[1,14]],
             #------other------
             #"SH_excl_Zn":[1,9],
             #"L_Gd":[1,9],
@@ -107,14 +140,41 @@ if BATCH is REAL_ELEMENTS:
             #"SH_excl_Zn":[1,9],
             #"L_Gd":[1,9],
     }
+    HF_15fs_SH2 = { 
+            #"SH2_N":[[24,33]],
+            #"SH2_S":[[24,33]], 
+            "SH2_Fe":[[24,33]],
+            "SH_Fe":[[0,10],[901,904]],
+            #"SH2_Zn":[[24,33]],
+            "SH2_Se":[[24,33]],
+            "SH_Se":[[0,13],],
+            #"SH2_Zr":[[24,33]],
+            #-----L------
+            #"SH2_Ag":[[24,33]],
+            #"SH2_Xe":[[24,33]],
+    }
+    Zn_N_comp = {
+        #"SH2_N_1e12":[[24,33],[9919,9927]],
+        "SH_N":[[1,10],[901,903]], #[700,704],
+        "SH_Zn":[[0,10],[901,903]],
+
+        #"SH2_Zn_1e12":[[9939,9957]],
+    }
     HF_10fs = {}
     LF_10fs = {} 
     stem_dict = HF_15fs
+
+same_targets_dict = dict(
+    SH2_N=["SH2_N_1e12",], 
+    SH2_Zn=["SH2_Zn_1e12",]
+    ) 
+
+
 if BATCH is ELECTRON_SOURCE:
     assert(INDEP_VARIABLE == ELECTRON_SOURCE_ENERGY)
     ##
     #photon_energy = 10
-    fluence = 100
+    fluence = 1
     width = 15
     source_fraction = 3
     source_duration = 1
@@ -124,25 +184,18 @@ if BATCH is ELECTRON_SOURCE:
         params = fluence,width,source_fraction,source_duration
         return_dict = None
         if params == (1,15,1,1):
-            return_dict = dict(ES_C = ([1,22],[0]))
+            return_dict = dict(ES_C = ([1,22],[0,0]))
         elif params == (1,15,3,1):
-            return_dict =  dict(ES_C = ([23,44],[0,902]))
+            return_dict =  dict(ES_C = ([23,44],[0,0],[902,902]))
         elif params == (1,30,1,1):
             return_dict = dict(ES_C =([45,66],))
         elif params == (100,15,3,1):
             return_dict = dict(ES_C=([90,113],))
         elif return_dict is None:
             raise KeyError("Invalid/missing batch params")
-        for val in return_dict.values():
-            assert len(val) < 3 or isinstance(val[0],int), "Batch mapping dict has too many entries"
-            assert len(val) == 2 or not isinstance(val[0],int), "Batch mapping dict single entry does not have two elements. It should be an inclusive range of simulation numbers. For specific simulations (e.g. my_stem-3_# and my_stem-8_#) batch_mapping should return dict(my_stem=([],[3,8]))"    
         return return_dict
     
-    stem_dict = {}
-    for key, val in batch_mapping(fluence,width,source_fraction,source_duration).items():
-        stem_dict[key] = val[0]
-        if len(val) == 2:
-            additional_points_dict[key] = val[1]
+    stem_dict = batch_mapping(fluence,width,source_fraction,source_duration)
         
 # Ionisation edges of dopants. Highest absorption edge specified in first element in tuple is plotted if in energy range. Second element in the tuple is label for said edge.
 edge_dict = {
@@ -163,8 +216,9 @@ edge_dict = {
     "SH2_Ag":([3.3,3.5,3.8],["L_{3}","L_{2}","L_{1}"]),
     "SH_Xe":([4.8,5.1,5.5],["L_{3}","L_{2}","L_{1}"]),
     "SH2_Xe":([4.8,5.1,5.5],["L_{3}","L_{2}","L_{1}"]),
-    "SH2_Gd":([7.2,7.9,8.4],["L_{3}","L_{2}","L_{1}"]),  
-    "L_Gd":(7.4,["L_{1}",]),
+    #"SH2_Gd":([7.2,7.9,8.4],["L_{3}","L_{2}","L_{1}"]),  
+    "SH2_Gd":(7.4,["L_{2}",]),  
+    "L_Gd":(7.4,["L_{2}",]),
     "ES":(0.3,"K"),
     "ES_L":(0.3,"K"),
     "ES_C":(0.3,"K"),
@@ -227,6 +281,14 @@ col_dict = {
     "ES_C":2,
 }
 
+for k, v in same_targets_dict.items():
+    for stem in v:
+        edge_dict[stem] = edge_dict[k]
+        col_dict[stem] = col_dict[k]
+        ground_charge_dict[stem] = ground_charge_dict[k]
+
+
+
 ################
 ## Constants
 
@@ -237,13 +299,7 @@ PDB_STRUCTURE = get_pdb_path(SCATTER_DIR,"lys")
 MOLECULAR_PATH = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/" # directory of damage sim output folders
 GOLDI_RESULTS_PATH = path.abspath(path.join(__file__ ,"../.goldilocks_saves")) + "/" 
 
-xlim = [6,18]
-if INDEP_VARIABLE is EDGE_SEPARATION:
-    xlim[0] = -1.5
-    xlim[1] = 18
-if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
-    #xlim = [None,None]
-    xlim = [0,20]
+
 
 set_highlighted_excepthook()
 def main():       
@@ -266,9 +322,6 @@ def main():
         for val in val_range:
         # Get folder name, excluding run tag
             sim_tags += [*range(val[0],val[1]+1)]
-            if key in additional_points_dict:
-                for sim_tag in additional_points_dict[key]:
-                    sim_tags.append(sim_tag)
         for n in sim_tags:
             data_folders.append(key+"-"+str(n)) 
             # Add run tag "_"+n corresponding to latest run (n = highest "R" for "stem-n_R")
@@ -288,7 +341,6 @@ def main():
                 break
             data_folders[i] = handle + "_"+str(max(run_nums))
         batches[key] = [f for f in data_folders if f is not None]
-
     if not IGNORE_MISSING_SIMULATIONS:
         assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder. See input error message(s)"
     fig_title = "".join([stem.split("-")[0].split("_")[-1] for stem in batches.keys()])
@@ -296,14 +348,14 @@ def main():
     plot(batches,label,dname_Figures,mode=DEP_VARIABLE)
 
 def plot(batches,label,figure_output_dir,mode = 0):
-    ylabel = {AVERAGE_CHARGE:"Average carbon's charge",R_FACTOR:"$R_{dmg}$"}
+    ylabel = {AVERAGE_CHARGE:"Averaged carbon charge",R_FACTOR:"$R_{dmg}$"}
     '''
     Arguments:
     '''    
     ############
     # File/directory names
     #######  
-    figures_ext = "" #.png
+    figures_ext = ".png" #.png
     fname_charge_conservation = "charge_conservation"
     fname_free = "free"
     fname_HR_style = "HR_style"
@@ -313,7 +365,7 @@ def plot(batches,label,figure_output_dir,mode = 0):
     cmap = plt.get_cmap('tab10')
 
     output_tag = ""
-    if DEP_VARIABLE == 1:
+    if DEP_VARIABLE is R_FACTOR:
         _,output_tag = SCATTERING_TARGET_DICT[SCATTERING_TARGET]
     if NORMALISING_STEM not in [None,False]:
         output_tag += "-normed"
@@ -350,7 +402,10 @@ def plot(batches,label,figure_output_dir,mode = 0):
             if x is not None: # Ignore any sourceless data points.
                 X.append(x)
                 Y.append(y)  
-                times.append(t)            
+                times.append(t)   
+            elif INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:        
+                    # Plot horizontal dashed line corresponding to damage with no artificial source.
+                    ax.axhline(y=y,ls=(5,(10,3)),color=cmap(0),label="\,No source")          
                     
         print("Energies:",X)
         if mode is AVERAGE_CHARGE:
@@ -358,12 +413,21 @@ def plot(batches,label,figure_output_dir,mode = 0):
         if mode is R_FACTOR:
             print("R factors:",Y)
         if NORMALISING_STEM not in [None,False]:
+            #assert(INDEP_VARIABLE is not EDGE_SEPARATION) #TODO get working with edge separation
             for i, energy in enumerate(X): 
+                found_norm = False
                 for elem in norm:
                     if elem[0] == energy:
-                        Y[i]/=elem[1]
+                        found_norm = True
+                        if SUBTRACT_NORMALISING_STEM:
+                            Y[i]-=elem[1]
+                        else:
+                            Y[i]/=elem[1]
+                            print(stem)
+                            print("ASDASD")
+                            print(Y[i])
                         break
-                assert(False,"Missing norm for energy") #TODO: If not found, remove corresponding value. (go backwards in reverse )
+                assert(found_norm)
                 #     del(X[i])
                 #     del(Y[i])
                 #     del(energies[i])
@@ -376,14 +440,18 @@ def plot(batches,label,figure_output_dir,mode = 0):
             elif ground_charge_dict[stem]==1:
                 _label+="$^{+}$"
         if BATCH is ELECTRON_SOURCE:
-            _label = "Injected"
+            _label = "\,Source"
+        print(mol_name)
+        if stem is NORMALISING_STEM:
+            continue
+
         ax.scatter(X,Y,label=_label,color = cmap(c))
         
         k =2 # Spline order
         if FIT and len(X)>=k+1:
             ordered_dat = sorted(zip(X,Y))
             # Split dataset with ionisation edge of dopant
-            split_idx = 0
+            split_idxes = [0]
             if INDEP_VARIABLE is PHOTON_ENERGY:
                 split_idxes = [np.searchsorted(np.array([x[0] for x in ordered_dat]),edge) for edge in edge_dict[stem][0]]
             if INDEP_VARIABLE is EDGE_SEPARATION:
@@ -392,6 +460,7 @@ def plot(batches,label,figure_output_dir,mode = 0):
                     # Assume L-edge
                     if L_TYPE in ["one","two","three"]:
                         split_idxes = [np.searchsorted(np.array([x[0] for x in ordered_dat]),- 0.000000001),]
+                        if stem == "SH_Xe": split_idxes = [3,4] # Xenon temporary thing.
                         done = True
                 # default case
                 if not done:
@@ -417,6 +486,8 @@ def plot(batches,label,figure_output_dir,mode = 0):
         _ylab = ylabel[mode]
         if NORMALISING_STEM not in [None,False]:
             _ylab += " relative difference" # TODO better clarity
+        if CUSTOM_YLABEL is not None:
+            _ylab = CUSTOM_YLABEL
         ax.set_ylabel(_ylab)
         if INDEP_VARIABLE is PHOTON_ENERGY:
             ax.set_xlabel("Photon energy (keV)")
@@ -425,13 +496,15 @@ def plot(batches,label,figure_output_dir,mode = 0):
             #ax.set_xlabel("LEIS photoelectron energy (keV)")  
         if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
             ax.set_xlabel("Source electron energy (keV)")  # TODO define better
-        
+    
     if xlim[0] is None:
         xlim[0] = np.min(X)
     if xlim[1] is None:
         xlim[1] = np.max(X)
     ax.set_ylim(ylim)
     ax.set_xlim(xlim)           
+    ax.yaxis.set_major_locator(plt.MaxNLocator(MAX_TICKS))
+
 
     if INDEP_VARIABLE is PHOTON_ENERGY: 
         for stem, mol_names in batches.items():
@@ -469,13 +542,17 @@ def plot(batches,label,figure_output_dir,mode = 0):
 
     if LEGEND:
         if BATCH is REAL_ELEMENTS:
-            ax.legend(title="Dopant",fancybox=True,ncol=2,loc='upper center',bbox_to_anchor=(0.75, 1.02),handletextpad=0.01,columnspacing=0.2,borderpad = 0.18)
+            ax.legend(title="Dopant",fancybox=True,ncol=2,loc='upper center',bbox_to_anchor=(0.758, 1.02),handletextpad=0.01,columnspacing=0,handlelength=1.35,borderpad = 0.18,frameon=True)
         if BATCH is ELECTRON_SOURCE:
-            ax.legend(fancybox=True,ncol=1,loc='upper center',bbox_to_anchor=(0.8, 1.02),handletextpad=0.01,columnspacing=0.2,borderpad = 0.18)
+            handles, labels = ax.get_legend_handles_labels()
+            handles.reverse()
+            labels.reverse()
+            #ax.legend(fancybox=True,ncol=1,loc='upper center',bbox_to_anchor=(0.8, 1.02),handletextpad=0.01,columnspacing=0.2,borderpad = 0.18)
+            ax.legend(labels=labels,handles=handles,fancybox=True,ncol=1,loc='upper center',bbox_to_anchor=(0.8, 0.37),handletextpad=0.01,columnspacing=0.2,borderpad = 0.18)
 
     #ax.set_title(fig_title)
     #fig.tight_layout()
-    fig.savefig(figure_output_dir + label + output_tag + figures_ext)#bbox_inches="tight", pad_inches=0)
+    fig.savefig(figure_output_dir + label + output_tag + figures_ext,dpi=DPI)#bbox_inches="tight", pad_inches=0)
 
 def grow_crystals(run_params,pdb_path,allowed_atoms,identical_deviations=True,plot_crystal=True,CNO_to_N=False,S_to_N=True):
     ''' 
@@ -567,11 +644,10 @@ def get_data_point(ax,stem,mol_name,mode):
     dep_variable_key = str(DEP_VARIABLE)
     if INDEP_VARIABLE == EDGE_SEPARATION:
         indep_variable_key += "L" + L_TYPE
-    if DEP_VARIABLE == 1:
+    if DEP_VARIABLE is R_FACTOR:
         dep_variable_key = str(DEP_VARIABLE)+"-"+str(SCATTERING_TARGET)
-    intensity_averaged = True #TODO
     if DEP_VARIABLE is AVERAGE_CHARGE:
-        if intensity_averaged: 
+        if INTENSITY_AVERAGED: 
             dep_variable_key += '_avged'
         else:
             dep_variable_key += '_EoP'
@@ -579,14 +655,13 @@ def get_data_point(ax,stem,mol_name,mode):
     dat= get_saved_data(mol_name) 
     if dat is not None:
             saved_x,                              saved_y,                            saved_end_time = (
-            dat.get("x").get(indep_variable_key),dat.get("y").get(dep_variable_key),dat.get("end_time")
+            dat.get("x").get(indep_variable_key) if dat.get("x") is not None else None,dat.get("y").get(dep_variable_key),dat.get("end_time")
         )                          
     ## Measure damage 
     if saved_y is None:              
         pl = Plotter(mol_name)
         if mode is AVERAGE_CHARGE:
-            intensity_averaged = True
-            if intensity_averaged: 
+            if INTENSITY_AVERAGED: 
                 y = np.average(pl.get_total_charge(atoms="C")*pl.intensityData)/np.average(pl.intensityData)
             else:
                 step_index = -1  # Average charge at End-of-pulse 
@@ -623,19 +698,18 @@ def get_data_point(ax,stem,mol_name,mode):
                 print(s)
                 print((s["fluence"],s["width"]),"!=",(fluence,width))
                 raise ValueError("Params do not match expected values for batch")                        
-            # Plot horizontal dashed line corresponding to damage with no artificial source.
-            ax.axhline(y=y,ls=(5,(10,3)),color=cmap(0),label="No injected")
         elif (s["fluence"],s["width"],s["source_fraction"],s["source_duration"]) != (fluence,width,source_fraction,source_duration):
             print(s)
             print((s["fluence"],s["source_fraction"],s["source_duration"]),"!=",(fluence,width,source_fraction,source_duration))
             raise ValueError("Params do not match expected values for batch")                    
-    if energy!= None:
+    x = energy
+    if x!= None:
         # Standard case
         x = energy/1000    
     if saved_x is not None:
         assert saved_x == x                                 
     save_dict = {}
-    if saved_x is None:
+    if saved_x is None and energy != None:
         save_dict["x"] = {indep_variable_key:x}
     if saved_y is None:    
         save_dict["y"] = {dep_variable_key:y}
