@@ -650,6 +650,8 @@ class Plotter:
                 self.chargeData[a][:, charge] += self.boundData[a][:, i]
 
 
+
+
     def update_outputs(self):
         
         num_sample_lines = 10
@@ -752,7 +754,8 @@ class Plotter:
     def setup_axes(self,num_subplots):
         self.num_plotted = 0 # number of subplots plotted so far.
         width, height = 6, 3.3333  # 4.5,2.5 ~ abdallah
-        if num_subplots >= 3 :
+
+        if num_subplots >= 3:
             self.fig, self.axs = plt.subplots(int(0.999+(num_subplots**0.5)),int(0.999+(num_subplots**0.5)),figsize=(width*int((1+num_subplots)/2),height*int((1+num_subplots)/2)))
         else:
             self.fig, self.axs = plt.subplots(num_subplots,figsize=(width,height*num_subplots))
@@ -767,7 +770,10 @@ class Plotter:
     def delete_remaining_axes(self):
         if self.num_subplots == 1:
             return
-        while self.num_plotted < self.axs.shape[0]*self.axs.shape[1]:
+        num_plot_spaces = self.axs.shape[0]
+        if self.num_subplots > 2:
+            num_plot_spaces*=self.axs.shape[1]
+        while self.num_plotted < num_plot_spaces:
             self.axs.flat[self.num_plotted].remove()
             self.num_plotted+=1
 
@@ -1043,6 +1049,8 @@ class Plotter:
         #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
         T = self.timeData[::every]
         T_start = 0
+        if ylim[0] is None:
+            ylim[0] = 0
         if xlim[0] is not None:
             T_start = np.searchsorted(T,xlim[0])
         T_end = len(T)
@@ -1299,6 +1307,10 @@ class Plotter:
             scale = 1
             if keV:
                 scale = 1e-3
+            # Removing erroneous data points hack
+            Z = Z[:,(T!=-2.778)&(T!=4.422)]
+            self.intensityData = self.intensityData[(T!=-2.778)&(T!=4.422)]
+            T = T[(T!=-2.778)&(T!=4.422)]
             cm = ax.pcolormesh(T, self.energyKnot[self.energyKnot<ymax]*scale, Z[self.energyKnot<ymax], shading='gouraud',norm=norm,cmap=cmap,rasterized=True)
             cbar = self.fig.colorbar(cm,ax=ax)
         else:
@@ -1330,7 +1342,8 @@ class Plotter:
         else:
             cbar = self.fig_free.colorbar(cm)
         #cbar.ax.set_ylabel('Free Electron Density, Å$^{-3}$', rotation=270,labelpad=20)
-        cbar.ax.set_ylabel('Energy density (Å$^{-3}$)', rotation=270,labelpad=20)
+        #cbar.ax.set_ylabel('Energy density (eV/Å$^{3}$)', rotation=270,labelpad=20)
+        cbar.ax.set_ylabel('Energy density (arb. u.)', rotation=270,labelpad=20)
 
         # plot the intensity
         ax2 = ax.twinx()

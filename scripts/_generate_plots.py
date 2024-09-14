@@ -25,16 +25,16 @@ from QoL import set_highlighted_excepthook
 ####
 ELECTRON_DENSITY = False # Whether to use electron density for free distribution plots. Energy density if False
 ###
-PLOT_ELEMENT_CHARGE= False  #
-PLOT_FREE_CONTINUUM = False
+PLOT_ELEMENT_CHARGE= True #
+PLOT_FREE_CONTINUUM = True
 PLOT_FREE_SLICES=False
 PLOT_ION_RATIOS=False
-PLOT_ION_RATIOS_BARS=False
-PLOT_ORBITAL_DENSITIES = True  #
+PLOT_ION_RATIOS_BARS= False
+PLOT_ORBITAL_DENSITIES = False #
 PLOT_PHOTO_RATES = False
 ###
 COLUMNWIDTH = 3.4975
-COLUMNWIDTH = 2
+#COLUMNWIDTH = 2
 FIGWIDTH = COLUMNWIDTH#/2
 FIGHEIGHT = FIGWIDTH*1/2#*9/16
 
@@ -83,7 +83,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     fname_free = "free"
     fname_HR_style = "HR_style"
     fname_bound_dynamics = "bound_dynamics"
-    load_specific_atoms = None#["C","N","O"] #None
+    load_specific_atoms = None #["C","N","O"] #None  # If plotting free dsitribution, will combine the contributions from those specified here (e.g. if "C","N" then dist_C.csv and dist_N.csv ). If none is specified, will just use the full continuum freeDist.csv.
     if load_specific_atoms is not None:
         label+="_"
         for elem in load_specific_atoms:
@@ -281,9 +281,11 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     # pl.ax_steps.set_xlim([0,1800])
     # pl.ax_steps.set_ylim([0.5e-4,0.5])
     pl.delete_remaining_axes()
-    if num_subplots > 1:
+    if num_subplots > 2:
         plt.gcf().set_figwidth(FIGWIDTH*pl.axs.shape[0])
-        plt.gcf().set_figheight(FIGHEIGHT*pl.axs.shape[1])  
+        plt.gcf().set_figheight(FIGHEIGHT*pl.axs.shape[1])
+    elif num_subplots == 2:
+        plt.gcf().set_figheight(FIGWIDTH*pl.axs.shape[0])
     else:
         plt.gcf().set_figwidth(FIGWIDTH)
         plt.gcf().set_figheight(FIGHEIGHT)          
