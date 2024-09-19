@@ -796,6 +796,9 @@ class Plotter:
         #self.fig.subplots_adjust(left=0.2, right=0.92, top=0.93, bottom=0.1)
 
     def plot_charges(self, a, ion_fract = True, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[0,1],**kwargs):
+        if xlim[1] is None:
+            xlim[1] = self.timeData[-1]
+        
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=show_pulse_profile)
         self.aggregate_charges()
         #print_idx = np.searchsorted(self.timeData,-7.5)
@@ -902,7 +905,10 @@ class Plotter:
         ax.legend(loc='upper left',bbox_to_anchor=(1, 1),fontsize=4,ncol=num_cols)
 
     def plot_charges_bar(self, a, ion_fract = True, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[0,1],**kwargs):
-        ax = self.get_next_ax()
+        if show_pulse_profile:  
+            ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),col="white")
+        else:
+            ax = self.get_next_ax()
         self.aggregate_charges()
         #print_idx = np.searchsorted(self.timeData,-7.5)
         ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))
