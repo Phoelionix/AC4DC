@@ -258,7 +258,7 @@ def parse_elecs_from_latex(latexlike):
     return qdict
 
 ATOMS = ('H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'
-       +' Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe').split()
+       +'Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe').split()
 ATOMNO = {}
 i = 1
 for symbol in ATOMS:
@@ -269,8 +269,9 @@ for symbol in ATOMS:
 i = 1 
 ATOMNO["Gd"] = ATOMNO["Gd_fast"] = ATOMNO["Gd_galli"]  = 64 
 for symbol in list(ATOMNO.keys()):
-    ATOMNO[symbol + '_LDA'] = i
-    i += 1
+    if "_" not in symbol:
+        ATOMNO[symbol + '_LDA'] = i
+        i += 1
 
 
 
