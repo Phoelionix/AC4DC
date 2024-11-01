@@ -347,13 +347,24 @@ class Plotter:
         return form_factors_sqrt_I, time_steps
     
 
+    def random_charge_snapshots(self,atom,seed=None):
+        charge_dict = self.get_charge_dict(atom)
+        states_list,_,_ = self.random_state_snapshots(atom,seed)
+        charges = np.empty(shape=(len(states_list),))
+        for i, state in enumerate(states_list):
+            charges[i] = charge_dict[state]
+        return charges  # (times,)
+        
+        
+    def get_charge_dict(self,atom):
+        occ_dict = self.get_occ_dict(atom)
+        charge_dict = {}
+        for state in occ_dict.keys():
+            charge_dict[state] = ATOMNO[atom] - np.sum(occ_dict[state])
+        return charge_dict
+    
     #############Important bit#######################
-    def random_state_snapshots(self,atom,seed=None):
-        '''
-        Get t_fineness form factors, distributed as evenly between plotter_obj.start_t and plotter_obj.end_t as possible.
-        t_fineness = number of snapshots
-        f is modified from the typical definition is multiplied by the scalar sqrt(I(t)) to deal with gaussian case.
-        '''
+    def get_occ_dict(self,atom):
         occ_dict = {} # dictionary that converts state index to subshell occupation list
         try:
             states = self.statedict[atom]
@@ -368,6 +379,15 @@ class Plotter:
                     occ_list[l] = 0
                 occ_list[l] += occ
             occ_dict[i] = occ_list[:len(occ_list)-occ_list.count(-99)] 
+        return occ_dict
+    
+    def random_state_snapshots(self,atom,seed=None):
+        '''
+        Get t_fineness form factors, distributed as evenly between plotter_obj.start_t and plotter_obj.end_t as possible.
+        t_fineness = number of snapshots
+        f is modified from the typical definition is multiplied by the scalar sqrt(I(t)) to deal with gaussian case.
+        '''
+        occ_dict = self.get_occ_dict(atom)
 
         time_steps = self.get_times_used()
         orb_occs,time_steps = self.get_random_states(time_steps,atom,seed)

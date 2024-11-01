@@ -233,6 +233,7 @@ def get_pdb_paths_dict(my_dir):
     '''
     my_dir = calling file's directory
     '''
+    #TODO use enum for keys
     PDB_PATHS = dict(
         tetra = "targets/5zck.pdb",
         lys = "targets/4et8.pdb", #"targets/2lzm.pdb",
