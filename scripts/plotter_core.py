@@ -16,9 +16,10 @@ from matplotlib.ticker import LogFormatter
 import random
 from scipy.optimize import curve_fit
 from scipy.stats import linregress
-from core_functions import get_mol_file, parse_elecs_from_latex, ATOMS, ATOMNO
+from core_functions import get_mol_file, parse_elecs_from_latex, get_sim_params, ATOMS, ATOMNO
 from scipy.interpolate import splrep, splev
 from scipy.signal import savgol_filter
+import pandas as pd
 
 #plt.rcParams.update(plt.rcParamsDefault)
 #plt.style.use('seaborn-muted')
@@ -53,7 +54,8 @@ class Plotter:
         if out_prefix_text is None:
             out_prefix_text = "Initialising plotting with"
         molfile = get_mol_file(self.input_path,self.molecular_path,data_folder_name,"y",out_prefix_text = out_prefix_text) 
-
+        self.sim_params = get_sim_params(data_folder_name,self.input_path,self.molecular_path)[0]
+        
         self.mol = {'name': data_folder_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}        
 
         # Stores the atomic input files read by ac4dc
@@ -219,14 +221,18 @@ class Plotter:
 
 
     def get_atomic_numbers(self):
-        # Get atomic number by considering states at time 0.
+        # # Get atomic number by considering states at time 0.
+        # return_dict = {}
+        # for a in self.atomdict:
+        #     states = self.statedict[a]  
+        #     atomic_number = 0
+        #     for val in parse_elecs_from_latex(states[0]).values():
+        #         atomic_number += val
+        #     return_dict[a] = atomic_number
+        # return return_dict
         return_dict = {}
         for a in self.atomdict:
-            states = self.statedict[a]  
-            atomic_number = 0
-            for val in parse_elecs_from_latex(states[0]).values():
-                atomic_number += val
-            return_dict[a] = atomic_number
+            return_dict[a] = ATOMNO[a]
         return return_dict
     
 
@@ -755,7 +761,7 @@ class Plotter:
         self.num_plotted = 0 # number of subplots plotted so far.
         width, height = 6, 3.3333  # 4.5,2.5 ~ abdallah
 
-        if num_subplots >= 3:
+        if num_subplots >= 2:
             self.fig, self.axs = plt.subplots(int(0.999+(num_subplots**0.5)),int(0.999+(num_subplots**0.5)),figsize=(width*int((1+num_subplots)/2),height*int((1+num_subplots)/2)))
         else:
             self.fig, self.axs = plt.subplots(num_subplots,figsize=(width,height*num_subplots))
@@ -771,7 +777,7 @@ class Plotter:
         if self.num_subplots == 1:
             return
         num_plot_spaces = self.axs.shape[0]
-        if self.num_subplots > 2:
+        if self.num_subplots > 1:
             num_plot_spaces*=self.axs.shape[1]
         while self.num_plotted < num_plot_spaces:
             self.axs.flat[self.num_plotted].remove()
@@ -1271,6 +1277,503 @@ class Plotter:
     def plot_all_charges(self, ion_fract = True, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[None,None],**kwargs):
         for a in self.atomdict:
             self.plot_charges(a, ion_fract, rseed,plot_legend,show_pulse_profile=show_pulse_profile,xlim=xlim,ylim=ylim,**kwargs)
+    def plot_charge_contrast_custom_thing(self,heavy_element,every=1, xlim=[None,None], plot_legend=True,cmap=None,empirical_data_paths=[],**kwargs):
+        plot_pulse_energy = False
+        ylim=[None,None]
+        ylim = [0,0.7]
+        if cmap is None:
+            cmap = "tab10"
+        #charge_contrast_col = plt.get_cmap(cmap)(0)
+        #heavy_col = plt.get_cmap(cmap)(2)
+        heavy_col = "green"
+
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=False)
+        ax_heavy_charge = ax.twinx()  
+        ax_empirical = ax.twinx() 
+        ax_theoretical = ax.twinx() 
+        ax_theoretical.get_yaxis().set_ticks([])
+        ax_empirical.get_yaxis().set_ticks([])
+        ax2.get_yaxis().set_ticks([])
+
+        # 10 amino acids
+        light_atoms = dict(
+            C = 20,
+            N = 10,
+            O = 10,
+        )  
+        
+
+        T = self.timeData[::every]
+        T_start = 0
+        if xlim[0] is not None:
+            T_start = np.searchsorted(T,xlim[0])
+        T_end = len(T)
+        if xlim[1] is not None:
+            T_end = np.searchsorted(T,xlim[1])
+        T = self.timeData[T_start:T_end]
+        
+        #light_occupancy = np.max(ATOMNO[light_element] - self.chargeData[light_element][0,:]) 
+        #heavy_occupancy = np.max(ATOMNO[heavy_element] - self.chargeData[heavy_element][0,:]) 
+        self.aggregate_charges(charge_difference = False)
+
+        heavy_charge = np.zeros(T.shape[0])
+        for i in range(self.chargeData[heavy_element].shape[1]):
+            heavy_charge += self.chargeData[heavy_element][::every,i][T_start:T_end]*i
+        # for i in range(self.chargeData[k].shape[1]):
+        #     light_charge += self.chargeData[light_element][::every,i][T_start:T_end]*i
+
+        light_undamaged_occupancy = 0
+        light_occupancy = np.zeros(T.shape[0]) # sum total occupancy of all light atoms
+        for a in light_atoms.keys():
+            light_charge = np.zeros(T.shape[0])
+            for i in range(self.chargeData[a].shape[1]):
+                light_charge += self.chargeData[a][::every,i][T_start:T_end]*i
+            light_charge /= np.sum(self.chargeData[a][0])
+            light_occupancy += (ATOMNO[a] - light_charge[T_start:T_end])*light_atoms[a]
+            light_undamaged_occupancy += ATOMNO[a]*light_atoms[a]
+    
+        heavy_charge /= np.sum(self.chargeData[heavy_element][0])
+
+        heavy_occupancy = ATOMNO[heavy_element] - heavy_charge[T_start:T_end]
+
+        #charge_contrast = heavy_occupancy/light_occupancy * light_occupancy[0]/heavy_occupancy[0]
+        #charge_contrast[1:] = (heavy_occupancy-heavy_charge/2)[1:]/light_occupancy[1:] * light_occupancy[0]/heavy_occupancy[0]
+        charge_contrast = heavy_occupancy/light_occupancy
+
+        for data_path, marker in zip(empirical_data_paths,["v","^"]):
+            data = pd.read_csv(data_path)
+            #ax_empirical.scatter(data["x"],data["y"]/data["y"][0])
+            #ax_empirical.scatter(data["x"],data["y"]*2)
+            ax_empirical.scatter(data["x"],data["y"],marker=marker,label=data_path.split("/")[-1].split(".")[0] + " (empirical)",color="black")
+        
+        integration_width = 15
+        probe_delay = self.sim_params["probe_delay"]
+        print(probe_delay)
+        if probe_delay is None:
+            probe_delay = 0
+        t0 = T.searchsorted(probe_delay - integration_width/2)-1
+        t1 = T.searchsorted(probe_delay + integration_width/2)
+        probe_charge_contrast = np.average(charge_contrast[t0:t1]*self.intensityData[t0:t1])/np.average(self.intensityData[t0:t1])  # Intensity scaled charge contrast
+        heavy_charge_average = np.average(heavy_charge[t0:t1]*self.intensityData[t0:t1])/np.average(self.intensityData[t0:t1]) 
+            
+        print(f"Average intensity: {np.average(self.intensityData[t0:t1])}")
+        print(f"{T[t0]} - {T[t1]}: {probe_charge_contrast}")
+        print(f"heavy charge average: {heavy_charge_average}")
+        print(f"At {T[T.searchsorted(probe_delay)-1]}: {charge_contrast[T.searchsorted(probe_delay)-1]}")
+
+            
+        #custom_t = [0,29.9574,59.982] 
+        #custom_y = [0.34285479364973226,0.4434759147359096]
+        #custom_y = [0.29241842981170996,0.34214430893035647,0.44437153747355657]
+        custom_t = [0,35,37,62,102,112] 
+        #custom_y = [0.28196016600041535,0.2687935919145067,0.31047748887645915] # carbon and nitrogen
+        #custom_y = [0.45430431140516103,0.42222858315878126, 0.419314765370841, 0.47816936597875637, 0.596553251732814,0.5612165074910774] # carbons only
+        custom_y = [0.1947934472564716,0.18438081597884143,0.18437471379127424,0.22363468196832334,0.27827668422926405,0.25594619594422835] # carbons only
+        custom_heavy_charge = [16.858574754026474,42.50503474437394,43.19043317033858,42.62398223939261,39.49474806434147,42.34485895196332]
+        ax_theoretical.scatter(custom_t,custom_y,label="AC4DC",color="white",edgecolors="black")
+
+        pulse_energy = [0.33,0.95/2,0.99/2,0.95/2,0.79/2,0.93/2]
+        
+        
+
+
+
+        ax_heavy_charge.yaxis.label.set_color(heavy_col)        
+        ax_heavy_charge.tick_params(colors=heavy_col)        
+        ax_heavy_charge.scatter(custom_t,ATOMNO[heavy_element] - np.array(custom_heavy_charge),color=heavy_col,marker=",", label = "Gd occupancy")#,label="Gd charge")
+        
+        #ax.plot(T,charge_contrast,color=charge_contrast_col,**kwargs)
+        ax.set_xlabel("Probe pulse delay (fs)")
+
+
+
+        #ax_empirical.set_ylabel(r"Charge contrast", color = charge_contrast_col) 
+        ax.set_ylabel(r"Electron density Gd / C$_{20}$N$_{10}$O$_{10}$") 
+        ax_heavy_charge.set_ylabel(r"Gd occupancy", color = heavy_col)
+        old_ytop = ax.get_ylim()[1]
+        ax.set_ylim(ylim)
+        ax.set_xlim(xlim)
+        ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
+        #ax_heavy_charge.set_ylim([0,ax_heavy_charge.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
+        ax_heavy_charge.set_ylim([0,55])
+        ax_empirical.set_ylim(ax.get_ylim())
+        ax_theoretical.set_ylim(ax.get_ylim())
+
+
+
+        labels = []
+        handles = []
+        for axis in [ax_empirical,ax_theoretical]:
+            h, l = axis.get_legend_handles_labels()
+            labels.extend(l)
+            handles.extend(h)
+        
+        #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)
+        lgd = None
+        extra_artists = [] 
+        if plot_legend:
+            extra_artists.append(
+                ax.legend(handles,labels,loc = "upper left",ncols=3,columnspacing = 1,handletextpad=0.5,bbox_to_anchor=(0,1.25),borderpad=0.3))
+
+            pass
+        return ax, extra_artists
+
+
+    def plot_charge_contrast(self,heavy_element,light_element, every=1, xlim=[None,None],ylim=[None,None],ylim_heavy = [None,None],plot_legend=True,legend_loc='upper left',cmap=None,empirical_data_paths=[],**kwargs):
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=True)
+        ax_heavy_charge = ax.twinx()     
+        ax_empirical = ax.twinx() 
+        ax2.get_yaxis().set_ticks([])
+        ax_empirical.get_yaxis().set_ticks([])
+
+
+        # 10 amino acids
+        light_atoms = dict(
+            C = 20,
+            N = 10,
+            O = 10,
+        )  
+        
+
+        T = self.timeData[::every]
+        T_start = 0
+        if xlim[0] is not None:
+            T_start = np.searchsorted(T,xlim[0])
+        T_end = len(T)
+        if xlim[1] is not None:
+            T_end = np.searchsorted(T,xlim[1])
+        T = self.timeData[T_start:T_end]
+
+        ax.set_xlim([T[T_start],T[T_end-1]])
+        
+        #light_occupancy = np.max(ATOMNO[light_element] - self.chargeData[light_element][0,:]) 
+        #heavy_occupancy = np.max(ATOMNO[heavy_element] - self.chargeData[heavy_element][0,:]) 
+        self.aggregate_charges(charge_difference = False)
+
+        light_undamaged_occupancy = 0
+        light_occupancy = np.zeros(T.shape[0]) # sum total occupancy of all light atoms
+        for a in light_atoms.keys():
+            light_charge = np.zeros(T.shape[0])
+            for i in range(self.chargeData[a].shape[1]):
+                light_charge += self.chargeData[a][::every,i][T_start:T_end]*i
+            light_charge /= np.sum(self.chargeData[a][0])
+            light_occupancy += (ATOMNO[a] - light_charge[T_start:T_end])*light_atoms[a]
+            light_undamaged_occupancy += ATOMNO[a]*light_atoms[a]
+
+        heavy_charge = np.zeros(T.shape[0])
+        for i in range(self.chargeData[heavy_element].shape[1]):
+            heavy_charge += self.chargeData[heavy_element][::every,i][T_start:T_end]*i
+        # for i in range(self.chargeData[k].shape[1]):
+        #     light_charge += self.chargeData[light_element][::every,i][T_start:T_end]*i
+
+
+
+        heavy_charge /= np.sum(self.chargeData[heavy_element][0])
+        
+        heavy_occupancy = ATOMNO[heavy_element] - heavy_charge[T_start:T_end]
+
+        # heavy_charge = np.zeros(T.shape[0])
+        # light_charge = np.zeros(T.shape[0])
+        # for i in range(self.chargeData[heavy_element].shape[1]):
+        #     heavy_charge += self.chargeData[heavy_element][::every,i][T_start:T_end]*i
+        # for i in range(self.chargeData[light_element].shape[1]):
+        #     light_charge += self.chargeData[light_element][::every,i][T_start:T_end]*i
+        # heavy_charge /= np.sum(self.chargeData[heavy_element][0])
+        # light_charge /= np.sum(self.chargeData[light_element][0])
+        # heavy_occupancy = ATOMNO[heavy_element] - heavy_charge[T_start:T_end]
+        # light_occupancy = ATOMNO[light_element] - light_charge[T_start:T_end]
+
+        # charge_contrast = heavy_occupancy/light_occupancy * light_occupancy[0]/heavy_occupancy[0]
+        # #charge_contrast[1:] = (heavy_occupancy-heavy_charge/2)[1:]/light_occupancy[1:] * light_occupancy[0]/heavy_occupancy[0]
+        # #charge_contrast*=0.5
+        # ax.set_ylabel(r"Charge contrast", color = charge_contrast_col)
+
+        charge_contrast = heavy_occupancy/light_occupancy
+        
+        
+
+
+
+        for data_path in empirical_data_paths:
+            data = pd.read_csv(data_path)
+            #ax_empirical.scatter(data["x"],data["y"]/data["y"][0])
+            #ax_empirical.scatter(data["x"],data["y"]*2)
+        
+
+
+        if cmap is None:
+            cmap = "tab10"
+        charge_contrast_col = plt.get_cmap(cmap)(0)
+        heavy_col = plt.get_cmap(cmap)(2)
+        ax_heavy_charge.plot(T,heavy_occupancy,color=heavy_col,**kwargs)
+        ax.plot(T,charge_contrast,color=charge_contrast_col,**kwargs)
+        ax.set_ylabel(r"Electron density Gd / C$_{20}$N$_{10}$O$_{10}$",color = charge_contrast_col) 
+        ax_heavy_charge.set_ylabel(r"Gd occupancy", color = heavy_col)        
+        ax_heavy_charge.yaxis.label.set_color(heavy_col)        
+        ax_heavy_charge.tick_params(colors=heavy_col)        
+        ax.tick_params(axis="y",colors=charge_contrast_col)        
+        old_ytop = ax.get_ylim()[1]
+        ax.set_ylim(ylim)
+        ax.set_xlim(xlim)
+        ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
+        ax_heavy_charge.set_ylim(ylim_heavy)
+        ax_empirical.set_ylim(ax.get_ylim())
+
+
+        LF_ion_per_atom = 0.1
+        HF_ion_per_atom = 0.5
+        LF_light_occ = light_undamaged_occupancy-LF_ion_per_atom*40
+        HF_light_occ = light_undamaged_occupancy-HF_ion_per_atom*40
+        LF_heavy_occ = 57
+        HF_heavy_occ = 32
+
+        galli_LF_EDR = LF_heavy_occ/LF_light_occ
+        galli_HF_EDR = HF_heavy_occ/HF_light_occ
+        
+        AC4DC_LF_EDR = 0.22448807690021502
+        AC4DC_HF_EDR = 0.14357845509910588
+
+        galli_difference = 8.8
+
+        # Assume AC4DC matches
+        galli_LF_EDR_observed = AC4DC_LF_EDR 
+
+        expected = galli_LF_EDR
+        observed = galli_LF_EDR_observed
+        ax.plot(T,[expected,]*len(T),color="black",linestyle="dashed",label="Expected (Galli $\text{\textit{et al.}}$)")
+        ax.plot(T,[observed,]*len(T),color="black",linestyle="dashed",label="Observed (Galli $\text{\textit{et al.}}$)")
+
+
+
+        num_traces = 2
+        num_cols = 1+round(num_traces/30-num_traces%30/30)
+        #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)
+        if plot_legend:
+            #ax.legend(loc = legend_loc)
+            pass
+        return ax
+
+    def plot_charge_contrast_custom_thing_old(self,heavy_element,every=1, xlim=[None,None], plot_legend=True,cmap=None,empirical_data_paths=[],**kwargs):
+        plot_pulse_energy = False
+        ylim=[None,None]
+        ylim = [0,0.7]
+        if cmap is None:
+            cmap = "tab10"
+        #charge_contrast_col = plt.get_cmap(cmap)(0)
+        heavy_col = plt.get_cmap(cmap)(2)
+        pulse_energy_col = "red"
+
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=False)
+        #ax_heavy_charge = ax.twinx()  
+        ax_pulse_energy = ax.twinx()   
+        ax_empirical = ax.twinx() 
+        ax_theoretical = ax.twinx() 
+        ax_theoretical.get_yaxis().set_ticks([])
+        ax_empirical.get_yaxis().set_ticks([])
+        ax2.get_yaxis().set_ticks([])
+
+        # 10 amino acids
+        light_atoms = dict(
+            C = 20,
+            N = 10,
+            O = 10,
+        )  
+        
+
+        T = self.timeData[::every]
+        T_start = 0
+        if xlim[0] is not None:
+            T_start = np.searchsorted(T,xlim[0])
+        T_end = len(T)
+        if xlim[1] is not None:
+            T_end = np.searchsorted(T,xlim[1])
+        T = self.timeData[T_start:T_end]
+        
+        #light_occupancy = np.max(ATOMNO[light_element] - self.chargeData[light_element][0,:]) 
+        #heavy_occupancy = np.max(ATOMNO[heavy_element] - self.chargeData[heavy_element][0,:]) 
+        self.aggregate_charges(charge_difference = False)
+
+        heavy_charge = np.zeros(T.shape[0])
+        for i in range(self.chargeData[heavy_element].shape[1]):
+            heavy_charge += self.chargeData[heavy_element][::every,i][T_start:T_end]*i
+        # for i in range(self.chargeData[k].shape[1]):
+        #     light_charge += self.chargeData[light_element][::every,i][T_start:T_end]*i
+
+        light_undamaged_occupancy = 0
+        light_occupancy = np.zeros(T.shape[0]) # sum total occupancy of all light atoms
+        for a in light_atoms.keys():
+            light_charge = np.zeros(T.shape[0])
+            for i in range(self.chargeData[a].shape[1]):
+                light_charge += self.chargeData[a][::every,i][T_start:T_end]*i
+            light_charge /= np.sum(self.chargeData[a][0])
+            light_occupancy += (ATOMNO[a] - light_charge[T_start:T_end])*light_atoms[a]
+            light_undamaged_occupancy += ATOMNO[a]*light_atoms[a]
+    
+        heavy_charge /= np.sum(self.chargeData[heavy_element][0])
+
+        heavy_occupancy = ATOMNO[heavy_element] - heavy_charge[T_start:T_end]
+
+        #charge_contrast = heavy_occupancy/light_occupancy * light_occupancy[0]/heavy_occupancy[0]
+        #charge_contrast[1:] = (heavy_occupancy-heavy_charge/2)[1:]/light_occupancy[1:] * light_occupancy[0]/heavy_occupancy[0]
+        charge_contrast = heavy_occupancy/light_occupancy
+
+        for data_path, marker in zip(empirical_data_paths,["v","^"]):
+            data = pd.read_csv(data_path)
+            #ax_empirical.scatter(data["x"],data["y"]/data["y"][0])
+            #ax_empirical.scatter(data["x"],data["y"]*2)
+            ax_empirical.scatter(data["x"],data["y"],marker=marker,label=data_path.split("/")[-1].split(".")[0] + " (empirical)",color="black")
+        
+        integration_width = 15
+        probe_delay = self.sim_params["probe_delay"]
+        print(probe_delay)
+        if probe_delay is None:
+            probe_delay = 0
+        t0 = T.searchsorted(probe_delay - integration_width/2)-1
+        t1 = T.searchsorted(probe_delay + integration_width/2)
+        probe_charge_contrast = np.average(charge_contrast[t0:t1]*self.intensityData[t0:t1])/np.average(self.intensityData[t0:t1])  # Intensity scaled charge contrast
+        heavy_charge_average = np.average(heavy_charge[t0:t1]*self.intensityData[t0:t1])/np.average(self.intensityData[t0:t1]) 
+            
+        print(f"Average intensity: {np.average(self.intensityData[t0:t1])}")
+        print(f"{T[t0]} - {T[t1]}: {probe_charge_contrast}")
+        print(f"heavy charge average: {heavy_charge_average}")
+        print(f"At {T[T.searchsorted(probe_delay)-1]}: {charge_contrast[T.searchsorted(probe_delay)-1]}")
+
+            
+        #custom_t = [0,29.9574,59.982] 
+        #custom_y = [0.34285479364973226,0.4434759147359096]
+        #custom_y = [0.29241842981170996,0.34214430893035647,0.44437153747355657]
+        custom_t = [0,35,37,62,102,112] 
+        #custom_y = [0.28196016600041535,0.2687935919145067,0.31047748887645915] # carbon and nitrogen
+        #custom_y = [0.45430431140516103,0.42222858315878126, 0.419314765370841, 0.47816936597875637, 0.596553251732814,0.5612165074910774] # carbons only
+        custom_y = [0.1947934472564716,0.18438081597884143,0.18437471379127424,0.22363468196832334,0.27827668422926405,0.25594619594422835] # carbons only
+        custom_heavy_charge = [16.858574754026474,42.50503474437394,43.19043317033858,42.62398223939261,39.49474806434147,42.34485895196332]
+        custom_heavy_edr = (ATOMNO[heavy_element]-np.array(custom_heavy_charge))/light_undamaged_occupancy
+        ax_theoretical.scatter(custom_t,custom_y,label="Simulation (all damage)",color="white",edgecolors="black")
+        ax_theoretical.scatter(custom_t,custom_heavy_edr,label="Simulation (Gd damage only)",color=heavy_col,marker=",")
+
+        pulse_energy = [0.33,0.95/2,0.99/2,0.95/2,0.79/2,0.93/2]
+        
+        
+
+
+
+        #ax_heavy_charge.yaxis.label.set_color(heavy_col)        
+        #ax_heavy_charge.tick_params(colors=heavy_col)        
+        #ax_heavy_charge.scatter(custom_t,ATOMNO[heavy_element] - np.array(custom_heavy),color=heavy_col,marker=",")#,label="Gd charge")
+        
+        #ax.plot(T,charge_contrast,color=charge_contrast_col,**kwargs)
+        ax.set_xlabel("Probe pulse delay (fs)")
+
+
+
+        #ax_empirical.set_ylabel(r"Charge contrast", color = charge_contrast_col) 
+        ax.set_ylabel(r"Electron density Gd / light atoms") # should note that empirical and theoretical have different definitions.
+        #ax_heavy_charge.set_ylabel(r"Gd occupancy", color = heavy_col)
+        ax_pulse_energy.tick_params(colors=pulse_energy_col)        
+        ax_pulse_energy.set_ylabel(r"Pulse energy (mJ)", color = pulse_energy_col)
+        old_ytop = ax.get_ylim()[1]
+        ax.set_ylim(ylim)
+        ax.set_xlim(xlim)
+        ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
+        #ax_heavy_charge.set_ylim([0,ax_heavy_charge.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
+        #ax_heavy_charge.set_ylim([10,50])
+        ax_pulse_energy.set_ylim([0,1])
+        ax_empirical.set_ylim(ax.get_ylim())
+        ax_theoretical.set_ylim(ax.get_ylim())
+
+        ax_pulse_energy.scatter(custom_t,pulse_energy,marker="x",color=pulse_energy_col,label = "Probe energy",linewidths=1,s=15)
+        ax_pulse_energy.scatter(custom_t[1:],pulse_energy[1:],marker="+",color=pulse_energy_col,label = "Pump energy",linewidths=1)
+
+
+        labels = []
+        handles = []
+        for axis in [ax_empirical,ax_theoretical]:
+            h, l = axis.get_legend_handles_labels()
+            labels.extend(l)
+            handles.extend(h)
+        
+        #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)
+        lgd = None
+        extra_artists = [] 
+        if plot_legend:
+            extra_artists.append(
+                ax.legend(handles,labels,loc = "upper left",ncols=2,columnspacing = 0,bbox_to_anchor=(-0.07,1.25),borderpad=0.3))
+            extra_artists.append(
+                ax_pulse_energy.legend(loc = "upper left",ncols=1,columnspacing = 0,bbox_to_anchor=(0.74,1.25),borderpad=0.4))
+
+            pass
+        return ax, extra_artists
+
+
+
+    # def plot_charge_contrast_old(self,heavy_element,light_element, every=1, xlim=[None,None],ylim=[None,None],plot_legend=True,legend_loc='upper left',cmap=None,empirical_data_paths=[],**kwargs):
+    #     ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=False)
+    #     ax_heavy_charge = ax.twinx()     
+    #     ax_empirical = ax.twinx() 
+
+    #     T = self.timeData[::every]
+    #     T_start = 0
+    #     if xlim[0] is not None:
+    #         T_start = np.searchsorted(T,xlim[0])
+    #     T_end = len(T)
+    #     if xlim[1] is not None:
+    #         T_end = np.searchsorted(T,xlim[1])
+    #     T = self.timeData[T_start:T_end]
+        
+    #     #light_occupancy = np.max(ATOMNO[light_element] - self.chargeData[light_element][0,:]) 
+    #     #heavy_occupancy = np.max(ATOMNO[heavy_element] - self.chargeData[heavy_element][0,:]) 
+    #     self.aggregate_charges(charge_difference = False)
+
+    #     heavy_charge = np.zeros(T.shape[0])
+    #     light_charge = np.zeros(T.shape[0])
+    #     for i in range(self.chargeData[heavy_element].shape[1]):
+    #         heavy_charge += self.chargeData[heavy_element][::every,i][T_start:T_end]*i
+    #     for i in range(self.chargeData[light_element].shape[1]):
+    #         light_charge += self.chargeData[light_element][::every,i][T_start:T_end]*i
+    #     heavy_charge /= np.sum(self.chargeData[heavy_element][0])
+    #     light_charge /= np.sum(self.chargeData[light_element][0])
+    #     heavy_occupancy = ATOMNO[heavy_element] - heavy_charge[T_start:T_end]
+    #     light_occupancy = ATOMNO[light_element] - light_charge[T_start:T_end]
+
+    #     charge_contrast = heavy_occupancy/light_occupancy * light_occupancy[0]/heavy_occupancy[0]
+    #     charge_contrast[1:] = (heavy_occupancy-heavy_charge/2)[1:]/light_occupancy[1:] * light_occupancy[0]/heavy_occupancy[0]
+    #     charge_contrast*=0.5
+        
+
+    #     for data_path in empirical_data_paths:
+    #         data = pd.read_csv(data_path)
+    #         #ax_empirical.scatter(data["x"],data["y"]/data["y"][0])
+    #         #ax_empirical.scatter(data["x"],data["y"]*2)
+        
+
+
+    #     if cmap is None:
+    #         cmap = "tab10"
+    #     charge_contrast_col = plt.get_cmap(cmap)(0)
+    #     heavy_col = plt.get_cmap(cmap)(2)
+        
+    #     ax_heavy_charge.plot(T,heavy_charge,color=heavy_col,**kwargs)
+    #     ax.plot(T,charge_contrast,color=charge_contrast_col,**kwargs)
+
+    #     ax.set_ylabel(r"Charge contrast", color = charge_contrast_col)
+    #     ax_heavy_charge.set_ylabel(r"Gd charge", color = heavy_col)
+    #     old_ytop = ax.get_ylim()[1]
+    #     ax.set_ylim(ylim)
+    #     ax.set_xlim(xlim)
+    #     ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
+    #     ax_heavy_charge.set_ylim([0,ax_heavy_charge.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
+    #     ax_empirical.set_ylim(ax.get_ylim())
+
+
+
+
+    #     num_traces = 2
+    #     num_cols = 1+round(num_traces/30-num_traces%30/30)
+    #     #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)
+    #     if plot_legend:
+    #         ax.legend(loc = legend_loc)
+    #         pass
+    #     return ax
         
     def plot_free(self, N=100, log=True, cmin = 1e-9, cmax=None, every = None,mask_below_min=True,cmap='magma',ylim=[None,None],ymax=np.Infinity,leonov_style = False,keV=False,ylog=False):
         ax = self.get_next_ax()
