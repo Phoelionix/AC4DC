@@ -60,7 +60,7 @@ public:
     state_type& operator=(const double x);
     // state_type& operator=(const state_type& s2);
 
-    double norm() const;
+    double norm(size_t _c) const;
 
     // Defines number and style of atomP
     // Resizes the container to fit all of the states present in the atom ensemble

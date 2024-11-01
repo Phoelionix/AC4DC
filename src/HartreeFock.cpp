@@ -174,6 +174,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 		while (E_rel_change[single_orb_idx] > HF_tolerance) {
 			if (m > 20) {
 				log << "Starting approximation does not converge... " << endl;
+				throw std::runtime_error("Starting single shell approximation didn't converge."); // Added throw because suspect this causes really bad behaviour.
 				break;
 			}
 

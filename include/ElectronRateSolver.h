@@ -62,7 +62,8 @@ public:
         param_cutoffs = input_params.param_cutoffs;
         
         pf.set_shape(input_params.pulse_shape);
-        pf.set_pulse(input_params.Fluence(), input_params.Width());
+        //pf.set_pulse(input_params.Fluence(), input_params.Width());
+        pf.set_pulse(input_params.Fluence(), input_params.Width(),input_params.ProbeDelay());
         
         timespan_au = round_time(input_params.timespan_factor*input_params.Width()); // 0 by default
         if (input_params.pulse_shape ==  PulseShape::square){  //-FWHM <= t <= 3FWHM (we've squished the pulse into the first FWHM.)
@@ -78,7 +79,7 @@ public:
                 simulation_start_time = -input_params.negative_timespan_factor*input_params.Width();
         }
         simulation_start_time = round_time(simulation_start_time);
-        simulation_end_time =  simulation_start_time + timespan_au; 
+        simulation_end_time =  simulation_start_time + timespan_au + max((double)0,input_params.ProbeDelay()); 
         std::cout<<"\033[33m"<<"Imaging from "<<simulation_start_time/input_params.Width() <<" FWHM to " 
         << simulation_end_time/input_params.Width() <<" FWHM"<<"\033[0m"<<std::endl;
         

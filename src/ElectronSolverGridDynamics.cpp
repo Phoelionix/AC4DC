@@ -57,7 +57,7 @@ double ElectronRateSolver::approx_nearest_peak(size_t step, double start_energy,
     double e = start_energy;
     double local_max = -1;
     double max_density = -1;
-    double last_density = y[step].F(start_energy)*start_energy;
+    double last_density = y[step].F(0,start_energy)*start_energy;
     size_t ascended_count = 0; // make sure we go up. We require it goes up min_sequential times to tie both these approaches to addressing instability to the same parameter.
     size_t num_sequential = 0;
     if(min_sequential < 1) min_sequential = 1;
@@ -69,7 +69,7 @@ double ElectronRateSolver::approx_nearest_peak(size_t step, double start_energy,
         if (e > max){
             local_max = max; break;}
 
-        double density = y[step].F(e)*e;  //  electron energy density divided by local knot width. TODO multiply by local knot width.
+        double density = y[step].F(0,e)*e;  //  electron energy density divided by local knot width. TODO multiply by local knot width.
         if(density < last_density && ascended_count >= min_sequential){
             if (num_sequential == 0){
                 local_max = e - del_energy;
@@ -100,7 +100,7 @@ double ElectronRateSolver::approx_nearest_trough(size_t step, double start_energ
     double e = start_energy;
     double local_min = -1;
     double min_density = INFINITY;
-    double last_density = y[step].F(start_energy)*start_energy;
+    double last_density = y[step].F(0,start_energy)*start_energy;
     size_t descended_count = 0; // make sure we go up. We require it goes up min_sequential times to give a correlation with this param designed to address instability.
     size_t num_sequential = 0;
     if(min_sequential < 1) min_sequential = 1;
@@ -112,7 +112,7 @@ double ElectronRateSolver::approx_nearest_trough(size_t step, double start_energ
         if (e > max){
             local_min = max; break;}
 
-        double density = y[step].F(e)*e;  //  electron energy density.
+        double density = y[step].F(0,e)*e;  //  electron energy density.
         if(density > last_density && descended_count >= min_sequential){
             if (num_sequential == 0){ // local min is the first in the run of ascending.
                 local_min = e - del_energy;
@@ -147,7 +147,7 @@ double ElectronRateSolver::nearest_inflection(size_t step, double start_energy,d
     // Initialise
     double e = start_energy;
     double inflection = -1;
-    double last_density = y[step].F(start_energy)*start_energy;
+    double last_density = y[step].F(0,start_energy)*start_energy;
     double last_grad = 0;
     size_t num_sequential = 0;    
     if(min_sequential < 1) min_sequential = 1;
@@ -158,7 +158,7 @@ double ElectronRateSolver::nearest_inflection(size_t step, double start_energy,d
             inflection = min; break;}
         if (e > max){
             inflection = max; break;}
-        double density = y[step].F(e)*e; // electron energy density
+        double density = y[step].F(0,e)*e; // electron energy density
         double mag_grad = abs((density - last_density)/del_energy);  // Should be fine unless we have extremely bad behaviour.
         if(mag_grad <= last_grad){
             if (num_sequential == 0){
@@ -211,7 +211,7 @@ double ElectronRateSolver::approx_regime_peak(size_t step, double lower_bound, d
     double peak_e = -1;
     // Seek maximum between low and upper bound.
     while (e < upper_bound){
-        double density = y[step].F(e)*e; // electron energy density
+        double density = y[step].F(0,e)*e; // electron energy density
         if (density > peak_density){
             peak_density = density;
             peak_e = e;
@@ -258,7 +258,7 @@ std::vector<double> ElectronRateSolver::approx_regime_peaks(size_t step, double 
                     continue;
                 }
             }          
-            double density = y[step].F(e)*e; // electron energy density
+            double density = y[step].F(0,e)*e; // electron energy density
             if (peak_density < density){
                 //assert(density <= last_peak_density);
                 peak_density = density;
@@ -294,7 +294,7 @@ double ElectronRateSolver::approx_regime_trough(size_t step, double lower_bound,
             second_last_point_is_min = false;
         else
             last_point_is_min = false;
-        double density = y[step].F(e)*e; // electron energy density
+        double density = y[step].F(0,e)*e; // electron energy density
         if (density < trough_density && density > 0){
             trough_density = density;
             trough_e = e;

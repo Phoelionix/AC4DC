@@ -1142,7 +1142,7 @@ class XFEL():
                 times_used = species.times_used
             if (times_used[-1] == times_used[0]):   
                 raise Exception("Intensity array's final time equals its initial time")                  
-            # Technically sum of F(t)*sqrt(J(t)), where F = sum(f(q,t)*T(q)), and J(t) is the incident intensity, thus accounting for the pulse profile.
+            # Technically sum of F(t)*sqrt(J(t)), where F = sum(f(q,t)*T(q)), and J(t) is the incident intensity, thus accounting for the pulse profile. (J(t) is accounted for in get_stochastic_f)
             F_sum = np.zeros(F_shape,dtype="complex_")  
             for species in self.target.species_dict.values():
                 print("------------------------------------------------------------")
@@ -1165,7 +1165,7 @@ class XFEL():
                         # Rotate to target's current orientation 
                         # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
                         R = np.array(species.coords[relative_atm_idx[0]:relative_atm_idx[-1]+1]) 
-                        coord = self.target.get_sym_xfmed_point(R,s)  + species.error[atm_idx] # dim = [ N, 3], where N is number of coords.
+                        coord = self.target.get_sym_xfmed_point(R,s)  + species.error[relative_atm_idx] # dim = [ N, 3], where N is number of coords.
                         coord = coord @ self.x_rot_matrix  
                         coord = coord @ self.y_rot_matrix
                         coord = coord @ self.z_rot_matrix
@@ -1226,7 +1226,7 @@ class XFEL():
         I*= r_e_sqr*(1/2)*(1+np.square(np.cos(2*thet))) 
 
         if SPI:
-            # For crystal we can approximate infinitely small pixels and just consider bragg points. (i.e. The intensity will be the same so long as the pixel isn't covering multiple points.)
+            # For crystal we can approximate infinitely small pixels and just consider bragg points.
             # But for SPI need to take the pixel's size into account. Neutze 2000 makes the following approximation:
             I *=  SPI_proj_solid_angle    # equiv. to *= solid_angle
         

@@ -25,20 +25,29 @@ from QoL import set_highlighted_excepthook
 ####
 ELECTRON_DENSITY = False # Whether to use electron density for free distribution plots. Energy density if False
 ###
-PLOT_ELEMENT_CHARGE= False  #
-PLOT_FREE_CONTINUUM = True
+PLOT_ELEMENT_CHARGE= True #
+PLOT_FREE_CONTINUUM = False
 PLOT_FREE_SLICES=False
 PLOT_ION_RATIOS=False
-PLOT_ION_RATIOS_BARS=False
-PLOT_ORBITAL_DENSITIES = False  #
+PLOT_ION_RATIOS_BARS= False
+PLOT_ORBITAL_DENSITIES = True #
 PLOT_PHOTO_RATES = False
 ###
 COLUMNWIDTH = 3.4975
-FIGWIDTH = COLUMNWIDTH#/2
-FIGHEIGHT = FIGWIDTH*1/2#*9/16
+
+
+# FIGWIDTH = COLUMNWIDTH#/2
+# FIGHEIGHT = FIGWIDTH*1/2#*9/16
+
+FIGWIDTH = COLUMNWIDTH*1.1
+FIGHEIGHT = FIGWIDTH*9/16
+
+# FIGWIDTH = COLUMNWIDTH/2
+# FIGHEIGHT = FIGWIDTH*9/16
+
 DPI = 800
 ##
-END_T = None#None
+END_T = None
 ##
 def main():
     set_highlighted_excepthook()
@@ -78,8 +87,13 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     fname_free = "free"
     fname_HR_style = "HR_style"
     fname_bound_dynamics = "bound_dynamics"
+    load_specific_atoms = None#["Fe_singleShell","C"] #None #["C","N","O"] #None  # If plotting free dsitribution, will combine the contributions from those specified here (e.g. if "C","N" then dist_C.csv and dist_N.csv ). If none is specified, will just use the full continuum freeDist.csv.
+    if load_specific_atoms is not None:
+        label+="_"
+        for elem in load_specific_atoms:
+            label+=elem
 
-    pl = Plotter(mol_name,sim_output_parent_dir,use_electron_density = ELECTRON_DENSITY,end_t = END_T)
+    pl = Plotter(mol_name,sim_output_parent_dir,use_electron_density = ELECTRON_DENSITY,end_t = END_T,load_specific_atoms=load_specific_atoms)
     num_atoms = len(pl.statedict)
     num_subplots = tot_charge + free + free_slices + bound_ionisation_bar + (bound_ionisation+ orbital_densities_bar+ photo_rates)*num_atoms 
     pl.setup_axes(num_subplots)
@@ -88,22 +102,25 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         pl.fig.subplots_adjust(left=0.12/pl.axs.shape[0], bottom=None, right=None, top=None, wspace=0.2, hspace=None)
 
     if tot_charge: 
-        #pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=True,legend_loc="best")  
+        #NOTE ensure load_specific_atoms is None or does not exclude `atoms` if `atoms` is passed.
+        pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=False,legend_loc="best")  
         #pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O"])  
         #pl.plot_tot_charge(ylim=[0,6],every=1,charge_difference=False,legend_loc="best",atoms=["C","N","O"])  
         #pl.plot_tot_charge(ylim=[0,6],plot_legend=False,every=1,charge_difference=True,legend_loc="best")  
-        pl.plot_tot_charge(ylim=[0,1],plot_legend=False,every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O","S","Gd_fast"])  
-        #pl.plot_tot_charge(ylim=[0,1],plot_legend=False,every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O","S"])  
+        #pl.plot_tot_charge(ylim=[0,6],plot_legend=False,every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O","S","Gd_fast"])  
+        #pl.plot_tot_charge(ylim=[0,1.1],plot_legend=False,every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O","S","Gd_fast"])  
+        #pl.plot_tot_charge(ylim=[0,1.1],plot_legend=False,every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O","S"])  
         #pl.plot_tot_charge(ylim=[0,6],plot_legend=False,every=1,charge_difference=False,legend_loc="best",atoms=["C","N","O","S"])  
         #pl.plot_tot_charge(ylim=[0,2.5],plot_legend=False,every=1,charge_difference=True,scale_intensity=0.939)  #TODO automatically set to charge_difference to True if starting with ions...
         #pl.plot_tot_charge(ylim=[0,2.5],xlim=[-15.5,0.5],plot_legend=False,every=1,charge_difference=True)  #TODO automatically set to charge_difference to True if starting with ions...
  
 
     if bound_ionisation_bar:
-        pl.plot_charges_bar("C",show_pulse_profile=False)
+        pl.plot_charges_bar("Cr_LDA",show_pulse_profile=True)
         #plt.gcf().set_figwidth(15)        
     if orbital_densities_bar:
-        pl.plot_orbitals_bar(atoms=None,atoms_excluded=["N","O"],show_pulse_profile=True,normalise = True)
+        pl.plot_orbitals_bar(atoms=None,atoms_excluded=None,show_pulse_profile=False,normalise = True)
+        #pl.plot_orbitals_bar(atoms=None,atoms_excluded=["N","O"],show_pulse_profile=False,normalise = True)
         #pl.plot_orbitals_bar("Gd_fast",show_pulse_profile=True,orbitals=["3p","4p","5p"])
     if photo_rates:
         pl.plot_photoionisation(atoms=None,show_pulse_profile=True)
@@ -125,7 +142,8 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         # pl.fig.set_figheight(6*0.7)  
         
     if free:
-        pl.plot_free(log=True,cmin=1e-9,ymax = 12000)
+        #pl.plot_free(log=True,cmin=10**(-7.609),cmax=1e-3,ylim=[10,8000])
+        pl.plot_free(log=True,ylog=False,cmin=10**(-8),cmax=10**(-3.609),ylim=[0,8000],keV=True)
         # #Leonov
         # ymax = 9e3
         # pl.plot_free(log=True, cmin=10**(-6.609),cmax = 10**(-2), every=5,mask_below_min=True,cmap='turbo',ymax=ymax,leonov_style=True)
@@ -268,9 +286,12 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     # pl.ax_steps.set_xlim([0,1800])
     # pl.ax_steps.set_ylim([0.5e-4,0.5])
     pl.delete_remaining_axes()
-    if num_subplots > 1:
+    plt.gcf().set_figheight(FIGHEIGHT*pl.axs.shape[1])
+
+    if num_subplots > 2:
         plt.gcf().set_figwidth(FIGWIDTH*pl.axs.shape[0])
-        plt.gcf().set_figheight(FIGHEIGHT*pl.axs.shape[1])  
+    # elif num_subplots == 2:
+    #     plt.gcf().set_figheight(FIGHEIGHT*pl.axs.shape[0])
     else:
         plt.gcf().set_figwidth(FIGWIDTH)
         plt.gcf().set_figheight(FIGHEIGHT)          
