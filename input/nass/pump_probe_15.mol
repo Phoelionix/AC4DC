@@ -1,11 +1,13 @@
 #ATOMS
-C 1000
-N 125
-O 500
-I_fast 375
+C 613
+N 193
+O 1185
+S 10
+Gd_fast 4
 
 #BOUND_FREE_EXCLUSIONS
-I_fast
+Gd_fast
+S
 
 #VOLUME
 40000        // Volume per molecule in Angstrom^3.
@@ -13,26 +15,27 @@ I_fast
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-9750         // Photon energy in eV.
-10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+7112         // Photon energy in eV.
+15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
-7.2  // total sim time in fwhm
-1.2 // time before pulse peak to start at in fwhm 
+
+#PROBE_PULSE
+15
 
 #USE_COUNT
 true    // active (using count)?
-0.1  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
+1.75  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
 6000      // Initial guess for number of time step points for rate equation.
-24            // Number of threads in OpenMP.
+26            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 M              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
 5.05            // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
-2400         // Number of time steps in the output files.
+800         // Number of time steps in the output files.
 4000        // number of free-electron grid points in output file.
 N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
@@ -44,26 +47,18 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 ####END#####
 
 Notes:
-Pulse energy 90 eV above Zn K edge 
-Intensity was between 8e17 Wcm^-2 and 1.7e^18 Wcm^-2? This file assumes 1.25e18 Wcm^-2. EDIT: 1.5e18 W cm^-2
-W = 6.242e18 eV/s = 6242 eV/fs = 0.64 9.75 keV ph / fs.
-cm^-2 = 10^-8 um^-2
-So 1.25e18*0.64*1e-8 = 8e9 ph/fs at peak
+gadolinium included
 
-Peak power = 0.94*E/FWHM
--> fluence = 10/0.94*8e9 = 8.5e10 ph/um^2
+Parameters approximate (pump) pulse used in Nass et al 2020 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7156470/
+Hen egg-white lysozyme https://files.rcsb.org/pub/pdb/validation_reports/et/4et8/4et8_full_validation.pdf
+Ignores:
+- precipitant (NaCl)
+- surrounding water, which would filter photoelectron distribution in crystal with own.
+    - If photoelectrons aren't slowed by boundary significantly, this is on a timescale shorter 
+    than the pulse.
+- spatial boundary, since the water droplet size is unknown
 
-But if was given as average intensity (like in a square pulse), then the fluence is
-8e9*10 = 8e10
+from many runs, distributions are very well-approximated by low accuracy grid, 
+for the purposes of both a) atomic form factor determination and b) debye length 
+determination for hybrid models.
 
-
-I3C
-C 8
-I 3
-N 1
-O 4
-
-// Maximum intensity
-#USE_INTENSITY
-true         // enabled? true/false.
-0.15            // Maximum intensity in 10^19 * W/cm^2. Will give different fluence between square and gaussian.

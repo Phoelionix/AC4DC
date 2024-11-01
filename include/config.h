@@ -20,7 +20,7 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 //#define NO_PLASMA // Disables all of the above. (i.e. primary - Photo,Auger,Fluoro - ionisation only)
 
 /// Disable features
-//#define NO_PLOTTING // Turns off live saves of the free-electron energy distribution to _live_plot.png. Disables use of python 
+#define NO_PLOTTING // Turns off live saves of the free-electron energy distribution to _live_plot.png. Disables use of python 
 //#define NO_BACKUP_SAVING // Disables the hourly saves of the data to  
 #define TRACK_SINGLE_CONTINUUM // Just track the total electron density. Computationally expensive to turn off. If off, tracks one electron distribution for each species (element) defined in input file, tracking the primary electrons that they release and the secondary electrons those electrons free from ALL species.
 
