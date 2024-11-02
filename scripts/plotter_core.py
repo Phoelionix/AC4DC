@@ -77,6 +77,10 @@ class Plotter:
         self.energyKnot=None
         self.timeData=None
 
+
+        self.allow_select_same_times = False
+        self.flagged_select_same_times = False
+        
         self.get_atoms(load_specific_atoms)
         self.update_outputs()
         self.autorun=False
@@ -342,8 +346,11 @@ class Plotter:
             return val, time_step
         form_factors_sqrt_I,time_steps = np.fromfunction(snapshot,(self.t_fineness,))   # (Need to double check working as expected - not using np.vectorise)
         if len(time_steps) != len(np.unique(time_steps)):
-            print("times used:", time_steps)
-            raise Exception("Error, used same times! Choose a different fineness or a larger range.")
+            print("Times used:", time_steps)
+            if self.allow_select_same_times:
+                print("Warning: Selected same time step multiple times, you may want to choose a different fineness or a larger range!")
+            else:
+                raise Exception("Error, used same times! Choose a different fineness or a larger range.")
         return form_factors_sqrt_I, time_steps
     
 
@@ -436,7 +443,7 @@ class Plotter:
                     orboccs[j] = i 
                     break
                 if i == len(states) - 1:
-                    print("WARNING, cumulative chance topped below 1 (likely insignificant if only happened a few times). Atomic density:", atomic_density, "state densities:",self.boundData[a][idx[j], :])
+                    print("WARNING, cumulative chance topped below 1 (likely insignificant if this message only appeared a few times). Atomic density:", atomic_density, "state densities:",self.boundData[a][idx[j], :])
                     orboccs[j] = i      
         return orboccs,time_steps
 
@@ -484,8 +491,14 @@ class Plotter:
                 raise Exception("Start and end times provided seem to be outside the range of the output data.")
         time_steps = np.fromfunction(snapshot,(self.t_fineness,))
         if len(time_steps) != len(np.unique(time_steps)):
-            print("times used:", time_steps)
-            raise Exception("Error, used same times! Choose a different fineness or a larger range.")
+            if not self.flagged_select_same_times:
+                print("Times used:", time_steps)
+            if self.allow_select_same_times:
+                self.flagged_select_same_times = True
+                if not self.flagged_select_same_times:
+                    print("Warning: Selected same time step multiple times, you may want to choose a different fineness or a larger range!")
+            else:
+                raise Exception("Error, used same times! Choose a different fineness or a larger range.")
         return time_steps      
     def I_avg(self): # average intensity for pulse 
         def snapshot(idx):
