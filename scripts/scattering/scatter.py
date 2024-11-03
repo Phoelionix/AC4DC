@@ -67,6 +67,7 @@ import plotly.graph_objects as go
 import plotly.offline as pltly_offline
 from IPython.display import display, HTML
 from IPython import get_ipython
+from core_functions import get_sim_elements
 interactive = True
 if interactive and __name__ == "__main__":
     get_ipython().run_line_magic('colors', 'nocolor')
@@ -93,19 +94,18 @@ class Custom_Gromacs_Parser():
         def get_atoms(self):
             atoms = []
             with open(self.conf_path) as gromacs_config_file:
+                i = 1
                 for line in gromacs_config_file:
                     if line[0] == " ":
                         vals = line.split()
                         if "." in vals[0]:
                             continue
-
-                        # Sometimes second and third columns aren't separated. Do manualy
-                        if any(char.isdigit() for char in vals[1]) and any(not char.isdigit() for char in vals[1]):
-                            for i, char in enumerate(vals[1]):
-                                if char.isdigit():
-                                    vals.insert(2,vals[1][i:])
-                                    vals[1] = vals[1][:i]
-                                    break
+                            
+                        # After 10k the name and serial number columns are joined together
+                        elif i > 9999:
+                            oom = len(str(i))
+                            vals.insert(2,vals[1][-oom:])
+                            vals[1] = vals[1][:-oom]
                                 
                         atom = PDB_Atom(
                             name = vals[1],
@@ -117,6 +117,8 @@ class Custom_Gromacs_Parser():
                             serial_number = int(vals[2])
                         )
                         atoms.append(atom)
+                        assert(int(vals[2])==i)
+                        i+=1
                     
             return atoms
 
@@ -167,6 +169,7 @@ class Crystal():
         if include_symmetries is None:
             include_symmetries = not self.gromacs_config
         if self.gromacs_config:
+            print("Using gromacs file")
             assert include_symmetries == False
             assert num_supercells == 1
 
@@ -257,7 +260,7 @@ class Crystal():
             if name not in species_dict.keys():
                 species_dict[name] = Atomic_Species(name,self) 
                 pdb_atoms.append(atom.element)
-            species_dict[name].add_atom(R)
+            species_dict[name].add_atom(atom.get_serial_number(),R)
         ac4dc_atoms_ignored = ""
         for string in allowed_atoms:
             if string not in species_dict.keys():
@@ -700,13 +703,14 @@ class Atomic_Species():
         self.crystal = crystal 
         self.ff = 0 # form_factor
         self.coords = []  # coord of each atom in species in asymmetric unit
+        self.serial_numbers = [] # Corresponding serial number of each atom 
 
-    def add_atom(self,vector):
+    def add_atom(self,serial_number,vector):
         '''
         This function adds an atom to the asymmetric unit of the crystal. 
         We do not store additional coordinates, instead storing the symmetries, and an array of atomic states corresponding to each atom, for each symmetry. (so num symmetries * num atoms added)
         '''           
-
+        self.serial_numbers.append(serial_number)
         self.coords.append(vector.get_array()/ang_per_bohr)
         
     def set_stochastic_states(self):

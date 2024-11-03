@@ -418,7 +418,7 @@ class Plotter:
         shielding = SlaterShielding(self.atomic_numbers[atom])    
         return shielding.get_ff(orb_occ_arr,k,orb_occ_dict)       
 
-    def get_random_states(self,time_steps,atom,seed):  
+    def get_random_states(self,time_steps,atom,seed,suppress_error=True):  
         '''
         returns single list of random states corresponding to single atom throughout times.   
         '''
@@ -442,9 +442,9 @@ class Plotter:
                 if cumulative_chance >= roll[j]:
                     orboccs[j] = i 
                     break
-                if i == len(states) - 1:
+                if not suppress_error and i == len(states) - 1:
                     print("WARNING, cumulative chance topped below 1 (likely insignificant if this message only appeared a few times). Atomic density:", atomic_density, "state densities:",self.boundData[a][idx[j], :])
-                    orboccs[j] = i      
+                orboccs[j] = i      
         return orboccs,time_steps
 
     

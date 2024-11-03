@@ -6,16 +6,13 @@ import os.path as path
 sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
 sys.path.append('/home/speno/AC4DC/scripts/scattering')
 from scatter import XFEL,Crystal,stylin
-from core_functions import get_sim_params,get_pdb_path
+from core_functions import get_sim_params,get_sim_elements,get_pdb_path,ATOMNO
 import imaging_params as imaging_params
 import numpy as np
 from scipy import constants as C
 import struct
 
 # Converts AC4DC data to IONIZATION_DATA used for input to MolDStruct CR-MD.
-# Also creates pdb file.
-
-# Note using this requires a modified version of the reading of data in md.c
 
 
 
@@ -42,24 +39,29 @@ def get_random_charge_states(element):
             if SEEDED:
                 seed = idx
             charges[idx] = element.crystal.ff_calculator.random_charge_snapshots(element.name,seed) 
+            #assert np.all(charges.astype(np.ushort)[idx] <= ATOMNO[element.name])
+
     return charges
 
 def binary(num):
     return ''.join('{:0>8b}'.format(c) for c in struct.pack('!f', num))
 
-def create_charge_file(charges,element,subdir_name,output_dir,overwrite=False,hacky_thing=False):
+def create_charge_file(charges,element,save_dir,overwrite=False,csv=False):
     '''
     Generates a
+
     '''
-    print(f"Creating {element} charge file for {subdir_name}")
-    df = pd.DataFrame(charges)
-    # Save as file
-    save_dir = output_dir+subdir_name+"/"
-    os.makedirs(save_dir, exist_ok=True) 
+    save_dir_csv = save_dir
+    save_dir_bin = save_dir + "IONIZATION_DATA/"
+    print(f"Creating {'full' if element is None else element} charge file for {save_dir.split('/')[-1]}")
+    os.makedirs(save_dir_bin, exist_ok=True) 
+    os.makedirs(save_dir_csv, exist_ok=True) 
     if element is None:
-        save_path = save_dir+"charges"
+        save_path = f"{save_dir_bin}charges"
+        save_path_csv = f"{save_dir_csv}charges"
     else:
-        save_path = save_dir+element+'_charges'
+        save_path = f"{save_dir_bin}{element}_charges"
+        save_path_csv = f"{save_dir}{element}_charges"
     
     if os.path.isfile(save_dir): 
         if not overwrite:
@@ -67,40 +69,35 @@ def create_charge_file(charges,element,subdir_name,output_dir,overwrite=False,ha
             return
         os.remove(save_dir)
 
-    if hacky_thing:
-        #!!!!!!!!!!!!!!!TEMPORARY HACKY THING JUST TO TEST
-        old_charges = np.copy(charges)
-        num_atoms = 25072
-        charges = np.empty(shape = (num_atoms,old_charges.shape[1]))
-        for i in range(num_atoms):
-            charges[i] = old_charges[i%old_charges.shape[0]]
-        charges = charges*0+1
-
     # with open(save_path+".bin", "wb") as file:
     #     newFileByteArray = bytearray(charges)
     #     file.write(newFileByteArray)
-    charges.astype(np.ushort).tofile(save_path+".bin") #uint16
+    charges.astype(np.ushort).swapaxes(0,1).tofile(save_path+".bin") #uint16, shape = (num timesteps, num atoms)
     
-    df.to_csv(save_path+".csv", index=False)
+    if csv:
+        df = pd.DataFrame(charges)
+        df.to_csv(save_path_csv+".csv", index=False)
 
     with open(save_path+".bin", "rb") as file:
         n=10
-        print(f"First {n} elements:")
+        print(f"First {n} binary data elements:")
         print(struct.unpack('H'*n, file.read(2*n)))
 
 
-def create_data_file(data,tag,subdir_name,output_dir,overwrite=False):
+def create_data_file(data,tag,save_dir,overwrite=False,csv=False):
     '''
     Generates a
     '''
-    data[0] = data[1]
+    save_dir_csv = save_dir
+    save_dir_bin = save_dir + "IONIZATION_DATA/"
+    
+    data[0] = data[1]  # Patch.
 
-    print(f"Creating {tag} file for {subdir_name}")
-    df = pd.DataFrame(data)
-    # Save as file
-    save_dir = output_dir+subdir_name+"/"
-    os.makedirs(save_dir, exist_ok=True) 
-    save_path = save_dir+tag
+    print(f"Creating {tag} file in {save_dir.split('/')[-1]}")
+    os.makedirs(save_dir_bin, exist_ok=True) 
+    os.makedirs(save_dir_csv, exist_ok=True) 
+    save_path = save_dir+"IONIZATION_DATA/"+tag
+    save_path_csv = save_dir+tag
     if os.path.isfile(save_dir): 
         if not overwrite:
             print("Cannot write, file already present at",save_dir)
@@ -112,11 +109,13 @@ def create_data_file(data,tag,subdir_name,output_dir,overwrite=False):
     #     file.write(newFileByteArray)
     data.astype('float32').tofile(save_path+".bin")
     
-    df.to_csv(save_path+".csv", index=False)
+    if csv:
+        df = pd.DataFrame(data)
+        df.to_csv(save_path_csv+".csv", index=False)
 
     with open(save_path+".bin", "rb") as file:
         n=10
-        print(f"First {n} elements:")
+        print(f"First {n} binary data elements:")
         print(struct.unpack('f'*n, file.read(4*n)))
 
 #PDB_STRUCTURE = get_pdb_path(SCATTER_DIR,"I3C") 
@@ -135,30 +134,40 @@ MOLECULAR_PATH = path.abspath(path.join(SCRIPTS_DIR, "../output/__Molecular/")) 
 SAVE_FOLDER = "test"
 
 
-def charges(): 
+def charges(csv=False,individual_elements = False): 
+    print("Beginning writing of charges...")
 
-
+    out_folder = OUTPUT_PATH + SAVE_FOLDER + "/"
+    
+    num_steps = len(ff_calculator.get_times_used())
     species_charges = {}
     num_atoms = 0
+    print(f"Processing charges at {num_steps} time steps for:")
     for element in crystal.species_dict.keys():
+        print(f"{len(crystal.species_dict[element].serial_numbers)} {element} atoms")
+
+    for element in crystal.species_dict.keys():
+        print(f"{element}...")
         species_charges[element] = get_random_charge_states(crystal.species_dict[element])
         num_atoms += len(species_charges[element])
     
-    combined_charges = np.empty(shape = (num_atoms,len(ff_calculator.get_times_used())))  # (num atoms, times)   
  
-    i = 0
+    # Order charges in order that matches the structure file. 
+    combined_charges = np.empty(shape = (num_atoms,num_steps))  # (num atoms, times)   
+    species_list = np.empty(shape = (num_atoms,),dtype=object)
     for element, charges in species_charges.items():
-        PDB_element = element.split("_")[0]
-        # TODO PLACEHOLDER. Need to sort based on structure/pdb/whatever file.
-        for atom_charges in charges:
-            combined_charges[i] = atom_charges
-            i+=1
-        #create_charge_file(charges,PDB_element,SAVE_FOLDER,OUTPUT_PATH)    # Each row is an atom. each column is a time step.
-    create_charge_file(combined_charges,None,SAVE_FOLDER,OUTPUT_PATH,hacky_thing=False)    # Each row is an atom. each column is a time step.
+        for i, s_num in enumerate(crystal.species_dict[element].serial_numbers):
+            combined_charges[s_num-1] = charges[i]
+            species_list[s_num-1] = element
+
+        if individual_elements:
+            PDB_element = element.split("_")[0]
+            create_charge_file(charges,PDB_element,out_folder,csv=csv)    # Each row is an atom. each column is a time step.
+    create_charge_file(combined_charges,None,out_folder,csv=csv)    # Each row is an atom. each column is a time step.
 
 
 
-def DebyeLength():
+def DebyeLength(csv=False):
     pl = ff_calculator
     
 
@@ -171,27 +180,36 @@ def DebyeLength():
     T = np.array(tempList)
     n = T [: ,1]
     T = T[:,0]
-    print(n)
-    print(T)
+    print("n:",n)
+    print("T:",T)
+
+    # Can ignore if at step 0
+    for i, elem in enumerate(T):
+        if elem <= 0:
+            print(f"Warning, T at step {i} = {elem}")
+    for i, elem in enumerate(n):
+        if elem <= 0:
+            print(f"Warning, n at step {i} = {elem}")
 
     lambdaD=np.sqrt(C.epsilon_0 * C.nano * T *C.eV / n /C.e/C.e) # should have units nm
     #lambdaD=np.sqrt(C.epsilon_0 * C.angstrom * T *C.eV / n /C.e/C.e) # should have units Angstrom
 
-    create_data_file(T*11606,"electron_temperature",SAVE_FOLDER,OUTPUT_PATH) # K
-    create_data_file(n/C.nano**3,"electron_density",SAVE_FOLDER,OUTPUT_PATH) # nm^-3
-    create_data_file(lambdaD,"debye_data",SAVE_FOLDER,OUTPUT_PATH) # nm
+    out_folder = OUTPUT_PATH + SAVE_FOLDER + "/"
+    create_data_file(T*11606,"electron_temperature",out_folder,csv=csv) # K
+    create_data_file(n/C.nano**3,"electron_density",out_folder,csv=csv) # nm^-3
+    create_data_file(lambdaD,"debye_data",out_folder,csv=csv) # nm
 
 
-allowed_atoms = ["C","N","O","I"]
-sim_handle = "nass_probe_37_2"
+sim_handle = "lys_nass_gauss_solvated_with_H_21"
 num_steps = 3800
+allowed_atoms = get_sim_elements(sim_handle)
 
 target = "lys_conf.gro"
 
 
 
 
-crystal = Crystal(TARGET_DIR + target,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=True,**crystal_params)
+crystal = Crystal(TARGET_DIR + target,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=False,**crystal_params)
 
 
 
@@ -210,8 +228,8 @@ crystal.set_ff_calculator(ff_calculator)
 
 
 
-DebyeLength()
-charges()
+DebyeLength(csv=True)
+charges(csv=True)
 
 # class Target(Enum):
 #     UNIT = imaging_params.goldilocks_dict_unit
