@@ -58,7 +58,7 @@ state_type ElectronRateSolver::get_initial_state() {
     assert(initial_condition.atomP.size() == input_params.Store.size());
     for (size_t a=0; a<input_params.Store.size(); a++) {
         initial_condition.atomP[a][0] = input_params.Store[a].nAtoms;
-        for(size_t i=1; i<initial_condition.atomP.size(); i++) {
+        for(size_t i=1; i<initial_condition.atomP[a].size(); i++) {
             initial_condition.atomP[a][i] = 0.;
         }
     }
@@ -1153,5 +1153,5 @@ void ElectronRateSolver::compute_free_grid_rates(){
 void ElectronRateSolver::set_zero_y(){
     // Makes a zero std::vector in a mildly spooky way 
     zero_y = get_initial_state(); // do this to make the underlying structure large enough
-    zero_y *= 0.; // set it to Z E R O
+    zero_y *= 0.; // To be safe, set to 0. Though I think the issue requiring this has been fixed now.
 }
