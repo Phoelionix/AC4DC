@@ -62,7 +62,9 @@ def get_sim_params(handle,input_path=None,molecular_path=None):
                 continue       
             elif line.startswith("#PROBE_PULSE"):
                 reading_probe_pulse = True
-                continue                      
+                continue 
+            elif line.startswith("####END####"):
+                break                     
             elif line.startswith("#") or line.startswith("//") or len(line.strip()) == 0:
                 reading_photons = False
                 reading_pulse = False
@@ -70,8 +72,6 @@ def get_sim_params(handle,input_path=None,molecular_path=None):
                 reading_probe_pulse = False
                 n = 0
                 continue
-            if line.startswith("####END####"):
-                break
             if reading_pulse:
                 if n < 2:
                     val = float(line.split(' ')[0])         
