@@ -81,7 +81,7 @@ HartreeFock::HartreeFock(Grid &Lattice, vector<RadialWF> &Orbitals, Potential &P
 				else
 				{ 	for(int L_other = 0; L_other < screening_shell_occupancies.size(); L_other++){ 
 						if (L > L_other && Orbitals[i].N() >= Orbitals[j].N())
-						{ N_elec_n2_plus += Orbitals[j].occupancy();
+						{ N_elec_n2_plus += screening_shell_occupancies[L_other];
 						}
 					}
 				}
