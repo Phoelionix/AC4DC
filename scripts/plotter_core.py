@@ -686,7 +686,7 @@ class Plotter:
             for i in range(len(states)):
                 orboccs = parse_elecs_from_latex(states[i])
                 charge = ATOMNO[a] - sum(orboccs.values()) - initial_charge 
-                self.chargeData[a][:, charge] += self.boundData[a][:, i]
+                self.chargeData[a][:, charge] += self.boundData[a][:, i]  #TODO negative charges??
 
 
 
