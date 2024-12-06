@@ -18,8 +18,6 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
 
-#PROBE_PULSE
-25
 
 #USE_COUNT
 true    // active (using count)?

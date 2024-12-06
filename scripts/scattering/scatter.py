@@ -95,12 +95,19 @@ class Custom_Gromacs_Parser():
             atoms = []
             with open(self.conf_path) as gromacs_config_file:
                 i = 1
+                header_remaining = 2
                 for line in gromacs_config_file:
+                    # Figure out where the heck we are. May or may not work for all .gro files.
+                    #####
+                    if header_remaining > 0:
+                        header_remaining -= 1
+                        continue
                     if line[0] == " ":
                         vals = line.split()
                         if "." in vals[0]:
                             continue
-                            
+                    ######
+
                         # After 10k the name and serial number columns are joined together
                         elif i > 9999:
                             oom = len(str(i))
@@ -209,7 +216,7 @@ class Crystal():
             NA = "Sodion", CL = "Chloride",
         )
         # Same names
-        for elem in ["H","He","C","N","O","P","S","Gd"]:  # pdb names
+        for elem in ["H","He","C","N","O","P","S","Gd","I"]:  # pdb names # TODO automate this...
             PDB_to_AC4DC_dict[elem] = elem   # ac4dc name
         # Modify the values in the dictionary according to arguments.
         for k,v in PDB_to_AC4DC_dict.items():
@@ -374,7 +381,7 @@ class Crystal():
         # Transpose because we've stored the vectors in the 0th axis. 
         return (self.sym_rotations[i] @ R.T).T+ self.sym_translations[i]   # dim = [xyz,xyz] x [xyz,N] or dim = [xyz,xyz] x [xyz,1]
             
-    def save_structure(self,dir="targets"):
+    def save_structure(self,dir="targets",custom_residue_name=None,tag="constructed_struct",chain_name="C"):
         '''
         Saves the full structure in a pdb file format for use with Solvate1.0   
         Stdv not included.
@@ -388,15 +395,17 @@ class Crystal():
 
         #Initialsie structure
         structure = xStructureBuilder()
-        structure.init_structure("full_struct")
+        structure.init_structure(tag)
         structure.init_model("M")
         structure.init_seg("")
 
         # Add atoms
         serial_number = 1
-        structure.init_chain("C")
+        structure.init_chain(chain_name)
         for i in range(len(self.sym_rotations)):
             residue_name = "L"+str(i); r_args = (" ",i+1,"r")
+            if custom_residue_name is not None:
+                residue_name = custom_residue_name
             print(structure.chain.child_dict)
             #residue_id = (r_args[0]+"_"+residue_name,r_args[1],r_args[2])  # use if set r_args[0] to "H"
             residue_id = r_args
@@ -417,7 +426,7 @@ class Crystal():
         # Save it
         io=xPDBIO()
         io.set_structure(structure.get_structure())  # StructureBuilder object is not Structure object
-        fname = path.basename(self.struct_file_path)[:-4]+"_full_struct.pdb"
+        fname = path.basename(self.struct_file_path)[:-4]+f"_{tag}.pdb"
         io.save(dir+"/"+fname)     
 
     def plot_me(self,max_points = 100000,water_index = None,**layout_kwargs):
@@ -2895,18 +2904,21 @@ if interactive and __name__ == "__main__":
 # Finally, the rest of the water drop could be calculated by generating a large distribution of water, then scaling its contribution to the form factor.
 if interactive and __name__ == "__main__":
     ##### Crystal params
-    pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
+    pdb_file = "I3C.pdb"
+    targets_dir = path.abspath(path.join(__file__ ,"../")) + "/targets/"
+    pdb_path = targets_dir + pdb_file
     crystal_qwargs = dict(
-        supercell_scale = 1,  # for SC: supercell_scale^3 unit cells
+        supercell_scale = 3,  # for SC: supercell_scale^3 unit cells
         positional_stdv = 0,  # Not used
         include_symmetries = True,  # should unit cell contain symmetries or just one asymmetric unit?
         cell_packing = "SC",
         rocking_angle = 0.1,  # (approximating mosaicity - use 0.02 for proper, use a high value, like 1, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         CNO_to_N = False,
     )
-    allowed_atoms = ["C","N","O","S"]
+    allowed_atoms = ["C","N","O","I","H"]
     crystal = Crystal(pdb_path,allowed_atoms,is_damaged=False, **crystal_qwargs)
-    crystal.save_structure()
+    print(crystal.species_dict["I"])
+    crystal.save_structure(custom_residue_name="I3C",chain_name="A")
 
 # %%
 def plot_recovered_atoms():
@@ -2932,3 +2944,4 @@ def plot_recovered_atoms():
     plt.ylabel("y (Ang)")
 if interactive and __name__ == "__main__":
     plot_recovered_atoms()    
+# %%

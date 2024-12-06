@@ -23,9 +23,9 @@ set -x
 #./ac4dc input/nass/nass_probe_0
 #./ac4dc input/nass/nass_probe_35
 #./ac4dc input/nass/nass_probe_62
-./ac4dc input/nass/nass_probe_112
-./ac4dc input/nass/nass_probe_102
-./ac4dc input/nass/nass_probe_37
+./ac4dc input/I3C/I3C_5fs_olaf
+./ac4dc input/I3C/I3C_20fs_olaf
+
 
 
 # ./ac4dc input/_batches/batch_SH_Ag/SH_Ag-1hacky.mol

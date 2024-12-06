@@ -39,7 +39,15 @@ def get_random_charge_states(element):
             if SEEDED:
                 seed = idx
             charges[idx] = element.crystal.ff_calculator.random_charge_snapshots(element.name,seed) 
-            #assert np.all(charges.astype(np.ushort)[idx] <= ATOMNO[element.name])
+            
+            # TEMPORARY HACK COS UNSIGNED SHORT DUMBNESS
+            if element.name == "I_fast":
+                charges[idx] += 1
+                
+            if not np.all(charges.astype(np.ushort)[idx] <= ATOMNO[element.name]):
+                print(charges.astype(np.ushort)[idx])
+                print(ATOMNO[element.name])
+                raise Exception("charge greater than atomic number!")
 
     return charges
 
@@ -53,7 +61,7 @@ def create_charge_file(charges,element,save_dir,overwrite=False,csv=False):
     '''
     save_dir_csv = save_dir
     save_dir_bin = save_dir + "IONIZATION_DATA/"
-    print(f"Creating {'full' if element is None else element} charge file for {save_dir.split('/')[-1]}")
+    print(f"Creating {'full' if element is None else element} charge file in {save_dir}")
     os.makedirs(save_dir_bin, exist_ok=True) 
     os.makedirs(save_dir_csv, exist_ok=True) 
     if element is None:
@@ -131,13 +139,13 @@ TARGET_DIR = SCATTER_DIR+ "targets/"
 
 MOLECULAR_PATH = path.abspath(path.join(SCRIPTS_DIR, "../output/__Molecular/")) + "/" # directory of damage sim output folders
 
-SAVE_FOLDER = "test"
+
 
 
 def charges(csv=False,individual_elements = False): 
     print("Beginning writing of charges...")
 
-    out_folder = OUTPUT_PATH + SAVE_FOLDER + "/"
+    out_folder = OUTPUT_PATH + get_save_folder() + "/"
     
     num_steps = len(ff_calculator.get_times_used())
     species_charges = {}
@@ -194,19 +202,20 @@ def DebyeLength(csv=False):
     lambdaD=np.sqrt(C.epsilon_0 * C.nano * T *C.eV / n /C.e/C.e) # should have units nm
     #lambdaD=np.sqrt(C.epsilon_0 * C.angstrom * T *C.eV / n /C.e/C.e) # should have units Angstrom
 
-    out_folder = OUTPUT_PATH + SAVE_FOLDER + "/"
+    out_folder = OUTPUT_PATH + get_save_folder() + "/"
     create_data_file(T*11606,"electron_temperature",out_folder,csv=csv) # K
     create_data_file(n/C.nano**3,"electron_density",out_folder,csv=csv) # nm^-3
     create_data_file(lambdaD,"debye_data",out_folder,csv=csv) # nm
 
 
-sim_handle = "lys_nass_gauss_solvated_with_H_21"
-num_steps = 3800
+sim_handle = "I3C_25fs_3"
+num_steps = 4900
 allowed_atoms = get_sim_elements(sim_handle)
 
-target = "lys_conf.gro"
+target = "I3C.gro"
 
-
+def get_save_folder():
+    return sim_handle
 
 
 crystal = Crystal(TARGET_DIR + target,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=False,**crystal_params)

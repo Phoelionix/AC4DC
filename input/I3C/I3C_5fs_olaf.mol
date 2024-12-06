@@ -19,11 +19,11 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 gaussian       // Pulse shape
 
 #PROBE_PULSE
-25
+5
 
 #USE_COUNT
 true    // active (using count)?
-0.1  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
+1.3  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
 6000      // Initial guess for number of time step points for rate equation.
