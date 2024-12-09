@@ -36,6 +36,10 @@ This file is part of AC4DC.
 #include "config.h"
 #include <filesystem>
 
+
+size_t ElectronRateSolver::Num_Sims(){return state_type::Num_Sims();}
+
+
 // IO functions
 void ElectronRateSolver::save(const std::string& _dir) {
     string dir = _dir; // make a copy of the const value
@@ -47,7 +51,7 @@ void ElectronRateSolver::save(const std::string& _dir) {
     // (assumes t and y have been truncated to last point calculated when save() is called.)
     num_steps_out = max(input_params.Out_T_size(),(int)(0.5 + min_outputted_points * timespan_au/(t.back()-t.front())));
     saveFree(dir+"freeDist");
-    saveFreeRaw(dir+"freeDistRaw.csv");
+    saveFreeRaw(dir+"freeDistRaw");
     saveKnots(dir + "knotHistory.csv");
     saveBound(dir);
     std::cout <<"\033[0m"<<std::endl;
@@ -82,62 +86,67 @@ void ElectronRateSolver::file_delete_check(const std::string& fname){
 
 /// Save the free electron density distribution
 void ElectronRateSolver::saveFree(const std::string& base_fname) {
-    for (size_t _c = 0; _c < Distribution::num_continuums; _c++){
-        std::string fname = base_fname;
-        if (_c >= 1){
-            fname.append("_");
-            fname.append(input_params.Store[_c-1].name); 
-        }
-        fname.append(".csv");
-        file_delete_check(fname);
-
-        // Saves a table of free-electron dynamics to file fname
-        ofstream f;
-        cout << "Free: \033[94m'"<<fname<<"'\033[95m | ";
-        f.open(fname);
-        f << "# Free electron dynamics"<<endl;
-        f << "# Time (fs) | Density @ energy (eV):" <<endl;
-        // We need to output to the same energies, so we choose the final knots for reference.
-        std::vector<double> reference_knots = Distribution::load_knots_from_history(t.size()); 
-        /* Alternative: Constant spacing reference knots:
-        std::vector<double> reference_knots;
-        std::vector<double>::iterator x;
-        double max_e = Distribution::get_knots_from_history(0).back(); 
-        double spacing = max_e/100;
-        double val;
-        for (x = reference_knots.begin(), val = 0; x != reference_knots.end(); ++x, val += spacing) {
-            *x = val;
-        }  
-        */  
-        f << "#           | "<<Distribution::output_energies_eV(this->input_params.Out_F_size())<<endl;
-        #ifdef DEBUG
-        cout << "[ Dynamic Grid ], writing densities to reference knot energies: \n";
-        for (double elem : reference_knots) cout << elem *Constant::eV_per_Ha<< ' ';
-        cout << endl;
-        #endif  
-
-        assert(y.size() == t.size());
-        
-        double t_fineness = timespan_au  / num_steps_out;
-
-        double previous_t = t[0]-t_fineness;
-        int i = -1; 
-        size_t next_knot_update = 0;
-        while (i <  static_cast<int>(t.size())-1){
-            i++;
-            if (i == static_cast<int>(next_knot_update) or i == 0){
-                Distribution::load_knots_from_history(i);
-                next_knot_update = Distribution::next_knot_change_idx(i);
-            } 
-            if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){
-                continue;
+    // Iterate over the simulated volumes
+    for (size_t V = 0; V < Num_Sims();V++){
+        for (size_t _c = 0; _c < Distribution::num_continuums; _c++){
+            std::string fname = base_fname;
+            if (_c >= 1){
+                fname.append("_");
+                fname.append(input_params.Store[_c-1].name); 
             }
-            f<<round_time(t[i]*Constant::fs_per_au)<<" "<<y[i].F.output_densities(_c,this->input_params.Out_F_size(),reference_knots)<<endl;
-            previous_t = t[i];
+            stringstream tmp;
+            tmp <<fname<<"-"<<(V)<<".csv";
+            fname = tmp.str();
+            file_delete_check(fname);
+
+            // Saves a table of free-electron dynamics to file fname
+            ofstream f;
+            cout << "Free: \033[94m'"<<fname<<"'\033[95m | ";
+            f.open(fname);
+            f << "# Free electron dynamics"<<endl;
+            f << "# Time (fs) | Density @ energy (eV):" <<endl;
+            // We need to output to the same energies, so we choose the final knots for reference.
+            std::vector<double> reference_knots = Distribution::load_knots_from_history(t.size()); 
+            /* Alternative: Constant spacing reference knots:
+            std::vector<double> reference_knots;
+            std::vector<double>::iterator x;
+            double max_e = Distribution::get_knots_from_history(0).back(); 
+            double spacing = max_e/100;
+            double val;
+            for (x = reference_knots.begin(), val = 0; x != reference_knots.end(); ++x, val += spacing) {
+                *x = val;
+            }  
+            */  
+            f << "#           | "<<Distribution::output_energies_eV(this->input_params.Out_F_size())<<endl;
+            #ifdef DEBUG
+            cout << "[ Dynamic Grid ], writing densities to reference knot energies: \n";
+            for (double elem : reference_knots) cout << elem *Constant::eV_per_Ha<< ' ';
+            cout << endl;
+            #endif  
+
+            assert(y.size() == t.size());
             
+            double t_fineness = timespan_au  / num_steps_out;
+
+            double previous_t = t[0]-t_fineness;
+            int i = -1; 
+            size_t next_knot_update = 0;
+            while (i <  static_cast<int>(t.size())-1){
+                i++;
+                if (i == static_cast<int>(next_knot_update) or i == 0){
+                    Distribution::load_knots_from_history(i);
+                    next_knot_update = Distribution::next_knot_change_idx(i);
+                } 
+                if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){
+                    continue;
+                }
+                f<<round_time(t[i]*Constant::fs_per_au)<<" "<<y[i][V].F.output_densities(_c,this->input_params.Out_F_size(),reference_knots)<<endl;
+                previous_t = t[i];
+                
+            }
+            f.close();
+            Distribution::load_knots_from_history(t.size()); // back to original state
         }
-        f.close();
-        Distribution::load_knots_from_history(t.size()); // back to original state
     }
 }
 
@@ -145,104 +154,118 @@ void ElectronRateSolver::saveFree(const std::string& base_fname) {
  * @brief Saves each time and corresponding B-spline coefficients. 
  * @param fname 
  */
-void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
-    file_delete_check(fname);
+void ElectronRateSolver::saveFreeRaw(const std::string& base_fname) {
 
-
-    ofstream f;
-    cout << "Free Raw: \033[94m'"<<fname<<"'\033[95m | ";
-    f.open(fname);
-    f << "# Free electron dynamics"<<endl;
-    f << "# Energy Knot: "<< Distribution::output_knots_eV() << endl;
-    f << "# Time (fs) | Expansion Coeffs (not density)"  << endl;
-    
-    assert(y.size() == t.size());
-    double t_fineness = timespan_au  / num_steps_out;
-    double previous_t = t[0]-t_fineness;
-    int i = -1; 
-    size_t next_knot_update = 0;
-    while (i <  static_cast<int>(t.size())-1){
-        i++;
-        if (i == static_cast<int>(next_knot_update) or i == 0){
-            Distribution::load_knots_from_history(i);
-            next_knot_update = Distribution::next_knot_change_idx(i);
-        } 
-        if(t[i] < previous_t + t_fineness && i<=static_cast<int>(t.size())-extra_fine_steps_out){
-            continue;
-        }
-        f<<round_time(t[i]*Constant::fs_per_au)<<" "<<y[i].F<<endl;  // Note that the << operator divides the factors by Constant::eV_per_Ha.
-        previous_t = t[i];
+    // Iterate over the simulated volumes
+    for (size_t V = 0; V < Num_Sims();V++){
+        ofstream f;
+        stringstream tmp;
+        tmp <<base_fname<<"-"<<(V)<<".csv";
+        string fname = tmp.str();
+        cout << "Free Raw: \033[94m'"<<fname<<"'\033[95m | ";
+        file_delete_check(fname);
+        f.open(fname);
+        
+        f << "# Free electron dynamics"<<endl;
+        f << "# Energy Knot: "<< Distribution::output_knots_eV() << endl;
+        f << "# Time (fs) | Expansion Coeffs (not density)"  << endl;
+        
+        assert(y.size() == t.size());
+        double t_fineness = timespan_au  / num_steps_out;
+        double previous_t = t[0]-t_fineness;
+        int i = -1; 
+        size_t next_knot_update = 0;
+            while (i <  static_cast<int>(t.size())-1){
+                i++;
+                if (i == static_cast<int>(next_knot_update) or i == 0){
+                    Distribution::load_knots_from_history(i);
+                    next_knot_update = Distribution::next_knot_change_idx(i);
+                } 
+                if(t[i] < previous_t + t_fineness && i<=static_cast<int>(t.size())-extra_fine_steps_out){
+                    continue;
+                }
+                f<<round_time(t[i]*Constant::fs_per_au)<<" "<<y[i][V].F<<endl;  // Note that the << operator divides the factors by Constant::eV_per_Ha.
+                previous_t = t[i];
+            }
+        f.close();
+        Distribution::load_knots_from_history(t.size()); // back to original state
     }
-    f.close();
-    Distribution::load_knots_from_history(t.size()); // back to original state
+
 }
 
 
 void ElectronRateSolver::saveBound(const std::string& dir) {
     // saves a table of bound-electron dynamics , split by atom, to folder dir.
     assert(y.size() == t.size());
-    ofstream f;    
-    // Iterate over save file type { 0: bound | 1: photoionisation | }
-    for (size_t mode=0; mode < 2; mode++)
-        // Iterate over atom types
-        for (size_t a=0; a<input_params.Store.size(); a++) {
-            string fname;
-            string header;
-            switch(mode){
-                case 0:
-                    fname = dir+"dist_"+input_params.Store[a].name+".csv";
-                    header = string("# Ionic electron dynamics\n") 
-                    + string("# Time (fs) | State occupancy (Probability times number of atoms)\n");
-                    std::cout << "Bound: \033[94m'"<<fname<<"'\033[95m | "<<std::endl;
-                break;
-                case 1:
-                    fname = dir+"photo_"+input_params.Store[a].name+".csv";
-                    header = string("# Cumulative photoionisation\n")
-                    + string("# Time (fs) | Total photoionised electron density\n");
-                    std::cout << "Rates: \033[94m'"<<fname<<"'\033[95m | "<<std::endl;
-                break;
-                default:
-                    continue;
-            }
-             
-            file_delete_check(fname);
-                        
-            f.open(fname);
-            f << header<<std::flush;
-            if (mode == 0){
-                f << "#           | ";
-                // Index, Max_occ inherited from MolInp
-                for (auto& cfgname : input_params.Store[a].index_names) {
-                    f << cfgname << " ";
-                }
-                f<<endl;
-            }
-            // Iterate over time.
-            double t_fineness = timespan_au  / num_steps_out;
-            double previous_t = t[0]-t_fineness;
-            int i = -1;
-            while (i <  static_cast<int>(t.size())-1){
-                i++;
-                if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){ 
-                    continue;
-                }            
+    for (size_t V = 0; V < Num_Sims();V++){
+        ofstream f;    
+        // Iterate over save file type { 0: bound | 1: photoionisation | }
+        for (size_t mode=0; mode < 2; mode++){
+            // Iterate over atom types
+            for (size_t a=0; a<input_params.Store.size(); a++) {
+                string fname;
+                string header;
                 switch(mode){
                     case 0:
-                        // Make sure all "natom-dimensioned" objects are the size expected //TODO failsafe?
-                        assert(input_params.Store.size() == y[i].atomP.size());
-                        
-                        f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i].atomP[a]<<endl;   // Multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au                    
+                        fname = dir+"dist_"+input_params.Store[a].name;
+                        header = string("# Ionic electron dynamics\n") 
+                        + string("# Time (fs) | State occupancy (Probability times number of atoms)\n");
+                        std::cout << "Bound: \033[94m'"<<fname<<"'\033[95m | "<<std::endl;
                     break;
-                    case 1:                 
-                        f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i].cumulative_photo[a]<<endl;
+                    case 1:
+                        fname = dir+"photo_"+input_params.Store[a].name;
+                        header = string("# Cumulative photoionisation\n")
+                        + string("# Time (fs) | Total photoionised electron density\n");
+                        std::cout << "Rates: \033[94m'"<<fname<<"'\033[95m | "<<std::endl;
                     break;
                     default:
                         continue;
                 }
-                previous_t = t[i];
+                // volume index
+                stringstream tmp;
+                tmp <<fname<<"-"<<(V)<<".csv";
+                fname = tmp.str();
+
+                file_delete_check(fname);
+                            
+                f.open(fname);
+                f << header<<std::flush;
+                if (mode == 0){
+                    f << "#           | ";
+                    // Index, Max_occ inherited from MolInp
+                    for (auto& cfgname : input_params.Store[a].index_names) {
+                        f << cfgname << " ";
+                    }
+                    f<<endl;
+                }
+                // Iterate over time.
+                double t_fineness = timespan_au  / num_steps_out;
+                double previous_t = t[0]-t_fineness;
+                int i = -1;
+                while (i <  static_cast<int>(t.size())-1){
+                    i++;
+                    if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){ 
+                        continue;
+                    }            
+                    switch(mode){
+                        case 0:
+                            // Make sure all "natom-dimensioned" objects are the size expected //TODO failsafe?
+                            assert(input_params.Store.size() == y[i][V].atomP.size());
+                            
+                            f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i][V].atomP[a]<<endl;   // Multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au                    
+                        break;
+                        case 1:                 
+                            f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i][V].cumulative_photo[a]<<endl;
+                        break;
+                        default:
+                            continue;
+                    }
+                    previous_t = t[i];
+                }
+                f.close();  
             }
-            f.close();  
         }
+    }
     // save rates. // DISABLED as rates not integrated with solver properly yet.
     /*
     string fname = dir+"rates.csv";

@@ -181,7 +181,7 @@ namespace RateData {
 		bool bound_free_excluded = false; // Whether to skip calculation of EII and TBR for this species.
 		vector<string> index_names = vector<string>(0);
 		std::string name = "";
-		double nAtoms = 1.;// atomic number density
+		vector<double> nAtoms_in_sims = vector<double>(1.);// atomic number density for each sim volume
 		// double R = 189.; // 100nm focal spot radius.
 		unsigned int num_conf = 1;
 		vector<RateData::Rate> Photo = vector<RateData::Rate>(0);

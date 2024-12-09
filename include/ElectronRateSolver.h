@@ -55,6 +55,8 @@ public:
     ElectronRateSolver(const char* filename, ofstream& log) :
     Hybrid(3), input_params(filename, log), pf() // (order Adams method), argument of Hybrid = order. num steps used for implicit adams-moulton = order - 1.
     {
+        state_type::Mark_Active(); // flags that state_type is now going to be actively used. Will ensure that state_type has been initialised before we create any new state_type objects . (Yes this sucks)
+
         log_config_settings(log);
 
         grid_update_period = input_params.Grid_Update_Period();  // TODO the grid update period should be made to be at least 3x (probably much more) longer with a gaussian pulse, since early times need it to be updated far less often to avoid instability for such a pulse. 
@@ -146,6 +148,8 @@ private:
     double fraction_of_pulse_simulated;
     double grid_update_period; // time period between dynamic grid updates.
 
+    void initialise_state_types();
+
     void load_filtration_file(){}; //TODO
     // Model parameters
 
@@ -186,7 +190,8 @@ private:
     /// general dynamics (uses explicit method)
     void sys_bound(const state_type& s, state_type& sdot, state_type& s_bg, const double t); 
     /// electron-electron (uses implicit method)
-    void sys_ee(const state_type& s, state_type& sdot); 
+    void sys_ee(const state_type& s, state_type& sdot, const size_t& V);  // V is simulation volumeindex 
+    void sys_ee_bundled(const state_type& s, state_type& sdot);
     /**
      * @brief 
      * @details 1. Handles dynamic grid updates 
@@ -246,6 +251,7 @@ private:
     string data_backup_folder; 
     bool grid_initialised = false;
 
+    size_t Num_Sims();
 
     // Rates tracking: (this should be a class esp. due to checkpoint loading but I don't have time to do this properly)
     #ifdef RATES_TRACKING

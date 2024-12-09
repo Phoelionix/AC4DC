@@ -334,21 +334,61 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		elec_grid_regions.bndry_E[i] /= Constant::eV_per_Ha;
 	}
 
-	// Reads the very top of the file, expecting input of the form
-	// H 2
-	// O 1
+	// Expecting input of the form
+	//
+	// #ATOMS
+	// H 6 4 8
+	// O 1 2 1
+	// C 1 0 2 
+	//
+	// #VOLUME_COMPOSITIONS
+	// Methane_Water LotsOfWater Ethane_Water
+	// 0 1 0 2 2 0 0 1
+	//
 	// Then scans for atomic files of the form 
 	// input/atoms/H.inp
 	// input/atoms/O.inp
+	// input/atoms/C.inp
 	// Store is then populated with the atomic data read in below.
+	std::vector<string> composition_names;
+	std::vector<size_t> volume_composition_indices;  
+	{
+		stringstream stream(FileContent["#VOLUME_COMPOSITIONS"][0]);
+		while (stream.rdbuf()->in_avail()>0){
+			string name;
+			stream >> name;
+			composition_names.push_back(name);
+		}
+	}{
+		stringstream stream(FileContent["#VOLUME_COMPOSITIONS"][1]);
+		while (stream.rdbuf()->in_avail()>0){
+			size_t index;
+			stream >> index;
+			volume_composition_indices.push_back(index);
+		}
+	}
+	simulated_volumes.resize(volume_composition_indices.size());
 	for (size_t i = 0; i < num_atoms; i++) {
 		string at_name;
-		double at_num;
+		// All modelled volumes use an atomic population taken from `compositions` according to `volume_composition_indices` 
+		std::vector<double> compositions;  // Atoms corresponding to unique atomic compositions in the simulation. Note that if there are no atoms, they must still be given as 0. (Of course, they won't be modelled by corresponding simulations)
+		
+		
+		
+		assert(Num_Simulated_Volumes()==volume_composition_indices.size());
 
 		stringstream stream(FileContent["#ATOMS"][i]);
-		stream >> at_name >> at_num;
+		stream >> at_name; 
+		while (stream.rdbuf()->in_avail()>0){
+			double at_num;
+			stream >> at_num;
+			compositions.push_back(at_num);
+		}
 
-		Store[i].nAtoms = at_num/unit_V;
+		Store[i].nAtoms_in_sims.resize(Num_Simulated_Volumes());
+		for (size_t V=0; V<Num_Simulated_Volumes();V++){
+			Store[i].nAtoms_in_sims[V] = compositions[volume_composition_indices[V]]/unit_V;
+		}
 		Store[i].name = at_name;
 		// Store[i].R = radius;
 
@@ -363,22 +403,22 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 
 		Pots[i] = U;
 	}
-		// For specified atoms turn off secondary ionisation, i.e. EII and TBR. (Useful if have only small number of a species present and photoionisation dominates their contribution to the dynamics).
-		bound_free_exclusions = std::vector<bool>(num_atoms,false);
-		for (size_t i = 0; i < num_bound_free_exclusions; i++){
-			stringstream stream(FileContent["#BOUND_FREE_EXCLUSIONS"][i]);
-			string at_name;
-			stream >> at_name;
-			bool found_atom = false;
-			for (size_t j = 0; j < num_atoms; j++){
-				if(at_name == Store[j].name){
-					bound_free_exclusions[j] = true;
-					found_atom = true;
-					break;
-				}
+	// For specified atoms turn off secondary ionisation, i.e. EII and TBR. (Useful if have only small number of a species present and photoionisation dominates their contribution to the dynamics).
+	bound_free_exclusions = std::vector<bool>(num_atoms,false);
+	for (size_t i = 0; i < num_bound_free_exclusions; i++){
+		stringstream stream(FileContent["#BOUND_FREE_EXCLUSIONS"][i]);
+		string at_name;
+		stream >> at_name;
+		bool found_atom = false;
+		for (size_t j = 0; j < num_atoms; j++){
+			if(at_name == Store[j].name){
+				bound_free_exclusions[j] = true;
+				found_atom = true;
+				break;
 			}
-			assert(found_atom&&"Could not find matching atom present in #ATOMS that was specified in #BOUND_FREE_EXCLUSIONS");  
 		}
+		assert(found_atom&&"Could not find matching atom present in #ATOMS that was specified in #BOUND_FREE_EXCLUSIONS");  
+	}
 
 	if (!validate_inputs()) {
 		cerr<<endl<<endl<<endl<<"Exiting..."<<endl;
@@ -448,17 +488,19 @@ void MolInp::calc_rates(ofstream &_log, bool recalc) {
 			shell_check[i] = Orbits[a][i].is_shell();
 		}
 
-
+		//Store gets overridden I guess??//
 		string name = Store[a].name;
-		double nAtoms = Store[a].nAtoms;
-
+		std::vector<double> nAtoms_in_sims = Store[a].nAtoms_in_sims;
+		///???//
 		// We may need to call HartreeFock HF(Latts[a], Orbits[a], Pots[a], Atomic[a], _log);
 		// However, calling it is expensive for heavier elements, so we only call it if haven't saved rates. // TODO Seems like this actually isn't expensive...
 		// So we need to pass these args through
 		Store[a] = Dynamics.SolveAtomicRatesAndPlasmaBEB(max_occ, final_occ, shell_check, !bound_free_exclusions[a],_log);
 		Store[a].bound_free_excluded = bound_free_exclusions[a];
+		//Restore overridden varibles//		
 		Store[a].name = name;
-		Store[a].nAtoms = nAtoms;
+		Store[a].nAtoms_in_sims = nAtoms_in_sims;
+		///???//
 		
 		// Store[a].R = dropl_R();
 		Index[a] = Dynamics.Get_Indexes();

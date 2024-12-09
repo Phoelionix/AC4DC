@@ -38,9 +38,16 @@ This file is part of AC4DC.
 #include "config.h"
 
 
+void ElectronRateSolver::initialise_state_types(){
+    state_type::initialise(input_params.Store,input_params.Num_Simulated_Volumes());    
+    // Dodgy patch
+    this->y[0].update_P_shape(); 
+    this->zero_y.update_P_shape();
+}
+
 void ElectronRateSolver::set_starting_state(){
     // Set up the container class to have the correct size
-    state_type::set_P_shape(input_params.Store);    
+    initialise_state_types();
     if (input_params.Load_Folder() != ""){ 
         load_simulation_state();
     }
@@ -54,20 +61,35 @@ void ElectronRateSolver::set_starting_state(){
 }
 
 state_type ElectronRateSolver::get_initial_state() {
-    state_type initial_condition;
-    assert(initial_condition.atomP.size() == input_params.Store.size());
-    for (size_t a=0; a<input_params.Store.size(); a++) {
-        initial_condition.atomP[a][0] = input_params.Store[a].nAtoms;
-        for(size_t i=1; i<initial_condition.atomP.size(); i++) {
-            initial_condition.atomP[a][i] = 0.;
+    state_type initial_condition_bundle;
+    size_t num_atoms = input_params.Store.size(); 
+    size_t num_volumes = input_params.Store[0].nAtoms_in_sims.size();
+    for (size_t V=0; V<num_volumes; V++){
+        const std::vector<RateData::Atom>& species_present = input_params.Store;
+            // std::vector<RateData::Atom&> species_present;
+            // for(RateData::Atom& A: input_params.Store){
+            //     if (A.nAtoms_in_sims[V] != 0){
+            //         species_present.push_back(&A);
+            //     }
+            // }
+        single_state_type& initial_condition = initial_condition_bundle[V];
+        assert((int)initial_condition.atomP.size() == species_present.size());
+        for (size_t a=0; a<species_present.size(); a++) {
+            assert(input_params.Store[a].nAtoms_in_sims.size()==state_type::Num_Sims());
+            
+            initial_condition.atomP[a][0] = species_present[a].nAtoms_in_sims[V];
+            for(size_t i=1; i<initial_condition.atomP.size(); i++) {
+                initial_condition.atomP[a][i] = 0.;
+            }
+            initial_condition.F=0;
+            initial_condition.cumulative_photo = std::vector(species_present.size(),0.0); 
+            
         }
+        // std::cout<<"[ Rate Solver ] initial condition:"<<std::endl;
+        // std::cout<<"[ Rate Solver ] "<<initial_condition<<std::endl;
+        // std::cout << endl;
     }
-    initial_condition.F=0;
-    initial_condition.cumulative_photo = std::vector(input_params.Store.size(),0.0);
-    // std::cout<<"[ Rate Solver ] initial condition:"<<std::endl;
-    // std::cout<<"[ Rate Solver ] "<<initial_condition<<std::endl;
-    // std::cout << endl;
-    return initial_condition;
+    return initial_condition_bundle;
 }
 //state_type ElectronRateSolver::set_zero_y(){zero_y = 0*get_initial_state();}
 
@@ -136,11 +158,11 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
             double last_trans_e = param_cutoffs.transition_e;
             
             #ifndef NO_MIN_DIRAC_DENSITY
-            double dirac_peak_cutoff_density = y[step].F(0,last_trans_e)*last_trans_e*2.5;            
+            double dirac_peak_cutoff_density = y[step].get_sampleF()(0,last_trans_e)*last_trans_e*2.5;            
             // TODO this depending on last transition is dangerous for large grid update periods, or low fluences as the peaks tend to spread out.
             if (last_trans_e <= 600/Constant::eV_per_Ha){
                 // ad hoc fix - early on density at trans_e point in normalised density dist. is a bit higher than rest of sim since transition energy is stuck at default 250 eV 
-                dirac_peak_cutoff_density = y[step].F(0,last_trans_e)*last_trans_e*1.25; 
+                dirac_peak_cutoff_density = y[step].get_sampleF()(0,last_trans_e)*last_trans_e*1.25; 
             }
             # else 
             double dirac_peak_cutoff_density = 0;
@@ -361,275 +383,291 @@ void ElectronRateSolver::precompute_gamma_coeffs() {
 // d/dt P[i] = \sum_i=1^N W_ij - W_ji P[j] = d/dt(average-atomic-state)
 // d/dt f = Q_B[f](t)                      = d/dt(electron-energy-distribution)  // TODO what is Q_B? Q_{Bound}? Q_{ee} contributes though. 
 
-// Non-stiff part of the system. Bound-electron dynamics.
+// Non-stiff part of the system. All dynamics involving Bound-electrons.
 //void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_type& s_bg ,const double t) {
-void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_type& s_bg ,const double t) {
+void ElectronRateSolver::sys_bound(const state_type& s_bundle, state_type& sdot_bundle, state_type& s_bg ,const double t) {
     const int threads = input_params.Plasma_Threads();
     
-    sdot=0;
+    sdot_bundle=0;
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
 
     if (!good_state) return;
 
-
-    // Bound and bound-free interactions
-    for (size_t a = 0; a < s.atomP.size(); a++) {
-        auto t9 = std::chrono::high_resolution_clock::now();
-        const bound_t& P = s.atomP[a];
-        bound_t& Pdot = sdot.atomP[a];
-        
-        #ifdef DEBUG_BOUND
-        for(size_t i=0;i < Pdot.size();i++){
-            assert(Pdot[i] + P[i] >= 0);
-        }
-        #endif
-        double old_bound_charge = sdot.bound_charge;
-        // PHOTOIONISATION
-        double J = pf(t); // photon flux in atomic units
-        for ( auto& r : input_params.Store[a].Photo) {
-            double tmp = r.val*J*P[r.from];
-            Pdot[r.to] += tmp;
-            Pdot[r.from] -= tmp;
-            sdot.F.addDeltaSpike(a,r.energy, r.val*J*P[r.from]);  // TODO change to tmp?
-            sdot.bound_charge +=  tmp;
-            // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
-        }
-
-        sdot.cumulative_photo[a]+=sdot.bound_charge-old_bound_charge;
-
-        #ifndef NO_ELECTRON_SOURCE
-        //PHOTOION. SOURCE
-        if(t < simulation_start_time + input_params.electron_source_duration*(timespan_au)){
-            double injected_density = 0; 
-            switch (input_params.electron_source_type){
-                case 'c':
-                {
-                    injected_density = input_params.electron_source_fraction * y[1].cumulative_photo[a] * (J / pf(this->t[1]));
-                break;
-                }
-                case 'p':
-                {
-                    injected_density = input_params.electron_source_fraction*(sdot.bound_charge-old_bound_charge);  // Additional electrons added at rate proportional to rest of sample. (Note this controls for differences in emission rate that normally would occur in the species producing photoelectrons of a different energy.)
-                break;
-                }
+    for(size_t V=0; V<s_bundle.sims.size();V++){  // Iterate over each simulation volume
+        const single_state_type& s = s_bundle.sims[V];
+        single_state_type& sdot = sdot_bundle.sims[V];
+        // Bound and bound-free interactions
+        for (size_t a = 0; a < s.atomP.size(); a++) {
+            if (input_params.Store[a].nAtoms_in_sims[V]<= 0){
+                continue; // Skip atoms that aren't present in the simulation volume.
             }
-            if (injected_density > 0)
-                sdot.F.addDeltaSpike(a,input_params.electron_source_energy,injected_density);
-        }
-        #endif //NO_ELECTRON_SOURCE
-        
-        #ifdef RATES_TRACKING
-        photo_rate.back() += sdot.bound_charge;
-        #endif
-        old_bound_charge = sdot.bound_charge;
-        #ifdef DEBUG_BOUND
-        for(size_t i=0;i < Pdot.size();i++){
-            assert(Pdot[i] + P[i] >= 0);
-        }
-        #endif    
-        // FLUORESCENCE
-        for ( auto& r : input_params.Store[a].Fluor) {
-            double tmp = r.val*P[r.from];
-            Pdot[r.to] += tmp;
-            Pdot[r.from] -= tmp;
-            #ifdef RATES_TRACKING
-            fluor_rate.back() +=tmp;
+            auto t9 = std::chrono::high_resolution_clock::now();
+            const bound_t& P = s.atomP[a];
+            bound_t& Pdot = sdot.atomP[a];
+            
+            #ifdef DEBUG_BOUND
+            for(size_t i=0;i < Pdot.size();i++){
+                assert(Pdot[i] + P[i] >= 0);
+            }
             #endif
-            // Energy from optical photon assumed lost
-        }
-        #ifdef DEBUG_BOUND
-        for(size_t i=0;i < Pdot.size();i++){
-            assert(Pdot[i] + P[i] >= 0);
-        }
-        #endif    
-        // AUGER
-        for ( auto& r : input_params.Store[a].Auger) {
-            double tmp = r.val*P[r.from];
-            Pdot[r.to] += tmp;
-            Pdot[r.from] -= tmp;
-            sdot.F.addDeltaSpike(a,r.energy, r.val*P[r.from]);
-            // sdot.F.add_maxwellian(r.energy*2./3., r.val*P[r.from]);
-            // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
-            sdot.bound_charge +=  tmp;
-        }
-        #ifdef RATES_TRACKING
-        auger_rate.back() += sdot.bound_charge - old_bound_charge;
-        #endif
-        old_bound_charge = sdot.bound_charge;       
+            double old_bound_charge = sdot.bound_charge;
+            // PHOTOIONISATION
+            double J = pf(t); // photon flux in atomic units
+            for ( auto& r : input_params.Store[a].Photo) {
+                double tmp = r.val*J*P[r.from];
+                Pdot[r.to] += tmp;
+                Pdot[r.from] -= tmp;
+                sdot.F.addDeltaSpike(a,r.energy, r.val*J*P[r.from]);  // TODO change to tmp?
+                sdot.bound_charge +=  tmp;
+                // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
+            }
 
-        #ifdef DEBUG_BOUND
-        for(size_t i=0;i < Pdot.size();i++){
-            assert(Pdot[i] + P[i] >= 0);
-        }
-        #endif        
-        // Secondary ionization
-        // EII / TBR bound-state dynamics
-        #ifdef TRACK_SINGLE_CONTINUUM
-        size_t _c = 0; 
-        #else
-        size_t _c = 1;  // Iterates through the continuum corresponding to each element's initiated cascades and adds separately. // TODO check if having the full continuum contribute to the actual calcs is better.
-        #endif 
-        for (;_c < Distribution::num_continuums; _c++){
-            Eigen::VectorXd vec_dqdt_scndry = Eigen::VectorXd::Zero(Distribution::size);
-            if(input_params.Store[a].bound_free_excluded) continue;
+            sdot.cumulative_photo[a]+=sdot.bound_charge-old_bound_charge;
 
-            double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
-            double sdot_bound_charge_eii_subst = 0; 
-            double sdot_bound_charge_tbr_subst = 0; 
-            size_t N = Distribution::size; 
-            #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_eii_subst,sdot_bound_charge_tbr_subst)     
-            for (size_t n=0; n<N; n++) {
-                double tmp=0; // aggregator
-                
-                #ifndef NO_EII
-                for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
-                    for (auto& finPair : RATE_EII[a][n][init]) {
-                        tmp = finPair.val*s.F[_c][n]*P[init];
-                        Pdot_subst[finPair.idx] += tmp;
-                        Pdot_subst[init] -= tmp;
-                        sdot_bound_charge_eii_subst += tmp;   //TODO Not a minus sign like others, double check that's intentional. -S.P.
+            #ifndef NO_ELECTRON_SOURCE
+            //PHOTOION. SOURCE
+            if(t < simulation_start_time + input_params.electron_source_duration*(timespan_au)){
+                double injected_density = 0; 
+                switch (input_params.electron_source_type){
+                    case 'c':
+                    {
+                        injected_density = input_params.electron_source_fraction * y[1][V].cumulative_photo[a] * (J / pf(this->t[1]));
+                    break;
+                    }
+                    case 'p':
+                    {
+                        injected_density = input_params.electron_source_fraction*(sdot.bound_charge-old_bound_charge);  // Additional electrons added at rate proportional to rest of sample. (Note this controls for differences in emission rate that normally would occur in the species producing photoelectrons of a different energy.)
+                    break;
                     }
                 }
+                if (injected_density > 0)
+                    sdot.F.addDeltaSpike(a,input_params.electron_source_energy,injected_density);
+            }
+            #endif //NO_ELECTRON_SOURCE
+            
+            #ifdef RATES_TRACKING
+            photo_rate.back() += sdot.bound_charge;
+            #endif
+            old_bound_charge = sdot.bound_charge;
+            #ifdef DEBUG_BOUND
+            for(size_t i=0;i < Pdot.size();i++){
+                assert(Pdot[i] + P[i] >= 0);
+            }
+            #endif    
+            // FLUORESCENCE
+            for ( auto& r : input_params.Store[a].Fluor) {
+                double tmp = r.val*P[r.from];
+                Pdot[r.to] += tmp;
+                Pdot[r.from] -= tmp;
+                #ifdef RATES_TRACKING
+                fluor_rate.back() +=tmp;
                 #endif
-                
-                
-                #ifndef NO_TBR
-                // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
-                // Note that RATE_TBR has the same geometry as InverseEIIdata.
-                for (size_t m=n+1; m<N; m++) {
-                    size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
-                    // k = N... N(N+1)/2-1
-                    // W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
-                    for (size_t init=0;  init<RATE_TBR[a][k].size(); init++) {
-                        for (auto& finPair : RATE_TBR[a][k][init]) {
-                            #ifdef TRACK_SINGLE_CONTINUUM
-                            tmp = finPair.val*s.F[_c][n]*s.F[_c][m]*P[init]*2;   // _c = 0 (total continuum)
-                            #else
-                            tmp = finPair.val*(s.F[_c][n]*s.F[0][m] + s.F[_c][m]*s.F[0][n])*P[init]; // as we are distinguishing the electron continuum of interest from the full continuum now.
-                            #endif
+                // Energy from optical photon assumed lost
+            }
+            #ifdef DEBUG_BOUND
+            for(size_t i=0;i < Pdot.size();i++){
+                assert(Pdot[i] + P[i] >= 0);
+            }
+            #endif    
+            // AUGER
+            for ( auto& r : input_params.Store[a].Auger) {
+                double tmp = r.val*P[r.from];
+                Pdot[r.to] += tmp;
+                Pdot[r.from] -= tmp;
+                sdot.F.addDeltaSpike(a,r.energy, r.val*P[r.from]);
+                // sdot.F.add_maxwellian(r.energy*2./3., r.val*P[r.from]);
+                // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
+                sdot.bound_charge +=  tmp;
+            }
+            #ifdef RATES_TRACKING
+            auger_rate.back() += sdot.bound_charge - old_bound_charge;
+            #endif
+            old_bound_charge = sdot.bound_charge;       
+
+            #ifdef DEBUG_BOUND
+            for(size_t i=0;i < Pdot.size();i++){
+                assert(Pdot[i] + P[i] >= 0);
+            }
+            #endif        
+            // Secondary ionization
+            // EII / TBR bound-state dynamics
+            #ifdef TRACK_SINGLE_CONTINUUM
+            size_t _c = 0; 
+            #else
+            size_t _c = 1;  // Iterates through the continuum corresponding to each element's initiated cascades and adds separately. // TODO check if having the full continuum contribute to the actual calcs is better.
+            #endif 
+            for (;_c < Distribution::num_continuums; _c++){
+                Eigen::VectorXd vec_dqdt_scndry = Eigen::VectorXd::Zero(Distribution::size);
+                if(input_params.Store[a].bound_free_excluded) continue;
+
+                double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
+                double sdot_bound_charge_eii_subst = 0; 
+                double sdot_bound_charge_tbr_subst = 0; 
+                size_t N = Distribution::size; 
+                #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_eii_subst,sdot_bound_charge_tbr_subst)     
+                for (size_t n=0; n<N; n++) {
+                    double tmp=0; // aggregator
+                    
+                    #ifndef NO_EII
+                    for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
+                        for (auto& finPair : RATE_EII[a][n][init]) {
+                            tmp = finPair.val*s.F[_c][n]*P[init];
+                            Pdot_subst[finPair.idx] += tmp;
+                            Pdot_subst[init] -= tmp;
+                            sdot_bound_charge_eii_subst += tmp;   //TODO Not a minus sign like others, double check that's intentional. -S.P.
+                        }
+                    }
+                    #endif
+                    
+                    
+                    #ifndef NO_TBR
+                    // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
+                    // Note that RATE_TBR has the same geometry as InverseEIIdata.
+                    for (size_t m=n+1; m<N; m++) {
+                        size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
+                        // k = N... N(N+1)/2-1
+                        // W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
+                        for (size_t init=0;  init<RATE_TBR[a][k].size(); init++) {
+                            for (auto& finPair : RATE_TBR[a][k][init]) {
+                                #ifdef TRACK_SINGLE_CONTINUUM
+                                tmp = finPair.val*s.F[_c][n]*s.F[_c][m]*P[init]*2;   // _c = 0 (total continuum)
+                                #else
+                                tmp = finPair.val*(s.F[_c][n]*s.F[0][m] + s.F[_c][m]*s.F[0][n])*P[init]; // as we are distinguishing the electron continuum of interest from the full continuum now.
+                                #endif
+                                Pdot_subst[finPair.idx] += tmp;
+                                Pdot_subst[init] -= tmp;
+                                sdot_bound_charge_tbr_subst -= tmp;
+                            }
+                        }
+                    }
+                    // the diagonal
+                    // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
+                    for (size_t init=0;  init<RATE_TBR[a][n].size(); init++) {
+                        for (auto& finPair : RATE_TBR[a][n][init]) {
+                            tmp = finPair.val*s.F[_c][n]*s.F[0][n]*P[init];
                             Pdot_subst[finPair.idx] += tmp;
                             Pdot_subst[init] -= tmp;
                             sdot_bound_charge_tbr_subst -= tmp;
                         }
                     }
+                    #endif
                 }
-                // the diagonal
-                // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
-                for (size_t init=0;  init<RATE_TBR[a][n].size(); init++) {
-                    for (auto& finPair : RATE_TBR[a][n][init]) {
-                        tmp = finPair.val*s.F[_c][n]*s.F[0][n]*P[init];
-                        Pdot_subst[finPair.idx] += tmp;
-                        Pdot_subst[init] -= tmp;
-                        sdot_bound_charge_tbr_subst -= tmp;
-                    }
+                // Add parallel containers to their parent containers.
+                for(size_t i=0;i < Pdot.size();i++){
+                    Pdot[i] += Pdot_subst[i];
+                    #ifdef DEBUG_BOUND
+                    assert(Pdot[i] + P[i] >= 0);
+                    // if(Pdot[i] + P[i] < 0){
+                    //     Pdot[i]= -P[i]*1.00001;
+                    // }
+                    #endif
                 }
+                sdot.bound_charge += sdot_bound_charge_eii_subst + sdot_bound_charge_tbr_subst;
+                #ifdef RATES_TRACKING
+                eii_rate.back() += sdot_bound_charge_eii_subst;
+                tbr_rate.back() += sdot_bound_charge_tbr_subst;
                 #endif
-            }
-            // Add parallel containers to their parent containers.
-            for(size_t i=0;i < Pdot.size();i++){
-                Pdot[i] += Pdot_subst[i];
-                #ifdef DEBUG_BOUND
-                assert(Pdot[i] + P[i] >= 0);
-                // if(Pdot[i] + P[i] < 0){
-                //     Pdot[i]= -P[i]*1.00001;
-                // }
+            
+
+                auto t10 = std::chrono::high_resolution_clock::now();
+                pre_tbr_time += t10 - t9;
+
+                // Free-electron parts
+                #ifdef NO_EII
+                #warning No impact ionisation
+                #else
+                auto t1 = std::chrono::high_resolution_clock::now();
+                s.F.get_Q_eii(_c,vec_dqdt_scndry, a, P, threads);
+                auto t2 = std::chrono::high_resolution_clock::now();
+                eii_time += t2 - t1;
                 #endif
+                #ifdef NO_TBR
+                #warning No three-body recombination
+                #else
+                auto t3 = std::chrono::high_resolution_clock::now();
+                s.F.get_Q_tbr(_c,vec_dqdt_scndry, a, P, threads);  // Serially, this is the computational bulk of the program - S.P.
+                auto t4 = std::chrono::high_resolution_clock::now();
+                tbr_time += t4 - t3;
+                #endif
+                // Add secondary ionization to distributions
+                auto t7 = std::chrono::high_resolution_clock::now();
+                sdot.F.applyDeltaF(_c-1,vec_dqdt_scndry,threads);
+                auto t8 = std::chrono::high_resolution_clock::now();
+                apply_delta_time += t8 - t7;
+
             }
-            sdot.bound_charge += sdot_bound_charge_eii_subst + sdot_bound_charge_tbr_subst;
-            #ifdef RATES_TRACKING
-            eii_rate.back() += sdot_bound_charge_eii_subst;
-            tbr_rate.back() += sdot_bound_charge_tbr_subst;
-            #endif
-        
-
-            auto t10 = std::chrono::high_resolution_clock::now();
-            pre_tbr_time += t10 - t9;
-
-            // Free-electron parts
-            #ifdef NO_EII
-            #warning No impact ionisation
-            #else
-            auto t1 = std::chrono::high_resolution_clock::now();
-            s.F.get_Q_eii(_c,vec_dqdt_scndry, a, P, threads);
-            auto t2 = std::chrono::high_resolution_clock::now();
-            eii_time += t2 - t1;
-            #endif
-            #ifdef NO_TBR
-            #warning No three-body recombination
-            #else
-            auto t3 = std::chrono::high_resolution_clock::now();
-            s.F.get_Q_tbr(_c,vec_dqdt_scndry, a, P, threads);  // Serially, this is the computational bulk of the program - S.P.
-            auto t4 = std::chrono::high_resolution_clock::now();
-            tbr_time += t4 - t3;
-            #endif
-            // Add secondary ionization to distributions
+            // Add primary ionization to distributions
             auto t7 = std::chrono::high_resolution_clock::now();
-            sdot.F.applyDeltaF(_c-1,vec_dqdt_scndry,threads);
+            sdot.F.applyDeltaF(a,vec_dqdt,threads);
+            sdot.F.addLoss(a,s.F, input_params.loss_geometry, s.bound_charge);
             auto t8 = std::chrono::high_resolution_clock::now();
             apply_delta_time += t8 - t7;
-
         }
-        // Add primary ionization to distributions
-        auto t7 = std::chrono::high_resolution_clock::now();
-        sdot.F.applyDeltaF(a,vec_dqdt,threads);
-        sdot.F.addLoss(a,s.F, input_params.loss_geometry, s.bound_charge);
-        auto t8 = std::chrono::high_resolution_clock::now();
-        apply_delta_time += t8 - t7;
-    }
 
-    // if(input_params.Filtration_File() == "")
-    //     // No background, use geometric-dependent loss.
-    //     sdot.F.addLoss(s.F, input_params.loss_geometry, s.bound_charge);
-    // else
-    //     // background handles loss, apply photoelectron filtration with background
-    //     sdot.F.addFiltration(s.F, s_bg.F,input_params.loss_geometry);
-    
-    if (isnan(s.norm(0)) || isnan(sdot.norm(0))) {
-        cerr<<"NaN encountered in ODE iteration."<<endl;
-        cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
-        good_state = false;
-        timestep_reached = t*Constant::fs_per_au;
-    }    
+        // if(input_params.Filtration_File() == "")
+        //     // No background, use geometric-dependent loss.
+        //     sdot.F.addLoss(s.F, input_params.loss_geometry, s.bound_charge);
+        // else
+        //     // background handles loss, apply photoelectron filtration with background
+        //     sdot.F.addFiltration(s.F, s_bg.F,input_params.loss_geometry);
+        
+        if (isnan(s.norm(0)) || isnan(sdot.norm(0))) {
+            cerr<<"NaN encountered in ODE iteration."<<endl;
+            cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
+            good_state = false;
+            timestep_reached = t*Constant::fs_per_au;
+        }    
+    }
 }
 
 
 // 'badly-behaved' i.e. stiff part of the system. Electron-electron interactions.
-void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot) {
-    sdot=0;
+void ElectronRateSolver::sys_ee(const state_type& s_bundle, state_type& sdot_bundle,const size_t& V) {
+    //sdot_bundle=0;
     #ifdef NO_EE
     #warning No electron-electron interactions
     #else
-    #ifdef TRACK_SINGLE_CONTINUUM
-    size_t _c = 0; 
-    #else
-    size_t _c = 1;  // Iterates through the continuum corresponding to each element's initiated cascades and adds separately. // TODO check if having the full continuum contribute to the actual calcs is better.
-    #endif 
-    for (;_c < Distribution::num_continuums; _c++){
-        Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
-        const int threads = input_params.Plasma_Threads(); 
-        // compute the dfdt vector
-        // Electron-electon repulsions
-        auto t5 = std::chrono::high_resolution_clock::now();
-        s.F.get_Q_ee(_c, vec_dqdt, threads); 
-        auto t6 = std::chrono::high_resolution_clock::now();
-        ee_time += t6 - t5;
-        // 
-        // Add change to distribution
-        auto t7 = std::chrono::high_resolution_clock::now();
-        /*
         #ifdef TRACK_SINGLE_CONTINUUM
-        sdot.F.applyDeltaF(-99,vec_dqdt,threads);  // -99 is a dummy value
+        size_t _c = 0; 
         #else
-        sdot.F.applyDeltaF_element_scaled(_c, vec_dqdt,threads);
-        #endif
-        */
-        sdot.F.applyDeltaF(_c-1,vec_dqdt,threads);
-        auto t8 = std::chrono::high_resolution_clock::now();
-        apply_delta_time += t8 - t7;
-    }
+        size_t _c = 1;  // Iterates through the continuum corresponding to each element's initiated cascades and adds separately. // TODO check if having the full continuum contribute to the actual calcs is better.
+        #endif // TRACK_SINGLE_CONTINUUM
+    //for(size_t V=0; V<s_bundle.sims.size();V++){
+        const single_state_type& s = s_bundle.sims[V];
+        single_state_type& sdot = sdot_bundle.sims[V];
+        sdot=0;
+
+        for (;_c < Distribution::num_continuums; _c++){
+            Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
+            const int threads = input_params.Plasma_Threads(); 
+            // compute the dfdt vector
+            // Electron-electon repulsions
+            auto t5 = std::chrono::high_resolution_clock::now();
+            s.F.get_Q_ee(_c, vec_dqdt, threads); 
+            auto t6 = std::chrono::high_resolution_clock::now();
+            ee_time += t6 - t5;
+            // 
+            // Add change to distribution
+            auto t7 = std::chrono::high_resolution_clock::now();
+            /*
+            #ifdef TRACK_SINGLE_CONTINUUM
+            sdot.F.applyDeltaF(-99,vec_dqdt,threads);  // -99 is a dummy value
+            #else
+            sdot.F.applyDeltaF_element_scaled(_c, vec_dqdt,threads);
+            #endif
+            */
+            sdot.F.applyDeltaF(_c-1,vec_dqdt,threads);
+            auto t8 = std::chrono::high_resolution_clock::now();
+            apply_delta_time += t8 - t7;
+        }
+    //}
     #endif // NO_EE
 }
-
+void ElectronRateSolver::sys_ee_bundled(const state_type& s_bundle, state_type& sdot_bundle){
+    for(size_t V=0; V<s_bundle.sims.size();V++){
+        sys_ee(s_bundle, sdot_bundle,V);
+    }
+}
 
 
 
@@ -659,11 +697,15 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     num_steps = ceil(t.size() + (fact - 1)*remaining_steps);
     steps_per_time_update = max(1 , (int)(0.5+input_params.time_update_gap/(this->dt))); 
 
+    size_t num_sims = saved_states[0].sims.size();
+    
     _log <<"Reloading grid"<<endl;
     // with the states loaded the spline factors are as they were, we just need to load the appropriate knots.
     assert(saved_knots == Distribution::get_knots_from_history(n));
     for(auto elem : saved_states){
-        assert(elem.F.container_size() == saved_states.back().F.container_size());
+        for (size_t V = 0; V< num_sims;V++){
+            assert(elem[V].F.container_size() == saved_states.back()[V].F.container_size());\
+        }
     }
 
 
@@ -672,36 +714,38 @@ size_t ElectronRateSolver::load_checkpoint_and_decrease_dt(ofstream &_log, size_
     // Linearly interpolate the previous states as a first order correction. (We should use 4th order Runge-Kutta, but I don't have time to get that working with sys_ee incorporated)
     // First element of saved_states is y[n-this->order], corresponding to t[n-this->order].
     std::vector<state_type> interpolated_states(saved_states.size());
-    for(size_t i = 0; i < saved_states.size();i++){
-        interpolated_states[i]=saved_states[i];
-    }
-    for(size_t i = 0; i < saved_states.size() - 1; i++){
-        double intra_time = t[n] +i*dt; 
-        size_t loop_step = n;  //
-        assert(saved_times.front()==t[loop_step]);
-        while(1){
-            int rel_idx = loop_step - n; 
-            if(saved_times[rel_idx] == intra_time){
-                interpolated_states[i] = saved_states[rel_idx];
-                break;
+    for (size_t V = 0; V< num_sims;V++){
+        for(size_t i = 0; i < saved_states.size();i++){
+            interpolated_states[i]=saved_states[i];
+        }
+        for(size_t i = 0; i < saved_states.size() - 1; i++){
+            double intra_time = t[n] +i*dt; 
+            size_t loop_step = n;  //
+            assert(saved_times.front()==t[loop_step]);
+            while(1){
+                int rel_idx = loop_step - n; 
+                if(saved_times[rel_idx] == intra_time){
+                    interpolated_states[i] = saved_states[rel_idx];
+                    break;
+                }
+                // Check if intra_time is between t[loop_step] and t[loop_step+1]
+                if(saved_times[rel_idx] < intra_time){
+                    // if t' = t(n) + u 
+                    // y(t') = y(n) + [y(n+1) - y(n)] * u/[t(n+1)-t(n)]  = y(n) + dy
+                    // find dy
+                    assert(rel_idx < static_cast<int>(saved_times.size()));
+                    interpolated_states.at(i) = saved_states.at(rel_idx);
+                    interpolated_states[i] *= -1;
+                    interpolated_states[i] += saved_states.at(rel_idx +1);
+                    interpolated_states[i] *= (intra_time-saved_times[rel_idx])/(saved_times[rel_idx+1]-saved_times[rel_idx]);
+                    // add y(n) to get y(t')
+                    interpolated_states[i] += saved_states[rel_idx];
+                    break;
+                }
+                loop_step++;
+                if (saved_states.size() <= loop_step - n)
+                    throw runtime_error("Unexpected error, could not interpolate times when loading checkpoint.");
             }
-            // Check if intra_time is between t[loop_step] and t[loop_step+1]
-            if(saved_times[rel_idx] < intra_time){
-                // if t' = t(n) + u 
-                // y(t') = y(n) + [y(n+1) - y(n)] * u/[t(n+1)-t(n)]  = y(n) + dy
-                // find dy
-                assert(rel_idx < static_cast<int>(saved_times.size()));
-                interpolated_states.at(i) = saved_states.at(rel_idx);
-                interpolated_states[i] *= -1;
-                interpolated_states[i] += saved_states.at(rel_idx +1);
-                interpolated_states[i] *= (intra_time-saved_times[rel_idx])/(saved_times[rel_idx+1]-saved_times[rel_idx]);
-                // add y(n) to get y(t')
-                interpolated_states[i] += saved_states[rel_idx];
-                break;
-            }
-            loop_step++;
-            if (saved_states.size() <= loop_step - n)
-                throw runtime_error("Unexpected error, could not interpolate times when loading checkpoint.");
         }
     }
 
@@ -816,7 +860,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         size_t num_pts = 4000;
         py_plotter.plot_frame(
             Distribution::get_energies_eV(num_pts),
-            this->y[n].F.get_densities(0,num_pts,Distribution::get_knot_energies()), 
+            this->y[n].get_sampleF().get_densities(0,num_pts,Distribution::get_knot_energies()), 
             Distribution::get_trimmed_knots(Distribution::get_knot_energies())
         );
     }        
@@ -851,7 +895,10 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
         }        
         assert(check_states.size() == order);
         assert(check_times.size() == order);
-        assert(check_states.front().F.container_size() == check_states.back().F.container_size());
+        for(size_t V=0;V<check_states.front().sims.size();V++){
+            assert(check_states.front().sims[V].F.container_size() == check_states.back().sims[V].F.container_size());
+        }
+
         checkpoint = {checkpoint_n, Distribution::get_knot_energies(),this->regimes,check_states,check_times};
     }
     if (euler_exceeded || !good_state){     
@@ -1011,7 +1058,7 @@ void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool fo
         // Kinda goofy but it's necessary due to the static variables. 
         assert(this-> order*2 < steps_per_grid_transform); // *2 factor is to guarantee loading works.
         Distribution::load_knots_from_history(n-1); // the n - 1 is correct. transform_basis takes us to basis at step n.
-        y[m].F.transform_basis(new_energies);
+        y[m].get_sampleF().transform_basis(new_energies);
 
         #ifdef DEBUG_BOUND
         for(size_t a = 0; a < y[m].atomP.size();a++)
@@ -1035,7 +1082,11 @@ size_t ElectronRateSolver::reload_grid(ofstream& _log, size_t& load_step, std::v
 
 
     size_t n = load_step;
-    assert(y[n].atomP == next_ode_states_used[0].atomP);
+
+    size_t num_sims = next_ode_states_used[0].sims.size();
+    for(size_t V = 0; V < num_sims; V++){
+        assert(y[n][V].atomP == next_ode_states_used[0][V].atomP);
+    }
 
     std::cout.setstate(std::ios_base::failbit);  // disable character output
     

@@ -50,7 +50,8 @@ class Hybrid : public Adams_BM<T>{
     FeatureRegimes regimes;
     double timestep_reached = 0;       
     private:
-    virtual void sys_ee(const T& q, T& qdot) =0;
+    virtual void sys_ee(const T& q, T& qdot, const size_t& V) =0;
+    virtual void sys_ee_bundled(const T& q, T& qdot) =0;
     // virtual void Jacobian2(const T& q, T& qdot, double t) =0; 
     protected:
     
@@ -165,8 +166,10 @@ void Hybrid<T>::solve_dynamics(ofstream& _log, double t_initial, const double t_
         assert(check_states.size() == this->order);
         assert(check_times.size() == this->order);
         // TODO change so that when loading simulation loads from a step before the latest checkpoint if it is too close.
-        assert(check_states.front().F.container_size() == check_states.back().F.container_size() && "Loaded too close to a grid update, try loading from a time farther from the most recent knot update.");
-
+        for(size_t V=0;V<check_states.front().sims.size();V++){
+            assert(check_states.front().sims[V].F.container_size() == check_states.back().sims[V].F.container_size());
+        }
+        
         checkpoint = {checkpoint_n, Distribution::get_knot_energies(),this->regimes,check_states,check_times};
         old_checkpoint = checkpoint; 
     }
@@ -226,7 +229,9 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         assert(check_states.size() == this->order);
         assert(check_times.size() == this->order);
         assert(n == this->order);
-        assert(check_states.front().F.container_size() == check_states.back().F.container_size());
+        for(size_t V=0;V<check_states.front().sims.size();V++){
+            assert(check_states.front().sims[V].F.container_size() == check_states.back().sims[V].F.container_size());
+        }
         checkpoint = {this->order, Distribution::get_knot_energies(), this->regimes, check_states,check_times};
         old_checkpoint = checkpoint;
     }
@@ -275,13 +280,13 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     std::cout<<"[ sim ] final t = "<<this->t.back() * Constant::fs_per_au<<" fs"<< endl;  
 }
 /**
- * @brief Use a true implicit method to estimate change to bad part of system based solely on its own action.
+ * @brief Use a true implicit method to estimate change to bad part of system (in this simulation, this is just for the free electron-electron interactions) based solely on its own action. 
  * 
  * @param n n+1 is the index of the step to predict.
  * @return template<typename T> 
  */
 template<typename T>
-void Hybrid<T>::step_stiff_part(unsigned n){
+void Hybrid<T>::step_stiff_part(unsigned n){  
     if(!good_state) return;
     
     // Loop explanation:
@@ -326,7 +331,7 @@ void Hybrid<T>::step_stiff_part(unsigned n){
         // tmp acts as an aggregator
         for (int i = 1; i < int(this->order); i++){  // work through last N=order-1 ministeps. i.e. Order = 3 corresponds to 2 step method.
             T ydot; // ydot stores the change this loop.
-            this->sys_ee(y_transient[(1-i+mini_n)%(this->order)], ydot); 
+            this->sys_ee_bundled(y_transient[(1-i+mini_n)%(this->order)], ydot); 
             ydot *= this->b_AM[i];
             tmp += ydot;
         }
@@ -337,48 +342,52 @@ void Hybrid<T>::step_stiff_part(unsigned n){
         // tmp now stores the additive constant:  y_n+1 = tmp + h b0 f(y_n+1, t_n+1)
 
         // Picard iteration
+        // TODO we are generating dydt for all volumes but only using one. Need to change so it only generates what it needs.
+        
         next_rel_idx = (mini_n+1)%(this->order); 
         T prev;
-        double diff = stiff_rtol*2;
-        unsigned idx=0;
-        while (diff > stiff_rtol/num_stiff_ministeps && idx < stiff_max_iter){ //stiff_rtol is for the full step, so ministeps have smaller tolerance. 
-            // solve by Picard iteration
-            prev = y_transient[next_rel_idx];
-            prev *= -1;
-            T dydt;
-            this->sys_ee(y_transient[next_rel_idx], dydt);
-            dydt *= this->b_AM[0]*(mini_dt);
-            y_transient[next_rel_idx] = tmp;
-            y_transient[next_rel_idx] += dydt;
-            prev += y_transient[next_rel_idx];
-            diff = prev.norm(0)/y_transient[next_rel_idx].norm(0); // Seeking convergence
-            idx++;
-        }
-        if(idx==stiff_max_iter){
-            #ifndef NO_MINISTEP_UPDATING
-            if (num_ministep_reductions < max_ministep_reductions){
-                // Try again with more ministeps
-                modify_ministeps(n,min(num_stiff_ministeps*2,1000));
-                mini_n = old_mini_n;
-                num_ministep_reductions++;
+        for(size_t V; V<prev.sims.size();V++){
+            double diff = stiff_rtol*2;
+            unsigned idx=0;
+            while (diff > stiff_rtol/num_stiff_ministeps && idx < stiff_max_iter){ //stiff_rtol is for the full step, so ministeps have smaller tolerance. 
+                // solve by Picard iteration
+                prev = y_transient[next_rel_idx];
+                prev *= -1;
+                T dydt;
+                this->sys_ee(y_transient[next_rel_idx], dydt, V);
+                dydt[V] *= this->b_AM[0]*(mini_dt);
+                y_transient[next_rel_idx][V] = tmp[V];
+                y_transient[next_rel_idx][V] += dydt[V];
+                prev += y_transient[next_rel_idx];
+                diff = prev[V].norm(0)/y_transient[next_rel_idx][V].norm(0); // Seeking convergence
+                idx++;
             }
-            //std::cerr<<"Max Euler iterations exceeded, err = "<<diff<<std::endl;
-            else if (diff > intolerable_stiff_divergence){
-                //std::cerr << "Max error ("<<intolerable_stiff_divergence<<") exceeded, ending simulation early." <<std::endl; // moved to 
-                this->good_state = false;
-                this->timestep_reached = this->t[n+1]*Constant::fs_per_au; // t[n+1] is equiv. to t in bound !good_state case, where error condition this is modelled off is found.
-                this->euler_exceeded = true;  
-                break;
+            if(idx==stiff_max_iter){
+                #ifndef NO_MINISTEP_UPDATING
+                if (num_ministep_reductions < max_ministep_reductions){
+                    // Try again with more ministeps
+                    modify_ministeps(n,min(num_stiff_ministeps*2,1000));
+                    mini_n = old_mini_n;
+                    num_ministep_reductions++;
+                }
+                //std::cerr<<"Max Euler iterations exceeded, err = "<<diff<<std::endl;
+                else if (diff > intolerable_stiff_divergence){
+                    //std::cerr << "Max error ("<<intolerable_stiff_divergence<<") exceeded, ending simulation early." <<std::endl; // moved to 
+                    this->good_state = false;
+                    this->timestep_reached = this->t[n+1]*Constant::fs_per_au; // t[n+1] is equiv. to t in bound !good_state case, where error condition this is modelled off is found.
+                    this->euler_exceeded = true;  
+                    break;
+                }
+                #else
+                if (diff > intolerable_stiff_divergence){
+                    //std::cerr << "Max error ("<<intolerable_stiff_divergence<<") exceeded, ending simulation early." <<std::endl; // moved to 
+                    this->good_state = false;
+                    this->timestep_reached = this->t[n+1]*Constant::fs_per_au; // t[n+1] is equiv. to t in bound !good_state case, where error condition this is modelled off is found.
+                    this->euler_exceeded = true;  
+                    break;
+                }
+                #endif
             }
-            #else
-            if (diff > intolerable_stiff_divergence){
-                //std::cerr << "Max error ("<<intolerable_stiff_divergence<<") exceeded, ending simulation early." <<std::endl; // moved to 
-                this->good_state = false;
-                this->timestep_reached = this->t[n+1]*Constant::fs_per_au; // t[n+1] is equiv. to t in bound !good_state case, where error condition this is modelled off is found.
-                this->euler_exceeded = true;  
-                break;
-            }
-            #endif
         }
         y_transient[next_rel_idx] += delta_bound_interpolated[mini_n-old_mini_n];  // Add interpolated bound state contribution
         #ifndef NO_MINISTEP_UPDATING
@@ -406,8 +415,10 @@ void Hybrid<T>::step_stiff_part(unsigned n){
 // For order 3, transient y is indexed as: [mini_n-3,mini_n-2,mini_n-1,mini_n]
 template<typename T>
 void Hybrid<T>::initialise_transient_y(int n) {  // n is the last calculated step.
-    assert(this->y[n-1].F.container_size() == this->y[n].F.container_size());
-
+    size_t num_sims = this->y[0].sims.size();
+    for(size_t V = 0; V < num_sims; V++){
+        assert(this->y[n-1][V].F.container_size() == this->y[n][V].F.container_size());
+    }
     y_transient.resize(this->order);
     mini_n = this->order-1; // last index of simulation's first "loop" of transient y. 
     if ((this->order-1)/num_stiff_ministeps <= 1){
@@ -439,11 +450,11 @@ void Hybrid<T>::initialise_transient_y(int n) {  // n is the last calculated ste
         }
     }
     // sample to catch the error of y(n) != y_transient(mini_n).
-    assert(this->y[n].F[0][0] == y_transient[mini_n].F[0][0]);
-    if (this->y[n].F.container_size() > 3)
-        assert(this->y[n].F[0][3] == y_transient[mini_n].F[0][3]);
-    if (this->y[n].F.container_size() > 5)
-        assert(this->y[n].F[0][5] == y_transient[mini_n].F[0][5]);
+    assert(this->y[n].get_sampleF()[0][0] == y_transient[mini_n].get_sampleF()[0][0]);
+    if (this->y[n].get_sampleF().container_size() > 3)
+        assert(this->y[n].get_sampleF()[0][3] == y_transient[mini_n].get_sampleF()[0][3]);
+    if (this->y[n].get_sampleF().container_size() > 5)
+        assert(this->y[n].get_sampleF()[0][5] == y_transient[mini_n].get_sampleF()[0][5]);
 }
 
 
@@ -570,7 +581,7 @@ void Hybrid<T>::initialise_transient_y_v2(int n){
 }
 
 
-
+//UNUSED
 template<typename T>
 void Hybrid<T>::backward_Euler(unsigned n){
     // Assumes that y_n+1 contains a guess based on sys, and estimates a solution to y_n

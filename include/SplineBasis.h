@@ -75,6 +75,9 @@ public:
     int i_from_e(double e);
     int lower_i_from_e(double e);  
     std::vector<double> set_knot(const GridSpacing& gt,FeatureRegimes& regimes, bool trial = false, bool do_not_update_regions = false);  // sets knot and returns it for convenience. if trial is true, only returns the knot without setting.
+
+    void set_sampling_distribution_index(size_t volume_index){sampling_distribution_index=volume_index;}
+
 protected:
     // Eigen::PartialPivLU<Eigen::MatrixXd > linsolver;
     Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int> >  linsolver;
@@ -90,6 +93,9 @@ protected:
     std::vector<int> _manual_region_bndry_index;
     std::vector<double> _manual_region_bndry_energy;
     std::vector<double> _region_powers;
+
+
+    static size_t sampling_distribution_index; // This is the simulation volume all dynamical grid update functions reference. Kinda dodgy simple implementation. Note that all the volumes use the same basis (much more computationally efficient + the basis uses a lot of static functions so would be complicated to refactor).
 };
 
 

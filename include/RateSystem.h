@@ -28,6 +28,8 @@ This file is part of AC4DC.
 #include <iostream>
 #include "Constant.h"
 #include "FreeDistribution.h"
+#include "RateSystemSingle.h"
+#include "Spatial.hpp"
 
 
 
@@ -39,49 +41,109 @@ This file is part of AC4DC.
 class state_type
 {
 public:
-    /// Probabilities of state for all atoms.
-    std::vector<bound_t> atomP; 
-    // Tracks sum total of photoionisation for all atoms.
-    std::vector<double> cumulative_photo;     
-    /// Energy distribution function
-    Distribution F;   
-    double bound_charge;
+    /// Individual rate systems
+    std::vector<single_state_type> sims; 
+    static std::vector<Space> sim_volumes;
 
-
-
+    // Num sims is just the number of voxels or whatever volumes are being simulated, connected through SpatialConnection objects (transfer of free electrons). 
     state_type();
 
     // Critical vector-space devices
     state_type& operator+=(const state_type &s);
     state_type& operator*=(const double x);
+    state_type& operator*=(const std::vector<double> x);
     // state_type operator+(const state_type& s2);
     // state_type operator*(double x);
     // convenience members
     state_type& operator=(const double x);
+    state_type& operator=(const state_type &s);
     // state_type& operator=(const state_type& s2);
 
-    double norm(size_t _c) const;
+    inline single_state_type& operator[](size_t n) {
+        return this->sims[n];
+    }
+
+    std::vector<double> norm(size_t _c) const;
 
     // Defines number and style of atomP
     // Resizes the container to fit all of the states present in the atom ensemble
-    static void set_P_shape(const vector<RateData::Atom>& atomsys);
-    static void set_P_shape(const vector<size_t>& shape) {
-        P_sizes = shape;
+    // void set_P_shape(const vector<RateData::Atom>& atomsys){
+    //     //sim_P_sizes.resize(0);
+    //     for (auto& sim: sims){
+    //         sim.set_P_shape(atomsys);
+    //         sim_P_sizes.push_back(sim.get_P_sizes());
+    //     }
+    // }
+   void set_P_shape(const vector<vector<size_t>>& sim_shapes) {
+        sims.resize(sim_shapes.size());
+        for(size_t V=0; V<sim_shapes.size(); V++){
+            sims[V].set_P_shape(sim_shapes[V]);
+        }
     }
-    static size_t P_size(size_t a) {
-        return P_sizes[a];
+    void update_P_shape(){
+        set_P_shape(sim_P_sizes); 
     }
-    static size_t num_atoms() {
-        return P_sizes.size();
+    static void initialise_P_shape(const vector<RateData::Atom>& atomsys){
+        assert(num_sims>0); // check num sims has been set.
+        sim_P_sizes.resize(0);
+        for(size_t V=0; V<num_sims; V++){
+            vector<size_t> P_shape; 
+            for(auto atom: atomsys){
+                //if (atom.nAtoms_in_sims[V] > 0){  // Can't do this because of way precomputed Q (e.g. Q_eii) is stored.
+                P_shape.push_back(atom.num_conf);
+                //} 
+            }
+            sim_P_sizes.push_back(P_shape);
+        }
+    }
+
+    static void initialise_num_sims(const size_t& num_sims){
+        state_type::num_sims = num_sims; 
+
+    }
+    static size_t get_num_sims() {
+        return num_sims;
+    }
+    static void initialise(const vector<RateData::Atom>& atom_sys, size_t num_sims){
+        assert(active);
+        initialise_num_sims(num_sims); // must be before initialising P shape.
+        initialise_P_shape(atom_sys);
+        initialised=true;
+    }
+
+
+    size_t P_size(size_t V, size_t a) {
+        return sims[V].get_P_sizes()[a];//sim_P_sizes[V][a];
+    }
+    size_t num_atoms(size_t V) {
+        return sims[V].get_P_sizes().size();
+        //return sim_P_sizes[V].size();
+    }
+
+    
+    Distribution& get_sampleF(){return sims[0].F;}
+    
+    void set_sample_index(const size_t& sample_index){
+        state_type::sample_index = sample_index;
+    }
+
+    static size_t Num_Sims(){
+        return num_sims;
+    }
+
+    static void Mark_Active(){
+        active=true;
     }
 
 private:
-    static vector<size_t> P_sizes;
+    static bool initialised;
+    static vector<vector<size_t>> sim_P_sizes;
+    static size_t num_sims;
+    static size_t sample_index;
+    static bool active;
 };
 
-ostream& operator<<(ostream& os, const state_type& st);
-ostream& operator<<(ostream& os, const bound_t& dist);
-ostream& operator<<(ostream& os, const Distribution& dist);
+
 
 // All f integrals have the form
 // df(e)/dt = Q [f] (e)

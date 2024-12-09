@@ -22,98 +22,71 @@ This file is part of AC4DC.
 #include "RateSystem.h"
 #include "Dipole.h"
 #include <math.h>
+#include <vector>
 // #include <stringstream>
 // #define NDEBUG
 
-
-vector<size_t> state_type::P_sizes  = vector<size_t>(0);
-
+vector<vector<size_t>> state_type::sim_P_sizes; //= vector<vector<size_t>>(0);
+size_t state_type::num_sims=0;
+bool state_type::initialised=false;
+bool state_type::active=false;
 
 state_type::state_type() {
-    atomP.resize(P_sizes.size());
-    for (size_t i = 0; i < atomP.size(); i++) {
-        atomP[i].resize(P_sizes[i]);
-    }
-    cumulative_photo.resize(atomP.size());
+    assert(initialised == active);
+    sims.resize(num_sims);
+    set_P_shape(sim_P_sizes);
 }
-
 
 // Critical vector-space operators
 state_type& state_type::operator+=(const state_type &s) {
-    for (size_t r = 0; r < atomP.size(); r++) {
-        cumulative_photo[r] += s.cumulative_photo[r];
-        for (size_t i = 0; i < atomP[r].size(); i++) {
-            atomP[r][i] += s.atomP[r][i];
-        }
+    for (size_t i = 0; i < sims.size(); i++) {
+        sims[i]+=s.sims[i];
     }
-    F += s.F;
-    bound_charge += s.bound_charge;
     return *this;
 }
 
 state_type& state_type::operator*=(const double x) {
-    for (size_t r = 0; r < atomP.size(); r++) {
-        cumulative_photo[r] *= x;
-        for (size_t i = 0; i < atomP[r].size(); i++) {
-            atomP[r][i] *= x;
-        }
+    for (size_t i = 0; i < sims.size(); i++) {
+        sims[i]*=x;
     }
-    F *= x;
-    bound_charge *=x;
+    return *this;
+}
+
+state_type& state_type::operator*=(const std::vector<double> x) {
+    for (size_t i = 0; i < sims.size(); i++) {
+        sims[i]*=x[i];
+    }
     return *this;
 }
 
 // convenience members
 state_type& state_type::operator=(const double x) {
-    for (auto&a : cumulative_photo)
-        a=x;
-    for (auto& P : atomP) {
-        for (auto& p : P) {
-            p=x;
-        }
+    for (size_t i = 0; i < sims.size(); i++) {
+        sims[i]=x;
     }
-    F = x;
-    bound_charge = x;
     return *this;
 }
 
-// Resizes the container to fit all of the states present in the atom ensemble
-void state_type::set_P_shape(const vector<RateData::Atom>& atomsys) {
-    P_sizes.resize(atomsys.size());
-    // make the P's the right size lmao
-    for (size_t a = 0; a < atomsys.size(); a++) {
-        P_sizes[a] = atomsys[a].num_conf;
+state_type& state_type::operator=(const state_type &s) {
+    assert(sims.size()==s.sims.size());
+    for (size_t i = 0; i < sims.size(); i++) {
+        sims[i]=s.sims[i];
     }
+    return *this;
 }
 
-// Returns the L1 norm
-double state_type::norm(size_t _c) const {
-    double n = 0;
-    for (auto& P : atomP) {
-        for (auto& p : P) {
-            n += fabs(p);
+// Returns the L1 norm for each simulated volume's _c continuum
+std::vector<double> state_type::norm(size_t _c) const {
+    std::vector<double> return_vector;
+    for(size_t i=0; i<sims.size();i++){
+        double n = 0;
+        for (auto& P : sims[i].atomP) {
+            for (auto& p : P) {
+                n += fabs(p);
+            }
         }
+        n += sims[i].F.norm(_c);
+        return_vector.push_back(n);
     }
-    n += F.norm(_c);
-    return n;
-}
-
-
-// Intended usage: cout<<s.atomP[a]<<endl;
-ostream& operator<<(ostream& os, const bound_t& bound) {
-    const double units = 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au;
-    for (size_t i=0; i<bound.size(); i++) {
-        os << bound[i]*units << " ";
-    }
-    return os;
-}
-
-ostream& operator<<(ostream& os, const state_type& st) {
-    for (size_t a=0; a<st.atomP.size(); a++) {
-        os << st.atomP[a];
-        if (a != st.atomP.size()-1)
-            os<<"| ";
-    }
-    os << st.F;
-    return os;
+    return return_vector;
 }

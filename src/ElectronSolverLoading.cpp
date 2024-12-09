@@ -78,6 +78,7 @@ void ElectronRateSolver::load_simulation_state(){
  * @todo there's no need to convert the basis of old lines, if we associate distribution at each time step to a basis.
  */
 void ElectronRateSolver::loadFreeRaw_and_times() {
+    #ifdef SIM_LOADING_SUPPORTED  // Turned off because needs to be updated to work for multiple simulated volumes. Not so important now that the sim is
     vector<string> time_and_BS_factors;
     const std::string& fname = input_params.Load_Folder() + "freeDistRaw.csv";
 
@@ -275,9 +276,11 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
             << endl;        
         }
     //******/////////******//
+    #endif
 
 }   
 void ElectronRateSolver::loadKnots() {
+    #ifdef SIM_LOADING_SUPPORTED
     // Ensure clear knot history
     while (Distribution::knots_history.size() > 0){
         Distribution::knots_history.pop_back();
@@ -342,6 +345,7 @@ void ElectronRateSolver::loadKnots() {
         Distribution::knots_history.push_back(indexed_knot{step,saved_knots});
     }
     y[i].F.load_knots_from_history(y.size()-1);
+    #endif
 }
 
 /// Ensuring we have consistent removal of decimal places (should need to be called for loadFreeRaw, loadBound, and loadKnots)
@@ -369,6 +373,7 @@ double ElectronRateSolver::round_time(double time,const bool ceil, const bool fl
  * @attention Currently assumes same input states
  */
 void ElectronRateSolver::loadBound() {
+    #ifdef SIM_LOADING_SUPPORTED
     cout << "Loading atoms' orbital states"<<endl; 
     cout << "[ Caution ] Ensure same atoms and corresponding .inp files are used!"<<endl; 
 
@@ -458,4 +463,5 @@ void ElectronRateSolver::loadBound() {
         Distribution::set_basis(n, param_cutoffs, regimes,  Distribution::get_knots_from_history(n)); 
         this->set_zero_y();     
     }    
+    #endif
 }

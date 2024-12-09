@@ -28,6 +28,7 @@ This file is part of AC4DC.
 #include "GridSpacing.hpp"
 #include "LossGeometry.hpp"
 #include "Pulse.h"
+#include "Spatial.hpp"
 
 
 class MolInp
@@ -93,7 +94,12 @@ public:
 	double electron_source_fraction = 0;
 	double electron_source_energy = -1;
 	double electron_source_duration = 1; // As fraction of entire pulse
-	char electron_source_type = 'c'; // (c)onstant: rate is ([intensity]/[initial intensity]) * [initial photoion. rate of atoms in target]  *  [electron source fraction]. | (p)roportional: rate is [source fraction] * [total photionisation rate of all atoms in target].   
+	char electron_source_type = 'c'; // (c)onstant: rate is ([intensity]/[initial intensity]) * [initial photoion. rate of atoms in target]  *  [electron source fraction]. | (p)roportional: rate is [source fraction] * [total photionisation rate of all atoms in target].    TODO highly misleading names... the names refer to the cross-section size, not the actual rates.
+
+
+	std::vector<Space> simulated_volumes;
+	size_t Num_Simulated_Volumes(){return simulated_volumes.size();}
+
 
 protected:
 
@@ -133,7 +139,6 @@ protected:
 
 	// Rate calc exclusions
 	std::vector<bool> bound_free_exclusions;
-
 
 };
 
