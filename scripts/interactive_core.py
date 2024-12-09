@@ -44,7 +44,7 @@ T_PRECISION = 6 # Truncate past 6 d.p. (millionth of an fs) to Avoid floating po
 #     return C(idx)
 
 class PlotData:
-    def __init__(self, abs_molecular_path, mol_name,output_mol_query, max_final_t, max_points,custom_name = None):
+    def __init__(self, abs_molecular_path, mol_name,output_mol_query, max_final_t, max_points,spatial_index,custom_name = None):
         self.molecular_path = abs_molecular_path
         AC4DC_dir = path.abspath(path.join(__file__ ,"../../"))  + "/"
         self.input_path = AC4DC_dir + 'input/'
@@ -69,12 +69,15 @@ class PlotData:
         self.timeData=None
 
         self.max_final_t = max_final_t 
-        self.max_points = max_points 
+        self.max_points = max_points
+        self.spatial_tag = "" # This option is for compatibility with simulations from zero-dimensional version of code
+        if spatial_index is not None:
+            self.spatial_tag = f"-{spatial_index}"
         
         self.title_colour = "#4d50b3"
         # Directories of target data
         self.outDir = self.molecular_path + mol_name
-        self.freeFile = self.outDir+"/freeDist.csv"
+        self.freeFile = self.outDir+f"/freeDist{self.spatial_tag}.csv"
         self.intFile = self.outDir + "/intensity.csv"
 
         self.get_atoms()
@@ -105,7 +108,7 @@ class PlotData:
                         self.atomdict[a]={
                             'infile': file,
                             'mtime': path.getmtime(file),
-                            'outfile': self.outDir+"/dist_%s.csv"%a}        
+                            'outfile': self.outDir+f"/dist_{a}{self.spatial_tag}.csv"}        
     def get_max_time_range(self):
         return min(self.max_final_t,self.raw_int[-1,0]) - self.raw_int[0,0]
     def set_max_t(self,time_range):
@@ -197,7 +200,7 @@ class PlotData:
 class InteractivePlotter:
     # max_final_t, float, end time in femtoseconds. Not equivalent to time duration
     # max_points, int, number of points (within the timespan) for the interactive to have at maximum.
-    def __init__(self, target_names, sim_output_parent_directory, max_final_t = 30, max_points = 70, custom_names = None,legend_title=None,use_electron_density = False,presentation_mode=False,font_size=35,times_in_legend=True,inset = False):
+    def __init__(self, target_names, sim_output_parent_directory, max_final_t = 30, max_points = 70, spatial_indices=None, custom_names = None,hide_legend=False,legend_title=None,use_electron_density = False,presentation_mode=False,font_size=35,legend_font_size=35,times_in_legend=True,inset = False):
         '''
         output_parent_directory: absolute path
         use_electron_density: If True, plot electron density rather than energy density
@@ -211,11 +214,15 @@ class InteractivePlotter:
             self.presentation_mode = True
 
         self.font_size = font_size
+        self.legend_font_size = legend_font_size
+        self.hide_legend = hide_legend
         self.times_in_legend = times_in_legend
         self.legend_title = legend_title
         self.inset = inset
+        if spatial_indices is None:
+            spatial_indices = [None]
         
-        self.num_plots = len(target_names)
+        self.num_plots = len(target_names)*len(spatial_indices)
         if custom_names is None:
             custom_names = [None]*self.num_plots
         self.input_data_args = {
@@ -224,24 +231,26 @@ class InteractivePlotter:
             "sim_output_parent_directory":sim_output_parent_directory,
             "max_final_t":max_final_t,
             "max_points":max_points,
+            "spatial_indices":spatial_indices
             }
         self.initialise_data()
     
     def initialise_data(self):    
 
         d = self.input_data_args
-        target_names,custom_names,sim_output_parent_directory,max_final_t,max_points = (
-            d["target_names"],d["custom_names"],d["sim_output_parent_directory"],d["max_final_t"],d["max_points"]
+        target_names,custom_names,sim_output_parent_directory,max_final_t,max_points,spatial_indices = (
+            d["target_names"],d["custom_names"],d["sim_output_parent_directory"],d["max_final_t"],d["max_points"],d["spatial_indices"]
         )
         self.target_data = []
         minimum_time_range = np.inf
         lowest_max_points = np.inf           
         for i, mol_name in enumerate(target_names):
-            custom_name = custom_names[i]
-            dat = PlotData(sim_output_parent_directory,mol_name,"y",max_final_t=max_final_t,max_points=max_points,custom_name=custom_name)    
-            minimum_time_range = min(dat.get_max_time_range(),minimum_time_range)
-            lowest_max_points = min(lowest_max_points, dat.get_num_usable_points())
-            self.target_data.append(dat)
+            for s_idx in spatial_indices:
+                custom_name = custom_names[i]
+                dat = PlotData(sim_output_parent_directory,mol_name,"y",max_final_t=max_final_t,max_points=max_points,spatial_index=s_idx,custom_name=custom_name)    
+                minimum_time_range = min(dat.get_max_time_range(),minimum_time_range)
+                lowest_max_points = min(lowest_max_points, dat.get_num_usable_points())
+                self.target_data.append(dat)
         for dat in self.target_data:
             dat.set_max_t(minimum_time_range)
             dat.max_points = lowest_max_points
@@ -304,14 +313,14 @@ class InteractivePlotter:
             title = plot_title + " - Free-electron distribution"
         self.fig.update_layout(
             title = title,  # Attention: title overwritten by add_time_slider()
-            showlegend=True,
+            showlegend= not self.hide_legend,
             legend=dict(
                 yanchor="top",
                 y=0.99,
                 xanchor = h_anchor["xanchor"],
                 x = h_anchor["x"],
                 bgcolor = '#F5F5F5',
-                font = dict(family="times new roman",size=self.font_size),
+                font = dict(family="times new roman",size=self.legend_font_size),
                 title=self.legend_title,
                 title_font=dict(
                     family="times new roman",
@@ -332,7 +341,7 @@ class InteractivePlotter:
     # colour_mixup - good for distinguishing plots that are on the same timescale.
     def plot_traces(self, saturation = 0.85, normed = True, colour_mixup = True, line_kwargs = [{},{},{},{},{}], fitE = None):
         Q = 10**(-T_PRECISION)
-        # Add a group of traces for each target.
+        # Add a group of traces (each trace corresponding to a point in time) for each target. We will only show one at a time!
         for g, target in enumerate(self.target_data):
             # (Used for colour)
             min_t_c = target.timeData[0]   #

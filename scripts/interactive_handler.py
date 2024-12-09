@@ -35,6 +35,9 @@ _P.NAMING_MODE = 0  # For legend. 0: full details of sim parameters + sim name |
 _P.SCALE_DENSITY_BY_THOUSAND = False # Use cubic nm rather than cubic angstrom for measuring energy density  
 _P.END_T = 9999  # Put at value to cutoff times early.
 _P.POINTS = 70
+_P.FONT_SIZE = {"standard":35, "legend":35,"superscript":30}
+_P.HIDE_LEGEND = False
+_P.SPATIAL_INDICES = None # List of indices of the simulated volume to do plots for.
 if _P.ANIMATION:
     _P.POINTS = 200 # 200
 _P.SINGLE_FRAME_DICT = dict(
@@ -92,6 +95,7 @@ P_defaults = vars(_P)
 
 ######
 def generate_graphs(param_dictionary,sys_argv=None):
+        
     # Set up namespace by filling with default values
     if type(param_dictionary) is SimpleNamespace:
         param_dictionary = vars(param_dictionary)
@@ -149,6 +153,8 @@ def generate_graphs(param_dictionary,sys_argv=None):
             if path.isfile(given_path + "/"+ f):
                 is_parent_dir = False
                 break
+
+
     if is_parent_dir:
         # Generate interactive for each output contained in the parent directory
         outdir = graph_folder + sys_argv[1] + "/"
@@ -170,7 +176,7 @@ def generate_graphs(param_dictionary,sys_argv=None):
     print("Done! Remember to drink water!")
 
 
-def set_up_interactive_axes(P,ipl,plot_title,font_size=35,superscript_font_size=30):
+def set_up_interactive_axes(P,ipl,plot_title,font_size):
     '''
     superscript_font_size is for whatever plotly does when using superscript tick labels, font is made bigger and I assume it bases it off the superscript or something.
     '''
@@ -230,19 +236,19 @@ def set_up_interactive_axes(P,ipl,plot_title,font_size=35,superscript_font_size=
     #x_log_args = {'title': {"text": xlabel + " - log scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
     #y_log_args = {'exponentformat':'e','tick0': [100,10,1,0.1,0.01,0.001,0.0001,0.00001],'title': {"text": ylabel + " - log scale", "font":{"size": 30,"family": "times new roman"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
     
-    x_lin_args = {'tick0': None,'dtick':None,'title': {"text": xlabel, "font":{"size": font_size,"family": "times new roman"}}, 'tickfont': {"size": font_size}, 'type' : "linear", "range" : [xmin,xmax]}
-    y_lin_args = {'tick0': None,'dtick':None,'title': {"text": ylabel, "font":{"size": font_size,"family": "times new roman"}}, 'tickfont': {"size": font_size}, 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
-    x_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": xlabel, "font":{"size": font_size,"family": "times new roman"}}, 'tickfont': {"size": superscript_font_size,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
-    y_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": ylabel, "font":{"size": font_size,"family": "times new roman"}}, 'tickfont': {"size": superscript_font_size,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
+    x_lin_args = {'tick0': None,'dtick':None,'title': {"text": xlabel, "font":{"size": font_size["standard"],"family": "times new roman"}}, 'tickfont': {"size": font_size["standard"]}, 'type' : "linear", "range" : [xmin,xmax]}
+    y_lin_args = {'tick0': None,'dtick':None,'title': {"text": ylabel, "font":{"size": font_size["standard"],"family": "times new roman"}}, 'tickfont': {"size": font_size["standard"]}, 'type' : "linear", "range" : [lin_ymin,lin_ymax]}
+    x_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": xlabel, "font":{"size": font_size["standard"],"family": "times new roman"}}, 'tickfont': {"size": font_size["superscript"],"family": "times new roman"}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
+    y_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": ylabel, "font":{"size": font_size["standard"],"family": "times new roman"}}, 'tickfont': {"size": font_size["superscript"],"family": "times new roman"}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
 
 
     #for k,lab in zip(["yaxis2","xaxis2"],[ylabel,xlabel,]):
     #    P.INSET_DICT["axes_kwargs"][k]["text"] = lab
-    P.INSET_DICT["axes_kwargs"]["xaxis2"]["title"] ={"text": xlabel, "standoff":0, "font":{"color":P.SUBPLOT_AX_FONT_COLOUR, "size": font_size,"family": "times new roman"}}
+    P.INSET_DICT["axes_kwargs"]["xaxis2"]["title"] ={"text": xlabel, "standoff":0, "font":{"color":P.SUBPLOT_AX_FONT_COLOUR, "size": font_size["standard"],"family": "times new roman"}}
 
     if P.ANIMATION:
-        x_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": xlabel, "font":{"size": font_size*2-5,"family": "times new roman"}}, 'tickfont': {"size": superscript_font_size*2-5,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
-        y_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": ylabel, "font":{"size": font_size*2-5,"family": "times new roman"}}, 'tickfont': {"size": superscript_font_size*2-5,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
+        x_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": xlabel, "font":{"size": font_size["standard"]*2-5,"family": "times new roman"}}, 'tickfont': {"size": font_size["standard"]*2-5,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
+        y_log_args = {'tick0': [2,1,0,-1,-2,-3,-4,-5],'dtick':"1",'exponentformat':'power','showexponent':'all','title': {"text": ylabel, "font":{"size": font_size["standard"]*2-5,"family": "times new roman"}}, 'tickfont': {"size": font_size["superscript"]*2-5,"family": "times new roman"}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
     if P.SINGLE_FRAME:
         y_lin_args['tick0']=P.SINGLE_FRAME_DICT['y_range'][0] 
         y_lin_args['dtick'] = (P.SINGLE_FRAME_DICT['y_range'][1]- P.SINGLE_FRAME_DICT['y_range'][0])/3
@@ -295,14 +301,14 @@ def generate(P,target_handles,sim_data_parent_dir,plot_title,fname_out,outdir):
     if P.ANIMATION:
         presentation_mode = True
     # Initialises plotter object with data from files.
-    ipl = InteractivePlotter(target_handles,sim_data_parent_dir, max_final_t=P.END_T,max_points=P.POINTS,custom_names=custom_names,use_electron_density = P.ELECTRON_DENSITY,presentation_mode=presentation_mode,inset=P.INSET)  
-    scale_button_args = set_up_interactive_axes(P,ipl,plot_title)
+    ipl = InteractivePlotter(target_handles,sim_data_parent_dir, max_final_t=P.END_T,max_points=P.POINTS,spatial_indices=P.SPATIAL_INDICES,legend_font_size=P.FONT_SIZE["legend"],hide_legend=P.HIDE_LEGEND,custom_names=custom_names,use_electron_density = P.ELECTRON_DENSITY,presentation_mode=presentation_mode,inset=P.INSET)  
+    scale_button_args = set_up_interactive_axes(P,ipl,plot_title,font_size=P.FONT_SIZE)
     # The meat of the plotting. Plot line for each point in time
     line_1 = {'width': 6,"dash": '10,1'}
     line_2 = {'width': 6,}
     line_kwargs = [line_1,line_2]
     if len(target_handles) != 2:
-        line_kwargs = [line_2 for l in range(len(target_handles))]
+        line_kwargs = [line_2 for l in range(ipl.num_plots)]
     ipl.plot_traces(normed=P.NORMALISE, line_kwargs=line_kwargs)
     # Add widgets
     ipl.add_time_slider(one_slider=P.ANIMATION)  
@@ -379,7 +385,7 @@ def snapshot(P,target_handles,sim_data_parent_dir,fname_out,outdir):
             for i in range(len(ipl.target_data)):
                 ipl.target_data[i].freeData*=1000
         line = {'width': P.SINGLE_FRAME_DICT["line_width"]}
-        ipl.plot_traces(normed=P.NORMALISE, line_kwargs=[line]*len(target_handles))   
+        ipl.plot_traces(normed=P.NORMALISE, line_kwargs=[line]*ipl.num_plots)   
   
     ipl.fig.update_layout(
         showlegend=P.SINGLE_FRAME_DICT["show_legend"]
