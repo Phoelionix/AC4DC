@@ -80,7 +80,10 @@ public:
 	DynamicGridPreset elec_grid_preset;
 	Cutoffs param_cutoffs;
 	ManualGridBoundaries elec_grid_regions;
+	
 	LossGeometry loss_geometry;
+	SpatialArrangement spatial_arrangement; 
+
 	PulseShape pulse_shape = PulseShape::none;
 	// Gaussian modifications
 	double timespan_factor = 0;  // if set, is the total simulated timespan in units of the pulse width (fwhm) 

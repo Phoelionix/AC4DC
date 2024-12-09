@@ -43,6 +43,9 @@ void ElectronRateSolver::initialise_state_types(){
     // Dodgy patch
     this->y[0].update_P_shape(); 
     this->zero_y.update_P_shape();
+    
+    
+    setup_electron_transfer_geometry(input_params.simulated_volumes,input_params.spatial_arrangement); // TODO This seems bad, need to refactor.
 }
 
 void ElectronRateSolver::set_starting_state(){
@@ -78,11 +81,11 @@ state_type ElectronRateSolver::get_initial_state() {
             assert(input_params.Store[a].nAtoms_in_sims.size()==state_type::Num_Sims());
             
             initial_condition.atomP[a][0] = species_present[a].nAtoms_in_sims[V];
-            for(size_t i=1; i<initial_condition.atomP.size(); i++) {
+            for(size_t i=1; i<initial_condition.atomP[a].size(); i++) {
                 initial_condition.atomP[a][i] = 0.;
             }
-            initial_condition.F=0;
-            initial_condition.cumulative_photo = std::vector(species_present.size(),0.0); 
+        initial_condition.F=0;
+        initial_condition.cumulative_photo = std::vector(species_present.size(),0.0); 
             
         }
         // std::cout<<"[ Rate Solver ] initial condition:"<<std::endl;
@@ -383,7 +386,7 @@ void ElectronRateSolver::precompute_gamma_coeffs() {
 // d/dt P[i] = \sum_i=1^N W_ij - W_ji P[j] = d/dt(average-atomic-state)
 // d/dt f = Q_B[f](t)                      = d/dt(electron-energy-distribution)  // TODO what is Q_B? Q_{Bound}? Q_{ee} contributes though. 
 
-// Non-stiff part of the system. All dynamics involving Bound-electrons.
+// Non-stiff part of the system. All dynamics excluding free electron-electron interactions.
 //void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_type& s_bg ,const double t) {
 void ElectronRateSolver::sys_bound(const state_type& s_bundle, state_type& sdot_bundle, state_type& s_bg ,const double t) {
     const int threads = input_params.Plasma_Threads();
@@ -392,6 +395,8 @@ void ElectronRateSolver::sys_bound(const state_type& s_bundle, state_type& sdot_
     Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
 
     if (!good_state) return;
+
+    update_electron_transfer_geometry(active_simulation_volumes, s_bundle); // TODO This seems bad, need to refactor.
 
     for(size_t V=0; V<s_bundle.sims.size();V++){  // Iterate over each simulation volume
         const single_state_type& s = s_bundle.sims[V];
@@ -599,24 +604,57 @@ void ElectronRateSolver::sys_bound(const state_type& s_bundle, state_type& sdot_
             // Add primary ionization to distributions
             auto t7 = std::chrono::high_resolution_clock::now();
             sdot.F.applyDeltaF(a,vec_dqdt,threads);
-            sdot.F.addLoss(a,s.F, input_params.loss_geometry, s.bound_charge);
+            
+            
+            //sdot.F.addLoss(a,s.F, input_params.loss_geometry, s.bound_charge);
+            
+
             auto t8 = std::chrono::high_resolution_clock::now();
             apply_delta_time += t8 - t7;
         }
-
         // if(input_params.Filtration_File() == "")
         //     // No background, use geometric-dependent loss.
         //     sdot.F.addLoss(s.F, input_params.loss_geometry, s.bound_charge);
         // else
         //     // background handles loss, apply photoelectron filtration with background
         //     sdot.F.addFiltration(s.F, s_bg.F,input_params.loss_geometry);
-        
+
+
+        //// Calculate electron transfer between volumes////
+        auto ta = std::chrono::high_resolution_clock::now();
+        for (size_t a = 0; a < s.atomP.size(); a++) {
+            active_simulation_volumes[V].CalculateOutgoingElectrons(a, input_params.loss_geometry, s.bound_charge);
+        }
+        auto tb = std::chrono::high_resolution_clock::now();
+        apply_delta_time += ta - tb;
+
         if (isnan(s.norm(0)) || isnan(sdot.norm(0))) {
             cerr<<"NaN encountered in ODE iteration."<<endl;
             cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
             good_state = false;
             timestep_reached = t*Constant::fs_per_au;
         }    
+    }
+    
+    //// Apply computed electron transfer////  // TODO check charge conserved 
+    for(size_t V=0; V<s_bundle.sims.size();V++){
+        if (good_state){
+            auto ta = std::chrono::high_resolution_clock::now();
+            active_simulation_volumes[V].ApplyChanges();
+            active_simulation_volumes[V].Clear();
+            auto tb = std::chrono::high_resolution_clock::now();
+            apply_delta_time += ta - tb;        
+
+            if (isnan(s_bundle.sims[V].norm(0)) || isnan(sdot_bundle[V].norm(0))) {
+                cerr<<"NaN encountered in ODE iteration while applying electron transfer."<<endl;
+                cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
+                good_state = false;
+                timestep_reached = t*Constant::fs_per_au;
+            } 
+        }
+        else{
+            active_simulation_volumes[V].Clear();
+        }
     }
 }
 
@@ -1205,4 +1243,40 @@ void ElectronRateSolver::set_zero_y(){
     // Makes a zero std::vector in a mildly spooky way 
     zero_y = get_initial_state(); // do this to make the underlying structure large enough
     zero_y *= 0.; // set it to Z E R O
+}
+
+// TODO put parts of this in the Spatial.cpp where possible
+void ElectronRateSolver::setup_electron_transfer_geometry(std::vector<Space> spaces_with_compositions, SpatialArrangement& spatial_arrangement){
+    active_simulation_volumes = spaces_with_compositions;
+    
+    Void_Space empty_space; // A void surrounding the system
+    active_simulation_volumes.push_back(empty_space); 
+
+
+    for(size_t V = 0; V<spaces_with_compositions.size(); V++){
+
+        switch (spatial_arrangement.mode)
+        {
+        case SpatialArrangement::concentric_shells:
+            assert(active_simulation_volumes.size()==spaces_with_compositions.size()+1);
+            if (V >0){
+            active_simulation_volumes[V].electron_sinks.push_back(&active_simulation_volumes[V-1]);}
+            if (V<active_simulation_volumes.size()-1){ 
+            active_simulation_volumes[V].electron_sinks.push_back(&active_simulation_volumes[V+1]);}
+            
+        break;
+        default:
+            throw std::runtime_error("Only concentric shells implemented");
+        break;
+        }
+    }
+}
+
+// TODO F_internal in `Space` class was a mistake. Refactor
+void ElectronRateSolver::update_electron_transfer_geometry(std::vector<Space>& spaces, const state_type& s_bundle){
+    //assert(spaces.size()==s_bundle.sims.size()+1);
+    for(size_t V = 0; V<s_bundle.sims.size(); V++){
+        spaces[V].set_F(&(const_cast<state_type&>(s_bundle)).sims[V].F);
+    }
+
 }

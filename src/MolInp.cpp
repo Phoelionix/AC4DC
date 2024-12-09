@@ -211,6 +211,11 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 
 	}	
 
+	{
+		stringstream stream(FileContent["#VOLUME_COMPOSITIONS"][0]);
+		stream >> spatial_arrangement;
+	}
+
 	// Thread capping
 	#if defined THREAD_MAX_1
 		omp_threads = 1
@@ -289,6 +294,8 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	cout<<bc<<"Unit cell size: "<<clr<<unit_V<<" A^3"<<endl;
 	cout<<bc<<"Droplet L0:     "<<clr<<loss_geometry.L0<<" A"<<endl;
 	cout<<bc<<"Droplet shape:  "<<clr<<loss_geometry<<endl<<endl;
+	
+	cout<<bc<<"'Voxels':         "<<clr<<spatial_arrangement<<endl<<endl;
 
 	cout<<bc<<"Photon energy:  "<<clr<<omega<<" eV"<<endl;
 	cout<<bc<<"Pulse fluence:  "<<clr<<fluence*10000<<" J/cm^2 = "<<10000*fluence/omega/Constant::J_per_eV<<"ph cm^-2"<<endl;
@@ -353,14 +360,14 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	std::vector<string> composition_names;
 	std::vector<size_t> volume_composition_indices;  
 	{
-		stringstream stream(FileContent["#VOLUME_COMPOSITIONS"][0]);
+		stringstream stream(FileContent["#VOLUME_COMPOSITIONS"][1]);
 		while (stream.rdbuf()->in_avail()>0){
 			string name;
 			stream >> name;
 			composition_names.push_back(name);
 		}
 	}{
-		stringstream stream(FileContent["#VOLUME_COMPOSITIONS"][1]);
+		stringstream stream(FileContent["#VOLUME_COMPOSITIONS"][2]);
 		while (stream.rdbuf()->in_avail()>0){
 			size_t index;
 			stream >> index;

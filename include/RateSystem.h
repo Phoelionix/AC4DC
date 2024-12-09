@@ -29,7 +29,7 @@ This file is part of AC4DC.
 #include "Constant.h"
 #include "FreeDistribution.h"
 #include "RateSystemSingle.h"
-#include "Spatial.hpp"
+
 
 
 
@@ -43,7 +43,6 @@ class state_type
 public:
     /// Individual rate systems
     std::vector<single_state_type> sims; 
-    static std::vector<Space> sim_volumes;
 
     // Num sims is just the number of voxels or whatever volumes are being simulated, connected through SpatialConnection objects (transfer of free electrons). 
     state_type();

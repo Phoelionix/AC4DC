@@ -498,6 +498,7 @@ void Distribution::applyDeltaF_element_scaled(size_t a,const Eigen::VectorXd& v,
 
 // - 3/sqrt(2) * 3 sqrt(e) * f(e) / R_
 // Very rough approximation used here
+// In the spline basis, subtracts electrons from the calling Distribution object corresponding to the electron density that would leave distribution `d` under loss geometry `l` and bound charge `rho`. 
 void Distribution::addLoss(size_t a, const Distribution& d, const LossGeometry &l, double rho) {
     // f += "|   i|   ||   |_"
 

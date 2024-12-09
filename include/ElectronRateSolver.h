@@ -150,6 +150,8 @@ private:
 
     void initialise_state_types();
 
+    std::vector<Space> active_simulation_volumes;
+
     void load_filtration_file(){}; //TODO
     // Model parameters
 
@@ -244,6 +246,8 @@ private:
     size_t reload_grid(ofstream& _log, size_t& load_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used);
     void reinitialise_solver_with_current_grid(ofstream& _log);
 
+    void setup_electron_transfer_geometry(std::vector<Space> spaces_with_compositions, SpatialArrangement& spatial_arrangement);
+    void update_electron_transfer_geometry (std::vector<Space>& spaces, const state_type& s_bundle);
     //void high_energy_stability_check();
     string its_dinner_time(std::vector<std::chrono::duration<double, std::milli>> times, std::vector<std::string> tags);
     
