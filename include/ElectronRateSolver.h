@@ -247,8 +247,8 @@ private:
     void reinitialise_solver_with_current_grid(ofstream& _log);
 
     void setup_electron_transfer_geometry(std::vector<Space> spaces_with_compositions, SpatialArrangement& spatial_arrangement);
-    void update_electron_transfer_geometry (std::vector<Space>& spaces, const state_type& s_bundle);
-    void mark_electron_transfer_geometry_for_updating(std::vector<Space>& spaces, const state_type& s_bundle);
+    void update_electron_transfer_geometry (const state_type& s_bundle);
+    void mark_electron_transfer_geometry_for_updating(const state_type& s_bundle);
     //void high_energy_stability_check();
     string its_dinner_time(std::vector<std::chrono::duration<double, std::milli>> times, std::vector<std::string> tags);
     

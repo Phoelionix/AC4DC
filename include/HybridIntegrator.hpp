@@ -52,6 +52,8 @@ class Hybrid : public Adams_BM<T>{
     private:
     virtual void sys_ee(const T& q, T& qdot, const size_t& V) =0;
     virtual void sys_ee_bundled(const T& q, T& qdot) =0;
+    virtual void update_electron_transfer_geometry(const T& q) =0;
+    virtual void mark_electron_transfer_geometry_for_updating(const T& q) =0;
     // virtual void Jacobian2(const T& q, T& qdot, double t) =0; 
     protected:
     
@@ -324,14 +326,17 @@ void Hybrid<T>::step_stiff_part(unsigned n){
     old_mini_n = mini_n;
     old_y_transient = y_transient; // Stores final ministeps of step n-1.
     while (mini_n < old_mini_n + num_stiff_ministeps){  // mini_n = n if num_stiff_ministeps = 1.
-        
+
         // Adams-Moulton step I believe -S.P.
         T tmp;
         tmp = this->zero_y;
         // tmp acts as an aggregator
         for (int i = 1; i < int(this->order); i++){  // work through last N=order-1 ministeps. i.e. Order = 3 corresponds to 2 step method.
             T ydot; // ydot stores the change this loop.
-            this->sys_ee_bundled(y_transient[(1-i+mini_n)%(this->order)], ydot); 
+            const size_t early_step = (1-i+mini_n)%(this->order);
+            this->update_electron_transfer_geometry(y_transient[early_step]);
+            this->sys_ee_bundled(y_transient[early_step], ydot); 
+            this->mark_electron_transfer_geometry_for_updating(y_transient[early_step]);
             ydot *= this->b_AM[i];
             tmp += ydot;
         }
@@ -346,7 +351,8 @@ void Hybrid<T>::step_stiff_part(unsigned n){
         
         next_rel_idx = (mini_n+1)%(this->order); 
         T prev;
-        for(size_t V; V<prev.sims.size();V++){
+        this->update_electron_transfer_geometry(y_transient[next_rel_idx]);
+        for(size_t V=0; V<prev.sims.size();V++){
             double diff = stiff_rtol*2;
             unsigned idx=0;
             while (diff > stiff_rtol/num_stiff_ministeps && idx < stiff_max_iter){ //stiff_rtol is for the full step, so ministeps have smaller tolerance. 
@@ -389,6 +395,8 @@ void Hybrid<T>::step_stiff_part(unsigned n){
                 #endif
             }
         }
+        this->mark_electron_transfer_geometry_for_updating(y_transient[next_rel_idx]);
+
         y_transient[next_rel_idx] += delta_bound_interpolated[mini_n-old_mini_n];  // Add interpolated bound state contribution
         #ifndef NO_MINISTEP_UPDATING
         else if (idx >= stiff_max_iter/4){

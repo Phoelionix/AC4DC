@@ -672,9 +672,9 @@ void ElectronRateSolver::sys_ee(const state_type& s_bundle, state_type& sdot_bun
             //// Calculate electron transfer between volumes//// TODO check charge is conserved
             /// need to refactor!!!////
             auto ta = std::chrono::high_resolution_clock::now();
-            update_electron_transfer_geometry(active_simulation_volumes, s_bundle); // TODO This is really bad, need to refactor.
+            //update_electron_transfer_geometry(active_simulation_volumes, s_bundle); // TODO This is really bad, need to refactor.
             active_simulation_volumes[V].ElectronTransfer(_c-1, input_params.loss_geometry, s.bound_charge,sdot);
-            mark_electron_transfer_geometry_for_updating(active_simulation_volumes,s_bundle); // TODO remove or leave as a debug option.
+            //mark_electron_transfer_geometry_for_updating(active_simulation_volumes,s_bundle); // TODO remove or leave as a debug option.
             auto tb = std::chrono::high_resolution_clock::now();
             apply_delta_time += ta - tb;
         }
@@ -1262,15 +1262,15 @@ void ElectronRateSolver::setup_electron_transfer_geometry(std::vector<Space> spa
 }
 
 // TODO F_internal in `Space` class was a mistake. Refactor
-void ElectronRateSolver::update_electron_transfer_geometry(std::vector<Space>& spaces, const state_type& s_bundle){
+void ElectronRateSolver::update_electron_transfer_geometry(const state_type& s_bundle){
     //assert(spaces.size()==s_bundle.sims.size()+1);
     for(size_t V = 0; V<s_bundle.sims.size(); V++){
-        spaces[V].set_F(&(const_cast<state_type&>(s_bundle)).sims[V].F);
+        active_simulation_volumes[V].set_F(&(const_cast<state_type&>(s_bundle)).sims[V].F);
     }
 
 }
-void ElectronRateSolver::mark_electron_transfer_geometry_for_updating(std::vector<Space>& spaces, const state_type& s_bundle){
+void ElectronRateSolver::mark_electron_transfer_geometry_for_updating(const state_type& s_bundle){
     for(size_t V = 0; V<s_bundle.sims.size(); V++){
-        spaces[V].Clear();
+        active_simulation_volumes[V].Clear();
     }
 }
