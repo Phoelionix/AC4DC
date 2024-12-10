@@ -51,7 +51,7 @@ public:
         internal_F=F;
         original_F = *internal_F;
         original_F_fraction = *internal_F;
-        original_F_fraction*=(1/electron_sources.size());
+        original_F_fraction*=(1./electron_sources.size());
 
         F_assigned=true;
     }
