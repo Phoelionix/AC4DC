@@ -190,26 +190,29 @@ public:
      * This seems correct, given that dfdt is inputted for the spline basis's Sinv (S_inverse * <VectorXd input>) function, which names the input deltaf.
      * @param v deltaf
      */
-    void applyDeltaF(size_t a, const Eigen::VectorXd& dfdt, const int & threads);
-    void applyDeltaF_element_scaled(size_t a, const Eigen::VectorXd& dfdt, const int & threads);
+    void applyDeltaF(const size_t&, const Eigen::VectorXd& dfdt, const int & threads);
+    void applyDeltaF_element_scaled(const size_t&, const Eigen::VectorXd& dfdt, const int & threads);
 
     // Q functions
     // Computes the dfdt vector v based on internal f
     // e.g. dfdt v; F.calc_Qee(v);
-    void get_Q_eii (size_t _c, Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const;
-    void get_Q_tbr (size_t _c, Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const;
-    void get_Q_ee  (size_t _c, Eigen::VectorXd& v, const int & threads) const;
+    void get_Q_eii(const size_t& _c, Eigen::VectorXd& v, const size_t& a, const bound_t& P, const int & threads) const;
+    void get_Q_tbr(const size_t& _c, Eigen::VectorXd& v, const size_t& a, const bound_t& P, const int & threads) const;
+    void get_Q_ee(const size_t& _c, Eigen::VectorXd& v, const int & threads) const;
 
     void get_Jac_ee (Eigen::MatrixXd& J) const; // Returns the Jacobian of Qee
     
     /// N is the Number density (inverse au^3) of particles to be added at energy e.
     static void addDeltaLike(Eigen::VectorXd& v, double e, double N);
     /// Adds a Dirac delta to the distribution
-    void addDeltaSpike(size_t a, double N, double e);
-    /// Applies the loss term to the distribution 
-    void addLoss(size_t a, const Distribution& d, const LossGeometry& l, double charge_density, const float& factor=1);
-    void addSource(size_t a, const Distribution& d, const LossGeometry& l, double charge_density, const float &factor=1); 
-    void addFiltration(size_t a, const Distribution& d, const Distribution& bg,const LossGeometry &l);
+    void addDeltaSpike(const size_t& a, double N, double e);
+    
+    /// Electron migration 
+    void addLoss(const size_t& a, const Distribution& d, const LossGeometry& l, double charge_density);
+    void addSource(const size_t& a, const Distribution& d, const LossGeometry& l, double charge_density);
+    void addFiltration(const size_t& a, const Distribution& d, const Distribution& bg,const LossGeometry &l);
+    void addLossToVoid(const size_t& a, const Distribution& d, const LossGeometry& l, double charge_density);
+    void addLossTest(const size_t& a, const Distribution& d, const LossGeometry& l, double charge_density);
     
     /// Sets the object to have a MB distribution
     void add_maxwellian(size_t _c, double N, double T);
@@ -273,7 +276,7 @@ public:
     // (Unused) This does electron-electron because it is CURSED
     void from_backwards_Euler(double dt, const Distribution& prev_step, double tolerance, unsigned maxiter);
 
-    double operator()(size_t _c, double e) const;
+    double operator()(const size_t& _c, double e) const;
 
     /**
      * @brief The setup function.

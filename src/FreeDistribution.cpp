@@ -98,7 +98,7 @@ void Distribution::load_knot(vector<double> loaded_knot) {
 }
 
 // Adds Q_eii to the parent Distribution
-void Distribution::get_Q_eii (size_t _c, Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const {
+void Distribution::get_Q_eii(const size_t& _c, Eigen::VectorXd& v, const size_t& a, const bound_t& P, const int & threads) const {
     assert(basis.has_Qeii());
     assert(P.size() == basis.Q_EII[a].size());
     assert((unsigned) v.size() == size);
@@ -124,7 +124,7 @@ void Distribution::get_Q_eii (size_t _c, Eigen::VectorXd& v, size_t a, const bou
  * @param P probabilities of each atomic state;  d/dt P[i] = \sum_i=1^N W_ij - W_ji ~~~~ P[j] = d/dt(average-atomic-state)
  */
 // Puts the Q_TBR changes in the supplied vector v
-void Distribution::get_Q_tbr (size_t _c, Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const {
+void Distribution::get_Q_tbr (const size_t& _c, Eigen::VectorXd& v, const size_t& a, const bound_t& P, const int & threads) const {
     assert(basis.has_Qtbr());
     assert(P.size() == basis.Q_TBR[a].size());
     double v_copy [size] = {0}; 
@@ -143,7 +143,7 @@ void Distribution::get_Q_tbr (size_t _c, Eigen::VectorXd& v, size_t a, const bou
 }
 
 // Puts the Q_EE changes in the supplied vector v
-void Distribution::get_Q_ee(size_t _c, Eigen::VectorXd& v, const int & threads) const {
+void Distribution::get_Q_ee(const size_t& _c, Eigen::VectorXd& v, const int & threads) const {
     assert(basis.has_Qee());
     double CoulombLog = this->CoulombLogarithm();
     // double CoulombLog = 3.4;
@@ -427,7 +427,7 @@ std::vector<double> Distribution::get_densities(size_t _c, size_t num_pts,std::v
  * @param e energy to get density from.
  * @return double 
  */
-double Distribution::operator()(size_t _c, double e) const{
+double Distribution::operator()(const size_t& _c, double e) const{
     double tmp=0;
     for (size_t j = 0; j < size; j++) {
         tmp += basis(j, e)*f_array[_c][j];
@@ -455,7 +455,7 @@ void Distribution::addDeltaSpike(double e, double N) {
     f[idx + 1] += (- A1 * E1 * N  +  A1 * (A1 + A2)* e) / det;
 }*/
 
-void Distribution::addDeltaSpike(size_t a, double e, double N) {
+void Distribution::addDeltaSpike(const size_t& a, double e, double N) {
     int idx = basis.i_from_e(e);
     f_array[0][idx] += N/basis.areas[idx];
     #ifndef TRACK_SINGLE_CONTINUUM
@@ -468,7 +468,7 @@ void Distribution::addDeltaSpike(size_t a, double e, double N) {
  * @details NOT applying a dirac delta. 
  * @param v 
  */
-void Distribution::applyDeltaF(size_t a,const Eigen::VectorXd& v,const int & threads) {
+void Distribution::applyDeltaF(const size_t& a,const Eigen::VectorXd& v,const int & threads) {
     Eigen::VectorXd u(size);
     u= (this->basis.Sinv(v)); 
     #pragma omp for schedule(dynamic) nowait
@@ -480,7 +480,7 @@ void Distribution::applyDeltaF(size_t a,const Eigen::VectorXd& v,const int & thr
     }
 }
 
-void Distribution::applyDeltaF_element_scaled(size_t a,const Eigen::VectorXd& v,const int & threads){
+void Distribution::applyDeltaF_element_scaled(const size_t& a,const Eigen::VectorXd& v,const int & threads){
 
     #ifdef TRACK_SINGLE_CONTINUUM
     throw std::runtime_error("Function was called that is incompatible with single continuum tracking.");
@@ -499,33 +499,55 @@ void Distribution::applyDeltaF_element_scaled(size_t a,const Eigen::VectorXd& v,
 // - 3/sqrt(2) * 3 sqrt(e) * f(e) / R_
 // Very rough approximation used here
 // In the spline basis, subtracts electrons from the calling Distribution object corresponding to the electron density that would leave distribution `d` under loss geometry `l` and bound charge `rho`. 
-void Distribution::addLoss(size_t a, const Distribution& d, const LossGeometry &l, double rho, const float &factor) {
+void Distribution::addLoss(const size_t& a, const Distribution& d, const LossGeometry &l, double rho) {
     // f += "|   i|   ||   |_"
 
-    double escape_e = 0;//1.333333333*Constant::Pi*l.L0*l.L0*rho;
-    for (size_t i=basis.i_from_e(escape_e); i<size; i++) {
+    for (size_t i=basis.i_from_e(0); i<size; i++) {
         
-        f_array[0][i] -= factor*d[0][i] * sqrt(basis.avg_e[i]/2) * l.factor();
+        f_array[0][i] -= d[0][i] * sqrt(basis.avg_e[i]/2) * l.factor();
         #ifndef TRACK_SINGLE_CONTINUUM
-        f_array[a+1][i] -= factor*d[a+1][i] * sqrt(basis.avg_e[i]/2) * l.factor();
+        f_array[a+1][i] -= d[a+1][i] * sqrt(basis.avg_e[i]/2) * l.factor();
         #endif
     }
-    // double c = 137.036;
-    // double m = 1;       
-    // double constant = 2./3*Constant::Pi*pow(l.L0,2);
-    // for (size_t i=0; i < size; i++){
-    //      double v = c*sqrt( 1 - pow((1+basis.avg_e[i]/(m*c*c)), -2) );
-    //     f_array[0][i] += factor*constant*v*(- d[0][i]);
-    //     #ifndef TRACK_SINGLE_CONTINUUM
-    //     f_array[a+1][i] += factor*v*(- d[a+1][i]);
-    //     #endif
-    // }
+
 
 }
 
-void Distribution::addSource(size_t a, const Distribution& d, const LossGeometry &l, double rho,const float &factor) {
-    addLoss(a,d,l,rho,-factor);
+void Distribution::addSource(const size_t& a, const Distribution& d, const LossGeometry &l, double rho) {
+    for (size_t i=basis.i_from_e(0); i<size; i++) {
+        
+        f_array[0][i] += d[0][i] * sqrt(basis.avg_e[i]/2) * l.factor();
+        #ifndef TRACK_SINGLE_CONTINUUM
+        f_array[a+1][i] += d[a+1][i] * sqrt(basis.avg_e[i]/2) * l.factor();
+        #endif
+    }
 }
+
+void Distribution::addLossToVoid(const size_t& a, const Distribution& d, const LossGeometry &l, double rho) {
+    double escape_e = 1.333333333*Constant::Pi*l.L0*l.L0*rho;
+    for (size_t i=basis.i_from_e(escape_e); i<size; i++) {
+        
+        f_array[0][i] -= d[0][i] * sqrt(basis.avg_e[i]/2) * l.factor();
+        #ifndef TRACK_SINGLE_CONTINUUM
+        f_array[a+1][i] -= d[a+1][i] * sqrt(basis.avg_e[i]/2) * l.factor();
+        #endif
+    }    
+}
+
+void Distribution::addLossTest(const size_t& a, const Distribution& d, const LossGeometry &l, double rho) {
+    double c = 137.036;
+    double m = 1;       
+    double factor = 2./3*Constant::Pi*pow(l.L0,2);
+    for (size_t i=0; i < size; i++){
+         double v = c*sqrt( 1 - pow((1+basis.avg_e[i]/(m*c*c)), -2) );
+        f_array[0][i] += factor*v*(- d[0][i]);
+        #ifndef TRACK_SINGLE_CONTINUUM
+        f_array[a+1][i] += factor*v*(- d[a+1][i]);
+        #endif
+    }
+}
+
+
 
 // Calculating the filtration rate of photoelectrons
 // The way that the photoelectrons leave will be somewhere between the rate corresponding to the 
@@ -542,7 +564,7 @@ void Distribution::addSource(size_t a, const Distribution& d, const LossGeometry
  * @param bg background distribution
  * @param l 
  */
-void Distribution :: addFiltration(size_t a, const Distribution& d, const Distribution& bg,const LossGeometry &l){
+void Distribution :: addFiltration(const size_t &a, const Distribution& d, const Distribution& bg,const LossGeometry &l){
     // first order approximation, valid if step size * vel. much smaller than volume
     // For crystals our surface is flat, so the issue is 
     //return 0.5*v;  
