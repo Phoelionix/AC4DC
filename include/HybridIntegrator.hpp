@@ -241,8 +241,8 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
     }
 
     // Start with n = last step with data.
-    while(this->t[n] < t_resume)
-        n++;
+    while(this->t[n] < t_resume){
+        n++;}
     initialise_transient_y((int)n);
 
     // Run hybrid multistepping (nonstiff -> bound dynamics, stiff -> free dynamics). 
@@ -414,7 +414,7 @@ void Hybrid<T>::step_stiff_part(unsigned n){
 /// Initialises intermediate steps needed for stiff solver to get going.
 // For order 3, transient y is indexed as: [mini_n-3,mini_n-2,mini_n-1,mini_n]
 template<typename T>
-void Hybrid<T>::initialise_transient_y(int n) {  // n is the last calculated step.
+void Hybrid<T>::initialise_transient_y(int n) {  // n is the last calculated step.    
     size_t num_sims = this->y[0].sims.size();
     for(size_t V = 0; V < num_sims; V++){
         assert(this->y[n-1][V].F.container_size() == this->y[n][V].F.container_size());
@@ -450,6 +450,9 @@ void Hybrid<T>::initialise_transient_y(int n) {  // n is the last calculated ste
         }
     }
     // sample to catch the error of y(n) != y_transient(mini_n).
+    if (std::isnan(this->y[n].get_sampleF()[0][0])){
+        throw std::runtime_error("sampled F was nan.");
+    }
     assert(this->y[n].get_sampleF()[0][0] == y_transient[mini_n].get_sampleF()[0][0]);
     if (this->y[n].get_sampleF().container_size() > 3)
         assert(this->y[n].get_sampleF()[0][3] == y_transient[mini_n].get_sampleF()[0][3]);

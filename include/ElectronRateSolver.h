@@ -141,7 +141,7 @@ private:
     ManualGridBoundaries elec_grid_regions;
     Cutoffs param_cutoffs; 
     Pulse pf;
-    double timespan_au; // Atomic units
+    double timespan_au; // Atomic units. Timespan of simulation assuming it is not cut off early via #DEBUG .mol input parameter or manually.
     double simulation_start_time;  // [Au]
     double simulation_resume_time; // [Au] same as simulation_start_time unless loading simulation state.
     double simulation_end_time;  // [Au]    
@@ -248,6 +248,7 @@ private:
 
     void setup_electron_transfer_geometry(std::vector<Space> spaces_with_compositions, SpatialArrangement& spatial_arrangement);
     void update_electron_transfer_geometry (std::vector<Space>& spaces, const state_type& s_bundle);
+    void mark_electron_transfer_geometry_for_updating(std::vector<Space>& spaces, const state_type& s_bundle);
     //void high_energy_stability_check();
     string its_dinner_time(std::vector<std::chrono::duration<double, std::milli>> times, std::vector<std::string> tags);
     

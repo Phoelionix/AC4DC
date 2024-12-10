@@ -22,31 +22,17 @@ This file is part of AC4DC.
 #include "Spatial.hpp"
 
 void Space::Clear(){
-    deltaF = 0;
     F_assigned = false; 
 }
-void Space::CalculateOutgoingElectrons(size_t a, const LossGeometry &l, double rho){    
+void Space::ElectronTransfer(size_t a, const LossGeometry &l, double rho, single_state_type& sdot){    
+
     // EXTREMELY CRUDE. just using charge of F and not neighbours.
     // Assumes that electrons spread out equally among neighbours (electron sinks)
     assert(F_assigned);
-
-    Distribution F_transfer; // representing the electrons leaving the volume
-    F_transfer = 0;
-
-    F_transfer.addLoss(a,*internal_F,l,rho);
-    deltaF+=F_transfer;
+    sdot.F.addLoss(a,original_F,l,rho);
     
-    // divvy it up equally.
-    F_transfer*=(-1);
-    F_transfer*=(1/electron_sinks.size());
-    for (Space* source : electron_sinks){
-        (*source).deltaF+=F_transfer;
-        deltaF+= F_transfer;
+    for (Space* source : electron_sources){        
+        sdot.F.addSource(a,(*source).original_F_fraction,l,rho);
     }
-}
-
-void Space::ApplyChanges()
-{
-    *internal_F+=deltaF;     
 }
 

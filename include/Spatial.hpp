@@ -41,18 +41,19 @@ class Space{
 public:
     //Space(Distribution* F) : internal_F(F){F_assigned = true;}
     Space(){F_assigned = false;}
-    std::vector<Space *> electron_sinks;
+    std::vector<Space *> electron_sources;
 
 
-    void Clear();
-    virtual void CalculateOutgoingElectrons(size_t a, const LossGeometry &l, double rho); // Decrease deltaF and increase deltaF of electron_sinks by same amount.
-    virtual void ApplyChanges();
-    virtual void set_F(Distribution* F){
-        assert(F_assigned==false);
+    virtual void Clear();
+    virtual void ElectronTransfer(size_t a, const LossGeometry &l, double rho, single_state_type& sdot); // Modifies F by connected electron sinks original_F. 
+    virtual void set_F(const Distribution* F){
+        assert(!F_assigned);
         internal_F=F;
-        F_assigned=true;
+        original_F = *internal_F;
+        original_F_fraction = *internal_F;
+        original_F_fraction*=(1/electron_sources.size());
 
-        deltaF = Distribution()=0;
+        F_assigned=true;
     }
     // Distribution* F(){
     //     assert(F_assigned);
@@ -61,8 +62,9 @@ public:
 
 
 private:
-    Distribution deltaF;
-    Distribution* internal_F;
+    Distribution original_F;
+    Distribution original_F_fraction;
+    const Distribution* internal_F; // TODO delete
     bool F_assigned;
 
 
@@ -71,9 +73,9 @@ private:
 
 class Void_Space : public Space{
     public:
-    void CalculateOutgoingElectrons (size_t a, const LossGeometry &l, double rho) override{}
-    void ApplyChanges() override{};
-    void set_F(Distribution* F) override{};
+    void ElectronTransfer (size_t a, const LossGeometry &l, double rho, single_state_type& sdot) override{}
+    void set_F(const Distribution* F) override{};
+    void Clear() override{};
 };
 
 namespace{

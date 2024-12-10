@@ -1,6 +1,6 @@
 #ATOMS
 C 1 1 0.5 0
-H 2 2 3.5 4 
+H 0 0 0 0 
 O 1 1 0.15 2 
 Mn_LDA 0.01 0 0 0
 
@@ -16,7 +16,7 @@ Mn_and_light Light WateryBits Water
 
 #VOLUME
 20        // Volume per molecule in Angstrom^3.
-15         // Length scale of sample in Angstrom. Used for effective transfer rate of photo-electrons between simulated volumes.
+10         // Length scale of sample in Angstrom. Used for effective transfer rate of photo-electrons between simulated volumes.
 spherical // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
@@ -30,11 +30,11 @@ true    // active (using count)?
 
 #NUMERICAL
 2000      // Initial guess for number of time step points for rate equation.
-26           // Number of threads in OpenMP.
+24           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 M              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
-2            // Grid update period in fs, (dynamic grid only).
+2             // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
 800         // Number of time steps in the output files.

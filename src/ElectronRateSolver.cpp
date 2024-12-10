@@ -266,13 +266,13 @@ void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_
         plasma_header <<"[ Grid ] Preset: "<<input_params.elec_grid_preset.name<<"\n\r";
         plasma_header <<"[ Grid ] Update period: "<<grid_update_period * Constant::fs_per_au<<" fs"<<"\n\r";
     }
-    else 
-        plasma_header << "[ Grid ] Using static grid" << "\n\r";
+    else{
+        plasma_header << "[ Grid ] Using static grid" << "\n\r";}
 
     plasma_header<<"[ Rate Solver ] Using initial timestep size of "<<this->dt*Constant::fs_per_au<<" fs"<<"\n\r";
     plasma_header<<banner<<"\n\r";
 
-    steps_per_grid_transform =  round(num_steps*(grid_update_period/(simulation_end_time-simulation_start_time)));
+    steps_per_grid_transform =  round(num_steps*(grid_update_period/timespan_au));
 
 
     std::cout << plasma_header.str()<<std::flush; // display in regular terminal, so that it is still visible after end of program
@@ -396,7 +396,7 @@ void ElectronRateSolver::sys_bound(const state_type& s_bundle, state_type& sdot_
 
     if (!good_state) return;
 
-    update_electron_transfer_geometry(active_simulation_volumes, s_bundle); // TODO This seems bad, need to refactor.
+    //update_electron_transfer_geometry(active_simulation_volumes, s_bundle); // TODO This seems bad, need to refactor.
 
     for(size_t V=0; V<s_bundle.sims.size();V++){  // Iterate over each simulation volume
         const single_state_type& s = s_bundle.sims[V];
@@ -620,41 +620,12 @@ void ElectronRateSolver::sys_bound(const state_type& s_bundle, state_type& sdot_
         //     sdot.F.addFiltration(s.F, s_bg.F,input_params.loss_geometry);
 
 
-        //// Calculate electron transfer between volumes////
-        auto ta = std::chrono::high_resolution_clock::now();
-        for (size_t a = 0; a < s.atomP.size(); a++) {
-            active_simulation_volumes[V].CalculateOutgoingElectrons(a, input_params.loss_geometry, s.bound_charge);
-        }
-        auto tb = std::chrono::high_resolution_clock::now();
-        apply_delta_time += ta - tb;
-
         if (isnan(s.norm(0)) || isnan(sdot.norm(0))) {
             cerr<<"NaN encountered in ODE iteration."<<endl;
             cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
             good_state = false;
             timestep_reached = t*Constant::fs_per_au;
         }    
-    }
-    
-    //// Apply computed electron transfer////  // TODO check charge conserved 
-    for(size_t V=0; V<s_bundle.sims.size();V++){
-        if (good_state){
-            auto ta = std::chrono::high_resolution_clock::now();
-            active_simulation_volumes[V].ApplyChanges();
-            active_simulation_volumes[V].Clear();
-            auto tb = std::chrono::high_resolution_clock::now();
-            apply_delta_time += ta - tb;        
-
-            if (isnan(s_bundle.sims[V].norm(0)) || isnan(sdot_bundle[V].norm(0))) {
-                cerr<<"NaN encountered in ODE iteration while applying electron transfer."<<endl;
-                cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
-                good_state = false;
-                timestep_reached = t*Constant::fs_per_au;
-            } 
-        }
-        else{
-            active_simulation_volumes[V].Clear();
-        }
     }
 }
 
@@ -697,10 +668,23 @@ void ElectronRateSolver::sys_ee(const state_type& s_bundle, state_type& sdot_bun
             sdot.F.applyDeltaF(_c-1,vec_dqdt,threads);
             auto t8 = std::chrono::high_resolution_clock::now();
             apply_delta_time += t8 - t7;
+
+            //// Calculate electron transfer between volumes//// TODO check charge is conserved
+            /// need to refactor!!!////
+            auto ta = std::chrono::high_resolution_clock::now();
+            update_electron_transfer_geometry(active_simulation_volumes, s_bundle); // TODO This is really bad, need to refactor.
+            active_simulation_volumes[V].ElectronTransfer(_c-1, input_params.loss_geometry, s.bound_charge,sdot);
+            mark_electron_transfer_geometry_for_updating(active_simulation_volumes,s_bundle); // TODO remove or leave as a debug option.
+            auto tb = std::chrono::high_resolution_clock::now();
+            apply_delta_time += ta - tb;
         }
+
+
     //}
     #endif // NO_EE
 }
+
+// Convenience function. sys_ee is also called individually by numerical solver.
 void ElectronRateSolver::sys_ee_bundled(const state_type& s_bundle, state_type& sdot_bundle){
     for(size_t V=0; V<s_bundle.sims.size();V++){
         sys_ee(s_bundle, sdot_bundle,V);
@@ -1020,6 +1004,7 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
 int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
     auto t_start = std::chrono::high_resolution_clock::now();
 
+    assert(!std::isnan(y[(int)n].get_sampleF()[0][0]));  // If a Nan was encounterd during the ODE (sdot.F), then F should not be nan. If it is nan, you may have been modifying F directly during the loop. Only sdot should be modified!!
     //////  Dynamic grid updater ////// 
     #ifndef SWITCH_OFF_ALL_DYNAMIC_UPDATES
     auto t_start_grid = std::chrono::high_resolution_clock::now();
@@ -1081,6 +1066,7 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
 }
 
 void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool force_update){
+    assert(!std::isnan(y[(int)latest_step].get_sampleF()[0][0]));
     size_t n = latest_step;
     //// Set up new grid ////        
     std::cout.setstate(std::ios_base::failbit);  // disable character output
@@ -1096,15 +1082,18 @@ void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool fo
         // Kinda goofy but it's necessary due to the static variables. 
         assert(this-> order*2 < steps_per_grid_transform); // *2 factor is to guarantee loading works.
         Distribution::load_knots_from_history(n-1); // the n - 1 is correct. transform_basis takes us to basis at step n.
-        y[m].get_sampleF().transform_basis(new_energies);
+        for(size_t V=0; V<Num_Sims();V++){
+            y[m][V].F.transform_basis(new_energies);
 
-        #ifdef DEBUG_BOUND
-        for(size_t a = 0; a < y[m].atomP.size();a++)
-            for(size_t i=0;i < y[m].atomP[a].size();i++){
-                assert(y[m].atomP[a][i] >= 0);
-            }        
-        #endif
+            #ifdef DEBUG_BOUND
+            for(size_t a = 0; a < y[m].atomP.size();a++)
+                for(size_t i=0;i < y[m].atomP[a].size();i++){
+                    assert(y[m][V].atomP[a][i] >= 0);
+                }        
+            #endif
+        }
     }   
+    assert(!std::isnan(y[(int)latest_step].get_sampleF()[0][0]));
     //TODO rk4 (with sys_ee added) here? 
     initialise_transient_y((int)latest_step);
     // The next containers are made to have the correct size, as the initial state is set to tmp=zero_y and sdot is set to an empty state. 
@@ -1254,15 +1243,15 @@ void ElectronRateSolver::setup_electron_transfer_geometry(std::vector<Space> spa
 
 
     for(size_t V = 0; V<spaces_with_compositions.size(); V++){
-
+        active_simulation_volumes[V].electron_sources.resize(0);
         switch (spatial_arrangement.mode)
         {
         case SpatialArrangement::concentric_shells:
             assert(active_simulation_volumes.size()==spaces_with_compositions.size()+1);
             if (V >0){
-            active_simulation_volumes[V].electron_sinks.push_back(&active_simulation_volumes[V-1]);}
+            active_simulation_volumes[V].electron_sources.push_back(&active_simulation_volumes[V-1]);}
             if (V<active_simulation_volumes.size()-1){ 
-            active_simulation_volumes[V].electron_sinks.push_back(&active_simulation_volumes[V+1]);}
+            active_simulation_volumes[V].electron_sources.push_back(&active_simulation_volumes[V+1]);}
             
         break;
         default:
@@ -1279,4 +1268,9 @@ void ElectronRateSolver::update_electron_transfer_geometry(std::vector<Space>& s
         spaces[V].set_F(&(const_cast<state_type&>(s_bundle)).sims[V].F);
     }
 
+}
+void ElectronRateSolver::mark_electron_transfer_geometry_for_updating(std::vector<Space>& spaces, const state_type& s_bundle){
+    for(size_t V = 0; V<s_bundle.sims.size(); V++){
+        spaces[V].Clear();
+    }
 }

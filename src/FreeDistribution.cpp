@@ -499,17 +499,32 @@ void Distribution::applyDeltaF_element_scaled(size_t a,const Eigen::VectorXd& v,
 // - 3/sqrt(2) * 3 sqrt(e) * f(e) / R_
 // Very rough approximation used here
 // In the spline basis, subtracts electrons from the calling Distribution object corresponding to the electron density that would leave distribution `d` under loss geometry `l` and bound charge `rho`. 
-void Distribution::addLoss(size_t a, const Distribution& d, const LossGeometry &l, double rho) {
+void Distribution::addLoss(size_t a, const Distribution& d, const LossGeometry &l, double rho, const float &factor) {
     // f += "|   i|   ||   |_"
 
     double escape_e = 0;//1.333333333*Constant::Pi*l.L0*l.L0*rho;
     for (size_t i=basis.i_from_e(escape_e); i<size; i++) {
         
-        f_array[0][i] -= d[0][i] * sqrt(basis.avg_e[i]/2) * l.factor();
+        f_array[0][i] -= factor*d[0][i] * sqrt(basis.avg_e[i]/2) * l.factor();
         #ifndef TRACK_SINGLE_CONTINUUM
-        f_array[a+1][i] -= d[a+1][i] * sqrt(basis.avg_e[i]/2) * l.factor();
+        f_array[a+1][i] -= factor*d[a+1][i] * sqrt(basis.avg_e[i]/2) * l.factor();
         #endif
     }
+    // double c = 137.036;
+    // double m = 1;       
+    // double constant = 2./3*Constant::Pi*pow(l.L0,2);
+    // for (size_t i=0; i < size; i++){
+    //      double v = c*sqrt( 1 - pow((1+basis.avg_e[i]/(m*c*c)), -2) );
+    //     f_array[0][i] += factor*constant*v*(- d[0][i]);
+    //     #ifndef TRACK_SINGLE_CONTINUUM
+    //     f_array[a+1][i] += factor*v*(- d[a+1][i]);
+    //     #endif
+    // }
+
+}
+
+void Distribution::addSource(size_t a, const Distribution& d, const LossGeometry &l, double rho,const float &factor) {
+    addLoss(a,d,l,rho,-factor);
 }
 
 // Calculating the filtration rate of photoelectrons

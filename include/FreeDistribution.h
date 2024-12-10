@@ -207,8 +207,9 @@ public:
     /// Adds a Dirac delta to the distribution
     void addDeltaSpike(size_t a, double N, double e);
     /// Applies the loss term to the distribution 
-    void addLoss(size_t _c, const Distribution& d, const LossGeometry& l, double charge_density);
-    void addFiltration(size_t _c, const Distribution& d, const Distribution& bg,const LossGeometry &l);
+    void addLoss(size_t a, const Distribution& d, const LossGeometry& l, double charge_density, const float& factor=1);
+    void addSource(size_t a, const Distribution& d, const LossGeometry& l, double charge_density, const float &factor=1); 
+    void addFiltration(size_t a, const Distribution& d, const Distribution& bg,const LossGeometry &l);
     
     /// Sets the object to have a MB distribution
     void add_maxwellian(size_t _c, double N, double T);
