@@ -29,10 +29,10 @@ void Space::ElectronTransfer(size_t a, const LossGeometry &l, double rho, single
     // EXTREMELY CRUDE. just using charge of F and not neighbours.
     // Assumes that electrons spread out equally among neighbours (electron sinks)
     assert(F_assigned);
-    sdot.F.addLoss(a,original_F,l,rho);
     
     for (Space* source : electron_sources){        
         sdot.F.addSource(a,(*source).original_F_fraction,l,rho);
+        sdot.F.addLoss(a,(*source).original_F_fraction,l,rho);
     }
 }
 
