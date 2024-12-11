@@ -42,9 +42,9 @@ size_t Distribution::size=0;
 size_t Distribution::num_continuums = 1;
 
 #ifdef FIND_INITIAL_DIRAC 
-    bool Distribution::reset_on_next_grid_update = true;  // TODO duct tape implementation...
+    bool Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots = true;  
 #else
-    bool Distribution::reset_on_next_grid_update = false;
+    bool Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots = false;
 #endif     
 
 
@@ -501,8 +501,8 @@ void Distribution::applyDeltaF_element_scaled(const size_t& a,const Eigen::Vecto
 // In the spline basis, subtracts electrons from the calling Distribution object corresponding to the electron density that would leave distribution `d` under loss geometry `l` and bound charge `rho`. 
 void Distribution::addLoss(const size_t& a, const Distribution& d, const LossGeometry &l, double rho) {
     // f += "|   i|   ||   |_"
-
     for (size_t i=basis.i_from_e(0); i<size; i++) {
+    //for (size_t i=basis.i_from_e(0/Constant::eV_per_Ha); i<basis.i_from_e(15000/Constant::eV_per_Ha); i++) {
         
         f_array[0][i] -= d[0][i] * sqrt(basis.avg_e[i]/2) * l.factor();
         #ifndef TRACK_SINGLE_CONTINUUM
@@ -515,6 +515,7 @@ void Distribution::addLoss(const size_t& a, const Distribution& d, const LossGeo
 
 void Distribution::addSource(const size_t& a, const Distribution& d, const LossGeometry &l, double rho) {
     for (size_t i=basis.i_from_e(0); i<size; i++) {
+    //for (size_t i=basis.i_from_e(0/Constant::eV_per_Ha); i<basis.i_from_e(15000/Constant::eV_per_Ha); i++) {
         
         f_array[0][i] += d[0][i] * sqrt(basis.avg_e[i]/2) * l.factor();
         #ifndef TRACK_SINGLE_CONTINUUM

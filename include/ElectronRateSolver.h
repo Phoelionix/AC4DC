@@ -59,8 +59,6 @@ public:
 
         log_config_settings(log);
 
-        grid_update_period = input_params.Grid_Update_Period();  // TODO the grid update period should be made to be at least 3x (probably much more) longer with a gaussian pulse, since early times need it to be updated far less often to avoid instability for such a pulse. 
-
         param_cutoffs = input_params.param_cutoffs;
         
         pf.set_shape(input_params.pulse_shape);
@@ -108,6 +106,11 @@ public:
         }
 
         time_of_last_save = std::chrono::high_resolution_clock::now(); 
+        #ifndef NO_BACKUP_SAVING
+        minutes_per_save = std::chrono::minutes((int)input_params.minutes_per_save);
+        #else
+        minutes_per_save = std::chrono::minutes(99999999);
+        #endif
     }
     /// Motehr function for solving the rate equations, and running auxilliary functions (e.g. display, timers) 
     void execute_solver(ofstream & _log, const string& tmp_data_folder);
@@ -129,12 +132,7 @@ public:
     ee_time, apply_delta_time; //sys_ee 
 
     std::chrono::_V2::system_clock::time_point time_of_last_save;   
-    #ifndef NO_BACKUP_SAVING
-    std::chrono::minutes minutes_per_save{60};
-    #else
-    std::chrono::minutes minutes_per_save{99999999};
-    #endif
-
+    std::chrono::minutes minutes_per_save;
 private:
     double IVP_step_tolerance = 5e-3;
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)  // TODO need to refactor to store variables that we change later rather than alter input_params directly. Currently doing a hybrid of this.
@@ -146,7 +144,6 @@ private:
     double simulation_resume_time; // [Au] same as simulation_start_time unless loading simulation state.
     double simulation_end_time;  // [Au]    
     double fraction_of_pulse_simulated;
-    double grid_update_period; // time period between dynamic grid updates.
 
     void initialise_state_types();
 
@@ -172,6 +169,8 @@ private:
     std::vector<double> approx_regime_peaks(size_t step, double lower_bound, double upper_bound, double del_energy, size_t num_peaks = 1, double min_density = 0, double separation_div_omega = 0.0667);
     void precompute_gamma_coeffs(); // populates above two tensors
     void set_initial_conditions();
+    size_t steps_per_grid_transform;    
+    size_t steps_before_initialisation_reset; 
 
     // Dynamic time steps
     size_t load_checkpoint_and_decrease_dt(ofstream& _log, size_t current_n, Checkpoint _checkpoint);

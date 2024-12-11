@@ -51,7 +51,7 @@ public:
         internal_F=F;
         original_F = *internal_F;
         original_F_fraction = *internal_F;  // Might need to multiply this by some independent variable if doing some weird geometries but no need for now.  Good approx. for concentric shells.
-        //original_F_fraction*=(1./electron_sources.size());}
+        //original_F_fraction*=(1./electron_sources.size());
 
         F_assigned=true;
     }

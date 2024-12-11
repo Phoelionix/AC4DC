@@ -264,7 +264,7 @@ void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_
     
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
         plasma_header <<"[ Grid ] Preset: "<<input_params.elec_grid_preset.name<<"\n\r";
-        plasma_header <<"[ Grid ] Update period: "<<grid_update_period * Constant::fs_per_au<<" fs"<<"\n\r";
+        plasma_header <<"[ Grid ] Update period: "<<input_params.Grid_Update_Period() * Constant::fs_per_au<<" fs"<<"\n\r";
     }
     else{
         plasma_header << "[ Grid ] Using static grid" << "\n\r";}
@@ -272,7 +272,10 @@ void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_
     plasma_header<<"[ Rate Solver ] Using initial timestep size of "<<this->dt*Constant::fs_per_au<<" fs"<<"\n\r";
     plasma_header<<banner<<"\n\r";
 
-    steps_per_grid_transform =  round(grid_update_period/this->dt + 1);
+    steps_per_grid_transform =  round(input_params.Grid_Update_Period()/this->dt + 1);
+    steps_before_initialisation_reset = round(input_params.Guess_Grid_Duration()/this->dt + 1);
+
+
 
 
     std::cout << plasma_header.str()<<std::flush; // display in regular terminal, so that it is still visible after end of program
@@ -862,13 +865,17 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
     ////// Display info ////// (only the regular stuff seen each step, not "popups" from popup_stream)
     auto t_start_disp = std::chrono::high_resolution_clock::now();
     if ((n-this->order)%steps_per_time_update == 0){
+        size_t* grid_T = &steps_per_grid_transform;
+        if (Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots){
+             grid_T= &steps_before_initialisation_reset;}
         Display::display_stream.str(Display::header); // clear display string
         Display::display_stream<< "\n\r"
         << "--- Press BACKSPACE/DEL to end simulation and save the data ---\n\r"   
+        << "--- Press 'B' to make a backup of the simulation data now ---\n\r"   
         << "[ sim ] Next data backup in "<<(minutes_per_save - std::chrono::duration_cast<std::chrono::minutes>(std::chrono::high_resolution_clock::now() - time_of_last_save)).count()<<" minute(s).\n\r"  
-        << "[ sim ] Current timestep size = "<<this->dt*Constant::fs_per_au<<" fs\n\r"   
-        << "[ sim ] t="
-        << this->t[n] * Constant::fs_per_au << " fs\n\r" 
+        << "[ sim ] Current timestep size = "<< this->dt*Constant::fs_per_au <<" fs\n\r"
+        << "[ sim ] t="<< this->t[n] * Constant::fs_per_au <<" fs\n\r" 
+        << "[ sim ] Next grid update: t="<< (this->t[n] + this->dt * (*grid_T - (n-this->order)%(*grid_T))) * Constant::fs_per_au<<" fs\n\r"
         << "[ sim ] " <<Distribution::size << " knots currently active\n\r";
         //<< Distribution::get_knot_energies() << "\n\r"; 
         // << flush; 
@@ -1005,39 +1012,34 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
     auto t_start = std::chrono::high_resolution_clock::now();
 
     assert(!std::isnan(y[(int)n].get_sampleF()[0][0]));  // If a Nan was encounterd during the ODE (sdot.F), then F should not be nan. If it is nan, you may have been modifying F directly during the loop. Only sdot should be modified!!
-    //////  Dynamic grid updater ////// 
+    ////// Dynamic grid updater ////// 
     #ifndef SWITCH_OFF_ALL_DYNAMIC_UPDATES
     auto t_start_grid = std::chrono::high_resolution_clock::now();
-    if (input_params.elec_grid_type.mode == GridSpacing::dynamic && (n-this->order+1)%steps_per_grid_transform == 0){ // TODO if adaptive time step algo is improved would be good to have a variable that this is equal to that is modified to account for changes in time step size. If a dt decreases you push back the grid update. If you increase dt (which currently doesn't happen) you could 'miss' it .
+    if (Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots && 
+    input_params.elec_grid_type.mode == GridSpacing::dynamic && (n-this->order+1)%steps_before_initialisation_reset == 0){
+        // move from initial guess grid to dynamic grid shortly after a fresh simulation's start.
+        Display::popup_stream << "\n\r Moving to dynamic grid... \n\r"; 
+        _log << "[ Dynamic Grid ] Moving to dynamic grid" << endl;
+        Display::show(Display::display_stream,Display::popup_stream);  
+        update_grid(_log,n+1,false);
+        Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots = false;
+        dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
+        reinitialise_solver_with_current_grid(_log);    
+        return 1;        
+    }
+    else if (input_params.elec_grid_type.mode == GridSpacing::dynamic && (n-this->order+1)%steps_per_grid_transform == 0){ // TODO if adaptive time step algo is improved would be good to have a variable that this is equal to that is modified to account for changes in time step size. If a dt decreases you push back the grid update. If you increase dt (which currently doesn't happen) you could 'miss' it .
         Display::popup_stream << "\n\rUpdating grid... \n\r"; 
         _log << "[ Dynamic Grid ] Updating grid" << endl;
         Display::show(Display::display_stream,Display::popup_stream);  
         update_grid(_log,n+1,false);
-        if (Distribution::reset_on_next_grid_update){
-            dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
-            Distribution::reset_on_next_grid_update = false;
-            reinitialise_solver_with_current_grid(_log);    
-            return 1;        
-        } 
-    }   
-    // move from initial grid to dynamic grid shortly after a fresh simulation's start.
-    /*
-    else if (n-this->order == max(2,(int)(steps_per_grid_transform/10)) && (input_params.Load_Folder() == "") && !grid_initialised){  // TODO make this an input param
-        Display::popup_stream << "\n\rPerforming initial grid update... \n\r"; 
-        _log << "[ Dynamic Grid ] Performing initial grid update..." << endl;
-        Display::show(Display::display_stream,Display::popup_stream); 
-        update_grid(_log,n+1,true); 
-        //////// 
-        // TODO restart simulation with this better grid.
-        ////////
     }
-    */
     dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
     #endif //SWITCH_OFF_ALL_DYNAMIC_UPDATES
     
-    //////  Check if user wants to end simulation early ////// 
+    ////// Check if user inputted command to do something mid-simulation ////// 
     auto t_start_usr = std::chrono::high_resolution_clock::now();
     auto ch = wgetch(Display::win);
+    ////// End simulation early  ////// 
     if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127){   
         flushinp(); // flush buffered inputs
         Display::popup_stream <<"\n\rExiting early... press backspace/del again to confirm or any other key to cancel and resume the simulation \n\r";
@@ -1052,6 +1054,18 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
         nodelay(Display::win, true);
         Display::show(Display::display_stream);
     }     
+    if (ch == 'b'){ 
+        flushinp(); // flush buffered inputs
+        Display::popup_stream <<"\n\rSaving backup... press B again to confirm or any other key to cancel and resume the simulation \n\r";
+        Display::show(Display::display_stream,Display::popup_stream);
+        nodelay(Display::win, false);
+        ch = wgetch(Display::win);  // note implicitly refreshes screen
+        if (ch == 'b'){
+            time_of_last_save-=(minutes_per_save+std::chrono::minutes(1));
+        }
+        nodelay(Display::win, true);
+        Display::show(Display::display_stream);
+    }
     
     user_input_time += std::chrono::high_resolution_clock::now() - t_start_usr;  
     

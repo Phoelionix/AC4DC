@@ -174,7 +174,11 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	for (size_t n = 0; n < FileContent["#DYNAMIC_GRID"].size(); n++) {
 		stringstream stream(FileContent["#DYNAMIC_GRID"][n]);
 		if (n == 0) stream >> elec_grid_preset;
-		if (n == 1) stream >> grid_update_period;
+		if (n == 1){ 
+			stream >> grid_update_period;
+			guess_grid_duration = grid_update_period;
+		}
+		if (n == 2) stream >> guess_grid_duration;
 	}	
 	for (size_t n = 0; n < FileContent["#ELECTRON_SOURCE"].size(); n++) {
 		stringstream stream(FileContent["#ELECTRON_SOURCE"][n]);
@@ -208,6 +212,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (n == 0){ stream >> simulation_cutoff_time; cutoff_flag = true;}
 		if (n == 1) stream >> time_update_gap;
 		if (n == 2) stream >> steps_per_live_plot_update;
+		if (n == 3) stream >> minutes_per_save;
 
 	}	
 
@@ -331,6 +336,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	simulation_cutoff_time /= Constant::fs_per_au;
 	time_update_gap /= Constant::fs_per_au;
 	grid_update_period /= Constant::fs_per_au;
+	guess_grid_duration /= Constant::fs_per_au;
 	loss_geometry.L0 /= Constant::Angs_per_au;
 	unit_V /= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
 
@@ -467,6 +473,11 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P. TODO 
 		// Electron grid style
 		if(elec_grid_regions.bndry_E.front() < 0 || elec_grid_regions.bndry_E.back() < 0 || elec_grid_regions.bndry_E.back() <= elec_grid_regions.bndry_E.front()) { cerr<<"ERROR: Electron grid specification invalid"; is_valid=false; }
 		if (num_time_steps <= 0 ) { cerr<<"ERROR: got negative number of energy steps"; is_valid=false; }	
+	}
+	if (elec_grid_type.mode == GridSpacing::dynamic){
+		if (grid_update_period <= 0 ) {cerr<<"Grid update period must be positive, but is "<<grid_update_period;is_valid=false;}
+		if (guess_grid_duration <= 0 ) {cerr<<"Guess grid duration must be positive, but is "<<guess_grid_duration;is_valid=false;}
+		if (guess_grid_duration > grid_update_period ) {cerr<<"Guess grid duration (" <<guess_grid_duration<<") must be less than grid update period("<<guess_grid_duration<<")";is_valid=false;}
 	}
 
 	// unit cell volume.
