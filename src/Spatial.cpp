@@ -32,7 +32,7 @@ void Space::ElectronTransfer(size_t a, const LossGeometry &l, double rho, single
     
     for (Space* source : electron_sources){        
         sdot.F.addSource(a,(*source).original_F_fraction,l,rho);
-        sdot.F.addLoss(a,(*source).original_F_fraction,l,rho);
+        sdot.F.addLoss(a,original_F_fraction,l,rho);
     }
 }
 
