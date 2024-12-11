@@ -499,27 +499,25 @@ void Distribution::applyDeltaF_element_scaled(const size_t& a,const Eigen::Vecto
 // - 3/sqrt(2) * 3 sqrt(e) * f(e) / R_
 // Very rough approximation used here
 // In the spline basis, subtracts electrons from the calling Distribution object corresponding to the electron density that would leave distribution `d` under loss geometry `l` and bound charge `rho`. 
-void Distribution::addLoss(const size_t& a, const Distribution& d, const LossGeometry &l, double rho) {
+void Distribution::addLoss(const size_t& a, const Distribution& d, const CustomLossGeometry &cl, double rho) {
     // f += "|   i|   ||   |_"
     for (size_t i=basis.i_from_e(0); i<size; i++) {
-    //for (size_t i=basis.i_from_e(0/Constant::eV_per_Ha); i<basis.i_from_e(15000/Constant::eV_per_Ha); i++) {
         
-        f_array[0][i] -= d[0][i] * sqrt(basis.avg_e[i]/2) * l.factor();
+        f_array[0][i] -= d[0][i] * sqrt(basis.avg_e[i]/2) * cl.A_on_V(); // TODO double check l.factor() is meant to correspond to A_on_V (was a factor of 2 for spheres, sugesting it is meant to be 2/3*A_on_V...)
         #ifndef TRACK_SINGLE_CONTINUUM
-        f_array[a+1][i] -= d[a+1][i] * sqrt(basis.avg_e[i]/2) * l.factor();
+        f_array[a+1][i] -= d[a+1][i] * sqrt(basis.avg_e[i]/2) * l.A_on_V();
         #endif
     }
 
 
 }
 
-void Distribution::addSource(const size_t& a, const Distribution& d, const LossGeometry &l, double rho) {
+void Distribution::addSource(const size_t& a, const Distribution& d, const CustomLossGeometry &cl, double rho) {
     for (size_t i=basis.i_from_e(0); i<size; i++) {
-    //for (size_t i=basis.i_from_e(0/Constant::eV_per_Ha); i<basis.i_from_e(15000/Constant::eV_per_Ha); i++) {
         
-        f_array[0][i] += d[0][i] * sqrt(basis.avg_e[i]/2) * l.factor();
+        f_array[0][i] += d[0][i] * sqrt(basis.avg_e[i]/2) * cl.A_on_V();
         #ifndef TRACK_SINGLE_CONTINUUM
-        f_array[a+1][i] += d[a+1][i] * sqrt(basis.avg_e[i]/2) * l.factor();
+        f_array[a+1][i] += d[a+1][i] * sqrt(basis.avg_e[i]/2) * cl.A_on_V();
         #endif
     }
 }

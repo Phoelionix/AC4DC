@@ -41,11 +41,11 @@ class Space{
 public:
     //Space(Distribution* F) : internal_F(F){F_assigned = true;}
     Space(){F_assigned = false;}
-    std::vector<Space *> electron_sources;
+    std::vector<std::pair<Space *,CustomLossGeometry>> electron_sources; // second element of each tuple contains information on the ratio of the boundary surface area to the volume of this space.
 
 
     virtual void Clear();
-    virtual void ElectronTransfer(size_t a, const LossGeometry &l, double rho, single_state_type& sdot); // Modifies F by connected electron sinks original_F. 
+    virtual void ElectronTransfer(size_t a, double rho, single_state_type& sdot); // Modifies F by connected electron sinks original_F. 
     virtual void set_F(const Distribution* F){
         assert(!F_assigned);
         internal_F=F;
@@ -55,6 +55,7 @@ public:
 
         F_assigned=true;
     }
+    void AddBoundary(Space& other_space, CustomLossGeometry boundary_geometry);
     // Distribution* F(){
     //     assert(F_assigned);
     //     return internal_F;
@@ -66,6 +67,7 @@ private:
     Distribution original_F_fraction;
     const Distribution* internal_F; // TODO delete
     bool F_assigned;
+    
 
 
 };
@@ -73,7 +75,7 @@ private:
 
 class Void_Space : public Space{
     public:
-    void ElectronTransfer (size_t a, const LossGeometry &l, double rho, single_state_type& sdot) override{}
+    void ElectronTransfer(size_t a, double rho, single_state_type& sdot) override{}
     void set_F(const Distribution* F) override{};
     void Clear() override{};
 };

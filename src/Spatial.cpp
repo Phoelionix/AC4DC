@@ -24,15 +24,22 @@ This file is part of AC4DC.
 void Space::Clear(){
     F_assigned = false; 
 }
-void Space::ElectronTransfer(size_t a, const LossGeometry &l, double rho, single_state_type& sdot){    
+
+void Space::ElectronTransfer(size_t a, double rho, single_state_type& sdot){    
 
     // EXTREMELY CRUDE. just using charge of F and not neighbours.
     // Assumes that electrons spread out equally among neighbours (electron sinks)
     assert(F_assigned);
     
-    for (Space* source : electron_sources){        
-        sdot.F.addSource(a,(*source).original_F_fraction,l,rho);
-        sdot.F.addLoss(a,original_F_fraction,l,rho);
+    //TODO reimplement confinement
+    for (const auto& source : electron_sources){        
+        sdot.F.addSource(a,(*source.first).original_F_fraction,source.second,rho);
+        sdot.F.addLoss(a,original_F_fraction,source.second,rho);
     }
+}
+
+void Space::AddBoundary(Space& other_space, CustomLossGeometry boundary_geometry){
+    electron_sources.push_back(
+        std::pair<Space*, CustomLossGeometry>(&other_space,boundary_geometry));
 }
 

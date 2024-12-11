@@ -42,6 +42,17 @@ struct LossGeometry {
     const double constants[4] = {0, 2, 3, 4};
 };
 
+struct CustomLossGeometry {
+    CustomLossGeometry(double area,  double volume): internal_A_on_V(area/volume){};
+
+    double A_on_V() const{
+        return internal_A_on_V;
+    }
+    private:
+    double internal_A_on_V;
+
+};
+
 namespace{
     [[maybe_unused]] std::ostream& operator<<(std::ostream& os, const LossGeometry& g) {
         switch (g.mode)

@@ -208,8 +208,8 @@ public:
     void addDeltaSpike(const size_t& a, double N, double e);
     
     /// Electron migration 
-    void addLoss(const size_t& a, const Distribution& d, const LossGeometry& l, double charge_density);
-    void addSource(const size_t& a, const Distribution& d, const LossGeometry& l, double charge_density);
+    void addLoss(const size_t& a, const Distribution& d, const CustomLossGeometry& l, double charge_density);
+    void addSource(const size_t& a, const Distribution& d, const CustomLossGeometry& l, double charge_density);
     void addFiltration(const size_t& a, const Distribution& d, const Distribution& bg,const LossGeometry &l);
     void addLossToVoid(const size_t& a, const Distribution& d, const LossGeometry& l, double charge_density);
     void addLossTest(const size_t& a, const Distribution& d, const LossGeometry& l, double charge_density);

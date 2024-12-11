@@ -33,7 +33,7 @@ true    // active (using count)?
 #DYNAMIC_GRID
 M              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
 5             // Grid update period in fs.
-0.3           // Time before transforming initial guess grid to dynamic grid in fs.  
+1             // Time before transforming initial guess grid to dynamic grid in fs.  
 
 #OUTPUT
 800         // Number of time steps in the output files.

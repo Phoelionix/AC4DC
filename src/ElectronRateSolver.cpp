@@ -676,7 +676,7 @@ void ElectronRateSolver::sys_ee(const state_type& s_bundle, state_type& sdot_bun
             /// need to refactor!!!////
             auto ta = std::chrono::high_resolution_clock::now();
             //update_electron_transfer_geometry(active_simulation_volumes, s_bundle); // TODO This is really bad, need to refactor.
-            active_simulation_volumes[V].ElectronTransfer(_c-1, input_params.loss_geometry, s.bound_charge,sdot);
+            active_simulation_volumes[V].ElectronTransfer(_c-1, s.bound_charge,sdot);
             //mark_electron_transfer_geometry_for_updating(active_simulation_volumes,s_bundle); // TODO remove or leave as a debug option.
             auto tb = std::chrono::high_resolution_clock::now();
             apply_delta_time += ta - tb;
@@ -1252,21 +1252,33 @@ void ElectronRateSolver::set_zero_y(){
 void ElectronRateSolver::setup_electron_transfer_geometry(std::vector<Space> spaces_with_compositions, SpatialArrangement& spatial_arrangement){
     active_simulation_volumes = spaces_with_compositions;
     
-    Void_Space empty_space; // A void surrounding the system
+    Void_Space empty_space; // A void surrounding the system. Note that this means the size of active_simulation_voluems is 1 greater than Num_Sims(); TODO rename to make clearer as this implies it has all volumes being modelled; 'all_volumes' maybe
     active_simulation_volumes.push_back(empty_space); 
 
 
-    for(size_t V = 0; V<spaces_with_compositions.size(); V++){
-        active_simulation_volumes[V].electron_sources.resize(0);
+    
+    for(size_t i = 0; i<spaces_with_compositions.size(); i++){
+        active_simulation_volumes[i].electron_sources = std::vector<std::pair<Space *,CustomLossGeometry>>();
         switch (spatial_arrangement.mode)
         {
-        case SpatialArrangement::concentric_shells:
+        case SpatialArrangement::concentric_shells: // Shell thickness equals radius of inner sphere.
+            {
+            double r = i*input_params.loss_geometry.L0; // TODO temporary. Need to refactor out original loss geometry input logic.
+            double R = (i+1)*input_params.loss_geometry.L0;
+            double inner_area = pow(r,2);  
+            double outer_area = pow(R,2);  
+            double volume =(pow(R,3)-pow(r,3))/3.;
+
             assert(active_simulation_volumes.size()==spaces_with_compositions.size()+1);
-            if (V >0){
-            active_simulation_volumes[V].electron_sources.push_back(&active_simulation_volumes[V-1]);}
-            if (V<active_simulation_volumes.size()-1){ 
-            active_simulation_volumes[V].electron_sources.push_back(&active_simulation_volumes[V+1]);}
-            
+            // inner boundary
+            if (i >0){
+            active_simulation_volumes[i].AddBoundary(
+                active_simulation_volumes[i-1],CustomLossGeometry(inner_area,volume));}
+            // outer boundary
+            if (i<active_simulation_volumes.size()-1){ 
+            active_simulation_volumes[i].AddBoundary(
+                active_simulation_volumes[i+1],CustomLossGeometry(outer_area,volume));}
+            }
         break;
         default:
             throw std::runtime_error("Only concentric shells implemented");
