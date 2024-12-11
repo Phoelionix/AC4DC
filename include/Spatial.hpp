@@ -35,6 +35,7 @@ struct SpatialArrangement{
     const static char cube = 1;
     const static char unknown = 101;
     int mode = 101;
+    bool confined_system=true; //TODO allow for choice in input file
 };
 
 class Space{

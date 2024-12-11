@@ -1269,6 +1269,9 @@ void ElectronRateSolver::setup_electron_transfer_geometry(std::vector<Space> spa
             double outer_area = pow(R,2);  
             double volume =(pow(R,3)-pow(r,3))/3.;
 
+            if (spatial_arrangement.confined_system && i==spaces_with_compositions.size()-1){ 
+                inner_area = 0; outer_area = 0;}// Make the outer shell thickness infinite. 
+
             assert(active_simulation_volumes.size()==spaces_with_compositions.size()+1);
             // inner boundary
             if (i >0){
