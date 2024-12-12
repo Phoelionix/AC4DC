@@ -122,6 +122,8 @@ class SpatialInteractive:
             target = self.target_data[i]
             assert target.spatial_index == i
             depletion = target.get_charge(atom)/ATOMNO[atom]
+            print(depletion[-1])
+
 
             # colours
             col_z = depletion
@@ -159,17 +161,6 @@ class SpatialInteractive:
                     line_color=col,#"LightSeaGreen",
                     name=name,
                 )
-                # self.fig.add_trace(
-                #     go.Scatter(
-                #         visible=visible,
-                #         name=None,
-                #         x=[0],
-                #         y=[0],
-                #         mode = "markers",
-                #         marker=dict(size=r*100,
-                #                     line=dict(width=r,color=col)),
-                #     )
-                # )       
         self.add_time_slider(True)
         self.fig.update_layout(yaxis_scaleanchor="x")
 
@@ -288,7 +279,5 @@ class SpatialInteractive:
         self.fig.update_layout(sliders=time_slider)   
         
 
-        print(time_slider[0]["steps"][0]["args"][0]["shapes"])
-        print(time_slider[0]["steps"][1]["args"][0]["shapes"])
         self.fig.update_layout(**time_slider[-1]["steps"][0]["args"][0])   # set layout to earliest time point
         
