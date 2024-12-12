@@ -478,7 +478,7 @@ class PlotData:
         self.freeData = raw[:,1:]   
         for a in self.atomdict:
             raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
-            self.boundData[a] = raw[:, 1:]
+            self.boundData[a] = raw[indices, 1:]
             self.statedict[a] = self.get_bound_config_spec(a)   
 
     def get_free_energy_spec(self):
@@ -564,11 +564,10 @@ class PlotData:
         # Plot trace for the atom
         atomic_charge = np.zeros(T.shape[0])
         for i in range(self.chargeData[atom].shape[1]):
-            atomic_charge += self.chargeData[atom][:,i][T_start_idx:T_end_idx+1]*i
-
+            atomic_charge += self.chargeData[atom][T_start_idx:T_end_idx+1,i]*i
+        
         if not densities:
             atomic_charge /= np.sum(self.chargeData[atom][0]) # average charge
-
         return atomic_charge
 
             

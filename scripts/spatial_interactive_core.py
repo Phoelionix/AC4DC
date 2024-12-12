@@ -110,7 +110,7 @@ class SpatialInteractive:
 
     def plot_circles(self, atom : str, thickness : float, R : float):
         min_z = 0
-        max_z = 1/1000 
+        max_z = 1
 
         self.fig.update_xaxes(range=[-R*1.1, R*1.1], zeroline=False)
         self.fig.update_yaxes(range=[-R*1.1, R*1.1])
@@ -121,9 +121,9 @@ class SpatialInteractive:
             r = (1+i)*thickness
             target = self.target_data[i]
             assert target.spatial_index == i
-            depletion = target.get_charge(atom)/ATOMNO[atom]
-            print(depletion[-1])
-
+            charge = target.get_charge(atom)
+            print(f"Average charge:{charge[-1]}")
+            depletion=charge/ATOMNO[atom]
 
             # colours
             col_z = depletion
