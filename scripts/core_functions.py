@@ -3,6 +3,8 @@ import os.path as path
 import numpy as np
 import sys
 import re
+import csv
+from QoL import set_highlighted_excepthook
 
 def get_sim_params(handle,input_path=None,molecular_path=None):
     '''
@@ -139,6 +141,8 @@ def get_sim_elements(handle,input_path=None,molecular_path=None):
 
 # Contender for world's most convoluted function.
 def get_mol_file(input_path, molecular_path, mol, output_mol_query = "",out_prefix_text = "Using"):
+    set_highlighted_excepthook()
+
     #### Inputs ####
     #Check if .mol file in outputs
     use_input_mol_file = False
@@ -237,6 +241,17 @@ def get_pdb_paths_dict(my_dir):
         PDB_PATHS[key] = my_dir + value
     return PDB_PATHS
 
+
+def get_spatial_indices(molecular_path, mol):
+    output_folder  = molecular_path + mol + '/'
+    tmp = "freeDist-"
+    indices = []
+    for suffix in [f[len(tmp):] for f in os.listdir(output_folder) if f.startswith(tmp)]:
+        indices.append(int(suffix.split('.')[0]))
+        indices.sort()
+    return indices
+        
+
 def get_pdb_path(my_dir,key): 
     '''
     my_dir = calling file's directory
@@ -258,7 +273,7 @@ def parse_elecs_from_latex(latexlike):
     return qdict
 
 ATOMS = ('H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'
-       +' Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe').split()
+       +' Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe').split()
 ATOMNO = {}
 i = 1
 for symbol in ATOMS:
@@ -268,9 +283,12 @@ for symbol in ATOMS:
     i += 1
 i = 1 
 ATOMNO["Gd"] = ATOMNO["Gd_fast"] = ATOMNO["Gd_galli"]  = 64 
+ATOMNO["Fe_singleShell"] = ATOMNO["Fe"]
 for symbol in list(ATOMNO.keys()):
-    ATOMNO[symbol + '_LDA'] = i
-    i += 1
+    if "_" not in symbol:
+        ATOMNO[symbol + '_LDA'] = i
+        i += 1
+
 
 
 
@@ -356,3 +374,201 @@ def get_data_point(ax,stem,mol_name,mode,SCATTERING_TARGET_DICT,SCATTERING_TARGE
         save_dict["end_time"] = t
     save_data(mol_name,save_dict,delete_old=True)
     return x,y,t
+
+
+T_PRECISION = 6 # Truncate past 6 d.p. (millionth of an fs) to Avoid floating point error
+
+class PlotData:
+    def __init__(self, abs_molecular_path, mol_name,output_mol_query, max_final_t, max_points,spatial_index,custom_name = None):
+        self.molecular_path = abs_molecular_path
+        AC4DC_dir = path.abspath(path.join(__file__ ,"../../"))  + "/"
+        self.input_path = AC4DC_dir + 'input/'
+        molfile = get_mol_file(self.input_path, self.molecular_path, mol_name,output_mol_query,out_prefix_text = "Reading atoms in") 
+
+        # Subplot dictionary
+        subplot_name = mol_name.replace('_',' ')
+        if custom_name is not None:
+            subplot_name = custom_name
+        self.target_mol = {'name': subplot_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}
+
+        # Stores the atomic input files read by AC4DC
+        self.atomdict = {}
+        self.statedict = {}
+
+        # Stores the output of AC4DC
+        self.boundData={}
+        self.chargeData={}
+        self.freeData=None
+        self.intensityData=None
+        self.energyKnot=None
+        self.timeData=None
+
+        self.max_final_t = max_final_t 
+        self.max_points = max_points
+        self.spatial_tag = "" # This option is for compatibility with simulations from zero-dimensional version of code
+        
+        self.spatial_index = spatial_index
+        if spatial_index is not None:
+            self.spatial_tag = f"-{spatial_index}"
+        
+        self.title_colour = "#4d50b3"
+        # Directories of target data
+        self.outDir = self.molecular_path + mol_name
+        self.freeFile = self.outDir+f"/freeDist{self.spatial_tag}.csv"
+        self.intFile = self.outDir + "/intensity.csv"
+
+        self.get_atoms()
+
+        self.raw_int = np.genfromtxt(self.intFile, comments='#', dtype=np.float64) # We reuse this a few times so store it.
+
+        #self.update_outputs()
+
+   # Reads the control file specified by self.mol['infile']
+    # and populates the atomdict data structure accordingly
+    def get_atoms(self):
+        self.atomdict = {}
+        with open(self.target_mol['infile'], 'r') as f:
+            reading = False
+            for line in f:
+                if line.startswith("#ATOMS"):
+                    reading=True
+                    continue
+                elif line.startswith("#") or line.startswith("//"):
+                    reading=False
+                    continue
+                if line.startswith("####END####"):
+                    break
+                if reading:
+                    a = line.split(' ')[0].strip()
+                    if len(a) != 0:
+                        file = self.input_path + 'atoms/' + a + '.inp'
+                        self.atomdict[a]={
+                            'infile': file,
+                            'mtime': path.getmtime(file),
+                            'outfile': self.outDir+f"/dist_{a}{self.spatial_tag}.csv"}        
+    def get_max_time_range(self):
+        return min(self.max_final_t,self.raw_int[-1,0]) - self.raw_int[0,0]
+    def set_max_t(self,time_range):
+        raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
+        Q = 10**(-T_PRECISION)
+        self.max_final_t = (self.raw_int[0,0] + time_range)//Q*Q  # Truncate to avoid floating point error
+        #self.max_final_t = round((self.raw_int[0,0] + time_range)/Q)*Q  # Round to avoid floating point error
+    def get_num_usable_points(self):
+        return min(len(self.raw_int), self.max_points)
+
+    def update_outputs(self):
+        # Get samples of steps separated by the same times.
+        times = np.linspace(self.raw_int[0,0],self.max_final_t,self.max_points)
+        Q = 10**(-T_PRECISION)
+        indices = np.searchsorted(self.raw_int[:,0],(times)//Q*Q)
+        #indices = np.searchsorted(self.raw_int[:,0],np.round((times)/Q)*Q )
+        indices[1:] -= 1  # index 0 is ignored later anyway.
+        np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
+        raw = self.raw_int[indices]
+        print("Snapshot times set:\n",raw[:,0])
+        
+        self.intensityData = raw[:,1]
+        self.timeData = raw[:, 0]       
+        self.energyKnot = np.array(self.get_free_energy_spec(), dtype=np.float64)
+        
+        raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
+        raw = raw[indices]
+        if  len(self.timeData) != len(raw[:,1]):
+            raise Exception("time and free lengths don't match")
+        self.freeData = raw[:,1:]   
+        for a in self.atomdict:
+            raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
+            self.boundData[a] = raw[:, 1:]
+            self.statedict[a] = self.get_bound_config_spec(a)   
+
+    def get_free_energy_spec(self):
+        erow = []
+        with open(self.freeFile) as f:
+            r = csv.reader(f, delimiter=' ')
+            for row in r:
+                if row[0] != '#':
+                    raise Exception('parser could not find energy grid specification, expected #  |')
+                reading=False
+                for entry in row:
+                    # skip whitespace
+                    if entry == '' or entry == '#':
+                        continue
+                    # it's gotta be a pipe or nothin'
+                    if reading:
+                        erow.append(entry)
+                    elif entry == '|':
+                        reading=True
+                    else:
+                        break
+                if reading:
+                    break
+        return erow        
+        
+    def get_bound_config_spec(self, a):
+        # gets the configuration strings corresponding to atom a
+        specs = []
+        with open(self.atomdict[a]['outfile']) as f:
+            r = csv.reader(f, delimiter=' ')
+            for row in r:
+                if row[0] != '#':
+                    raise Exception('parser could not find atomic state specification, expected #  |')
+                reading=False
+                for entry in row:
+                    # skip whitespace
+                    if entry == '' or entry == '#':
+                        continue
+                    # it's gotta be a pipe or nothin'
+                    if reading:
+                        specs.append(entry)
+                    elif entry == '|':
+                        reading=True
+                    else:
+                        break
+                if reading:
+                    break
+        return specs    
+    
+    def get_density(self, t):
+        t_idx = self.timeData.searchsorted(t)
+        de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2]) 
+        de = de [1:] - de[:-1]
+        return np.dot(self.freeData[t_idx, :], de)       
+
+    def aggregate_charges(self,charge_difference=False):
+        # populates self.chargeData based on contents of self.boundData
+        for a in self.atomdict:
+            states = self.statedict[a]
+            if len(states) != self.boundData[a].shape[1]:
+                msg = 'states parsed from file header disagrees with width of data width'
+                msg += ' (got %d, expected %d)' % (len(states), self.boundData[a].shape[1])
+                raise RuntimeError(msg)
+
+            initial_charge = 0
+            if charge_difference:
+                initial_charge = ATOMNO[a] - sum(parse_elecs_from_latex(states[0]).values()) 
+            self.chargeData[a] = np.zeros((self.boundData[a].shape[0], ATOMNO[a]+1))
+            for i in range(len(states)):
+                orboccs = parse_elecs_from_latex(states[i])
+                charge = ATOMNO[a] - sum(orboccs.values()) - initial_charge 
+                self.chargeData[a][:, charge] += self.boundData[a][:, i]                           
+    
+    def get_charge(self,atom,charge_difference=False,densities=False,every=1):
+        T = self.timeData
+        T_start_idx = self.timeData.searchsorted(T[0])
+        T_end_idx = self.timeData.searchsorted(T[-1])
+        self.aggregate_charges(charge_difference)
+        Q = np.zeros(T.shape[0]) # total charge
+        colour = None
+        assert (atom in self.atomdict)
+
+        # Plot trace for the atom
+        atomic_charge = np.zeros(T.shape[0])
+        for i in range(self.chargeData[atom].shape[1]):
+            atomic_charge += self.chargeData[atom][:,i][T_start_idx:T_end_idx+1]*i
+
+        if not densities:
+            atomic_charge /= np.sum(self.chargeData[atom][0]) # average charge
+
+        return atomic_charge
+
+            

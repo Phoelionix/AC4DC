@@ -37,7 +37,7 @@ class Plotter:
     # Example initialisation: Plotter(water,molecular/path)
     # --> Data is contained in molecular/path/water. 
     # Will use mol file within by default, or (with a warning) search input for matching name if none exists.  
-    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None,end_t=None,load_specific_atoms=None,sample_end_points_only=False):
+    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None,end_t=None,load_specific_atoms=None,sample_end_points_only=False,spatial_index=None):
         '''
         abs_molecular_path: The path to the folder containing the simulation output folder of interest.
         use_electron_density: If True, plot electron density rather than energy density
@@ -61,11 +61,14 @@ class Plotter:
         self.statedict = {}
 
         # Outputs
+        self.spatial_tag = ""
+        if spatial_index is not None:
+            self.spatial_tag = f"-{spatial_index}"
         self.outDir = self.molecular_path + data_folder_name
-        self.freeFile = self.outDir +"/freeDist.csv"
+        self.freeFile =  f"{self.outDir}/freeDist{self.spatial_tag}.csv"
         self.freeFiles = []  # Distributions for each element's cascdes.
-        self.intFile = self.outDir + "/intensity.csv"
-        self.gridFile = self.outDir + "/knotHistory.csv"
+        self.intFile =  f"{self.outDir}/intensity.csv"
+        self.gridFile = f"{self.outDir}/knotHistory.csv"
 
         self.boundData={}
         self.photoData={}
@@ -137,8 +140,8 @@ class Plotter:
                         self.atomdict[a]={
                             'infile': file,
                             'mtime': path.getmtime(file),
-                            'outfile': self.outDir+"/dist_%s.csv"%a,
-                            'photofile': self.outDir + "/photo_%s.csv"%a}
+                            'outfile': f"{self.outDir}/dist_{a}{self.spatial_tag}.csv",
+                            'photofile': f"{self.outDir}/photo_{a}{self.spatial_tag}.csv"}
                         if atoms_to_load is not None:
                             self.freeFiles.append(self.outDir +"/freeDist_"+a+".csv")
         if atoms_to_load is None:
@@ -920,7 +923,7 @@ class Plotter:
             num_traces+=1 
 
         ax.set_facecolor('black')
-        cm = ax.pcolormesh(self.timeData, Y, Z, shading='inferno',cmap="inferno",rasterized=True)
+        cm = ax.pcolormesh(self.timeData, Y, Z, shading='auto',cmap="inferno",rasterized=True)
         cbar = self.fig.colorbar(cm,ax=ax,label="State density")
 
         ax.set_xlabel("Time (fs)")            
@@ -1059,12 +1062,12 @@ class Plotter:
         T = T[T_start:T_end]
         
         self.aggregate_charges(charge_difference)
-        self.Q = np.zeros(T.shape[0]) # total charge
+        self.Q = np.zeros(T.shape[0]) # total charge  (but it's not averaged...? Doesn't really make sense unless densities=True)
         colour = None
         if atoms is None:
             atoms = self.atomdict
         for j,a in enumerate(atoms):
-            if atoms is not None and a not in atoms:
+            if atoms is not None and a not in atoms:  #???
                 continue
             if colours != None:
                 colour = colours[j]

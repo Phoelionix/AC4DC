@@ -37,8 +37,9 @@ P.NAMING_MODE = 0  # For legend. 0: full details of sim parameters + sim name | 
 P.SCALE_DENSITY_BY_THOUSAND = False # Use cubic nm rather than cubic angstrom for measuring energy density  
 P.END_T = 9999  # Put at value to cutoff times early. Note if multiple handles inputted will cutoff all to earliest end time.
 P.POINTS = 70
-P.SPATIAL_INDICES = range(8)
+P.SPATIAL_INDICES = range(6)
 P.FONT_SIZE["legend"] = 25
+P.HIDE_LEGEND = True
 
 generate_graphs(P)
 

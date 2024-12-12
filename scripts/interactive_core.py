@@ -15,11 +15,10 @@ import chart_studio.plotly as py
 import plotly.graph_objects as go
 import plotly.io as pio
 import copy
-from core_functions import get_mol_file, parse_elecs_from_latex, ATOMS, ATOMNO
+from core_functions import PlotData, get_mol_file, parse_elecs_from_latex, ATOMS, ATOMNO, T_PRECISION
 import matplotlib as plt
 pio.templates.default = "seaborn" #"plotly_dark" # "plotly"
 
-T_PRECISION = 6 # Truncate past 6 d.p. (millionth of an fs) to Avoid floating point error
 
 # ATOMS = 'H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'.split()
 # ATOMNO = {}
@@ -43,159 +42,6 @@ T_PRECISION = 6 # Truncate past 6 d.p. (millionth of an fs) to Avoid floating po
 #     C = plt.get_cmap('nipy_spectral')
 #     return C(idx)
 
-class PlotData:
-    def __init__(self, abs_molecular_path, mol_name,output_mol_query, max_final_t, max_points,spatial_index,custom_name = None):
-        self.molecular_path = abs_molecular_path
-        AC4DC_dir = path.abspath(path.join(__file__ ,"../../"))  + "/"
-        self.input_path = AC4DC_dir + 'input/'
-        molfile = get_mol_file(self.input_path, self.molecular_path, mol_name,output_mol_query,out_prefix_text = "Reading atoms in") 
-
-        # Subplot dictionary
-        subplot_name = mol_name.replace('_',' ')
-        if custom_name is not None:
-            subplot_name = custom_name
-        self.target_mol = {'name': subplot_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}
-
-        # Stores the atomic input files read by AC4DC
-        self.atomdict = {}
-        self.statedict = {}
-
-        # Stores the output of AC4DC
-        self.boundData={}
-        self.chargeData={}
-        self.freeData=None
-        self.intensityData=None
-        self.energyKnot=None
-        self.timeData=None
-
-        self.max_final_t = max_final_t 
-        self.max_points = max_points
-        self.spatial_tag = "" # This option is for compatibility with simulations from zero-dimensional version of code
-        if spatial_index is not None:
-            self.spatial_tag = f"-{spatial_index}"
-        
-        self.title_colour = "#4d50b3"
-        # Directories of target data
-        self.outDir = self.molecular_path + mol_name
-        self.freeFile = self.outDir+f"/freeDist{self.spatial_tag}.csv"
-        self.intFile = self.outDir + "/intensity.csv"
-
-        self.get_atoms()
-
-        self.raw_int = np.genfromtxt(self.intFile, comments='#', dtype=np.float64) # We reuse this a few times so store it.
-
-        #self.update_outputs()
-
-   # Reads the control file specified by self.mol['infile']
-    # and populates the atomdict data structure accordingly
-    def get_atoms(self):
-        self.atomdict = {}
-        with open(self.target_mol['infile'], 'r') as f:
-            reading = False
-            for line in f:
-                if line.startswith("#ATOMS"):
-                    reading=True
-                    continue
-                elif line.startswith("#") or line.startswith("//"):
-                    reading=False
-                    continue
-                if line.startswith("####END####"):
-                    break
-                if reading:
-                    a = line.split(' ')[0].strip()
-                    if len(a) != 0:
-                        file = self.input_path + 'atoms/' + a + '.inp'
-                        self.atomdict[a]={
-                            'infile': file,
-                            'mtime': path.getmtime(file),
-                            'outfile': self.outDir+f"/dist_{a}{self.spatial_tag}.csv"}        
-    def get_max_time_range(self):
-        return min(self.max_final_t,self.raw_int[-1,0]) - self.raw_int[0,0]
-    def set_max_t(self,time_range):
-        raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
-        Q = 10**(-T_PRECISION)
-        self.max_final_t = (self.raw_int[0,0] + time_range)//Q*Q  # Truncate to avoid floating point error
-        #self.max_final_t = round((self.raw_int[0,0] + time_range)/Q)*Q  # Round to avoid floating point error
-    def get_num_usable_points(self):
-        return min(len(self.raw_int), self.max_points)
-
-    def update_outputs(self):
-        # Get samples of steps separated by the same times.
-        times = np.linspace(self.raw_int[0,0],self.max_final_t,self.max_points)
-        Q = 10**(-T_PRECISION)
-        indices = np.searchsorted(self.raw_int[:,0],(times)//Q*Q)
-        #indices = np.searchsorted(self.raw_int[:,0],np.round((times)/Q)*Q )
-        indices[1:] -= 1  # index 0 is ignored later anyway.
-        np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
-        raw = self.raw_int[indices]
-        print("Snapshot times set:\n",raw[:,0])
-        
-        self.intensityData = raw[:,1]
-        self.timeData = raw[:, 0]       
-        self.energyKnot = np.array(self.get_free_energy_spec(), dtype=np.float64)
-        
-        raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
-        raw = raw[indices]
-        if  len(self.timeData) != len(raw[:,1]):
-            raise Exception("time and free lengths don't match")
-        self.freeData = raw[:,1:]   
-        for a in self.atomdict:
-            raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
-            self.boundData[a] = raw[:, 1:]
-            self.statedict[a] = self.get_bound_config_spec(a)   
-
-    def get_free_energy_spec(self):
-        erow = []
-        with open(self.freeFile) as f:
-            r = csv.reader(f, delimiter=' ')
-            for row in r:
-                if row[0] != '#':
-                    raise Exception('parser could not find energy grid specification, expected #  |')
-                reading=False
-                for entry in row:
-                    # skip whitespace
-                    if entry == '' or entry == '#':
-                        continue
-                    # it's gotta be a pipe or nothin'
-                    if reading:
-                        erow.append(entry)
-                    elif entry == '|':
-                        reading=True
-                    else:
-                        break
-                if reading:
-                    break
-        return erow        
-        
-    def get_bound_config_spec(self, a):
-        # gets the configuration strings corresponding to atom a
-        specs = []
-        with open(self.atomdict[a]['outfile']) as f:
-            r = csv.reader(f, delimiter=' ')
-            for row in r:
-                if row[0] != '#':
-                    raise Exception('parser could not find atomic state specification, expected #  |')
-                reading=False
-                for entry in row:
-                    # skip whitespace
-                    if entry == '' or entry == '#':
-                        continue
-                    # it's gotta be a pipe or nothin'
-                    if reading:
-                        specs.append(entry)
-                    elif entry == '|':
-                        reading=True
-                    else:
-                        break
-                if reading:
-                    break
-        return specs    
-    
-    def get_density(self, t):
-        t_idx = self.timeData.searchsorted(t)
-        de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2]) 
-        de = de [1:] - de[:-1]
-        return np.dot(self.freeData[t_idx, :], de)                                  
 
 class InteractivePlotter:
     # max_final_t, float, end time in femtoseconds. Not equivalent to time duration
@@ -206,7 +52,6 @@ class InteractivePlotter:
         use_electron_density: If True, plot electron density rather than energy density
         Various changes, such as bigger font, etc. for presentation purposes.
         '''
-        max_points+=1  # (we exclude t=0)
         self.multi_trace_params = [""]*len(target_names)  # 
         self.use_electron_density = use_electron_density
         self.presentation_mode = False
@@ -230,7 +75,7 @@ class InteractivePlotter:
             "custom_names":custom_names,
             "sim_output_parent_directory":sim_output_parent_directory,
             "max_final_t":max_final_t,
-            "max_points":max_points,
+            "max_points":max_points, # in time
             "spatial_indices":spatial_indices
             }
         self.initialise_data()
@@ -280,21 +125,6 @@ class InteractivePlotter:
                 print("Dependent input file %s is newer than most recent run" % atomic['infile'])
                 return False
         return True
-
-    def aggregate_charges(self):
-        # populates self.chargeData based on contents of self.boundData
-        for a in self.atomdict:
-            states = self.statedict[a]
-            if len(states) != self.boundData[a].shape[1]:
-                msg = 'states parsed from file header disagrees with width of data width'
-                msg += ' (got %d, expected %d)' % (len(states), self.boundData[a].shape[1])
-                raise RuntimeError(msg)
-
-            self.chargeData[a] = np.zeros((self.boundData[a].shape[0], ATOMNO[a]+1))
-            for i in range(len(states)):
-                orboccs = parse_elecs_from_latex(states[i])
-                charge = ATOMNO[a] - sum(orboccs.values())
-                self.chargeData[a][:, charge] += self.boundData[a][:, i]
 
     def go(self):
         if not self.check_current():
