@@ -53,7 +53,9 @@ class Hybrid : public Adams_BM<T>{
     virtual void sys_ee(const T& q, T& qdot, const size_t& V) =0;
     virtual void sys_ee_bundled(const T& q, T& qdot) =0;
     virtual void update_electron_transfer_geometry(const T& q) =0;
+    #ifdef ELECTRON_TRANSFER_DEBUG
     virtual void mark_electron_transfer_geometry_for_updating(const T& q) =0;
+    #endif
     // virtual void Jacobian2(const T& q, T& qdot, double t) =0; 
     protected:
     
@@ -335,7 +337,9 @@ void Hybrid<T>::step_stiff_part(unsigned n){
             const size_t early_step = (1-i+mini_n)%(this->order);
             this->update_electron_transfer_geometry(y_transient[early_step]);
             this->sys_ee_bundled(y_transient[early_step], ydot); 
+            #ifdef ELECTRON_TRANSFER_DEBUG
             this->mark_electron_transfer_geometry_for_updating(y_transient[early_step]);
+            #endif
             ydot *= this->b_AM[i];
             tmp += ydot;
         }
@@ -394,7 +398,9 @@ void Hybrid<T>::step_stiff_part(unsigned n){
                 #endif
             }
         }
+        #ifdef ELECTRON_TRANSFER_DEBUG
         this->mark_electron_transfer_geometry_for_updating(y_transient[next_rel_idx]);
+        #endif
 
         y_transient[next_rel_idx] += delta_bound_interpolated[mini_n-old_mini_n];  // Add interpolated bound state contribution
         #ifndef NO_MINISTEP_UPDATING

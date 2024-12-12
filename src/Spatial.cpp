@@ -21,12 +21,14 @@ This file is part of AC4DC.
 
 #include "Spatial.hpp"
 
+#ifdef ELECTRON_TRANSFER_DEBUG
 void Space::Clear(){
     F_assigned = false; 
 }
+#endif
 
 void Space::ElectronTransfer(size_t a, double rho, single_state_type& sdot){    
-
+    #ifndef NO_SPATIAL
     // EXTREMELY CRUDE. just using charge of F and not neighbours.
     // Assumes that electrons spread out equally among neighbours (electron sinks)
     assert(F_assigned);
@@ -36,6 +38,8 @@ void Space::ElectronTransfer(size_t a, double rho, single_state_type& sdot){
         sdot.F.addSource(a,(*source.first).original_F_fraction,source.second,rho);
         sdot.F.addLoss(a,original_F_fraction,source.second,rho);
     }
+
+    #endif //NO_SPATIAL
 }
 
 void Space::AddBoundary(Space& other_space, CustomLossGeometry boundary_geometry){

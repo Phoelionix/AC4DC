@@ -18,6 +18,8 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 //#define NO_EE   // Electron-electron scattering. This seems to break the dynamic grid late in the simulation depending on pulse parameters.
 //#define NO_EII    // Electron impact ionisation0
 //#define NO_PLASMA // Disables all of the above. (i.e. primary - Photo,Auger,Fluoro, - ionisation only)
+//#define NO_SPATIAL // Disables all interactions between spatial regions
+
 
 /// Disable features
 #define NO_PLOTTING // Turns off live saves of the free-electron energy distribution to _live_plot.png. Disables use of python 

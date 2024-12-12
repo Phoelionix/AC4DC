@@ -44,17 +44,22 @@ public:
     Space(){F_assigned = false;}
     std::vector<std::pair<Space *,CustomLossGeometry>> electron_sources; // second element of each tuple contains information on the ratio of the boundary surface area to the volume of this space.
 
-
+    #ifdef ELECTRON_TRANSFER_DEBUG
     virtual void Clear();
+    #endif
     virtual void ElectronTransfer(size_t a, double rho, single_state_type& sdot); // Modifies F by connected electron sinks original_F. 
     virtual void set_F(const Distribution* F){
+        #ifndef NO_SPATIAL
+        #ifdef ELECTRON_TRANSFER_DEBUG
         assert(!F_assigned);
+        #endif
         internal_F=F;
         original_F = *internal_F;
         original_F_fraction = *internal_F;  // Might need to multiply this by some independent variable if doing some weird geometries but no need for now.  Good approx. for concentric shells.
         //original_F_fraction*=(1./electron_sources.size());
 
         F_assigned=true;
+        #endif // NO_SPATIAL
     }
     void AddBoundary(Space& other_space, CustomLossGeometry boundary_geometry);
     // Distribution* F(){
@@ -78,7 +83,9 @@ class Void_Space : public Space{
     public:
     void ElectronTransfer(size_t a, double rho, single_state_type& sdot) override{}
     void set_F(const Distribution* F) override{};
+    #ifdef ELECTRON_TRANSFER_DEBUG
     void Clear() override{};
+    #endif
 };
 
 namespace{

@@ -501,6 +501,7 @@ void Distribution::applyDeltaF_element_scaled(const size_t& a,const Eigen::Vecto
 // In the spline basis, subtracts electrons from the calling Distribution object corresponding to the electron density that would leave distribution `d` under loss geometry `l` and bound charge `rho`. 
 void Distribution::addLoss(const size_t& a, const Distribution& d, const CustomLossGeometry &cl, double rho) {
     // f += "|   i|   ||   |_"
+    #pragma omp for schedule(dynamic) nowait
     for (size_t i=basis.i_from_e(0); i<size; i++) {
         
         f_array[0][i] -= d[0][i] * sqrt(basis.avg_e[i]/2) * cl.A_on_V(); // TODO double check l.factor() is meant to correspond to A_on_V (was a factor of 2 for spheres, sugesting it is meant to be 2/3*A_on_V...)
@@ -513,6 +514,7 @@ void Distribution::addLoss(const size_t& a, const Distribution& d, const CustomL
 }
 
 void Distribution::addSource(const size_t& a, const Distribution& d, const CustomLossGeometry &cl, double rho) {
+    #pragma omp for schedule(dynamic) nowait
     for (size_t i=basis.i_from_e(0); i<size; i++) {
         
         f_array[0][i] += d[0][i] * sqrt(basis.avg_e[i]/2) * cl.A_on_V();
@@ -524,6 +526,7 @@ void Distribution::addSource(const size_t& a, const Distribution& d, const Custo
 
 void Distribution::addLossToVoid(const size_t& a, const Distribution& d, const LossGeometry &l, double rho) {
     double escape_e = 1.333333333*Constant::Pi*l.L0*l.L0*rho;
+    #pragma omp for schedule(dynamic) nowait
     for (size_t i=basis.i_from_e(escape_e); i<size; i++) {
         
         f_array[0][i] -= d[0][i] * sqrt(basis.avg_e[i]/2) * l.factor();

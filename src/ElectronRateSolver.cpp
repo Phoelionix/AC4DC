@@ -1298,8 +1298,11 @@ void ElectronRateSolver::update_electron_transfer_geometry(const state_type& s_b
     }
 
 }
+
+#ifdef ELECTRON_TRANSFER_DEBUG
 void ElectronRateSolver::mark_electron_transfer_geometry_for_updating(const state_type& s_bundle){
     for(size_t V = 0; V<s_bundle.sims.size(); V++){
         active_simulation_volumes[V].Clear();
     }
 }
+#endif
