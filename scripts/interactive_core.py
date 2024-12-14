@@ -15,7 +15,7 @@ import chart_studio.plotly as py
 import plotly.graph_objects as go
 import plotly.io as pio
 import copy
-from core_functions import PlotData, get_mol_file, parse_elecs_from_latex, ATOMS, ATOMNO, T_PRECISION
+from core_functions import PlotData, get_mol_file, parse_elecs_from_latex, get_spatial_indices,ATOMS, ATOMNO, T_PRECISION
 import matplotlib as plt
 pio.templates.default = "seaborn" #"plotly_dark" # "plotly"
 
@@ -65,7 +65,9 @@ class InteractivePlotter:
         self.legend_title = legend_title
         self.inset = inset
         if spatial_indices is None:
-            spatial_indices = [None]
+            spatial_indices = get_spatial_indices( sim_output_parent_directory, target_names[0])
+            for target in target_names:
+                assert(spatial_indices==get_spatial_indices( sim_output_parent_directory, target))         
         
         self.num_plots = len(target_names)*len(spatial_indices)
         if custom_names is None:

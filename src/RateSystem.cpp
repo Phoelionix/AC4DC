@@ -90,3 +90,46 @@ std::vector<double> state_type::norm(size_t _c) const {
     }
     return return_vector;
 }
+
+
+void state_type::transform_basis_all(std::vector<double> new_knots){
+    int new_basis_order = BasisSet::BSPLINE_ORDER;
+    //// Get knots that have densities
+    int num_new_splines = static_cast<int>(Distribution::get_trimmed_knots(new_knots).size());   // TODO replace get_trimmed_knots with get_num_funcs?. 
+    std::vector<std::vector<std::vector<std::vector<double>>>> new_densities_container_all;
+    for (size_t V =0; V < sims.size(); V++){
+        std::vector<std::vector<std::vector<double>>> new_densities_container;
+        for (size_t _c = 0; _c < Distribution::num_continuums; _c++){
+            //// Compute densities for knots
+            std::vector<std::vector<double>> new_densities(num_new_splines, std::vector<double>(64, 0));
+
+            // Cackle and iterate through each new spline.
+            for (size_t i=0; static_cast<int>(i)<num_new_splines; i++){
+                // Use current basis to generate the density terms for gaussian integration at for each basis point.   
+                // Black magic. ଘ(੭ˊᵕˋ)੭.*･｡ﾟ
+                double a = new_knots[i];                  // i.e. <new_basis>.supp_min(i);
+                double b = new_knots[i+new_basis_order];  // i.e. <new_basis>.supp_max(i);        
+                for(size_t j=0; j < 64; j++){
+                    double e = (b-a)/2 *gaussX_64[j] + (a+b)/2;
+                    new_densities[i][j] = (sims[V].F)(_c,e);  
+                }
+            }
+            // Change distribution to empty one in new basis.    
+            new_densities_container.push_back(new_densities);
+        }
+        for (size_t _c = 0; _c < Distribution::num_continuums; _c++){
+            vector<double> new_f(num_new_splines,0);
+            sims[V].F[_c] = new_f; 
+        }
+        new_densities_container_all.push_back(new_densities_container);
+    }
+    Distribution::load_knot(new_knots);
+    for (size_t V =0; V < sims.size(); V++){
+        for (size_t _c = 0; _c < Distribution::num_continuums; _c++){
+            sims[V].F[_c].resize(Distribution::size);
+            // Add densities in new basis.
+            sims[V].F.add_density_distribution(_c, new_densities_container_all[V][_c]);
+
+        }
+    }
+}

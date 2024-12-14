@@ -101,7 +101,7 @@ def make_the_plot(mol_names,sim_output_parent_dir, label,figure_output_dir):
     def eii_prefactor(E,transition):
         ang_per_cm = 1e8
         fs_per_eV = 0.6582
-        return sigma(E,transition)*np.sqrt(E)*ang_per_cm**2/fs_per_eV # Convert to cross-section in angstrom and add conversion of rate to fs.  
+        return sigma(E,transition)*np.sqrt(E)*ang_per_cm**2/fs_per_eV # Convert to cross-section in angstrom and add conversion of rate to fs.  # todo double check this is right. might come from norm choice in sim but should be clearer what is done here.
     
     #slices = [-9.5,-8.5,-7.5] # carbon stability graph
     slices = [-12,-5]

@@ -1096,8 +1096,9 @@ void ElectronRateSolver::update_grid(ofstream& _log, size_t latest_step, bool fo
         // Kinda goofy but it's necessary due to the static variables. 
         assert(this-> order*2 < steps_per_grid_transform); // *2 factor is to guarantee loading works.
         Distribution::load_knots_from_history(n-1); // the n - 1 is correct. transform_basis takes us to basis at step n.
+        y[m].transform_basis_all(new_energies);
         for(size_t V=0; V<Num_Sims();V++){
-            y[m][V].F.transform_basis(new_energies);
+            // y[m][V].F.transform_basis(new_energies);
 
             #ifdef DEBUG_BOUND
             for(size_t a = 0; a < y[m].atomP.size();a++)

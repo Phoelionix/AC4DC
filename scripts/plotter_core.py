@@ -1395,7 +1395,7 @@ class Plotter:
         density_factor = X # energy density
         if self.use_electron_density:
             density_factor = 1 
-
+        # NB: data is f(e)
         return self.ax_steps.plot(X, prefactor*data*density_factor, label='%1.1f fs' % t, **kwargs)
 
     def plot_the_knots(self,times,vert_anchors,colours,padding=0.01):
@@ -1483,7 +1483,7 @@ class Plotter:
             ax.set_xlabel('$u$ (spatial frequency, atomic units)')
             ax.set_ylabel('Form factor (arb. units)')
         
-        timedata = self.boundData[a][:,:-1] # -1 excludes the bare nucleus
+        timedatatimedata = self.boundData[a][:,:-1] # -1 excludes the bare nucleus
         dynamic_k = np.tensordot(fdists.T, timedata.T,axes=1)   # Getting all k points? This has equal spacing -S.P. 
         step = (stop_idx - start_idx) // num_tsteps
         if plot:

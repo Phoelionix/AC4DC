@@ -45,7 +45,7 @@ struct LossGeometry {
 struct CustomLossGeometry {
     CustomLossGeometry(double area,  double volume): internal_A_on_V(area/volume){};
 
-    double A_on_V() const{
+    const double& A_on_V() const{
         return internal_A_on_V;
     }
     private:

@@ -134,6 +134,9 @@ public:
         active=true;
     }
 
+    void transform_basis_all(std::vector<double> new_knots);
+
+
 private:
     static bool initialised;
     static vector<vector<size_t>> sim_P_sizes;
@@ -141,7 +144,6 @@ private:
     static size_t sample_index;
     static bool active;
 };
-
 
 
 // All f integrals have the form

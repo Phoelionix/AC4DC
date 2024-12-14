@@ -109,12 +109,24 @@ class SpatialInteractive:
         print("Done!") 
 
     def plot_circles(self, atom : str, thickness : float, R : float):
+        do_norm = True
+        do_remaining = False
+
         min_z = 0
         max_z = 1
 
         self.fig.update_xaxes(range=[-R*1.1, R*1.1], zeroline=False)
         self.fig.update_yaxes(range=[-R*1.1, R*1.1])
 
+
+        if do_remaining:
+            norm = 1-self.target_data[-1].get_charge(atom)/ATOMNO[atom]
+        else:
+            norm = self.target_data[0].get_charge(atom)/ATOMNO[atom]
+
+
+        norm-=min_z
+        norm/=(max_z-min_z)
         # Build up 'layered cake' of circles starting from base
         assert self.input.num_cells==self.input.num_plots  # for now
         for i in reversed(range(len(self.target_data))):
@@ -122,15 +134,24 @@ class SpatialInteractive:
             target = self.target_data[i]
             assert target.spatial_index == i
             charge = target.get_charge(atom)
-            print(f"Average charge:{charge[-1]}")
+            print(f"Average charge at t={target.timeData[-1]} fs:{charge[-1]}")
             depletion=charge/ATOMNO[atom]
 
             # colours
             col_z = depletion
+            if do_remaining:
+                col_z = 1-col_z
             col_z -= min_z
             col_z /=(max_z-min_z)
+            print(col_z[-1])
+            if do_norm:
+                col_z/=norm
+            #print(col_z[-70])
+            #print(col_z[-35])
+            print(col_z[-30])
+            print(col_z[-1])
+            print()
             cmap = plt.cm.get_cmap('magma')
-
 
 
             Q = 10**(-T_PRECISION)
