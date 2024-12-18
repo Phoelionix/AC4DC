@@ -552,7 +552,7 @@ class PlotData:
                 charge = ATOMNO[a] - sum(orboccs.values()) - initial_charge 
                 self.chargeData[a][:, charge] += self.boundData[a][:, i]                           
     
-    def get_charge(self,atom,charge_difference=False,densities=False,every=1):
+    def get_charge(self,atom,charge_difference=False,densities=False):
         T = self.timeData
         T_start_idx = self.timeData.searchsorted(T[0])
         T_end_idx = self.timeData.searchsorted(T[-1])
@@ -568,6 +568,31 @@ class PlotData:
         
         if not densities:
             atomic_charge /= np.sum(self.chargeData[atom][0]) # average charge
+        else:
+            de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])   
+            de = de [1:] - de[:-1]
+            tot_free_Q =-1*np.dot(self.freeData, de)
+            self.Q += tot_free_Q
+
         return atomic_charge
 
-            
+    # def get_total_charge(self,every=1,densities=False,atoms=None,charge_difference=False):
+    #     T = self.timeData[::every]
+    #     self.aggregate_charges(charge_difference)
+    #     self.Q = np.zeros(T.shape[0]) # total charge
+    #     for j,a in enumerate(self.atomdict):
+    #         if atoms is not None and a not in atoms:
+    #             continue
+    #         atomic_charge = np.zeros(T.shape[0])
+    #         for i in range(self.chargeData[a].shape[1]):
+    #             atomic_charge += self.chargeData[a][::every,i]*i
+    #         if not densities:
+    #             atomic_charge /= np.sum(self.chargeData[a][0])
+    #         self.Q += atomic_charge
+    #     # Free data
+    #     if densities:
+    #         de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])   
+    #         de = de [1:] - de[:-1]
+    #         tot_free_Q =-1*np.dot(self.freeData, de)
+    #         self.Q += tot_free_Q[::every]
+    #     return self.Q

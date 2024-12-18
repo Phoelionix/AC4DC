@@ -41,6 +41,7 @@ FIGHEIGHT = FIGWIDTH*1/2#*9/16
 # FIGWIDTH = COLUMNWIDTH/2
 # FIGHEIGHT = FIGWIDTH*9/16
 
+SPATIAL_INDEX=0
 DPI = 800
 ##
 END_T = None#None
@@ -89,7 +90,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         for elem in load_specific_atoms:
             label+=elem
 
-    pl = Plotter(mol_name,sim_output_parent_dir,use_electron_density = ELECTRON_DENSITY,end_t = END_T,load_specific_atoms=load_specific_atoms)
+    pl = Plotter(mol_name,sim_output_parent_dir,spatial_index=SPATIAL_INDEX,use_electron_density = ELECTRON_DENSITY,end_t = END_T,load_specific_atoms=load_specific_atoms)
     num_atoms = len(pl.statedict)
     num_subplots = tot_charge + free + free_slices + bound_ionisation_bar + (bound_ionisation+ orbital_densities_bar+ photo_rates)*num_atoms 
     pl.setup_axes(num_subplots)

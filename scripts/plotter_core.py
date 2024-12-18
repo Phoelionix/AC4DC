@@ -19,6 +19,8 @@ from scipy.stats import linregress
 from core_functions import get_mol_file, parse_elecs_from_latex, ATOMS, ATOMNO
 from scipy.interpolate import splrep, splev
 from scipy.signal import savgol_filter
+from argparse import Namespace
+
 
 #plt.rcParams.update(plt.rcParamsDefault)
 #plt.style.use('seaborn-muted')
@@ -344,7 +346,20 @@ class Plotter:
         return form_factors_sqrt_I, time_steps
     
 
-    #############Important bit#######################
+    def get_ff_undamaged(self,q, atom): 
+        ground_orboccs = parse_elecs_from_latex(self.statedict[atom][0])
+        occ_list = [-99]*10
+        for orb, occ in ground_orboccs.items():
+            l = int(orb[0]) - 1
+            if occ_list[l] == -99:
+                occ_list[l] = 0
+            occ_list[l] += occ
+        ground_state = occ_list[:len(occ_list)-occ_list.count(-99)] 
+        shielding = SlaterShielding(self.atomic_numbers[atom])             
+        ff = shielding.get_ff("dummy",q,{"dummy":ground_state})
+        return ff 
+
+    #############Important bit for scatter code#######################
     def random_state_snapshots(self,atom,seed=None):
         '''
         Get t_fineness form factors, distributed as evenly between plotter_obj.start_t and plotter_obj.end_t as possible.
@@ -555,10 +570,62 @@ class Plotter:
         ax.legend(loc=loc)
         self.fig.set_size_inches(fig_width,fig_height)           
 
+
+    def form_factor_at_q_data(self,q,atom,resolution,angstrom_in,bohr_in,intensity_averaged,every,xlim) -> Namespace:
+        T,T_start,T_end = self.T_from_xlim(xlim,every)
+
+        bohr_mom = X = q
+        if angstrom_in:
+            ang_per_bohr = 0.529177
+            bohr_mom = q/ang_per_bohr            
+        if resolution:
+            X = 2*np.pi/q   
+        
+        ff, actual_timesteps = self.get_form_factor(bohr_mom,atom,T)
+
+        if intensity_averaged:
+            ff_copy = ff.copy()
+            for k in range(len(ff)):
+                ff[k] = np.average(ff_copy[:k+1]*self.intensityData[T_start:T_end][:k+1])/np.average(self.intensityData[T_start:T_end][:k+1])
+        return Namespace(**dict(T=actual_timesteps, X=X, bohr_mom=bohr_mom, ff=ff))
     
+    def plot_form_factor_at_q(self,q,atom,resolution=False,angstrom_in=True,bohr_in=False,intensity_averaged=False,show_pulse_profile=True,every=1,xlim=[None,None],ylim=[None,None],**kwargs):
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=show_pulse_profile)
+        
+        D = self.form_factor_at_q_data(q,atom,resolution,angstrom_in,bohr_in,intensity_averaged,every,xlim)
+
+
+        ax.set_ylabel("ff")
+        angstrom_str = '$\AA$' 
+        ax.set_title(f"{'Resolution' if resolution else 'q'}: {D.X} {angstrom_str if angstrom_in else 'bohr'}")    
+
+        ax.plot(D.T,D.ff,**kwargs)
+
+    def plot_form_factor_disagreement_at_q(self,q,atom,resolution=False,angstrom_in=True,bohr_in=False,intensity_averaged=False,show_pulse_profile=True,every=1,xlim=[None,None],ylim=[None,None],**kwargs):
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=show_pulse_profile)
+        
+        D = self.form_factor_at_q_data(q,atom,resolution,angstrom_in,bohr_in,intensity_averaged,every,xlim)
+        
+        ff_ideal = self.get_ff_undamaged(D.bohr_mom,atom)
+
+        D.ff = ff_ideal - D.ff
+        D.ff*=100/ff_ideal
+
+        ax.set_ylabel("ff difference from ideal (%)")
+        angstrom_str = '$\AA$' 
+        ax.set_title(f"{'Resolution' if resolution else 'q'}: {D.X} {angstrom_str if angstrom_in else 'bohr'}")  
+
+
+        ax.plot(D.T,D.ff,**kwargs)
+        
+        
+        
+    def get_form_factor(self,k,atom,time):
+        return self.get_average_form_factor(k,[atom],time)
+
     # Note this combines form factors when supplied multiple species, which is not necessarily interesting.
     # TODO overly complicated..
-    def get_average_form_factor(self,k,atoms,time=-7.5,n=None):
+    def get_average_form_factor(self,k,atoms,time,n=None):
         '''
         Returns the form factor(s) at 'time' [fs], and time(s) used.
         use n for average form factor of a specific shell.
@@ -1044,22 +1111,27 @@ class Plotter:
         self.fig.subplots_adjust(left=0.2, right=0.95, top=0.95, bottom=0.2)
 
 
-    def plot_tot_charge(self, every=1,densities = False,colours=None,atoms=None,plot_legend=True,charge_difference=True,xlim=[None,None],ylim=[None,None],plot_derivative=False,legend_loc='upper left',**kwargs):
-        '''
-        plot_derivative (bool), if True, plots average ionisation rate instead of average charge. 
-        '''
-        ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
-        #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
+    def T_from_xlim(self,xlim,every):
         T = self.timeData[::every]
         T_start = 0
-        if ylim[0] is None:
-            ylim[0] = 0
         if xlim[0] is not None:
             T_start = np.searchsorted(T,xlim[0])
         T_end = len(T)
         if xlim[1] is not None:
             T_end = np.searchsorted(T,xlim[1])
-        T = T[T_start:T_end]
+        return T[T_start:T_end], T_start,T_end
+
+    def plot_tot_charge(self, every=1,densities = False,colours=None,atoms=None,plot_legend=True,charge_difference=True,xlim=[None,None],ylim=[None,None],plot_derivative=False,legend_loc='upper left',intensity_averaged=False,**kwargs):
+        '''
+        plot_derivative (bool), if True, plots average ionisation rate instead of average charge. 
+        intensity_averaged, at point t, the charge (or density) is integrated over the intensity up until that point in time 
+        '''
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
+        #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
+        if ylim[0] is None:
+            ylim[0] = 0
+        T,T_start,T_end = self.T_from_xlim(xlim,every)
+
         
         self.aggregate_charges(charge_difference)
         self.Q = np.zeros(T.shape[0]) # total charge  (but it's not averaged...? Doesn't really make sense unless densities=True)
@@ -1067,11 +1139,14 @@ class Plotter:
         if atoms is None:
             atoms = self.atomdict
         for j,a in enumerate(atoms):
-            if atoms is not None and a not in atoms:  #???
+            if atoms is not None and a not in atoms:
                 continue
             if colours != None:
                 colour = colours[j]
-            kwargs["label"] = a
+            if "label" not in kwargs or kwargs["label"] is None or kwargs["label"] == "":
+                kwargs["label"] = a
+            else:
+                kwargs["label"]+= f" - {a}"
             kwargs["color"] = colour
             # Plot trace for the atom
             atomic_charge = np.zeros(T.shape[0])
@@ -1079,6 +1154,10 @@ class Plotter:
                 atomic_charge += self.chargeData[a][::every,i][T_start:T_end]*i
             if not densities:
                 atomic_charge /= np.sum(self.chargeData[a][0])
+            if intensity_averaged:
+                ac_copy = atomic_charge.copy()
+                for k in range(len(atomic_charge)):
+                    atomic_charge[k] = np.average(ac_copy[:k+1]*self.intensityData[T_start:T_end][:k+1])/np.average(self.intensityData[T_start:T_end][:k+1])
             if not plot_derivative:
                 ax.plot(T,atomic_charge,**kwargs)
             else:
@@ -1111,7 +1190,7 @@ class Plotter:
                 #dydx = savgol_filter(atomic_charge, window_length=11, polyorder=4, deriv=1)*10
                 #ax.plot(T,dydx,**kwargs)
                 
-
+            
             self.Q += atomic_charge
 
         # Free data
