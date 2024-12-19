@@ -677,6 +677,7 @@ void ElectronRateSolver::sys_ee(const state_type& s_bundle, state_type& sdot_bun
             auto ta = std::chrono::high_resolution_clock::now();
             //update_electron_transfer_geometry(active_simulation_volumes, s_bundle); // TODO This is really bad, need to refactor.
             active_simulation_volumes[V].ElectronTransfer(_c-1, s.bound_charge,sdot);
+            //active_simulation_volumes[V].ElectronTransferV2(_c-1, s.bound_charge,sdot,input_params.loss_geometry);
             //mark_electron_transfer_geometry_for_updating(active_simulation_volumes,s_bundle); // TODO remove or leave as a debug option.
             auto tb = std::chrono::high_resolution_clock::now();
             apply_delta_time += ta - tb;
@@ -1266,22 +1267,40 @@ void ElectronRateSolver::setup_electron_transfer_geometry(std::vector<Space> spa
             {
             double r = i*input_params.loss_geometry.L0; // TODO temporary. Need to refactor out original loss geometry input logic.
             double R = (i+1)*input_params.loss_geometry.L0;
+            
+
+            
             double inner_area = pow(r,2);  
             double outer_area = pow(R,2);  
             double volume =(pow(R,3)-pow(r,3))/3.;
 
+            //Janky source-geom placeholder
+            double factor_outer = 1/(R-r);
+            double factor_smaller;
+            if (i>0){
+                double volume = (pow(R,3)-pow(r,3));
+                double volume_smaller = (pow(R-1,3)-pow(r-1,3));
+                
+                factor_smaller = factor_outer*volume_smaller/volume;
+                factor_outer = factor_outer*(volume-volume_smaller)/volume;
+            }
+
+
             if (spatial_arrangement.confined_system && i==spaces_with_compositions.size()-1){ 
-                inner_area = 0; outer_area = 0;}// Make the outer shell thickness infinite. 
+                //inner_area = 0; outer_area = 0;}// Make the outer shell thickness infinite. 
+                factor_smaller = 0; factor_outer = 0;}// Make the outer shell thickness infinite. 
 
             assert(active_simulation_volumes.size()==spaces_with_compositions.size()+1);
             // inner boundary
             if (i >0){
             active_simulation_volumes[i].AddBoundary(
-                active_simulation_volumes[i-1],CustomLossGeometry(inner_area,volume));}
+                //active_simulation_volumes[i-1],CustomLossGeometry(inner_area,volume));}
+                active_simulation_volumes[i-1],CustomLossGeometry(factor_smaller));}
             // outer boundary
             if (i<active_simulation_volumes.size()-1){ 
             active_simulation_volumes[i].AddBoundary(
-                active_simulation_volumes[i+1],CustomLossGeometry(outer_area,volume));}
+                //active_simulation_volumes[i+1],CustomLossGeometry(outer_area,volume));}
+                active_simulation_volumes[i+1],CustomLossGeometry(factor_outer));}
             }
         break;
         default:

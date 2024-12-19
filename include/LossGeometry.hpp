@@ -43,13 +43,14 @@ struct LossGeometry {
 };
 
 struct CustomLossGeometry {
-    CustomLossGeometry(double area,  double volume): internal_A_on_V(area/volume){};
+    //CustomLossGeometry(double area,  double volume): internal_transfer_factor(area/volume){};
+    CustomLossGeometry(double transfer_factor): internal_transfer_factor(transfer_factor){};
 
-    const double& A_on_V() const{
-        return internal_A_on_V;
+    const double& transfer_factor() const{
+        return internal_transfer_factor;
     }
     private:
-    double internal_A_on_V;
+    double internal_transfer_factor;
 
 };
 

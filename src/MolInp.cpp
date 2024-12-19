@@ -374,6 +374,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		}
 	}{
 		stringstream stream(FileContent["#VOLUME_COMPOSITIONS"][2]);
+		// TODO IGNORE SPACES
 		while (stream.rdbuf()->in_avail()>0){
 			size_t index;
 			stream >> index;

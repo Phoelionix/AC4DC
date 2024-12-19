@@ -1,51 +1,48 @@
 #ATOMS
-C 203.57 207.57
-Mn_LDA 4 0
+C 2 2 1.9 1.8 
+Mn_LDA 0.01 0 0 0
 
 #BOUND_FREE_EXCLUSIONS
 Mn_LDA
 
 #VOLUME_COMPOSITIONS
 shells
-Light Light
-0 1 1
+Mn_and_light Light WateryBits Water
+0 1 1 2 3 3 3 2
+
 
 
 #VOLUME
-4189        // Volume per molecule in Angstrom^3.
-50        // Length scale of sample in Angstrom. Used for effective transfer rate of photo-electrons between simulated volumes.
+20        // Volume per molecule in Angstrom^3.
+3         // Length scale of sample in Angstrom. Used for effective transfer rate of photo-electrons between simulated volumes.
 spherical // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-7000         // Photon energy in eV.
+10000         // Photon energy in eV.
 15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
 
 #USE_COUNT
 true    // active (using count)?
-0.5     // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
+1.75  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
 2000      // Initial guess for number of time step points for rate equation.
-30           // Number of threads in OpenMP.
+24           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 M              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
-5             // Grid update period in fs.
-2             // Time before transforming initial guess grid to dynamic grid in fs.  
+2             // Grid update period in fs, (dynamic grid only).
 
 #OUTPUT
 800         // Number of time steps in the output files.
-4000        // number of free-electron grid points in 'dist*.csv' output files.
+4000        // number of free-electron grid points in output file.
 N            // Write atomic charges in a separate file (Y/N)?
 Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-9999       // Simulation cutoff time in fs
+0       // Simulation cutoff time in fs
 0.01    // Interval to update current timestep [fs].
-0 // Interval **in steps** between live plot (_live_plot.png) updates
-60 // Period between backups in minutes   
+0
 ####END#####
-
-0 1 1 1 1 1 1 1 1 1

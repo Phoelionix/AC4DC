@@ -251,8 +251,10 @@ class InteractivePlotter:
                     '#7f7f7f',
                     '#bcbd22',
                     '#17becf',
-                    ]*10
-                col = plotly_d3_colors[g]
+                    ]
+                colors = plotly_d3_colors.copy()
+                colors.extend(['#4e4e4e'])
+                col = colors[g%len(colors)]
                 '''
                 cmap = plt.cm.get_cmap('viridis') # 'viridis' 'cool' 'plasma' 'inferno' 'cividis'
                 if len(self.target_data) == 1:

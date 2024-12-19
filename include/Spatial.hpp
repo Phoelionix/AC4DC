@@ -48,6 +48,7 @@ public:
     virtual void Clear();
     #endif
     virtual void ElectronTransfer(size_t a, double rho, single_state_type& sdot); // Modifies F by connected electron sinks original_F. 
+    virtual void ElectronTransferV2(size_t a, double rho, single_state_type& sdot, LossGeometry& l);
     virtual void set_F(const Distribution* F){
         #ifndef NO_SPATIAL
         #ifdef ELECTRON_TRANSFER_DEBUG
@@ -55,9 +56,7 @@ public:
         #endif
         internal_F=F;
         original_F = *internal_F;
-        original_F_fraction = *internal_F;  // Might need to multiply this by some independent variable if doing some weird geometries but no need for now.  Good approx. for concentric shells.
-        //original_F_fraction*=(1./electron_sources.size());
-
+        
         F_assigned=true;
         #endif // NO_SPATIAL
     }
@@ -70,7 +69,7 @@ public:
 
 private:
     Distribution original_F;
-    Distribution original_F_fraction;
+    //Distribution original_F_fraction;
     const Distribution* internal_F; // TODO delete
     bool F_assigned;
     
@@ -82,6 +81,7 @@ private:
 class Void_Space : public Space{
     public:
     void ElectronTransfer(size_t a, double rho, single_state_type& sdot) override{}
+    void ElectronTransferV2(size_t a, double rho, single_state_type& sdot, LossGeometry& l) override{}
     void set_F(const Distribution* F) override{};
     #ifdef ELECTRON_TRANSFER_DEBUG
     void Clear() override{};

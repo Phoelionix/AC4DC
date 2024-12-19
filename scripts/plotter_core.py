@@ -589,7 +589,7 @@ class Plotter:
                 ff[k] = np.average(ff_copy[:k+1]*self.intensityData[T_start:T_end][:k+1])/np.average(self.intensityData[T_start:T_end][:k+1])
         return Namespace(**dict(T=actual_timesteps, X=X, bohr_mom=bohr_mom, ff=ff))
     
-    def plot_form_factor_at_q(self,q,atom,resolution=False,angstrom_in=True,bohr_in=False,intensity_averaged=False,show_pulse_profile=True,every=1,xlim=[None,None],ylim=[None,None],**kwargs):
+    def plot_form_factor_at_q(self,q,atom,resolution=True,angstrom_in=True,bohr_in=False,intensity_averaged=False,show_pulse_profile=True,every=1,xlim=[None,None],ylim=[None,None],**kwargs):
         ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=show_pulse_profile)
         
         D = self.form_factor_at_q_data(q,atom,resolution,angstrom_in,bohr_in,intensity_averaged,every,xlim)

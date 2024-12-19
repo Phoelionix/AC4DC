@@ -42,11 +42,14 @@ def main():
     data_folders = sys.argv[1:]
     for target in data_folders:
         label = target
-        #make_some_plots(target,molecular_path,label,dname_Figures,plot_derivative=PLOT_DERIVATIVE)
-        #overlaid_tot_charge(target,molecular_path,label,dname_Figures,intensity_averaged=True)
-        overlaid_form_factor_disagreement(target,molecular_path,label,dname_Figures,intensity_averaged=False,q_list=np.linspace(0.1,4,10))
+        fig_dir = dname_Figures + label.split("_")[0] +"/"
+        if not path.isdir(fig_dir):
+            os.makedirs(fig_dir)
+        charges_bar(target,molecular_path,label,fig_dir)
+        overlaid_tot_charge(target,molecular_path,label,fig_dir,intensity_averaged=True,atoms=["C"])
+        overlaid_form_factor(target,molecular_path,label,fig_dir,intensity_averaged=False,atom="C",q_list=np.linspace(0.1,4,10))
 
-def make_some_plots(target,sim_output_parent_dir, label,figure_output_dir):
+def charges_bar(target,sim_output_parent_dir, label,figure_output_dir):
     '''
     Arguments:
     mol_name: The name of the folder containing the simulation's data (the csv files). (By default this is the stem of the mol file.)
@@ -82,7 +85,7 @@ def make_some_plots(target,sim_output_parent_dir, label,figure_output_dir):
     plt.savefig(figure_output_dir + label + qualifier + figures_ext,bbox_inches='tight')
     plt.close()
 
-def overlaid_tot_charge(target,sim_output_parent_dir, label,figure_output_dir,intensity_averaged):
+def overlaid_tot_charge(target,sim_output_parent_dir, label,figure_output_dir,intensity_averaged,atoms):
     '''
     Arguments:
     mol_name: The name of the folder containing the simulation's data (the csv files). (By default this is the stem of the mol file.)
@@ -104,7 +107,7 @@ def overlaid_tot_charge(target,sim_output_parent_dir, label,figure_output_dir,in
         pl = Plotter(target,sim_output_parent_dir,spatial_index=s)
         pl.fig, pl.axs = fig,axs 
         pl.num_plotted=0
-        pl.plot_tot_charge(atoms=["C"],intensity_averaged=intensity_averaged,label=str(s),plot_legend=False)
+        pl.plot_tot_charge(atoms=atoms,intensity_averaged=intensity_averaged,label=str(s),plot_legend=False)
     #plt.legend(ncols=3)
     axs[0][0].legend(ncols=3)
         
@@ -116,7 +119,7 @@ def overlaid_tot_charge(target,sim_output_parent_dir, label,figure_output_dir,in
     plt.savefig(figure_output_dir + label + qualifier + figures_ext,bbox_inches='tight')
     plt.close()
 
-def overlaid_form_factor_disagreement(target,sim_output_parent_dir, label,figure_output_dir,intensity_averaged,q_list):
+def overlaid_form_factor(target,sim_output_parent_dir, label,figure_output_dir,intensity_averaged,atom,q_list,show_resolution=True):
     '''
     Arguments:
     mol_name: The name of the folder containing the simulation's data (the csv files). (By default this is the stem of the mol file.)
@@ -130,26 +133,33 @@ def overlaid_form_factor_disagreement(target,sim_output_parent_dir, label,figure
 
     # dashes = ["dashed","solid"]
     # cmap = plt.get_cmap("Dark2")
-    
-    for q in q_list:
-        fig, axs = plt.subplots(squeeze=False)
-        ymax = None
-        for s in spatial_indices:
-            pl = Plotter(target,sim_output_parent_dir,spatial_index=s)
-            pl.fig, pl.axs = fig,axs 
-            pl.num_plotted=0
-            #pl.plot_form_factor_at_q(q,"C",intensity_averaged=intensity_averaged)
-            pl.plot_form_factor_disagreement_at_q(q,"C",intensity_averaged=intensity_averaged,resolution=True,ylim=[None,0.1])
-        #plt.legend(ncols=3)
-        axs[0][0].legend(ncols=3)
-            
-        plt.gcf().set_figwidth(PLOTWIDTH*2)
-        plt.gcf().set_figheight(PLOTHEIGHT*2)
-        plt.gcf().tight_layout()
-        #plt.tight_layout()
-        qualifier = f"ff_disagreement-{q}"
-        plt.savefig(figure_output_dir + label + qualifier + figures_ext,bbox_inches='tight')
-        plt.close()
+    NORMAL = 0
+    DISAGREEMENT = 1
+    for mode in (NORMAL,DISAGREEMENT):
+        for q in q_list:
+            fig, axs = plt.subplots(squeeze=False)
+            ymax = None
+            for s in spatial_indices:
+                pl = Plotter(target,sim_output_parent_dir,spatial_index=s)
+                pl.fig, pl.axs = fig,axs 
+                pl.num_plotted=0
+                if mode == NORMAL:
+                    pl.plot_form_factor_at_q(q,atom,intensity_averaged=intensity_averaged,resolution=show_resolution)
+                if mode == DISAGREEMENT:
+                    pl.plot_form_factor_disagreement_at_q(q,atom,intensity_averaged=intensity_averaged,resolution=show_resolution,ylim=[None,0.1])
+            #plt.legend(ncols=3)
+            axs[0][0].legend(ncols=3)
+                
+            plt.gcf().set_figwidth(PLOTWIDTH*2)
+            plt.gcf().set_figheight(PLOTHEIGHT*2)
+            plt.gcf().tight_layout()
+            #plt.tight_layout()
+            if mode == NORMAL:
+                qualifier = f"ff-{q}"
+            if mode == DISAGREEMENT:
+                qualifier = f"ff_disagreement-{q}"
+            plt.savefig(figure_output_dir + label + qualifier + figures_ext,bbox_inches='tight')
+            plt.close()
 
 if __name__ == "__main__":
     main()

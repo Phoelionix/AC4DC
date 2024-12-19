@@ -35,8 +35,23 @@ void Space::ElectronTransfer(size_t a, double rho, single_state_type& sdot){
     
     //TODO reimplement confinement
     for (const auto& source : electron_sources){        
-        sdot.F.addSource(a,(*source.first).original_F_fraction,source.second,rho);
-        sdot.F.addLoss(a,original_F_fraction,source.second,rho);
+        sdot.F.addSource(a,(*source.first).original_F,source.second,rho);
+        sdot.F.addLoss(a,original_F,source.second,rho);
+    }
+
+    #endif //NO_SPATIAL
+}
+
+void Space::ElectronTransferV2(size_t a, double rho, single_state_type& sdot, LossGeometry& l){    
+    #ifndef NO_SPATIAL
+    // EXTREMELY CRUDE. just using charge of F and not neighbours.
+    // Assumes that electrons spread out equally among neighbours (electron sinks)
+    assert(F_assigned);
+    
+    //TODO reimplement confinement
+    for (const auto& source : electron_sources){        
+        //sdot.F.addSourceV2(a,(*source.first).original_F,l,source.second,rho);
+        //sdot.F.addLossV2(a,original_F,l,source.second,rho);
     }
 
     #endif //NO_SPATIAL
