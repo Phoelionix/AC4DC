@@ -1258,7 +1258,7 @@ void ElectronRateSolver::setup_electron_transfer_geometry(std::vector<Space> spa
     active_simulation_volumes.push_back(empty_space); 
 
 
-    
+    double last_factor_outer;
     for(size_t i = 0; i<spaces_with_compositions.size(); i++){
         active_simulation_volumes[i].electron_sources = std::vector<std::pair<Space *,CustomLossGeometry>>();
         switch (spatial_arrangement.mode)
@@ -1267,23 +1267,21 @@ void ElectronRateSolver::setup_electron_transfer_geometry(std::vector<Space> spa
             {
             double r = i*input_params.loss_geometry.L0; // TODO temporary. Need to refactor out original loss geometry input logic.
             double R = (i+1)*input_params.loss_geometry.L0;
-            
-
-            
-            double inner_area = pow(r,2);  
-            double outer_area = pow(R,2);  
-            double volume =(pow(R,3)-pow(r,3))/3.;
 
             //Janky source-geom placeholder
             double factor_outer = 1/(R-r);
             double factor_smaller;
             if (i>0){
-                double volume = (pow(R,3)-pow(r,3));
-                double volume_smaller = (pow(R-1,3)-pow(r-1,3));
-                
-                factor_smaller = factor_outer*volume_smaller/volume;
+                double volume =(pow(R,3)-pow(r,3));
+                double volume_smaller = pow(r,3);
+                if (i>1){
+                    volume_smaller-=pow(r-input_params.loss_geometry.L0,3);
+                }
+                factor_smaller = last_factor_outer*volume_smaller/volume;
+
                 factor_outer = factor_outer*(volume-volume_smaller)/volume;
             }
+            last_factor_outer = factor_outer;
 
 
             if (spatial_arrangement.confined_system && i==spaces_with_compositions.size()-1){ 
