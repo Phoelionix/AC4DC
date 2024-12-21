@@ -1,38 +1,38 @@
 #ATOMS
-C 25 26 25.9949 
-Zn_fast 1 0 0.0051
+C 115 125 
+Zn_fast 10 0
 
 #BOUND_FREE_EXCLUSIONS
 Zn_fast
 
 #VOLUME_COMPOSITIONS
-shells
-Zn light surrounding
-0 1 1 1 1 1 1 1 1 1 2
+planar
+Zn light 
+0 1 1 1 1 1 1 1
 
 
 #VOLUME
-523.6       // Volume per molecule in Angstrom^3.
-5          // Length scale of sample in Angstrom. Used for effective transfer rate of photo-electrons between simulated volumes.
+2250       // Volume per molecule in Angstrom^3.
+10          // Length scale of sample in Angstrom. Used for effective transfer rate of photo-electrons between simulated volumes.
 spherical // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-9731         // Photon energy in eV.
+10131         // Photon energy in eV.
 10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-gaussian       // Pulse shape
+square       // Pulse shape
 
 #USE_COUNT
 true    // active (using count)?
-1.3     // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
+0.15     // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
-1500      // Initial guess for number of time step points for rate equation.
+5000      // Initial guess for number of time step points for rate equation.
 26           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 M              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
-5             // Grid update period in fs.
-2             // Time before transforming initial guess grid to dynamic grid in fs.  
+99             // Grid update period in fs.
+99             // Time before transforming initial guess grid to dynamic grid in fs.  
 
 #OUTPUT
 800         // Number of time steps in the output files.
@@ -42,12 +42,9 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-9999       // Simulation cutoff time in fs
+10       // Simulation cutoff time in fs
 0.01    // Interval to update current timestep [fs].
 0 // Interval **in steps** between live plot (_live_plot.png) updates
 60 // Period between backups in minutes   
 ####END#####
-
-2478 non-H protein atoms
-solvent content 48.95
-so Zn:CNO about 1:5062
+planes 5 angstrom thick planes with 2.1 nm transverse lengths spaced 4 nm  TODO space 4.5 nm

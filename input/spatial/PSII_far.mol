@@ -1,9 +1,9 @@
 #ATOMS
-C 25 26 25.9949 
-Zn_fast 1 0 0.0051
+C 22 26 26
+Mn_fast 4 0 0
 
 #BOUND_FREE_EXCLUSIONS
-Zn_fast
+Mn_fast
 
 #VOLUME_COMPOSITIONS
 shells
@@ -17,13 +17,13 @@ Zn light surrounding
 spherical // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-9731         // Photon energy in eV.
+8500         // Photon energy in eV.
 10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
 
 #USE_COUNT
 true    // active (using count)?
-1.3     // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
+0.5     // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
 1500      // Initial guess for number of time step points for rate equation.
@@ -48,6 +48,3 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 60 // Period between backups in minutes   
 ####END#####
 
-2478 non-H protein atoms
-solvent content 48.95
-so Zn:CNO about 1:5062

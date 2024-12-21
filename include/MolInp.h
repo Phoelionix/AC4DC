@@ -103,6 +103,7 @@ public:
 
 
 	std::vector<Space> simulated_volumes;
+	std::vector<double> length_scale_overrides;
 	size_t Num_Simulated_Volumes(){return simulated_volumes.size();}
 
 

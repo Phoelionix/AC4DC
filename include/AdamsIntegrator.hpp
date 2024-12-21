@@ -50,7 +50,7 @@ public:
 protected:
     std::vector<T> y;
     std::vector<double> t;    
-    virtual void sys_bound(const T& q, T& qdot,T& q_bg, double t) =0;
+    virtual void sys_bound(const T& q, T& qdot,const T& q_bg, const double& t) =0;
     virtual void set_zero_y() =0;
     T zero_y;
 

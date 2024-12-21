@@ -43,9 +43,6 @@ void ElectronRateSolver::initialise_state_types(){
     // Dodgy patch
     this->y[0].update_P_shape(); 
     this->zero_y.update_P_shape();
-    
-    
-    setup_electron_transfer_geometry(input_params.simulated_volumes,input_params.spatial_arrangement); // TODO This seems bad, need to refactor.
 }
 
 void ElectronRateSolver::set_starting_state(){
@@ -60,7 +57,10 @@ void ElectronRateSolver::set_starting_state(){
         this->setup(get_initial_state(), _dt, IVP_step_tolerance);
         this->t[0] = simulation_start_time; // This is a fix so that log shows correct time for initial grid.
     }
+    setup_electron_transfer_geometry(input_params.simulated_volumes,input_params.spatial_arrangement, t[0]); // TODO This seems bad, need to refactor.
+    
     num_steps = round((simulation_end_time - simulation_start_time)/this->dt + 1);
+
 }
 
 state_type ElectronRateSolver::get_initial_state() {
@@ -391,7 +391,7 @@ void ElectronRateSolver::precompute_gamma_coeffs() {
 
 // Non-stiff part of the system. All dynamics excluding free electron-electron interactions.
 //void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_type& s_bg ,const double t) {
-void ElectronRateSolver::sys_bound(const state_type& s_bundle, state_type& sdot_bundle, state_type& s_bg ,const double t) {
+void ElectronRateSolver::sys_bound(const state_type& s_bundle, state_type& sdot_bundle, const state_type& s_bg, const double& t) {
     const int threads = input_params.Plasma_Threads();
     
     sdot_bundle=0;
@@ -433,12 +433,16 @@ void ElectronRateSolver::sys_bound(const state_type& s_bundle, state_type& sdot_
             sdot.cumulative_photo[a]+=sdot.bound_charge-old_bound_charge;
 
             #ifndef NO_ELECTRON_SOURCE
+            #ifdef SINGLE_SOURCE
+            if (V==0){
+            #endif
             //PHOTOION. SOURCE
             if(t < simulation_start_time + input_params.electron_source_duration*(timespan_au)){
                 double injected_density = 0; 
                 switch (input_params.electron_source_type){
                     case 'c':
                     {
+                        // TODO This seems to be broken.
                         injected_density = input_params.electron_source_fraction * y[1][V].cumulative_photo[a] * (J / pf(this->t[1]));
                     break;
                     }
@@ -451,6 +455,9 @@ void ElectronRateSolver::sys_bound(const state_type& s_bundle, state_type& sdot_
                 if (injected_density > 0)
                     sdot.F.addDeltaSpike(a,input_params.electron_source_energy,injected_density);
             }
+            #ifdef SINGLE_SOURCE
+            }
+            #endif
             #endif //NO_ELECTRON_SOURCE
             
             #ifdef RATES_TRACKING
@@ -621,6 +628,8 @@ void ElectronRateSolver::sys_bound(const state_type& s_bundle, state_type& sdot_
         // else
         //     // background handles loss, apply photoelectron filtration with background
         //     sdot.F.addFiltration(s.F, s_bg.F,input_params.loss_geometry);
+        
+
 
 
         if (isnan(s.norm(0)) || isnan(sdot.norm(0))) {
@@ -631,6 +640,47 @@ void ElectronRateSolver::sys_bound(const state_type& s_bundle, state_type& sdot_
         }    
     }
 }
+
+void ElectronRateSolver::sys_transfer(const state_type& s_bundle,state_type& s_bundle_next, const double& t) {
+    //// Calculate electron transfer between volumes//// TODO check charge is conserved
+    /// need to refactor!!!////        #ifdef TRACK_SINGLE_CONTINUUM
+    this->update_electron_transfer_geometry(s_bundle);
+    state_type sdot_bundle; 
+    sdot_bundle=zero_y;
+    for(size_t V=0; V<s_bundle.sims.size();V++){  // Iterate over each simulation volume
+        const single_state_type& s = s_bundle.sims[V];
+        single_state_type& sdot = sdot_bundle.sims[V];
+        #ifdef TRACK_SINGLE_CONTINUUM
+        size_t _c = 0; 
+        #else
+        size_t _c = 1;  // Iterates through the continuum corresponding to each element's initiated cascades and adds separately. // TODO check if having the full continuum contribute to the actual calcs is better.
+        #endif // TRACK_SINGLE_CONTINUUM
+        for (;_c < Distribution::num_continuums; _c++){
+            auto ta = std::chrono::high_resolution_clock::now();
+            //update_electron_transfer_geometry(active_simulation_volumes, s_bundle); // TODO This is really bad, need to refactor.
+            active_simulation_volumes[V].ElectronTransfer(_c-1, s.bound_charge,sdot,t,input_params.length_scale_overrides[V]);
+            active_simulation_volumes[V].set_last_t(t);
+            //active_simulation_volumes[V].ElectronTransferV2(_c-1, s.bound_charge,sdot,input_params.loss_geometry);
+            //mark_electron_transfer_geometry_for_updating(active_simulation_volumes,s_bundle); // TODO remove or leave as a debug option.
+            auto tb = std::chrono::high_resolution_clock::now();
+            apply_delta_time += ta - tb;
+        }
+
+        if (isnan(s.norm(0)) || isnan(sdot.norm(0))) {
+            cerr<<"NaN encountered in sys_transfer!!"<<endl;
+            cerr<< "t = "<<t*Constant::fs_per_au<<"fs"<<endl;
+            good_state = false;
+            timestep_reached = t*Constant::fs_per_au;
+        }        
+    }
+    #ifdef ELECTRON_TRANSFER_DEBUG
+    this->mark_electron_transfer_geometry_for_updating(s_bundle);
+    #endif
+    //sdot_bundle *= dt;
+    sdot_bundle += s_bundle;
+    s_bundle_next = sdot_bundle;
+}
+
 
 
 // 'badly-behaved' i.e. stiff part of the system. Electron-electron interactions.
@@ -672,15 +722,15 @@ void ElectronRateSolver::sys_ee(const state_type& s_bundle, state_type& sdot_bun
             auto t8 = std::chrono::high_resolution_clock::now();
             apply_delta_time += t8 - t7;
 
-            //// Calculate electron transfer between volumes//// TODO check charge is conserved
-            /// need to refactor!!!////
-            auto ta = std::chrono::high_resolution_clock::now();
-            //update_electron_transfer_geometry(active_simulation_volumes, s_bundle); // TODO This is really bad, need to refactor.
-            active_simulation_volumes[V].ElectronTransfer(_c-1, s.bound_charge,sdot);
-            //active_simulation_volumes[V].ElectronTransferV2(_c-1, s.bound_charge,sdot,input_params.loss_geometry);
-            //mark_electron_transfer_geometry_for_updating(active_simulation_volumes,s_bundle); // TODO remove or leave as a debug option.
-            auto tb = std::chrono::high_resolution_clock::now();
-            apply_delta_time += ta - tb;
+            // //// Calculate electron transfer between volumes//// TODO check charge is conserved
+            // /// need to refactor!!!////
+            // auto ta = std::chrono::high_resolution_clock::now();
+            // //update_electron_transfer_geometry(active_simulation_volumes, s_bundle); // TODO This is really bad, need to refactor.
+            // active_simulation_volumes[V].ElectronTransfer(_c-1, s.bound_charge,sdot);
+            // //active_simulation_volumes[V].ElectronTransferV2(_c-1, s.bound_charge,sdot,input_params.loss_geometry);
+            // //mark_electron_transfer_geometry_for_updating(active_simulation_volumes,s_bundle); // TODO remove or leave as a debug option.
+            // auto tb = std::chrono::high_resolution_clock::now();
+            // apply_delta_time += ta - tb;
         }
 
 
@@ -1251,7 +1301,7 @@ void ElectronRateSolver::set_zero_y(){
 }
 
 // TODO put parts of this in the Spatial.cpp where possible
-void ElectronRateSolver::setup_electron_transfer_geometry(std::vector<Space> spaces_with_compositions, SpatialArrangement& spatial_arrangement){
+void ElectronRateSolver::setup_electron_transfer_geometry(std::vector<Space> spaces_with_compositions, SpatialArrangement& spatial_arrangement, const double& anchor_time){
     active_simulation_volumes = spaces_with_compositions;
     
     Void_Space empty_space; // A void surrounding the system. Note that this means the size of active_simulation_voluems is 1 greater than Num_Sims(); TODO rename to make clearer as this implies it has all volumes being modelled; 'all_volumes' maybe
@@ -1259,30 +1309,32 @@ void ElectronRateSolver::setup_electron_transfer_geometry(std::vector<Space> spa
 
 
     double last_factor_outer;
+    double r = 0;
+    double last_volume;
     for(size_t i = 0; i<spaces_with_compositions.size(); i++){
+        active_simulation_volumes[i].set_anchor_time(anchor_time);
         active_simulation_volumes[i].electron_sources = std::vector<std::pair<Space *,CustomLossGeometry>>();
         switch (spatial_arrangement.mode)
         {
         case SpatialArrangement::concentric_shells: // Shell thickness equals radius of inner sphere.
-            {
-            double r = i*input_params.loss_geometry.L0; // TODO temporary. Need to refactor out original loss geometry input logic.
-            double R = (i+1)*input_params.loss_geometry.L0;
+        {
+            const double correction_factor = 0.4;
+            // TODO temporary. Need to refactor out original loss geometry input logic.
+            double R = r+input_params.length_scale_overrides[i];
 
             //Janky source-geom placeholder
             double factor_outer = 1/(R-r);
             double factor_smaller;
+            double volume =(pow(R,3)-pow(r,3));
             if (i>0){
-                double volume =(pow(R,3)-pow(r,3));
-                double volume_smaller = pow(r,3);
-                if (i>1){
-                    volume_smaller-=pow(r-input_params.loss_geometry.L0,3);
-                }
-                factor_smaller = last_factor_outer*volume_smaller/volume;
 
-                factor_outer = factor_outer*(volume-volume_smaller)/volume;
+                factor_smaller = last_factor_outer*last_volume/volume;
+
+                factor_outer = factor_outer*(volume-last_volume)/volume;
             }
             last_factor_outer = factor_outer;
-
+            last_volume = volume;
+            r = R;
 
             if (spatial_arrangement.confined_system && i==spaces_with_compositions.size()-1){ 
                 //inner_area = 0; outer_area = 0;}// Make the outer shell thickness infinite. 
@@ -1293,16 +1345,100 @@ void ElectronRateSolver::setup_electron_transfer_geometry(std::vector<Space> spa
             if (i >0){
             active_simulation_volumes[i].AddBoundary(
                 //active_simulation_volumes[i-1],CustomLossGeometry(inner_area,volume));}
-                active_simulation_volumes[i-1],CustomLossGeometry(factor_smaller));}
+                active_simulation_volumes[i-1],CustomLossGeometry(factor_smaller*correction_factor));}
             // outer boundary
             if (i<active_simulation_volumes.size()-1){ 
             active_simulation_volumes[i].AddBoundary(
                 //active_simulation_volumes[i+1],CustomLossGeometry(outer_area,volume));}
-                active_simulation_volumes[i+1],CustomLossGeometry(factor_outer));}
+                active_simulation_volumes[i+1],CustomLossGeometry(factor_outer*correction_factor));}
+        }
+        break;
+        case SpatialArrangement::planar:
+        {   // periodic planes
+            assert(spatial_arrangement.confined_system);
+
+            assert(active_simulation_volumes.size()==spaces_with_compositions.size()+1);
+
+            size_t last_finite_index = spaces_with_compositions.size()-1;
+            if (spatial_arrangement.confined_system){ 
+                last_finite_index--; // instead of making void the infinite background, make the last simulated composition the background. For this mode, the background is non-interacting and just serves as a reference.
             }
+           
+            double factor = 1/input_params.length_scale_overrides[i] / 2;  // Here thinking about time to cross one plane. Length scale is thickness of 'plane'.
+
+
+            // 
+            // if (i <= last_finite_index){
+            //     if (i >0){
+            //         active_simulation_volumes[i].AddBoundary(
+            //         active_simulation_volumes[i-1],CustomLossGeometry(factor));}
+            //     else if (i ==0){
+            //         active_simulation_volumes[i].AddBoundary(
+            //         active_simulation_volumes[last_finite_index],CustomLossGeometry(factor));}
+            //     // 
+            //     if (i<last_finite_index){
+            //         active_simulation_volumes[i].AddBoundary(
+            //         active_simulation_volumes[i+1],CustomLossGeometry(factor));}
+            //     else{
+            //         active_simulation_volumes[i].AddBoundary(
+            //         active_simulation_volumes[0],CustomLossGeometry(factor));}
+            // }
+
+            // Symmetric planar TODO do proper
+            
+            if (i <= last_finite_index){
+                if (i==0){
+                    active_simulation_volumes[i].AddBoundary(
+                        active_simulation_volumes[i+1],CustomLossGeometry(2*factor));}
+                else if (i == last_finite_index){
+                    active_simulation_volumes[i].AddBoundary(
+                        active_simulation_volumes[i-1],CustomLossGeometry(2*factor));}                    
+                else{
+                    active_simulation_volumes[i].AddBoundary(
+                        active_simulation_volumes[i-1],CustomLossGeometry(factor));
+
+                    active_simulation_volumes[i].AddBoundary(
+                        active_simulation_volumes[i+1],CustomLossGeometry(factor));                  
+                }
+            }
+
+        }
+        break;
+        case SpatialArrangement::experimental:
+        {
+            // periodic cubes, TODO with loss to background. 
+            assert(spatial_arrangement.confined_system);
+            assert(active_simulation_volumes.size()==spaces_with_compositions.size()+1);
+
+            size_t last_finite_index = spaces_with_compositions.size()-1;
+            if (spatial_arrangement.confined_system){ 
+                last_finite_index--; // instead of making void the infinite background, make the last simulated composition the background
+            }
+            
+            // fraction emanating from  
+            double factor =1/input_params.length_scale_overrides[i] / 2;   // length scale is thickness of 'plane'.
+
+    
+            // 
+            if (i >0){
+            active_simulation_volumes[i].AddBoundary(
+                active_simulation_volumes[i-1],CustomLossGeometry(factor));}
+            // 
+            if (i<last_finite_index){ 
+            active_simulation_volumes[i].AddBoundary(
+                active_simulation_volumes[i+1],CustomLossGeometry(factor));}
+            ///
+            if (i ==0){
+            active_simulation_volumes[i].AddBoundary(
+                active_simulation_volumes[last_finite_index],CustomLossGeometry(factor));}
+            ///
+            if (i==last_finite_index){
+                active_simulation_volumes[i].AddBoundary(
+                active_simulation_volumes[0],CustomLossGeometry(factor));}
+        }
         break;
         default:
-            throw std::runtime_error("Only concentric shells implemented");
+            throw std::runtime_error("Unimplemented spatial arrangement");
         break;
         }
     }

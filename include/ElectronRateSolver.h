@@ -189,7 +189,8 @@ private:
      */
     void pre_ode_step(ofstream& _log, size_t& n,const int steps_per_time_update);
     /// general dynamics (uses explicit method)
-    void sys_bound(const state_type& s, state_type& sdot, state_type& s_bg, const double t); 
+    void sys_bound(const state_type& s, state_type& sdot, const state_type& s_bg, const double& t); 
+    void sys_transfer(const state_type& s,state_type& s_next, const double& t); 
     /// electron-electron (uses implicit method)
     void sys_ee(const state_type& s, state_type& sdot, const size_t& V);  // V is simulation volumeindex 
     void sys_ee_bundled(const state_type& s, state_type& sdot);
@@ -245,7 +246,7 @@ private:
     size_t reload_grid(ofstream& _log, size_t& load_step, std::vector<double> knots, std::vector<state_type> next_ode_states_used);
     void reinitialise_solver_with_current_grid(ofstream& _log);
 
-    void setup_electron_transfer_geometry(std::vector<Space> spaces_with_compositions, SpatialArrangement& spatial_arrangement);
+    void setup_electron_transfer_geometry(std::vector<Space> spaces_with_compositions, SpatialArrangement& spatial_arrangement,const double& anchor_time);
     void update_electron_transfer_geometry (const state_type& s_bundle);
     #ifdef ELECTRON_TRANSFER_DEBUG
     void mark_electron_transfer_geometry_for_updating(const state_type& s_bundle);

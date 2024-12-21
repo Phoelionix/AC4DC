@@ -7,13 +7,13 @@ Zn_fast
 
 #VOLUME_COMPOSITIONS
 shells
-Zn light surrounding
-0 1 1 1 1 1 1 1 1 1 2
+Light Light
+0
 
 
 #VOLUME
-523.6       // Volume per molecule in Angstrom^3.
-5          // Length scale of sample in Angstrom. Used for effective transfer rate of photo-electrons between simulated volumes.
+523.6         // Volume per molecule in Angstrom^3.
+5        // Length scale of sample in Angstrom. Used for effective transfer rate of photo-electrons between simulated volumes.
 spherical // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
@@ -23,7 +23,7 @@ gaussian       // Pulse shape
 
 #USE_COUNT
 true    // active (using count)?
-1.3     // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
+0.175  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
 1500      // Initial guess for number of time step points for rate equation.
@@ -48,6 +48,4 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 60 // Period between backups in minutes   
 ####END#####
 
-2478 non-H protein atoms
-solvent content 48.95
-so Zn:CNO about 1:5062
+0 1 1 1 1 1 1 1 1 1

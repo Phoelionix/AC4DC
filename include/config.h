@@ -42,7 +42,7 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 
 /// Analytical testing
 //#define NO_ELECTRON_SOURCE  // Note this is equivalent to removing any #ELECTRON_SOURCE parameters in the .mol file.
-
+#define SINGLE_SOURCE // only create in 0th simulated volume
 
 /// Thread capping. Often an easier option than regenerating batch files. (If multiple are left on, uses the lowest cap)
 #define THREAD_MAX_28

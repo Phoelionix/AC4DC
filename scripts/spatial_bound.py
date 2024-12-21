@@ -16,6 +16,8 @@ import os
 from QoL import set_highlighted_excepthook
 from core_functions import get_spatial_indices
 
+END_T = None
+
 #FIGWIDTH = 3.49751*2/3
 #FIGHEIGHT = 3.49751/2
 PLOTWIDTH = 3.49751*2/3
@@ -46,7 +48,8 @@ def main():
         if not path.isdir(fig_dir):
             os.makedirs(fig_dir)
         charges_bar(target,molecular_path,label,fig_dir)
-        overlaid_tot_charge(target,molecular_path,label,fig_dir,intensity_averaged=True,atoms=["C"])
+        overlaid_tot_charge(target,molecular_path,label+"-avg",fig_dir,intensity_averaged=True,atoms=["C"])
+        overlaid_tot_charge(target,molecular_path,label,fig_dir,intensity_averaged=False,atoms=["C"])
         overlaid_form_factor(target,molecular_path,label,fig_dir,intensity_averaged=False,atom="C",q_list=np.linspace(0.1,4,10))
 
 def charges_bar(target,sim_output_parent_dir, label,figure_output_dir):
@@ -68,12 +71,12 @@ def charges_bar(target,sim_output_parent_dir, label,figure_output_dir):
     
     ymax = None
     for s in spatial_indices:
-        pl = Plotter(target,sim_output_parent_dir,spatial_index=s)
+        pl = Plotter(target,sim_output_parent_dir,spatial_index=s,end_t=END_T,out_prefix_text=f"Loading data for compartment {s}")
         pl.fig, pl.axs = fig,axs 
         pl.num_plotted=2*s  #hacky
         pl.plot_charges_bar("C",show_pulse_profile=False)
         #pl.plot_tot_charge(atoms=["C"], ylim=[0,1])
-        ax = pl.plot_tot_charge(atoms=["C"], ylim=[0,ymax],intensity_averaged=True)
+        ax = pl.plot_tot_charge(atoms=["C"], ylim=[0,ymax],intensity_averaged=False)
         if ymax is None:
             ymax = ax.get_ylim()[1]
         
@@ -104,7 +107,7 @@ def overlaid_tot_charge(target,sim_output_parent_dir, label,figure_output_dir,in
     
     ymax = None
     for s in spatial_indices:
-        pl = Plotter(target,sim_output_parent_dir,spatial_index=s)
+        pl = Plotter(target,sim_output_parent_dir,spatial_index=s,end_t=END_T,out_prefix_text=f"Loading data for compartment {s}")
         pl.fig, pl.axs = fig,axs 
         pl.num_plotted=0
         pl.plot_tot_charge(atoms=atoms,intensity_averaged=intensity_averaged,label=str(s),plot_legend=False)
@@ -140,7 +143,7 @@ def overlaid_form_factor(target,sim_output_parent_dir, label,figure_output_dir,i
             fig, axs = plt.subplots(squeeze=False)
             ymax = None
             for s in spatial_indices:
-                pl = Plotter(target,sim_output_parent_dir,spatial_index=s)
+                pl = Plotter(target,sim_output_parent_dir,spatial_index=s,end_t=END_T,out_prefix_text=f"Loading data for compartment {s}")
                 pl.fig, pl.axs = fig,axs 
                 pl.num_plotted=0
                 if mode == NORMAL:

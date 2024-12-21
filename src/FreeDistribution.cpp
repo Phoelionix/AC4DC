@@ -501,13 +501,13 @@ void Distribution::applyDeltaF_element_scaled(const size_t& a,const Eigen::Vecto
 // In the spline basis, subtracts electrons from the calling Distribution object corresponding to the electron density that would leave distribution `d` under loss geometry `l` and bound charge `rho`. 
 // TODO incorporate effect of potential
 // TODO Need realistic 
-void Distribution::addLoss(const size_t& a, const Distribution& d, const CustomLossGeometry &cl, double rho) {
+void Distribution::addLoss(const size_t& a, const Distribution& d, const CustomLossGeometry &cl, const double& rho, const double& min_e, const double& max_e, const double& time_factor) {
     // f += "|   i|   ||   |_"
     if (cl.transfer_factor()>0){
         #pragma omp for schedule(dynamic) nowait
-        for (size_t i=basis.i_from_e(0); i<size; i++) {
+        for (size_t i=basis.i_from_e(min_e); i<basis.i_from_e(max_e); i++) {
             
-            f_array[0][i] -= d[0][i] * sqrt(2*basis.avg_e[i]) * cl.transfer_factor(); // TODO double check l.factor() is meant to correspond to transfer_factor (was a factor of 2/L0 for spheres, sugesting it is meant to be 2/3*transfer_factor...)
+            f_array[0][i] -= d[0][i] * sqrt(2*basis.avg_e[i]) * cl.transfer_factor() * time_factor; // TODO double check l.factor() is meant to correspond to transfer_factor (was a factor of 2/L0 for spheres, sugesting it is meant to be 2/3*transfer_factor...)
             #ifndef TRACK_SINGLE_CONTINUUM
             f_array[a+1][i] -= d[a+1][i] * sqrt(basis.avg_e[i]/2) * cl.transfer_factor();
             #endif
@@ -517,12 +517,12 @@ void Distribution::addLoss(const size_t& a, const Distribution& d, const CustomL
 
 }
 
-void Distribution::addSource(const size_t& a, const Distribution& d, const CustomLossGeometry &cl, double rho) {
+void Distribution::addSource(const size_t& a, const Distribution& d, const CustomLossGeometry &cl, const double& rho, const double& min_e, const double& max_e, const double& time_factor) {
     if (cl.transfer_factor()>0){
         #pragma omp for schedule(dynamic) nowait
-        for (size_t i=basis.i_from_e(0); i<size; i++) {
+        for (size_t i=basis.i_from_e(min_e); i<basis.i_from_e(max_e); i++) {
             
-            f_array[0][i] += d[0][i] * sqrt(2*basis.avg_e[i]) * cl.transfer_factor();
+            f_array[0][i] += d[0][i] * sqrt(2*basis.avg_e[i]) * cl.transfer_factor() * time_factor;
             #ifndef TRACK_SINGLE_CONTINUUM
             f_array[a+1][i] += d[a+1][i] * sqrt(basis.avg_e[i]/2) * cl.transfer_factor();
             #endif
@@ -530,7 +530,7 @@ void Distribution::addSource(const size_t& a, const Distribution& d, const Custo
     }
 }
 
-void Distribution::addLossToVoid(const size_t& a, const Distribution& d, const LossGeometry &l, double rho) {
+void Distribution::addLossToVoid(const size_t& a, const Distribution& d, const LossGeometry &l, const double& rho) {
     double escape_e = 1.333333333*Constant::Pi*l.L0*l.L0*rho;
     #pragma omp for schedule(dynamic) nowait
     for (size_t i=basis.i_from_e(escape_e); i<size; i++) {

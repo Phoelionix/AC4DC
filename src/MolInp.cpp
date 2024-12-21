@@ -378,8 +378,24 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		while (stream.rdbuf()->in_avail()>0){
 			size_t index;
 			stream >> index;
-			volume_composition_indices.push_back(index);
+			volume_composition_indices.push_back(index);   
 		}
+	}{  // Override length scale
+		if (FileContent["#VOLUME_COMPOSITIONS"].size() > 3){
+			stringstream stream(FileContent["#VOLUME_COMPOSITIONS"][3]);
+			// TODO IGNORE SPACES (can't put comment...)
+			while (stream.rdbuf()->in_avail()>0){
+				double L0;
+				stream >> L0;
+				length_scale_overrides.push_back(L0/Constant::Angs_per_au);
+			}
+		}
+		else{
+			while (length_scale_overrides.size() < volume_composition_indices.size()){
+				length_scale_overrides.push_back(loss_geometry.L0);
+			}
+		}
+		assert(length_scale_overrides.size()==volume_composition_indices.size());
 	}
 	simulated_volumes.resize(volume_composition_indices.size());
 	for (size_t i = 0; i < num_atoms; i++) {

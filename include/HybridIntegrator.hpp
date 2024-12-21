@@ -111,6 +111,8 @@ class Hybrid : public Adams_BM<T>{
     /// Unused
     void backward_Euler(unsigned n); 
     void step_stiff_part(unsigned n);
+
+    virtual void sys_transfer(const T& q, T& q_next, const double& t) =0;
 };
 
 template<typename T>
@@ -255,6 +257,7 @@ void Hybrid<T>::run_steps(ofstream& _log, const double t_resume, const int steps
         // 3. Handle dynamic updates to dt (and checkpoints, which also handle case of NaN being encountered by solver).
         this->pre_ode_step(_log, n,steps_per_time_update);
         this->step_nonstiff_part(n); 
+        this->sys_transfer(this->y[n+1], this->y[n+1], this->t[n]);
         #ifdef DEBUG_BOUND
         for(size_t a = 0; a < this->y[n+1].atomP.size();a++)
             for(size_t i=0;i < this->y[n+1].atomP[a].size();i++){
@@ -335,10 +338,10 @@ void Hybrid<T>::step_stiff_part(unsigned n){
         for (int i = 1; i < int(this->order); i++){  // work through last N=order-1 ministeps. i.e. Order = 3 corresponds to 2 step method.
             T ydot; // ydot stores the change this loop.
             const size_t early_step = (1-i+mini_n)%(this->order);
-            this->update_electron_transfer_geometry(y_transient[early_step]);
+            //this->update_electron_transfer_geometry(y_transient[early_step]);
             this->sys_ee_bundled(y_transient[early_step], ydot); 
             #ifdef ELECTRON_TRANSFER_DEBUG
-            this->mark_electron_transfer_geometry_for_updating(y_transient[early_step]);
+            //this->mark_electron_transfer_geometry_for_updating(y_transient[early_step]);
             #endif
             ydot *= this->b_AM[i];
             tmp += ydot;
@@ -354,7 +357,7 @@ void Hybrid<T>::step_stiff_part(unsigned n){
         
         next_rel_idx = (mini_n+1)%(this->order); 
         T prev;
-        this->update_electron_transfer_geometry(y_transient[next_rel_idx]);
+        //this->update_electron_transfer_geometry(y_transient[next_rel_idx]);
         for(size_t V=0; V<prev.sims.size();V++){
             double diff = stiff_rtol*2;
             unsigned idx=0;
@@ -399,7 +402,7 @@ void Hybrid<T>::step_stiff_part(unsigned n){
             }
         }
         #ifdef ELECTRON_TRANSFER_DEBUG
-        this->mark_electron_transfer_geometry_for_updating(y_transient[next_rel_idx]);
+        //this->mark_electron_transfer_geometry_for_updating(y_transient[next_rel_idx]);
         #endif
 
         y_transient[next_rel_idx] += delta_bound_interpolated[mini_n-old_mini_n];  // Add interpolated bound state contribution

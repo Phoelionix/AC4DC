@@ -22,6 +22,7 @@ This file is part of AC4DC.
 #include "Input.h"
 #include "Constant.h"
 #include "config.h"
+#include "config_post_script.h"
 #include <iostream>
 #include <filesystem>
 #include <ctime>
@@ -168,7 +169,7 @@ int reserve_output_name(string &outdir,string &tag){
     return 0;
 }
 
-int get_file_names(string &infile_, string &tag, string &tmp_logfile, string &tmp_molfile, string&outdir) {
+int get_file_names(string &infile_, string &tag, string &tmp_logfile, string &tmp_molfile, string &backup_dir, string &backup_molfile, string&outdir) {
     // Takes infile of the form "DIR/Lysozyme.mol"
     // Stores "Lysozyme" in tag, "output/log/run_Lysozyme" in logfile, and "output/log/Lysozyme_[timestamp].mol" in tmp_molfile
     
@@ -196,9 +197,15 @@ int get_file_names(string &infile_, string &tag, string &tmp_logfile, string &tm
     try_mkdir("output");
     try_mkdir("output/log");
     try_mkdir("output/__Molecular");
+    if (reserve_output_name(outdir,tag) == 1){return 1;}
+
     tmp_logfile = "output/log/run_" + tag + "_" + time_tag.str() + ".log";
     tmp_molfile = "output/log/mol_" + tag + "_" + time_tag.str() + ".mol"; 
-    if (reserve_output_name(outdir,tag) == 1){return 1;}
+    //backup_dir = "output/backup_data";
+    //backup_dir = outdir+"/backup_data";
+    backup_dir = "output/__Molecular/backup_data";
+    backup_molfile = backup_dir+"/mol_" + tag + "_" + time_tag.str() + ".mol"; 
+
     // check correct format
     string extension = infile_.substr(tagend);
     if (extension != ".mol") {
@@ -277,7 +284,7 @@ int main(int argc, const char *argv[]) {
     print_banner("config/version.txt");
     cout<<"\033[0m"<<endl<<endl;
 
-    string name, logpath, tmp_molfile, outdir;
+    string name, logpath, tmp_molfile, backup_dir, backup_molfile, outdir;
 
     cout<<"Copyright (C) 2024  Alaric Sanders, Spencer Passmore, and Alexander Kozlov"<<endl;
     cout<<"This program comes with ABSOLUTELY NO WARRANTY; for details run `ac4dc -w'."<<endl;
@@ -286,7 +293,7 @@ int main(int argc, const char *argv[]) {
 
     // Temporarily convert to string, so we can add .mol for ease of use.
     string input_file_path = string(argv[1]); 
-    if (get_file_names(input_file_path, name, logpath, tmp_molfile, outdir) == 1)
+    if (get_file_names(input_file_path, name, logpath, tmp_molfile, backup_dir, backup_molfile, outdir) == 1)
         return 1;
 
     save_mol_file(input_file_path,tmp_molfile);
@@ -305,9 +312,11 @@ int main(int argc, const char *argv[]) {
     S.set_up_grid_and_compute_cross_sections(log, true);
     if (runsettings.solve_rate_eq) {
         cout << "\033[1;32mSolving rate equations..." << "\033[35m\033[1mTarget: " << name << "\033[0m" <<endl;       
-        
-        string backup_dir = "output/backup_data";
+        std::error_code dummy_error_code; 
+        std::filesystem::remove_all(backup_dir,dummy_error_code);
         try_mkdir(backup_dir);
+
+        save_mol_file(input_file_path,backup_molfile);
         S.execute_solver(log, backup_dir);
         try_mkdir(outdir);
         S.save(outdir);    
@@ -316,6 +325,11 @@ int main(int argc, const char *argv[]) {
     move_mol_file(tmp_molfile,outdir,name); 
     move_log_file(logpath,outdir,name);
     cout << "\033[38;5;47mDone! \033[0m" <<endl;
+
+    if (execute_post_script && post_script!=""){
+        cout << "\033[1;32m Post scripts\033[0m" <<endl;
+        system(post_script.c_str());
+    }
     return 0;
     
 }

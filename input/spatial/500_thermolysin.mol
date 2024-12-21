@@ -17,7 +17,7 @@ Zn light surrounding
 spherical // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-9731         // Photon energy in eV.
+10131         // Photon energy in eV.
 10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
 

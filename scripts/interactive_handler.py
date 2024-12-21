@@ -158,6 +158,7 @@ def generate_graphs(param_dictionary,sys_argv=None):
     if is_parent_dir:
         # Generate interactive for each output contained in the parent directory
         outdir = graph_folder + sys_argv[1] + "/"
+        assert(len(os.listdir(given_path)) > 0)
         for target_handle in os.listdir(given_path):
             single_interactive([target_handle],given_path,outdir)
         # ipl = multi_interactive(given_path)

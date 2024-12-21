@@ -8,7 +8,7 @@ Zn_fast
 #VOLUME_COMPOSITIONS
 shells
 Light Light
-0 1 1 1
+0 1
 
 
 #VOLUME
@@ -17,7 +17,7 @@ Light Light
 spherical // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-9731         // Photon energy in eV.
+10231         // Photon energy in eV.
 10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
 

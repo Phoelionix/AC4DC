@@ -1,38 +1,42 @@
 #ATOMS
-C 203.57 207.57
-Mn_LDA 4 0
-
-#BOUND_FREE_EXCLUSIONS
-Mn_LDA
+C 125 125 
 
 #VOLUME_COMPOSITIONS
 shells
-Light Light
-0 1 1
+light light 
+1 
 
 
 #VOLUME
-4189        // Volume per molecule in Angstrom^3.
-50        // Length scale of sample in Angstrom. Used for effective transfer rate of photo-electrons between simulated volumes.
+2250       // Volume per molecule in Angstrom^3.
+10          // Length scale of sample in Angstrom. Used for effective transfer rate of photo-electrons between simulated volumes.
 spherical // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
 #PULSE
-7000         // Photon energy in eV.
-15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-gaussian       // Pulse shape
+10131         // Photon energy in eV.
+0.1           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+square      // Pulse shape
+100
+
+#ELECTRON_SOURCE
+1.00           // Additional electrons as fraction of other photoion. events.
+2500          // Electron energy in eV.
+1           // Fraction of pulse to emit over.
+p
+
 
 #USE_COUNT
 true    // active (using count)?
-0.5     // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
+1     // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
-2000      // Initial guess for number of time step points for rate equation.
-30           // Number of threads in OpenMP.
+10000      // Initial guess for number of time step points for rate equation.
+26           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 M              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
-5             // Grid update period in fs.
-2             // Time before transforming initial guess grid to dynamic grid in fs.  
+99             // Grid update period in fs.
+99             // Time before transforming initial guess grid to dynamic grid in fs.  
 
 #OUTPUT
 800         // Number of time steps in the output files.
@@ -42,10 +46,9 @@ Y            // Write intensity in a separate file (Y/N)?
 Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 
 #DEBUG
-9999       // Simulation cutoff time in fs
+99       // Simulation cutoff time in fs
 0.01    // Interval to update current timestep [fs].
 0 // Interval **in steps** between live plot (_live_plot.png) updates
 60 // Period between backups in minutes   
 ####END#####
-
-0 1 1 1 1 1 1 1 1 1
+planes 5 angstrom thick planes with 2.1 nm transverse lengths spaced 4 nm  TODO space 4.5 nm

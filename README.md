@@ -183,7 +183,9 @@ EII parameters are stored in "sort-of-json" format - please note that the progra
 18. Restructure parameter input and rate output files to use JSON format
 19. GUI (Curent candidate framework: Qt)
 20. Optimise with static arrays - promote state_type to a N_FREE-dimensioned template for faster reads.
-21. Upgrade dynamic grid algorithm to handle low-energy photoelectron peaks - currently mistakes them for MB peaks and so the solver fails.
+21. Upgrade dynamic grid algorithm to handle low-energy photoelectron peaks - currently mistakes them for MB peaks and so the solver can fail.
+22. Change input file to use atomic ratios and densities rather than num atoms in a volume.
+23. Review constant injection rate code to see if broken by recent changes.
 
 ### Bibliography:
 

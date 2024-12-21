@@ -33,6 +33,8 @@ This file is part of AC4DC.
 struct SpatialArrangement{
     const static char concentric_shells = 0;
     const static char cube = 1;
+    const static char planar = 2;
+    const static char experimental = 3;
     const static char unknown = 101;
     int mode = 101;
     bool confined_system=true; //TODO allow for choice in input file
@@ -47,8 +49,8 @@ public:
     #ifdef ELECTRON_TRANSFER_DEBUG
     virtual void Clear();
     #endif
-    virtual void ElectronTransfer(size_t a, double rho, single_state_type& sdot); // Modifies F by connected electron sinks original_F. 
-    virtual void ElectronTransferV2(size_t a, double rho, single_state_type& sdot, LossGeometry& l);
+    virtual void ElectronTransfer(const size_t& a, const double& rho, single_state_type& sdot, const double& t,const double& cross_r); // Modifies F by connected electron sinks original_F. 
+    virtual void ElectronTransferV2(const size_t& a, const double& rho, single_state_type& sdot, LossGeometry& l);
     virtual void set_F(const Distribution* F){
         #ifndef NO_SPATIAL
         #ifdef ELECTRON_TRANSFER_DEBUG
@@ -66,13 +68,17 @@ public:
     //     return internal_F;
     // }
 
+    virtual void set_anchor_time(const double& time){anchor_time = time;set_last_t(anchor_time);}
+    virtual void set_last_t(const double& time){last_time = time;}
+
 
 private:
     Distribution original_F;
     //Distribution original_F_fraction;
-    const Distribution* internal_F; // TODO delete
+    const Distribution* internal_F;
     bool F_assigned;
-    
+    double anchor_time;
+    double last_time;
 
 
 };
@@ -80,9 +86,11 @@ private:
 
 class Void_Space : public Space{
     public:
-    void ElectronTransfer(size_t a, double rho, single_state_type& sdot) override{}
-    void ElectronTransferV2(size_t a, double rho, single_state_type& sdot, LossGeometry& l) override{}
+    void ElectronTransfer(const size_t& a, const double& rho, single_state_type& sdot, const double& t,const double& cross_r) override{}
+    void ElectronTransferV2(const size_t& a, const double& rho, single_state_type& sdot, LossGeometry& l) override{}
     void set_F(const Distribution* F) override{};
+    void set_last_t(const double& time)override {};
+    void set_anchor_time(const double& time) override{};
     #ifdef ELECTRON_TRANSFER_DEBUG
     void Clear() override{};
     #endif
@@ -98,6 +106,13 @@ namespace{
         case SpatialArrangement::cube:
             os << "Cubes";
             break;
+        case SpatialArrangement::planar:
+            os << "Planes";
+            break;
+        case SpatialArrangement::experimental:
+            os << "Experimental";
+            break;
+        default:
             os << "Unknown geometry";
             break;
         }
@@ -119,6 +134,12 @@ namespace{
             break;
         case 'c':
             sa.mode = SpatialArrangement::cube;
+            break;
+        case 'p':
+            sa.mode = SpatialArrangement::planar;
+            break;
+        case 'e':
+            sa.mode = SpatialArrangement::experimental;
             break;
         default:
             throw std::runtime_error("Unrecognised spatial arrangement type");

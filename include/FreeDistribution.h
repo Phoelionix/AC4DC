@@ -208,12 +208,10 @@ public:
     void addDeltaSpike(const size_t& a, double N, double e);
     
     /// Electron migration 
-    void addLoss(const size_t& a, const Distribution& d, const CustomLossGeometry& l, double charge_density);
-    void addSource(const size_t& a, const Distribution& d, const CustomLossGeometry& l, double charge_density);
+    void addLoss(const size_t& a, const Distribution& d, const CustomLossGeometry& l, const double& charge_density, const double& min_e, const double& max_e,const double& time_factor);
+    void addSource(const size_t& a, const Distribution& d, const CustomLossGeometry& l, const double& charge_density, const double& min_e, const double& max_e,const double& time_factor);
     void addFiltration(const size_t& a, const Distribution& d, const Distribution& bg,const LossGeometry &l);
-    void addLossToVoid(const size_t& a, const Distribution& d, const LossGeometry& l, double charge_density);
-    void addLossV2(const size_t& a, const Distribution& d, const LossGeometry &l, const CustomLossGeometry& cl, double charge_density);
-    void addSourceV2(const size_t& a, const Distribution& d, const LossGeometry &l, const CustomLossGeometry& cl, double charge_density);
+    void addLossToVoid(const size_t& a, const Distribution& d, const LossGeometry& l, const double& charge_density);
     
     /// Sets the object to have a MB distribution
     void add_maxwellian(size_t _c, double N, double T);
