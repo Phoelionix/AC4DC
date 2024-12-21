@@ -746,7 +746,7 @@ class Plotter:
                 raw = tmp[0]
             except:
                 # In case of not tracking split continuums.
-                tmp = [np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)]
+                raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
             if len(tmp) > 1:
                 for r in tmp[1:]:
                     raw += r
