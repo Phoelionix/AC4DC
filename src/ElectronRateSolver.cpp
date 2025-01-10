@@ -91,10 +91,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
         std::cout << "[ HF ] Peforming Hartree-Fock calculations for species' allowed orbital configurations" << std::endl;
         input_params.calc_rates(_log, recalc);
         hasRates = true;
-        Distribution::num_continuums = 1;
-        #ifndef TRACK_SINGLE_CONTINUUM
-        Distribution::num_continuums = 1 + input_params.Store.size(); // Total + 1 for each atom
-        #endif
+        Distribution::initialise_num_continuums(input_params.Store.size());
     }
     
     
@@ -390,7 +387,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             double tmp = r.val*J*P[r.from];
             Pdot[r.to] += tmp;
             Pdot[r.from] -= tmp;
-            sdot.F.addDeltaSpike(a,r.energy, r.val*J*P[r.from]);  // TODO change to tmp?
+            sdot.F.addDeltaSpikePhoto(a,r.energy, r.val*J*P[r.from]);  // TODO change to tmp?
             sdot.bound_charge +=  tmp;
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
@@ -414,7 +411,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
                 }
             }
             if (injected_density > 0)
-                sdot.F.addDeltaSpike(a,input_params.electron_source_energy,injected_density);
+                sdot.F.addDeltaSpikeExternal(a,input_params.electron_source_energy,injected_density);
         }
         #endif //NO_ELECTRON_SOURCE
         
@@ -447,7 +444,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             double tmp = r.val*P[r.from];
             Pdot[r.to] += tmp;
             Pdot[r.from] -= tmp;
-            sdot.F.addDeltaSpike(a,r.energy, r.val*P[r.from]);
+            sdot.F.addDeltaSpikeAuger(a,r.energy, r.val*P[r.from]);
             // sdot.F.add_maxwellian(r.energy*2./3., r.val*P[r.from]);
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
             sdot.bound_charge +=  tmp;

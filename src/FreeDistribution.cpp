@@ -40,6 +40,8 @@ std::vector<indexed_knot> Distribution::knots_history;
 SplineIntegral Distribution::basis; 
 size_t Distribution::size=0;  
 size_t Distribution::num_continuums = 1;
+size_t Distribution::photo_first_continuum_idx=NULL;
+size_t Distribution::auger_first_continuum_idx=NULL;
 
 #ifdef FIND_INITIAL_DIRAC 
     bool Distribution::reset_on_next_grid_update = true;  // TODO duct tape implementation...
@@ -83,10 +85,10 @@ void Distribution::set_basis(size_t step, Cutoffs param_cutoffs, FeatureRegimes 
     cout<<"[ Free ] Neglecting electron-electron below density of n = "<<CoulombDens_min<<"au^-3"<<endl;
 }
 
-void Distribution::set_spline_factors(size_t _c, vector<double> new_spline_factors){
+void Distribution::set_spline_factors(const size_t& _c, vector<double> new_spline_factors){
     f_array[_c] = new_spline_factors; 
 }
-void Distribution::set_distribution_STATIC_ONLY(size_t _c, vector<double> new_knot, vector<double> new_spline_factors) {
+void Distribution::set_distribution_STATIC_ONLY(const size_t& _c, vector<double> new_knot, vector<double> new_spline_factors) {
     f_array[_c] = new_spline_factors; 
     load_knot(new_knot);
     f_array[_c].resize(size);
@@ -98,7 +100,7 @@ void Distribution::load_knot(vector<double> loaded_knot) {
 }
 
 // Adds Q_eii to the parent Distribution
-void Distribution::get_Q_eii (size_t _c, Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const {
+void Distribution::get_Q_eii (const size_t& _c, Eigen::VectorXd& v, const size_t& a, const bound_t& P, const int & threads) const {
     assert(basis.has_Qeii());
     assert(P.size() == basis.Q_EII[a].size());
     assert((unsigned) v.size() == size);
@@ -124,7 +126,7 @@ void Distribution::get_Q_eii (size_t _c, Eigen::VectorXd& v, size_t a, const bou
  * @param P probabilities of each atomic state;  d/dt P[i] = \sum_i=1^N W_ij - W_ji ~~~~ P[j] = d/dt(average-atomic-state)
  */
 // Puts the Q_TBR changes in the supplied vector v
-void Distribution::get_Q_tbr (size_t _c, Eigen::VectorXd& v, size_t a, const bound_t& P, const int & threads) const {
+void Distribution::get_Q_tbr (const size_t& _c, Eigen::VectorXd& v, const size_t& a, const bound_t& P, const int & threads) const {
     assert(basis.has_Qtbr());
     assert(P.size() == basis.Q_TBR[a].size());
     double v_copy [size] = {0}; 
@@ -143,7 +145,7 @@ void Distribution::get_Q_tbr (size_t _c, Eigen::VectorXd& v, size_t a, const bou
 }
 
 // Puts the Q_EE changes in the supplied vector v
-void Distribution::get_Q_ee(size_t _c, Eigen::VectorXd& v, const int & threads) const {
+void Distribution::get_Q_ee(const size_t& _c, Eigen::VectorXd& v, const int & threads) const {
     assert(basis.has_Qee());
     double CoulombLog = this->CoulombLogarithm();
     // double CoulombLog = 3.4;
@@ -176,7 +178,7 @@ void Distribution::get_Q_ee(size_t _c, Eigen::VectorXd& v, const int & threads) 
 
 // See add_density_destribution comments
 // Expects T to have units of Ha
-void Distribution::add_maxwellian(size_t _c, double T, double N) {
+void Distribution::add_maxwellian(const size_t& _c, double T, double N) {
     Eigen::VectorXd v(size);
     for (size_t i=0; i<size; i++) {
         v[i] = 0;
@@ -232,7 +234,7 @@ void Distribution::transform_basis(std::vector<double> new_knots){
     }
 }
 
-void Distribution::add_density_distribution(size_t _c, vector<vector<double>> densities){
+void Distribution::add_density_distribution(const size_t& _c, vector<vector<double>> densities){
 
     assert(densities.size() == size);
     Eigen::VectorXd v(size);
@@ -274,13 +276,13 @@ std::vector<double> Distribution::get_trimmed_knots(std::vector<double> knots){
  * @param step_idx Step to load.
  * @return returns the knot that was loaded for convenience.
  */
-std::vector<double> Distribution::load_knots_from_history(size_t step_idx){
+std::vector<double> Distribution::load_knots_from_history(const size_t& step_idx){
     std::vector<double> loaded_knot = get_knots_from_history(step_idx);
     load_knot(loaded_knot);
     return loaded_knot;
 }
 
-size_t Distribution::most_recent_knot_change_idx(size_t step_idx){
+size_t Distribution::most_recent_knot_change_idx(const size_t& step_idx){
     size_t most_recent_update = 0;
     // Find the step of the most recent knot update as of step_idx. (will return same step if given the step of the change.)
     for(auto elem: knots_history){
@@ -292,7 +294,7 @@ size_t Distribution::most_recent_knot_change_idx(size_t step_idx){
 }
 
 
-size_t Distribution::next_knot_change_idx(size_t step_idx){
+size_t Distribution::next_knot_change_idx(const size_t& step_idx){
     size_t next_knot_update;
     // Find the step of the next knot update as of step_idx. (will return next update idx if given the step of the change.)
     for(auto elem: knots_history){
@@ -305,7 +307,7 @@ size_t Distribution::next_knot_change_idx(size_t step_idx){
 }
 
 
-std::vector<double> Distribution::get_knots_from_history(size_t step_idx){
+std::vector<double> Distribution::get_knots_from_history(const size_t& step_idx){
     vector<double> loaded_knot;
     // Find the most recent grid update's knots as of step_idx.  (if knot was changed at step idx will return the knot loaded at that step.)
     for(auto elem: knots_history){
@@ -353,7 +355,7 @@ std::string Distribution::output_energies_eV(size_t num_pts) {
  * @param reference_knots knots to base the outputted energies off.
  * @return 
  */
-std::string Distribution::output_densities(size_t _c, size_t num_pts,std::vector<double> reference_knots) const {    
+std::string Distribution::output_densities(const size_t& _c, const size_t& num_pts,const std::vector<double>& reference_knots) const {    
     size_t pts_per_knot = num_pts / reference_knots.size();
     if (pts_per_knot == 0){
         pts_per_knot = 1;
@@ -395,7 +397,7 @@ std::vector<double> Distribution::get_energies_eV(size_t num_pts) {
     }
     return energies;
 }
-std::vector<double> Distribution::get_densities(size_t _c, size_t num_pts,std::vector<double> reference_knots) const {    
+std::vector<double> Distribution::get_densities(const size_t& _c, const size_t& num_pts,const std::vector<double>& reference_knots) const {    
     std::vector<double> densities(num_pts);
     size_t pts_per_knot = num_pts / reference_knots.size();
     if (pts_per_knot == 0){
@@ -427,7 +429,7 @@ std::vector<double> Distribution::get_densities(size_t _c, size_t num_pts,std::v
  * @param e energy to get density from.
  * @return double 
  */
-double Distribution::operator()(size_t _c, double e) const{
+double Distribution::operator()(const size_t& _c, const double& e) const{
     double tmp=0;
     for (size_t j = 0; j < size; j++) {
         tmp += basis(j, e)*f_array[_c][j];
@@ -455,11 +457,26 @@ void Distribution::addDeltaSpike(double e, double N) {
     f[idx + 1] += (- A1 * E1 * N  +  A1 * (A1 + A2)* e) / det;
 }*/
 
-void Distribution::addDeltaSpike(size_t a, double e, double N) {
+void Distribution::addDeltaSpikeExternal(const size_t& a, const double& e, const double& N) {
     int idx = basis.i_from_e(e);
     f_array[0][idx] += N/basis.areas[idx];
+}
+
+void Distribution::addDeltaSpikePhoto(const size_t& a, const double& e, const double& N) {
+    int idx = basis.i_from_e(e);
+    const double val = N/basis.areas[idx];
+    f_array[0][idx] += val;
     #ifndef TRACK_SINGLE_CONTINUUM
-    f_array[a+1][idx] += N/basis.areas[idx];
+    f_array[a+photo_first_continuum_idx][idx] += val;
+    #endif
+}
+
+void Distribution::addDeltaSpikeAuger(const size_t& a, const double& e, const double& N) {
+    int idx = basis.i_from_e(e);
+    const double val = N/basis.areas[idx];
+    f_array[0][idx] += val;
+    #ifndef TRACK_SINGLE_CONTINUUM
+    f_array[a+auger_first_continuum_idx][idx] += val;
     #endif
 }
 
@@ -468,7 +485,7 @@ void Distribution::addDeltaSpike(size_t a, double e, double N) {
  * @details NOT applying a dirac delta. 
  * @param v 
  */
-void Distribution::applyDeltaF(size_t a,const Eigen::VectorXd& v,const int & threads) {
+void Distribution::applyDeltaF(const size_t& a,const Eigen::VectorXd& v,const int & threads) {
     Eigen::VectorXd u(size);
     u= (this->basis.Sinv(v)); 
     #pragma omp for schedule(dynamic) nowait
@@ -480,7 +497,7 @@ void Distribution::applyDeltaF(size_t a,const Eigen::VectorXd& v,const int & thr
     }
 }
 
-void Distribution::applyDeltaF_element_scaled(size_t a,const Eigen::VectorXd& v,const int & threads){
+void Distribution::applyDeltaF_element_scaled(const size_t& a,const Eigen::VectorXd& v,const int & threads){
 
     #ifdef TRACK_SINGLE_CONTINUUM
     throw std::runtime_error("Function was called that is incompatible with single continuum tracking.");
@@ -498,15 +515,15 @@ void Distribution::applyDeltaF_element_scaled(size_t a,const Eigen::VectorXd& v,
 
 // - 3/sqrt(2) * 3 sqrt(e) * f(e) / R_
 // Very rough approximation used here
-void Distribution::addLoss(size_t a, const Distribution& d, const LossGeometry &l, double rho) {
+void Distribution::addLoss(const size_t& a, const Distribution& d, const LossGeometry &l, double rho) {
     // f += "|   i|   ||   |_"
 
     double escape_e = 1.333333333*Constant::Pi*l.L0*l.L0*rho;
     for (size_t i=basis.i_from_e(escape_e); i<size; i++) {
-        
-        f_array[0][i] -= d[0][i] * sqrt(basis.avg_e[i]/2) * l.factor();
+        const double val = sqrt(basis.avg_e[i]/2) * l.factor();
+        f_array[0][i] -= d[0][i] * val;
         #ifndef TRACK_SINGLE_CONTINUUM
-        f_array[a+1][i] -= d[a+1][i] * sqrt(basis.avg_e[i]/2) * l.factor();
+        f_array[a+1][i] -= d[a+1][i] * val;
         #endif
     }
 }
@@ -526,7 +543,7 @@ void Distribution::addLoss(size_t a, const Distribution& d, const LossGeometry &
  * @param bg background distribution
  * @param l 
  */
-void Distribution :: addFiltration(size_t a, const Distribution& d, const Distribution& bg,const LossGeometry &l){
+void Distribution :: addFiltration(const size_t& a, const Distribution& d, const Distribution& bg,const LossGeometry &l){
     // first order approximation, valid if step size * vel. much smaller than volume
     // For crystals our surface is flat, so the issue is 
     //return 0.5*v;  
@@ -544,10 +561,11 @@ void Distribution :: addFiltration(size_t a, const Distribution& d, const Distri
     double m = 1;       
     double factor = 2./3*Constant::Pi*pow(l.L0,2);
     for (size_t i=0; i < size; i++){
-         double v = c*sqrt( 1 - pow((1+basis.avg_e[i]/(m*c*c)), -2) );
-        f_array[0][i] += factor*v*(bg[0][i] - d[0][i]);
+        double v = c*sqrt( 1 - pow((1+basis.avg_e[i]/(m*c*c)), -2) );
+        const double val = factor*v;
+        f_array[0][i] += val*(bg[0][i] - d[0][i]);
         #ifndef TRACK_SINGLE_CONTINUUM
-        f_array[a+1][i] += factor*v*(bg[a+1][i] - d[a+1][i]);
+        f_array[a+1][i] += val*(bg[a+1][i] - d[a+1][i]);
         #endif
     }
 }
@@ -579,9 +597,9 @@ void Distribution::addDeltaLike(Eigen::VectorXd& v, double e, double height) {
 
 }
 
-double Distribution::norm(size_t _c) const{
+double Distribution::norm(const size_t& _c) const{
     double x=0;
-    //for (size_t _c = 0; _c < num_continuums; _c++){ 
+    //for (const size_t& _c = 0; _c < num_continuums; _c++){ 
     assert(f_array[_c].size() == Distribution::size);  // A very blessed check -S.P.
     for (auto&fi : f_array[_c]) {
         x+= fabs(fi);
@@ -639,7 +657,7 @@ double Distribution::CoulombLogarithm() const {
 }
 
 
-// double Distribution::integral(size_t _c, double (g)(double)) {
+// double Distribution::integral(const size_t& _c, double (g)(double)) {
 //     double retval = 0;
 //     for (size_t J = 0; J < Distribution::size; J++)
 //     {
