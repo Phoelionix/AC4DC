@@ -45,6 +45,8 @@ class Plotter:
         '''
         self.end_t_plotting = end_t
         self.sample_end_points = sample_end_points_only
+        self.num_sample_lines = 10
+
         self.use_electron_density = use_electron_density
         self.molecular_path = abs_molecular_path
         if self.molecular_path is None:
@@ -65,7 +67,7 @@ class Plotter:
         # Outputs
         self.outDir = self.molecular_path + data_folder_name
         self.freeFile = self.outDir +"/freeDist.csv"
-        self.freeFiles = []  # Distributions for each element's cascdes.
+        self.freeFiles = []  # Distributions for each element's cascdes (and the total one given by self.freeFile).
         self.intFile = self.outDir + "/intensity.csv"
         self.gridFile = self.outDir + "/knotHistory.csv"
 
@@ -146,7 +148,9 @@ class Plotter:
                             'outfile': self.outDir+"/dist_%s.csv"%a,
                             'photofile': self.outDir + "/photo_%s.csv"%a}
                         if atoms_to_load is not None:
-                            self.freeFiles.append(self.outDir +"/freeDist_"+a+".csv")
+                            self.freeFiles.append(self.outDir +"/freeDist_"+a+"_photo.csv")
+                            self.freeFiles.append(self.outDir +"/freeDist_"+a+"_auger.csv")
+        assert(len(self.atomdict)>0)
         if atoms_to_load is None:
             self.freeFiles.append(self.freeFile)
     def update_inputs(self,load_specific_atoms=None):
@@ -690,6 +694,37 @@ class Plotter:
 
 
 
+    def num_continuums(self):
+        return len(self.freeFiles)+1 # last continuum is all the free files combined
+
+    # if single element, then continuum idx 0 is photo, continuum idx 1 is auger, continuum idx 2 is auger + photo
+    def update_free(self,freeContinuumIdx):
+        if self.sample_end_points:
+            with open(self.intFile,'rb') as f:
+                lines = f.readlines()
+                raw = np.genfromtxt(lines[-self.num_sample_lines:], comments='#', dtype=np.float64)
+        else:
+            raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
+            tmp = []
+            try:
+                assert(len(self.freeFiles)>0)
+                for elemContinuum in self.freeFiles:
+                        tmp.append(np.genfromtxt(elemContinuum, comments='#', dtype=np.float64))
+                # append a combined version
+                if len(tmp) > 1:
+                    combined = tmp[0].copy()
+                    for r in tmp[1:]:
+                        combined += r
+                    tmp.append(combined)
+
+                raw = tmp[freeContinuumIdx]
+
+            except:
+                # In case of not tracking split continuums.
+                raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
+
+
+        self.freeData = raw[:,1:]
 
     def update_outputs(self):
         
@@ -697,31 +732,15 @@ class Plotter:
         if self.sample_end_points:
             with open(self.intFile,'rb') as f:
                 lines = f.readlines()
-                raw = np.genfromtxt(lines[-num_sample_lines:], comments='#', dtype=np.float64)
+                raw = np.genfromtxt(lines[-self.num_sample_lines:], comments='#', dtype=np.float64)
         else:
             raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
         self.timeData = raw[:, 0]
         self.intensityData = raw[:,1]
         self.energyKnot = np.array(self.get_free_energy_spec(), dtype=np.float64)
-        if self.sample_end_points:
-            with open(self.freeFile,'rb') as f:
-                lines = f.readlines()
-                raw = np.genfromtxt(lines[-num_sample_lines:], comments='#', dtype=np.float64)
-        else:
-            tmp = []
-            try:
-                for elemContinuum in self.freeFiles:
-                        tmp.append(np.genfromtxt(elemContinuum, comments='#', dtype=np.float64))
-                raw = tmp[0]
-            except:
-                # In case of not tracking split continuums.
-                tmp = [np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)]
-            if len(tmp) > 1:
-                for r in tmp[1:]:
-                    raw += r
 
+        self.update_free(0)
 
-        self.freeData = raw[:,1:]
         photo_data_present = False
         for a in self.atomdict:
             if self.sample_end_points:
@@ -797,7 +816,7 @@ class Plotter:
         if num_subplots >= 2:
             self.fig, self.axs = plt.subplots(int(0.999+(num_subplots**0.5)),int(0.999+(num_subplots**0.5)),figsize=(width*int((1+num_subplots)/2),height*int((1+num_subplots)/2)))
         else:
-            self.fig, self.axs = plt.subplots(num_subplots,figsize=(width,height*num_subplots))
+            self.fig, self.axs = plt.subplots(num_subplots,figsize=(width,height*num_subplots),squeeze=False)
             if type(self.axs) is not np.ndarray:
                 self.axs = np.array([self.axs])
         self.num_subplots = num_subplots
@@ -1808,91 +1827,97 @@ class Plotter:
     #         pass
     #     return ax
         
-    def plot_free(self, N=100, log=True, cmin = 1e-9, cmax=None, every = None,mask_below_min=True,cmap='magma',ylim=[None,None],ymax=np.Infinity,leonov_style = False,keV=False,ylog=False):
-        ax = self.get_next_ax()
-        #self.fig_free.subplots_adjust(left=0.12, top=0.96, bottom=0.16,right=0.95)
-
-        if every is None:
-            Z = self.freeData.T
-            T = self.timeData
-        else:
-            Z = self.freeData.T [:, ::every]
-            T = self.timeData [::every]
+    def plot_free(self, N=100, log=True, cmin = 1e-9, cmax=None, every = None,mask_below_min=True,cmap='magma',ylim=[None,None],ymax=np.Infinity,leonov_style = False,keV=False,ylog=False,continuum=None):
+        if continuum is None:
+            continuum = self.num_continuums()-1  # combined continuum
         
-        if mask_below_min:
-            min_col = 0 
-            if leonov_style:  
-                min_col = 20
-                Z = np.ma.masked_where(Z <= 0,Z)
-                Z = np.ma.masked_where(Z*4200*np.linalg.norm(np.log10(Z[Z.mask==False]))<min_col,Z) # 2550  4200 no time for math time for eye. Desperate times...
-            else:
-                Z = np.ma.masked_where(Z <= cmin, Z)
-            cmap = plt.get_cmap(cmap)
-            cmap.set_over(cmap(np.inf))
-            cmap.set_under(cmap(min_col))    
-            cmap.set_extremes(bad=cmap(min_col))        
-            if cmax is not None:
-                pass
-            #     Z = np.ma.masked_where(Z > max, Z)
-            else:
-                cmax = Z.max()
-        if cmin == 0 and log:
-            cmin = Z.min()
-
-        # if log:
-        #     Z = np.log10(Z)
-
-        ax.set_facecolor('black')
         
-        norm = colors.LogNorm(vmin=cmin, vmax=cmax)
-        if log:
-            scale = 1
+        for _c in [continuum]:
+            self.update_free(_c)
+            ax = self.get_next_ax()
+            #self.fig_free.subplots_adjust(left=0.12, top=0.96, bottom=0.16,right=0.95)
+
+            if every is None:
+                Z = self.freeData.T
+                T = self.timeData
+            else:
+                Z = self.freeData.T [:, ::every]
+                T = self.timeData [::every]
+            
+            if mask_below_min:
+                min_col = 0 
+                if leonov_style:  
+                    min_col = 20
+                    Z = np.ma.masked_where(Z <= 0,Z)
+                    Z = np.ma.masked_where(Z*4200*np.linalg.norm(np.log10(Z[Z.mask==False]))<min_col,Z) # 2550  4200 no time for math time for eye. Desperate times...
+                else:
+                    Z = np.ma.masked_where(Z <= cmin, Z)
+                cmap = plt.get_cmap(cmap)
+                cmap.set_over(cmap(np.inf))
+                cmap.set_under(cmap(min_col))    
+                cmap.set_extremes(bad=cmap(min_col))        
+                if cmax is not None:
+                    pass
+                #     Z = np.ma.masked_where(Z > max, Z)
+                else:
+                    cmax = Z.max()
+            if cmin == 0 and log:
+                cmin = Z.min()
+
+            # if log:
+            #     Z = np.log10(Z)
+
+            ax.set_facecolor('black')
+            
+            norm = colors.LogNorm(vmin=cmin, vmax=cmax)
+            if log:
+                scale = 1
+                if keV:
+                    scale = 1e-3
+                # Removing erroneous data points hack
+                Z = Z[:,(T!=-2.778)&(T!=4.422)]
+                self.intensityData = self.intensityData[(T!=-2.778)&(T!=4.422)]
+                T = T[(T!=-2.778)&(T!=4.422)]
+                cm = ax.pcolormesh(T, self.energyKnot[self.energyKnot<ymax]*scale, Z[self.energyKnot<ymax], shading='gouraud',norm=norm,cmap=cmap,rasterized=True)
+                cbar = self.fig.colorbar(cm,ax=ax)
+            else:
+                if cmap != None:
+                    shading='gouraud'            
+                cm = ax.contourf(T, self.energyKnot, Z, N, cmap=cmap,rasterized=True)
+                cbar = self.fig.colorbar(cm,ax=ax)
+
             if keV:
-                scale = 1e-3
-            # Removing erroneous data points hack
-            Z = Z[:,(T!=-2.778)&(T!=4.422)]
-            self.intensityData = self.intensityData[(T!=-2.778)&(T!=4.422)]
-            T = T[(T!=-2.778)&(T!=4.422)]
-            cm = ax.pcolormesh(T, self.energyKnot[self.energyKnot<ymax]*scale, Z[self.energyKnot<ymax], shading='gouraud',norm=norm,cmap=cmap,rasterized=True)
-            cbar = self.fig.colorbar(cm,ax=ax)
-        else:
-            if cmap != None:
-                shading='gouraud'            
-            cm = ax.contourf(T, self.energyKnot, Z, N, cmap=cmap,rasterized=True)
-            cbar = self.fig.colorbar(cm,ax=ax)
+                ax.set_ylabel("Energy (keV)")
+            else:
+                ax.set_ylabel("Energy (eV)")
+                
+            ax.set_xlabel("Time (fs)")
+        
+            if ylog:
+                ax.set_yscale('log')
+            if keV:
+                ylim_modified = [y*1e-3 for y in ylim]
+            ax.set_ylim(ylim_modified)
+            if log:
+                # minval = np.floor(np.min(Z, axis=(0,1)))
+                # maxval = np.ceil(np.max(Z,axis=(0,1)))
+                # formatter = LogFormatter(10, labelOnlyBase=True) 
+                
+                # cbar.ax.yaxis.set_ticks(vals)
+                # cbar.ax.yaxis.set_ticklabels(10**vals)
+                cbar.ax.yaxis.set_ticks((1e-8,1e-7,1e-6,1e-5,1e-4))
+            else:
+                cbar = self.fig_free.colorbar(cm)
+            #cbar.ax.set_ylabel('Free Electron Density, Å$^{-3}$', rotation=270,labelpad=20)
+            #cbar.ax.set_ylabel('Energy density (eV/Å$^{3}$)', rotation=270,labelpad=20)
+            cbar.ax.set_ylabel('Energy density (arb. u.)', rotation=270,labelpad=20)
 
-        if keV:
-            ax.set_ylabel("Energy (keV)")
-        else:
-            ax.set_ylabel("Energy (eV)")
-            
-        ax.set_xlabel("Time (fs)")
-       
-        if ylog:
-            ax.set_yscale('log')
-        if keV:
-            ylim = [y*1e-3 for y in ylim]
-        ax.set_ylim(ylim)
-        if log:
-            # minval = np.floor(np.min(Z, axis=(0,1)))
-            # maxval = np.ceil(np.max(Z,axis=(0,1)))
-            # formatter = LogFormatter(10, labelOnlyBase=True) 
-            
-            # cbar.ax.yaxis.set_ticks(vals)
-            # cbar.ax.yaxis.set_ticklabels(10**vals)
-            cbar.ax.yaxis.set_ticks((1e-8,1e-7,1e-6,1e-5,1e-4))
-        else:
-            cbar = self.fig_free.colorbar(cm)
-        #cbar.ax.set_ylabel('Free Electron Density, Å$^{-3}$', rotation=270,labelpad=20)
-        #cbar.ax.set_ylabel('Energy density (eV/Å$^{3}$)', rotation=270,labelpad=20)
-        cbar.ax.set_ylabel('Energy density (arb. u.)', rotation=270,labelpad=20)
+            # plot the intensity
+            ax2 = ax.twinx()
+            ax2.plot(T, self.intensityData[::every],'w:',linewidth=1)
 
-        # plot the intensity
-        ax2 = ax.twinx()
-        ax2.plot(T, self.intensityData[::every],'w:',linewidth=1)
-
-        ax2.get_yaxis().set_visible(False)
-        ax2.set_ylim([0,ax2.get_ylim()[1]-ax2.get_ylim()[0]])
+            ax2.get_yaxis().set_visible(False)
+            ax2.set_ylim([0,ax2.get_ylim()[1]-ax2.get_ylim()[0]])
 
     # Plots a single point in time.
     def initialise_step_slices_ax(self):

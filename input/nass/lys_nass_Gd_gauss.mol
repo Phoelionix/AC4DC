@@ -25,7 +25,7 @@ true    // active (using count)?
 
 #NUMERICAL
 2000      // Initial guess for number of time step points for rate equation.
-26            // Number of threads in OpenMP.
+21            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 M              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)

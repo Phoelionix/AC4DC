@@ -84,10 +84,21 @@ void ElectronRateSolver::file_delete_check(const std::string& fname){
 void ElectronRateSolver::saveFree(const std::string& base_fname) {
     for (size_t _c = 0; _c < Distribution::num_continuums; _c++){
         std::string fname = base_fname;
-        if (_c >= 1){
+
+        // Cascade distributions
+        if (_c != 0){
             fname.append("_");
-            fname.append(input_params.Store[_c-1].name); 
+            if(Distribution::photo_first_continuum_idx<=_c
+            &&_c<Distribution::auger_first_continuum_idx){
+                fname.append(input_params.Store[_c-Distribution::photo_first_continuum_idx].name); 
+                fname.append("_photo");
+            }
+            if(Distribution::auger_first_continuum_idx<=_c){
+                fname.append(input_params.Store[_c-Distribution::auger_first_continuum_idx].name); 
+                fname.append("_auger");
+            }
         }
+
         fname.append(".csv");
         file_delete_check(fname);
 
