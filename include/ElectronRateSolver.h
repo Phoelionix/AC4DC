@@ -129,7 +129,7 @@ public:
 
     std::chrono::_V2::system_clock::time_point time_of_last_save;   
     #ifndef NO_BACKUP_SAVING
-    std::chrono::minutes minutes_per_save{15};
+    std::chrono::minutes minutes_per_save{30};
     #else
     std::chrono::minutes minutes_per_save{99999999};
     #endif
