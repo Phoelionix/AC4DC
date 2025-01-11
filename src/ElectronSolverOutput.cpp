@@ -136,9 +136,9 @@ void ElectronRateSolver::saveFree(const std::string& base_fname) {
         size_t next_knot_update = 0;
         while (i <  static_cast<int>(t.size())-1){
             i++;
-            if (i == static_cast<int>(next_knot_update) or i == 0){
-                Distribution::load_knots_from_history(i);
-                next_knot_update = Distribution::next_knot_change_idx(i);
+            if (i == static_cast<int>(next_knot_update - (this->order-1) ) or i == 0){  // minus this-> order because basis was transformed
+                Distribution::load_knots_from_history(i+(this->order-1));
+                next_knot_update = Distribution::next_knot_change_idx(i+(this->order-1));
             } 
             if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){
                 continue;
@@ -174,9 +174,9 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     size_t next_knot_update = 0;
     while (i <  static_cast<int>(t.size())-1){
         i++;
-        if (i == static_cast<int>(next_knot_update) or i == 0){
-            Distribution::load_knots_from_history(i);
-            next_knot_update = Distribution::next_knot_change_idx(i);
+        if (i == static_cast<int>(next_knot_update - (this->order-1) ) or i == 0){  // minus this-> order because basis was transformed
+            Distribution::load_knots_from_history(i+(this->order-1));
+            next_knot_update = Distribution::next_knot_change_idx(i+(this->order-1));
         } 
         if(t[i] < previous_t + t_fineness && i<=static_cast<int>(t.size())-extra_fine_steps_out){
             continue;
@@ -293,10 +293,10 @@ void ElectronRateSolver::saveKnots(const std::string& fname) {
 
     assert(y.size() == t.size());
     size_t next_knot_update = 0;
-    for (size_t i=0; i<t.size(); i++) {
-        if (i == next_knot_update or i == 0){
-            Distribution::load_knots_from_history(i);
-            next_knot_update = Distribution::next_knot_change_idx(i);
+    for (int i=0; i<static_cast<int>(t.size()); i++) {
+        if (i == static_cast<int>(next_knot_update - (this->order-1) ) or i == 0){   // minus this-> order because basis was transformed
+            Distribution::load_knots_from_history(i+(this->order-1));
+            next_knot_update = Distribution::next_knot_change_idx(i+(this->order-1));
             f<<t[i]*Constant::fs_per_au<<" "<<Distribution::output_knots_eV()<<endl;
         } 
     }

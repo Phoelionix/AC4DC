@@ -150,7 +150,7 @@ class Plotter:
                         if atoms_to_load is not None:
                             self.freeFiles.append(self.outDir +"/freeDist_"+a+"_photo.csv")
                             self.freeFiles.append(self.outDir +"/freeDist_"+a+"_auger.csv")
-        assert(len(self.atomdict)>0)
+        assert len(self.atomdict)>0,f"None of the elements specified - {atoms_to_load} - appear to be given in mol file" if atoms_to_load is not None else "Could not find any atoms"
         if atoms_to_load is None:
             self.freeFiles.append(self.freeFile)
     def update_inputs(self,load_specific_atoms=None):
@@ -1830,11 +1830,18 @@ class Plotter:
     def plot_free(self, N=100, log=True, cmin = 1e-9, cmax=None, every = None,mask_below_min=True,cmap='magma',ylim=[None,None],ymax=np.Infinity,leonov_style = False,keV=False,ylog=False,continuum=None):
         if continuum is None:
             continuum = self.num_continuums()-1  # combined continuum
+        else:
+            continuums = [continuum]
         
-        
-        for _c in [continuum]:
+        for _c in continuums:
+
             self.update_free(_c)
             ax = self.get_next_ax()
+            if _c == self.num_continuums()-1:
+                ax.title.set_text("Combined")
+            else:
+                ax.title.set_text(os.path.basename(self.freeFiles[_c]).split('.')[0])
+
             #self.fig_free.subplots_adjust(left=0.12, top=0.96, bottom=0.16,right=0.95)
 
             if every is None:
@@ -1874,10 +1881,6 @@ class Plotter:
                 scale = 1
                 if keV:
                     scale = 1e-3
-                # Removing erroneous data points hack
-                Z = Z[:,(T!=-2.778)&(T!=4.422)]
-                self.intensityData = self.intensityData[(T!=-2.778)&(T!=4.422)]
-                T = T[(T!=-2.778)&(T!=4.422)]
                 cm = ax.pcolormesh(T, self.energyKnot[self.energyKnot<ymax]*scale, Z[self.energyKnot<ymax], shading='gouraud',norm=norm,cmap=cmap,rasterized=True)
                 cbar = self.fig.colorbar(cm,ax=ax)
             else:

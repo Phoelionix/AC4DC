@@ -87,8 +87,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     fname_free = "free"
     fname_HR_style = "HR_style"
     fname_bound_dynamics = "bound_dynamics"
-    #load_specific_atoms = ["C"]#["Fe_singleShell","C"] #None #["C","N","O"] #None  # If plotting free dsitribution, will combine the contributions from those specified here (e.g. if "C","N" then dist_C.csv and dist_N.csv ). If none is specified, will just use the full continuum freeDist.csv.
-    load_specific_atoms = ["C"] #If plotting free dsitribution, will plot only those specified here. If none is specified, will just use the full continuum freeDist.csv.
+    load_specific_atoms = ["C"] #["C"]#["Fe_singleShell","C"] #None #["C","N","O"] #If plotting free dsitribution, will plot only those specified here. If None is specified, will just use the full continuum freeDist.csv.
     if load_specific_atoms is not None:
         label+="_"
         for elem in load_specific_atoms:
@@ -97,8 +96,8 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     pl = Plotter(mol_name,sim_output_parent_dir,use_electron_density = ELECTRON_DENSITY,end_t = END_T,load_specific_atoms=load_specific_atoms)
     num_atoms = len(pl.statedict)
     num_subplots = tot_charge + free_slices + bound_ionisation_bar + (bound_ionisation+ orbital_densities_bar+ photo_rates)*num_atoms 
-    #num_subplots+= free*pl.num_continuums()
-    num_subplots+= free
+    num_subplots+= free*pl.num_continuums()
+    #num_subplots+= free
     pl.setup_axes(num_subplots)
     if num_subplots > 1:
         pl.fig.tight_layout()
@@ -146,7 +145,9 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         
     if free:
         #pl.plot_free(log=True,cmin=10**(-7.609),cmax=1e-3,ylim=[10,8000])
-        pl.plot_free(log=True,ylog=False,cmin=10**(-8),cmax=10**(-3.609),ylim=[0,8000],keV=True,continuum=0)
+        for _c in range(pl.num_continuums()):
+            pl.plot_free(log=True,ylog=False,cmin=10**(-8),cmax=10**(-3.609),ylim=[0,8000],keV=True,continuum=_c)
+        pl.fig.tight_layout()
         # #Leonov
         # ymax = 9e3
         # pl.plot_free(log=True, cmin=10**(-6.609),cmax = 10**(-2), every=5,mask_below_min=True,cmap='turbo',ymax=ymax,leonov_style=True)
