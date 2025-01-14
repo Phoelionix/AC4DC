@@ -333,7 +333,7 @@ public:
     static std::vector<indexed_knot> knots_history;  
     int container_size(){return f_array[0].size();}  
     
-    static bool reset_on_next_grid_update; //TODO part of a duct tape implementation of FIND_INITIAL_DIRAC
+    static bool dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots; // TODO duct tape implementation... (eh it's ok). 
 
 private:
     std::vector<std::vector<double>> f_array;  // Spline expansion factors, placed in vector so have option to track a continuum for each element's cascades.
