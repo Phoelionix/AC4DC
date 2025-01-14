@@ -23,7 +23,7 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 // Recommend to leave off plotting for now, doesn't seem to work anymore, and isn't so important since simulation times aren't too large anymore (but it's such a nice feature...).
 #define NO_PLOTTING // Turns off live saves of the free-electron energy distribution to _live_plot.png. Disables use of python. 
 //#define NO_BACKUP_SAVING // Disables the hourly saves of the data to  
-//#define TRACK_SINGLE_CONTINUUM // Just track the total electron density. Computationally expensive to turn off. If off, tracks one electron distribution for each species (element) defined in input file, tracking the primary electrons that they release and the secondary electrons those electrons free from ALL species.
+#define TRACK_SINGLE_CONTINUUM // Just track the total electron density. Computationally expensive to turn off. If off, tracks two electron distributions (Auger and photoelectron) for each species (element) defined in input file, tracking the corresponding primary electrons that they release and the secondary electrons those electrons free from ALL species.
 
 /// Asynchronous solver
 //#define NO_MINISTEPS   // Disables the asynchronous implementation of the solver, stepping the free (E-E) and bound (everything else) solvers together.
