@@ -44,9 +44,9 @@ size_t Distribution::photo_first_continuum_idx=NULL;
 size_t Distribution::auger_first_continuum_idx=NULL;
 
 #ifdef FIND_INITIAL_DIRAC 
-    bool Distribution::reset_on_next_grid_update = true;  // TODO duct tape implementation...
+    bool Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots = true; 
 #else
-    bool Distribution::reset_on_next_grid_update = false;
+    bool Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots = false;
 #endif     
 
 
@@ -459,12 +459,12 @@ void Distribution::addDeltaSpike(double e, double N) {
 
 void Distribution::addDeltaSpikeExternal(const size_t& a, const double& e, const double& N) {
     int idx = basis.i_from_e(e);
-    f_array[0][idx] += N/basis.areas[idx];
+    f_array[0][idx] += N*basis.inverse_areas[idx];
 }
 
 void Distribution::addDeltaSpikePhoto(const size_t& a, const double& e, const double& N) {
     int idx = basis.i_from_e(e);
-    const double val = N/basis.areas[idx];
+    const double val = N*basis.inverse_areas[idx];
     f_array[0][idx] += val;
     #ifndef TRACK_SINGLE_CONTINUUM
     f_array[a+photo_first_continuum_idx][idx] += val;
@@ -473,7 +473,7 @@ void Distribution::addDeltaSpikePhoto(const size_t& a, const double& e, const do
 
 void Distribution::addDeltaSpikeAuger(const size_t& a, const double& e, const double& N) {
     int idx = basis.i_from_e(e);
-    const double val = N/basis.areas[idx];
+    const double val = N*basis.inverse_areas[idx];
     f_array[0][idx] += val;
     #ifndef TRACK_SINGLE_CONTINUUM
     f_array[a+auger_first_continuum_idx][idx] += val;

@@ -236,7 +236,7 @@ void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_
     
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
         plasma_header <<"[ Grid ] Preset: "<<input_params.elec_grid_preset.name<<"\n\r";
-        plasma_header <<"[ Grid ] Update period: "<<grid_update_period * Constant::fs_per_au<<" fs"<<"\n\r";
+        plasma_header <<"[ Grid ] Update period: "<<input_params.Grid_Update_Period() * Constant::fs_per_au<<" fs"<<"\n\r";
     }
     else 
         plasma_header << "[ Grid ] Using static grid" << "\n\r";
@@ -244,7 +244,8 @@ void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_
     plasma_header<<"[ Rate Solver ] Using initial timestep size of "<<this->dt*Constant::fs_per_au<<" fs"<<"\n\r";
     plasma_header<<banner<<"\n\r";
 
-    steps_per_grid_transform =  round(num_steps*(grid_update_period/(simulation_end_time-simulation_start_time)));
+    steps_per_grid_transform =  round(input_params.Grid_Update_Period()/this->dt + 1);
+    steps_before_initialisation_reset = round(input_params.Guess_Grid_Duration()/this->dt + 1);
 
 
     std::cout << plasma_header.str()<<std::flush; // display in regular terminal, so that it is still visible after end of program
@@ -283,16 +284,18 @@ void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_
     std::vector<std::chrono::duration<double, std::milli>> times{
     display_time, plot_time, dyn_dt_time, backup_time, pre_ode_time,
     dyn_grid_time, user_input_time, post_ode_time,
-    pre_tbr_time, transport_time, eii_time, tbr_time,
+    decay_processes_time, bound_EII_time, bound_TBR_timeA,bound_TBR_timeB, transport_time, eii_time, tbr_time,
     ee_time, apply_delta_time
     };
     std::vector<std::string> tags{
     "display", "live plotting", "dt updates", "data backups", "pre_ode()",
     "dynamic grid updates", "user input detection", "post_ode()",
-    "misc bound processes", "bound-e transport", "get_Q_eii()", "get_Q_tbr()",
+    "decay processes", "loss due to EII","bound TBR off diag","bound TBR diag", "bound-e transport", "get_Q_eii()", "get_Q_tbr()",
     "get_Q_ee()", "applyDeltaF()"
     };
     
+    assert(times.size()==tags.size()); // TODO useless assert, it's at end of simulation...
+
     stringstream solver_times;
     solver_times <<"\n[ Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << "\n";
     solver_times << its_dinner_time(times,tags);
@@ -460,101 +463,148 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         }
         #endif        
         // Secondary ionization
-        // EII / TBR bound-state dynamics
+        auto t10 = std::chrono::high_resolution_clock::now();
+        decay_processes_time += t10 - t9;
+        // Loss of bound electrons from EII / TBR
+
+        Eigen::VectorXd vec_dqdt_scndry = Eigen::VectorXd::Zero(Distribution::size);
+        if(input_params.Store[a].bound_free_excluded) continue;
+
+        double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
+        double sdot_bound_charge_eii_subst = 0; 
+        double sdot_bound_charge_tbr_subst = 0; 
+        size_t N = Distribution::size; 
+        #ifndef NO_EII
+        auto t11 = std::chrono::high_resolution_clock::now();
+        #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_eii_subst)
+        for (size_t n=0; n<N; n++) {                
+            for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
+                for (auto& finPair : RATE_EII[a][n][init]) {
+                    double tmp = finPair.val*s.F[0][n]*P[init];
+                    Pdot_subst[finPair.idx] += tmp;
+                    Pdot_subst[init] -= tmp;
+                    sdot_bound_charge_eii_subst += tmp;   //TODO Not a minus sign like others, double check that's intentional. -S.P.
+                }
+            }
+        }
+        auto t12 = std::chrono::high_resolution_clock::now();
+        bound_EII_time += t12 - t11;
+        #endif
+        #ifndef NO_TBR
+        auto t13 = std::chrono::high_resolution_clock::now();
+        //#pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_tbr_subst)
+
+        size_t num_n_m_k = 0;
+        for (size_t n=0; n<N; n++) {
+            num_n_m_k+= N-(n+1);
+        }
+        std::vector<std::vector<size_t>> n_m_k_vectors;
+        n_m_k_vectors.resize(num_n_m_k);
+        size_t tmp_idx = 0;
+        for (size_t n=0; n<N; n++) {
+            for (size_t m=n+1; m<N; m++) {
+                const size_t k = N + (N*(N-1)*0.5) - (N-n)*(N-n-1)*0.5 + m - n - 1;
+                n_m_k_vectors[tmp_idx] = std::vector<size_t> {n,m,k};
+                tmp_idx++;
+            }
+        }
+        assert(tmp_idx==num_n_m_k);
+
+
+        #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_tbr_subst)
+        for (auto& n_m_k: n_m_k_vectors){
+        // for (size_t n=0; n<N; n++) {
+        //     // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
+        //     // Note that RATE_TBR has the same geometry as InverseEIIdata.
+        //     for (size_t m=n+1; m<N; m++) {
+                //const size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
+                // k = N... N(N+1)/2-1
+                // W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
+                // for (size_t init=0;  init<RATE_TBR[a][k].size(); init++) {
+                //     for (auto& finPair : RATE_TBR[a][k][init]) {
+                    //     #ifdef TRACK_SINGLE_CONTINUUM
+                    //     double tmp = finPair.val*s.F[0][n]*s.F[0][m]*P[init]*2;   // 0 = 0 (total continuum)
+                    //     #else
+                    //     double tmp = finPair.val*(s.F[0][n]*s.F[0][m] + s.F[0][m]*s.F[0][n])*P[init]; // as we are distinguishing the electron continuum of interest from the full continuum now.
+                    //     #endif
+                    //     Pdot_subst[finPair.idx] += tmp;
+                    //     Pdot_subst[init] -= tmp;
+                    //     sdot_bound_charge_tbr_subst -= tmp;
+                    // }     
+                // Create pairs of init and finpair to iterate over in parallel 
+                std::vector<std::pair<size_t,SparsePair*>> init_finpairs;
+                for (size_t init=0;  init<RATE_TBR[a][n_m_k[2]].size(); init++) {
+                    for (auto& finPair : RATE_TBR[a][n_m_k[2]][init]) {
+                        init_finpairs.push_back(std::pair(init, &finPair));
+                    }
+                }
+                //#pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_tbr_subst)
+                for (auto& init_finPair: init_finpairs){
+                    double tmp = (*init_finPair.second).val*s.F[0][n_m_k[0]]*s.F[0][n_m_k[1]]*P[init_finPair.first]*2;   // (total continuum)
+                    Pdot_subst[(*init_finPair.second).idx] += tmp;
+                    Pdot_subst[init_finPair.first] -= tmp;
+                    sdot_bound_charge_tbr_subst -= tmp;
+                }
+            }
+        auto t14 = std::chrono::high_resolution_clock::now();
+        bound_TBR_timeA += t14 - t13;
+        auto t15 = std::chrono::high_resolution_clock::now();
+
+        // the diagonal
+        // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
+        #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_tbr_subst)
+        for (size_t n=0; n<N; n++) {
+            for (size_t init=0;  init<RATE_TBR[a][n].size(); init++) {
+                for (auto& finPair : RATE_TBR[a][n][init]) {
+                    double tmp = finPair.val*s.F[0][n]*s.F[0][n]*P[init];
+                    Pdot_subst[finPair.idx] += tmp;
+                    Pdot_subst[init] -= tmp;
+                    sdot_bound_charge_tbr_subst -= tmp;
+                }
+            }
+        }
+        //     }
+        // }
+        auto t16 = std::chrono::high_resolution_clock::now();
+        bound_TBR_timeB += t16 - t15;
+        #endif
+        // Add parallel containers to their parent containers.
+        for(size_t i=0;i < Pdot.size();i++){
+            Pdot[i] += Pdot_subst[i];
+            #ifdef DEBUG_BOUND
+            assert(Pdot[i] + P[i] >= 0);
+            // if(Pdot[i] + P[i] < 0){
+            //     Pdot[i]= -P[i]*1.00001;
+            // }
+            #endif
+        }
+        sdot.bound_charge += sdot_bound_charge_eii_subst + sdot_bound_charge_tbr_subst;
+        #ifdef RATES_TRACKING
+        eii_rate.back() += sdot_bound_charge_eii_subst;
+        tbr_rate.back() += sdot_bound_charge_tbr_subst;
+        #endif
+        
         #ifdef TRACK_SINGLE_CONTINUUM
         size_t _c = 0; 
         #else
-        size_t _c = 1;  // Iterates through the continuum corresponding to each element's initiated cascades and adds separately. // TODO check if having the full continuum contribute to the actual calcs is better.
+        size_t _c = 1;  // Iterates through the continuum corresponding to each element's initiated cascades and adds separately
         #endif 
+
         for (;_c < Distribution::num_continuums; _c++){
-            Eigen::VectorXd vec_dqdt_scndry = Eigen::VectorXd::Zero(Distribution::size);
-            if(input_params.Store[a].bound_free_excluded) continue;
-
-            double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
-            double sdot_bound_charge_eii_subst = 0; 
-            double sdot_bound_charge_tbr_subst = 0; 
-            size_t N = Distribution::size; 
-            #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_eii_subst,sdot_bound_charge_tbr_subst)     
-            for (size_t n=0; n<N; n++) {
-                double tmp=0; // aggregator
-                
-                #ifndef NO_EII
-                for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
-                    for (auto& finPair : RATE_EII[a][n][init]) {
-                        tmp = finPair.val*s.F[_c][n]*P[init];
-                        Pdot_subst[finPair.idx] += tmp;
-                        Pdot_subst[init] -= tmp;
-                        sdot_bound_charge_eii_subst += tmp;   //TODO Not a minus sign like others, double check that's intentional. -S.P.
-                    }
-                }
-                #endif
-                
-                
-                #ifndef NO_TBR
-                // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
-                // Note that RATE_TBR has the same geometry as InverseEIIdata.
-                for (size_t m=n+1; m<N; m++) {
-                    size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
-                    // k = N... N(N+1)/2-1
-                    // W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
-                    for (size_t init=0;  init<RATE_TBR[a][k].size(); init++) {
-                        for (auto& finPair : RATE_TBR[a][k][init]) {
-                            #ifdef TRACK_SINGLE_CONTINUUM
-                            tmp = finPair.val*s.F[_c][n]*s.F[_c][m]*P[init]*2;   // _c = 0 (total continuum)
-                            #else
-                            tmp = finPair.val*(s.F[_c][n]*s.F[0][m] + s.F[_c][m]*s.F[0][n])*P[init]; // as we are distinguishing the electron continuum of interest from the full continuum now.
-                            #endif
-                            Pdot_subst[finPair.idx] += tmp;
-                            Pdot_subst[init] -= tmp;
-                            sdot_bound_charge_tbr_subst -= tmp;
-                        }
-                    }
-                }
-                // the diagonal
-                // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
-                for (size_t init=0;  init<RATE_TBR[a][n].size(); init++) {
-                    for (auto& finPair : RATE_TBR[a][n][init]) {
-                        tmp = finPair.val*s.F[_c][n]*s.F[0][n]*P[init];
-                        Pdot_subst[finPair.idx] += tmp;
-                        Pdot_subst[init] -= tmp;
-                        sdot_bound_charge_tbr_subst -= tmp;
-                    }
-                }
-                #endif
-            }
-            // Add parallel containers to their parent containers.
-            for(size_t i=0;i < Pdot.size();i++){
-                Pdot[i] += Pdot_subst[i];
-                #ifdef DEBUG_BOUND
-                assert(Pdot[i] + P[i] >= 0);
-                // if(Pdot[i] + P[i] < 0){
-                //     Pdot[i]= -P[i]*1.00001;
-                // }
-                #endif
-            }
-            sdot.bound_charge += sdot_bound_charge_eii_subst + sdot_bound_charge_tbr_subst;
-            #ifdef RATES_TRACKING
-            eii_rate.back() += sdot_bound_charge_eii_subst;
-            tbr_rate.back() += sdot_bound_charge_tbr_subst;
-            #endif
-        
-
-            auto t10 = std::chrono::high_resolution_clock::now();
-            pre_tbr_time += t10 - t9;
-
-            // Free-electron parts
+            // Contribution of EII / TBR to free-electron continuum
+            auto t1 = std::chrono::high_resolution_clock::now();
             #ifdef NO_EII
             #warning No impact ionisation
             #else
-            auto t1 = std::chrono::high_resolution_clock::now();
             s.F.get_Q_eii(_c,vec_dqdt_scndry, a, P, threads);
             auto t2 = std::chrono::high_resolution_clock::now();
             eii_time += t2 - t1;
             #endif
+            
+            auto t3 = std::chrono::high_resolution_clock::now();
             #ifdef NO_TBR
             #warning No three-body recombination
             #else
-            auto t3 = std::chrono::high_resolution_clock::now();
             s.F.get_Q_tbr(_c,vec_dqdt_scndry, a, P, threads);  // Serially, this is the computational bulk of the program - S.P.
             auto t4 = std::chrono::high_resolution_clock::now();
             tbr_time += t4 - t3;
@@ -793,13 +843,17 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
     ////// Display info ////// (only the regular stuff seen each step, not "popups" from popup_stream)
     auto t_start_disp = std::chrono::high_resolution_clock::now();
     if ((n-this->order)%steps_per_time_update == 0){
+        size_t* grid_T = &steps_per_grid_transform;
+        if (Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots){
+             grid_T= &steps_before_initialisation_reset;}
         Display::display_stream.str(Display::header); // clear display string
         Display::display_stream<< "\n\r"
         << "--- Press BACKSPACE/DEL to end simulation and save the data ---\n\r"   
+        << "--- Press 'B' to make a backup of the simulation data now ---\n\r"  
         << "[ sim ] Next data backup in "<<(minutes_per_save - std::chrono::duration_cast<std::chrono::minutes>(std::chrono::high_resolution_clock::now() - time_of_last_save)).count()<<" minute(s).\n\r"  
-        << "[ sim ] Current timestep size = "<<this->dt*Constant::fs_per_au<<" fs\n\r"   
-        << "[ sim ] t="
-        << this->t[n] * Constant::fs_per_au << " fs\n\r" 
+        << "[ sim ] Current timestep size = "<< this->dt*Constant::fs_per_au <<" fs\n\r"
+        << "[ sim ] t="<< this->t[n] * Constant::fs_per_au <<" fs\n\r" 
+        << "[ sim ] Next grid update: t="<< (this->t[n] + this->dt * (*grid_T - (n-this->order)%(*grid_T))) * Constant::fs_per_au<<" fs\n\r"
         << "[ sim ] " <<Distribution::size << " knots currently active\n\r";
         //<< Distribution::get_knot_energies() << "\n\r"; 
         // << flush; 
@@ -932,39 +986,34 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
 int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
     auto t_start = std::chrono::high_resolution_clock::now();
 
-    //////  Dynamic grid updater ////// 
+    ////// Dynamic grid updater ////// 
     #ifndef SWITCH_OFF_ALL_DYNAMIC_UPDATES
     auto t_start_grid = std::chrono::high_resolution_clock::now();
-    if (input_params.elec_grid_type.mode == GridSpacing::dynamic && (n-this->order+1)%steps_per_grid_transform == 0){ // TODO if adaptive time step algo is improved would be good to have a variable that this is equal to that is modified to account for changes in time step size. If a dt decreases you push back the grid update. If you increase dt (which currently doesn't happen) you could 'miss' it .
+    if (Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots && 
+    input_params.elec_grid_type.mode == GridSpacing::dynamic && (n-this->order+1)%steps_before_initialisation_reset == 0){
+        // move from initial guess grid to dynamic grid shortly after a fresh simulation's start.
+        Display::popup_stream << "\n\r Moving to dynamic grid... \n\r"; 
+        _log << "[ Dynamic Grid ] Moving to dynamic grid" << endl;
+        Display::show(Display::display_stream,Display::popup_stream);  
+        update_grid(_log,n+1,false);
+        Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots = false;
+        dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
+        reinitialise_solver_with_current_grid(_log);    
+        return 1;        
+    }
+    else if (input_params.elec_grid_type.mode == GridSpacing::dynamic && (n-this->order+1)%steps_per_grid_transform == 0){ // TODO if adaptive time step algo is improved would be good to have a variable that this is equal to that is modified to account for changes in time step size. If a dt decreases you push back the grid update. If you increase dt (which currently doesn't happen) you could 'miss' it .
         Display::popup_stream << "\n\rUpdating grid... \n\r"; 
         _log << "[ Dynamic Grid ] Updating grid" << endl;
         Display::show(Display::display_stream,Display::popup_stream);  
         update_grid(_log,n+1,false);
-        if (Distribution::reset_on_next_grid_update){
-            dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
-            Distribution::reset_on_next_grid_update = false;
-            reinitialise_solver_with_current_grid(_log);    
-            return 1;        
-        } 
-    }   
-    // move from initial grid to dynamic grid shortly after a fresh simulation's start.
-    /*
-    else if (n-this->order == max(2,(int)(steps_per_grid_transform/10)) && (input_params.Load_Folder() == "") && !grid_initialised){  // TODO make this an input param
-        Display::popup_stream << "\n\rPerforming initial grid update... \n\r"; 
-        _log << "[ Dynamic Grid ] Performing initial grid update..." << endl;
-        Display::show(Display::display_stream,Display::popup_stream); 
-        update_grid(_log,n+1,true); 
-        //////// 
-        // TODO restart simulation with this better grid.
-        ////////
     }
-    */
     dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
     #endif //SWITCH_OFF_ALL_DYNAMIC_UPDATES
     
-    //////  Check if user wants to end simulation early ////// 
+    ////// Check if user inputted command to do something mid-simulation ////// 
     auto t_start_usr = std::chrono::high_resolution_clock::now();
     auto ch = wgetch(Display::win);
+    ////// End simulation early  ////// 
     if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127){   
         flushinp(); // flush buffered inputs
         Display::popup_stream <<"\n\rExiting early... press backspace/del again to confirm or any other key to cancel and resume the simulation \n\r";
@@ -979,6 +1028,19 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
         nodelay(Display::win, true);
         Display::show(Display::display_stream);
     }     
+    ////// Backup  ////// 
+    if (ch == 'b'){ 
+        flushinp(); // flush buffered inputs
+        Display::popup_stream <<"\n\rSaving backup... press B again to confirm or any other key to cancel and resume the simulation \n\r";
+        Display::show(Display::display_stream,Display::popup_stream);
+        nodelay(Display::win, false);
+        ch = wgetch(Display::win);  // note implicitly refreshes screen
+        if (ch == 'b'){
+            time_of_last_save-=(minutes_per_save+std::chrono::minutes(1));
+        }
+        nodelay(Display::win, true);
+        Display::show(Display::display_stream);
+    }
     
     user_input_time += std::chrono::high_resolution_clock::now() - t_start_usr;  
     

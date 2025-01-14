@@ -382,6 +382,7 @@ void BasisSet::compute_overlap(size_t num_funcs){
     avg_e.resize(num_funcs);
     log_avg_e.resize(num_funcs);
     areas.resize(num_funcs);
+    inverse_areas.resize(num_funcs);
     for (size_t i = 0; i < num_funcs; i++) {
         // Chooses the 'center' of the B-spline
         avg_e[i] = (this->supp_max(i) + this->supp_min(i))/2 ;
@@ -393,6 +394,7 @@ void BasisSet::compute_overlap(size_t num_funcs){
             areas[i] += gaussW_10[j]*(*this)(i, gaussX_10[j]*diff+ avg_e[i]);
         }
         areas[i] *= diff;
+        inverse_areas[i] = 1/areas[i];
     }
 }
 
