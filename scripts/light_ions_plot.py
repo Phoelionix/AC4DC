@@ -30,6 +30,7 @@ XLIM = [None,None]
 ATOMS = ("C","N","O")#,"S")
 #ATOMS = ("Cr_LDA",)
 
+CUSTOM_LEGEND = None
 #CUSTOM_LEGEND=("1s: CNO","2s: CNO","2p: CNO","1s: CNO,S,Gd","2s: CNO,S,Gd","2p: CNO,S,Gd")
 #CUSTOM_LEGEND = ("Primary ionization only", "All ionization",)
 def main():
@@ -90,7 +91,7 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,plo
                 ax = pl.plot_orbitals_charge(every=1,linestyle=dashes[m],atom = "C",plot_legend=False,xlim=XLIM,ylim=YLIM,plot_derivative=PLOT_DERIVATIVE)       
            
         if plot_mode == 1 or plot_mode == 2:
-            ax = pl.axs[0] 
+            ax = pl.axs[0][0]
             if CUSTOM_LEGEND is None: 
                 ax.legend(bbox_to_anchor=(1.02, 1),loc='upper left', ncol=1,handlelength=1)  # Top right legend.
             else:
