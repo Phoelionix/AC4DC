@@ -467,7 +467,6 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         decay_processes_time += t10 - t9;
         // Loss of bound electrons from EII / TBR
 
-        Eigen::VectorXd vec_dqdt_scndry = Eigen::VectorXd::Zero(Distribution::size);
         if(input_params.Store[a].bound_free_excluded) continue;
 
         double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
@@ -591,6 +590,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         #endif 
 
         for (;_c < Distribution::num_continuums; _c++){
+            Eigen::VectorXd vec_dqdt_scndry = Eigen::VectorXd::Zero(Distribution::size);
             // Contribution of EII / TBR to free-electron continuum
             auto t1 = std::chrono::high_resolution_clock::now();
             #ifdef NO_EII
