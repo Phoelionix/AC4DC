@@ -156,6 +156,15 @@ public:
     static double num_basis_funcs(){return basis.num_funcs;}
     static void initialise_dynamic_regions(DynamicGridPreset& preset){basis.initialise_regions(preset);}
 
+    Eigen::VectorXd get_basis_Sinv(const Eigen::VectorXd& deltaf) const {
+    // Solves the linear system S fdot = deltaf   (returning f dot -S.P.)
+        return basis.Sinv(deltaf);
+    }
+    // Eigen::MatrixXd get_basis_Sinv(const Eigen::MatrixXd& J) {
+    //     // Solves the linear system S fdot = deltaf
+    //     return basis.Sinv(J);
+    // }
+
 
     /**
      * @brief Returns an order-preserved copy of knots with points that overlap with the basis's boundary removed.
@@ -334,6 +343,8 @@ public:
     int container_size(){return f_array[0].size();}  
     
     static bool dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots; // TODO duct tape implementation... (eh it's ok). 
+
+
 
 private:
     std::vector<std::vector<double>> f_array;  // Spline expansion factors, placed in vector so have option to track a continuum for each element's cascades.
