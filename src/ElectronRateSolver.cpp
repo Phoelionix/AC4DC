@@ -667,7 +667,6 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot) {
 
     auto t7 = std::chrono::high_resolution_clock::now();
 
-    Eigen::VectorXd u(Distribution::size);
     
     //////applyDeltaF() collapsed loop//////
         //
@@ -679,9 +678,9 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot) {
             for (size_t _c = 1;  // Iterates through the continuum corresponding to each element's initiated cascades and adds separately. // TODO check if having the full continuum contribute to the actual calcs is better.
             #endif 
             _c < Distribution::num_continuums; _c++){
-                s.F[0][i] += vector_of_u[_c][i];
+                sdot.F[0][i] += vector_of_u[_c][i];
                 #ifndef TRACK_SINGLE_CONTINUUM
-                s.F[_c][i] += vector_of_u[_c][i];
+                sdot.F[_c][i] += vector_of_u[_c][i];
                 #endif
             }
         }
