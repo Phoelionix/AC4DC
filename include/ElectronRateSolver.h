@@ -127,7 +127,7 @@ public:
     std::chrono::duration<double, std::milli> 
     display_time, plot_time, dyn_dt_time, backup_time, pre_ode_time, // pre_ode
     dyn_grid_time, user_input_time, post_ode_time,  // post_ode
-    decay_processes_time, bound_EII_time,  bound_TBR_timeA,bound_TBR_timeB,  transport_time, eii_time, tbr_time,  // sys_bound  (sys_bound as in the function - eii_time and tbr_time correspond to free continuum calculations)
+    decay_processes_time, bound_secondary_time, transport_time, eii_time, tbr_time,  // sys_bound  (sys_bound as in the function - eii_time and tbr_time correspond to free continuum calculations)
     ee_time, apply_delta_time; //sys_ee 
 
     std::chrono::_V2::system_clock::time_point time_of_last_save;   

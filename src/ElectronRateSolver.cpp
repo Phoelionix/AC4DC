@@ -284,13 +284,13 @@ void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_
     std::vector<std::chrono::duration<double, std::milli>> times{
     display_time, plot_time, dyn_dt_time, backup_time, pre_ode_time,
     dyn_grid_time, user_input_time, post_ode_time,
-    decay_processes_time, bound_EII_time, bound_TBR_timeA,bound_TBR_timeB, transport_time, eii_time, tbr_time,
+    decay_processes_time, bound_secondary_time, transport_time, eii_time, tbr_time,
     ee_time, apply_delta_time
     };
     std::vector<std::string> tags{
     "display", "live plotting", "dt updates", "data backups", "pre_ode()",
     "dynamic grid updates", "user input detection", "post_ode()",
-    "decay processes", "loss due to EII","bound TBR off diag","bound TBR diag", "bound-e transport", "get_Q_eii()", "get_Q_tbr()",
+    "decay processes", "loss due to EII/TBR", "bound-e transport", "get_Q_eii()", "get_Q_tbr()",
     "get_Q_ee()", "applyDeltaF()"
     };
     
@@ -473,100 +473,56 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         double sdot_bound_charge_eii_subst = 0; 
         double sdot_bound_charge_tbr_subst = 0; 
         size_t N = Distribution::size; 
-        #ifndef NO_EII
         auto t11 = std::chrono::high_resolution_clock::now();
-        #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_eii_subst)
-        for (size_t n=0; n<N; n++) {                
+
+        #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_eii_subst,sdot_bound_charge_tbr_subst)     
+        for (size_t n=0; n<N; n++) {
+            double tmp=0; // aggregator
+            
+            #ifndef NO_EII
             for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
                 for (auto& finPair : RATE_EII[a][n][init]) {
-                    double tmp = finPair.val*s.F[0][n]*P[init];
+                    tmp = finPair.val*s.F[0][n]*P[init];
                     Pdot_subst[finPair.idx] += tmp;
                     Pdot_subst[init] -= tmp;
-                    sdot_bound_charge_eii_subst += tmp;   //TODO Not a minus sign like others, double check that's intentional. -S.P.
+                    sdot_bound_charge_eii_subst += tmp;   //TODO This is a positive sign, but it's negative in the TBR loops. Need to check what it should be. (this would only affect diagnostics) -S.P.
                 }
             }
-        }
-        auto t12 = std::chrono::high_resolution_clock::now();
-        bound_EII_time += t12 - t11;
-        #endif
-        #ifndef NO_TBR
-        auto t13 = std::chrono::high_resolution_clock::now();
-        //#pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_tbr_subst)
-
-        size_t num_n_m_k = 0;
-        for (size_t n=0; n<N; n++) {
-            num_n_m_k+= N-(n+1);
-        }
-        std::vector<std::vector<size_t>> n_m_k_vectors;
-        n_m_k_vectors.resize(num_n_m_k);
-        size_t tmp_idx = 0;
-        for (size_t n=0; n<N; n++) {
+            #endif
+            
+            
+            #ifndef NO_TBR
+            // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
+            // Note that RATE_TBR has the same geometry as InverseEIIdata.
             for (size_t m=n+1; m<N; m++) {
-                const size_t k = N + (N*(N-1)*0.5) - (N-n)*(N-n-1)*0.5 + m - n - 1;
-                n_m_k_vectors[tmp_idx] = std::vector<size_t> {n,m,k};
-                tmp_idx++;
-            }
-        }
-        assert(tmp_idx==num_n_m_k);
-
-
-        #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_tbr_subst)
-        for (auto& n_m_k: n_m_k_vectors){
-        // for (size_t n=0; n<N; n++) {
-        //     // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
-        //     // Note that RATE_TBR has the same geometry as InverseEIIdata.
-        //     for (size_t m=n+1; m<N; m++) {
-                //const size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
+                size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
                 // k = N... N(N+1)/2-1
                 // W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
-                // for (size_t init=0;  init<RATE_TBR[a][k].size(); init++) {
-                //     for (auto& finPair : RATE_TBR[a][k][init]) {
-                    //     #ifdef TRACK_SINGLE_CONTINUUM
-                    //     double tmp = finPair.val*s.F[0][n]*s.F[0][m]*P[init]*2;   // 0 = 0 (total continuum)
-                    //     #else
-                    //     double tmp = finPair.val*(s.F[0][n]*s.F[0][m] + s.F[0][m]*s.F[0][n])*P[init]; // as we are distinguishing the electron continuum of interest from the full continuum now.
-                    //     #endif
-                    //     Pdot_subst[finPair.idx] += tmp;
-                    //     Pdot_subst[init] -= tmp;
-                    //     sdot_bound_charge_tbr_subst -= tmp;
-                    // }     
-                // Create pairs of init and finpair to iterate over in parallel 
-                std::vector<std::pair<size_t,SparsePair*>> init_finpairs;
-                for (size_t init=0;  init<RATE_TBR[a][n_m_k[2]].size(); init++) {
-                    for (auto& finPair : RATE_TBR[a][n_m_k[2]][init]) {
-                        init_finpairs.push_back(std::pair(init, &finPair));
+                for (size_t init=0;  init<RATE_TBR[a][k].size(); init++) {
+                    for (auto& finPair : RATE_TBR[a][k][init]) {
+                        tmp = finPair.val*s.F[0][n]*s.F[0][m]*P[init]*2;  
+                        Pdot_subst[finPair.idx] += tmp;
+                        Pdot_subst[init] -= tmp;
+                        sdot_bound_charge_tbr_subst -= tmp;
                     }
                 }
-                //#pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_tbr_subst)
-                for (auto& init_finPair: init_finpairs){
-                    double tmp = (*init_finPair.second).val*s.F[0][n_m_k[0]]*s.F[0][n_m_k[1]]*P[init_finPair.first]*2;   // (total continuum)
-                    Pdot_subst[(*init_finPair.second).idx] += tmp;
-                    Pdot_subst[init_finPair.first] -= tmp;
-                    sdot_bound_charge_tbr_subst -= tmp;
-                }
             }
-        auto t14 = std::chrono::high_resolution_clock::now();
-        bound_TBR_timeA += t14 - t13;
-        auto t15 = std::chrono::high_resolution_clock::now();
-
-        // the diagonal
-        // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
-        #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_tbr_subst)
-        for (size_t n=0; n<N; n++) {
+            // the diagonal
+            // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
             for (size_t init=0;  init<RATE_TBR[a][n].size(); init++) {
                 for (auto& finPair : RATE_TBR[a][n][init]) {
-                    double tmp = finPair.val*s.F[0][n]*s.F[0][n]*P[init];
+                    tmp = finPair.val*s.F[0][n]*s.F[0][n]*P[init];
                     Pdot_subst[finPair.idx] += tmp;
                     Pdot_subst[init] -= tmp;
                     sdot_bound_charge_tbr_subst -= tmp;
                 }
             }
+            #endif
         }
         //     }
         // }
-        auto t16 = std::chrono::high_resolution_clock::now();
-        bound_TBR_timeB += t16 - t15;
-        #endif
+        auto t12 = std::chrono::high_resolution_clock::now();
+        bound_secondary_time += t12 - t11;
         // Add parallel containers to their parent containers.
         for(size_t i=0;i < Pdot.size();i++){
             Pdot[i] += Pdot_subst[i];
