@@ -1,7 +1,5 @@
 # Comparing all elements between two simulations.
 
-# lys_solvated_light_4 lys_solvated_6 lys_Gd_solvated_fast_1 lys_Gd_salt_solvated_fast_27 
-
 import matplotlib
 matplotlib.use("pgf")
 matplotlib.rcParams.update({
@@ -19,12 +17,11 @@ import os.path as path
 import os
 from QoL import set_highlighted_excepthook
 
+OCCUPANCY = True # ONLY IMPLEMENTED FOR PLOT MODE 1 CURRENTLY
 CHARGE_DIFFERENCE = False # Set True if want initially ionised species' traces to start from origin
 PLOT_DERIVATIVE = False # Plot the rate of avg charge gain
-PLOT_MODE = 2  # 0: plot all charges, 1: plot element total charges # 2: plot orbital charges
-OCCUPANCY = True # NOTE Only affects mode 1
-
 #YLIM = [0,8]
+PLOT_MODE = 1 # 1: plot element total charges # 2: plot orbital charges
 YLIM = [0,None]
 SCALE = 6
 FIGWIDTH = SCALE*2/3
@@ -34,7 +31,7 @@ XLIM = [None,None]
 #YLIM=[0,6]
 #YLIM=[20,24]
 
-ATOMS = ("C","N","O")#,"S")
+ATOM = "C"
 #ATOMS = ("Cr_LDA",)
 
 CUSTOM_LEGEND = None
@@ -45,7 +42,7 @@ def main():
 
 
     # Basic num arguments check
-    assert len(sys.argv[1:]) == 2, "Usage: python compare_ion.py <sim_handle_1> <sim_handle_2>"
+    assert len(sys.argv[1:]) > 0, "Usage: python compare_ion.py <sim_handle_1> <sim_handle_2> ..."
         
     molecular_path = path.abspath(path.join(__file__ ,"../../output/__Molecular/")) + "/"
     dname_Figures = "../../output/_Graphs/plots/"
@@ -71,33 +68,27 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,plo
     # File/directory names
     #######  
     figures_ext = "" #.png
-    for plot_mode in (PLOT_MODE,): # 0: plot all charges, 1: plot element total charges # 2: plot orbital charges
-
+    for plot_mode in (PLOT_MODE,):
         fig, axs = plt.subplots(3, 3, sharey=True, facecolor='w')
 
-        dashes = ["dashed","solid"]
-        atoms = ATOMS
+
+
         cmap = plt.get_cmap("Dark2")
-        assert len(mol_names) <= 2
+
         # Hacky way to get overlaid plots TODO
         pl = Plotter(mol_names[0],sim_output_parent_dir)
-        if plot_mode == 0:
-            pl.setup_axes(4)
-        if plot_mode == 1 or plot_mode == 2:
-            pl.setup_axes(1)
+        pl.setup_axes(1)
         for m, mol_name in enumerate(mol_names):    
             pl.__init__(mol_name,sim_output_parent_dir)       
             pl.num_plotted = 0 # ƪ（˘へ˘ ƪ）
-            if plot_mode==0:
-                pl.plot_all_charges(plot_legend=(m==0),linestyle=dashes[m])
             if plot_mode == 1:
-                colours = [cmap(i) for i in range(len(atoms))]
-                pl.plot_tot_charge(every=1,linestyle=dashes[m],colours = colours,atoms = atoms,plot_legend=(m==0),xlim=XLIM,ylim=YLIM,charge_difference=CHARGE_DIFFERENCE,plot_derivative=PLOT_DERIVATIVE,occupancy=OCCUPANCY)
+                colours = [cmap(m)]
+                pl.plot_tot_charge(every=1,colours = colours,atoms = [ATOM],plot_legend=(m==0),xlim=XLIM,ylim=YLIM,charge_difference=CHARGE_DIFFERENCE,plot_derivative=PLOT_DERIVATIVE,occupancy=OCCUPANCY)
 
             if plot_mode == 2:
-                ax = pl.plot_orbitals_charge(every=1,linestyle=dashes[m],atom = "C",plot_legend=False,xlim=XLIM,ylim=YLIM,plot_derivative=PLOT_DERIVATIVE)       
-           
-        if plot_mode == 1 or plot_mode == 2:
+                ax = pl.plot_orbitals_charge(every=1,atom = ATOM,plot_legend=False,xlim=XLIM,ylim=YLIM,plot_derivative=PLOT_DERIVATIVE)       
+            
+
             ax = pl.axs[0][0]
             if CUSTOM_LEGEND is None: 
                 ax.legend(bbox_to_anchor=(1.02, 1),loc='upper left', ncol=1,handlelength=1)  # Top right legend.
@@ -110,12 +101,11 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,plo
         plt.gcf().set_figheight(FIGHEIGHT)
         #plt.gcf().tight_layout()
         #plt.tight_layout()
-        if plot_mode == 0:
-            qualifier = "_"+ "BoundComp"
+
         if plot_mode == 1:
-            qualifier = "_"+ "ElementComp"
+            qualifier = f"_{ATOM}-Comp"
         if plot_mode == 2:
-            qualifier = "_"+ "C-OrbitalComp"
+            qualifier = f"_{ATOM}-OrbsComp"
         if PLOT_DERIVATIVE:
             qualifier+="-deriv"
         plt.savefig(figure_output_dir + label +qualifier + figures_ext,bbox_inches='tight')

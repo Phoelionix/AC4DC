@@ -38,7 +38,7 @@ class Plotter:
     # Example initialisation: Plotter(water,molecular/path)
     # --> Data is contained in molecular/path/water. 
     # Will use mol file within by default, or (with a warning) search input for matching name if none exists.  
-    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None,end_t=None,load_specific_atoms=None,sample_end_points_only=False):
+    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None,end_t=None,load_specific_atoms=None,sample_end_points_only=False,split_continuums_to_load=[],initialise=True):
         '''
         abs_molecular_path: The path to the folder containing the simulation output folder of interest.
         use_electron_density: If True, plot electron density rather than energy density
@@ -83,11 +83,17 @@ class Plotter:
         self.allow_select_same_times = False
         self.flagged_select_same_times = False
         
-        self.get_atoms(load_specific_atoms)
-        self.update_outputs()
-        self.autorun=False
-        if num_subplots is not None:
-            self.setup_axes(num_subplots)
+        if initialise:
+            self.initialise(load_specific_atoms,num_subplots,split_continuums_to_load)
+        else:
+            assert load_specific_atoms is None and num_subplots is None
+
+    def initialise(self,load_specific_atoms,num_subplots,split_continuums_to_load=[]):
+            self.get_atoms(load_specific_atoms,split_continuums_to_load)
+            self.update_outputs()
+            self.autorun=False
+            if num_subplots is not None:
+                self.setup_axes(num_subplots)
     
     def find_mol_file_from_directory(self, input_directory, mol):
         # Get molfile from all subdirectories in input folder.
@@ -125,8 +131,12 @@ class Plotter:
 
     # Reads the control file specified by self.mol['infile']
     # and populates the atomdict data structure accordingly
-    def get_atoms(self,atoms_to_load = None):
+    def get_atoms(self,atoms_to_load = None,split_continuums_to_load = []): # each split continuum is associated with a species of atoms. not loaded by default.
+        if split_continuums_to_load == 'full':
+            split_continuums_to_load = []
+        assert split_continuums_to_load is not None, "'None' is not a valid option. Use '[]' or 'full' to load just the total continuum, or 'all' to load all." 
         self.atomdict = {}
+        self.freeFiles = []
         with open(self.mol['infile'], 'r') as f:
             reading = False
             for line in f:
@@ -147,14 +157,14 @@ class Plotter:
                             'mtime': path.getmtime(file),
                             'outfile': self.outDir+"/dist_%s.csv"%a,
                             'photofile': self.outDir + "/photo_%s.csv"%a}
-                        if atoms_to_load is not None:
-                            self.freeFiles.append(self.outDir +"/freeDist_"+a+"_photo.csv")
-                            self.freeFiles.append(self.outDir +"/freeDist_"+a+"_auger.csv")
+                    if len(a) != 0  and (split_continuums_to_load == "all" or a in split_continuums_to_load):
+                        self.freeFiles.append(self.outDir +"/freeDist_"+a+"_photo.csv")
+                        self.freeFiles.append(self.outDir +"/freeDist_"+a+"_auger.csv")
         assert len(self.atomdict)>0,f"None of the elements specified - {atoms_to_load} - appear to be given in mol file" if atoms_to_load is not None else "Could not find any atoms"
-        if atoms_to_load is None:
+        if split_continuums_to_load == []:
             self.freeFiles.append(self.freeFile)
-    def update_inputs(self,load_specific_atoms=None):
-        self.get_atoms(load_specific_atoms)
+    def update_inputs(self,load_specific_atoms=None,split_continuums_to_load = []):
+        self.get_atoms(load_specific_atoms,split_continuums_to_load)
         self.mol['mtime'] = path.getmtime(self.mol['infile'])
 
     # def rerun_ac4dc(self):
@@ -699,29 +709,38 @@ class Plotter:
 
     # if single element, then continuum idx 0 is photo, continuum idx 1 is auger, continuum idx 2 is auger + photo
     def update_free(self,freeContinuumIdx):
-        if self.sample_end_points:
-            with open(self.intFile,'rb') as f:
-                lines = f.readlines()
-                raw = np.genfromtxt(lines[-self.num_sample_lines:], comments='#', dtype=np.float64)
-        else:
-            raw = np.genfromtxt(self.intFile, comments='#', dtype=np.float64)
-            tmp = []
-            try:
-                assert(len(self.freeFiles)>0)
-                for elemContinuum in self.freeFiles:
-                        tmp.append(np.genfromtxt(elemContinuum, comments='#', dtype=np.float64))
-                # append a combined version
-                if len(tmp) > 1:
-                    combined = tmp[0].copy()
-                    for r in tmp[1:]:
-                        combined += r
-                    tmp.append(combined)
+        every = 1
+        tmp = []
+        try:
+            assert(len(self.freeFiles)>0)
+            for elemContinuum in self.freeFiles:
+                if self.sample_end_points:
+                    with open(elemContinuum,'rb') as f:
+                        lines = f.readlines()
+                        raw = np.genfromtxt(lines[-self.num_sample_lines:], comments='#', dtype=np.float64)                            
+                else:
+                    with open(elemContinuum,'rb') as f:
+                        lines = np.array(f.readlines())[3::every]
+                        tmp.append(np.genfromtxt(lines, comments='#', dtype=np.float64))
+            # append a combined version
+            if len(tmp) > 1:
+                combined = tmp[0].copy()
+                for r in tmp[1:]:
+                    combined += r
+                tmp.append(combined)
 
-                raw = tmp[freeContinuumIdx]
+            raw = tmp[freeContinuumIdx]
 
-            except:
-                # In case of not tracking split continuums.
-                raw = np.genfromtxt(self.freeFile, comments='#', dtype=np.float64)
+        except:
+            # In case of not tracking split continuums.
+            if self.sample_end_points:
+                with open(self.freeFile,'rb') as f:
+                    lines = f.readlines()
+                    raw = np.genfromtxt(lines[-self.num_sample_lines:], comments='#', dtype=np.float64)
+            else:
+                with open(self.freeFile,'rb') as f:
+                    lines = f.readlines()[3::every]
+                    raw = np.genfromtxt(lines, comments='#', dtype=np.float64)
 
 
         self.freeData = raw[:,1:]
@@ -798,14 +817,35 @@ class Plotter:
     def setup_intensity_plot(self,ax,show_pulse_profile=True,col='black'):
         ax2 = ax.twinx()
         if show_pulse_profile:
-            ax2.plot(self.timeData, self.intensityData, lw = 2, c = col, ls = ':', alpha = 0.7)
+
+            #hacky thing to get consistent area
+            normed_intensity_data = self.intensityData.copy()
+            normed_intensity_data /=np.trapz(self.intensityData,self.timeData)
+            #normed_intensity_data /=  (self.timeData[1] - self.timeData[0])
+            #normed_intensity_data *= 10
+
+            normed_intensity_data/=0.07
+            print(np.max(normed_intensity_data))
+            #print(np.max(normed_intensity_data))
+
+            #normed_intensity_data /=  (self.timeData[1] - self.timeData[0]) * 15
+            #print(np.max(normed_intensity_data))
+
+            ax2.plot(self.timeData, normed_intensity_data, lw = 2, c = col, ls = ':', alpha = 0.7)
+
+            ax2.set_ylim([0,1])
+
         # ax2.set_ylabel('Pulse Intensity (photons cm$^{-2}$ s$^{-1}$)')
         ax.set_xlabel("Time (fs)")
         ax.tick_params(direction='in')
         ax2.axes.get_yaxis().set_visible(False)
         # ax2.tick_params(None)
         ax.get_xaxis().get_major_formatter().labelOnlyBase = False
-        ax2.set_ylim([0,ax2.get_ylim()[1]-ax2.get_ylim()[0]])
+
+        
+        
+        #ax2.set_ylim([0,1])
+        #ax2.set_ylim([0,(ax2.get_ylim()[1]-ax2.get_ylim()[0])*normalisation_factor])
         #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)   
         return (ax, ax2)
     
@@ -1105,7 +1145,7 @@ class Plotter:
         self.fig.subplots_adjust(left=0.2, right=0.95, top=0.95, bottom=0.2)
 
 
-    def plot_tot_charge(self, every=1,densities = False,colours=None,atoms=None,plot_legend=True,charge_difference=True,xlim=[None,None],ylim=[None,None],plot_derivative=False,legend_loc='upper left',**kwargs):
+    def plot_tot_charge(self, every=1,densities = False,colours=None,atoms=None,plot_legend=True,charge_difference=True,xlim=[None,None],ylim=[None,None],plot_derivative=False,legend_loc='upper left',occupancy=False,**kwargs):
         '''
         plot_derivative (bool), if True, plots average ionisation rate instead of average charge. 
         '''
@@ -1121,6 +1161,7 @@ class Plotter:
         if xlim[1] is not None:
             T_end = np.searchsorted(T,xlim[1])
         T = T[T_start:T_end]
+
         
         self.aggregate_charges(charge_difference)
         self.Q = np.zeros(T.shape[0]) # total charge
@@ -1138,24 +1179,30 @@ class Plotter:
             atomic_charge = np.zeros(T.shape[0])
             for i in range(self.chargeData[a].shape[1]):
                 atomic_charge += self.chargeData[a][::every,i][T_start:T_end]*i
+            occs = np.sum(self.get_orbital_data(a,None)[0],axis=0)*np.sum(self.chargeData[a][0])
             if not densities:
                 atomic_charge /= np.sum(self.chargeData[a][0])
+                occs /= np.sum(self.chargeData[a][0])
+            Y = atomic_charge
+            if occupancy:
+                Y = occs
+
             if not plot_derivative:
-                ax.plot(T,atomic_charge,**kwargs)
+                ax.plot(T,Y,**kwargs)
             else:
                 smooth = False
-                dydx = np.gradient(atomic_charge,T)
+                dydx = np.gradient(Y,T)
                 if not smooth:
                     ax.plot(T, dydx,**kwargs)
                 else:
                     w = np.zeros(len(T))
                     w+=1
                     from scipy.ndimage import uniform_filter1d
-                    spikiness = np.abs(uniform_filter1d(splev(T,splrep(T,atomic_charge,k=3,s=0),der=3),size=10))
+                    spikiness = np.abs(uniform_filter1d(splev(T,splrep(T,Y,k=3,s=0),der=3),size=10))
                     w/=np.sqrt(spikiness)
                     w /= np.median(w)
                     w[0] = 100
-                    smoothed = splev(T,splrep(T,atomic_charge,w=w,k=3,s=0.015),der=1)
+                    smoothed = splev(T,splrep(T,Y,w=w,k=3,s=0.015),der=1)
                     smoothed *= np.max(dydx)/np.max(smoothed)
                     
                     #smoothed = uniform_filter1d(atomic_charge,size=200,mode="reflect")
@@ -1177,6 +1224,7 @@ class Plotter:
 
         # Free data
         if densities:
+            assert(occupancy == False)
             de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])   
             de = de [1:] - de[:-1]
             tot_free_Q =-1*np.dot(self.freeData, de)
@@ -1189,6 +1237,7 @@ class Plotter:
             else:
                 ax.plot(T, np.gradient(self.Q,T), label='total')
                 ax.set_ylabel("dQ/dt ($e$ \AA$^{-3} \cdot fs^{-1}$)")
+
         else:
             ax.set_ylabel("Average charge")
             if plot_derivative:
@@ -1196,7 +1245,12 @@ class Plotter:
             elif charge_difference:
                 #ax.set_ylabel("Avg. charge difference")  # Sometimes we start with charged states.
                 ax.set_ylabel("Charge gain")  # Sometimes we start with charged states.
+            if occupancy:
+                ax.set_ylabel("Average occupancy")
+                assert(plot_derivative == False)
         ax.set_xlim([T[0],T[-1]])
+        #ax.set_xlim(xlim)
+
         ax.set_ylim(ylim)
         #ax.yaxis.set_ticks([0,0.2,0.4,0.6,0.8,1])
         #ax.yaxis.set_major_locator(plt.MaxNLocator(4))
@@ -1827,101 +1881,103 @@ class Plotter:
     #         pass
     #     return ax
         
-    def plot_free(self, N=100, log=True, cmin = 1e-9, cmax=None, every = None,mask_below_min=True,cmap='magma',ylim=[None,None],ymax=np.Infinity,leonov_style = False,keV=False,ylog=False,continuum=None):
+    def plot_free(self, N=100, log=True, cmin = 1e-9, cmax=None, every = None,mask_below_min=True,cmap='magma',ylim=[None,None],ymax=np.Infinity,leonov_style = False,keV=False,ylog=False,continuum=None,show_title=True,every_e = 10):
+        
+
+        old_energy_knot = self.energyKnot
+        self.energyKnot = self.energyKnot[::every_e]
         if continuum is None:
             continuum = self.num_continuums()-1  # combined continuum
-        else:
-            continuums = [continuum]
         
-        for _c in continuums:
-
-            self.update_free(_c)
-            ax = self.get_next_ax()
+        _c = continuum
+        self.update_free(_c)
+        ax = self.get_next_ax()
+        if show_title:
             if _c == self.num_continuums()-1:
                 ax.title.set_text("Combined")
             else:
                 ax.title.set_text(os.path.basename(self.freeFiles[_c]).split('.')[0])
 
-            #self.fig_free.subplots_adjust(left=0.12, top=0.96, bottom=0.16,right=0.95)
-
-            if every is None:
-                Z = self.freeData.T
-                T = self.timeData
-            else:
-                Z = self.freeData.T [:, ::every]
-                T = self.timeData [::every]
-            
-            if mask_below_min:
-                min_col = 0 
-                if leonov_style:  
-                    min_col = 20
-                    Z = np.ma.masked_where(Z <= 0,Z)
-                    Z = np.ma.masked_where(Z*4200*np.linalg.norm(np.log10(Z[Z.mask==False]))<min_col,Z) # 2550  4200 no time for math time for eye. Desperate times...
-                else:
-                    Z = np.ma.masked_where(Z <= cmin, Z)
-                cmap = plt.get_cmap(cmap)
-                cmap.set_over(cmap(np.inf))
-                cmap.set_under(cmap(min_col))    
-                cmap.set_extremes(bad=cmap(min_col))        
-                if cmax is not None:
-                    pass
-                #     Z = np.ma.masked_where(Z > max, Z)
-                else:
-                    cmax = Z.max()
-            if cmin == 0 and log:
-                cmin = Z.min()
-
-            # if log:
-            #     Z = np.log10(Z)
-
-            ax.set_facecolor('black')
-            
-            norm = colors.LogNorm(vmin=cmin, vmax=cmax)
-            if log:
-                scale = 1
-                if keV:
-                    scale = 1e-3
-                cm = ax.pcolormesh(T, self.energyKnot[self.energyKnot<ymax]*scale, Z[self.energyKnot<ymax], shading='gouraud',norm=norm,cmap=cmap,rasterized=True)
-                cbar = self.fig.colorbar(cm,ax=ax)
-            else:
-                if cmap != None:
-                    shading='gouraud'            
-                cm = ax.contourf(T, self.energyKnot, Z, N, cmap=cmap,rasterized=True)
-                cbar = self.fig.colorbar(cm,ax=ax)
-
-            if keV:
-                ax.set_ylabel("Energy (keV)")
-            else:
-                ax.set_ylabel("Energy (eV)")
-                
-            ax.set_xlabel("Time (fs)")
+        #self.fig_free.subplots_adjust(left=0.12, top=0.96, bottom=0.16,right=0.95)
+        if every is None:
+            Z = self.freeData.T[::every_e]
+            T = self.timeData
+        else:
+            Z = self.freeData.T [::every_e, ::every]
+            T = self.timeData [::every]
         
-            if ylog:
-                ax.set_yscale('log')
-            if keV:
-                ylim_modified = [y*1e-3 for y in ylim]
-            ax.set_ylim(ylim_modified)
-            if log:
-                # minval = np.floor(np.min(Z, axis=(0,1)))
-                # maxval = np.ceil(np.max(Z,axis=(0,1)))
-                # formatter = LogFormatter(10, labelOnlyBase=True) 
-                
-                # cbar.ax.yaxis.set_ticks(vals)
-                # cbar.ax.yaxis.set_ticklabels(10**vals)
-                cbar.ax.yaxis.set_ticks((1e-8,1e-7,1e-6,1e-5,1e-4))
+        if mask_below_min:
+            min_col = 0 
+            if leonov_style:  
+                min_col = 20
+                Z = np.ma.masked_where(Z <= 0,Z)
+                Z = np.ma.masked_where(Z*4200*np.linalg.norm(np.log10(Z[Z.mask==False]))<min_col,Z) # 2550  4200 no time for math time for eye. Desperate times...
             else:
-                cbar = self.fig_free.colorbar(cm)
-            #cbar.ax.set_ylabel('Free Electron Density, Å$^{-3}$', rotation=270,labelpad=20)
-            #cbar.ax.set_ylabel('Energy density (eV/Å$^{3}$)', rotation=270,labelpad=20)
-            cbar.ax.set_ylabel('Energy density (arb. u.)', rotation=270,labelpad=20)
+                Z = np.ma.masked_where(Z <= cmin, Z)
+            cmap = plt.get_cmap(cmap)
+            cmap.set_over(cmap(np.inf))
+            cmap.set_under(cmap(min_col))    
+            cmap.set_extremes(bad=cmap(min_col))        
+            if cmax is not None:
+                pass
+            #     Z = np.ma.masked_where(Z > max, Z)
+            else:
+                cmax = Z.max()
+        if cmin == 0 and log:
+            cmin = Z.min()
 
-            # plot the intensity
-            ax2 = ax.twinx()
-            ax2.plot(T, self.intensityData[::every],'w:',linewidth=1)
+        # if log:
+        #     Z = np.log10(Z)
 
-            ax2.get_yaxis().set_visible(False)
-            ax2.set_ylim([0,ax2.get_ylim()[1]-ax2.get_ylim()[0]])
+        ax.set_facecolor('black')
+        
+        norm = colors.LogNorm(vmin=cmin, vmax=cmax)
+        if log:
+            scale = 1
+            if keV:
+                scale = 1e-3
+            cm = ax.pcolormesh(T, self.energyKnot[self.energyKnot<ymax]*scale, Z[self.energyKnot<ymax], shading='gouraud',norm=norm,cmap=cmap,rasterized=True)
+            cbar = self.fig.colorbar(cm,ax=ax)
+        else:
+            if cmap != None:
+                shading='gouraud'            
+            cm = ax.contourf(T, self.energyKnot, Z, N, cmap=cmap,rasterized=True)
+            cbar = self.fig.colorbar(cm,ax=ax)
 
+        if keV:
+            ax.set_ylabel("Energy (keV)")
+        else:
+            ax.set_ylabel("Energy (eV)")
+            
+        ax.set_xlabel("Time (fs)")
+    
+        if ylog:
+            ax.set_yscale('log')
+        if keV:
+            ylim_modified = [y*1e-3 for y in ylim]
+        ax.set_ylim(ylim_modified)
+        if log:
+            # minval = np.floor(np.min(Z, axis=(0,1)))
+            # maxval = np.ceil(np.max(Z,axis=(0,1)))
+            # formatter = LogFormatter(10, labelOnlyBase=True) 
+            
+            # cbar.ax.yaxis.set_ticks(vals)
+            # cbar.ax.yaxis.set_ticklabels(10**vals)
+            cbar.ax.yaxis.set_ticks((1e-8,1e-7,1e-6,1e-5,1e-4))
+        else:
+            cbar = self.fig_free.colorbar(cm)
+        #cbar.ax.set_ylabel('Free Electron Density, Å$^{-3}$', rotation=270,labelpad=20)
+        #cbar.ax.set_ylabel('Energy density (eV/Å$^{3}$)', rotation=270,labelpad=20)
+        cbar.ax.set_ylabel('Energy density (arb. u.)', rotation=270,labelpad=20)
+
+        # plot the intensity
+        ax2 = ax.twinx()
+        ax2.plot(T, self.intensityData[::every],'w:',linewidth=1)
+
+        ax2.get_yaxis().set_visible(False)
+        ax2.set_ylim([0,ax2.get_ylim()[1]-ax2.get_ylim()[0]])
+
+        self.energyKnot = old_energy_knot
     # Plots a single point in time.
     def initialise_step_slices_ax(self):
         self.ax_steps = self.get_next_ax()

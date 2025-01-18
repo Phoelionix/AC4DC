@@ -20,11 +20,21 @@ set -x
 
 #############################
 
+#./ac4dc_split input/lysozyme/lys_Gd_salt_solvated_fast
+#./ac4dc_split input/lysozyme/lys_solvated_light
+# ./ac4dc_split input/lysozyme/lys_Gd_solvated_fast
+
+# ./ac4dc input/lysozyme/lys_solvated
+# ./ac4dc input/lysozyme/lys_Gd_salt_solvated
+# ./ac4dc input/lysozyme/lys_Gd_solvated
+
+./ac4dc input/lysozyme/lys_Gd_solvated
+./ac4dc input/lysozyme/lys_Gd_salt_solvated # if above works there might be a new memory leak in the code
 #./ac4dc input/nass/nass_probe_0
 #./ac4dc input/nass/nass_probe_35
 #./ac4dc input/nass/nass_probe_62
-./ac4dc input/I3C/I3C_5fs_olaf
-./ac4dc input/I3C/I3C_20fs_olaf
+# ./ac4dc input/I3C/I3C_5fs_olaf
+# ./ac4dc input/I3C/I3C_20fs_olaf
 
 
 

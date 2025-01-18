@@ -25,8 +25,10 @@ from QoL import set_highlighted_excepthook
 ####
 ELECTRON_DENSITY = False # Whether to use electron density for free distribution plots. Energy density if False
 ###
-PLOT_ELEMENT_CHARGE= False #
-PLOT_FREE_CONTINUUM = True
+PLOT_ELEMENT_CHARGE= True #
+PLOT_FREE_CONTINUUM = False
+PLOT_SPLIT_FREE_CONTINUUMS = False
+PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = False
 PLOT_FREE_SLICES=False
 PLOT_ION_RATIOS=False
 PLOT_ION_RATIOS_BARS= False
@@ -39,12 +41,15 @@ COLUMNWIDTH = 3.4975
 # FIGWIDTH = COLUMNWIDTH#/2
 # FIGHEIGHT = FIGWIDTH*1/2#*9/16
 
-FIGWIDTH = COLUMNWIDTH*1.1
-FIGHEIGHT = FIGWIDTH*9/16
+#FIGWIDTH = COLUMNWIDTH*1.1
+#FIGHEIGHT = FIGWIDTH*9/16
+COLWIDTH = COLUMNWIDTH*1.1
+ROWHEIGHT = COLWIDTH*9/16
 
 # FIGWIDTH = COLUMNWIDTH/2
 # FIGHEIGHT = FIGWIDTH*9/16
 
+#DPI = 100
 DPI = 800
 ##
 END_T = None
@@ -70,15 +75,20 @@ def main():
     assert valid_folder_names, "One or more arguments (directory names) were not present in the output folder."
     for data_folder in sys.argv[1:]:
         label = data_folder +'_Plt'
-        make_some_plots(data_folder,molecular_path,label,dname_Figures,PLOT_ELEMENT_CHARGE,PLOT_ION_RATIOS,PLOT_FREE_CONTINUUM,PLOT_FREE_SLICES,PLOT_ION_RATIOS_BARS,PLOT_ORBITAL_DENSITIES,PLOT_PHOTO_RATES)
+        make_some_plots(data_folder,molecular_path,label,dname_Figures,PLOT_ELEMENT_CHARGE,PLOT_ION_RATIOS,PLOT_FREE_CONTINUUM,PLOT_FREE_SLICES,PLOT_ION_RATIOS_BARS,PLOT_ORBITAL_DENSITIES,PLOT_PHOTO_RATES,PLOT_SPLIT_FREE_CONTINUUMS,PLOT_COMBINED_SPLIT_FREE_CONTINUUMS)
 
-def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot_charge=False,bound_ionisation=False,free=False,free_slices=False,bound_ionisation_bar=False,orbital_densities_bar=False,photo_rates = False):
+def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot_charge=False,bound_ionisation=False,free=False,free_slices=False,bound_ionisation_bar=False,orbital_densities_bar=False,photo_rates = False,split_free=False,combined_split_free=False):
     '''
     Arguments:
     mol_name: The name of the folder containing the simulation's data (the csv files). (By default this is the stem of the mol file.)
     sim_data_parent_dir: absolute path to the folder containing the folders specified by target_handles.
     '''    
     
+    # extra homeless options
+    load_specific_atoms = ["C","N","O","S","Gd_fast"]#["Gd_fast"] #["C"]#["Fe_singleShell","C"] #None #["C","N","O"] #If plotting free dsitribution, will plot only those specified here. 
+    split_continuums_to_load = [] #["Gd_fast"] #["C"]#["Fe_singleShell","C"]  # None is not valid. Use "[]"  
+
+
     ############
     # File/directory names
     #######  
@@ -87,25 +97,42 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     fname_free = "free"
     fname_HR_style = "HR_style"
     fname_bound_dynamics = "bound_dynamics"
-    load_specific_atoms = ["C"] #["C"]#["Fe_singleShell","C"] #None #["C","N","O"] #If plotting free dsitribution, will plot only those specified here. If None is specified, will just use the full continuum freeDist.csv.
+
+    
+    
+    
+    ##############
+    if combined_split_free or split_free:
+        assert split_continuums_to_load == "all" or len(split_continuums_to_load)  > 0    
+    
     if load_specific_atoms is not None:
         label+="_"
         for elem in load_specific_atoms:
             label+=elem
+    pl = Plotter(mol_name,sim_output_parent_dir,use_electron_density = ELECTRON_DENSITY,end_t = END_T,
+                 initialise=False)
+    pl.get_atoms(load_specific_atoms,split_continuums_to_load) # so that plotter knows num continuums
+    
 
-    pl = Plotter(mol_name,sim_output_parent_dir,use_electron_density = ELECTRON_DENSITY,end_t = END_T,load_specific_atoms=load_specific_atoms)
     num_atoms = len(pl.statedict)
-    num_subplots = tot_charge + free_slices + bound_ionisation_bar + (bound_ionisation+ orbital_densities_bar+ photo_rates)*num_atoms 
-    num_subplots+= free*pl.num_continuums()
-    #num_subplots+= free
-    pl.setup_axes(num_subplots)
+    num_subplots = tot_charge + free_slices + bound_ionisation_bar + (bound_ionisation+ orbital_densities_bar+ photo_rates)*num_atoms + free + combined_split_free + split_free*pl.num_continuums()
+
+
+    if free:
+        pl.initialise(None,num_subplots,"full") # Load full continuum. 
+        pl.plot_free(log=True,ylog=False,cmin=10**(-8),cmax=10**(-3.609),ylim=[0,8000],keV=True,show_title=False)
+        pl.update_inputs(load_specific_atoms=load_specific_atoms,split_continuums_to_load=split_continuums_to_load)
+    else:
+        pl.initialise(load_specific_atoms,num_subplots,split_continuums_to_load,)
+
     if num_subplots > 1:
         pl.fig.tight_layout()
-        pl.fig.subplots_adjust(left=0.12/pl.axs.shape[0], bottom=None, right=None, top=None, wspace=0.2, hspace=None)
+        pl.fig.subplots_adjust(left=0.12/pl.axs.shape[0], bottom=None, right=None, top=None, wspace=0.2, hspace=0.2)#hspace=None)
 
     if tot_charge: 
         #NOTE ensure load_specific_atoms is None or does not exclude `atoms` if `atoms` is passed.
         pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=False,legend_loc="best")  
+        #pl.plot_tot_charge(ylim=[None,None],xlim=[-18,18],every=1,charge_difference=False,legend_loc="best")  
         #pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O"])  
         #pl.plot_tot_charge(ylim=[0,6],every=1,charge_difference=False,legend_loc="best",atoms=["C","N","O"])  
         #pl.plot_tot_charge(ylim=[0,6],plot_legend=False,every=1,charge_difference=True,legend_loc="best")  
@@ -142,17 +169,25 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         # pl.plot_charges_leonov_style("Si",show_pulse_profile=True,xlim=[-20,20],ylim=[0,1.099])
         # pl.fig.set_figwidth(6.662*0.7)  
         # pl.fig.set_figheight(6*0.7)  
-        
-    if free:
+    every_e = 1 # every nth energy plotted.
+    every_t = 1
+
+    if combined_split_free:
+        pl.plot_free(log=True,ylog=False,cmin=10**(-8),cmax=10**(-3.609),ylim=[0,8000],keV=True,show_title=False,every=every_t,every_e=every_e)
+    if split_free:
         #pl.plot_free(log=True,cmin=10**(-7.609),cmax=1e-3,ylim=[10,8000])
-        for _c in range(pl.num_continuums()):
-            pl.plot_free(log=True,ylog=False,cmin=10**(-8),cmax=10**(-3.609),ylim=[0,8000],keV=True,continuum=_c)
-        pl.fig.tight_layout()
+        for _c in range(pl.num_continuums()-2):
+            print(_c)
+            pl.plot_free(log=True,ylog=False,cmin=10**(-8),cmax=10**(-3.609),ylim=[0,8000],keV=True,continuum=_c,every=every_t,every_e=every_e)
+
+
+
         # #Leonov
         # ymax = 9e3
         # pl.plot_free(log=True, cmin=10**(-6.609),cmax = 10**(-2), every=5,mask_below_min=True,cmap='turbo',ymax=ymax,leonov_style=True)
         # pl.fig.set_figwidth(6.662*0.7*1.16548042705)  
         # pl.fig.set_figheight(6*0.7)      
+
     if free_slices:
         pl.initialise_step_slices_ax()
         from plotter_core import fit_maxwell, maxwell
@@ -290,17 +325,12 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     # pl.ax_steps.set_xlim([0,1800])
     # pl.ax_steps.set_ylim([0.5e-4,0.5])
     pl.delete_remaining_axes()
-    plt.gcf().set_figheight(FIGHEIGHT*pl.axs.shape[1])
+    plt.gcf().set_figwidth(COLWIDTH*pl.axs.shape[0])
+    plt.gcf().set_figheight(ROWHEIGHT*pl.axs.shape[1])
 
-    if num_subplots > 2:
-        plt.gcf().set_figwidth(FIGWIDTH*pl.axs.shape[0])
-    # elif num_subplots == 2:
-    #     plt.gcf().set_figheight(FIGHEIGHT*pl.axs.shape[0])
-    else:
-        plt.gcf().set_figwidth(FIGWIDTH)
-        plt.gcf().set_figheight(FIGHEIGHT)          
+
     #plt.tight_layout()
-    plt.savefig(figure_output_dir + label + figures_ext,dpi=DPI)
+    plt.savefig(figure_output_dir + label + figures_ext,dpi=DPI,bbox_inches='tight')
     plt.close()
 
 if __name__ == "__main__":

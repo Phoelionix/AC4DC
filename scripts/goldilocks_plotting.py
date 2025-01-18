@@ -38,7 +38,7 @@ import imaging_params
 FIGWIDTH_FACTOR = 1
 FIGWIDTH = 3.49751 *FIGWIDTH_FACTOR
 FIGHEIGHT = FIGWIDTH*3/4
-FIT = True
+FIT = False
 IGNORE_MISSING_SIMULATIONS = True  # If False, throws an error if not all specified simulations in the batch(es) are found.
 
 matplotlib.rcParams.update({
@@ -51,26 +51,26 @@ matplotlib.rcParams.update({
 
 
 ####### User parameters #########
-INDEP_VARIABLE = 0 # | 0: energy of photons |1: Energy separation from edge given in edge_dict |2: Artificial electron source energy
-DEP_VARIABLE = 1 # | 0: mean carbon charge, either integrated over intensity or at end of pulse ) | 1: R factors (performs scattering simulations for each) |
-BATCH = 0 #| 0: Real elements | 1: Electron source. 
+INDEP_VARIABLE = 2 # | 0: energy of photons |1: Energy separation from edge given in edge_dict |2: Artificial electron source energy
+DEP_VARIABLE = 0 # | 0: mean carbon charge, either integrated over intensity or at end of pulse ) | 1: R factors (performs scattering simulations for each) |
+BATCH = 1 #| 0: Real elements | 1: Electron source. 
 
 ## Subcategories of dependent variables
 INTENSITY_AVERAGED = True # Used if DEP_VARIABLE = 0 (average charge). | False: Average carbon charge at the simulation's termination | True: Average charge throughout the pulse, weighted by the pulse profile -- NOT the same as the mean "observed" charge by elastic scattering, as does not account for loss of scattering power. 
 SCATTERING_TARGET = 0 # Used if DEP_VARIABLE = 1.  | 0: unit lysozyme (light atoms) | 1: 3x3x3 lysozyme (light atoms no solvent)|
 
 ## Graphical
-LEGEND = True
+LEGEND = False
 LABEL_TIMES = False # Set True to graphically check simulation end times are all aligned
 DPI = 800
 MAX_TICKS = 5
 
 ## Numerical
 
-NORMALISING_STEM = None#"SH2_N_1e12" #"SH_N" # None  #Stem (str) to normalise traces by. (s.t. normalised trace becomes horizontal line). If None, does not normalise.
+NORMALISING_STEM = None#"ES_C-NOSOURCE"#"SH2_N_1e12" #"SH_N" # None  #Stem (str) to normalise traces by. (s.t. normalised trace becomes horizontal line). If None, does not normalise.
 SUBTRACT_NORMALISING_STEM = True # If false, divide
 #NORMALISING_STEM = "SH_N"
-ylim=[None,None]
+ylim=[0,0.8]
 CUSTOM_YLABEL = None#"$R_{dmg}^{CNO,Zn}-R_{dmg}^{CNO}$"
 #ylim=[None,2.3-0.7]
 #CUSTOM_YLABEL = None
@@ -100,7 +100,8 @@ if INDEP_VARIABLE is EDGE_SEPARATION:
     xlim[1] = 18#8.5
 if INDEP_VARIABLE is ELECTRON_SOURCE_ENERGY:
     #xlim = [None,None]
-    xlim = [0,15]
+    xlim=[0,15]
+    #xlim = [0,18]
 
 
 
@@ -167,7 +168,7 @@ if BATCH is REAL_ELEMENTS:
     }
     HF_10fs = {}
     LF_10fs = {} 
-    stem_dict = tmp
+    stem_dict = HF_15fs # CHOOSE THE DICTIONARY HERE
 
 same_targets_dict = dict(
     SH2_N=["SH2_N_1e12",], 
@@ -427,6 +428,8 @@ def plot(batches,label,figure_output_dir,mode = 0):
                         if SUBTRACT_NORMALISING_STEM:
                             Y[i]-=elem[1]
                         else:
+                            print(Y[i])
+                            print(elem[1])
                             Y[i]/=elem[1]
                             print(stem)
                             print("ASDASD")
@@ -443,24 +446,26 @@ def plot(batches,label,figure_output_dir,mode = 0):
                 _label+="$^{"+str(ground_charge_dict[stem])+"+}$"
             elif ground_charge_dict[stem]==1:
                 _label+="$^{+}$"
-            if dopant == "N":
-                _label = "Lysozyme"
-            else:
-                _label = "Lysozyme.Se"
+            # if dopant == "N":
+            #     _label = "Lysozyme"
+            # else:
+            #     _label = "Lysozyme.Se" 
         if BATCH is ELECTRON_SOURCE:
             _label = "\,Source"
         print(mol_name)
         if stem is NORMALISING_STEM:
             continue
         
-        if _label == "Lysozyme":
-            ax.scatter(X,Y,label=_label,color = cmap(c))
-        else:
-            ax.scatter(X,Y,label=_label,color = cmap(c),marker=",")
+        ax.scatter(X,Y,label=_label,color = cmap(c))
+        # if _label == "Lysozyme":
+        #     ax.scatter(X,Y,label=_label,color = cmap(c))
+        # else:
+        #     ax.scatter(X,Y,label=_label,color = cmap(c),marker=",")
         
         k =2 # Spline order
         if FIT and len(X)>=k+1:
             ordered_dat = sorted(zip(X,Y))
+            print(ordered_dat)
             # Split dataset with ionisation edge of dopant
             split_idxes = [0]
             if INDEP_VARIABLE is PHOTON_ENERGY:

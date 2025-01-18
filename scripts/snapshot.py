@@ -18,6 +18,16 @@ from types import SimpleNamespace
 from interactive_handler import generate_graphs
 from copy import deepcopy
 
+
+HIDE_Y_TICKS = False # in case issue with y ticks causing inconsistent canvas size...
+
+
+# might have to fiddle a little to get graph canvas to extend to top...
+ymax = 0.0024 # -10 fs
+#ymax = 0.015 # 0 fs
+#ymax = 0.03 # 10 fs
+
+
 P = SimpleNamespace()
 P.NORMALISE = False
 P.ELECTRON_DENSITY = False # if False, use energy density  
@@ -27,14 +37,20 @@ P.SINGLE_FRAME = True # Save a png using plotly .
 P.NAMING_MODE = 1  # For legend. 0: full details of sim parameters + sim name | 1: elements in sim| 
 P.SCALE_DENSITY_BY_THOUSAND = True # Use cubic nm rather than cubic angstrom for measuring energy density  
 P.POINTS = 70
+
+width_factor = 1
+if HIDE_Y_TICKS:
+    width_factor *= 0.97
 P.SINGLE_FRAME_DICT = dict(
     # In inches
-    width = (7.24409436834*2/3),#3.49751*2*3/5,
+    width = (7.24409436834*2/3*width_factor),#3.49751*2*3/5,
     height = 7.24409436834/3, #3.49751*2/3
     line_width = 2,
     font_size = 10,
     superscript_font_size = 8,
     
+    pad=100,
+
     show_legend = False, 
 
     ylog = False, # < uses linear scale if False 
@@ -45,8 +61,12 @@ P.SINGLE_FRAME_DICT = dict(
     
     #times = [-10],
     #y_range = [0,0.0014], # -10 fs
-    times = [0],
-    y_range = [0,0.009], # 0 fs
+    #y_range = [0,0.0025], # -10 fs solvated
+    #y_range = [0,0.001], # -10 fs intermediate
+    #times = [0],
+    #y_range = [0,0.009], # 0 fs
+    #y_range = [0,0.014], # 0 fs solvated
+    y_range = [0,ymax],
     x_range = [None,7500], # (use [None,None] for default)
 )
 P.INSET = True #False
@@ -75,9 +95,11 @@ P.INSET_DICT = dict(
         ),
     ),
 )
+if HIDE_Y_TICKS:
+    P.INSET_DICT['axes_kwargs']['yaxis']=dict(showticklabels=False)
 
 if  len(sys.argv) < 3:
-    print("Usage: Generate snapshots at some number of times, e.g. t = -10 and t = 0, with: 'python3 scripts/"+path.basename(__file__)+" lysozyme_3 tetrapeptide_1 -10 0'")
+    print("Usage: Generate snapshots at some number of times, e.g. t = -10 and t = 0, with: 'python3 scripts/"+path.basename(__file__)+" lysozyme_3 tetrapeptide_1 -10 0 10'")
     exit()
 n=0
 for k in sys.argv:
@@ -99,6 +121,6 @@ for snapshot_t in sys.argv[n:]:
 
 
 ############### Scratchpad
-#python3.9 scripts/generate_interactive.py carbon_classic_static carbon_classic_dynamic
-#python3.9 scripts/generate_interactive.py lys_nass_no_S_3 lys_nass_gauss lys_nass_Gd_full_1 
 #python3.9 scripts/generate_snapshot.py lys_nass_no_S_3 lys_nass_gauss lys_nass_Gd_gauss_1 
+
+# python3.9 scripts/snapshot.py lys_solvated_light_4 lys_solvated_6 lys_Gd_solvated_fast_1 lys_Gd_salt_solvated_fast_27 -10 0 10

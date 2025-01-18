@@ -103,6 +103,7 @@ def generate_graphs(param_dictionary,sys_argv=None):
     assert P.ELECTRON_DENSITY is False, "Electron density not implemented yet, need to take in dynamic knots." #TODO
     if P.INSET:
         assert P.SINGLE_FRAME,"Inset only supported with single frame at present" 
+
     set_highlighted_excepthook()
     graph_folder = path.abspath(path.join(__file__ ,"../../output/_Graphs/")) + "/" 
 
@@ -336,7 +337,7 @@ def snapshot(P,target_handles,sim_data_parent_dir,fname_out,outdir):
     if P.SINGLE_FRAME_DICT["ylog"]:
         y_args = ylog_args 
 
-    # Adjust layout to suit a static figure.
+        # Adjust layout to suit a static figure.
 
     for i, key in enumerate(["x_range","y_range"]):
         for j in range(2):
