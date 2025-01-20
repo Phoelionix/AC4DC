@@ -25,14 +25,14 @@ from QoL import set_highlighted_excepthook
 ####
 ELECTRON_DENSITY = False # Whether to use electron density for free distribution plots. Energy density if False
 ###
-PLOT_ELEMENT_CHARGE= True #
-PLOT_FREE_CONTINUUM = False
-PLOT_SPLIT_FREE_CONTINUUMS = False
-PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = False
+PLOT_ELEMENT_CHARGE= False #
+PLOT_FREE_CONTINUUM = True
+PLOT_SPLIT_FREE_CONTINUUMS = True
+PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = True
 PLOT_FREE_SLICES=False
 PLOT_ION_RATIOS=False
 PLOT_ION_RATIOS_BARS= False
-PLOT_ORBITAL_DENSITIES = False #
+PLOT_ORBITAL_DENSITIES = True #
 PLOT_PHOTO_RATES = False
 ###
 COLUMNWIDTH = 3.4975
@@ -86,7 +86,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     
     # extra homeless options
     load_specific_atoms = ["C","N","O","S","Gd_fast"]#["Gd_fast"] #["C"]#["Fe_singleShell","C"] #None #["C","N","O"] #If plotting free dsitribution, will plot only those specified here. 
-    split_continuums_to_load = [] #["Gd_fast"] #["C"]#["Fe_singleShell","C"]  # None is not valid. Use "[]"  
+    split_continuums_to_load = "all" #["Gd_fast"] #["C"]#["Fe_singleShell","C"]  # None is not valid. Use "[]"  
 
 
     ############
@@ -112,9 +112,8 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     pl = Plotter(mol_name,sim_output_parent_dir,use_electron_density = ELECTRON_DENSITY,end_t = END_T,
                  initialise=False)
     pl.get_atoms(load_specific_atoms,split_continuums_to_load) # so that plotter knows num continuums
-    
 
-    num_atoms = len(pl.statedict)
+    num_atoms = len(pl.atomdict)
     num_subplots = tot_charge + free_slices + bound_ionisation_bar + (bound_ionisation+ orbital_densities_bar+ photo_rates)*num_atoms + free + combined_split_free + split_free*pl.num_continuums()
 
 
@@ -177,7 +176,6 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     if split_free:
         #pl.plot_free(log=True,cmin=10**(-7.609),cmax=1e-3,ylim=[10,8000])
         for _c in range(pl.num_continuums()-2):
-            print(_c)
             pl.plot_free(log=True,ylog=False,cmin=10**(-8),cmax=10**(-3.609),ylim=[0,8000],keV=True,continuum=_c,every=every_t,every_e=every_e)
 
 
