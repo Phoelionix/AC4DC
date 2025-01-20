@@ -1,4 +1,4 @@
-# Comparing all elements between two simulations.
+# Comparing evolution of element average charges between multiple simulations.
 
 import matplotlib
 matplotlib.use("pgf")
