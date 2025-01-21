@@ -27,8 +27,8 @@ ELECTRON_DENSITY = False # Whether to use electron density for free distribution
 ###
 PLOT_ELEMENT_CHARGE= False #
 PLOT_FREE_CONTINUUM = True
-PLOT_SPLIT_FREE_CONTINUUMS = False
-PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = False
+PLOT_SPLIT_FREE_CONTINUUMS = True
+PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = True
 PLOT_FREE_SLICES=False
 PLOT_ION_RATIOS=False
 PLOT_ION_RATIOS_BARS= False
@@ -172,7 +172,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     every_t = 1
 
     if combined_split_free:
-        pl.plot_free(log=True,ylog=False,cmin=10**(-8),cmax=10**(-3.609),ylim=[0,8000],keV=True,show_title=False,every=every_t,every_e=every_e)
+        pl.plot_free(log=True,ylog=False,cmin=10**(-8),cmax=10**(-3.609),ylim=[0,8000],keV=True,every=every_t,every_e=every_e)
     if split_free:
         #pl.plot_free(log=True,cmin=10**(-7.609),cmax=1e-3,ylim=[10,8000])
         for _c in range(pl.num_continuums()-1):
