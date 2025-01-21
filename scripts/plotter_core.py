@@ -67,7 +67,7 @@ class Plotter:
         # Outputs
         self.outDir = self.molecular_path + data_folder_name
         self.freeFile = self.outDir +"/freeDist.csv"
-        self.freeFiles = []  # Distributions for each element's cascdes (and the total one given by self.freeFile).
+        self.split_freeFiles = []  # Distributions for each element's cascdes (and the total one given by self.freeFile).
         self.intFile = self.outDir + "/intensity.csv"
         self.gridFile = self.outDir + "/knotHistory.csv"
 
@@ -78,6 +78,8 @@ class Plotter:
         self.intensityData=None
         self.energyKnot=None
         self.timeData=None
+
+        self.split_continuums_mode = None  
 
 
         self.allow_select_same_times = False
@@ -136,7 +138,7 @@ class Plotter:
             split_continuums_to_load = []
         assert split_continuums_to_load is not None, "'None' is not a valid option. Use '[]' or 'full' to load just the total continuum, or 'all' to load all." 
         self.atomdict = {}
-        self.freeFiles = []
+        self.split_freeFiles = []
         with open(self.mol['infile'], 'r') as f:
             reading = False
             for line in f:
@@ -158,11 +160,12 @@ class Plotter:
                             'outfile': self.outDir+"/dist_%s.csv"%a,
                             'photofile': self.outDir + "/photo_%s.csv"%a}
                     if len(a) != 0  and (split_continuums_to_load == "all" or a in split_continuums_to_load):
-                        self.freeFiles.append(self.outDir +"/freeDist_"+a+"_photo.csv")
-                        self.freeFiles.append(self.outDir +"/freeDist_"+a+"_auger.csv")
+                        self.split_freeFiles.append(self.outDir +"/freeDist_"+a+"_photo.csv")
+                        self.split_freeFiles.append(self.outDir +"/freeDist_"+a+"_auger.csv")
         assert len(self.atomdict)>0,f"None of the elements specified - {atoms_to_load} - appear to be given in mol file" if atoms_to_load is not None else "Could not find any atoms"
-        if split_continuums_to_load == []:
-            self.freeFiles.append(self.freeFile)
+        
+        self.split_continuums_mode = split_continuums_to_load != []
+
     def update_inputs(self,load_specific_atoms=None,split_continuums_to_load = []):
         self.get_atoms(load_specific_atoms,split_continuums_to_load)
         self.mol['mtime'] = path.getmtime(self.mol['infile'])
@@ -705,45 +708,58 @@ class Plotter:
 
 
     def num_continuums(self):
-        return len(self.freeFiles)+1 # last continuum is all the free files combined
+        return len(self.split_freeFiles)+1 # last continuum is all the free files combined
 
     # if single element, then continuum idx 0 is photo, continuum idx 1 is auger, continuum idx 2 is auger + photo
     def update_free(self,freeContinuumIdx):
+        if self.split_continuums_mode:
+            assert(len(self.split_freeFiles)>0)
+        else:
+            assert(len(self.split_freeFiles)==0)
+
+        for elemContinuum in self.split_freeFiles:
+            if self.split_continuums_mode:
+                assert path.isfile(elemContinuum), f"expected split continuum file ({elemContinuum}) could not be found. Perhaps tracking separate continuums was disabled?"
+            else:
+                assert path.isfile(elemContinuum), f"expected freeDist.csv file ({elemContinuum}) could not be found."
+
         every = 1
-        tmp = []
-        try:
-            assert(len(self.freeFiles)>0)
-            for elemContinuum in self.freeFiles:
-                if self.sample_end_points:
-                    with open(elemContinuum,'rb') as f:
-                        lines = f.readlines()
-                        raw = np.genfromtxt(lines[-self.num_sample_lines:], comments='#', dtype=np.float64)                            
-                else:
-                    with open(elemContinuum,'rb') as f:
-                        lines = np.array(f.readlines())[3::every]
-                        tmp.append(np.genfromtxt(lines, comments='#', dtype=np.float64))
-            # append a combined version
-            if len(tmp) > 1:
+
+        def get_continuum_data(continuum_file_idx=None):
+            if self.split_continuums_mode:
+                elemContinuum = self.split_freeFiles[continuum_file_idx]
+            else:
+                elemContinuum = self.freeFile
+            if self.sample_end_points:
+                with open(elemContinuum,'rb') as f:
+                    lines = f.readlines()
+                    raw_data = np.genfromtxt(lines[-self.num_sample_lines:], comments='#', dtype=np.float64)                            
+            else:
+                with open(elemContinuum,'rb') as f:
+                    lines = f.readlines()[3::every]
+                    raw_data = np.genfromtxt(lines, comments='#', dtype=np.float64)
+            return raw_data
+        if self.split_continuums_mode:
+            # specific split continuum
+            if 0 <= freeContinuumIdx < len(self.split_freeFiles):
+                raw = get_continuum_data(freeContinuumIdx)
+            
+            # Combined continuum (different to freeDist.csv, this is all the split continuums specified, combined.)
+            elif freeContinuumIdx == len(self.split_freeFiles):
+                tmp = []
+                for i in range(len(self.split_freeFiles)):
+                    tmp.append(get_continuum_data(i))
                 combined = tmp[0].copy()
                 for r in tmp[1:]:
                     combined += r
-                tmp.append(combined)
-
-            raw = tmp[freeContinuumIdx]
-
-        except:
-            # In case of not tracking split continuums.
-            if self.sample_end_points:
-                with open(self.freeFile,'rb') as f:
-                    lines = f.readlines()
-                    raw = np.genfromtxt(lines[-self.num_sample_lines:], comments='#', dtype=np.float64)
+                raw = combined
             else:
-                with open(self.freeFile,'rb') as f:
-                    lines = f.readlines()[3::every]
-                    raw = np.genfromtxt(lines, comments='#', dtype=np.float64)
-
+                raise Exception("Invalid free continuum index")
+        else:
+            raw = get_continuum_data()
 
         self.freeData = raw[:,1:]
+
 
     def update_outputs(self):
         
@@ -1035,7 +1051,7 @@ class Plotter:
         old_ytop = ax.get_ylim()[1]
         ax.set_ylim([-0.5,len(Y)-0.5])
 
-    def plot_orbitals_bar(self, atoms = None, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],orbitals=None,normalise=False,atoms_excluded = None,label_all_yaxes=False,**kwargs):
+    def plot_orbitals_bar(self, atoms = None, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],orbitals=None,normalise=False,atoms_excluded = None,label_all_yaxes=False,show_title=True,**kwargs):
         if atoms is None: 
             atoms = self.atomdict
             if atoms_excluded is not None:
@@ -1057,6 +1073,19 @@ class Plotter:
             ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))                        
 
             Z,labels = self.get_orbital_data(a,orbitals)
+            
+            # identify single shells (assuming they have l = 1), replacing "p" with "N"
+            # i.e. labels of 1s 2p 3p become 1s 2N 3N
+            num_changed = 0
+            for i, label in enumerate(labels):
+                if i > 0:
+                    if label[-1] == "p" and labels[i-1] != label[:-1]+"s":
+                        labels[i] = labels[i][:-1] + "N" 
+                        num_changed+=1
+            # if all shells have been labelled as N, label 1s as 1N
+            if num_changed == len(labels)-1:
+                labels[0] = labels[0][:-1] + "N" 
+
             Y = range(len(Z))
             if normalise:
                 Z = np.array(Z)[:]/np.array(Z)[:,0][:,None]
@@ -1078,6 +1107,13 @@ class Plotter:
             #ax.set_xticks(np.arange(-15,0.1,5))
             if show_pulse_profile:   
                 ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
+
+            # cbar cases that haven't been manually handled
+            if len(atoms) > 2:
+                cbar = self.fig.colorbar(cm,ax=ax,label=z_label,format="%.1f",)  
+            if show_title:
+                ax.set_title(z_label)
+
         if len(atoms) == 2:
             cbar_ax = self.fig.add_axes([0.9, 0.492, 0.02, 0.433])
             cbar = self.fig.colorbar(cm, cax=cbar_ax)
@@ -1087,8 +1123,7 @@ class Plotter:
             cbar = self.fig.colorbar(cm, cax=cbar_ax)
             plt.subplots_adjust(left=0.105, right=0.875, top=0.93, bottom=0)
 
-        else:
-            cbar = self.fig.colorbar(cm,ax=ax,label=z_label,format="%.1f",)        
+      
         
 
     def get_orbital_data(self,a,orbitals):
@@ -1896,7 +1931,7 @@ class Plotter:
             if _c == self.num_continuums()-1:
                 ax.title.set_text("Combined")
             else:
-                ax.title.set_text(os.path.basename(self.freeFiles[_c]).split('.')[0])
+                ax.title.set_text(os.path.basename(self.split_freeFiles[_c]).split('.')[0])
 
         #self.fig_free.subplots_adjust(left=0.12, top=0.96, bottom=0.16,right=0.95)
         if every is None:

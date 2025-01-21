@@ -27,8 +27,8 @@ ELECTRON_DENSITY = False # Whether to use electron density for free distribution
 ###
 PLOT_ELEMENT_CHARGE= False #
 PLOT_FREE_CONTINUUM = True
-PLOT_SPLIT_FREE_CONTINUUMS = True
-PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = True
+PLOT_SPLIT_FREE_CONTINUUMS = False
+PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = False
 PLOT_FREE_SLICES=False
 PLOT_ION_RATIOS=False
 PLOT_ION_RATIOS_BARS= False
@@ -85,7 +85,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     '''    
     
     # extra homeless options
-    load_specific_atoms = ["C","N","O","S","Gd_fast"]#["Gd_fast"] #["C"]#["Fe_singleShell","C"] #None #["C","N","O"] #If plotting free dsitribution, will plot only those specified here. 
+    load_specific_atoms = None#["C","N","O","S","Gd_fast","Cl","Na"]#["Gd_fast"] #["C"]#["Fe_singleShell","C"] #None #["C","N","O"]
     split_continuums_to_load = "all" #["Gd_fast"] #["C"]#["Fe_singleShell","C"]  # None is not valid. Use "[]"  
 
 
@@ -126,7 +126,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
 
     if num_subplots > 1:
         pl.fig.tight_layout()
-        pl.fig.subplots_adjust(left=0.12/pl.axs.shape[0], bottom=None, right=None, top=None, wspace=0.2, hspace=0.2)#hspace=None)
+        pl.fig.subplots_adjust(left=0.12/pl.axs.shape[0], bottom=None, right=None, top=None, wspace=0.2, hspace=0.4)#hspace=None)
 
     if tot_charge: 
         #NOTE ensure load_specific_atoms is None or does not exclude `atoms` if `atoms` is passed.
@@ -175,7 +175,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         pl.plot_free(log=True,ylog=False,cmin=10**(-8),cmax=10**(-3.609),ylim=[0,8000],keV=True,show_title=False,every=every_t,every_e=every_e)
     if split_free:
         #pl.plot_free(log=True,cmin=10**(-7.609),cmax=1e-3,ylim=[10,8000])
-        for _c in range(pl.num_continuums()-2):
+        for _c in range(pl.num_continuums()-1):
             pl.plot_free(log=True,ylog=False,cmin=10**(-8),cmax=10**(-3.609),ylim=[0,8000],keV=True,continuum=_c,every=every_t,every_e=every_e)
 
 

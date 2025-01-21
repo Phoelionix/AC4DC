@@ -9,6 +9,9 @@ Usage: Generate snapshots at specified times:
 Notes:
 By default, assumes that outputs/batches is in AC4DC/output/__Molecular/, and that this file is in AC4DC/scripts
 
+Takes snapshot at time closest to the desired time shared by all simulation output data files. Currently does not throw an error if the specified time is outside the time range 
+of one of the sims. TODO make throw error . 
+
 
 '''
 ####
@@ -19,12 +22,12 @@ from interactive_handler import generate_graphs
 from copy import deepcopy
 
 
-HIDE_Y_TICKS = False # in case issue with y ticks causing inconsistent canvas size...
+HIDE_Y_TICKS = True # in case issue with y ticks causing inconsistent canvas size...
 
 
 # might have to fiddle a little to get graph canvas to extend to top...
-ymax = 0.0024 # -10 fs
-#ymax = 0.015 # 0 fs
+#ymax = 0.0024 # -10 fs
+ymax = 0.015 # 0 fs
 #ymax = 0.03 # 10 fs
 
 
@@ -123,4 +126,4 @@ for snapshot_t in sys.argv[n:]:
 ############### Scratchpad
 #python3.9 scripts/generate_snapshot.py lys_nass_no_S_3 lys_nass_gauss lys_nass_Gd_gauss_1 
 
-# python3.9 scripts/snapshot.py lys_solvated_light_4 lys_solvated_6 lys_Gd_solvated_fast_1 lys_Gd_salt_solvated_fast_27 -10 0 10
+# python3.9 scripts/snapshot.py lys_solvated_light_4 lys_solvated_6 lys_Gd_solvated_1 lys_Gd_salt_solvated_fast_27 -10 0 10
