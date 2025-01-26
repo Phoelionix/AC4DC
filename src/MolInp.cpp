@@ -420,7 +420,7 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P. TODO 
 	if (out_F_size <= 0) { cerr<<"ERROR: system set to output zero energy grid points"; is_valid=false; }
 	if (loss_geometry.L0 <= 0) { cerr<<"ERROR: radius must be positive"; is_valid=false; }
 	if (timespan_factor < 0 || negative_timespan_factor < 0) {cerr << "ERROR, timespan factors must be postive"; is_valid = false;}
-	if (timespan_factor < negative_timespan_factor){cerr << "ERROR, the timespan factor for the negative times must be smaller than the full timespan factor";is_valid=false;}
+	if (timespan_factor < negative_timespan_factor){cerr << "ERROR, the timespan factor for the negative times ("<< negative_timespan_factor <<") must be smaller than the full timespan factor ("<< timespan_factor <<")";is_valid=false;}
 	if (pulse_shape == PulseShape::square && (timespan_factor < 1 && timespan_factor !=0)){cerr << "ERROR, timespan too short to capture full square pulse";is_valid=false;}
 	if (pulse_shape == PulseShape::square && negative_timespan_factor != 0){cerr << "ERROR, timespan for negative times cannot be specified with square pulse";is_valid=false;}
 	if ((pulse_shape == PulseShape::pumpProbeGaussians || pulse_shape == PulseShape::pumpProbeSquares) && probe_delay < 0){cerr << "ERROR, probe delay unset or negative: " << probe_delay, is_valid=false;}
