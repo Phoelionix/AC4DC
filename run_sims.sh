@@ -28,8 +28,9 @@ set -x
 # ./ac4dc input/lysozyme/lys_Gd_salt_solvated
 # ./ac4dc input/lysozyme/lys_Gd_solvated
 
-./ac4dc input/lysozyme/lys_Gd_solvated
-./ac4dc input/lysozyme/lys_Gd_salt_solvated # if above works there might be a new memory leak in the code
+./ac4dc input/lysozyme/lys_Gd_salt_solvated_fast_gauss
+./ac4dc input/lysozyme/lys_Gd_salt_solvated_fast_square
+
 #./ac4dc input/nass/nass_probe_0
 #./ac4dc input/nass/nass_probe_35
 #./ac4dc input/nass/nass_probe_62

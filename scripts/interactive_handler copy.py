@@ -343,7 +343,7 @@
 #                 #ymax = max(np.max(dat.freeData),ymax)
 #                 data = target.freeData[j,:]
 #                 if P.NORMALISE:
-#                     tot = target.get_density(t)
+#                     tot = target.get_free_electron_density(t)
 #                     data /= tot
 #                     data/=4*3.14
 #                 if not ipl.use_electron_density:

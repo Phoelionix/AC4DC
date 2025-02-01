@@ -22,13 +22,13 @@ from interactive_handler import generate_graphs
 from copy import deepcopy
 
 
-HIDE_Y_TICKS = True # in case issue with y ticks causing inconsistent canvas size...
+HIDE_Y_TICKS = False # in case issue with y ticks causing inconsistent canvas size...
 
 
 # might have to fiddle a little to get graph canvas to extend to top...
 #ymax = 0.0024 # -10 fs
-ymax = 0.015 # 0 fs
-#ymax = 0.03 # 10 fs
+#ymax = 0.015 # 0 fs
+ymax = 0.03 # 10 fs
 
 
 P = SimpleNamespace()
@@ -41,20 +41,22 @@ P.NAMING_MODE = 1  # For legend. 0: full details of sim parameters + sim name | 
 P.SCALE_DENSITY_BY_THOUSAND = True # Use cubic nm rather than cubic angstrom for measuring energy density  
 P.POINTS = 70
 
-width_factor = 1
+width_factor = 0.9
 if HIDE_Y_TICKS:
     width_factor *= 0.97
 P.SINGLE_FRAME_DICT = dict(
     # In inches
+    #width = (7.24409436834*2/3*width_factor),#3.49751*2*3/5,
     width = (7.24409436834*2/3*width_factor),#3.49751*2*3/5,
-    height = 7.24409436834/3, #3.49751*2/3
+    #height = 7.24409436834/3, #3.49751*2/3
+    height = 7.24409436834/4,
     line_width = 2,
     font_size = 10,
     superscript_font_size = 8,
     
     pad=100,
 
-    show_legend = False, 
+    show_legend = True, 
 
     ylog = False, # < uses linear scale if False 
     xlog = False, # <
@@ -78,7 +80,8 @@ P.SUBPLOT_AX_GRID_COLOUR = "#c4c4eb"
 P.INSET_DICT = dict(
     axes_kwargs = dict(
         xaxis2 =dict(
-            domain=[0.1, 0.4],
+            #domain=[0.1, 0.4],
+            domain=[0.07, 0.37],
             range = [0,120], #[0,50],
             anchor='y2',
             gridcolor=P.SUBPLOT_AX_GRID_COLOUR, 
@@ -86,7 +89,8 @@ P.INSET_DICT = dict(
             #zerolinecolor = P.SUBPLOT_AX_GRID_COLOUR
         ),
         yaxis2=dict(
-            domain=[0.15, 0.8],
+            #domain=[0.15, 0.8],
+            domain=[0.11, 0.76],
             range = [0,None],
             anchor='x2',
             gridcolor=P.SUBPLOT_AX_GRID_COLOUR, 
@@ -106,8 +110,6 @@ if  len(sys.argv) < 3:
     exit()
 n=0
 for k in sys.argv:
-   print(k)
-   print(k.strip('-').isnumeric())
    if  k.strip('-').isnumeric():
        break 
    n+=1
@@ -124,6 +126,7 @@ for snapshot_t in sys.argv[n:]:
 
 
 ############### Scratchpad
-#python3.9 scripts/generate_snapshot.py lys_nass_no_S_3 lys_nass_gauss lys_nass_Gd_gauss_1 
+# python3.9 scripts/generate_snapshot.py lys_nass_no_S_3 lys_nass_gauss lys_nass_Gd_gauss_1 
 
-# python3.9 scripts/snapshot.py lys_solvated_light_4 lys_solvated_6 lys_Gd_solvated_1 lys_Gd_salt_solvated_fast_27 -10 0 10
+
+# python3.9 scripts/snapshot.py  lys_solvated_light_4 lys_solvated_6 lys_Gd_solvated_1 lys_Gd_salt_solvated_1 -10 0 10

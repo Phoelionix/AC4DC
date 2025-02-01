@@ -73,7 +73,7 @@ class Plotter:
         E = self.energyKnot
 
         if normed:
-            tot = self.get_density()
+            tot = self.get_free_electron_density()
             dens /= tot
             dens /= 4*3.14
 
@@ -95,7 +95,7 @@ class Plotter:
         fit = self.energyKnot.searchsorted(fitE)
         dens = self.density
         if normed:
-            tot = self.get_density()
+            tot = self.get_free_electron_density()
             dens /= tot
             dens/=4*3.14
 
@@ -111,7 +111,7 @@ class Plotter:
             maxwell(self.energyKnot, kT, n)*self.energyKnot,
             '--',label='%3.1f eV' % kT, **kwargs)
 
-    def get_density(self):
+    def get_free_electron_density(self):
         de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2])
         de = de [1:] - de[:-1]
         return np.dot(self.density, de)

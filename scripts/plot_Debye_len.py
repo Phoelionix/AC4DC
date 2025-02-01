@@ -23,7 +23,7 @@ tempList = []
 denseList = []
 for t in slices:
     tempList.append( pl.get_temp(t, 1000) ) # eV
-    # denseList.append( pl.get_density(t) ) # per angstrom cube
+    # denseList.append( pl.get_free_electron_density(t) ) # per angstrom cube
 
 T = np.array(tempList)
 n = T [: ,1]

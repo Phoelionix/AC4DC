@@ -26,7 +26,8 @@ OCCUPANCY = True # NOTE Only affects mode 1
 
 #YLIM = [0,8]
 YLIM = [0,None]
-SCALE = 6
+#SCALE = 6
+SCALE = 3.49751
 FIGWIDTH = SCALE*2/3
 FIGHEIGHT = SCALE/2
 #XLIM = [None,None]
@@ -95,7 +96,7 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,plo
                 pl.plot_tot_charge(every=1,linestyle=dashes[m],colours = colours,atoms = atoms,plot_legend=(m==0),xlim=XLIM,ylim=YLIM,charge_difference=CHARGE_DIFFERENCE,plot_derivative=PLOT_DERIVATIVE,occupancy=OCCUPANCY)
 
             if plot_mode == 2:
-                ax = pl.plot_orbitals_charge(every=1,linestyle=dashes[m],atom = "C",plot_legend=False,xlim=XLIM,ylim=YLIM,plot_derivative=PLOT_DERIVATIVE)       
+                ax = pl.plot_orbitals_charge(every=1,linestyle=dashes[m],atom = "C",plot_legend=False,xlim=XLIM,ylim=YLIM,plot_derivative=PLOT_DERIVATIVE,show_pulse_profile=(m==0))       
            
         if plot_mode == 1 or plot_mode == 2:
             ax = pl.axs[0][0]

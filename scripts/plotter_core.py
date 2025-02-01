@@ -67,6 +67,7 @@ class Plotter:
         # Outputs
         self.outDir = self.molecular_path + data_folder_name
         self.freeFile = self.outDir +"/freeDist.csv"
+        #TODO making it possible to have only either the free file or split free files loaded in this class at one time is dumb and bad.
         self.split_freeFiles = []  # Distributions for each element's cascdes (and the total one given by self.freeFile).
         self.intFile = self.outDir + "/intensity.csv"
         self.gridFile = self.outDir + "/knotHistory.csv"
@@ -78,6 +79,8 @@ class Plotter:
         self.intensityData=None
         self.energyKnot=None
         self.timeData=None
+
+        self.preferred_element_order = ["C","N","O","S","Gd","Na","Cl"] # Order of split continuum files. Any others go after all these
 
         self.split_continuums_mode = None  
 
@@ -165,6 +168,45 @@ class Plotter:
         assert len(self.atomdict)>0,f"None of the elements specified - {atoms_to_load} - appear to be given in mol file" if atoms_to_load is not None else "Could not find any atoms"
         
         self.split_continuums_mode = split_continuums_to_load != []
+
+        self.order_split_free_files(self.preferred_element_order)
+    def order_split_free_files(self,element_order):
+        if self.split_freeFiles == []:
+            return
+        
+        elements = []
+        for i in range(len(self.split_freeFiles)):
+            elements.append(self.get_element_and_e_type(i)[0])
+        
+        ordered_files = []
+        for check_e in element_order:
+            for i, e in enumerate(elements):
+                if check_e == e:
+                    ordered_files.append(self.split_freeFiles[i])
+        # files not in element_order
+        for file in self.split_freeFiles:
+            if file not in ordered_files:
+                ordered_files.append(file)
+
+        
+        self.split_freeFiles = ordered_files
+
+    def get_ordered_atoms(self,element_order,atoms_excluded = None):
+        if atoms_excluded is None:
+            atoms_excluded = []
+        atoms = []
+        
+        for a_stem in element_order:
+            for a in [a_stem,a_stem+"_fast"]:
+                if a in self.atomdict and a not in atoms_excluded:
+                    atoms.append(a)
+        for a in self.atomdict:
+            a_stem = a.split('_')[0]
+            if a not in atoms and a not in atoms_excluded:
+                atoms.append(a)
+        return atoms
+                
+
 
     def update_inputs(self,load_specific_atoms=None,split_continuums_to_load = []):
         self.get_atoms(load_specific_atoms,split_continuums_to_load)
@@ -830,7 +872,7 @@ class Plotter:
             self.update_outputs()
 
     # makes a blank plot showing the intensity curve
-    def setup_intensity_plot(self,ax,show_pulse_profile=True,col='black'):
+    def setup_intensity_plot(self,ax,show_pulse_profile=True,col='black',profile_height_factor=1):
         ax2 = ax.twinx()
         if show_pulse_profile:
 
@@ -841,15 +883,16 @@ class Plotter:
             #normed_intensity_data *= 10
 
             normed_intensity_data/=0.07
-            print(np.max(normed_intensity_data))
+            #print(np.max(normed_intensity_data))
             #print(np.max(normed_intensity_data))
 
             #normed_intensity_data /=  (self.timeData[1] - self.timeData[0]) * 15
             #print(np.max(normed_intensity_data))
 
             ax2.plot(self.timeData, normed_intensity_data, lw = 2, c = col, ls = ':', alpha = 0.7)
-
-            ax2.set_ylim([0,1])
+    
+            ax2.set_ylim([0,1/profile_height_factor])
+        ax.autoscale()  # need to do this because of ax2 setting y lim for some reason.
 
         # ax2.set_ylabel('Pulse Intensity (photons cm$^{-2}$ s$^{-1}$)')
         ax.set_xlabel("Time (fs)")
@@ -859,7 +902,7 @@ class Plotter:
         ax.get_xaxis().get_major_formatter().labelOnlyBase = False
 
         
-        
+
         #ax2.set_ylim([0,1])
         #ax2.set_ylim([0,(ax2.get_ylim()[1]-ax2.get_ylim()[0])*normalisation_factor])
         #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)   
@@ -876,6 +919,22 @@ class Plotter:
             if type(self.axs) is not np.ndarray:
                 self.axs = np.array([self.axs])
         self.num_subplots = num_subplots
+
+    def setup_vertical_axes(self,num_subplots):
+        width, height = 6, 3.3333  # 4.5,2.5 ~ abdallah
+        self.fig, self.axs = plt.subplots(num_subplots,1,figsize=(width,height*num_subplots),squeeze=False)
+        self.num_subplots = num_subplots
+    def setup_horizontal_axes(self,num_subplots):
+        width, height = 6, 3.3333  # 4.5,2.5 ~ abdallah
+        self.fig, self.axs = plt.subplots(1,num_subplots,figsize=(width,height*num_subplots),squeeze=False)
+        self.num_subplots = num_subplots
+
+    def setup_consistent_axis(self,canvas = [0., 0., 1., 1]):
+        self.num_plotted = 0 # number of subplots plotted so far.
+
+        self.axs = np.empty(shape=(1,1),dtype=object)
+        self.axs[0][0] = plt.axes(canvas, frameon=False, xticks=[],yticks=[])
+        self.num_subplots = 1
 
     def get_next_ax(self):
         ax = self.axs.flat[self.num_plotted]
@@ -935,10 +994,10 @@ class Plotter:
         ax.set_ylabel(r"Density (\AA$^{-3}$)")
         if ion_fract:
             ax.set_ylabel(r"Ion Fractions")
-        old_ytop = ax.get_ylim()[1]
+        #old_ytop = ax.get_ylim()[1]  # whyd I do this?
         ax.set_ylim(ylim)
         ax.set_xlim(xlim)
-        ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
+        #ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop]) # whyd I do this?
 
         num_cols = 1+round(num_traces/30-num_traces%30/30)
         #self.fig.subplots_adjust(left=0.11, right=0.81, top=0.93, bottom=0.1)
@@ -1051,17 +1110,18 @@ class Plotter:
         old_ytop = ax.get_ylim()[1]
         ax.set_ylim([-0.5,len(Y)-0.5])
 
-    def plot_orbitals_bar(self, atoms = None, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],orbitals=None,normalise=False,atoms_excluded = None,label_all_yaxes=False,show_title=True,**kwargs):
+
+
+
+    def plot_orbitals_bar(self, atoms = None, rseed=404,show_cbar=True,show_pulse_profile=True,xlim=[None,None],orbitals=None,normalise=False,atoms_excluded = None,show_ylabel=True,label_all_yaxes=True,show_title=True,show_cbar_label=True,add_element_to_ylabel=False,show_cbar_last=True):#,**kwargs):
         if atoms is None: 
-            atoms = self.atomdict
-            if atoms_excluded is not None:
-                        for a in atoms_excluded:
-                            atoms.pop(a)          
+            atoms = self.get_ordered_atoms(self.preferred_element_order,atoms_excluded)   
         else:
             assert atoms_excluded is None
         
         yaxis_plotted = False
-        for a in atoms:
+        for n, a in enumerate(atoms):
+            
             # if a not in self.atomdict:
             #     continue
             if show_pulse_profile:  
@@ -1072,6 +1132,8 @@ class Plotter:
             #print_idx = np.searchsorted(self.timeData,-7.5)
             ax.set_prop_cycle(rcsetup.cycler('color', get_colors(self.chargeData[a].shape[1],rseed)))                        
 
+
+
             Z,labels = self.get_orbital_data(a,orbitals)
             
             # identify single shells (assuming they have l = 1), replacing "p" with "N"
@@ -1080,15 +1142,25 @@ class Plotter:
             for i, label in enumerate(labels):
                 if i > 0:
                     if label[-1] == "p" and labels[i-1] != label[:-1]+"s":
-                        labels[i] = labels[i][:-1] + "N" 
+                        labels[i] = labels[i][:-1] + "n" 
                         num_changed+=1
             # if all shells have been labelled as N, label 1s as 1N
             if num_changed == len(labels)-1:
-                labels[0] = labels[0][:-1] + "N" 
+                labels[0] = labels[0][:-1] + "n" 
+                ylabel = r"Shell" 
+            else:
+                ylabel = r"Orbital"
+
+                
 
             Y = range(len(Z))
             if normalise:
                 Z = np.array(Z)[:]/np.array(Z)[:,0][:,None]
+
+            blank = False
+            if blank:
+                Z = Z*0+1
+
             ax.set_facecolor('black')
             vmax = None
             cm = ax.pcolormesh(self.timeData, Y, Z,cmap="Spectral",rasterized=True,vmin=0)
@@ -1097,10 +1169,9 @@ class Plotter:
                 z_label = a.split("_")[0] + " orbital density"
             ax.set_yticks(ticks=Y,labels=labels)
             
-            ax.set_xlabel("Time (fs)")            
-            if label_all_yaxes or yaxis_plotted is False:
-                ax.set_ylabel(r"Orbital")
-                yaxis_plotted = True
+            if not(self.axs.shape[1] == 1 and n != len(atoms)-1): # if column of subplots, only show time on bottom plot
+                ax.set_xlabel("Time (fs)")            
+
             old_ytop = ax.get_ylim()[1]
             ax.set_ylim([-0.5,len(Y)-0.5])  
             #ax.set_xlim([None,0])
@@ -1108,20 +1179,39 @@ class Plotter:
             if show_pulse_profile:   
                 ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
 
-            # cbar cases that haven't been manually handled
-            if len(atoms) > 2:
-                cbar = self.fig.colorbar(cm,ax=ax,label=z_label,format="%.1f",)  
+            ax.xaxis.set_ticks([-15,0,15])
+
+            ax.tick_params(axis='y',pad=2,length=0)
+
             if show_title:
                 ax.set_title(z_label)
+        
+            if add_element_to_ylabel:
+                ylabel = f"{a.split('_')[0]} {ylabel[0].lower()+ylabel[1:]}"
 
-        if len(atoms) == 2:
-            cbar_ax = self.fig.add_axes([0.9, 0.492, 0.02, 0.433])
-            cbar = self.fig.colorbar(cm, cax=cbar_ax)
-            plt.subplots_adjust(left=0.105, right=0.875, top=0.93, bottom=0)
-        elif len(atoms) == 1:
-            cbar_ax = self.fig.add_axes([0.9, 0.492, 0.02, 0.433])
-            cbar = self.fig.colorbar(cm, cax=cbar_ax)
-            plt.subplots_adjust(left=0.105, right=0.875, top=0.93, bottom=0)
+            if (label_all_yaxes or yaxis_plotted is False) and show_ylabel:
+                ax.set_ylabel(ylabel)
+                yaxis_plotted = True
+            # cbar cases that haven't been manually handled
+            if show_cbar:
+                cbar_label = None
+                if show_cbar_label:
+                    cbar_label = z_label
+                    if show_cbar_last:
+                        cbar_label = ''.join(z_label.split(' ')[-2:])
+                        cbar_label = cbar_label[0].upper() + cbar_label[1:]
+                if len(atoms) > 2 and (not show_cbar_last or n == len(atoms)-1):
+                    cbar = self.fig.colorbar(cm,ax=ax,label=cbar_label,format="%.1f",)  
+
+        if show_cbar:
+            if len(atoms) == 2:
+                cbar_ax = self.fig.add_axes([0.9, 0.492, 0.02, 0.433])
+                cbar = self.fig.colorbar(cm, cax=cbar_ax)
+                plt.subplots_adjust(left=0.105, right=0.875, top=0.93, bottom=0)
+            elif len(atoms) == 1:
+                cbar_ax = self.fig.add_axes([0.9, 0.492, 0.02, 0.433])
+                cbar = self.fig.colorbar(cm, cax=cbar_ax)
+                plt.subplots_adjust(left=0.105, right=0.875, top=0.93, bottom=0)
 
       
         
@@ -1215,6 +1305,7 @@ class Plotter:
             for i in range(self.chargeData[a].shape[1]):
                 atomic_charge += self.chargeData[a][::every,i][T_start:T_end]*i
             occs = np.sum(self.get_orbital_data(a,None)[0],axis=0)*np.sum(self.chargeData[a][0])
+            self.aggregate_charges(charge_difference) # because get_orbital_data aggregates charges with charge_difference False
             if not densities:
                 atomic_charge /= np.sum(self.chargeData[a][0])
                 occs /= np.sum(self.chargeData[a][0])
@@ -1253,7 +1344,6 @@ class Plotter:
                 #dt = dt[1:] - dt[:-1]
                 #dydx = savgol_filter(atomic_charge, window_length=11, polyorder=4, deriv=1)*10
                 #ax.plot(T,dydx,**kwargs)
-                
 
             self.Q += atomic_charge
 
@@ -1288,6 +1378,7 @@ class Plotter:
 
         ax.set_ylim(ylim)
         #ax.yaxis.set_ticks([0,0.2,0.4,0.6,0.8,1])
+        #ax.xaxis.set_ticks([-15,-10,-5,0])
         #ax.yaxis.set_major_locator(plt.MaxNLocator(4))
         # ax.set_xlim(None,-18.6)
         # ax.set_ylim(0,5)
@@ -1295,11 +1386,81 @@ class Plotter:
             ax.legend(loc = legend_loc)
         return ax
     
-    def plot_orbitals_charge(self, every=1,densities = False,cmap=None,atom=None,orbitals = None,plot_legend=True,xlim=[None,None],ylim=[None,None],plot_derivative=False,legend_loc='lower left',custom_legend=None,**kwargs):
+    def get_element_and_e_type(self, continuum):
+        tmp = path.basename(self.split_freeFiles[continuum])
+        tmp = tmp.split('.')[0].split('_')
+        element = tmp[-2]; primary_electron_type = tmp[-1]
+        if element == "fast": # case where have element like "Gd_fast"
+            element = tmp[-3]
+        return element,primary_electron_type
+        
+    def plot_electrons_freed(self,continuums=None,e_cutoff=500,every=1,show_pulse_profile=True,xlim=[None,None],ylim=[0,None],nanometre=True,pulse_profile_height_factor=1,**kwargs):
+        T = self.timeData[::every]
+        if xlim[1] is None:
+            xlim[1] = self.timeData[-1]
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=show_pulse_profile,profile_height_factor=pulse_profile_height_factor) 
+        
+        if continuums is None:
+            continuums = [self.num_continuums()-1]  # combined continuum
+        
+        assert len(continuums) > 0
+
+        rho = np.zeros(len(T))
+        for c in continuums:
+            self.update_free(c)
+            for i,t in enumerate(T):
+                rho[i] += self.get_free_electron_density(t,e_cutoff)
+
+        def get_element_and_e_type(continuum):
+            tmp = path.basename(self.split_freeFiles[continuum])
+            tmp = tmp.split('.')[0].split('_')
+            element = tmp[-2]; primary_electron_type = tmp[-1]
+            if element == "fast": # case where have element like "Gd_fast"
+                element = tmp[-3]
+            return element,primary_electron_type
+
+        if len(continuums) == 1:
+            element, primary_electron_type = get_element_and_e_type(continuums[0])
+            label = f"{element} ({primary_electron_type})"
+        else:
+            same_element = True
+            for c in continuums:
+                if get_element_and_e_type(c)[0] != get_element_and_e_type(continuums[0])[0]:
+                    same_element = False
+                    break
+            
+            if same_element:
+                label = get_element_and_e_type(c)[0]
+            else:
+                label = continuums
+        
+    
+        ax.set_ylim(ylim)
+        ax.set_xlim([T[0],T[-1]])
+        
+        if nanometre:
+            rho *= 1000
+        ax.plot(T,rho,label=label,**kwargs)
+        
+        #ylabel = 'Seeded free-e$^{u"\u002D}$ density'
+        ylabel = 'Seeded free-e$^{\\mathrm{'+ u"\u002D" + '}}$ density'
+        if nanometre:
+            ylabel+=' (nm$^{-3}$)'
+        else:
+            ylabel+=' ($\\AA^{-3}$)'
+        ax.set_ylabel(ylabel)
+            
+        ax.set_xlabel("Time (fs)")
+
+
+        return ax
+
+    
+    def plot_orbitals_charge(self, every=1,densities = False,cmap=None,atom=None,orbitals = None,plot_legend=True,xlim=[None,None],ylim=[None,None],plot_derivative=False,legend_loc='lower left',custom_legend=None,show_pulse_profile=True,**kwargs):
         '''
         plot_derivative (bool), if True, plots average ionisation rate instead of average charge. 
         '''
-        ax, ax2 = self.setup_intensity_plot(self.get_next_ax())
+        ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=show_pulse_profile)
         #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
         T = self.timeData[::every]
         T_start = 0
@@ -1374,7 +1535,8 @@ class Plotter:
         #         ax.set_ylabel("Average ionisation rate ($e \cdot fs^{-1}$)")
         #     elif charge_difference:
         #         ax.set_ylabel("Avg. charge difference")  # Sometimes we start with charged states.
-        ax.set_xlim(xlim)
+        #ax.set_xlim(xlim)
+        ax.set_xlim([T[0],T[-1]])
         ax.set_ylim(ylim)
         ax.set_ylabel("Average occupancy")
         # ax.set_xlim(None,-18.6)
@@ -1921,17 +2083,29 @@ class Plotter:
 
         old_energy_knot = self.energyKnot
         self.energyKnot = self.energyKnot[::every_e]
+        if not self.split_continuums_mode:
+            assert(continuum is None or continuum == 0 or continuum == -1)
         if continuum is None:
-            continuum = self.num_continuums()-1  # combined continuum
+            continuum = self.num_continuums()-1  # if split continuum mode, this gives combined continuum. Otherwise it's just the total continuum.
         
-        _c = continuum
-        self.update_free(_c)
+        self.update_free(continuum)
         ax = self.get_next_ax()
+
+        def get_element_and_e_type(continuum):
+            tmp = path.basename(self.split_freeFiles[continuum])
+            tmp = tmp.split('.')[0].split('_')
+            element = tmp[-2]; primary_electron_type = tmp[-1]
+            if element == "fast": # case where have element like "Gd_fast"
+                element = tmp[-3]
+            return element,primary_electron_type
+            
+        
         if show_title:
-            if _c == self.num_continuums()-1:
+            if continuum == self.num_continuums()-1:
                 ax.title.set_text("Combined")
             else:
-                ax.title.set_text(os.path.basename(self.split_freeFiles[_c]).split('.')[0])
+                element, primary_electron_type = get_element_and_e_type(continuum)
+                ax.title.set_text(f"{element} ({primary_electron_type})")
 
         #self.fig_free.subplots_adjust(left=0.12, top=0.96, bottom=0.16,right=0.95)
         if every is None:
@@ -2032,7 +2206,7 @@ class Plotter:
         X = self.energyKnot
 
         if normed:
-            tot = self.get_density(t)
+            tot = self.get_free_electron_density(t)
             data /= tot
             data/=4*3.14
         
@@ -2079,7 +2253,7 @@ class Plotter:
         fit = self.energyKnot.searchsorted(fitE)
         data = self.freeData[t_idx,:]
         if normed:
-            tot = self.get_density(t)
+            tot = self.get_free_electron_density(t)
             data /= tot
             data/=4*3.14
 
@@ -2112,11 +2286,18 @@ class Plotter:
         T, n = fit_maxwell(Xdata, Ydata)
         return (T, n)
 
-    def get_density(self, t):
+    def get_free_electron_density(self, t,e_cutoff=None):
+        ''' e_cutoff: eV '''
+
         t_idx = self.timeData.searchsorted(t)
-        de = np.append(self.energyKnot, self.energyKnot[-1]*2 - self.energyKnot[-2]) 
+        
+        cutoff_idx = np.searchsorted(self.energyKnot,e_cutoff)+1
+        k = self.energyKnot[:cutoff_idx] # *potentially* truncated knots
+        de = np.append(k, k[-1]*2 - k[-2])     
+
         de = de [1:] - de[:-1]
-        return np.dot(self.freeData[t_idx, :], de)
+
+        return np.dot(self.freeData[t_idx][:cutoff_idx], de)
     
     # Seems to plot ffactors through time, "timedata" is where the densities come from - the form factor text file corresponds to specific configurations (vertical axis) at different k (horizontal axis)
     # In any case, my ffactor function is probably bugged since it doesn't match this. - S.P.

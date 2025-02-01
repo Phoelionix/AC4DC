@@ -25,32 +25,35 @@ from QoL import set_highlighted_excepthook
 ####
 ELECTRON_DENSITY = False # Whether to use electron density for free distribution plots. Energy density if False
 ###
-PLOT_ELEMENT_CHARGE= False #
+PLOT_ELEMENT_CHARGE= True #
 PLOT_FREE_CONTINUUM = False
 PLOT_SPLIT_FREE_CONTINUUMS = False
 PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = False
 PLOT_FREE_SLICES=False
 PLOT_ION_RATIOS=False
 PLOT_ION_RATIOS_BARS= False
-PLOT_ORBITAL_DENSITIES = True #
+PLOT_ORBITAL_DENSITIES = False #
 PLOT_PHOTO_RATES = False
 
 TIGHT_LAYOUT = False
-HORIZONTAL_MODE = True
+HORIZONTAL_MODE = False
 VERTICAL_MODE = False
 
 ###
-#COLUMNWIDTH = 3.4975
-#7.24409436834
+#COLUMNWIDTH = 3.4975/3
+COLUMNWIDTH = 3.4975*0.85
 
+# FIGWIDTH = COLUMNWIDTH#/2
+# FIGHEIGHT = FIGWIDTH*1/2#*9/16
 
-COLUMNWIDTH = 7.24409436834/7 # column of document
+#FIGWIDTH = COLUMNWIDTH*1.1
+#FIGHEIGHT = FIGWIDTH*9/16
+COLWIDTH = COLUMNWIDTH
+ROWHEIGHT = COLWIDTH*9/16
+#ROWHEIGHT = COLWIDTH*14/16
 
-
-COLWIDTH = COLUMNWIDTH # column of figure
-#ROWHEIGHT = COLWIDTH*9/16
-ROWHEIGHT = COLWIDTH*16/16
-
+# FIGWIDTH = COLUMNWIDTH/2
+# FIGHEIGHT = FIGWIDTH*9/16
 
 #DPI = 100
 DPI = 800
@@ -88,7 +91,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     '''    
     
     # extra homeless options
-    load_specific_atoms = ["C","N","O","S","Gd_fast","Na","Cl"]#["C","N","O","S","Gd_fast","Cl","Na"]#["Gd_fast"] #["C"]#["Fe_singleShell","C"] #None #["C","N","O"]
+    load_specific_atoms = ["C","N","O","S","Gd_fast"]#["C","N","O","S","Gd_fast","Cl","Na"]#["Gd_fast"] #["C"]#["Fe_singleShell","C"] #None #["C","N","O"]
     split_continuums_to_load = [] #"all" #["Gd_fast"] #["C"]#["Fe_singleShell","C"]  # None is not valid. Use: [] 
 
 
@@ -369,7 +372,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
             # Don't bother, just plot dummy plots to make it fit...
             #plt.gcf().set_figwidth(COLWIDTH*pl.axs.shape[1]*(0.9+0.3/num_subplots))
             #pl.fig.subplots_adjust(left=0.21*3**1.2/3/num_subplots**1.2, bottom=0.41, right=1-0.005/num_subplots, top=0.996, wspace=0.38, hspace=0.4) # Custom for row of orbital density plots 
-            pl.fig.subplots_adjust(left=0.025, bottom=0.415, right=1-0.005/3, top=0.996, wspace=0.3, hspace=0.4) # 3 orb density plots row
+            pl.fig.subplots_adjust(left=0.21/3, bottom=0.41, right=1-0.005/3, top=0.996, wspace=0.38, hspace=0.4) # 3 orb density plots row
 
 
     plt.savefig(figure_output_dir + label + figures_ext,dpi=DPI)
