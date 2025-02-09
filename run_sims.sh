@@ -28,8 +28,33 @@ set -x
 # ./ac4dc input/lysozyme/lys_Gd_salt_solvated
 # ./ac4dc input/lysozyme/lys_Gd_solvated
 
-./ac4dc input/lysozyme/lys_Gd_salt_solvated_fast_gauss
-./ac4dc input/lysozyme/lys_Gd_salt_solvated_fast_square
+# ./ac4dc input/lysozyme/lys_Gd_salt_solvated_fast_gauss
+# ./ac4dc input/lysozyme/lys_Gd_salt_solvated_fast_square
+
+# ./ac4dc_no_tbr input/misc/SH_Fe_squareSingleShell-15.mol 
+# ./ac4dc input/lysozyme/lys_K_salt_solvated.mol 
+
+
+#./ac4dc input/abdullah/glycine_abdullah_v_low_H
+#./ac4dc input/abdullah/glycine_abdullah_low_H
+#./ac4dc input/abdullah/glycine_abdullah_H
+#./ac4dc input/abdullah/glycine_abdullah_high_H
+
+#   ./ac4dc input/lysozyme/lys_solvated_light_no_H.mol 
+#./ac4dc input/lysozyme/lys_solvated_light_H
+#./ac4dc input/lysozyme/lys_solvated_H
+./ac4dc input/lysozyme/lys_Gd_solvated_H
+./ac4dc input/lysozyme/lys_Gd_salt_solvated_H
+#./ac4dc_split input/lysozyme/lys_Gd_salt_solvated_fast_H
+./ac4dc input/lysozyme/lys_Gd_salt_solvated_fast_square_H
+./ac4dc input/lysozyme/lys_Gd_salt_solvated_fast_gauss_H
+./ac4dc input/lysozyme/lys_galli_HF_no_Gd_full
+./ac4dc input/lysozyme/lys_galli_LF_no_Gd_full
+
+
+
+
+#./ac4dc_split input/lysozyme/lys_solvated_light_H.mol 
 
 #./ac4dc input/nass/nass_probe_0
 #./ac4dc input/nass/nass_probe_35

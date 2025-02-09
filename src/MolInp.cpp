@@ -263,6 +263,8 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		double I_units = pow(10,15); 
 		switch (pulse_shape)
 		{
+		// I = this->I0/norm*pow(2,-t*t*4/this->fwhm/this->fwhm);
+		// this->I0 = fluence/fwhm_param = fluence/width;
 		case PulseShape::gaussian:{
 			const double norm = sqrt(Constant::Pi/4/log(2)); // from  Pulse::operator() 
 			fluence = peak_intensity*I_units*norm*(width*t_units);

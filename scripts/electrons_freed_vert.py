@@ -6,9 +6,6 @@ matplotlib.rcParams.update({
     "pgf.texsystem": "pdflatex",
     'font.family': 'serif',
     'font.size': 8,
-    'font.size': 8,
-    'legend.fontsize':7,  
-    'legend.title_fontsize':7,  
     'text.usetex': True,
     'pgf.rcfonts': False,
     'lines.linewidth':1.5,
@@ -25,7 +22,7 @@ DPI = 800
 
 YLIM = [0,None]
 #WIDTH = 3.49751
-WIDTH = 3.484252/2 #7.24409436834/3 
+WIDTH = 3.484252*0.85 #7.24409436834/3 
 FIGWIDTH = WIDTH
 #FIGHEIGHT = WIDTH*3/4
 FIGHEIGHT = max(WIDTH*3/4,2.2) # leave enough space for y axis label
@@ -114,8 +111,7 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,com
     pl = Plotter(mol_names[0],sim_output_parent_dir,split_continuums_to_load=split_continuums_to_load)
     
     pl.setup_axes(1)
-    #pl.fig.subplots_adjust(left=0.17,bottom=0.2,top=0.9,right=0.95)  # must not have tight bbox to avoid cutting off ylabel
-    pl.fig.subplots_adjust(left=0.1,bottom=0.2,top=0.9,right=0.89)  # must not have tight bbox to avoid cutting off ylabel
+    pl.fig.subplots_adjust(left=0.01,bottom=0.2,top=0.9,right=0.88)  # must not have tight bbox to avoid cutting off ylabel
     if ignore_CNO:
         pl.split_freeFiles = pl.split_freeFiles[6:] #hacky
     elif CNO_only:
@@ -253,34 +249,29 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,com
         labels.extend([None]*len(elements))
         gap_title = 1
 
-        title = 'Pht.'+'\\ '*gap_title+'Aug.'
+        title = 'Phot.'+'\\ '*gap_title+'Aug.'
         print(title)
         handles = []
         handles.extend(photo_handles)
         handles.extend(aug_handles)
-        leg = ax.legend(handles,labels,markerfirst = False, ncol=2,loc=loc,
+        leg = plt.legend(handles,labels,markerfirst = False, ncol=2,loc=loc,
                          title=title,
-                         borderpad=0.3,handletextpad=0.5,handlelength=1.5,columnspacing=1, 
-                         bbox_to_anchor =(-0.15,1.17),
-                         framealpha=1
+                         borderpad=0.3,handletextpad=1,handlelength=1.5,columnspacing=0.65,
+                         bbox_to_anchor=(-0.02,1.03),
+                         framealpha=0,
                          )
         leg._legend_box.align = "right"
-        #leg.get_frame().set_linewidth(0)
-        leg.get_frame().set_linewidth(0.7)
+        leg.get_frame().set_linewidth(0)
         #leg.get_frame().set_facecolor('#e6e6e6') #'whitesmoke' 'snow'
-        leg.get_frame().set_facecolor('white') #'whitesmoke' 'snow'
+        #leg.get_frame().set_facecolor('#e6e6e6') #'whitesmoke' 'snow'
+        #leg.get_frame().set_facecolor('#e6e6e6') #'whitesmoke' 'snow'
+        #leg.get_frame().set_boxstyle('Square')
+        legends.append(leg)
         ax.yaxis.tick_right()
         ax.yaxis.set_label_position("right")
-        #ax.tick_params(axis='y',direction='in',pad=2,length=2)
-        #ax.tick_params(axis='y',which='minor',direction='in',pad=2,length=1)
-        ax.tick_params(axis='y',which='both',direction='in')
-
-        #leg.get_frame().set_boxstyle('Square')
-        # legends.append(leg)
-
-        # for l in legends:
-        #     plt.gca().add_artist(l)
-        #table = ax.table();
+        for l in legends:
+            plt.gca().add_artist(l)
+        #table = ax.table()
         # leg = plt.legend(line_columns, ['']*len(line_columns), 
         #      title='No Prop    Prop +    Prop *',  
         #      ncol=3, numpoints=1, handletextpad=-0.5)
@@ -293,7 +284,7 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,com
         if i != 0:
             show_pulse_profile = False
         _, subset_of_handles = pl.plot_electrons_freed(continuums,e_cutoff=e_cutoff,every=every,ylim=YLIM,show_pulse_profile=show_pulse_profile,color=colors[i],ls=linestyles[i],
-                                pulse_profile_height_factor=0.84)
+                                pulse_profile_height_factor=0.87)
         ax = pl.axs[0][0]
         handles.extend(subset_of_handles)
 

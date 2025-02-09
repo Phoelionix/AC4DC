@@ -25,10 +25,10 @@ from QoL import set_highlighted_excepthook
 ####
 ELECTRON_DENSITY = True # Whether to use electron density for free distribution plots. Electron energy density if False
 ###
-PLOT_ELEMENT_CHARGE= False #
+PLOT_ELEMENT_CHARGE= True #
 PLOT_FREE_CONTINUUM = False
-PLOT_SPLIT_FREE_CONTINUUMS = True
-PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = True
+PLOT_SPLIT_FREE_CONTINUUMS = False
+PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = False
 PLOT_FREE_SLICES=False
 PLOT_ION_RATIOS=False
 PLOT_ION_RATIOS_BARS= False
@@ -49,10 +49,10 @@ figures_ext = ".png" #.png
 ###
 
 #COLUMNWIDTH = 3.34646/2
-#COLUMNWIDTH = 3.34646
+COLUMNWIDTH = 3.484252*0.85
 #COLUMNWIDTH = 3.34646*1.35
 #COLUMNWIDTH = 7.24409436834/3
-COLUMNWIDTH = 7.24409436834/4
+#COLUMNWIDTH = 7.24409436834/4
 #3.34646
 #3.4975
 #7.24409436834
@@ -67,7 +67,7 @@ COLWIDTH = COLUMNWIDTH # column of figure
 
 #ROWHEIGHT = COLUMNWIDTH*12/16
 #ROWHEIGHT = COLUMNWIDTH*14/16
-ROWHEIGHT = COLUMNWIDTH*15/16
+ROWHEIGHT =  max(COLUMNWIDTH*3/4,2.2)*0.8
 #ROWHEIGHT = COLUMNWIDTH*8.5/16
 
 #TODO plotter should have general test to see if a subplot is on edge. And if not don't put axis there (if axes all same lim).
@@ -109,7 +109,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     '''    
     
     # extra homeless options
-    load_specific_atoms = None# ["C","Fe_singleShell"]#["C","N","O","S","Gd_fast","Cl","Na"]#["Gd_fast"] #["C"]#["Fe_singleShell","C"] #None #["C","N","O"]
+    load_specific_atoms = ["C","N","O"]# ["C","Fe_singleShell"]#["C","N","O","S","Gd_fast","Cl","Na"]#["Gd_fast"] #["C"]#["Fe_singleShell","C"] #None #["C","N","O"]
     split_continuums_to_load = "DEFAULT" #"all" #["Gd_fast"] #["C"]#["Fe_singleShell","C"]  # None is not valid. Use: [] 
 
 
@@ -187,7 +187,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
                     "#437c34",
                     
                 ] 
-        pl.plot_tot_charge(colours=abdullah_colors,ylim=[0,4],every=1,charge_difference=False,legend_loc="best",legend_frame=False,profile_height_factor=0.63,legend_kwargs=legend_kwargs)  
+        pl.plot_tot_charge(colours=abdullah_colors,ylim=[0,3],every=1,charge_difference=False,legend_loc="best",legend_frame=False,profile_height_factor=0.87,legend_kwargs=legend_kwargs)  
         #pl.plot_tot_charge(ylim=[None,None],xlim=[-18,18],every=1,charge_difference=False,legend_loc="best")  
         #pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O"])  
         #pl.plot_tot_charge(ylim=[0,6],every=1,charge_difference=False,legend_loc="best",atoms=["C","N","O"])  
@@ -428,7 +428,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
 
         #plt.savefig(figure_output_dir + label + figures_ext,dpi=DPI,bbox_inches='tight')
         #pl.fig.subplots_adjust(left=0.185, bottom=0.22, right=0.975, top=0.945, wspace=0.2, hspace=0.4) # Custom 
-        pl.fig.subplots_adjust(left=0.1, bottom=0.06, right=0.95, top=0.97, wspace=0.16, hspace=0.55)  # split continuums
+        pl.fig.subplots_adjust(left=0.01,bottom=0.2,top=0.9,right=0.87)
         if VERTICAL_MODE:
             # keeps canvas height (almost) the same for 1 or 3 subplots 
             plt.gcf().set_figheight(ROWHEIGHT*pl.axs.shape[0]*(0.9+0.205/num_subplots)) 

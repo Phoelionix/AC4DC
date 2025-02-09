@@ -17,13 +17,14 @@ import os.path as path
 import os
 from QoL import set_highlighted_excepthook
 
-OCCUPANCY = True # ONLY IMPLEMENTED FOR PLOT MODE 1 CURRENTLY
+OCCUPANCY = False # ONLY IMPLEMENTED FOR PLOT MODE 1 CURRENTLY
 CHARGE_DIFFERENCE = False # Set True if want initially ionised species' traces to start from origin
-PLOT_DERIVATIVE = False # Plot the rate of avg charge gain
+PLOT_DERIVATIVE = False# Plot the rate of avg charge gain
 #YLIM = [0,8]
 PLOT_MODE = 1 # 1: plot element total charges # 2: plot orbital charges
 #YLIM = [0,None]
-YLIM = [3,6]
+#YLIM = [3,6]
+YLIM = [0,None]
 SCALE = 6
 FIGWIDTH = SCALE*2/3
 FIGHEIGHT = SCALE/2
@@ -35,7 +36,7 @@ XLIM = [None,None]
 ATOM = "C"
 #ATOMS = ("Cr_LDA",)
 
-CUSTOM_LEGEND = None
+CUSTOM_LEGEND = None#["light", "light+2000H","light+lessH"]#None
 #CUSTOM_LEGEND=("1s: CNO","2s: CNO","2p: CNO","1s: CNO,S,Gd","2s: CNO,S,Gd","2p: CNO,S,Gd")
 #CUSTOM_LEGEND = ("Primary ionization only", "All ionization",)
 def main():
@@ -86,7 +87,8 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,plo
             pl.num_plotted = 0 # ƪ（˘へ˘ ƪ）
             if plot_mode == 1:
                 colours = [cmap(m)]
-                pl.plot_tot_charge(every=1,colours = colours,atoms = [ATOM],plot_legend=(m==0),xlim=XLIM,ylim=YLIM,charge_difference=CHARGE_DIFFERENCE,plot_derivative=PLOT_DERIVATIVE,occupancy=OCCUPANCY)
+                pl.plot_tot_charge(every=1,colours = colours,atoms = [ATOM],plot_legend=False,xlim=XLIM,ylim=YLIM,charge_difference=CHARGE_DIFFERENCE,plot_derivative=PLOT_DERIVATIVE,occupancy=OCCUPANCY,
+                                   label= mol_name)
 
             if plot_mode == 2:
                 ax = pl.plot_orbitals_charge(every=1,atom = ATOM,plot_legend=False,xlim=XLIM,ylim=YLIM,plot_derivative=PLOT_DERIVATIVE)       
@@ -95,10 +97,10 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,plo
             ax = pl.axs[0][0]
             if CUSTOM_LEGEND is None: 
                 ax.legend(bbox_to_anchor=(1.02, 1),loc='upper left', ncol=1,handlelength=1)  # Top right legend.
-            else:
+            elif m == len(mol_names)-1:
                 handles,_ = ax.get_legend_handles_labels()
                 handles = list(handles)
-                assert len(CUSTOM_LEGEND)==len(handles)
+                assert len(CUSTOM_LEGEND)==len(handles), f"{len(CUSTOM_LEGEND)} {len(handles)}"
                 ax.legend(handles,CUSTOM_LEGEND,bbox_to_anchor=(1.02, 1),loc='upper left', ncol=1,handlelength=1)             
         plt.gcf().set_figwidth(FIGWIDTH)
         plt.gcf().set_figheight(FIGHEIGHT)

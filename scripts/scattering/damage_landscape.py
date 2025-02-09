@@ -1,5 +1,6 @@
 #%%
-#Generates damage landscapes by performing scattering simulation across multiple simulations, either specifically chosen or through an entire folder.
+# Generates damage landscapes by performing scattering simulation across multiple simulations, either specifically chosen or through an entire folder.
+# Use as jupyter notebook.
 
 import numpy as np
 import os.path as path

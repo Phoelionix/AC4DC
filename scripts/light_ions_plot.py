@@ -21,8 +21,8 @@ from QoL import set_highlighted_excepthook
 
 CHARGE_DIFFERENCE = False # Set True if want initially ionised species' traces to start from origin
 PLOT_DERIVATIVE = False # Plot the rate of avg charge gain
-PLOT_MODE = 2  # 0: plot all charges, 1: plot element total charges # 2: plot orbital charges
-OCCUPANCY = True # NOTE Only affects mode 1
+PLOT_MODE = 1  # 0: plot all charges, 1: plot element total charges # 2: plot orbital charges
+OCCUPANCY = False # NOTE Only affects mode 1
 
 #YLIM = [0,8]
 YLIM = [0,None]
@@ -35,7 +35,7 @@ XLIM = [None,None]
 #YLIM=[0,6]
 #YLIM=[20,24]
 
-ATOMS = ("C","N","O")#,"S")
+ATOMS = ("C","N","O","H")#,"S")
 #ATOMS = ("Cr_LDA",)
 
 CUSTOM_LEGEND = None

@@ -100,7 +100,7 @@ def generate_graphs(param_dictionary,sys_argv=None):
             param_dictionary[key] = default_value 
     assert P_defaults.keys() == param_dictionary.keys() 
     P = SimpleNamespace(**param_dictionary)
-    assert P.ELECTRON_DENSITY is False, "Electron density not implemented yet, need to take in dynamic knots." #TODO
+    #assert P.ELECTRON_DENSITY is False, "Electron density not implemented yet, need to take in dynamic knots." #TODO
     if P.INSET:
         assert P.SINGLE_FRAME,"Inset only supported with single frame at present" 
 

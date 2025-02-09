@@ -97,7 +97,7 @@ def make_plot(mol_name,sim_output_parent_dir, label,figure_output_dir):
         pl.setup_axes(1)
 
         empirical_data_folder = path.abspath(path.join(__file__ ,"../nass_charge_contrast_data")) + "/"
-        _, extra_artists = pl.plot_charge_contrast_custom_thing("Gd_fast",empirical_data_paths = [empirical_data_folder+"Gd2.csv",empirical_data_folder+"Gd1.csv",])
+        _, extra_artists = pl.plot_charge_contrast_custom_thing("Gd_fast",empirical_data_paths = [empirical_data_folder+"Gd1.csv",empirical_data_folder+"Gd2.csv",])
 
         plt.gcf().set_figheight(FIGHEIGHT)
         plt.gcf().set_figwidth(FIGWIDTH)

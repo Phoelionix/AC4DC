@@ -188,9 +188,12 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
 
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic && (init==false || input_params.Load_Folder()== "")){
         if(_log.is_open()){
+            auto end = chrono::system_clock::now();
+            chrono::duration<double> elapsed_seconds = end-start;
+            secs = elapsed_seconds.count();
             double e = Constant::eV_per_Ha;
             _log << "------------------- [ New Knots ] -------------------\n" 
-            "Time: "<<t[step]*Constant::fs_per_au <<" fs; "<<"Step: "<<step<<"\n" 
+            "Time: "<<t[step]*Constant::fs_per_au <<" fs; "<<"Step: "<<step<<" runtime: "<<secs/60<<"m "<<secs%60<<"s"<<"\n" 
             <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
             for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
                 _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
@@ -214,7 +217,7 @@ void ElectronRateSolver::set_grid_regions(ManualGridBoundaries gb){
 
 void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_data_folder) {
     assert (hasRates || "Rates weren't calculated!\n");
-    auto start = std::chrono::system_clock::now();
+    start = std::chrono::system_clock::now();
 
     data_backup_folder = tmp_data_folder;
 
@@ -284,13 +287,13 @@ void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_
     std::vector<std::chrono::duration<double, std::milli>> times{
     display_time, plot_time, dyn_dt_time, backup_time, pre_ode_time,
     dyn_grid_time, user_input_time, post_ode_time,
-    decay_processes_time, bound_secondary_time, transport_time, eii_time, tbr_time,
+    decay_processes_time, bound_secondary_time, transport_time, eii_time_free, tbr_time_free,
     ee_time, apply_delta_time
     };
     std::vector<std::string> tags{
     "display", "live plotting", "dt updates", "data backups", "pre_ode()",
     "dynamic grid updates", "user input detection", "post_ode()",
-    "decay processes", "loss due to EII/TBR", "bound-e transport", "get_Q_eii()", "get_Q_tbr()",
+    "photoionization and decay", "Bound state EII/TBR", "bound-e transport", "Free electrons EII", "Free electrons TBR",
     "get_Q_ee()", "applyDeltaF()"
     };
     
@@ -522,7 +525,6 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         //     }
         // }
         auto t12 = std::chrono::high_resolution_clock::now();
-        bound_secondary_time += t12 - t11;
         // Add parallel containers to their parent containers.
         for(size_t i=0;i < Pdot.size();i++){
             Pdot[i] += Pdot_subst[i];
@@ -539,6 +541,8 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         tbr_rate.back() += sdot_bound_charge_tbr_subst;
         #endif
         
+        bound_secondary_time += t12 - t11;
+
         #ifdef TRACK_SINGLE_CONTINUUM
         size_t _c = 0; 
         #else
@@ -554,7 +558,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             #else
             s.F.get_Q_eii(_c,vec_dqdt_scndry, a, P, threads);
             auto t2 = std::chrono::high_resolution_clock::now();
-            eii_time += t2 - t1;
+            eii_time_free += t2 - t1;
             #endif
             
             auto t3 = std::chrono::high_resolution_clock::now();
@@ -563,7 +567,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             #else
             s.F.get_Q_tbr(_c,vec_dqdt_scndry, a, P, threads);  // Serially, this is the computational bulk of the program - S.P.
             auto t4 = std::chrono::high_resolution_clock::now();
-            tbr_time += t4 - t3;
+            tbr_time_free += t4 - t3;
             #endif
             // Add secondary ionization to distributions
             auto t7 = std::chrono::high_resolution_clock::now();

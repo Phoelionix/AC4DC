@@ -27,10 +27,10 @@ ELECTRON_DENSITY = True # Whether to use electron density for free distribution 
 ###
 PLOT_ELEMENT_CHARGE= False #
 PLOT_FREE_CONTINUUM = False
-PLOT_SPLIT_FREE_CONTINUUMS = True
-PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = True
+PLOT_SPLIT_FREE_CONTINUUMS = False
+PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = False
 PLOT_FREE_SLICES=False
-PLOT_ION_RATIOS=False
+PLOT_ION_RATIOS=True
 PLOT_ION_RATIOS_BARS= False
 PLOT_ORBITAL_DENSITIES = False #
 PLOT_PHOTO_RATES = False
@@ -50,9 +50,8 @@ figures_ext = ".png" #.png
 
 #COLUMNWIDTH = 3.34646/2
 #COLUMNWIDTH = 3.34646
-#COLUMNWIDTH = 3.34646*1.35
+COLUMNWIDTH = 3.34646
 #COLUMNWIDTH = 7.24409436834/3
-COLUMNWIDTH = 7.24409436834/4
 #3.34646
 #3.4975
 #7.24409436834
@@ -67,15 +66,14 @@ COLWIDTH = COLUMNWIDTH # column of figure
 
 #ROWHEIGHT = COLUMNWIDTH*12/16
 #ROWHEIGHT = COLUMNWIDTH*14/16
-ROWHEIGHT = COLUMNWIDTH*15/16
-#ROWHEIGHT = COLUMNWIDTH*8.5/16
+ROWHEIGHT = COLUMNWIDTH/2.5
 
 #TODO plotter should have general test to see if a subplot is on edge. And if not don't put axis there (if axes all same lim).
 
 #DPI = 100
 DPI = 800
 ##
-END_T = None #-17.8 # None # load data up to this time point (fs). None -> final time in data
+END_T = None # None # load data up to this time point (fs). None -> final time in data
 ##
 def main():
     set_highlighted_excepthook()
@@ -144,7 +142,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     pl.get_atoms(load_specific_atoms,split_continuums_to_load) # so that plotter knows num continuums
 
     num_atoms = len(pl.atomdict)
-    num_subplots = tot_charge + free_slices + bound_ionisation_bar + (bound_ionisation+ orbital_densities_bar+ photo_rates)*num_atoms + free + combined_split_free + split_free*(pl.num_continuums()-1)
+    num_subplots = tot_charge + free_slices + bound_ionisation_bar + (bound_ionisation+ orbital_densities_bar+ photo_rates)*num_atoms + free + combined_split_free + split_free*pl.num_continuums()
     assert(num_subplots > 0) , f"number of sublots is {num_subplots}{', have any plots been specified to plot?' if num_subplots == 0 else ''}"
 
 
@@ -213,15 +211,61 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     if photo_rates:
         pl.plot_photoionisation(atoms=None,show_pulse_profile=True)
     if bound_ionisation:
-        pl.plot_all_charges(show_pulse_profile=False,ylim=[0,1])
+        #pl.plot_all_charges(show_pulse_profile=False,ylim=[0,1])
 
         #Abdallah
         #pl.plot_all_charges(show_pulse_profile=False,xlim=[-40,0],ylim=[0,1])
         #pl.fig.set_figwidth(6)
         #pl.fig.set_figheight(4)
         # #Royle B
-        # pl.plot_charges_royle_style("Al", True)
-        # pl.fig.subplots_adjust(left=0.2,bottom=0.18,top=0.95)
+        AC4DC = False
+        if AC4DC:
+            ax = pl.plot_charges_royle_style("Al", True)
+        else:
+            ax, _ = pl.setup_intensity_plot(pl.get_next_ax(),show_pulse_profile=False)
+        ax.set_ylim([0,0.8])
+        ax.set_xlim([-100,100])
+        #ax.clear()
+        from scipy.interpolate import InterpolatedUnivariateSpline
+        from scipy.interpolate import CubicSpline,CubicHermiteSpline
+
+        if not AC4DC:
+            colours = ["#000000","#942192","#FF2600","#FF7C00","#F6D800","#008F00","#4180FF","#0433FF","#021CA1"]
+            linestyle = ["dashed"] + ["solid"]*8
+            for i in range(9): 
+                charge=i+3
+                data = np.genfromtxt(f"scripts/royle_data/royle_B_{charge}.csv",delimiter=',',skip_header=1)
+                X = (data[:,0]-100).tolist() 
+                Y = data[:,1].tolist()
+                X.insert(0,-100)
+                if charge == 3:
+                    Y.insert(0,1)
+                else:
+                    Y.insert(0,0)
+
+                
+                if charge < 8:
+                    Y.append(0)
+                    X.append(100)
+                if charge > 4:
+                    X.insert(1,-99)
+                    Y.insert(1,0)
+                    X.insert(2,-98)
+                    Y.insert(2,0)
+
+                xnew = np.linspace(-100, 100, 300)  
+
+                smooth = CubicSpline(X, Y)
+                
+
+                ax.plot(xnew, smooth(xnew), label = "%d+" % charge,color=colours[i],linestyle=linestyle[i],zorder=charge)
+        ax.set_ylabel(r"Density (\AA$^{-3}$)")
+        ax.set_ylabel(r"Ion Fraction")
+
+        num_cols = 1+round(8/30-8%30/30)
+        ax.legend(loc='upper left',bbox_to_anchor=(1, 1),fontsize=4,ncol=num_cols,handlelength=2.4)
+
+        pl.fig.subplots_adjust(left=0.1,bottom=0.24,top=0.97,right=0.87)
         # pl.fig.set_figheight(2.5) # total dimensions, for when other plots turned off...
         # pl.fig.set_figwidth(6)
         # # leonov
@@ -233,19 +277,11 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
 
     if split_free:
         #pl.plot_free(log=True,cmin=10**(-7.609),cmax=1e-3,ylim=[10,8000])
-        photo_then_auger = True
-        
-        order = list(range(pl.num_continuums()-1))
-        if photo_then_auger:
-            order = order[::2] + order[1::2]
-        for _c in order:
-            ylim = [0,8000]
-            if pl.get_element_and_e_type(_c)[1]=="Auger":
-                ylim = [0,3000]
+        for _c in range(pl.num_continuums()-1):
             print(f"Plotting continuum {_c+1}/{pl.num_continuums()-1} {pl.get_element_and_e_type(_c)}")
             pl.plot_free(log=True,ylog=False,cmin=10**(-8),cmax=10**(-3.609),ylim=[0,8000],
                          keV=True,continuum=_c,every=every_t,every_e=every_e,
-                         show_cbar=False,show_time_axis_label=False)
+                         show_cbar=True)
         print("Rendering may take some time...")
 
 
@@ -423,32 +459,31 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     
     if TIGHT_LAYOUT:
         plt.tight_layout()
-    else:
+    #else:
         #This was a bad idea. You'll likely need to adjust these, sorry.
 
         #plt.savefig(figure_output_dir + label + figures_ext,dpi=DPI,bbox_inches='tight')
-        #pl.fig.subplots_adjust(left=0.185, bottom=0.22, right=0.975, top=0.945, wspace=0.2, hspace=0.4) # Custom 
-        pl.fig.subplots_adjust(left=0.1, bottom=0.06, right=0.95, top=0.97, wspace=0.16, hspace=0.55)  # split continuums
-        if VERTICAL_MODE:
-            # keeps canvas height (almost) the same for 1 or 3 subplots 
-            plt.gcf().set_figheight(ROWHEIGHT*pl.axs.shape[0]*(0.9+0.205/num_subplots)) 
-            pl.fig.subplots_adjust(left=0.24, bottom=0.42/num_subplots, right=0.95, top=1-0.005/num_subplots, wspace=0.2, hspace=0.4) # Custom for column of orbital density plots 
-        if HORIZONTAL_MODE:
-            # keeps canvas height (almost) the same for 1 or 3 subplots 
-            #plt.gcf().set_figwidth(ROWHEIGHT*1.1) 
+        # pl.fig.subplots_adjust(left=0.185, bottom=0.22, right=0.975, top=0.945, wspace=0.2, hspace=0.4) # Custom 
+        # if VERTICAL_MODE:
+        #     # keeps canvas height (almost) the same for 1 or 3 subplots 
+        #     plt.gcf().set_figheight(ROWHEIGHT*pl.axs.shape[0]*(0.9+0.205/num_subplots)) 
+        #     pl.fig.subplots_adjust(left=0.24, bottom=0.42/num_subplots, right=0.95, top=1-0.005/num_subplots, wspace=0.2, hspace=0.4) # Custom for column of orbital density plots 
+        # if HORIZONTAL_MODE:
+        #     # keeps canvas height (almost) the same for 1 or 3 subplots 
+        #     #plt.gcf().set_figwidth(ROWHEIGHT*1.1) 
 
-            #colwidth 11/16 row width, row width 3.5/2
-            # plt.gcf().set_figwidth(COLWIDTH*pl.axs.shape[1]*(0.9+0.205/num_subplots))
-            # pl.fig.subplots_adjust(left=0.25*3**1.2/3/num_subplots**1.2, bottom=0.42, right=1-0.09/num_subplots, top=0.998, wspace=0.43, hspace=0.4) # Custom for row of orbital density plots 
+        #     #colwidth 11/16 row width, row width 3.5/2
+        #     # plt.gcf().set_figwidth(COLWIDTH*pl.axs.shape[1]*(0.9+0.205/num_subplots))
+        #     # pl.fig.subplots_adjust(left=0.25*3**1.2/3/num_subplots**1.2, bottom=0.42, right=1-0.09/num_subplots, top=0.998, wspace=0.43, hspace=0.4) # Custom for row of orbital density plots 
             
-            # Don't bother, just plot dummy plots to make it fit...
-            #plt.gcf().set_figwidth(COLWIDTH*pl.axs.shape[1]*(0.9+0.3/num_subplots))
-            #pl.fig.subplots_adjust(left=0.21*3**1.2/3/num_subplots**1.2, bottom=0.41, right=1-0.005/num_subplots, top=0.996, wspace=0.38, hspace=0.4) # Custom for row of orbital density plots 
-            #pl.fig.subplots_adjust(left=0.025, bottom=0.415, right=0.7, top=0.996, wspace=0.3, hspace=0.4) # 3 orb density plots row
-            pl.fig.subplots_adjust(left=0.08, bottom=0.415, right=0.83, top=0.93, wspace=0.3, hspace=0.4) # 3 orb density plots row
+        #     # Don't bother, just plot dummy plots to make it fit...
+        #     #plt.gcf().set_figwidth(COLWIDTH*pl.axs.shape[1]*(0.9+0.3/num_subplots))
+        #     #pl.fig.subplots_adjust(left=0.21*3**1.2/3/num_subplots**1.2, bottom=0.41, right=1-0.005/num_subplots, top=0.996, wspace=0.38, hspace=0.4) # Custom for row of orbital density plots 
+        #     #pl.fig.subplots_adjust(left=0.025, bottom=0.415, right=0.7, top=0.996, wspace=0.3, hspace=0.4) # 3 orb density plots row
+        #     pl.fig.subplots_adjust(left=0.08, bottom=0.415, right=0.83, top=0.93, wspace=0.3, hspace=0.4) # 3 orb density plots row
         
-        if TWO_VERTICAL_MODE:
-            pl.fig.subplots_adjust(left=0.1, bottom=0.03, right=0.95, top=0.97, wspace=0.16, hspace=0.6) # Custom for column of orbital density plots 
+        # if TWO_VERTICAL_MODE:
+        #     pl.fig.subplots_adjust(left=0.1, bottom=0.03, right=0.95, top=0.97, wspace=0.16, hspace=0.6) # Custom for column of orbital density plots 
     
     
 

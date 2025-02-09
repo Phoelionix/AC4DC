@@ -27,9 +27,9 @@ ELECTRON_DENSITY = True # Whether to use electron density for free distribution 
 ###
 PLOT_ELEMENT_CHARGE= False #
 PLOT_FREE_CONTINUUM = False
-PLOT_SPLIT_FREE_CONTINUUMS = True
-PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = True
-PLOT_FREE_SLICES=False
+PLOT_SPLIT_FREE_CONTINUUMS = False
+PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = False
+PLOT_FREE_SLICES=True
 PLOT_ION_RATIOS=False
 PLOT_ION_RATIOS_BARS= False
 PLOT_ORBITAL_DENSITIES = False #
@@ -50,9 +50,8 @@ figures_ext = ".png" #.png
 
 #COLUMNWIDTH = 3.34646/2
 #COLUMNWIDTH = 3.34646
-#COLUMNWIDTH = 3.34646*1.35
+COLUMNWIDTH = 3.34646
 #COLUMNWIDTH = 7.24409436834/3
-COLUMNWIDTH = 7.24409436834/4
 #3.34646
 #3.4975
 #7.24409436834
@@ -67,15 +66,14 @@ COLWIDTH = COLUMNWIDTH # column of figure
 
 #ROWHEIGHT = COLUMNWIDTH*12/16
 #ROWHEIGHT = COLUMNWIDTH*14/16
-ROWHEIGHT = COLUMNWIDTH*15/16
-#ROWHEIGHT = COLUMNWIDTH*8.5/16
+ROWHEIGHT = COLUMNWIDTH/2.5
 
 #TODO plotter should have general test to see if a subplot is on edge. And if not don't put axis there (if axes all same lim).
 
 #DPI = 100
 DPI = 800
 ##
-END_T = None #-17.8 # None # load data up to this time point (fs). None -> final time in data
+END_T = None # None # load data up to this time point (fs). None -> final time in data
 ##
 def main():
     set_highlighted_excepthook()
@@ -144,7 +142,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     pl.get_atoms(load_specific_atoms,split_continuums_to_load) # so that plotter knows num continuums
 
     num_atoms = len(pl.atomdict)
-    num_subplots = tot_charge + free_slices + bound_ionisation_bar + (bound_ionisation+ orbital_densities_bar+ photo_rates)*num_atoms + free + combined_split_free + split_free*(pl.num_continuums()-1)
+    num_subplots = tot_charge + free_slices + bound_ionisation_bar + (bound_ionisation+ orbital_densities_bar+ photo_rates)*num_atoms + free + combined_split_free + split_free*pl.num_continuums()
     assert(num_subplots > 0) , f"number of sublots is {num_subplots}{', have any plots been specified to plot?' if num_subplots == 0 else ''}"
 
 
@@ -233,19 +231,11 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
 
     if split_free:
         #pl.plot_free(log=True,cmin=10**(-7.609),cmax=1e-3,ylim=[10,8000])
-        photo_then_auger = True
-        
-        order = list(range(pl.num_continuums()-1))
-        if photo_then_auger:
-            order = order[::2] + order[1::2]
-        for _c in order:
-            ylim = [0,8000]
-            if pl.get_element_and_e_type(_c)[1]=="Auger":
-                ylim = [0,3000]
+        for _c in range(pl.num_continuums()-1):
             print(f"Plotting continuum {_c+1}/{pl.num_continuums()-1} {pl.get_element_and_e_type(_c)}")
             pl.plot_free(log=True,ylog=False,cmin=10**(-8),cmax=10**(-3.609),ylim=[0,8000],
                          keV=True,continuum=_c,every=every_t,every_e=every_e,
-                         show_cbar=False,show_time_axis_label=False)
+                         show_cbar=True)
         print("Rendering may take some time...")
 
 
@@ -267,10 +257,10 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     
 
     if free_slices:
-        normed=False
+        normed=True
 
         pl.initialise_step_slices_ax()
-        from plotter_core import fit_maxwell, maxwell
+        from plotter_core import fit_maxwell, maxwell, fit_maxwell_other, maxwell_other
 
         cmap = plt.get_cmap("tab10")
 
@@ -296,7 +286,8 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         #slices = [-39,-38,-36,-34,-32,-30,-0.01]         
         # Royle Sect. B
         #thermal_cutoff_energies = [500,1000,1250,2000]
-        #slices = [-90, -50, 0, 50]  
+        # thermal_cutoff_energies = [100,1000,1250,2000]
+        # slices = [-90, -50, 0, 50]  
         # # Royle Sect. C
         thermal_cutoff_energies = [500,500,600,2000]
         slices = [-15, 0, 15, 30]
@@ -331,9 +322,10 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         # colrs = [cmap(0),cmap(2),cmap(1),cmap(3)]  
         # custom_colrs = [cmap(0),cmap(2),cmap(1),cmap(3)]  
         # plot_fits = True
-        # plot_custom_fits = False
+        # plot_custom_fits = True
         # custom_T = [8,33,105,120]  
         # custom_n = [0.12,0.05,0.12,0.12] 
+        #custom_n = [0.13,0.05,0.13,0.13] 
         # #Royle C
         xmin,xmax = 0,1e4
         custom_T = [100]  
@@ -342,9 +334,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         custom_colrs = ['black']
         plot_fits = False
         plot_custom_fits = False
-        # Fit our last point in time 
-        if plot_custom_fits == False:
-            T = pl.plot_fit(slices[-1], thermal_cutoff_energies[-1], normed=normed, color=cmap(3), lw=1.5,alpha=0.7)
+
         #######
 
         #v_anchors = [0.16,0.12,0.08,0.04]
@@ -353,17 +343,108 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
 
         lw = 1.5
         #pl.ax_steps.set_ylim([0.4e-4, 0.4])
-        pl.ax_steps.set_ylim([1e-4*1e3, 1*1e3])
+        #pl.ax_steps.set_ylim([1e-4*1e3, 1*1e3])
+        #pl.ax_steps.set_ylim([1e-4*1e3, 1*1e3])
+        #pl.ax_steps.set_ylim([1, 1000])
         #pl.ax_steps.set_ylim([1e-4, 1])
         #TODO get from AC4DC
         pl.ax_steps.set_xlim([xmin,xmax]) #Hau-Riege        
         lines = []
-        for (t, e, col ) in zip(slices, thermal_cutoff_energies, colrs):
-            lines.extend(pl.plot_step(t, normed=normed, color = col, lw=lw))
-            if plot_fits:
-                T = pl.plot_fit(t, e, normed=normed, color=col, lw=lw,alpha=0.7)
+        
+        AC4DC = True
 
 
+        if AC4DC:
+            plot_custom_fits = False
+            for (t, e, col ) in zip(slices, thermal_cutoff_energies, colrs):
+                lines.extend(pl.plot_step(t, normed=normed, color = col, lw=lw))
+                if t == 30:
+                    # fill up legend with blank spaces
+                    for i in range(3):
+                        pl.ax_steps.plot(np.NaN, np.NaN, '-', color='none', label=' ')
+                    T = pl.plot_fit(slices[-1], thermal_cutoff_energies[-1], normed=normed, color=cmap(3), lw=1.5,alpha=0.7)
+
+            pl.ax_steps.set_xlim([0,10000])       
+            # Fit our last point in time 
+            # if ELECTRON_DENSITY:
+            #     #pl.ax_steps.set_ylim([2e-7*1e3, 1e-2*1e3]) #royle sect. B
+            #     pl.ax_steps.set_ylim([1e-8*0.8e3, 1e-3*0.8e3]) #royle sect. C
+        else:
+            plot_custom_fits = False
+            plot_those_darn_knots = False
+            pl.ax_steps.tick_params(direction='in')
+            for (t, e, col,) in zip(slices, thermal_cutoff_energies,colrs):
+                data = np.genfromtxt(f"scripts/royle_data/C_{int(t+30)}.csv",delimiter=',',skip_header=1)
+                if t == 30:
+                    data[:,0][0] = 0
+                # new_x = data[:,0].tolist()
+                # new_y = data[:,1].tolist()
+                # new_x.insert(0,0)
+                # new_y.insert(0,0)
+                # data = np.zeros(shape=(data.shape[0]+1,2))
+                # for i in range(data.shape[0]):
+                #     data[i][0] = new_x[i]
+                #     data[i][1] = new_y[i]
+                
+ 
+                fit_idx = data[:,0].searchsorted(e/1000)
+                if normed:
+                    k = data[:,0][:]
+                    de = np.append(k, k[-1]*2 - k[-2])     
+                    de = de [1:] - de[:-1]
+                    tot = np.dot(data[:,1], de)
+                    data[:,1] /= tot
+                    data[:,1]/=4*3.14
+                data[:,1]/=1000 # factor accounting for fact energy axis in keV
+                
+
+                lines.extend(pl.ax_steps.plot(data[:,0],data[:,1], label='%1.1f fs' % t, color=col,lw=lw))
+                # pl.ax_steps.plot(data[:,0], 
+                #             maxwell(data[:,0]*1000, T, n*1000),
+                #             '--',label='%3.1f keV' % T, color=custom_col,lw=lw)
+                
+                # fudge = -np.min(data[:,0])*1000
+                #fudge = 0
+                #print(data[:,0][0])
+                #data[:,0][0] = 0
+
+
+                #T, n = fit_maxwell(data[:,0][:fit_idx]*1000, data[:,1][:fit_idx])
+                # if t == -90:
+                #     T = 11.2
+                # pl.ax_steps.plot(data[:,0], 
+                #             maxwell(data[:,0]*1000, T, n),
+                #             '--',label='%3.1f eV' % T, color=custom_col,lw=lw)
+                print(t)
+
+            pl.ax_steps.set_xlim([0,10])        
+
+            # fill up legend with blank spaces
+            for i in range(3):
+                pl.ax_steps.plot(np.NaN, np.NaN, '-', color='none', label=' ')
+
+            #maxwell_E = np.linspace(1/1e3,10000/1e3,1000)
+            maxwell_E = data[:,0]
+            test = maxwell(maxwell_E, custom_T[0]/1000, 1)
+            k = maxwell_E
+            de = np.append(k, k[-1]*2 - k[-2])     
+            de = de [1:] - de[:-1]
+            tot = np.dot(test,de)
+            test/=tot
+            test/=4*3.14
+            test/=1000 
+            #test*=0.
+
+
+            pl.ax_steps.plot(maxwell_E, 
+                        test,
+                        '--',label='%3.1f eV' % custom_T[0], color=custom_colrs[0],lw=lw)
+
+        pl.ax_steps.set_xlabel('Energy (keV)')
+
+        pl.ax_steps.set_ylabel(f'Electron density')
+        pl.ax_steps.set_yscale('log')
+        pl.ax_steps.set_ylim([1e-8,1e-3])     
 
         if plot_custom_fits:
             for (T, n, col ) in zip(custom_T, custom_n, custom_colrs):
@@ -378,9 +459,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
             # for l in lines:
             #     l.set_linewidth(3)          
         
-        if ELECTRON_DENSITY:
-            #pl.ax_steps.set_ylim([2e-7*1e3, 1e-2*1e3]) #royle sect. B
-            pl.ax_steps.set_ylim([1e-8*0.8e3, 1e-3*0.8e3]) #royle sect. C
+
 
 
         #pl.fig_steps.subplots_adjust(bottom=0.15,left=0.2,right=0.95,top=0.95)
@@ -390,6 +469,9 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
 
         if plot_legend:
             handles, labels = pl.ax_steps.get_legend_handles_labels()
+            if not AC4DC:
+                for i in range(len(labels)):
+                    labels[i] = labels[i].split('.')[0] + ' ' + labels[i].split(' ')[-1]
             ncols = 2
             # e.g. for 8 labels (4 time steps), order = [0,2,4,6,1,3,5,7]  , if ncols = 2.
             order = []
@@ -400,10 +482,13 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
             if len(labels)%2 != 0:
                 order.append(len(order))  # shouldnt happen though.
             if plot_fits == False and plot_custom_fits == False:
-                ncols = 1
+                #ncols = 1
                 order = list(range(0,len(labels)))
             leg = pl.ax_steps.legend([handles[idx] for idx in order],[labels[idx] for idx in order],ncol=ncols,
-                                     loc='upper right',bbox_to_anchor=(0.85, 1),borderpad=0,labelspacing =0.1)
+                                     loc='upper right',bbox_to_anchor=(1.01, 1.02),
+                                     borderpad=0,labelspacing =0.02,handlelength=1.2,
+                                     columnspacing = 0.5,handletextpad=0.5,
+                                     )
             leg.get_frame().set_linewidth(0)
             
 
@@ -427,8 +512,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         #This was a bad idea. You'll likely need to adjust these, sorry.
 
         #plt.savefig(figure_output_dir + label + figures_ext,dpi=DPI,bbox_inches='tight')
-        #pl.fig.subplots_adjust(left=0.185, bottom=0.22, right=0.975, top=0.945, wspace=0.2, hspace=0.4) # Custom 
-        pl.fig.subplots_adjust(left=0.1, bottom=0.06, right=0.95, top=0.97, wspace=0.16, hspace=0.55)  # split continuums
+        pl.fig.subplots_adjust(left=0.185, bottom=0.22, right=0.975, top=0.945, wspace=0.2, hspace=0.4) # Custom 
         if VERTICAL_MODE:
             # keeps canvas height (almost) the same for 1 or 3 subplots 
             plt.gcf().set_figheight(ROWHEIGHT*pl.axs.shape[0]*(0.9+0.205/num_subplots)) 
@@ -450,6 +534,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         if TWO_VERTICAL_MODE:
             pl.fig.subplots_adjust(left=0.1, bottom=0.03, right=0.95, top=0.97, wspace=0.16, hspace=0.6) # Custom for column of orbital density plots 
     
+    pl.fig.subplots_adjust(left=0.15,bottom=0.24,top=0.97,right=0.92)
     
 
     plt.savefig(figure_output_dir + label + figures_ext,dpi=DPI,format=figures_ext[1:])
