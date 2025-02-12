@@ -218,6 +218,7 @@ public:
     void addDeltaSpikePhoto(const size_t& a, const double& e, const double& N);
     void addDeltaSpikeAuger(const size_t& a, const double& e, const double& N);
     void addDeltaSpikeExternal(const size_t& a, const double& e, const double& N);
+    void addDeltaSpikeSpecificContinuum(const size_t& _c, const double& e, const double& N);
     /// Applies the loss term to the distribution 
     void addLoss(const size_t& _c, const Distribution& d, const LossGeometry& l, double charge_density);
     void addFiltration(const size_t& _c, const Distribution& d, const Distribution& bg,const LossGeometry &l);
@@ -325,12 +326,23 @@ public:
     static size_t num_continuums;
     static size_t photo_first_continuum_idx;
     static size_t auger_first_continuum_idx;
+    static size_t external_continuum_idx;
+    static size_t single_cascade_continuum_idx;
     static void initialise_num_continuums(size_t num_atoms){
         Distribution::num_continuums = 1;
         #ifndef TRACK_SINGLE_CONTINUUM
         num_continuums = 1 + 2*num_atoms; // Total, then + 2 for each atom (one for auger one for photoelectrons)
         photo_first_continuum_idx = 1;
         auger_first_continuum_idx = 1+num_atoms; 
+
+            #ifndef NO_ELECTRON_SOURCE
+            external_continuum_idx = num_continuums;
+            num_continuums++;
+            #endif
+        #endif
+        #ifdef TRACK_SINGLE_CASCADE
+        single_cascade_continuum_idx = num_continuums;
+        num_continuums++;
         #endif
     }
     static std::vector<double> load_knots_from_history(const size_t& step_idx);

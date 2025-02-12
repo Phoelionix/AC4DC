@@ -42,6 +42,8 @@ size_t Distribution::size=0;
 size_t Distribution::num_continuums = 1;
 size_t Distribution::photo_first_continuum_idx=NULL;
 size_t Distribution::auger_first_continuum_idx=NULL;
+size_t Distribution::external_continuum_idx=NULL;
+size_t Distribution::single_cascade_continuum_idx=NULL;
 
 #ifdef FIND_INITIAL_DIRAC 
     bool Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots = true; 
@@ -460,6 +462,9 @@ void Distribution::addDeltaSpike(double e, double N) {
 void Distribution::addDeltaSpikeExternal(const size_t& a, const double& e, const double& N) {
     int idx = basis.i_from_e(e);
     f_array[0][idx] += N*basis.inverse_areas[idx];
+    #ifndef TRACK_SINGLE_CONTINUUM
+    f_array[external_continuum_idx][idx] += val;
+    #endif
 }
 
 void Distribution::addDeltaSpikePhoto(const size_t& a, const double& e, const double& N) {
@@ -480,6 +485,16 @@ void Distribution::addDeltaSpikeAuger(const size_t& a, const double& e, const do
     #endif
 }
 
+
+void Distribution::addDeltaSpikeSpecificContinuum(const size_t& _c, const double& e, const double& N) {
+    int idx = basis.i_from_e(e);
+    const double val = N*basis.inverse_areas[idx];
+    f_array[0][idx] += val;
+    if (_c != 0){
+        f_array[_c][idx] += val;
+    }
+}
+
 /**
  * @brief f <-- f + df/dt|basis  
  * @details NOT applying a dirac delta. 
@@ -493,6 +508,10 @@ void Distribution::applyDeltaF(const size_t& a,const Eigen::VectorXd& v,const in
         f_array[0][i] += u[i];
         #ifndef TRACK_SINGLE_CONTINUUM
         f_array[a+1][i] += u[i];
+        #else if TRACK_SINGLE_CASCADE  // TODO make more intuitive
+        if (a+1 == Distribution::single_cascade_continuum_idx){
+            f_array[a+1][i] += u[i];
+        }
         #endif
     }
 }

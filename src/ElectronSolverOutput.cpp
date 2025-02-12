@@ -86,7 +86,9 @@ void ElectronRateSolver::saveFree(const std::string& base_fname) {
         std::string fname = base_fname;
 
         // Cascade distributions
+
         if (_c != 0){
+            #ifndef TRACK_SINGLE_CONTINUUM
             fname.append("_");
             if(Distribution::photo_first_continuum_idx<=_c
             &&_c<Distribution::auger_first_continuum_idx){
@@ -97,6 +99,25 @@ void ElectronRateSolver::saveFree(const std::string& base_fname) {
                 fname.append(input_params.Store[_c-Distribution::auger_first_continuum_idx].name); 
                 fname.append("_auger");
             }
+                #ifndef NO_ELECTRON_SOURCE
+                
+                if(Distribution::external_continuum_idx==_c){
+                    fname.append("injected");
+                }
+                #endif
+            #endif
+
+
+            #ifdef TRACK_SINGLE_CASCADE
+            if(Distribution::single_cascade_continuum_idx==_c){
+                std::stringstream stream;
+                stream << std::fixed << std::setprecision(2) << actual_cascade_spawn_time*Constant::fs_per_au;
+                fname.append(stream.str());
+                fname.append("_cascade");
+
+            }
+            #endif
+
         }
 
         fname.append(".csv");

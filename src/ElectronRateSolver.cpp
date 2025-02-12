@@ -395,14 +395,34 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             Pdot[r.from] -= tmp;
             sdot.F.addDeltaSpikePhoto(a,r.energy, r.val*J*P[r.from]);  // TODO change to tmp?
             sdot.bound_charge +=  tmp;
+            #ifdef TRACK_SINGLE_CASCADE
+            if (t < cascade_spawn_time){
+                cascade_spawned = false;
+            }
+            if (t > cascade_spawn_time && cascade_spawned == false){
+                double tmp=0;
+                tmp+=1;
+                if ((r.val*J*P[r.from]/1e3) > 0){
+                    sdot.F.addDeltaSpikeSpecificContinuum(Distribution::single_cascade_continuum_idx,input_params.single_cascade_energy, r.val*J*P[r.from]/1e3); // negligibly small magnitude
+                }
+                cascade_spawned=true;
+                actual_cascade_spawn_time=t;
+
+            }
+
+            #endif
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
+
+
 
         sdot.cumulative_photo[a]+=sdot.bound_charge-old_bound_charge;
 
         #ifndef NO_ELECTRON_SOURCE
         //PHOTOION. SOURCE
-        if(t < simulation_start_time + input_params.electron_source_duration*(timespan_au)){
+        if((t < simulation_start_time + input_params.electron_source_duration*(timespan_au)))
+         
+        {
             double injected_density = 0; 
             switch (input_params.electron_source_type){
                 case 'c':
@@ -540,13 +560,13 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         eii_rate.back() += sdot_bound_charge_eii_subst;
         tbr_rate.back() += sdot_bound_charge_tbr_subst;
         #endif
-        
+
         bound_secondary_time += t12 - t11;
 
         #ifdef TRACK_SINGLE_CONTINUUM
         size_t _c = 0; 
         #else
-        size_t _c = 1;  // Iterates through the continuum corresponding to each element's initiated cascades and adds separately
+        size_t _c = 1;  // Iterates through the continuum corresponding to each element's (or other source's) initiated cascades and adds separately
         #endif 
 
         for (;_c < Distribution::num_continuums; _c++){

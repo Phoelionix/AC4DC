@@ -206,6 +206,11 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		}
 	}
 
+	for (size_t n = 0; n < FileContent["#ANALYTICAL"].size(); n++) {
+		stringstream stream(FileContent["#ANALYTICAL"][n]);
+		if (n == 0) stream >> single_cascade_energy;
+	}
+
 	for (size_t n = 0; n < FileContent["#LOAD"].size(); n++) {
 		stringstream stream(FileContent["#LOAD"][n]);
 
@@ -336,6 +341,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	// Convert to number of photon flux.
 	omega /= Constant::eV_per_Ha;
 	electron_source_energy/= Constant::eV_per_Ha;
+	single_cascade_energy/=Constant::eV_per_Ha;
 	fluence *= 10000/Constant::Jcm2_per_Haa02/omega;
 
 	// Convert to atomic units.

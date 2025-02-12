@@ -146,6 +146,13 @@ private:
     double simulation_end_time;  // [Au]    
     double fraction_of_pulse_simulated;
 
+    
+    #ifdef TRACK_SINGLE_CASCADE
+    double cascade_spawn_time = -7.5/Constant::fs_per_au;
+    double actual_cascade_spawn_time = -999999999;
+    bool cascade_spawned = false;
+    #endif
+
     void load_filtration_file(){}; //TODO
     // Model parameters
 
