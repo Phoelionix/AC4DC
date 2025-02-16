@@ -347,7 +347,8 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 		}
 
 
-		string dummy = RateLocation + std::to_string(input.Omega()*Constant::eV_per_Ha) + "_FormFactor.txt";
+		//string dummy = RateLocation + std::to_string(input.Omega()*Constant::eV_per_Ha) + "_FormFactor.txt";
+		string dummy = RateLocation + "FormFactor.txt";
 		cout<<"Saving form factor data to "<<dummy<<"..."<<endl;
 		FILE * fl = fopen(dummy.c_str(), "w");
 		for (auto& ff : FF) {
