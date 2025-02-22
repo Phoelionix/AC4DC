@@ -432,7 +432,7 @@ if __name__ == "__main__":
         sctr_results_batch_dir = None, 
         get_R_only=True,
         eop_charge_only=False, # Only calculate the end of pulse charge (much faster as doesn't load whole data file)
-        element_considered = "O"#"N"#"O"#"Gd_fast"#"C" # Element whose charge we are considering.
+        element_considered = "C"#"N"#"O"#"Gd_fast"#"C" # Element whose charge we are considering.
     )
 
 
@@ -473,7 +473,7 @@ if __name__ == "__main__":
         #kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_square"]  
         #kwargs["plasma_handles"] = ["lys_galli_LF_no_Gd_6","lys_galli_LF_17"]
         #kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_Gd_full_1","lys_nass_gauss_solvated_1","lys_nass_Gd_gauss_solvated_2"]
-        kwargs["plasma_handles"] = ["lys_nass_water_solvent_2","lys_nass_water_solvent_9kev_2","lys_nass_gd_solvent_5","lys_nass_gd_solvent_9kev_5"]
+        #kwargs["plasma_handles"] = ["lys_nass_water_solvent_2","lys_nass_water_solvent_9kev_2","lys_nass_gd_solvent_5","lys_nass_gd_solvent_9kev_5"]
         #kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_Gd_full_1","lys_nass_gauss_solvated_1","lys_nass_Gd_gauss_solvated_2"]
         #kwargs["plasma_handles"] = ["lys_salt_solvated_fast_1","lys_Gd_K_salt_solvated_fast_2","lys_K_salt_solvated_fast_2","lys_Gd_salt_solvated_fast_27",]
         #kwargs["plasma_handles"] = ["lys_K_salt_solvated_1","lys_Gd_salt_solvated_1",]
@@ -482,6 +482,9 @@ if __name__ == "__main__":
         #kwargs["plasma_handles"] = ["lys_nass_HF","lys_nass_Gd_HF"]  
         #kwargs["plasma_handles"] = ["lys_full-typical","lys_all_light-typical"]  
         #kwargs["plasma_handles"] = ["glycine_abdullah_4"]
+        #kwargs["plasma_handles"] = ["lys_galli_LF_full_8","lys_galli_HF_full_2","lys_galli_LF_no_Gd_full_9","lys_galli_HF_no_Gd_full_6"]
+        kwargs["plasma_handles"] = ["lys_Gd_salt_solvated_fast_square_H_8","Gd_salt_5"]
+        
         #pdb_path = PDB_PATHS["fcc"]
         pdb_path = PDB_PATHS["lys"]
         #pdb_path = PDB_PATHS["lys_solvated"]

@@ -79,8 +79,11 @@ if interactive and __name__ == "__main__":
 
 plt.ioff()  # stops weird vscode stuff
 
-DEBUG = False 
-SEEDED = False# TODO fully implement for all random stuff
+DEBUG = False; DEBUG = False; DEBUG_MODERATE = False; RANDOM_WATER=False; DEBUG_WATER = False
+SEEDED = False# TODO check fully implemented for all random stuff
+if SEEDED:
+    np.random.seed(0)
+
 c_au = 137.036; eV_per_Ha = 27.211385; ang_per_bohr = 1/1.88973  # > 1 ang = 1.88973 bohr
 
 RESULTS_LOCAL_PATH = "results/"
@@ -133,34 +136,68 @@ class Custom_Gromacs_Parser():
             return self.Structure(structure_id,conf_path)
 
 class Results():
-    def __init__(self,num_points,image_index):
+    def __init__(self,num_points=None,image_index=None):
         self.phi = np.zeros(num_points)
         self.phi_aligned = np.zeros(num_points)
         self.I = np.zeros(num_points)
         self.q = np.zeros(num_points)
         self.X = np.zeros(num_points)
         self.image_index = image_index 
+        self.for_plotting=True
+        
+    def get_result(_, filename,results_dir,compare_dir = None):
+        #Requires all orientations of result_handle in compare_handle, but not vice versa.
+        fpath = os.path.join(results_dir, filename)
+        if os.path.isfile(fpath):
+            with open(fpath,'rb') as f:
+                result1 = pickle.load(f)
+        else: 
+            return "__PASS__" "__PASS__"
+        result2 = None
+        if compare_dir != None:
+            if filename in os.listdir(compare_dir):
+                fpath2 = os.path.join(compare_dir, filename)
+                with open(fpath2,'rb') as f:
+                    result2 = pickle.load(f)     
+                    result1.diff(result2)             
+            else:
+                print("ERROR, missing matching orientation in comparison directory")
+                return None, None # No corresponding file found.          
+        return result1, result2
 
-    def package_up(self,miller_indices):
-        _, self.phi_mesh = np.meshgrid(self.q,self.phi)  
-        self.X, self.phi_mesh = np.meshgrid(self.X, self.phi)
-        self.q, self.phi_aligned_mesh = np.meshgrid(self.q,self.phi_aligned) 
-        #self.q_scr, self.phi_aligned_mesh = np.meshgrid(self.q_scr,self.phi_aligned) 
+    def package_up(self,miller_indices,for_plotting=True):
+        # _, self.phi_mesh = np.meshgrid(self.q,self.phi)  
+        # self.X, self.phi_mesh = np.meshgrid(self.X, self.phi)
+        # self.q, self.phi_aligned_mesh = np.meshgrid(self.q,self.phi_aligned) 
+        self.for_plotting=for_plotting
+        if for_plotting:
+            self.X, _ = np.meshgrid(self.X, self.phi)
+            self.q, _ = np.meshgrid(self.q,self.phi_aligned) 
         self.miller_indices = miller_indices 
     def diff(self,other):
         '''
         Get single-point R factors between two images
         '''
         self.R = np.zeros(self.I.shape)
-        for i in range(len(self.q)):
-            subtracted = False
-            for j in range(len(other.q)):
-                if self.phi[i] == other.phi[j] and self.q[0][i] == other.q[0][j]:   # Using phi is equivalent to using phi_aligned, as this function is only used for same-orientation comparisons.
-                    #self.I[i] = np.abs(self.I[i]- other.I[j])/self.I[i] # Intensity
-                    self.R[i] = np.abs(np.sqrt(self.I[i])- np.sqrt(other.I[j]))/np.sqrt(max(self.I[i],other.I[j]))# form factor  # TODO not sure why later times is sometimes larger but probs interference thing. Hopefully will disappear when we use large time gaps... or at least when we average over to get R factor.
-                    subtracted = True
-            if subtracted == False:
-                self.R[i] = -1 
+
+        if not self.for_plotting:
+            return
+
+        
+        CHECK_ALIGNED = True
+        if CHECK_ALIGNED:
+            for i in range(len(self.q)):
+                subtracted = False
+                for j in range(len(other.q)):
+                    if self.phi[i] == other.phi[j] and self.q[0][i] == other.q[0][j]:   # Using phi is equivalent to using phi_aligned, as this function is only used for same-orientation comparisons.
+                        #self.I[i] = np.abs(self.I[i]- other.I[j])/self.I[i] # Intensity
+                        self.R[i] = np.abs(np.sqrt(self.I[i])- np.sqrt(other.I[j]))/np.sqrt(max(self.I[i],other.I[j]))# form factor  # TODO not sure why later times is sometimes larger but probs interference thing. Hopefully will disappear when we use large time gaps... or at least when we average over to get R factor.
+                        subtracted = True
+                if subtracted == False:
+                    self.R[i] = -1 
+        else:
+            for i in range(len(self.q)):
+                self.R[i] = np.abs(np.sqrt(self.I[i])- np.sqrt(other.I[i]))/np.sqrt(max(self.I[i],other.I[i]))
 class Results_SPI():
     pass
 class Results_Grid():
@@ -191,6 +228,10 @@ class Crystal():
         self.struct_file_path = struct_file_path
         self.positional_stdv = positional_stdv/ang_per_bohr # RMS error in coord positions, designed for SPI sim only but I guess it wouldn't be detrimental for crystal sim.
         
+        self.ignore_deviations = False
+        if self.positional_stdv == 0 and not RANDOM_WATER:
+            self.ignore_deviations = True
+
         assert self.supercell_simulations <= num_supercells
         ## Parameters to be parsed by custom function because I cannot understand Bio.PDB.PDBParser's documentation.
         self.sym_rotations = []; self.sym_translations = [];   # Symmetry for each asymmetric unit simulated. If non-SPI, this is defining the supercell.
@@ -265,27 +306,53 @@ class Crystal():
                     if name not in allowed_atoms:
                         continue
             if name not in species_dict.keys():
+                PDB_to_AC4DC_dict[atom.element]=name
                 species_dict[name] = Atomic_Species(name,self) 
                 pdb_atoms.append(atom.element)
             species_dict[name].add_atom(atom.get_serial_number(),R)
+
+
         ac4dc_atoms_ignored = ""
         for string in allowed_atoms:
             if string not in species_dict.keys():
                 ac4dc_atoms_ignored += string + " "
                 continue
         print("The following atoms will be considered (AC4DC names ; pdb names):")
-        for p,a in zip(pdb_atoms,[PDB_to_AC4DC_dict[x] for x in pdb_atoms]): 
+        for p,a in zip([PDB_to_AC4DC_dict[x] for x in pdb_atoms], pdb_atoms): 
             print("%-10s %10s" % (p, a))
         if pdb_atoms_ignored != "":
             print("The following pdb atoms were found but ignored:",pdb_atoms_ignored)
         if ac4dc_atoms_ignored != "":
             print("The following atoms were allowed but not found:",ac4dc_atoms_ignored)
-
-        for species in species_dict.values():
-            species.set_coord_deviation()
+        
+        
         self.species_dict = species_dict 
 
+        self.set_stochastic_positions(first_call=True)
 
+
+    def set_stochastic_positions(self,first_call=False):
+        def num_atoms_no_symm():
+            return np.sum([len(self.species_dict[k].coords) for k in self.species_dict])
+        if RANDOM_WATER:
+            if first_call:
+                self.random_water_start_idx = num_atoms_no_symm()
+                self.num_non_water_oxygens = len(self.species_dict["O"].coords)
+            self.reinitialize_random_waters()
+            if first_call:
+                print(f"Added {NUM_RANDOM_WATER} O atoms to random coordinates. Structure now has {num_atoms_no_symm()} atoms.")
+        if first_call:
+            print(f"Adding stdv of {self.positional_stdv} Angstroms.")
+        for species in self.species_dict.values():
+            species.set_coord_deviation()
+        
+
+    def reinitialize_random_waters(self):
+        self.species_dict["O"].coords = self.species_dict["O"].coords[:self.num_non_water_oxygens]
+        if DEBUG or DEBUG_WATER:
+            print(f"Placing {NUM_RANDOM_WATER} O atoms in random positions")
+        for _ in range(NUM_RANDOM_WATER):
+            self.species_dict["O"].add_atom("WATER",Bio_Vect((np.random.rand(3)-0.5)*1e3))
     def set_ff_calculator(self,ff_calculator):
         self.ff_calculator = ff_calculator                  
     
@@ -440,6 +507,8 @@ class Crystal():
         view_width = 1000
         view_height = 800
 
+        if water_index is None and RANDOM_WATER:
+            water_index = self.random_water_start_idx # TODO make work with symmetries
         num_atoms_avail = 0
         for species in self.species_dict.values():
              num_atoms_avail += len(species.coords)
@@ -722,40 +791,49 @@ class Atomic_Species():
         self.serial_numbers.append(serial_number)
         self.coords.append(vector.get_array()/ang_per_bohr)
         
-    def set_stochastic_states(self):
+    def set_stochastic_electronic_states(self):
         '''
         We set a state for each atom, including symmetries, so that different q applied to the same atom at the same time corresponds to the same state. 
         When we are finding the atomic form factors, we call get_stochastic_f() on these states.
         The dimensionless nature of the model forces us to make the dubious approximation that an atom's state is independent of its prior states.
-        With a hybrid molecular dynamics model informed by AC4DC, the nuclei's states could be tracked properly throughout time, and this function would be replaced
+        With a hybrid molecular dynamics model informed by AC4DC, the nuclei's states could potentially be tracked properly through time, and this function would be replaced
         by a call to the data of the atomic nuclei's states.
         '''
-        print("Creating time-varying states for atom "+self.name+" from plasma simulation's data")
+        if DEBUG or DEBUG_MODERATE:
+            print("Creating time-varying states for atom "+self.name+" from plasma simulation's data")
         self.times_used = self.crystal.ff_calculator.get_times_used()
-        if self.num_atoms != len(self.crystal.sym_rotations)*len(self.coords):
-            raise Exception("num atoms was not same on set_stochastic_states call as when set by set_coord_deviation")
+        num_atoms = self.get_num_atoms()
+        if self.num_atoms_on_coord_deviation != num_atoms:
+            raise Exception("num atoms was not same on set_stochastic_electronic_states call as when set by set_coord_deviation")
+        
         if self.crystal.is_damaged:
             # Initialise an array that tracks the individual atoms' form factors.
-            orb_occs_shape = (self.num_atoms,len(self.times_used))  # [num atoms,times]
+            orb_occs_shape = (num_atoms,len(self.times_used))  # [num atoms,times]
             # TODO instead of storing lists, replace with indices and a list with corresponding states. Also use index to get ff rather than orbocc list
             self.orb_occs= np.empty(orb_occs_shape,dtype=list)    # self.orb_occs[i] is an array of states corresponding to each time. We make the necessary approximation that an atom's state is independent of its prior states. This approximation is dubious at low unit cell numbers, but at higher numbers, because the contribution from an atom at the same relative cell coordinate and state as another atom will be equivalent, we get the same outcome so long as the probability distribution of states is representative of the actual distribution of states. i.e. tracking state history at the same global position is redundant at high unit cell counts where we can expect the distribution of states at a given coordinate to have a low deviation between species.  
-            for idx in range(self.num_atoms):
+            for idx in range(num_atoms):
                 seed = None
                 if SEEDED:
                     seed = idx
                 self.orb_occs[idx],_dummy,self.orb_occ_dict = self.crystal.ff_calculator.random_state_snapshots(self.name,seed) 
         else:
-           self.ground_state = self.crystal.ff_calculator.get_ground_state_shells(self.name)           
+           self.ground_state = self.crystal.ff_calculator.get_ground_state_shells(self.name)       
+    def get_num_atoms(self):
+        return len(self.crystal.sym_rotations)*len(self.coords)    
     def set_coord_deviation(self):
-        self.num_atoms = len(self.crystal.sym_rotations)*len(self.coords)
-        self.error = np.empty((self.num_atoms,3))
-        for idx in range(self.num_atoms):
-            # get random error in spherical coords based on RMS error in position, convert to cartesian.
-            # there's probably a better way to do it
-            err_phi,err_thet = np.random.random()*2*np.pi, np.random.random()*np.pi
-            err_r = np.random.normal(0,self.crystal.positional_stdv, size = (3))
-            self.error[idx] = err_r*(np.sin(err_phi)*np.cos(err_thet),np.sin(err_phi)*np.cos(err_thet),np.cos(err_thet))
+        num_atoms = self.num_atoms_on_coord_deviation = self.get_num_atoms()
+        self.error = np.empty((num_atoms,3))
+        if not self.crystal.ignore_deviations:
+            for idx in range(num_atoms):
+                # get random error in spherical coords based on RMS error in position, convert to cartesian.
+                # there's probably a better way to do it
+                err_phi,err_thet = np.random.random()*2*np.pi, np.random.random()*np.pi
+                if self.name == "O" and RANDOM_WATER and idx >= self.crystal.num_non_water_oxygens:
+                    err_r = np.random.normal(0, 1e3,size = (3)) # need to add this for each water atom so not same between symmetry operations
+                else:
+                    err_r = np.random.normal(0,self.crystal.positional_stdv, size = (3))
 
+                self.error[idx] = err_r*(np.sin(err_phi)*np.cos(err_thet),np.sin(err_phi)*np.cos(err_thet),np.cos(err_thet))
 
     def get_stochastic_f(atom_idx,q_arr):
         '''
@@ -786,7 +864,7 @@ class Atomic_Species():
                     return self.crystal.ff_calculator.random_states_to_f_snapshots(self.times_used,self.orb_occs[atom_idx],q_arr,self.name,self.orb_occ_dict)[0]  # f has form  [times,momenta]
             self.get_stochastic_f = tmp_func
 class XFEL():
-    def __init__(self, experiment_name, photon_energy, detector_distance_mm=100, q_minimum = None, q_cutoff = None, max_miller_idx = None, screen_type = "hemisphere", num_orients_crys=1, orientation_axis_crys = None, x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100,SPI_y_rotation = 0,SPI_x_rotation = 0,SPI_z_rotation = 0,all_miller_indices=False, custom_cell_dims_for_miller_indices=None,override_max_q = False):
+    def __init__(self, experiment_name, photon_energy, detector_distance_mm=100, q_minimum = None, q_cutoff = None, max_miller_idx = None, screen_type = "hemisphere", num_orients_crys=1, orientation_axis_crys = None, x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100,SPI_y_rotation = 0,SPI_x_rotation = 0,SPI_z_rotation = 0,all_miller_indices=False, custom_cell_dims_for_miller_indices=None,override_max_q = False,miller_indices_override=None,spot_fraction_per_orient=None):
         """ #### Initialise the imaging experiment's controlled parameters
         experiment_name:
             String that the output folder will be named.        
@@ -823,14 +901,24 @@ class XFEL():
         self.y_orientations = y_orientations
         self.max_miller_idx = max_miller_idx
         self.all_miller_indices = all_miller_indices
-        self.custom_cell_dims_for_miller_indices = custom_cell_dims_for_miller_indices
-        self.override_max_q = override_max_q
+        self.miller_indices_override = miller_indices_override # overrides all selection rules TODO assert other selection rule options aren't enabled.
+        self.custom_cell_dims_for_miller_indices = custom_cell_dims_for_miller_indices # This is for point of comparison with certain studies and shouldn't be used.
+        self.override_max_q = override_max_q # whether should override max q when searching all miller indices 
 
+        if self.miller_indices_override is None:
+            assert spot_fraction_per_orient is None
+        else:
+            self.spot_fraction_per_orient = spot_fraction_per_orient
+            if spot_fraction_per_orient is None or spot_fraction_per_orient > 1 :
+                print("Defaulting to considering all Miller indices at once")
+                self.spot_fraction_per_orient = 1
+                
+                
         if self.override_max_q:
             assert self.all_miller_indices, "Currently overriding maximum q is only supported if searching all Miller indices"
             assert self.max_miller_idx != None, "Require a maximum Miller index as maximum q is overridden." 
         if self.max_miller_idx is None:
-            assert self.all_miller_indices == False
+            assert self.all_miller_indices == False, "Please specify a maximum miller index. Note that if override_max_q is false, you can choose a high value as Bragg points will still only correspond to momentum transfer below max q"
         if self.custom_cell_dims_for_miller_indices is not None:
             self.custom_cell_dims_for_miller_indices = np.array(custom_cell_dims_for_miller_indices)/ang_per_bohr
         self.min_q = 0
@@ -879,7 +967,8 @@ class XFEL():
             axis = Bio_Vect(*orientation_axis_crys)
             ori_set = [rotaxis2m(angle, axis) for angle in np.linspace(0,2*np.pi,self.num_orientations,endpoint=False)]
             self.set_orientation_set([Rotation.from_matrix(m).as_euler("xyz") for m in ori_set])
-            print("orientation set set:", self.orientation_set)
+            if DEBUG or DEBUG_MODERATE:
+                print("orientation set set:", self.orientation_set)
     
     def set_orientation_set(self,orientation_set):
         self.orientation_set = orientation_set
@@ -913,7 +1002,7 @@ class XFEL():
             raise Exception("Require pixels_across argument for rectangular screen")
         
         # Create output folder for results
-        directory = path.abspath(path.join(__file__ ,"../")) + results_parent_dir + self.experiment_name + "/"
+        directory = path.abspath(path.join(__file__ ,"../")) + "/"+ results_parent_dir + self.experiment_name + "/"
         print("creating folder:",directory)
         exist_ok = True
         if (os.path.exists(directory)):
@@ -1075,9 +1164,31 @@ class XFEL():
             used_orientations = []
             if random_orientation:
                 self.orientation_set = [(0,0,0)]*self.num_orientations  # Dummy orientations
+            
+            RANDOM_MILLER_FRAC = True
+            if not RANDOM_MILLER_FRAC:
+                if self.miller_indices_override is not None:
+                    np.random.shuffle(self.miller_indices_override)
             for j, cardan_angles in enumerate(self.orientation_set):             
+                
+                if self.miller_indices_override is not None:
+                    if self.spot_fraction_per_orient == 1:
+                        orientation_indices_override = self.miller_indices_override
+                    else:
+                        orientation_indices_override = self.miller_indices_override.copy()
+                        if RANDOM_MILLER_FRAC:
+                            np.random.shuffle(orientation_indices_override)
+                            orientation_indices_override = orientation_indices_override[0:int(len(self.miller_indices_override)*self.spot_fraction_per_orient)] 
+                        else:
+                            num_indices_total = len(self.miller_indices_override)
+                            size = int(num_indices_total*self.spot_fraction_per_orient)
+                            start = size*j%num_indices_total; end = start + size 
+                            orientation_indices_override = orientation_indices_override[start:end] 
+
+
+
                 print("Imaging orientation",j)
-                bragg_points, miller_indices,cardan_angles = self.bragg_points(target,cell_packing = target.cell_packing, cardan_angles = cardan_angles,random_orientation=random_orientation)
+                bragg_points, miller_indices,cardan_angles = self.bragg_points(target,cell_packing = target.cell_packing, cardan_angles = cardan_angles,random_orientation=random_orientation,indices_override=orientation_indices_override)
                 used_orientations.append(cardan_angles)
                 num_points = int(len(bragg_points))
                 result = Results(num_points,j)
@@ -1085,7 +1196,28 @@ class XFEL():
                 i = 0
                 #TODO vectorise
                 # (Assume pixel adjacent to bragg point does not capture remnants of sinc function)
-                point = self.generate_point(bragg_points,cardan_angles)
+                
+                max_BP =  70000 # 10920  # max number of Bragg Points to process at once 
+
+                if len(bragg_points)>max_BP:
+                    point = self.Spot(np.zeros(0),np.zeros(0),np.zeros(0))
+                    num_points_left = len(bragg_points)
+                    seed = np.random.randint(0,1e8) # need to seed so when iterating through each supercell the stochastic calls are the same.
+                    while num_points_left > 0:
+                        np.random.seed(seed)  # reset seed to same as start of orientation. TODO use generator.
+                        i = len(point.q); f = len(point.q) + min(num_points_left,max_BP)
+                        print(f"Iterating through Bragg points {i} - {f-1}")
+                        
+                        subpoint = self.generate_point(bragg_points[i:f],cardan_angles)                      
+                        point.q = np.concatenate((point.q,subpoint.q),axis=0,dtype=float)
+                        point.X = np.concatenate((point.X,subpoint.X),axis=0,dtype=float)
+                        point.theta = np.concatenate((point.theta,subpoint.theta),axis=0,dtype=float)
+                        point.phi = np.concatenate((point.phi,subpoint.phi),axis=0,dtype=float)
+                        point.phi_crystal_aligned = np.concatenate((point.phi_crystal_aligned,subpoint.phi_crystal_aligned),axis=0,dtype=float)
+                        point.I = np.concatenate((point.I,subpoint.I),axis=0,dtype=float)
+                        num_points_left -= len(subpoint.q)
+                else:
+                    point = self.generate_point(bragg_points,cardan_angles)
                 # fix this filling stuff
                 result.phi = point.phi
                 result.phi_aligned = point.phi_crystal_aligned
@@ -1093,11 +1225,16 @@ class XFEL():
                 result.q = point.q
                 result.I += point.I
                 
-                result.package_up(miller_indices)
+                for_plotting = False
+                if len(bragg_points)>1e4:
+                    for_plotting=False
+                result.package_up(miller_indices,for_plotting=for_plotting)
                 #Save the result object into its own file within the output folder for the experiment
                 fpath = directory + str(cardan_angles) +".pickle"
                 with open(fpath,"wb") as pickle_out:
                     pickle.dump(result,pickle_out)
+
+
             return used_orientations
 
     class Feature:
@@ -1111,6 +1248,9 @@ class XFEL():
     class Spot(Feature):
         def __init__(self,*args):
             super().__init__(*args)
+            self.phi = np.zeros(0)
+            self.phi_crystal_aligned = np.zeros(0)
+            self.I = np.zeros(0)
     class Cell(Feature):
         def __init__(self,*args):
             super().__init__(*args)
@@ -1176,12 +1316,15 @@ class XFEL():
 
     # Returns the relative intensity at point q for the target's unit cell, i.e. ignoring crystalline effects.
     # If the feature is a bragg spot, this gives its relative intensity, but due to photon conservation won't be the same as the intensity without crystallinity - additionally different factors for non-zero form factors occur across different crystal patterns.
-    def illuminate(self,feature, phis = None,cardan_angles = None, SPI_proj_solid_angle=None):  # Feature = ring or spot.
+    def illuminate(self,feature, phis = None,cardan_angles = None, SPI_proj_solid_angle=None,seed=None):  # Feature = ring or spot.
         """Returns the intensity at q. Not crystalline yet.
         phis is an ndarray containing the angle of each point to calculate for (SPI) rings, but should contain only 1 element for points.
         """
         # if phis == None:
         #     phis = self.phi_array
+
+        if seed is not None:
+            np.random.seed(seed)
         
         if type(feature) == self.Spot:
             SPI = False
@@ -1203,18 +1346,23 @@ class XFEL():
         for S in range(self.target.supercell_simulations):   
             print("Simulating supercell", S)
             times_used = None
+            self.target.set_stochastic_positions()
             for species in self.target.species_dict.values():
-                species.set_stochastic_states()   
-                species.set_coord_deviation()             
+                species.set_stochastic_electronic_states()   
                 species.set_scalar_form_factor()
-                times_used = species.times_used
+                if times_used is None:
+                    times_used = species.times_used
+                else:
+                    if DEBUG:
+                        assert np.all(times_used == species.times_used)
             if (times_used[-1] == times_used[0]):   
                 raise Exception("Intensity array's final time equals its initial time")                  
             # Technically sum of F(t)*sqrt(J(t)), where F = sum(f(q,t)*T(q)), and J(t) is the incident intensity, thus accounting for the pulse profile. (J(t) is accounted for in get_stochastic_f)
             F_sum = np.zeros(F_shape,dtype="complex_")  
             for species in self.target.species_dict.values():
-                print("------------------------------------------------------------")
-                print("Getting contribution to integrand from species",species.name)
+                if DEBUG or DEBUG_MODERATE:
+                    print("------------------------------------------------------------")
+                    print("Getting contribution to integrand from species",species.name)
                 if not np.array_equal(times_used,species.times_used):
                     raise Exception("Times used don't match between species.")        
                 # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
@@ -1226,14 +1374,18 @@ class XFEL():
                         atm_idx = np.arange(len(species.coords)*s+max_atoms_per_loop*a_batch, len(species.coords)*s + min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
                         if len(atm_idx) == 0:
                             break
-                        if self.target.supercell_simulations < 10:
-                            if len(self.target.sym_rotations) < 50 or (len(self.target.sym_rotations) < 2000 and s%100 == 0)  or s%1000 == 0:
-                                print("symmetry:",s,"atoms:",species.name,atm_idx[0],"-",atm_idx[-1])
+                        if DEBUG or DEBUG_MODERATE:
+                            if self.target.supercell_simulations < 10:
+                                if len(self.target.sym_rotations) < 50 or (len(self.target.sym_rotations) < 2000 and s%100 == 0)  or s%1000 == 0:
+                                    print("symmetry:",s,"atoms:",species.name,atm_idx[0],"-",atm_idx[-1])
                         relative_atm_idx = np.arange(max_atoms_per_loop*a_batch, min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
                         # Rotate to target's current orientation 
                         # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
                         R = np.array(species.coords[relative_atm_idx[0]:relative_atm_idx[-1]+1]) 
-                        coord = self.target.get_sym_xfmed_point(R,s)  + species.error[relative_atm_idx] # dim = [ N, 3], where N is number of coords.
+                        if self.target.ignore_deviations:
+                            coord = self.target.get_sym_xfmed_point(R,s)
+                        else:
+                            coord = self.target.get_sym_xfmed_point(R,s)  + species.error[relative_atm_idx] # dim = [ N, 3], where N is number of coords.
                         coord = coord @ self.x_rot_matrix  
                         coord = coord @ self.y_rot_matrix
                         coord = coord @ self.z_rot_matrix
@@ -1366,7 +1518,7 @@ class XFEL():
                 raise Exception("Unexpected q_dot_r shape.",q_dot_r.shape)
         T = np.exp(-1j*q_dot_r) 
         return T   
-    def bragg_points(self,crystal, cell_packing, cardan_angles,random_orientation=False):
+    def bragg_points(self,crystal, cell_packing, cardan_angles,random_orientation=False,indices_override=None):
         ''' 
         Using the unit cell structure, find non-zero values of q for which bragg 
         points appear.
@@ -1393,6 +1545,8 @@ class XFEL():
                 G = "non-cartesian Unimplemented"
             return G, used_angles
         
+
+
         # (h,k,l) is G (subject to selection condition) in lattice vector basis (lattice vector length = 1 in each dimension):
         # a = lattice vectors, b = reciprocal lattice vector
         if cell_packing == "SC" or cell_packing == "FCC" or cell_packing == "BCC" or cell_packing == "FCC-D":
@@ -1415,89 +1569,136 @@ class XFEL():
         b3 = np.cross(a[0],a[1])
         b = 2*np.pi*np.array([b1,b2,b3])/(np.dot(a[0],np.cross(a[1],a[2])))
         
-        # Cast a wide net, catching all possible permutations of miller indices.
-        #   G = hb1 + kb2 + lb3. (bi = lattice vector)
-        #   !Attention! Assuming vectors are orthogonal.
-        # TODO double check not cutting off possible values.
-        if not self.override_max_q:
-            q_1_max = self.max_q
-            q_2_max = self.max_q
-            q_3_max = self.max_q        # q = (0,0,l) case.
-            h_max = 0
-            while np.sqrt(sum(pow(h_max*element, 2) for element in b[0])) <= q_1_max:
-                h_max += 1
-            k_max = 0
-            while np.sqrt(sum(pow(k_max*element, 2) for element in b[1])) <= q_2_max:
-                k_max += 1 
-            l_max = 0
-            while np.sqrt(sum(pow(l_max*element, 2) for element in b[2])) <= q_3_max:
-                l_max += 1             
+        ###################### NOT TESTED TODO
+        if indices_override is not None:
+            G, cardan_angles = get_G(indices_override); 
+            indices = indices_override
         else:
-            h_max = k_max = l_max = self.max_miller_idx     
+        ######################
 
-        h_set = np.arange(-h_max,h_max+1,1)
-        k_set = np.arange(-k_max,k_max+1,1)
-        l_set = np.arange(-l_max,l_max+1,1)
-        indices = list(itertools.product(h_set,k_set,l_set))
-        indices = np.array([*set(indices)])   
-    
-        # Selection rules
-        if cell_packing == "SC":
-            selection_rule = lambda f: True
-        if cell_packing == "BCC":
-            selection_rule = lambda f: (f[0]+f[1]+f[2])%2==0  # All even
-        if cell_packing == "FCC":
-            selection_rule = lambda f: (np.abs(f[0])%2+np.abs(f[1])%2+np.abs(f[2])%2) in [0,3]   # All odd or all even.
-        if cell_packing == "FCC-D":
-            selection_rule = lambda f: (np.abs(f[0])%2+np.abs(f[1])%2+np.abs(f[2])%2) == 3 or ((np.abs(f[0])%2+np.abs(f[1])%2+np.abs(f[2])%2) == 0 and (f[0] + f[1] + f[2])%4 == 0)  # All odd or all even.    
-
-        # Set G, and retrieve the cardan angles used (in case of random orientations)
-        G_temp, cardan_angles = get_G(indices) 
-        # If we used a random orientation, we now lock in the orientations just generated and contained in cardan_angles.
-        random_orientation = False 
-
-        def miller_selection_rule():
-            return None
-        if self.max_miller_idx != None:
-            m = self.max_miller_idx
-            max_g_vect = get_G(np.full((1,3),m))[0][0]
-            if not self.override_max_q:
-                self.max_q = min(self.max_q,np.sqrt(((max_g_vect[0])**2+(max_g_vect[1])**2+(max_g_vect[2])**2)))
+            # Cast a wide net, catching all possible permutations of miller indices.
+            #   G = hb1 + kb2 + lb3. (bi = lattice vector)
+            #   !Attention! Assuming vectors are orthogonal.
+            # TODO double check not cutting off possible values.
+            if self.override_max_q:
+                h_max = k_max = l_max = self.max_miller_idx    
             else:
-                self.max_q = np.sqrt(((max_g_vect[0])**2+(max_g_vect[1])**2+(max_g_vect[2])**2))
-            def miller_selection_rule(indices): # Probably unnecessary I'm just making sure...
-                return  (abs(indices[0]) <= m and abs(indices[1]) <= m and abs(indices[2]) <= m)
-        print("max q (i.e. rim q):",self.max_q)
+                q1 = sum(pow(self.max_miller_idx*element, 2) for element in b[0])
+                q2 = sum(pow(self.max_miller_idx*element, 2) for element in b[1])
+                q3 = sum(pow(self.max_miller_idx*element, 2) for element in b[2])
         
-        print("using q range of ", self.min_q/ang_per_bohr,"-",self.max_q/ang_per_bohr," angstrom-1")
-        def min_max_q_rule(g):
-            return self.min_q <= np.sqrt(((g[0])**2+(g[1])**2+(g[2])**2)) <= self.max_q
-        #max_q_rule = lambda f: np.sqrt(((f[0]*np.average(cell_dim))**2+(f[1]*np.average(cell_dim))**2+(f[2]*np.average(cell_dim))**2))<= self.max_q
+                print(res_to_q(self.max_q/ang_per_bohr))
+                if DEBUG:
+                    if self.max_miller_idx:
+                        highest_possible_q = np.sqrt(q1+q2+q3)/ang_per_bohr
+                        print(f"q for ({[self.max_miller_idx,]*3}): {highest_possible_q}, resolution: {q_to_res(highest_possible_q)}")
+                    
+                q_1_max = self.max_q
+                q_2_max = self.max_q
+                q_3_max = self.max_q        # q = (0,0,l) case.
+                h_max = 0
+                while (np.sqrt(sum(pow(h_max*element, 2) for element in b[0])) <= q_1_max 
+                    and h_max < self.max_miller_idx):
+                    h_max += 1
+                k_max = 0
+                while (np.sqrt(sum(pow(k_max*element, 2) for element in b[1])) <= q_2_max
+                    and k_max < self.max_miller_idx):
+                    k_max += 1 
+                l_max = 0
+                while (np.sqrt(sum(pow(l_max*element, 2) for element in b[2])) <= q_3_max
+                    and l_max < self.max_miller_idx):
+                    l_max += 1     
+
+                if DEBUG or DEBUG_MODERATE:
+                    q1 = sum(pow(h_max*element, 2) for element in b[0])
+                    q2 = sum(pow(k_max*element, 2) for element in b[1])
+                    q3 = sum(pow(l_max*element, 2) for element in b[2])
+                    highest_possible_q = np.sqrt(q1+q2+q3)/ang_per_bohr
+                    print(f"q for ({h_max},{k_max},{l_max}): {highest_possible_q}, resolution: {q_to_res(highest_possible_q)}")
+                    
+            h_set = np.arange(-h_max,h_max+1,1)
+            k_set = np.arange(-k_max,k_max+1,1)
+            l_set = np.arange(-l_max,l_max+1,1)
+            indices = list(itertools.product(h_set,k_set,l_set))
+            indices = np.array([*set(indices)])   
         
-        # Catch the miller indices with a boolean mask
-        if self.all_miller_indices:
-            mask=np.apply_along_axis(miller_selection_rule,1,indices)*np.apply_along_axis(selection_rule,1,indices)
-            if not self.override_max_q:
-                mask*=np.apply_along_axis(min_max_q_rule,1,G_temp)
-        else:
-            mask = np.apply_along_axis(selection_rule,1,indices)*np.apply_along_axis(min_max_q_rule,1,G_temp)*np.apply_along_axis(self.mosaic_elastic_condition,1,G_temp)
+            # Selection rules
+            if cell_packing == "SC":
+                selection_rule = lambda f: True
+            if cell_packing == "BCC":
+                selection_rule = lambda f: (f[0]+f[1]+f[2])%2==0  # All even
+            if cell_packing == "FCC":
+                selection_rule = lambda f: (np.abs(f[0])%2+np.abs(f[1])%2+np.abs(f[2])%2) in [0,3]   # All odd or all even.
+            if cell_packing == "FCC-D":
+                selection_rule = lambda f: (np.abs(f[0])%2+np.abs(f[1])%2+np.abs(f[2])%2) == 3 or ((np.abs(f[0])%2+np.abs(f[1])%2+np.abs(f[2])%2) == 0 and (f[0] + f[1] + f[2])%4 == 0)  # All odd or all even.    
+
+            # Set G, and retrieve the cardan angles used (in case of random orientations)
+            G_temp, cardan_angles = get_G(indices) 
+            # If we used a random orientation, we now lock in the orientations just generated and contained in cardan_angles.
+            random_orientation = False 
+
+            def miller_selection_rule():
+                return None
             if self.max_miller_idx != None:
-                mask*=np.apply_along_axis(miller_selection_rule,1,indices)
-        indices = indices[mask]
+                m = self.max_miller_idx
+                max_g_vect = get_G(np.full((1,3),m))[0][0]
+                if not self.override_max_q:
+                    self.max_q = min(self.max_q,np.sqrt(((max_g_vect[0])**2+(max_g_vect[1])**2+(max_g_vect[2])**2)))
+                else:
+                    self.max_q = np.sqrt(((max_g_vect[0])**2+(max_g_vect[1])**2+(max_g_vect[2])**2))
+                def miller_selection_rule(indices): # Probably unnecessary I'm just making sure...
+                    return  (abs(indices[0]) <= m and abs(indices[1]) <= m and abs(indices[2]) <= m)
+            #print("max q (i.e. rim q):",self.max_q/ang_per_bohr)
+            
+            print("using q range of ", self.min_q/ang_per_bohr,"-",self.max_q/ang_per_bohr," angstrom-1")
+            print("corresponding to max resolution: ", q_to_res(self.max_q)*ang_per_bohr," angstrom")
+            def min_max_q_rule(g):
+                return self.min_q <= np.sqrt(((g[0])**2+(g[1])**2+(g[2])**2)) <= self.max_q
+            #max_q_rule = lambda f: np.sqrt(((f[0]*np.average(cell_dim))**2+(f[1]*np.average(cell_dim))**2+(f[2]*np.average(cell_dim))**2))<= self.max_q
+            def select_friedel(indices):
+                return np.all(indices>0)
+            # Catch the miller indices with a boolean mask
+            if self.all_miller_indices:
+                mask=np.apply_along_axis(miller_selection_rule,1,indices)*np.apply_along_axis(selection_rule,1,indices)
+                mask *= np.apply_along_axis(select_friedel,1,indices)
+                #TODO select for just one symmetry.
+                if not self.override_max_q:
+                    mask*=np.apply_along_axis(min_max_q_rule,1,G_temp)
+            else:
+                mask = np.apply_along_axis(selection_rule,1,indices)*np.apply_along_axis(min_max_q_rule,1,G_temp)*np.apply_along_axis(self.mosaic_elastic_condition,1,G_temp)
+                if self.max_miller_idx != None:
+                    mask*=np.apply_along_axis(miller_selection_rule,1,indices)
+            indices = indices[mask]
+
+        actual_max_q = 0
+        max_q_indices= [0,0,0]
+        for h,k,l in indices:
+            q1 = sum(pow(h*element, 2) for element in b[0])
+            q2 = sum(pow(k*element, 2) for element in b[1])
+            q3 = sum(pow(l*element, 2) for element in b[2])
+            q = np.sqrt(q1+q2+q3)
+            if actual_max_q < q:
+                actual_max_q = q
+                max_q_indices = h,k,l
+        print(f"Best resolution point {max_q_indices}: {q_to_res(actual_max_q)*ang_per_bohr} angstrom." )
+
+
 
         print("Cardan angles:",cardan_angles)
         print("Number of points:", len(indices))   
-        assert len(indices) < 10920, "Output size failsafe triggered, output size likely >~ 1 GiB."
-        if len(indices) > 2000:
-            print("WARNING: very high number of points!")        
+        # Commented out because now break up iteration indices if too large.
+        # assert len(indices) < 10920, "Output size failsafe triggered, output size likely >~ 1 GiB."
+        # if len(indices) > 2000:
+        #     print("WARNING: very high number of points!")        
         for elem in indices:
             if DEBUG:
                 print(elem)
         
 
-        G, cardan_angles = get_G(indices,cardan_angles)
+        G, cardan_angles = get_G(indices)
         if DEBUG:
             print(G)
+
         return G, indices, cardan_angles
 
     def rotate_G_to_orientation(self,G,alpha=0,beta=0,gamma=0,random=False,inverse = False, G_idx_first = False):
@@ -1638,6 +1839,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
         custom_fig_height = plt.rcParams['figure.figsize'][1]
     if custom_fig_width is None:
         custom_fig_width = plt.rcParams['figure.figsize'][0]
+    plt.rcParams['figure.figsize'] = [custom_fig_width,custom_fig_height]
     LOG10 = False
     if LOG10:
         log_function = np.log10
@@ -1685,7 +1887,12 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
         colours = [(r,g,b,a) for a in np.clip(z/max_z,min_alpha,max_alpha)]
     if cmap2 is None:
         cmap2 = cmap
-    def add_screen_properties(fig_width=14,fig_height=8.4):
+    #def add_screen_properties(fig_width=14,fig_height=8.4):
+    def add_screen_properties(fig_width=None,fig_height=None):
+        if fig_width is None:
+            fig_width = custom_fig_width
+        if fig_height is None:
+            fig_height = custom_fig_height
         if radial_lim:
             bottom,top = plt.ylim()
             plt.ylim(bottom,radial_lim)
@@ -1698,6 +1905,8 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
         plt.gcf().set_figwidth(fig_width)
         plt.gcf().set_figheight(fig_height)                  
 
+
+    # (If Bragg spots)
     if result_handle != None: #TODO replace this atrocious way of distinguishing between inf. crystal and finite
         if plot_against_q:
             radial_lim /= ang_per_bohr
@@ -1810,14 +2019,19 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
         if log_I:
             max_z = log_function(max_z)
             min_z = log_function(min_z)
-            print("log(I) max,min ",max_z,min_z)
-        else:
-            print("I max,min",max_z,min_z)
+        if DEBUG or DEBUG_MODERATE:
+            if log_I:
+                print("log(I) max,min ",max_z,min_z)
+            else:
+                print("I max,min",max_z,min_z)
         if max_z == min_z:
             print("Single intensity detected. Ignoring max/min z")
             min_z = max_z-1
+        #TODO dont even use min z?
+
         # Plot each orientation's scattering pattern/add each to sector histogram
         added_colorbar = False
+        for_plotting = True
         for filename in os.listdir(results_dir):
             result1,result2 = get_result(filename,results_dir,compare_dir)
             if result1 == "__PASS__":
@@ -1848,57 +2062,60 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             unique_values_mask = np.zeros(result1.I.shape,dtype="bool")
             # Catch for multiple overlapping points (within same orientation only!!!) (does work, but would be unlikely.)
             # TODO need to do something about fact that overlapping points with many plots will hide points. Not critical rn thanks to sectors. 
-            for i in range(len(result1.I)):
-                if (radial_axis[i], phi[i],result1.image_index)  in processed_copies:
-                    unique_values_mask[i] = False
-                    continue
+            if result1.for_plotting:
+                for i in range(len(result1.I)):
+                    if (radial_axis[i], phi[i],result1.image_index)  in processed_copies:
+                        unique_values_mask[i] = False
+                        continue
+                    else:
+                        unique_values_mask[i] = True
+                    # if (radial_axis[i] > radial_lim):
+                    #     unique_values_mask[i] = False
+                        
+                    # Average out spots (TODO need to check they are the same for no stochastic variation.)
+                    # TODO need to change this to be the bragg indices.
+                    matching_rad_idx = np.nonzero(radial_axis == radial_axis[i])  # numpy note: equiv. to np.where(condition). Non-zero part irrelevant.
+                    matching_phi_idx = np.nonzero(phi == phi[i])
+                    for elem in matching_rad_idx[0]:
+                        if elem in matching_phi_idx[0]:
+                            identical_count[i] += 1
+                            matching1 = result1.I[(radial_axis == radial_axis[i])*(phi == phi[i])]
+                            for value1 in matching1:
+                                tmp_I1[i] += value1    
+                            if result2 != None:
+                                matching2 = result2.I[(radial_axis == radial_axis[i])*(phi == phi[i])]
+                                for value2 in matching2:
+                                    tmp_I2[i] += value2      
+                #print(identical_count)                                                
+                tmp_I1 /= (identical_count)
+                tmp_I2 /= (identical_count)
+
+                    #processed_copies.append((radial_axis[i],phi[i],result.image_index[i]))
+                #print("processed copies:",processed_copies)
+
+                # Get the dependent variable.
+                result = copy.deepcopy(result1)
+                result.I = tmp_I1 
+                # get z used for colour of scatter plot.
+                if compare_dir != None:
+                    result2.I = tmp_I2                    
+                    result.diff(result2)
+                    z = result.R[unique_values_mask]   # Making comparison, set z to be measure of difference 
                 else:
-                    unique_values_mask[i] = True
-                # if (radial_axis[i] > radial_lim):
-                #     unique_values_mask[i] = False
-                    
-                # Average out spots (TODO need to check they are the same for no stochastic variation.)
-                # TODO need to change this to be the bragg indices.
-                matching_rad_idx = np.nonzero(radial_axis == radial_axis[i])  # numpy note: equiv. to np.where(condition). Non-zero part irrelevant.
-                matching_phi_idx = np.nonzero(phi == phi[i])
-                for elem in matching_rad_idx[0]:
-                    if elem in matching_phi_idx[0]:
-                        identical_count[i] += 1
-                        matching1 = result1.I[(radial_axis == radial_axis[i])*(phi == phi[i])]
-                        for value1 in matching1:
-                            tmp_I1[i] += value1    
-                        if result2 != None:
-                            matching2 = result2.I[(radial_axis == radial_axis[i])*(phi == phi[i])]
-                            for value2 in matching2:
-                                tmp_I2[i] += value2      
-            #print(identical_count)                                                
-            tmp_I1 /= (identical_count)
-            tmp_I2 /= (identical_count)
+                    z = result.I[unique_values_mask]   # no comparison, z is intensity
 
-                #processed_copies.append((radial_axis[i],phi[i],result.image_index[i]))
-            #print("processed copies:",processed_copies)
-
-            # Get the dependent variable.
-            result = copy.deepcopy(result1)
-            result.I = tmp_I1 
-            # get z used for colour of scatter plot.
-            if compare_dir != None:
-                result2.I = tmp_I2                    
-                result.diff(result2)
-                z = result.R[unique_values_mask]   # Making comparison, set z to be measure of difference 
+                identical_count = identical_count[unique_values_mask]
+                # Intensities used for histogram 
+                I1 = tmp_I1[unique_values_mask]
+                I2 = tmp_I2[unique_values_mask]
+                radial_axis = radial_axis[unique_values_mask]
+                phi = phi[unique_values_mask] + np.pi/2 # to align with the SPI pixel plot
+                phi[phi>=np.pi] -= 2*np.pi
             else:
-                z = result.I[unique_values_mask]   # no comparison, z is intensity
-
-            identical_count = identical_count[unique_values_mask]
-            # Intensities used for histogram 
-            I1 = tmp_I1[unique_values_mask]
-            I2 = tmp_I2[unique_values_mask]
-            radial_axis = radial_axis[unique_values_mask]
-            phi = phi[unique_values_mask] + np.pi/2 # to align with the SPI pixel plot
-            phi[phi>=np.pi] -= 2*np.pi
+                results_for_plotting = False
 
             #sector_histogram += get_histogram_contribution(z,result.phi,radial_axis)
-            if result2 != None:
+            if result2 != None and results_for_plotting:
                 ## Sectors/Fragmented rings ##
                 numerators,denominators = get_sector_histogram_contribution(I1,I2,phi,radial_axis)
                 # Add to sum of all orientations' results
@@ -1910,19 +2127,24 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 numerators,denominators = get_sector_histogram_contribution(I1,I2,phi,radial_axis,phi_edges = np.array([-np.pi,np.pi]))
                 R_num_histogram += numerators
                 R_den_histogram += denominators            
-                if neutze_R:
-                    all_I_real.extend(I1)
-                    all_I_ideal.extend(I2)
+                # if neutze_R:
+                    
+                #     all_I_real.extend(I1)
+                #     all_I_ideal.extend(I2)
+
+                    
 
 
-            if log_I: 
-                z = log_function(z)      
+    
 
             #debug_mask = (0.01 < radial_axis[0])*(radial_axis[0] < 100)
             #print(identical_count[debug_mask])
             #print(radial_axis[0][debug_mask])
             #print(phi[debug_mask ]*180/np.pi)
-            if not get_R_only:
+            if not get_R_only and results_for_plotting:
+                
+                if log_I: 
+                    z = log_function(z)  
                 # Dot size
                 dot_param = z
                 if crystal_pattern_only:
@@ -1952,12 +2174,14 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
 
                 if not added_colorbar:
                     if compare_dir == None: 
-                        print("Warning, colorbar not working with color power at present. Need to create cmap from COL")
+                        if DEBUG or DEBUG_MODERATE:
+                            print("Warning, colorbar not working with color power at present. Need to create cmap from COL")
                         if not normalise_intensity_map:
                             # Good for debugging
                             fig.colorbar(cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=np.min(z),vmax=np.max(z)),cmap=cmap),ax=ax)
-                            print("Attention: Not normalising intensities, but still arbitrary units")
-                            print("Warning: not yet taking into account combined dots!! Scale is off!")
+                            if DEBUG or DEBUG_MODERATE:
+                                print("Attention: Not normalising intensities, but still arbitrary units")
+                                print("Warning: not yet taking into account combined dots!! Scale is off!")
                         else:
                             fig.colorbar(cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=0,vmax=1),cmap=cmap),ax=ax) 
                     else:
@@ -1998,11 +2222,42 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     else:
                         print("max radius=",rad_max)
                     print("q max=", q_max)
-        if not get_R_only:
+
+        # Get merged intensities with miller indices in each set
+        miller1, I1_all = read_scalepack(result_handle)
+        miller2, I2_all = read_scalepack(compare_handle)
+        miller_indices_1  = np.empty(shape=miller1.shape[0],dtype=object)
+        miller_indices_2  = np.empty(shape=miller2.shape[0],dtype=object)
+
+        for i, m in enumerate(miller1):
+            miller_indices_1[i] = list(m)
+        for i, m in enumerate(miller2):
+            miller_indices_2[i] = list(m)
+        
+
+        miller_indices = np.intersect1d(miller_indices_1,miller_indices_2)
+        print(f"{miller_indices.shape[0]} Bragg spots compared")
+        I1 = np.zeros(miller_indices.shape)
+        I2 = np.zeros(miller_indices.shape)
+        for i, hkl in enumerate(miller_indices):
+            hkl = list(hkl)
+            if DEBUG:
+                print(f"1 num points for {hkl}",np.count_nonzero(np.all(miller1==hkl,axis=-1)))
+                print(f"2 num points for {hkl}",np.count_nonzero(np.all(miller2==hkl,axis=-1)))
+            I1[i] = np.average(I1_all[np.all(miller1== hkl,axis=-1)])
+            if compare_dir!=None:
+                I2[i] = np.average(I2_all[np.all(miller2== hkl,axis=-1)])
+        all_I_real = I1
+        all_I_ideal = I2
+
+        if not get_R_only and results_for_plotting:
             add_screen_properties()
             plt.show()  
+
+            
         if compare_handle != None:
-            if not get_R_only:
+
+            if not get_R_only and results_for_plotting:
                 #print("Plotting orientation-averaged R factor") # Doesn't work because when sector is empty it reduces the average.
                 #plot_sectors(sector_histogram h= sector_histogram)
                 non_zero_denon_histogram = sector_den_histogram.copy()
@@ -2031,7 +2286,10 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                 # print("-------")
                 # print("sqrt_real normed",sqrt_real*inv_K) 
 
+                print("---------------")
                 print("R: ",R)
+                print("---------------")
+
                 # print("R:") (not normalised)
                 # R = np.sum(np.abs((sqrt_real - sqrt_ideal)))/np.sum(sqrt_ideal)
                 # print(R)
@@ -2054,7 +2312,10 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
     ## Continuous (SPI)
     else:
         result1 = copy.deepcopy(SPI_result1)
-        result2 = copy.deepcopy(SPI_result2)     
+        result2 = copy.deepcopy(SPI_result2)
+        if result1 is None:
+            print("error, expected SPI but SPI_result1 is None")
+            return     
         if normalize_to_centre:
             # # Normalize I to 1 at centre 
             # # Average out centre pixels/select central pixels depending on axis dimension's integer parity.
@@ -2449,27 +2710,28 @@ def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
 
     return newcmap
 
+# def get_result(filename,results_dir,compare_dir = None):
+#     #Requires all orientations of result_handle in compare_handle, but not vice versa.
+#     fpath = os.path.join(results_dir, filename)
+#     if os.path.isfile(fpath):
+#         with open(fpath,'rb') as f:
+#             result1 = pickle.load(f)
+#     else: 
+#         return "__PASS__" "__PASS__"
+#     result2 = None
+#     if compare_dir != None:
+#         if filename in os.listdir(compare_dir):
+#             fpath2 = os.path.join(compare_dir, filename)
+#             with open(fpath2,'rb') as f:
+#                 result2 = pickle.load(f)     
+#                 result1.diff(result2)             
+#         else:
+#             print("ERROR, missing matching orientation in comparison directory")
+#             return None, None # No corresponding file found.          
+#     return result1, result2
+
 def get_result(filename,results_dir,compare_dir = None):
-    #Requires all orientations of result_handle in compare_handle, but not vice versa.
-    fpath = os.path.join(results_dir, filename)
-    if os.path.isfile(fpath):
-        with open(fpath,'rb') as f:
-            result1 = pickle.load(f)
-    else: 
-        return "__PASS__" "__PASS__"
-    result2 = None
-    if compare_dir != None:
-        if filename in os.listdir(compare_dir):
-            fpath2 = os.path.join(compare_dir, filename)
-            with open(fpath2,'rb') as f:
-                result2 = pickle.load(f)     
-                result1.diff(result2)             
-        else:
-            print("ERROR, missing matching orientation in comparison directory")
-            return None, None # No corresponding file found.          
-    return result1, result2
-
-
+    return Results().get_result(filename,results_dir,compare_dir)
 
 
 ##### https://scripts.iucr.org/cgi-bin/paper?S0021889807029238, http://superflip.fzu.cz/
@@ -2477,15 +2739,14 @@ def get_result(filename,results_dir,compare_dir = None):
 #TODO figure out why we get zeros for reflection intensities sometimes.
 import pandas as pd
 import csv
-def create_reflection_file(result_handle,results_parent_dir = RESULTS_LOCAL_PATH,overwrite=False):
+def create_reflection_file(result_handle,results_parent_dir = RESULTS_LOCAL_PATH,out_directory="reflections/",overwrite=False):
     '''
     Generates a .rfl file, compatible with Superflip
     '''
     print("Creating reflection file for",result_handle)
-    directory = "reflections/"
     results_dir = results_parent_dir+ result_handle+"/"
-    os.makedirs(directory, exist_ok=True) 
-    results_dir = results_parent_dir+result_handle+"/"
+    assert path.isdir(results_dir), f"Directory not found: {results_dir}" 
+    os.makedirs(out_directory, exist_ok=True) 
     init = False
     for filename in os.listdir(results_dir):
         result = get_result(filename,results_dir)[0]
@@ -2505,30 +2766,36 @@ def create_reflection_file(result_handle,results_parent_dir = RESULTS_LOCAL_PATH
         else:
             df = pd.concat((df,new_df))
     # Save as file
-    out_path = directory + result_handle + ".rfl"
+    out_path = out_directory + result_handle
     if os.path.isfile(out_path): 
         if not overwrite:
             print("Cannot write, file already present at",out_path)
             return
         os.remove(out_path)
-    columns.reverse()
+    #columns.reverse() #???
     df = df.sort_values(by=["l","k","h"],axis=0)
     for i in ("hkl"):
         df[i] = df[i].astype('int')
     df["I"] = df["I"].astype('float')
     df = df.round(6)
-    df.drop_duplicates(subset = ["h","k","l"],inplace=True) # TODO should take average.
+    #df.drop_duplicates(subset = ["h","k","l"],inplace=True) # TODO should take average.
     df = df[df['I']>=0.01] # TODO temporary fix for appearance of low values that needs to be squashed.
-    df.to_csv(out_path,header=False,index=False,float_format='%10f', sep=" ", quoting=csv.QUOTE_NONE, escapechar=" ")
+    df.to_csv(out_path+"_unmerged.rfl",header=False,index=False,float_format='%10f', sep=" ", quoting=csv.QUOTE_NONE, escapechar=" ")
 
-def rfl_to_sca(result_handle,reflections_dir = "reflections/",overwrite=True):
+    df_merged = df.groupby(["h","k","l"]).mean().reset_index()
+    df_merged = df_merged.sort_values(by=["l","k","h"],axis=0)
+
+    df_merged.to_csv(out_path+".rfl",header=False,index=False,float_format='%10f', sep=" ", quoting=csv.QUOTE_NONE, escapechar=" ")
+
+def rfl_to_sca(result_handle,reflections_dir = "reflections/",out_directory = "scalepack/",overwrite=True):
     '''Converts .rfl file to scalepack .sca file
     See https://www.ccp4.ac.uk/html/scala.html#files
     '''
-    directory = "scalepack/"
-    os.makedirs(directory, exist_ok=True) 
+    os.makedirs(out_directory, exist_ok=True) 
     rfl_file_path = reflections_dir + result_handle + ".rfl"
-    out_path = directory + result_handle + ".sca"
+    assert path.isfile(rfl_file_path), f"Reflection file not found: {rfl_file_path}" 
+
+    out_path = out_directory + result_handle + ".sca"
     save_action = "x"
     if overwrite:
         save_action = "w"    
@@ -2572,18 +2839,50 @@ def rfl_to_sca(result_handle,reflections_dir = "reflections/",overwrite=True):
                 b.write(q)
             b.write('\n')
 
+def read_scalepack(result_handle,scalepack_dir = "scalepack/",skip_header=3):
+    file_path = scalepack_dir + result_handle + ".sca"
+    indices = []
+    I = []
+    with open(file_path, 'r') as f:
+        for i, line in enumerate(f):
+            if i < skip_header:
+                continue
+            indices.append([
+                int(line[0:4]),
+                int(line[4:8]),
+                int(line[8:12])
+            ])
+            I.append(float(line[12:20]))
+            
+    return np.array(indices), np.array(I)
+
+def read_hkl(fpath):
+    ''' Read h k l from shelxl hkl-format file '''
+    indices = []
+    with open(fpath, 'r') as f:
+        for line in f:
+            h = int(line[0:4])
+            k = int(line[4:8])            
+            l = int(line[8:12])
+            indices.append([h,k,l])            
+    return np.array(indices)
 
 #create_reflection_file("hen_v7__eal",True)
 #rfl_to_sca("hen_v7_real")
 
 #####
 # stylin' 
-def stylin(exp_name1,exp_name2,radial_lim,get_R_only = False,SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None,results_parent_dir = RESULTS_LOCAL_PATH,show_labels=False,**kwargs):
+def stylin(exp_name1,exp_name2,radial_lim,damaged_and_undamaged=False,get_R_only = False,SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None,results_parent_dir = RESULTS_LOCAL_PATH,show_labels=False,**kwargs):
     experiment1_name = exp_name1#"Lys_9.95_random"#exp_name1
     experiment2_name = exp_name2#"lys_9.80_random"#exp_name2 
 
     #####
-
+    results_dir = results_parent_dir+experiment1_name+"/"
+    for filename in os.listdir(results_dir):
+        result1,result2 = get_result(filename,results_dir)
+        if not (result1.for_plotting):
+            get_R_only = True
+            break
 
     font = {'family': 'serif',
             'size'   : 10}
@@ -2594,11 +2893,14 @@ def stylin(exp_name1,exp_name2,radial_lim,get_R_only = False,SPI=False,SPI_max_q
     log_radial = False
     log_I = True
     cutoff_log_intensity = -1#-1
-    try:
-        cmap = shiftedColorMap(matplotlib.cm.RdYlGn_r,midpoint=0.2,name="shiftedcmap")#"plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
-    except: 
-        cmap =  plt.get_cmap("shiftedcmap")
-    cmap.set_bad(color='black')
+    
+    cmap = ""
+    if not get_R_only:
+        try:
+            cmap = shiftedColorMap(matplotlib.cm.RdYlGn_r,midpoint=0.2,name="shiftedcmap")#"plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
+        except: 
+            cmap =  plt.get_cmap("shiftedcmap")
+        cmap.set_bad(color='black')
     cmap_power = 1.6
     min_alpha = 0.3
     max_alpha = 1
@@ -2633,22 +2935,28 @@ def stylin(exp_name1,exp_name2,radial_lim,get_R_only = False,SPI=False,SPI_max_q
 
     #TODO fix above to work with distance
 
+
+
+
     # R Sectors
+    exp_1_tag = f" ({exp_name1})"
+    exp_2_tag = f" ({exp_name2})"
     if not SPI:
         if not get_R_only:
             print("----R Sectors unaligned----")
             scatter_scatter_plot(crystal_aligned_frame = False,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True,results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=show_labels,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity,**kwargs) 
-            print("----Intensity of experiment 1----")
+            print(f"----Intensity of experiment 1{exp_1_tag}----")
             scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity,**kwargs)
-            print("----Intensity of experiment 2----")
+            print(f"----Intensity of experiment 2{exp_2_tag}----")
             scatter_scatter_plot(crystal_aligned_frame = False,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=show_labels,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity,**kwargs)
+            print(f"----Intensity of experiment 1{exp_1_tag} aligned----") 
+            scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity,**kwargs)
+            print(f"----Intensity of experiment 2{exp_2_tag} aligned----")
+            scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=show_labels,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity,**kwargs)
             print("----R Sectors aligned----")
             damage_dict = scatter_scatter_plot(crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=show_labels,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity,**kwargs)
-            print("----Intensity of experiment 1 (damaged) aligned----") 
-            scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=False,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity,**kwargs)
-            print("----Intensity of experiment 2 (undamaged) aligned----")
-            scatter_scatter_plot(crystal_aligned_frame = True,show_grid = True, num_arcs = 25, num_subdivisions = 40,result_handle = experiment2_name, fixed_dot_size = False, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=show_labels,log_dot=True,dot_size=0.5,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap_intensity,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity,**kwargs)
         else:
+           print("GET R ONLY",get_R_only)
            damage_dict = scatter_scatter_plot(get_R_only = True,crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=show_labels,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity,**kwargs)
 
     else:
@@ -2679,42 +2987,57 @@ def q_to_res(q):
 # Get the rings to correspond to actual rings
 
 #%% vvvvv Scattering Playground vvvv
+#Scattering Playground
 DEBUG = False
+DEBUG_MODERATE = False
+DEBUG_WATER = False
+RANDOM_WATER = True; NUM_RANDOM_WATER = 702
+os.environ['OPENBLAS_NUM_THREADS']="32"
+
+
+if SEEDED:
+    np.random.seed(0)
+# 0.18081540711890387 SALT
+# 0.17781329569346938 NO SALT
 
 if __name__ == "__main__":
     fig_width = 3.49751 # 20
     fig_height = fig_width*3/4 # 20
     ### Simulate
-    target_options = ["neutze","hen","tetra","glycine","fcc"]
+    target_options = ["lys_salt","lys_no_salt","neutze","hen","tetra","glycine","fcc"]
     #============------------User params---------==========#
 
-    target = "hen"#"glycine"  #target_options[2]
-    best_resolution = 2 # 1.58 (abdullah) # 2   # resolution (determining max q)
+    #R:  0.03453990841341609
+    #R:  0.039555455273223315
+    target = "lys_no_salt"#"glycine"  #target_options[2]
+    best_resolution = 1.3 # 1.58 (abdullah) # 2   # resolution (determining max q)
     worst_resolution = None#30 # 'resolution' corresponding to min q
 
     #### Individual experiment arguments 
-    tag = "D" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
+    tag = "25_20" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
     start_time = -18#-12#-6
     end_time = 18#12#6
     laser_firing_qwargs = dict(
         # pixel sampling method (Neutze) if True - Miller indices if False
-        SPI = True,  # sampling method, if False, bragg spots. if True, detector pixels. TODO change name
+        SPI = False,  # sampling method, if False, bragg spots. if True, detector pixels. TODO change name
         SPI_resolution = best_resolution,
         pixels_across = 300,  # for SPI, shld go on xfel params.
         # miller
-        random_orientation = True, #bragg spot sampling only, TODO refactor to be in same place as other orients...# orientation is synced with second 
+        random_orientation = False, #bragg spot sampling only, TODO refactor to be in same place as other orients...# orientation is synced with second 
     )
     ##### Crystal params
     crystal_qwargs = dict(
         supercell_scale = 1,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
-        num_supercells = 1,#100, # 35409
+        num_supercells = 10000,#100, # 35409
         supercell_simulations = 1, #150
-        positional_stdv = 0,#0.2,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
+        positional_stdv = 0.1,#0.2,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
+        #rocking_angle = 0.1,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         rocking_angle = 0.02,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         #CNO_to_N = True,   # whether the plasma simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
     )
+    show_crystal = True
 
     #### XFEL params
     #TODO make it so reflections don't overwrite same orientation, as stochastic now.
@@ -2726,8 +3049,10 @@ if __name__ == "__main__":
         q_cutoff = res_to_q(best_resolution), #(best_resolution),#2*np.pi/2
         t_fineness=25,   
         #####crystal stuff (miller)
-        max_miller_idx = None, #None, # = m, [thus max q given by q with miller indices (m,m,m)]
-        all_miller_indices = False, # False, whether to find all bragg points at or below the max miller index (and between min and max q)
+        max_miller_idx = 25, #None, # = m, [overrides max q so given by q with miller indices (m,m,m)]
+        all_miller_indices = True, # False, whether to find all bragg points at or below the max miller index (and between min and max q)
+        miller_indices_override=None,
+        spot_fraction_per_orient=None,
         ####SPI stuff ( ab initio)
         num_rings = 20,
         pixels_per_ring = 20,
@@ -2737,8 +3062,10 @@ if __name__ == "__main__":
         SPI_z_rotation = 0,
         #crystallographic orientations (not consistent with SPI yet)
         # [ax_x,ax_y,ax_z] = vector parallel to rotation axis. Overridden if random orientations.        
-        num_orients_crys=5, # Miller indices orientations
-        orientation_axis_crys = None,
+        #num_orients_crys=100, # Miller indices orientations
+        num_orients_crys=1, # Miller indices orientations
+        #orientation_axis_crys = None,
+        orientation_axis_crys = [1,1,1],
         #orientation_axis_crys = [0,0,1],#None,#[1,1,0]
         
         # for debugging/comparison with other works
@@ -2758,6 +3085,8 @@ if __name__ == "__main__":
     first_crystal_is_damaged = True # True  
     second_crystal_is_damaged = False  # False
 
+
+
     #---------------------------Result handle names---------------------------#
     exp1_qualifier = "real"
     exp2_qualifier = "ideal"
@@ -2767,7 +3096,7 @@ if __name__ == "__main__":
         if tag != "":
             tag = "_" + tag        
         while True:
-            if count > 99:
+            if count > 299:
                 raise Exception("could not find valid file in " + str(count) + " loops")
             results_parent_folder = RESULTS_LOCAL_PATH # needs to be synced with other functions
             root_handle = str(target) + tag
@@ -2786,10 +3115,36 @@ if __name__ == "__main__":
 
     #---------------------------------#
     water_index = None # None TODO automate
-    if target == "neutze": #T4 virus lys
+    if target == "lys_salt" or target == "lys_no_salt":
+
+        cycles_per_bragg_set = 1
+        num_bragg_sets = 25
+        num_unique_supercells = 20
+        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.4.hkl"
+        unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"
+        exp_qwargs["miller_indices_override"] = read_hkl(unique_hkl)
+        exp_qwargs["spot_fraction_per_orient"] = 1/cycles_per_bragg_set
+        exp_qwargs["num_orients_crys"] = cycles_per_bragg_set*num_bragg_sets
+        crystal_qwargs["supercell_simulations"] = num_unique_supercells
+
+        target_handle = dict(
+            lys_salt = "lys_salt_solvated_fast_H_4", #"Gd_salt_5", 
+            lys_no_salt =  "lys_solvated_fast_H_4" #"Gd_no_salt_2" 
+        )[target]
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb" 
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632
+        CNO_to_N = False
+        S_to_N = False
+        folder = ""
+        allowed_atoms = ["C","N","O","S"]
+        assert(first_crystal_is_damaged)
+        if not laser_firing_qwargs["SPI"]:
+            pass
+            #exp_name2 = None # Don't do the undamaged target
+    elif target == "neutze": #T4 virus lys
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/2lzm.pdb"
         target_handle = "lys-1_2"  
-        folder = "lys"
+        folder = "lys" # If sim output folders are nested within subdir of __Molecular
         allowed_atoms = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
@@ -2823,7 +3178,6 @@ if __name__ == "__main__":
         CNO_to_N = False
         S_to_N = True
         #//
-        CNO_to_N = False
     elif target == "tetra": 
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/5zck.pdb" 
         folder = ""#"tetra_CNO"
@@ -2861,7 +3215,8 @@ if __name__ == "__main__":
         crystal_undmged.is_damaged = second_crystal_is_damaged
     else:
         crystal_undmged = Crystal(pdb_path,allowed_atoms,is_damaged=second_crystal_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N, **crystal_qwargs)
-    crystal.plot_me(300000,water_index = water_index,template="plotly_dark")
+    if show_crystal:
+        crystal.plot_me(300000,water_index = water_index,template="plotly_dark")
 #%
     if laser_firing_qwargs["SPI"]:
         SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal,results_parent_dir=results_parent_folder, **laser_firing_qwargs)
