@@ -3,18 +3,16 @@ set -x
 
 
 handles=("ideal_group" "no_salt_group" "salt_group")
-num_results_to_sample=30
-num_loops=5
+num_results_to_sample=60
+num_loops=1
 
 scattering_output_folder=/home/speno/AC4DC/scripts/scattering/random_sample
 ccp4_folder=/home/speno/CCP4_Workspace/lys_random_sample
-initial_model=$ccp4_folder/4et8_quite_incomplete.pdb
+initial_model=$ccp4_folder/4et8.pdb
 sequence_model=$ccp4_folder/4et8.pdb
 
-num_init_bucc_cycles=3
-num_bucc_cycles=2
 num_refmacs_cycles=10
-num_pipeline_iters=15
+num_pipeline_iters=1
 
 
 for tag in $(eval echo {1..$num_loops}); 
@@ -54,14 +52,26 @@ refinement_model_tmp=model_solutions/${handle}_${tag}_tmp.pdb
 
 csheetbend -pdbin $initial_model -mtzin $mtz_file -pdbout $refinement_model -colin-fo Fobs,Sigma-Fobs -colin-free FreeR_flag -cycles 12 -resolution-by-cycle 6.0,3.0 -coord -radius-scale 4.0 
 
-#TODO do 3 initial bucc cycles
+for i in $(eval echo {1..$num_pipeline_iters}); do
 
-buccaneer_pipeline -mtzin $mtz_file -pdbin $refinement_model -pdbin-mr $refinement_model -seqin $sequence_model -pdbout $refinement_model_tmp  -colin-fo Fobs,Sigma-Fobs -colin-free FreeR_flag -buccaneer-anisotropy-correction -buccaneer-fast -buccaneer-1st-correlation-mode -buccaneer-nth-correlation-mode -buccaneer-resolution 1  -buccaneer-1st-cycles $num_init_bucc_cycles -buccaneer-nth-cycles $num_init_bucc_cycles -cycles $num_pipeline_iters  -buccaneer-keyword "mr-model-filter-sigma 2.0" "model-filter-sigma 1.0" "find" "grow" >> buccaneer_logs/${handle}_$tag.log 
-
-# -buccaneer-keyword "mr-model-filter-sigma 2.0" "model-filter-sigma 1.0"
+refmac5 xyzin $refinement_model xyzout $refinement_model_tmp hklin $mtz_file hklout refmac_out.mtz  << eof-refmac 
+NCYCLES 10
+WEIGHT AUTO
+MAKE HYDR NO
+REFI BREF ISOT
+MAKE NEWLIGAND NOEXIT
+SCALE TYPE SIMPLE
+SOLVENT YES
+PHOUT
+MONI DIST 1000000
+PDBOUT KEEP USERS
+LABIN FP=Fobs SIGFP=Sigma-Fobs FREE=FreeR_flag
+END
+eof-refmac
 
 mv $refinement_model_tmp $refinement_model
 
 done; 
 done; 
+done;
 
