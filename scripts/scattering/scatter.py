@@ -67,6 +67,7 @@ import plotly.graph_objects as go
 import plotly.offline as pltly_offline
 from IPython.display import display, HTML
 from IPython import get_ipython
+from string import ascii_uppercase
 from core_functions import get_sim_elements
 interactive = True
 if interactive and __name__ == "__main__":
@@ -448,6 +449,54 @@ class Crystal():
         # Transpose because we've stored the vectors in the 0th axis. 
         return (self.sym_rotations[i] @ R.T).T+ self.sym_translations[i]   # dim = [xyz,xyz] x [xyz,N] or dim = [xyz,xyz] x [xyz,1]
             
+    def save_structure_by_reference(self,dir="targets",tag="constructed_struct"):
+        '''
+        Version of save_structure with less misunderstandings
+        '''
+        #Load it
+        parser=copy.deepcopy(xPDBParser)
+        reference_structure_id = os.path.basename(self.struct_file_path)
+        reference_structure = parser.get_structure(reference_structure_id, self.struct_file_path)    
+
+        #Initialise structure to build
+        structure = xStructureBuilder()
+        structure.init_structure(tag)
+        structure.init_model("M")
+        structure.init_seg("")
+
+        # Add atoms
+        serial_number = 1
+        for i in range(len(self.sym_rotations)):
+            structure.init_chain(ascii_uppercase[i])
+
+            for reference_residue in reference_structure.get_residues():
+                hetflag, resseq, icode = reference_residue.get_id()
+                #r_args = (hetflag,num_res+1,icode)
+                r_args = (hetflag,resseq,icode)
+
+                #get_resname()
+                #get_segid()
+                structure.init_residue(reference_residue.get_resname(),*r_args)
+                residue_id = r_args
+                residue = structure.chain[residue_id] 
+                for reference_atom in reference_residue.get_atoms():
+                    R = reference_atom.get_vector().get_array()
+
+                    coord = self.get_sym_xfmed_point(R,i)
+                    
+                    coord=tuple([c*ang_per_bohr for c in coord])
+                    residue.add(PDB_Atom(name=reference_atom.get_name(), coord=coord, bfactor=reference_atom.get_bfactor(), occupancy=1., altloc=' ', fullname=reference_atom.get_fullname(), serial_number=serial_number,element=reference_atom.element))                
+                    serial_number+=1
+
+        
+        # Save it
+        io=xPDBIO()
+        io.set_structure(structure.get_structure())  # StructureBuilder object is not Structure object
+        fname = path.basename(self.struct_file_path)[:-4]+f"_{tag}.pdb"
+        io.save(dir+'/'+fname)     
+        print(f"Saved structure to {dir+'/'+fname}")
+
+    
     def save_structure(self,dir="targets",custom_residue_name=None,tag="constructed_struct",chain_name="C"):
         '''
         Saves the full structure in a pdb file format for use with Solvate1.0   
@@ -468,7 +517,6 @@ class Crystal():
 
         # Add atoms
         serial_number = 1
-        structure.init_chain(chain_name)
         for i in range(len(self.sym_rotations)):
             residue_name = "L"+str(i); r_args = (" ",i+1,"r")
             if custom_residue_name is not None:
@@ -3259,21 +3307,28 @@ if interactive and __name__ == "__main__":
 # Finally, the rest of the water drop could be calculated by generating a large distribution of water, then scaling its contribution to the form factor.
 if interactive and __name__ == "__main__":
     ##### Crystal params
-    pdb_file = "I3C.pdb"
+    pdb_file = "4et8.pdb"
     targets_dir = path.abspath(path.join(__file__ ,"../")) + "/targets/"
     pdb_path = targets_dir + pdb_file
     crystal_qwargs = dict(
-        supercell_scale = 3,  # for SC: supercell_scale^3 unit cells
+        supercell_scale = 1,  # for SC: supercell_scale^3 unit cells
         positional_stdv = 0,  # Not used
         include_symmetries = True,  # should unit cell contain symmetries or just one asymmetric unit?
         cell_packing = "SC",
         rocking_angle = 0.1,  # (approximating mosaicity - use 0.02 for proper, use a high value, like 1, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         CNO_to_N = False,
     )
-    allowed_atoms = ["C","N","O","I","H"]
+    custom_residue_name=None
+    allowed_atoms = ["C","N","O","S"]
+     #I3C
+    # custom_residue_name="I3C"
+    # allowed_atoms = ["C","N","O","I","H"]
     crystal = Crystal(pdb_path,allowed_atoms,is_damaged=False, **crystal_qwargs)
-    print(crystal.species_dict["I"])
-    crystal.save_structure(custom_residue_name="I3C",chain_name="A")
+
+    #crystal.save_structure(custom_residue_name=custom_residue_name,chain_name="A")
+    crystal.save_structure_by_reference()
+    
+   
 
 # %%
 def plot_recovered_atoms():
