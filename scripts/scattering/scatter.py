@@ -480,7 +480,7 @@ class Crystal():
                 residue_id = r_args
                 residue = structure.chain[residue_id] 
                 for reference_atom in reference_residue.get_atoms():
-                    R = reference_atom.get_vector().get_array()
+                    R = reference_atom.get_vector().get_array()/ang_per_bohr
 
                     coord = self.get_sym_xfmed_point(R,i)
                     
