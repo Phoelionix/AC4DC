@@ -14,6 +14,19 @@ import struct
 
 # Converts AC4DC data to IONIZATION_DATA used for input to MolDStruct CR-MD.
 
+# sim_handle = "tmp_I3C_2"
+# num_steps = 500
+#sim_handle = "I3C_55fs_4"
+#num_steps = 4900  
+#target = "I3C.gro"
+#sim_handle = "lys_salt_solvated_fast_H_4"
+sim_handle = "lys_solvated_fast_H_4"
+num_steps = 3600  # best to go sim time in attoseconds
+
+target = "4et8.gro"
+
+
+
 
 
 crystal_params = dict(
@@ -30,20 +43,21 @@ crystal_params = dict(
 def get_random_charge_states(element):
     SEEDED = False
     element.times_used = element.crystal.ff_calculator.get_times_used()
-    if element.num_atoms != len(element.crystal.sym_rotations)*len(element.coords):
+    if element.get_num_atoms() != len(element.crystal.sym_rotations)*len(element.coords):
         raise Exception("num atoms was not same on set_stochastic_states call as when set by set_coord_deviation")
     if element.crystal.is_damaged:
-        charges = np.empty(shape = (element.num_atoms,len(element.times_used)))  # (num atoms, times)   
-        for idx in range(element.num_atoms):
+        charges = np.empty(shape = (element.get_num_atoms(),len(element.times_used)))  # (num atoms, times)   
+        for idx in range(element.get_num_atoms()):
             seed = None
             if SEEDED:
                 seed = idx
             charges[idx] = element.crystal.ff_calculator.random_charge_snapshots(element.name,seed) 
             
             # TEMPORARY HACK COS UNSIGNED SHORT DUMBNESS
+            # (Can't pass negative values...)
             if element.name == "I_fast":
-                charges[idx] += 1
-                
+                charges[idx] = np.max(0,charges[idx])
+            
             if not np.all(charges.astype(np.ushort)[idx] <= ATOMNO[element.name]):
                 print(charges.astype(np.ushort)[idx])
                 print(ATOMNO[element.name])
@@ -140,12 +154,19 @@ TARGET_DIR = SCATTER_DIR+ "targets/"
 MOLECULAR_PATH = path.abspath(path.join(SCRIPTS_DIR, "../output/__Molecular/")) + "/" # directory of damage sim output folders
 
 
+# def LennardJones():
+#     out_folder = OUTPUT_PATH + get_save_folder() + "/"
+#     f = open(out_folder+"/lennard_jones_parameters.txt", "w") 
 
+#     for i, j in zip(types, atom_number):
+#         f.writelines("{0} 0 0\n".format(j))
+#     f.close()
 
-def charges(csv=False,individual_elements = False): 
+def charges(csv=False,individual_elements = False,average_charges=True): 
     print("Beginning writing of charges...")
 
     out_folder = OUTPUT_PATH + get_save_folder() + "/"
+    print(OUTPUT_PATH)
     
     num_steps = len(ff_calculator.get_times_used())
     species_charges = {}
@@ -154,25 +175,40 @@ def charges(csv=False,individual_elements = False):
     for element in crystal.species_dict.keys():
         print(f"{len(crystal.species_dict[element].serial_numbers)} {element} atoms")
 
+    print("Generating:")
     for element in crystal.species_dict.keys():
         print(f"{element}...")
-        species_charges[element] = get_random_charge_states(crystal.species_dict[element])
-        num_atoms += len(species_charges[element])
+        element_obj = crystal.species_dict[element]
+        if average_charges:
+            species_charges[element] = element_obj.crystal.ff_calculator.get_average_charge_ff_calculator(element_obj.name)
+        else:
+            species_charges[element] = get_random_charge_states(element_obj)
+            # TEMPORARY HACK COS UNSIGNED SHORT DUMBNESS
+            # (Can't pass negative values...)
+            if element_obj.name == "I_fast":
+                species_charges[element_obj] = np.max(0,species_charges[element_obj])
+        num_atoms += element_obj.get_num_atoms()
     
  
     # Order charges in order that matches the structure file. 
     combined_charges = np.empty(shape = (num_atoms,num_steps))  # (num atoms, times)   
     species_list = np.empty(shape = (num_atoms,),dtype=object)
+        
     for element, charges in species_charges.items():
-        for i, s_num in enumerate(crystal.species_dict[element].serial_numbers):
-            combined_charges[s_num-1] = charges[i]
+        #for i, s_num in enumerate(crystal.species_dict[element].serial_numbers):
+        for i in range(len(crystal.species_dict[element].serial_numbers)):
+            s_num = i+1 
+            if average_charges:
+                combined_charges[s_num-1] = charges
+            else:
+                combined_charges[s_num-1] = charges[i]
             species_list[s_num-1] = element
 
         if individual_elements:
             PDB_element = element.split("_")[0]
             create_charge_file(charges,PDB_element,out_folder,csv=csv)    # Each row is an atom. each column is a time step.
-    create_charge_file(combined_charges,None,out_folder,csv=csv)    # Each row is an atom. each column is a time step.
 
+    create_charge_file(combined_charges,None,out_folder,csv=csv)    # Each row is an atom. each column is a time step.
 
 
 def DebyeLength(csv=False):
@@ -208,11 +244,8 @@ def DebyeLength(csv=False):
     create_data_file(lambdaD,"debye_data",out_folder,csv=csv) # nm
 
 
-sim_handle = "I3C_25fs_3"
-num_steps = 4900
 allowed_atoms = get_sim_elements(sim_handle)
 
-target = "I3C.gro"
 
 def get_save_folder():
     return sim_handle
@@ -237,8 +270,12 @@ crystal.set_ff_calculator(ff_calculator)
 
 
 
-DebyeLength(csv=True)
-charges(csv=True)
+DebyeLength(csv=False)
+charges(csv=False)
+#LennardJones()
+print("Done! Remember to sit straight!")
+
+
 
 # class Target(Enum):
 #     UNIT = imaging_params.goldilocks_dict_unit

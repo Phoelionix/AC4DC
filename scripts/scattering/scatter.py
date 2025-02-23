@@ -493,7 +493,39 @@ class Crystal():
         io=xPDBIO()
         io.set_structure(structure.get_structure())  # StructureBuilder object is not Structure object
         fname = path.basename(self.struct_file_path)[:-4]+f"_{tag}.pdb"
-        io.save(dir+'/'+fname)     
+        io.save(dir+'/'+fname)
+
+
+        a,b,c = self.cell_dim*ang_per_bohr 
+        header=f"""HEADER    full_struct                          date   name              
+TITLE     FULL_STRUCT    
+
+REMARK 290 SYMMETRY OPERATORS FOR SPACE GROUP: P 1                        
+REMARK 290                                                                      
+REMARK 290      SYMOP   SYMMETRY                                                
+REMARK 290     NNNMMM   OPERATOR                                                
+REMARK 290       1555   X,Y,Z                                                                                            
+REMARK 290                                                                      
+REMARK 290     WHERE NNN -> OPERATOR NUMBER                                     
+REMARK 290           MMM -> TRANSLATION VECTOR                                  
+REMARK 290                                                                      
+REMARK 290 CRYSTALLOGRAPHIC SYMMETRY TRANSFORMATIONS                            
+REMARK 290 THE FOLLOWING TRANSFORMATIONS OPERATE ON THE ATOM/HETATM             
+REMARK 290 RECORDS IN THIS ENTRY TO PRODUCE CRYSTALLOGRAPHICALLY                
+REMARK 290 RELATED MOLECULES.                                                   
+REMARK 290   SMTRY1   1  1.000000  0.000000  0.000000        0.00000            
+REMARK 290   SMTRY2   1  0.000000  1.000000  0.000000        0.00000            
+REMARK 290   SMTRY3   1  0.000000  0.000000  1.000000        0.00000                        
+REMARK 290   
+CRYST1   {a:.3f}   {b:.3f}   {c:.3f}  90.00  90.00  90.00   P 1    1"""
+
+        with open(dir+'/'+fname, 'r+') as f:
+            content = f.read()
+            
+            print(len(header.split('\n')))
+            f.seek(0, 0)
+            f.write(header.rstrip('\r\n') + '\n' + content)
+
         print(f"Saved structure to {dir+'/'+fname}")
 
     
