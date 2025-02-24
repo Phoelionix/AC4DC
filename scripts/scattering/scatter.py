@@ -67,7 +67,7 @@ import plotly.graph_objects as go
 import plotly.offline as pltly_offline
 from IPython.display import display, HTML
 from IPython import get_ipython
-from string import ascii_uppercase
+from string import ascii_uppercase, ascii_lowercase, ascii_letters, digits
 from core_functions import get_sim_elements
 interactive = True
 if interactive and __name__ == "__main__":
@@ -82,6 +82,8 @@ plt.ioff()  # stops weird vscode stuff
 
 DEBUG = False; DEBUG = False; DEBUG_MODERATE = False; RANDOM_WATER=False; DEBUG_WATER = False
 SEEDED = False# TODO check fully implemented for all random stuff
+RANDOM_WATER = False; NUM_RANDOM_WATER = None
+
 if SEEDED:
     np.random.seed(0)
 
@@ -466,12 +468,30 @@ class Crystal():
 
         # Add atoms
         serial_number = 1
+        chainIDs = ascii_letters+digits
+        num_chains = len(self.sym_rotations)
+        one_chain_per_unit=False
+        if num_chains > len(chainIDs):
+            one_chain_per_unit = True
+            num_chains = self.supercell_scale**2 
+            assert num_chains < len(chainIDs)
+            asym_per_cell = len(self.sym_rotations)/self.supercell_scale**2
+            residues_per_asym = 0
+            for reference_residue  in reference_structure.get_residues():
+                residues_per_asym+=1
+        if num_chains < len(ascii_uppercase):
+            chainIDs = ascii_uppercase
         for i in range(len(self.sym_rotations)):
-            structure.init_chain(ascii_uppercase[i])
+            if one_chain_per_unit:
+                structure.init_chain(chainIDs[int(np.floor(i/asym_per_cell))])
+            else:
+                structure.init_chain(chainIDs[i]) # Share chain ids between unit cells
 
-            for reference_residue in reference_structure.get_residues():
+            for j, reference_residue in enumerate(reference_structure.get_residues()):
                 hetflag, resseq, icode = reference_residue.get_id()
-                #r_args = (hetflag,num_res+1,icode)
+                if one_chain_per_unit:
+                    resseq = i*residues_per_asym+j+1
+
                 r_args = (hetflag,resseq,icode)
 
                 #get_resname()
@@ -517,7 +537,7 @@ REMARK 290   SMTRY1   1  1.000000  0.000000  0.000000        0.00000
 REMARK 290   SMTRY2   1  0.000000  1.000000  0.000000        0.00000            
 REMARK 290   SMTRY3   1  0.000000  0.000000  1.000000        0.00000                        
 REMARK 290   
-CRYST1   {a:.3f}   {b:.3f}   {c:.3f}  90.00  90.00  90.00   P 1    1"""
+CRYST1   {a*self.supercell_scale:.3f}   {b*self.supercell_scale:.3f}   {c*self.supercell_scale:.3f}  90.00  90.00  90.00   P 1    1"""
 
         with open(dir+'/'+fname, 'r+') as f:
             content = f.read()
@@ -3068,10 +3088,7 @@ def q_to_res(q):
 
 #%% vvvvv Scattering Playground vvvv
 #Scattering Playground
-DEBUG = False
-DEBUG_MODERATE = False
-DEBUG_WATER = False
-RANDOM_WATER = True; NUM_RANDOM_WATER = 702
+
 os.environ['OPENBLAS_NUM_THREADS']="32"
 
 
@@ -3081,6 +3098,10 @@ if SEEDED:
 # 0.17781329569346938 NO SALT
 
 if __name__ == "__main__":
+
+    RANDOM_WATER = True; NUM_RANDOM_WATER = 702
+
+
     fig_width = 3.49751 # 20
     fig_height = fig_width*3/4 # 20
     ### Simulate
@@ -3339,11 +3360,12 @@ if interactive and __name__ == "__main__":
 # Finally, the rest of the water drop could be calculated by generating a large distribution of water, then scaling its contribution to the form factor.
 if interactive and __name__ == "__main__":
     ##### Crystal params
-    pdb_file = "4et8.pdb"
+    #pdb_file = "4et8.pdb"
+    pdb_file = "I3C.pdb"
     targets_dir = path.abspath(path.join(__file__ ,"../")) + "/targets/"
     pdb_path = targets_dir + pdb_file
     crystal_qwargs = dict(
-        supercell_scale = 1,  # for SC: supercell_scale^3 unit cells
+        supercell_scale = 3,  # for SC: supercell_scale^3 unit cells
         positional_stdv = 0,  # Not used
         include_symmetries = True,  # should unit cell contain symmetries or just one asymmetric unit?
         cell_packing = "SC",
@@ -3351,10 +3373,10 @@ if interactive and __name__ == "__main__":
         CNO_to_N = False,
     )
     custom_residue_name=None
-    allowed_atoms = ["C","N","O","S"]
+    #allowed_atoms = ["C","N","O","S"]
      #I3C
     # custom_residue_name="I3C"
-    # allowed_atoms = ["C","N","O","I","H"]
+    allowed_atoms = ["C","N","O","I","H"]
     crystal = Crystal(pdb_path,allowed_atoms,is_damaged=False, **crystal_qwargs)
 
     #crystal.save_structure(custom_residue_name=custom_residue_name,chain_name="A")

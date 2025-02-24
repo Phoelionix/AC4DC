@@ -20,24 +20,25 @@ import struct
 #num_steps = 4900  
 #target = "I3C.gro"
 #sim_handle = "lys_salt_solvated_fast_H_4"
-sim_handle = "lys_solvated_fast_H_4"
-num_steps = 3600  # best to go sim time in attoseconds
+AVERAGE_CHARGES = None 
 
-target = "4et8.gro"
+if __name__=="__main__":
+    sim_handles = ["lys_salt_solvated_fast_H_4","lys_solvated_fast_H_4"]
+    num_steps = 3600  # best to go sim time in attoseconds
 
+    #target = "4et8.gro"
+    target = "lys_example.gro"
+    AVERAGE_CHARGES = False
 
-
-
-
-crystal_params = dict(
-    supercell_scale = 1,  ##3 # for SC: cell_scale^3 unit cells 
-    num_supercells = 1,
-    supercell_simulations = 1,        
-    include_symmetries = None, ##True  # should unit cell contain symmetries?
-    positional_stdv = 0, # Introduces disorder to positions. Note this is a deviation from the IDEAL structure, so is not a measure of similarity with undamaged and damaged structure but the ideal structure to recover and the dmaaged structure. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if quickly gauging serial crystallography R factor, as should somewhat average out.
-    cell_packing = "SC",
-    rocking_angle = 1.2,  # (approximating mosaicity, infinite crystal sim only)
-)
+    crystal_params = dict(
+        supercell_scale = 1,  ##3 # for SC: cell_scale^3 unit cells 
+        num_supercells = 1,
+        supercell_simulations = 1,        
+        include_symmetries = None, ##True  # should unit cell contain symmetries?
+        positional_stdv = 0, # Introduces disorder to positions. Note this is a deviation from the IDEAL structure, so is not a measure of similarity with undamaged and damaged structure but the ideal structure to recover and the dmaaged structure. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if quickly gauging serial crystallography R factor, as should somewhat average out.
+        cell_packing = "SC",
+        rocking_angle = 1.2,  # (approximating mosaicity, infinite crystal sim only)
+    )
 
 
 def get_random_charge_states(element):
@@ -162,7 +163,9 @@ MOLECULAR_PATH = path.abspath(path.join(SCRIPTS_DIR, "../output/__Molecular/")) 
 #         f.writelines("{0} 0 0\n".format(j))
 #     f.close()
 
-def charges(csv=False,individual_elements = False,average_charges=True): 
+def charges(csv=False,individual_elements = False,average_charges=AVERAGE_CHARGES):
+    if average_charges is None:
+        average_charges = True 
     print("Beginning writing of charges...")
 
     out_folder = OUTPUT_PATH + get_save_folder() + "/"
@@ -195,9 +198,7 @@ def charges(csv=False,individual_elements = False,average_charges=True):
     species_list = np.empty(shape = (num_atoms,),dtype=object)
         
     for element, charges in species_charges.items():
-        #for i, s_num in enumerate(crystal.species_dict[element].serial_numbers):
-        for i in range(len(crystal.species_dict[element].serial_numbers)):
-            s_num = i+1 
+        for i, s_num in enumerate(crystal.species_dict[element].serial_numbers):
             if average_charges:
                 combined_charges[s_num-1] = charges
             else:
@@ -208,7 +209,13 @@ def charges(csv=False,individual_elements = False,average_charges=True):
             PDB_element = element.split("_")[0]
             create_charge_file(charges,PDB_element,out_folder,csv=csv)    # Each row is an atom. each column is a time step.
 
+        # for q in charges:
+        #     assert q < ATOMNO[element], f"{q},{ATOMNO[a]}"
+        
     create_charge_file(combined_charges,None,out_folder,csv=csv)    # Each row is an atom. each column is a time step.
+    for charges, a in zip(combined_charges,species_list):
+        for q in charges:
+            assert q <= ATOMNO[a], f"{q},{ATOMNO[a]}"
 
 
 def DebyeLength(csv=False):
@@ -243,47 +250,54 @@ def DebyeLength(csv=False):
     create_data_file(n/C.nano**3,"electron_density",out_folder,csv=csv) # nm^-3
     create_data_file(lambdaD,"debye_data",out_folder,csv=csv) # nm
 
+if __name__ == "__main__":
 
-allowed_atoms = get_sim_elements(sim_handle)
+    for sim_handle in sim_handles:
 
-
-def get_save_folder():
-    return sim_handle
-
-
-crystal = Crystal(TARGET_DIR + target,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=False,**crystal_params)
+        allowed_atoms = get_sim_elements(sim_handle)
 
 
+        def get_save_folder():
+            if AVERAGE_CHARGES:
+                tag = "avg"
+            else:
+                tag = "stoch"
+            return f"{sim_handle}_{tag}"
 
-param_dict,_,_ = get_sim_params(sim_handle)
-start_time = param_dict["start_t"]
-end_time = param_dict["end_t"]
-energy = param_dict["energy"]
 
-
-
-# Assign plotter object to calculate charges (because code debt)
-xfel = XFEL("dummy",energy,t_fineness=num_steps)
-ff_calculator = xfel.get_ff_calculator(start_time,end_time,sim_handle,MOLECULAR_PATH)   
-ff_calculator.allow_select_same_times = True  
-crystal.set_ff_calculator(ff_calculator)    
+        crystal = Crystal(TARGET_DIR + target,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=False,**crystal_params)
 
 
 
-DebyeLength(csv=False)
-charges(csv=False)
-#LennardJones()
-print("Done! Remember to sit straight!")
+        param_dict,_,_ = get_sim_params(sim_handle)
+        start_time = param_dict["start_t"]
+        end_time = param_dict["end_t"]
+        energy = param_dict["energy"]
 
 
 
-# class Target(Enum):
-#     UNIT = imaging_params.goldilocks_dict_unit
-#     NINE = imaging_params.goldilocks_dict_3x3x3
+        # Assign plotter object to calculate charges (because code debt)
+        xfel = XFEL("dummy",energy,t_fineness=num_steps)
+        ff_calculator = xfel.get_ff_calculator(start_time,end_time,sim_handle,MOLECULAR_PATH)   
+        ff_calculator.allow_select_same_times = True  
+        crystal.set_ff_calculator(ff_calculator)    
 
 
-#im_params = Target.NINE
-#crystal = Crystal(PDB_STRUCTURE,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=True, **im_params["crystal"])
+
+        DebyeLength(csv=False)
+        charges(csv=False)
+        #LennardJones()
+        print("Done! Remember to sit straight!")
+
+
+
+    # class Target(Enum):
+    #     UNIT = imaging_params.goldilocks_dict_unit
+    #     NINE = imaging_params.goldilocks_dict_3x3x3
+
+
+    #im_params = Target.NINE
+    #crystal = Crystal(PDB_STRUCTURE,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=True, **im_params["crystal"])
 
 # %%
 
