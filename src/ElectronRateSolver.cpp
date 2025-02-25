@@ -188,12 +188,9 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
 
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic && (init==false || input_params.Load_Folder()== "")){
         if(_log.is_open()){
-            auto end = chrono::system_clock::now();
-            chrono::duration<double> elapsed_seconds = end-start;
-            secs = elapsed_seconds.count();
             double e = Constant::eV_per_Ha;
             _log << "------------------- [ New Knots ] -------------------\n" 
-            "Time: "<<t[step]*Constant::fs_per_au <<" fs; "<<"Step: "<<step<<" runtime: "<<secs/60<<"m "<<secs%60<<"s"<<"\n" 
+            "Time: "<<t[step]*Constant::fs_per_au <<" fs; "<<"Step: "<<step<<"\n" 
             <<"Therm [peak; range]: "<<regimes.mb_peak*e<< "; "<< regimes.mb_min*e<<" - "<<regimes.mb_max*e<<"\n"; 
             for(size_t i = 0; i < regimes.num_dirac_peaks;i++){
                 _log<<"Photo [peak; range]: "<<regimes.dirac_peaks[i]*e<< "; " << regimes.dirac_minimums[i]*e<<" - "<<regimes.dirac_maximums[i]*e<<"\n";
@@ -396,7 +393,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             sdot.F.addDeltaSpikePhoto(a,r.energy, r.val*J*P[r.from]);  // TODO change to tmp?
             sdot.bound_charge +=  tmp;
             #ifdef TRACK_SINGLE_CASCADE
-            if (t < cascade_spawn_time){
+            if (t < cascade_spawn_time){ // in case reloaded to a previous point in time
                 cascade_spawned = false;
             }
             if (t > cascade_spawn_time && cascade_spawned == false){
@@ -985,9 +982,11 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
     auto t_start_grid = std::chrono::high_resolution_clock::now();
     if (Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots && 
     input_params.elec_grid_type.mode == GridSpacing::dynamic && (n-this->order+1)%steps_before_initialisation_reset == 0){
+        auto end = chrono::system_clock::now(); chrono::duration<double> elapsed_seconds = end-start; secs = elapsed_seconds.count();
+        
         // move from initial guess grid to dynamic grid shortly after a fresh simulation's start.
         Display::popup_stream << "\n\r Moving to dynamic grid... \n\r"; 
-        _log << "[ Dynamic Grid ] Moving to dynamic grid" << endl;
+        _log << "[ Dynamic Grid ] Moving to dynamic grid"<<" runtime: "<<secs/60<<"m "<<secs%60<<"s"<<endl;
         Display::show(Display::display_stream,Display::popup_stream);  
         update_grid(_log,n+1,false);
         Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots = false;
@@ -996,8 +995,10 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
         return 1;        
     }
     else if (input_params.elec_grid_type.mode == GridSpacing::dynamic && (n-this->order+1)%steps_per_grid_transform == 0){ // TODO if adaptive time step algo is improved would be good to have a variable that this is equal to that is modified to account for changes in time step size. If a dt decreases you push back the grid update. If you increase dt (which currently doesn't happen) you could 'miss' it .
+        auto end = chrono::system_clock::now(); chrono::duration<double> elapsed_seconds = end-start; secs = elapsed_seconds.count();
+
         Display::popup_stream << "\n\rUpdating grid... \n\r"; 
-        _log << "[ Dynamic Grid ] Updating grid" << endl;
+        _log << "[ Dynamic Grid ] Updating grid,"<<" runtime: "<<secs/60<<"m "<<secs%60<<"s"<<endl;
         Display::show(Display::display_stream,Display::popup_stream);  
         update_grid(_log,n+1,false);
     }
