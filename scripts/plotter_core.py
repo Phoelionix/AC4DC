@@ -101,6 +101,8 @@ class Plotter:
             self.autorun=False
             if num_subplots is not None:
                 self.setup_axes(num_subplots)
+            else:
+                print("Warning: `num_subplots` not set.")
             
     
     def find_mol_file_from_directory(self, input_directory, mol):
@@ -166,12 +168,23 @@ class Plotter:
                             'outfile': self.outDir+"/dist_%s.csv"%a,
                             'photofile': self.outDir + "/photo_%s.csv"%a}
                     if len(a) != 0  and (split_continuums_to_load == "all" or a in split_continuums_to_load):
-                        self.split_freeFiles.append(self.outDir +"/freeDist_"+a+"_photo.csv")
+                        photo_file = "freeDist_"+a+"_photo.csv"
+                        auger_file = "freeDist_"+a+"_auger.csv"
+                        if photo_file in os.listdir(self.outDir):
+                            self.split_freeFiles.append(self.outDir + "/"+ photo_file)  # TODO why not just read output for split free files?
                         if ATOMNO[a] > 2:
-                            self.split_freeFiles.append(self.outDir +"/freeDist_"+a+"_auger.csv")
+                            if auger_file in os.listdir(self.outDir):
+                                self.split_freeFiles.append(self.outDir + "/" + auger_file)
         assert len(self.atomdict)>0,f"None of the elements specified - {atoms_to_load} - appear to be given in mol file" if atoms_to_load is not None else "Could not find any atoms"
         
         self.split_continuums_mode = split_continuums_to_load != []
+
+        if self.split_continuums_mode:
+            for file in os.listdir(self.outDir):  # TODO temporary. should read all output split free files
+                if file.split("-")[0] == "freeDist":
+                    if file.split("_")[-1] == "cascade.csv":
+                        self.split_freeFiles.append(self.outDir+"/"+file)
+
 
         self.order_split_free_files(self.preferred_element_order)
     def order_split_free_files(self,element_order):
@@ -307,7 +320,9 @@ class Plotter:
     def initialise_form_factor_params(self, start_t,end_t, q_max, photon_energy, q_fineness=50,t_fineness=50,naive=False):
         args = locals()
         self.__dict__ .update(args)  # Is this a coding sin?  ...yes.
- 
+
+        assert(self.start_t is not None)
+        assert(self.end_t is not None)
     
     # q in units of bohr^-1
     def theta_to_q(self,scattering_angle_deg,photon_energy=None):
@@ -632,6 +647,7 @@ class Plotter:
             if percentage_change:
                 f = -100*(1-f/f_init)
             f_avg.append(f)
+            # TODO Labelled time should be based on actual time step used
             #ax.plot(X, f,label="t = " + str(time)+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))     
             ax.plot(X, f,label="%.1f"%time+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))     
             # Percentage difference from initital state
@@ -757,11 +773,12 @@ class Plotter:
         return len(self.split_freeFiles)+1 # last continuum is all the free files combined
 
     # if single element, then continuum idx 0 is photo, continuum idx 1 is auger, continuum idx 2 is auger + photo
-    def update_free(self,freeContinuumIdx):
+    def update_free(self,freeContinuumIdx,ignore_error = False):
         if self.split_continuums_mode:
             assert(len(self.split_freeFiles)>0)
         else:
             assert(len(self.split_freeFiles)==0)
+
 
         for elemContinuum in self.split_freeFiles:
             if self.split_continuums_mode:
@@ -786,10 +803,10 @@ class Plotter:
                     raw_data = np.genfromtxt(lines, comments='#', dtype=np.float64)
             return raw_data
         if self.split_continuums_mode:
+
             # specific split continuum
             if 0 <= freeContinuumIdx < len(self.split_freeFiles):
                 raw = get_continuum_data(freeContinuumIdx)
-            
             # Combined continuum (different to freeDist.csv, this is all the split continuums specified, combined.)
             elif freeContinuumIdx == len(self.split_freeFiles):
                 tmp = []
@@ -950,6 +967,7 @@ class Plotter:
         self.num_subplots = 1
 
     def get_next_ax(self):
+        assert hasattr(self,'axs'), "axs not set. Did you initialise `num_subplots` ?"
         ax = self.axs.flat[self.num_plotted]
         self.num_plotted+=1
         return ax
@@ -1194,7 +1212,7 @@ class Plotter:
                 ax2.set_ylim([0,ax2.get_ylim()[1]*ax.get_ylim()[1]/old_ytop])
 
             #ax.xaxis.set_ticks([-15,0,15])
-            ax.xaxis.set_ticks([-15,-10,-5,0])
+            #ax.xaxis.set_ticks([-15,-10,-5,0])
 
             ax.tick_params(axis='y',pad=2,length=0)
 
@@ -1285,11 +1303,33 @@ class Plotter:
         self.fig.subplots_adjust(left=0.2, right=0.95, top=0.95, bottom=0.2)
 
 
-    def plot_tot_charge(self, every=1,densities = False,colours=None,atoms=None,plot_legend=True,charge_difference=True,xlim=[None,None],ylim=[None,None],plot_derivative=False,legend_loc='upper left',occupancy=False,profile_height_factor=1,legend_kwargs={},legend_frame=True,base_label=None,**kwargs):
+    def get_average_charge_ff_calculator(self,a,every=1,charge_difference=False,densities=False):
+        T = self.get_times_used()
+
+        self.aggregate_charges(charge_difference)
+        atomic_charge = np.zeros(T.shape[0])
+        indices = np.searchsorted(self.timeData,T) 
+        for i in range(self.chargeData[a].shape[1]):
+            atomic_charge += self.chargeData[a][::every,i][indices]*i
+        #occupancy = np.sum(self.get_orbital_data(a,None)[0],axis=0)*np.sum(self.chargeData[a][0])  #
+        #self.aggregate_charges(charge_difference) # because get_orbital_data aggregates charges with charge_difference False
+        if not densities:
+            atomic_charge /= np.sum(self.chargeData[a][0])
+        return atomic_charge 
+
+    def plot_tot_charge(self, every=1,densities = False,colours=None,atoms=None,plot_legend=True,charge_difference=True,xlim=[None,None],ylim=[None,None],plot_derivative=False,legend_loc='upper left',intensity_averaged=False,occupancy=False,
+                        profile_height_factor=None,legend_kwargs={},legend_frame=True,base_label=None,custom_ax=None,force_xlim=False,**kwargs):
         '''
         plot_derivative (bool), if True, plots average ionisation rate instead of average charge. 
         '''
-        ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),profile_height_factor=profile_height_factor)
+        constant_area = False # By default, scale profile to fit well in plot
+        if profile_height_factor is not None: 
+            constant_area = True
+        if custom_ax is not None:
+            ax = custom_ax
+        else:
+            ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),profile_height_factor=profile_height_factor,constant_area=constant_area)
+
         #self.fig.subplots_adjust(left=0.22, right=0.95, top=0.95, bottom=0.17)
         T = self.timeData[::every]
         T_start = 0
@@ -1330,6 +1370,10 @@ class Plotter:
             if not densities:
                 atomic_charge /= np.sum(self.chargeData[a][0])
                 occs /= np.sum(self.chargeData[a][0])
+            if intensity_averaged:
+                ac_copy = atomic_charge.copy()
+                for k in range(len(atomic_charge)):
+                    atomic_charge[k] = np.average(ac_copy[:k+1]*self.intensityData[T_start:T_end][:k+1])/np.average(self.intensityData[T_start:T_end][:k+1])
             Y = atomic_charge
             if occupancy:
                 Y = occs
@@ -1397,9 +1441,22 @@ class Plotter:
                 ax.set_ylabel("Average occupancy")
                 assert plot_derivative == False, "derivative not supported for occupancy. Do charge instead."
         ax.set_xlim([T[0],T[-1]])
-        #ax.set_xlim(xlim)
+        if force_xlim:
+            ax.set_xlim(xlim)
 
-        ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
+        
+        # ax.yaxis.tick_right()
+        # ax.yaxis.set_label_position("right")
+
+        # ax.tick_params(direction='out',pad=2,length=3)
+        # ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+        # ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+        # ax.locator_params(axis='y',nbins=4)
+        # ax.locator_params(axis='x',nbins=6)
+
+
+        # ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
 
         ax.set_ylim(ylim)
         #ax.yaxis.set_ticks([0,0.2,0.4,0.6,0.8,1])
@@ -1416,7 +1473,16 @@ class Plotter:
         return ax
     
     def get_element_and_e_type(self, continuum):
+        assert continuum <= len(self.split_freeFiles)
+        if continuum == len(self.split_freeFiles):
+            return "","combined"
+
         tmp = path.basename(self.split_freeFiles[continuum])
+        if "cascade" in tmp:
+            return "", "single_cascade"
+        elif "injected" in tmp:
+            return "", "injected"
+
         tmp = tmp.split('.')[0].split('_')
         element = tmp[-2]; primary_electron_type = tmp[-1]
         if element == "fast": # case where have element like "Gd_fast"
@@ -1425,14 +1491,19 @@ class Plotter:
             primary_electron_type = "Auger"
         return element,primary_electron_type
         
-    def plot_electrons_freed(self,continuums=None,e_cutoff=500,every=1,show_pulse_profile=True,xlim=[None,None],ylim=[0,None],nanometre=True,pulse_profile_height_factor=1,**kwargs):
+    def plot_electrons_freed(self,continuums=None,e_cutoff=None,every=1,show_pulse_profile=True,xlim=[None,None],ylim=[0,None],nanometre=True,pulse_profile_height_factor=1,show_intensity_averaged=False,custom_ax1_ax2=None,normalize_to_time = None,custom_ylabel=None,hline_kwargs={},**kwargs):
         T = self.timeData[::every]
         if xlim[1] is None:
             xlim[1] = self.timeData[-1]
+        if xlim[0] is None:
+            xlim[0] = self.timeData[0]
         #ls=(0,(2,2)),col="black",alpha=0.7
         #ls=(0,(2,2)),col="darkgrey",alpha=0.7
-        ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=show_pulse_profile,profile_height_factor=pulse_profile_height_factor,
-                                            ls='dotted', alpha=0.6,dash_capstyle='round',dashes=(0,2.2)) 
+        if custom_ax1_ax2 is None:
+            ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),show_pulse_profile=show_pulse_profile,profile_height_factor=pulse_profile_height_factor,
+                                                ls='dotted', alpha=0.6,dash_capstyle='round',dashes=(0,2.2),constant_area=True) 
+        else: 
+            ax,ax2 = custom_ax1_ax2
         
         if continuums is None:
             continuums = [self.num_continuums()-1]  # combined continuum
@@ -1444,37 +1515,58 @@ class Plotter:
             self.update_free(c)
             for i,t in enumerate(T):
                 rho[i] += self.get_free_electron_density(t,e_cutoff)
+        if normalize_to_time is not None:
+            n = np.argmin(np.abs(T- normalize_to_time))
+            assert abs(T[n]-normalize_to_time)<5e-1 , f"would normalize using time at {T[n]} fs not {normalize_to_time} fs" 
+            rho/=rho[n]
+        elif nanometre:
+            rho *= 1000
 
-        def get_element_and_e_type(continuum):
-            tmp = path.basename(self.split_freeFiles[continuum])
-            tmp = tmp.split('.')[0].split('_')
-            element = tmp[-2]; primary_electron_type = tmp[-1]
-            if element == "fast": # case where have element like "Gd_fast"
-                element = tmp[-3]
-            return element,primary_electron_type
+
+        # for c in continuums:
+        #     self.update_free(c)
+        #     for i,t in enumerate(T):
+        #         density = self.get_free_electron_density(t,e_cutoff)
+
+        #         if self.get_element_and_e_type(c)[1] == "single_cascade" and single_cascade_initial_density == 0:
+        #             single_cascade_initial_density = self.get_free_electron_density(t,e_cutoff)
+        #         if single_cascade_initial_density != 0:
+        #             density/=single_cascade_initial_density
+
+        #         rho[i] += density
+        # print(rho)
 
         if len(continuums) == 1:
-            element, primary_electron_type = get_element_and_e_type(continuums[0])
+            element, primary_electron_type = self.get_element_and_e_type(continuums[0])
             label = f"{element} ({primary_electron_type})"
         else:
             same_element = True
             for c in continuums:
-                if get_element_and_e_type(c)[0] != get_element_and_e_type(continuums[0])[0]:
+                if self.get_element_and_e_type(c)[0] != self.get_element_and_e_type(continuums[0])[0]:
                     same_element = False
                     break
             
             if same_element:
-                label = get_element_and_e_type(c)[0]
+                label = self.get_element_and_e_type(c)[0]
             else:
                 label = continuums
         
     
         ax.set_ylim(ylim)
-        ax.set_xlim([T[0],T[-1]])
+        for i in range(2):
+            if xlim[i] is None:
+                xlim[i] = T[-i]
+        ax.set_xlim(xlim)
         
-        if nanometre:
-            rho *= 1000
+
         handles = ax.plot(T,rho,label=label,**kwargs)
+
+        if show_intensity_averaged:
+            t_start_idx , t_end_idx = np.searchsorted(self.timeData,xlim[0]),np.searchsorted(self.timeData,xlim[1])+1
+            I = self.intensityData[t_start_idx:t_end_idx]
+            rho_copy = rho.copy()[t_start_idx:t_end_idx]
+            avg = np.average(rho_copy*I)/np.average(I)
+            ax.axhline(y=avg,**hline_kwargs)
 
         # https://stackoverflow.com/questions/38687887/how-to-define-zorder-when-using-2-y-axis
         ax.set_zorder(ax2.get_zorder()+1)
@@ -1488,7 +1580,9 @@ class Plotter:
         else:
             ylabel+=' ($\\AA^{-3}$)'
         ax.set_ylabel(ylabel)
-            
+        if custom_ylabel is not None:
+            ax.set_ylabel(custom_ylabel)
+
         ax.set_xlabel("Time (fs)")
 
         ax.tick_params(direction='out',pad=2,length=3)
@@ -1496,6 +1590,9 @@ class Plotter:
         ax.xaxis.set_minor_locator(AutoMinorLocator(2))
         ax.locator_params(axis='y',nbins=4)
         ax.locator_params(axis='x',nbins=6)
+
+        ax.yaxis.tick_right()
+        ax.yaxis.set_label_position("right")
 
         return ax, handles
 
@@ -1735,6 +1832,7 @@ class Plotter:
         ax_theoretical.scatter(custom_t,np.array(custom_y)*scale_factor,label="AC4DC (scaled)",color="white",edgecolors="black",marker="D")
 
 
+        
         ax_theoretical.axhline(y = undamaged_contrast, color = 'black', linestyle = 'dashed',zorder=-100) 
 
         pulse_energy = [0.33,0.95/2,0.99/2,0.95/2,0.79/2,0.93/2]
@@ -1855,8 +1953,12 @@ class Plotter:
         # ax.set_ylabel(r"Charge contrast", color = charge_contrast_col)
 
         charge_contrast = heavy_occupancy/light_occupancy
+
+
+        t0, t1 = T_start, T_end
+        intensity_averaged_charge_contrast = np.average(charge_contrast[t0:t1]*self.intensityData[t0:t1])/np.average(self.intensityData[t0:t1])  # Intensity scaled charge contrast  
         
-        
+        print(f"EDR for simulation: {intensity_averaged_charge_contrast}")
 
 
 
@@ -1900,18 +2002,24 @@ class Plotter:
         galli_LF_EDR = LF_heavy_occ/LF_light_occ
         galli_HF_EDR = HF_heavy_occ/HF_light_occ
         
-        AC4DC_LF_EDR = 0.22448807690021502
-        AC4DC_HF_EDR = 0.14357845509910588
+        # Taken from output of "EDR for simulation: {intensity_averaged_charge_contrast}"
+        AC4DC_LF_EDR = 0.2201203502568035
+        AC4DC_HF_EDR = 0.14757419134927216
+
+        # OLD (no salt no H 50% solvent)
+        # AC4DC_LF_EDR = 0.22448807690021502
+        # AC4DC_HF_EDR = 0.14357845509910588
 
         galli_difference = 8.8
 
         # Assume AC4DC matches
         galli_LF_EDR_observed = AC4DC_LF_EDR 
 
-        expected = galli_LF_EDR
-        observed = galli_LF_EDR_observed
+        #expected = galli_LF_EDR
+        #observed = galli_LF_EDR_observed
+        expected = galli_HF_EDR
         ax.plot(T,[expected,]*len(T),color="black",linestyle="dashed",label="Expected (Galli $\text{\textit{et al.}}$)")
-        ax.plot(T,[observed,]*len(T),color="black",linestyle="dashed",label="Observed (Galli $\text{\textit{et al.}}$)")
+        #ax.plot(T,[observed,]*len(T),color="black",linestyle="dashed",label="Observed (Galli $\text{\textit{et al.}}$)")
 
 
 
@@ -1993,7 +2101,7 @@ class Plotter:
             #ax_empirical.scatter(data["x"],data["y"]*2)
             ax_empirical.scatter(data["x"],data["y"],marker=marker,label=data_path.split("/")[-1].split(".")[0] + " (empirical)",color="black")
         
-        integration_width = 15
+        integration_width = 15 # half width of timespan that we are integrating over to get the measure. 
         probe_delay = self.sim_params["probe_delay"]
         print(probe_delay)
         if probe_delay is None:
@@ -2145,7 +2253,7 @@ class Plotter:
     #         pass
     #     return ax
         
-    def plot_free(self, N=100, log=True, cmin = 1e-9, cmax=None, every = None,mask_below_min=True,cmap='magma',ylim=[None,None],ymax=np.Infinity,leonov_style = False,keV=False,ylog=False,continuum=None,show_title=True,show_cbar=True,show_time_axis_label=True,every_e = 1):
+    def plot_free(self, N=100, log=True, cmin = 1e-9, cmax=None, every = None,mask_below_min=True,cmap='magma',ylim=[None,None],xlim=[None,None],ymax=np.Infinity,leonov_style = False,keV=False,ylog=False,continuum=None,show_title=True,show_cbar=True,show_time_axis_label=True,every_e = 1,show_pulse_profile=True):
         
 
         old_energy_knot = self.energyKnot
@@ -2175,6 +2283,9 @@ class Plotter:
         else:
             Z = self.freeData.T [::every_e, ::every]
             T = self.timeData [::every]
+        for i in range(2):
+            if xlim[i] is None:
+                xlim[i] = T[-i]
         # if timespan is None:
         #             timespan = (self.start_t,self.end_t)
         
@@ -2241,17 +2352,20 @@ class Plotter:
         if keV:
             ylim_modified = [y*1e-3 for y in ylim]
         ax.set_ylim(ylim_modified)
-        ax.set_ylabel("")
-
-
-        # plot the intensity
+        #ax.set_ylabel("")
+        
+        ax.set_xlim(xlim)
+        
+        # plot the intensity TODO change to use self.setup_intensity_plot() 
         ax2 = ax.twinx()
-        ax2.plot(T, self.intensityData[::every],'w:',linewidth=1)
-
         ax2.get_yaxis().set_visible(False)
-        ax2.set_ylim([0,ax2.get_ylim()[1]-ax2.get_ylim()[0]])
+        if show_pulse_profile:
+            ax2.plot(T, self.intensityData[::every],'w:',linewidth=1)
+
+            ax2.set_ylim([0,ax2.get_ylim()[1]-ax2.get_ylim()[0]])
 
         self.energyKnot = old_energy_knot
+        return ax,ax2
     # Plots a single point in time.
     def initialise_step_slices_ax(self):
         self.ax_steps = self.get_next_ax()
@@ -2404,8 +2518,9 @@ class Plotter:
         return np.dot(self.freeData[t_idx][:cutoff_idx], de)
     
     # Seems to plot ffactors through time, "timedata" is where the densities come from - the form factor text file corresponds to specific configurations (vertical axis) at different k (horizontal axis)
-    # In any case, my ffactor function is probably bugged since it doesn't match this. - S.P.
-    def plot_ffactor_get_R_AC4DC(self, a, num_tsteps = 10, timespan = None, show_avg = True, plot=True,**kwargs):
+    def plot_ffactor_get_R_AC4DC(self, a, num_tsteps = 10,resolution=False,  timespan = None, show_avg = True, plot=True,resolution_range=[1,4],**kwargs):
+        if resolution_range[0] > resolution_range[1]:
+            resolution_range = np.flip(resolution_range)
 
         if timespan is None:
             timespan = (self.start_t,self.end_t)#(self.timeData[0], self.timeData[-1])
@@ -2413,7 +2528,7 @@ class Plotter:
         start_idx = self.timeData.searchsorted(timespan[0])
         stop_idx = self.timeData.searchsorted(timespan[1])
 
-        ff_path = path.abspath(path.join(__file__ ,"../../output/"+a+"/Xsections/Form_Factor.txt"))
+        ff_path = path.abspath(path.join(__file__ ,"../../output/"+a+"/Xsections/FormFactor.txt"))
         fdists = np.genfromtxt(ff_path)
         # These correspond to the meaning of the FormFactor.txt entries themselves
         KMIN = 0
@@ -2424,11 +2539,39 @@ class Plotter:
             fig2 = plt.figure()
             ax = fig2.add_subplot(111)
             ax.set_xlabel('$u$ (spatial frequency, atomic units)')
-            ax.set_ylabel('Form factor (arb. units)')
+            ax.set_ylabel('Form factor')
         
         timedata = self.boundData[a][:,:-1] # -1 excludes the bare nucleus
         dynamic_k = np.tensordot(fdists.T, timedata.T,axes=1)   # Getting all k points? This has equal spacing -S.P. 
         step = (stop_idx - start_idx) // num_tsteps
+
+        normalization = ATOMNO[a]/dynamic_k[0][0]
+        dynamic_k*=normalization
+        
+        X = kgrid
+        if resolution:
+            
+            #kgrid = kgrid[1:]
+            #dynamic_k = dynamic_k[1:]
+
+            ax.set_xlabel("Resolution ($\\AA^{-1}$)")
+            ang_per_bohr = 0.529177
+            angstrom_mom = [k/ang_per_bohr*2*np.pi for k in kgrid]
+            X = np.array(angstrom_mom)
+            
+            X = np.flip(2*np.pi/X)   
+            dynamic_k=np.flip(dynamic_k)
+            min_idx = max(0,np.searchsorted(X,resolution_range[0]))
+            max_idx = min(len(X),np.searchsorted(X,resolution_range[1])+1)
+            X =  X[min_idx:max_idx]
+            dynamic_k = dynamic_k[min_idx:max_idx]
+            X = np.flip(X)
+            dynamic_k=np.flip(dynamic_k)
+            ax.set_xlim(resolution_range)
+
+            ax.invert_xaxis()
+
+
         if plot:
             cmap=plt.get_cmap('plasma')
             fbar = np.zeros_like(dynamic_k[:,0])
@@ -2438,14 +2581,17 @@ class Plotter:
         for i in range(start_idx, stop_idx, step):
             times_used.append(self.timeData[i])
             if plot:
-                ax.plot(kgrid, dynamic_k[:,i], label='%1.1f fs' % self.timeData[i], color=cmap((i-start_idx)/(stop_idx - start_idx)))
+                ax.plot(X, dynamic_k[:,i], label='%1.1f fs' % self.timeData[i], color=cmap((i-start_idx)/(stop_idx - start_idx)))
             fbar += dynamic_k[:,i]
             n += 1
+
+
+
 
         print("Times used:",times_used)
         fbar /= n
         if show_avg and plot:
-            ax.plot(kgrid, fbar, 'k--', label=r'Effective Form Factor')
+            ax.plot(X, fbar, 'k--', label=r'Effective Form Factor')
         freal = dynamic_k[:,0]  # Real as in the real structure? - S.P.
         print("Warning, does not account for altering time step sizes.")
         print("R = ", np.sum(np.abs(fbar - freal))/np.sum(freal))    # Struct fact defn. of R (essentially equivalent to intensity definition)
@@ -2456,6 +2602,9 @@ class Plotter:
         print("Normed R = ", np.sum(np.abs(fbar - freal))/np.sum(freal))
         # print("freal",freal)
         # print("fbar",fbar)
+        if plot:
+            ax.legend()
+
         return (fig2, ax)
         
 

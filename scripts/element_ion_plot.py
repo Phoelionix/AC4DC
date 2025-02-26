@@ -88,7 +88,7 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,plo
             if plot_mode == 1:
                 colours = [cmap(m)]
                 pl.plot_tot_charge(every=1,colours = colours,atoms = [ATOM],plot_legend=False,xlim=XLIM,ylim=YLIM,charge_difference=CHARGE_DIFFERENCE,plot_derivative=PLOT_DERIVATIVE,occupancy=OCCUPANCY,
-                                   label= mol_name)
+                                   base_label= mol_name)
 
             if plot_mode == 2:
                 ax = pl.plot_orbitals_charge(every=1,atom = ATOM,plot_legend=False,xlim=XLIM,ylim=YLIM,plot_derivative=PLOT_DERIVATIVE)       
