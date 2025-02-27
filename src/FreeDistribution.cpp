@@ -508,7 +508,7 @@ void Distribution::applyDeltaF(const size_t& a,const Eigen::VectorXd& v,const in
         f_array[0][i] += u[i];
         #ifndef TRACK_SINGLE_CONTINUUM
         f_array[a+1][i] += u[i];
-        #else if TRACK_SINGLE_CASCADE  // TODO make more intuitive
+        #elif TRACK_SINGLE_CASCADE  // TODO make more intuitive
         if (a+1 == Distribution::single_cascade_continuum_idx){
             f_array[a+1][i] += u[i];
         }
