@@ -80,9 +80,9 @@ if interactive and __name__ == "__main__":
 
 plt.ioff()  # stops weird vscode stuff
 
-DEBUG = False; DEBUG = False; DEBUG_MODERATE = False; RANDOM_WATER=False; DEBUG_WATER = False
+DEBUG = False; DEBUG = False; DEBUG_MODERATE = False; DEBUG_WATER = True
 SEEDED = False# TODO check fully implemented for all random stuff
-RANDOM_WATER = False; NUM_RANDOM_WATER = None
+
 
 if SEEDED:
     np.random.seed(0)
@@ -207,7 +207,7 @@ class Results_Grid():
     pass    
 
 class Crystal():
-    def __init__(self, struct_file_path, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = None, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1, S_to_N=False,convert_excluded_elements_to_N=False):
+    def __init__(self, struct_file_path, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = None, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1, S_to_N=False,convert_excluded_elements_to_N=False,random_waters=None):
         '''
         rocking_angle [degrees]
         cell_packing ("SC","BCC","FCC","FCC-D")
@@ -230,9 +230,10 @@ class Crystal():
             self.supercell_simulations = 1
         self.struct_file_path = struct_file_path
         self.positional_stdv = positional_stdv/ang_per_bohr # RMS error in coord positions, designed for SPI sim only but I guess it wouldn't be detrimental for crystal sim.
-        
+        self.random_waters = random_waters
+
         self.ignore_deviations = False
-        if self.positional_stdv == 0 and not RANDOM_WATER:
+        if self.positional_stdv == 0 and self.random_waters is None:
             self.ignore_deviations = True
 
         assert self.supercell_simulations <= num_supercells
@@ -337,13 +338,13 @@ class Crystal():
     def set_stochastic_positions(self,first_call=False):
         def num_atoms_no_symm():
             return np.sum([len(self.species_dict[k].coords) for k in self.species_dict])
-        if RANDOM_WATER:
+        if self.random_waters is not None:
             if first_call:
                 self.random_water_start_idx = num_atoms_no_symm()
                 self.num_non_water_oxygens = len(self.species_dict["O"].coords)
             self.reinitialize_random_waters()
             if first_call:
-                print(f"Added {NUM_RANDOM_WATER} O atoms to random coordinates. Structure now has {num_atoms_no_symm()} atoms.")
+                print(f"Added {self.random_waters} O atoms to random coordinates. Structure now has {num_atoms_no_symm()} atoms.")
         if first_call:
             print(f"Adding stdv of {self.positional_stdv} Angstroms.")
         for species in self.species_dict.values():
@@ -353,8 +354,8 @@ class Crystal():
     def reinitialize_random_waters(self):
         self.species_dict["O"].coords = self.species_dict["O"].coords[:self.num_non_water_oxygens]
         if DEBUG or DEBUG_WATER:
-            print(f"Placing {NUM_RANDOM_WATER} O atoms in random positions")
-        for _ in range(NUM_RANDOM_WATER):
+            print(f"Placing {self.random_waters} O atoms in random positions")
+        for _ in range(self.random_waters):
             self.species_dict["O"].add_atom("WATER",Bio_Vect((np.random.rand(3)-0.5)*1e3))
     def set_ff_calculator(self,ff_calculator):
         self.ff_calculator = ff_calculator                  
@@ -372,8 +373,9 @@ class Crystal():
             cube_coords = np.stack([ x.flatten(), y.flatten(), z.flatten()], axis = -1)
             # Construct the cube by adding the "unit cell translation" to the symmetry translation. 
             # (e.g. if crystal is centred on origin, in fractional crystallographic coordinates the index of the unit cell is equal to the unit cell's translation from the origin.) 
-            print_thing = np.array(["][x]   [","][y] + [","][z]   ["],dtype=object)
-            print(symmetry_label,"\n",np.c_[symmetry_factor, print_thing ,symmetry_translation],sep="")
+            if DEBUG or DEBUG_MODERATE:
+                print_thing = np.array(["][x]   [","][y] + [","][z]   ["],dtype=object)
+                print(symmetry_label,"\n",np.c_[symmetry_factor, print_thing ,symmetry_translation],sep="")
             for coord in cube_coords:
                 #print(coord)
                 translation = coord*self.cell_dim + symmetry_translation
@@ -435,7 +437,8 @@ class Crystal():
                 # Symmetry operators
                 if "NNNMMM   OPERATOR" in line:
                     at_SYMOP = True
-                    print("Parsing symmetry operations...")
+                    if DEBUG or DEBUG_MODERATE:
+                        print("Parsing symmetry operations...")
                 # symmetry matrices
                 if line == "REMARK 290 RELATED MOLECULES.":
                     at_symmetry_xformations = True
@@ -607,7 +610,7 @@ CRYST1   {a*self.supercell_scale:.3f}   {b*self.supercell_scale:.3f}   {c*self.s
         view_width = 1000
         view_height = 800
 
-        if water_index is None and RANDOM_WATER:
+        if water_index is None and self.random_waters is not None:
             water_index = self.random_water_start_idx # TODO make work with symmetries
         num_atoms_avail = 0
         for species in self.species_dict.values():
@@ -928,7 +931,7 @@ class Atomic_Species():
                 # get random error in spherical coords based on RMS error in position, convert to cartesian.
                 # there's probably a better way to do it
                 err_phi,err_thet = np.random.random()*2*np.pi, np.random.random()*np.pi
-                if self.name == "O" and RANDOM_WATER and idx >= self.crystal.num_non_water_oxygens:
+                if self.name == "O" and self.crystal.random_waters is not None and idx >= self.crystal.num_non_water_oxygens:
                     err_r = np.random.normal(0, 1e3,size = (3)) # need to add this for each water atom so not same between symmetry operations
                 else:
                     err_r = np.random.normal(0,self.crystal.positional_stdv, size = (3))
@@ -1072,7 +1075,8 @@ class XFEL():
     
     def set_orientation_set(self,orientation_set):
         self.orientation_set = orientation_set
-        print("orientation set set:", self.orientation_set)
+        if DEBUG or DEBUG_MODERATE:
+            print("orientation set set:", self.orientation_set)
     def get_ff_calculator(self,start_time,end_time,damage_output_handle,parent_dir_path):
         ff_calculator = Plotter(damage_output_handle,parent_dir_path,out_prefix_text = "Calculating form factors...")
         plt.close()
@@ -1331,6 +1335,9 @@ class XFEL():
                 result.package_up(miller_indices,for_plotting=for_plotting)
                 #Save the result object into its own file within the output folder for the experiment
                 fpath = directory + str(cardan_angles) +".pickle"
+                if self.all_miller_indices:
+                    version = path.basename(directory).split("_")[-1] # TODO do this in safer way
+                    fpath = directory + str(j) + "_" + version + ".pickle"
                 with open(fpath,"wb") as pickle_out:
                     pickle.dump(result,pickle_out)
 
@@ -1498,7 +1505,7 @@ class XFEL():
                         same_each_sym = False # (debug)
                         if same_each_sym:
                             f = species.get_stochastic_f(relative_atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
-                        #print(F_sum.shape,T.shape,f.shape) 
+                        #print(F_sum.shape,T.shape,f.shape)                             
                         if SPI: 
                             if type(feature) is self.Cell:
                                 F_sum += np.sum(T[:,None,...]*f,axis=0)          #[num_atoms,None,qX,qY] X [num_atoms,times,qX,qY] -> [times,qX,qY]
@@ -1592,7 +1599,15 @@ class XFEL():
         q_dot_r = np.moveaxis(q_dot_r,-1,0)
         coord = np.moveaxis(coord,-1,0)                            
         T = np.exp(-1j*q_dot_r)
-        return T
+        return T  # [Num_atoms, num_G (bragg spots)]
+    
+    def random_water_time_interference_factor(self,coord,feature,cardan_angles,times,target):
+        q_vect = self.rotate_G_to_orientation(feature.G.copy(),*cardan_angles,inverse=True)[0]
+        T = np.zeros((coord.shape[0],len(times),q_vect.shape[1]))
+        target.random_water_start_idx
+        for t in times:
+            target.reinitialize_random_waters()
+        assert False, "TODO" #TODO
 
     def SPI_interference_factor(self,phi_array,coord,feature):  #TODO refactor SPI features so can just use above (allows for realignment)
         """ theta = scattering angle relative to z-y plane 
@@ -3089,17 +3104,12 @@ def q_to_res(q):
 #%% vvvvv Scattering Playground vvvv
 #Scattering Playground
 
-os.environ['OPENBLAS_NUM_THREADS']="32"
-
-
-if SEEDED:
-    np.random.seed(0)
 # 0.18081540711890387 SALT
 # 0.17781329569346938 NO SALT
 
 if __name__ == "__main__":
-
-    RANDOM_WATER = True; NUM_RANDOM_WATER = 702
+    SEEDED = False
+    #RANDOM_WATER = True; NUM_RANDOM_WATER = 702;# RANDOM_WATER_EACH_TIME_STEP=True  #TODO implement rand water each time step
 
 
     fig_width = 3.49751 # 20
@@ -3110,7 +3120,7 @@ if __name__ == "__main__":
 
     #R:  0.03453990841341609
     #R:  0.039555455273223315
-    target = "lys_no_salt"#"glycine"  #target_options[2]
+    target = "lys_salt"#"glycine"  #target_options[2]
     best_resolution = 1.3 # 1.58 (abdullah) # 2   # resolution (determining max q)
     worst_resolution = None#30 # 'resolution' corresponding to min q
 
@@ -3122,7 +3132,7 @@ if __name__ == "__main__":
         # pixel sampling method (Neutze) if True - Miller indices if False
         SPI = False,  # sampling method, if False, bragg spots. if True, detector pixels. TODO change name
         SPI_resolution = best_resolution,
-        pixels_across = 300,  # for SPI, shld go on xfel params.
+        pixels_across = 300,  # for SPI TODO shld go on xfel exp params.
         # miller
         random_orientation = False, #bragg spot sampling only, TODO refactor to be in same place as other orients...# orientation is synced with second 
     )
@@ -3137,8 +3147,9 @@ if __name__ == "__main__":
         #rocking_angle = 0.1,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         rocking_angle = 0.02,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         #CNO_to_N = True,   # whether the plasma simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
+        random_waters=702,
     )
-    show_crystal = True
+    show_crystal = False
 
     #### XFEL params
     #TODO make it so reflections don't overwrite same orientation, as stochastic now.
@@ -3174,7 +3185,7 @@ if __name__ == "__main__":
         override_max_q = False # False # Also special, implemented for comparison purposes but should be left as False by default.
         ######
     )
-    same_deviations = True # whether same position deviations between damaged and undamaged crystal (SPI only) 
+    same_deviations = False # whether same position deviations between damaged and undamaged crystal 
     
 
     # Optional: Choose previous folder for crystal results
@@ -3217,10 +3228,15 @@ if __name__ == "__main__":
     #---------------------------------#
     water_index = None # None TODO automate
     if target == "lys_salt" or target == "lys_no_salt":
+        QUICK_TEST = False
 
         cycles_per_bragg_set = 1
         num_bragg_sets = 25
         num_unique_supercells = 20
+        if QUICK_TEST:
+            num_bragg_sets = 1
+            num_unique_supercells = 1
+            crystal_qwargs["include_symmetries"]=False
         #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.4.hkl"
         unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"
         exp_qwargs["miller_indices_override"] = read_hkl(unique_hkl)
@@ -3229,8 +3245,8 @@ if __name__ == "__main__":
         crystal_qwargs["supercell_simulations"] = num_unique_supercells
 
         target_handle = dict(
-            lys_salt = "lys_salt_solvated_fast_H_4", #"Gd_salt_5", 
-            lys_no_salt =  "lys_solvated_fast_H_4" #"Gd_no_salt_2" 
+            lys_salt = "lys_salt_solvated_fast_H_5",
+            lys_no_salt =  "lys_solvated_fast_H_6"
         )[target]
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb" 
         #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632
@@ -3297,7 +3313,9 @@ if __name__ == "__main__":
     else:
         raise Exception("'target' invalid")
     #-------------------------------#
-
+    if SEEDED:
+        np.random.seed(0)
+        
     import inspect
     src_file_path = inspect.getfile(lambda: None)
     sim_data_dir = path.abspath(path.join(src_file_path ,"../../../output/__Molecular/"+folder)) + "/"
