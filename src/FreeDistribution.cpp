@@ -461,7 +461,8 @@ void Distribution::addDeltaSpike(double e, double N) {
 
 void Distribution::addDeltaSpikeExternal(const size_t& a, const double& e, const double& N) {
     int idx = basis.i_from_e(e);
-    f_array[0][idx] += N*basis.inverse_areas[idx];
+    const double val = N*basis.inverse_areas[idx];
+    f_array[0][idx] += val;
     #ifndef TRACK_SINGLE_CONTINUUM
     f_array[external_continuum_idx][idx] += val;
     #endif
