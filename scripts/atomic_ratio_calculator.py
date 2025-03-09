@@ -146,11 +146,7 @@ NaCl = Molecule(58.44,2.16,
     Cl = 1                
 )
 
-NaOAc = Molecule(227+23+16,2, # not too important assuming low molarity
-    Na = 1,
-    O = 1,
-    Ac = 1
-)
+
 
 PEG_6000=PEG(6000)
 
@@ -204,7 +200,7 @@ if __name__ == "__main__":
     )
 
     solvent = Solvent(41.73)
-    solvent.add_molecule(NaOAc,M=0.05)
+    #solvent.add_molecule(NaOAc,M=0.05)
     solvent.add_molecule(PEG_6000,solvent_v_on_v=16.7)
     solvent.add_molecule(NaCl,M=1.7)
     
