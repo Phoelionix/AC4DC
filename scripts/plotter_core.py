@@ -95,6 +95,10 @@ class Plotter:
         else:
             assert load_specific_atoms is None and num_subplots is None
 
+    def change_to_electron_density(self):
+        self.use_electron_density=True
+    def change_to_electron_energy_density(self):
+        self.use_electron_density = False
     def initialise(self,load_specific_atoms,num_subplots,split_continuums_to_load=[]):
             self.get_atoms(load_specific_atoms,split_continuums_to_load)
             self.update_outputs()
@@ -317,7 +321,7 @@ class Plotter:
     
 
 
-    def initialise_form_factor_params(self, start_t,end_t, q_max, photon_energy, q_fineness=50,t_fineness=50,naive=False):
+    def initialise_form_factor_params(self, start_t,end_t, q_max, photon_energy, q_fineness=50,t_fineness=50):#,naive=False):
         args = locals()
         self.__dict__ .update(args)  # Is this a coding sin?  ...yes.
 
@@ -610,8 +614,9 @@ class Plotter:
         f_avg = np.trapz(form_factors_sqrt_I,time_steps)/(time_steps[-1]-time_steps[0])
         return f_avg         
 
-    def plot_form_factor(self,num_snapshots = 8, atoms=None,resolution=False,q_min=0,fig_width=5,fig_height=6,show_average=True,percentage_change=False):  # k = 4*np.pi = 2*q. c.f. Sanders plot.
+    def plot_form_factor(self,num_snapshots = 8, atoms=None,resolution=False,q_min=0,fig_width=5,fig_height=6,show_average=True,show_snapshots=True,percentage_change=False):  # k = 4*np.pi = 2*q. c.f. Sanders plot.
         
+        assert(show_snapshots == True or show_average == True)
         times = np.linspace(self.start_t,self.end_t,num_snapshots)
         if atoms == None:
             atoms = self.atomdict  # All atoms
@@ -633,7 +638,7 @@ class Plotter:
             min_time = min(min_time,time)
             max_time = max(max_time,time) 
 
-        f_avg =[]
+        f_list =[]
         print(times)
         ang_per_bohr = 0.529177
         angstrom_mom = [k/ang_per_bohr for k in q]
@@ -646,17 +651,31 @@ class Plotter:
             f = np.array([self.get_average_form_factor(x,atoms,time=time)[0] for x in q])
             if percentage_change:
                 f = -100*(1-f/f_init)
-            f_avg.append(f)
+            f_list.append(f)
             # TODO Labelled time should be based on actual time step used
             #ax.plot(X, f,label="t = " + str(time)+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))     
-            ax.plot(X, f,label="%.1f"%time+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))     
+            if show_snapshots:
+                ax.plot(X, f,label="%.1f"%time+" fs",color=cmap((time-min_time)/(0.0001+max_time-min_time)))     
             # Percentage difference from initital state
         if show_average:
-            f_avg = np.average(f_avg,axis=0)
+            #f_avg = np.average(f_avg,axis=0)
+            # intensity-averaged
+            indices = []
+            for t in times:
+                n = np.argmin(np.abs(self.timeData - t))
+                assert abs(self.timeData[n]-t)<5e-1 , f"would use time at {self.timeData[n]} fs not {t} fs" 
+                indices.append(n)
+            
+            f_avg = []
+            for i in range(len(f_list[0])):
+                f_tmp = np.array(f_list)[:,i]
+                f_avg.append(np.average(f_tmp*self.intensityData[indices])/np.average(self.intensityData[indices]))
             ax.plot(X, f_avg,'k--',label="Average")  
 
         ax.set_title("")
-        ax.set_xlabel("Resolution ($\\AA^{-1}$)")
+        ax.set_xlabel("q")
+        if resolution:
+            ax.set_xlabel("Resolution ($\\AA^{-1}$)")
         ax.set_ylabel("Form factor")
         if percentage_change:
             ax.set_ylabel("Change in $f(q)$ (\\%)")
@@ -2381,11 +2400,15 @@ class Plotter:
         # unit = "$\\AA^{3}$"
         # if nanometre:
         #     unit = "nm$^{-3}$"
-        unit = "arb. u."
+        #unit = "arb. u."
 
-        self.ax_steps.set_ylabel(f'Energy density (keV {unit})') # \\Delta \\epsilon is implied now. Want to distinguish from Hau-Riege whose f(e) is our f(e)e
-        if self.use_electron_density:
-            self.ax_steps.set_ylabel(f'Electron density ({unit})')#self.ax_steps.set_ylabel('$f(\\epsilon)')
+        #self.ax_steps.set_ylabel(f'Energy density (keV {unit})') # \\Delta \\epsilon is implied now. Want to distinguish from Hau-Riege whose f(e) is our f(e)e
+        #if self.use_electron_density:
+        #    self.ax_steps.set_ylabel(f'Electron density ({unit})')#self.ax_steps.set_ylabel('$f(\\epsilon)')
+
+        self.ax_steps.set_ylabel(f'Energy density (arb. u.)') 
+        if self.use_electron_density: 
+            self.ax_steps.set_ylabel(f'Electron density (arb. u.)')
         
         
 

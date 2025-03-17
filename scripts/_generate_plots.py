@@ -5,7 +5,6 @@ matplotlib.rcParams.update({
     'font.family': 'serif',
     'text.usetex': True,
     'pgf.rcfonts': False,
-    #thaumatin thing
     'axes.titlesize':8,     # fontsize of the axes title
     'axes.labelsize':8,    # fontsize of the x and y labels   
     'ytick.labelsize':8,
@@ -23,19 +22,19 @@ from QoL import set_highlighted_excepthook
 
 
 ####
-ELECTRON_DENSITY = True # Whether to use electron density for free distribution plots. Electron energy density if False
+ELECTRON_DENSITY = None # Whether to use electron density for free distribution plots. If None, will do one or the other or both depending on the plot.
 ###
-PLOT_ELEMENT_CHARGE= False #
-PLOT_FREE_CONTINUUM = False
-PLOT_SPLIT_FREE_CONTINUUMS = True
-PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = True
-PLOT_FREE_SLICES=False
-PLOT_ION_RATIOS=False
-PLOT_ION_RATIOS_BARS= False
-PLOT_ORBITAL_DENSITIES = False #
+PLOT_ELEMENT_CHARGE= True #
+PLOT_FREE_CONTINUUM = True
+PLOT_SPLIT_FREE_CONTINUUMS = False
+PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = False
+PLOT_FREE_SLICES=True
+PLOT_ION_RATIOS=True
+PLOT_ION_RATIOS_BARS= True
+PLOT_ORBITAL_DENSITIES = True #
 PLOT_PHOTO_RATES = False
 
-TIGHT_LAYOUT = False
+TIGHT_LAYOUT = True
 HORIZONTAL_MODE = False
 VERTICAL_MODE = False
 TWO_VERTICAL_MODE = False
@@ -49,10 +48,10 @@ figures_ext = ".png" #.png
 ###
 
 #COLUMNWIDTH = 3.34646/2
-#COLUMNWIDTH = 3.34646
+COLUMNWIDTH = 3.34646*1.5
 #COLUMNWIDTH = 3.34646*1.35
 #COLUMNWIDTH = 7.24409436834/3
-COLUMNWIDTH = 7.24409436834/4
+#COLUMNWIDTH = 7.24409436834/4
 #3.34646
 #3.4975
 #7.24409436834
@@ -67,7 +66,7 @@ COLWIDTH = COLUMNWIDTH # column of figure
 
 #ROWHEIGHT = COLUMNWIDTH*12/16
 #ROWHEIGHT = COLUMNWIDTH*14/16
-ROWHEIGHT = COLUMNWIDTH*15/16
+ROWHEIGHT = COLUMNWIDTH*9.33/16
 #ROWHEIGHT = COLUMNWIDTH*8.5/16
 
 #TODO plotter should have general test to see if a subplot is on edge. And if not don't put axis there (if axes all same lim).
@@ -139,12 +138,14 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
         label+="_"
         for elem in load_specific_atoms:
             label+=elem
-    pl = Plotter(mol_name,sim_output_parent_dir,use_electron_density = ELECTRON_DENSITY,end_t = END_T,
+    tmp_electron_density = ELECTRON_DENSITY in [True,None] # If None we start with true but will change to false as appropriate.
+    pl = Plotter(mol_name,sim_output_parent_dir,use_electron_density = tmp_electron_density,end_t = END_T,
                  initialise=False)
     pl.get_atoms(load_specific_atoms,split_continuums_to_load) # so that plotter knows num continuums
 
     num_atoms = len(pl.atomdict)
     num_subplots = tot_charge + free_slices + bound_ionisation_bar + (bound_ionisation+ orbital_densities_bar+ photo_rates)*num_atoms + free + combined_split_free + split_free*(pl.num_continuums()-1)
+    num_subplots += free_slices*(ELECTRON_DENSITY is None) # Plot both electron density and electron energy density for free slices by default
     assert(num_subplots > 0) , f"number of sublots is {num_subplots}{', have any plots been specified to plot?' if num_subplots == 0 else ''}"
 
 
@@ -177,17 +178,18 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     if tot_charge: 
         #NOTE ensure load_specific_atoms is None or does not exclude `atoms` if `atoms` is passed.
         #pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=False,legend_loc="best")  
-        legend_kwargs = dict(
-            borderpad=0.2,handletextpad=0.5,handlelength=1,columnspacing=0.35,
-        )
-        abdullah_colors =  [
-                    "#7d7d7d",
-                    "#0050a3",
-                    "#eb471e",
-                    "#437c34",
+        # legend_kwargs = dict(
+        #     borderpad=0.2,handletextpad=0.5,handlelength=1,columnspacing=0.35,
+        # )
+        # abdullah_colors =  [
+        #             "#7d7d7d",
+        #             "#0050a3",
+        #             "#eb471e",
+        #             "#437c34",
                     
-                ] 
-        pl.plot_tot_charge(colours=abdullah_colors,ylim=[0,4],every=1,charge_difference=False,legend_loc="best",legend_frame=False,profile_height_factor=0.63,legend_kwargs=legend_kwargs)  
+        #         ] 
+        pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=True,legend_loc="best")  
+        #pl.plot_tot_charge(colours=abdullah_colors,ylim=[0,4],every=1,charge_difference=False,legend_loc="best",legend_frame=False,profile_height_factor=0.63,legend_kwargs=legend_kwargs)  
         #pl.plot_tot_charge(ylim=[None,None],xlim=[-18,18],every=1,charge_difference=False,legend_loc="best")  
         #pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O"])  
         #pl.plot_tot_charge(ylim=[0,6],every=1,charge_difference=False,legend_loc="best",atoms=["C","N","O"])  
@@ -201,7 +203,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
  
 
     if bound_ionisation_bar:
-        pl.plot_charges_bar("Cr_LDA",show_pulse_profile=True)
+        pl.plot_charges_bar("C",show_pulse_profile=True)
         #plt.gcf().set_figwidth(15)        
     if orbital_densities_bar:
         pl.plot_orbitals_bar(atoms=None,atoms_excluded=None,show_pulse_profile=False,normalise = True,
@@ -267,149 +269,161 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
     
 
     if free_slices:
-        normed=False
+        original_use_electron_density  = pl.use_electron_density
+        electron_density_bools = [ELECTRON_DENSITY]
+        if ELECTRON_DENSITY is None:
+            electron_density_bools = [True,False]
+        for use_electron_density in electron_density_bools:
+            pl.use_electron_density=use_electron_density
+                
+            normed=False
+            plot_legend = True
+            plot_fits = False
+            plot_those_knots = False
 
-        pl.initialise_step_slices_ax()
-        from plotter_core import fit_maxwell, maxwell
+            pl.initialise_step_slices_ax()
+            from plotter_core import fit_maxwell, maxwell
 
-        cmap = plt.get_cmap("tab10")
+            cmap = plt.get_cmap("tab10")
 
-        plt.rcParams["font.size"] = 10 # 8
+            plt.rcParams["font.size"] = 10 # 8
 
-        ### defaults
-        #Cutoff energies for fitting MB curves. TODO get from AC4DC
-        thermal_cutoff_energies = [2000]*10     
-        xmin,xmax = 1,1e4
-        
-        ###
+            ### defaults
+            #Cutoff energies for fitting MB curves. TODO get from AC4DC
+            thermal_cutoff_energies = [2000]*10     
+            xmin,xmax = 1,1e4
+            slices = [0] # in time (fs)
 
-        # slices = [-15,0,15]
-        #TODO get slices from AC4DC or user input           
-        # # Hau-Riege (Sanders results)
-        # thermal_cutoff_energies = [200, 500, 500, 1000]
-        # slices = [-7.5,-5,-2.5,0]         
-        # # -7.5 fs Hau-Riege
-        # thermal_cutoff_energies = [200]
-        # slices = [-7.5] 
-
-        #abdallah
-        #slices = [-39,-38,-36,-34,-32,-30,-0.01]         
-        # Royle Sect. B
-        #thermal_cutoff_energies = [500,1000,1250,2000]
-        #slices = [-90, -50, 0, 50]  
-        # # Royle Sect. C
-        thermal_cutoff_energies = [500,500,600,2000]
-        slices = [-15, 0, 15, 30]
-        
-        # thermal_cutoff_energies = [2000,2000,2000,2000]
-        # slices = [30,65,100]
-
-        colrs = [cmap(i) for i in range(len(slices))]
-
-        plot_legend = True
-        plot_fits = False # Whether to fit MB curves to distribution below thermal cutoff energies.
-        plot_those_darn_knots = False
-        ####### 
-        # Here we can plot MB curves e.g. for fit comparison
-        plot_custom_fits = False
-        ####
-        # # example
-        # custom_T = [30.8,75.5,131.8,207.5]
-        # custom_n = [0.06*3/2,0.06*3/2,0.06*3/2,0.06*3/2]
-        # #Sanders/H-R for -7.5 fs  
-        # custom_T = [44.1,31]  
-        # custom_n = [0.06*3/2,0.06*3/2] # - (not anything meaningful, just density of MB approximated as 50% of total). 
-        # custom_colrs = ['r','b']
-        #H-R
-        # custom_T = [31,70,125,195]   # [44.1,84.9,135.6,205.8]
-        # custom_n = [0.06*3/2]*len(custom_T) # - (not anything meaningful, just density of MB approximated as 50% of total). 
-        # custom_colrs = colrs   
-        # xmin,xmax = 1,1e4 
-        # plot_legend = True 
-        #Royle B
-        # xmin, xmax = 0,2000
-        # colrs = [cmap(0),cmap(2),cmap(1),cmap(3)]  
-        # custom_colrs = [cmap(0),cmap(2),cmap(1),cmap(3)]  
-        # plot_fits = True
-        # plot_custom_fits = False
-        # custom_T = [8,33,105,120]  
-        # custom_n = [0.12,0.05,0.12,0.12] 
-        # #Royle C
-        xmin,xmax = 0,1e4
-        custom_T = [100]  
-        custom_n = [0.155]     
-        colrs = [cmap(0),cmap(2),cmap(1),cmap(3)]          
-        custom_colrs = ['black']
-        plot_fits = False
-        plot_custom_fits = False
-        # Fit our last point in time 
-        if plot_custom_fits == False:
-            T = pl.plot_fit(slices[-1], thermal_cutoff_energies[-1], normed=normed, color=cmap(3), lw=1.5,alpha=0.7)
-        #######
-
-        #v_anchors = [0.16,0.12,0.08,0.04]
-        #v_anchors = [0.2,0.15,0.1,0.05]
-        v_anchors = [0.19,0.12,0.05]
-
-        lw = 1.5
-        #pl.ax_steps.set_ylim([0.4e-4, 0.4])
-        pl.ax_steps.set_ylim([1e-4*1e3, 1*1e3])
-        #pl.ax_steps.set_ylim([1e-4, 1])
-        #TODO get from AC4DC
-        pl.ax_steps.set_xlim([xmin,xmax]) #Hau-Riege        
-        lines = []
-        for (t, e, col ) in zip(slices, thermal_cutoff_energies, colrs):
-            lines.extend(pl.plot_step(t, normed=normed, color = col, lw=lw))
-            if plot_fits:
-                T = pl.plot_fit(t, e, normed=normed, color=col, lw=lw,alpha=0.7)
-
-
-
-        if plot_custom_fits:
-            for (T, n, col ) in zip(custom_T, custom_n, custom_colrs):
-                pl.ax_steps.plot([0],[0],alpha=0,label=None)
-                pl.plot_maxwell(T,n,color = col, lw=lw,alpha=0.7)
-        if plot_those_darn_knots:
-            ymin,_ = pl.ax_steps.get_ylim()
-            pl.ax_steps.set_ylim([ymin*0.67,None])
-            pl.plot_the_knots(slices,v_anchors,colrs,padding=0.14)
-            #pl.fig_steps.set_figheight(4.8)
-            # pl.fig_steps.set_figwidth(7)  
-            # for l in lines:
-            #     l.set_linewidth(3)          
-        
-        if ELECTRON_DENSITY:
-            #pl.ax_steps.set_ylim([2e-7*1e3, 1e-2*1e3]) #royle sect. B
-            pl.ax_steps.set_ylim([1e-8*0.8e3, 1e-3*0.8e3]) #royle sect. C
-
-
-        #pl.fig_steps.subplots_adjust(bottom=0.15,left=0.2,right=0.95,top=0.95)
-        pl.ax_steps.xaxis.get_major_formatter().labelOnlyBase = False
-        pl.ax_steps.yaxis.get_major_formatter().labelOnlyBase = False
-
-
-        if plot_legend:
-            handles, labels = pl.ax_steps.get_legend_handles_labels()
-            ncols = 2
-            # e.g. for 8 labels (4 time steps), order = [0,2,4,6,1,3,5,7]  , if ncols = 2.
-            order = []
-            #2 cols
-            order = list(range(0,len(labels) - 1,ncols)) + list(range(1,len(labels),ncols)) 
-            # 2 rows 4 cols
-            #order = list(range(0,len(labels) - 1,ncols)) + list(range(1,len(labels),ncols)) +  list(range(2,len(labels) - 1,ncols)) + list(range(ncols-1,len(labels),ncols)) 
-            if len(labels)%2 != 0:
-                order.append(len(order))  # shouldnt happen though.
-            if plot_fits == False and plot_custom_fits == False:
-                ncols = 1
-                order = list(range(0,len(labels)))
-            leg = pl.ax_steps.legend([handles[idx] for idx in order],[labels[idx] for idx in order],ncol=ncols,
-                                     loc='upper right',bbox_to_anchor=(0.85, 1),borderpad=0,labelspacing =0.1)
-            leg.get_frame().set_linewidth(0)
             
+            ###
 
-        name = label.replace('_',' ')
-        pl.ax_steps.set_title(name + " - Free-electron distribution")
+            # slices = [-15,0,15]
+            #TODO get slices from AC4DC or user input           
+            # # Hau-Riege (Sanders results)
+            # thermal_cutoff_energies = [200, 500, 500, 1000]
+            # slices = [-7.5,-5,-2.5,0]         
+            # # -7.5 fs Hau-Riege
+            # thermal_cutoff_energies = [200]
+            # slices = [-7.5] 
 
+            #abdallah
+            #slices = [-39,-38,-36,-34,-32,-30,-0.01]         
+            # Royle Sect. B
+            #thermal_cutoff_energies = [500,1000,1250,2000]
+            #slices = [-90, -50, 0, 50]  
+            # # Royle Sect. C
+            #thermal_cutoff_energies = [500,500,600,2000]
+            #slices = [-15, 0, 15, 30]
+
+            # colrs = [cmap(i) for i in range(len(slices))]
+
+            # plot_fits = False # Whether to fit MB curves to distribution below thermal cutoff energies.
+
+            ####### 
+            # Here we can plot MB curves e.g. for fit comparison
+            plot_custom_fits = False
+            ####
+            # # example
+            # custom_T = [30.8,75.5,131.8,207.5]
+            # custom_n = [0.06*3/2,0.06*3/2,0.06*3/2,0.06*3/2]
+            # #Sanders/H-R for -7.5 fs  
+            # custom_T = [44.1,31]  
+            # custom_n = [0.06*3/2,0.06*3/2] # - (not anything meaningful, just density of MB approximated as 50% of total). 
+            # custom_colrs = ['r','b']
+            #H-R
+            # custom_T = [31,70,125,195]   # [44.1,84.9,135.6,205.8]
+            # custom_n = [0.06*3/2]*len(custom_T) # - (not anything meaningful, just density of MB approximated as 50% of total). 
+            # custom_colrs = colrs   
+            # xmin,xmax = 1,1e4 
+            # plot_legend = True 
+            #Royle B
+            # xmin, xmax = 0,2000
+            # colrs = [cmap(0),cmap(2),cmap(1),cmap(3)]  
+            # custom_colrs = [cmap(0),cmap(2),cmap(1),cmap(3)]  
+            # plot_fits = True
+            # plot_custom_fits = False
+            # custom_T = [8,33,105,120]  
+            # custom_n = [0.12,0.05,0.12,0.12] 
+            # #Royle C
+            xmin,xmax = 0,1e4
+            custom_T = [100]  
+            custom_n = [0.155]     
+            colrs = [cmap(0),cmap(2),cmap(1),cmap(3)]          
+            custom_colrs = ['black']
+            plot_fits = False
+            plot_custom_fits = False
+            # Fit our last point in time 
+            if plot_custom_fits == False:
+                T = pl.plot_fit(slices[-1], thermal_cutoff_energies[-1], normed=normed, color=cmap(3), lw=1.5,alpha=0.7)
+            #######
+
+            #v_anchors = [0.16,0.12,0.08,0.04]
+            #v_anchors = [0.2,0.15,0.1,0.05]
+            v_anchors = [0.19,0.12,0.05]
+
+            lw = 1.5
+            #pl.ax_steps.set_ylim([0.4e-4, 0.4])
+            pl.ax_steps.set_ylim([1e-4*1e3, 1*1e3])
+            #pl.ax_steps.set_ylim([1e-4, 1])
+            #TODO get from AC4DC
+            pl.ax_steps.set_xlim([xmin,xmax]) #Hau-Riege        
+            lines = []
+            for (t, e, col ) in zip(slices, thermal_cutoff_energies, colrs):
+                lines.extend(pl.plot_step(t, normed=normed, color = col, lw=lw))
+                if plot_fits:
+                    T = pl.plot_fit(t, e, normed=normed, color=col, lw=lw,alpha=0.7)
+
+
+
+            if plot_custom_fits:
+                for (T, n, col ) in zip(custom_T, custom_n, custom_colrs):
+                    pl.ax_steps.plot([0],[0],alpha=0,label=None)
+                    pl.plot_maxwell(T,n,color = col, lw=lw,alpha=0.7)
+            if plot_those_knots:
+                ymin,_ = pl.ax_steps.get_ylim()
+                pl.ax_steps.set_ylim([ymin*0.67,None])
+                pl.plot_the_knots(slices,v_anchors,colrs,padding=0.14)
+                #pl.fig_steps.set_figheight(4.8)
+                # pl.fig_steps.set_figwidth(7)  
+                # for l in lines:
+                #     l.set_linewidth(3)          
+            
+            if use_electron_density:
+                #pl.ax_steps.set_ylim([2e-7*1e3, 1e-2*1e3]) #royle sect. B
+                pl.ax_steps.set_ylim([1e-8*0.8e3, 1e-3*0.8e3]) #royle sect. C
+
+
+            #pl.fig_steps.subplots_adjust(bottom=0.15,left=0.2,right=0.95,top=0.95)
+            pl.ax_steps.xaxis.get_major_formatter().labelOnlyBase = False
+            pl.ax_steps.yaxis.get_major_formatter().labelOnlyBase = False
+
+
+            if plot_legend:
+                handles, labels = pl.ax_steps.get_legend_handles_labels()
+                ncols = 2
+                # e.g. for 8 labels (4 time steps), order = [0,2,4,6,1,3,5,7]  , if ncols = 2.
+                order = []
+                #2 cols
+                order = list(range(0,len(labels) - 1,ncols)) + list(range(1,len(labels),ncols)) 
+                # 2 rows 4 cols
+                #order = list(range(0,len(labels) - 1,ncols)) + list(range(1,len(labels),ncols)) +  list(range(2,len(labels) - 1,ncols)) + list(range(ncols-1,len(labels),ncols)) 
+                if len(labels)%2 != 0:
+                    order.append(len(order))  # shouldnt happen though.
+                if plot_fits == False and plot_custom_fits == False:
+                    ncols = 1
+                    order = list(range(0,len(labels)))
+                leg = pl.ax_steps.legend([handles[idx] for idx in order],[labels[idx] for idx in order],ncol=ncols,
+                                        loc='upper right',bbox_to_anchor=(0.85, 1),borderpad=0,labelspacing =0.1)
+                leg.get_frame().set_linewidth(0)
+                
+
+            name = label.replace('_',' ')
+            var = "Free-electron"
+            if not use_electron_density:
+                var = "Free-electron energy"
+            pl.ax_steps.set_title(f"{name} - {var} distribution")
+
+        pl.use_electron_density = original_use_electron_density  
         #plt.savefig(figure_output_dir + label + fname_HR_style + figures_ext)
     #Abdallah
     # pl.ax_steps.set_xscale("linear")
@@ -422,7 +436,8 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
 
     
     if TIGHT_LAYOUT:
-        plt.tight_layout()
+        pass
+        #plt.tight_layout()
     else:
         #This was a bad idea. You'll likely need to adjust these, sorry.
 
@@ -451,8 +466,10 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
             pl.fig.subplots_adjust(left=0.1, bottom=0.03, right=0.95, top=0.97, wspace=0.16, hspace=0.6) # Custom for column of orbital density plots 
     
     
-
-    plt.savefig(figure_output_dir + label + figures_ext,dpi=DPI,format=figures_ext[1:])
+    if TIGHT_LAYOUT:
+        plt.savefig(figure_output_dir + label + figures_ext,dpi=DPI,bbox_inches='tight',pad_inches=0.01,format=figures_ext[1:])
+    else:
+        plt.savefig(figure_output_dir + label + figures_ext,dpi=DPI,format=figures_ext[1:],)
     plt.close()
 
     if AUTO_VIEW_PLOT:
