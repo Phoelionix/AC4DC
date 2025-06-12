@@ -41,6 +41,8 @@ class state_type
 public:
     /// Probabilities of state for all atoms.
     std::vector<bound_t> atomP; 
+    /// For continuity: represents flow of state changes from last step. (For each state, probability that it has changed to each state)
+    std::vector<std::vector<bound_t>> atomP_delta;
     // Tracks sum total of photoionisation for all atoms.
     std::vector<double> cumulative_photo;     
     /// Energy distribution function

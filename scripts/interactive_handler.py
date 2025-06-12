@@ -91,7 +91,7 @@ _P.MOLECULAR_PATH = path.abspath(path.join(__file__ ,"../../output/__Molecular/"
 P_defaults = vars(_P)
 
 ######
-def generate_graphs(param_dictionary,sys_argv=None):
+def generate_graphs(param_dictionary,sys_argv=None,file_name_tag=""):
     # Set up namespace by filling with default values
     if type(param_dictionary) is SimpleNamespace:
         param_dictionary = vars(param_dictionary)
@@ -127,6 +127,7 @@ def generate_graphs(param_dictionary,sys_argv=None):
         if len(sys_argv) > 2:
             fname_out += '_' + sys_argv[2][:15] + "..-"
         plot_title = fname_out.replace('_',' ')  
+        fname_out+= file_name_tag
         int_subdir = "interactives/"; plot_subdir = "plots/"  # Separate out types of plots
         make_outfolder(outdir,[int_subdir,plot_subdir])
         if not P.SINGLE_FRAME:

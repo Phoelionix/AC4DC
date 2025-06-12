@@ -1,63 +1,89 @@
 #%%
 from scatter import *
 from multiprocessing import Pool
+from sample_scalepack import all_reflections_to_scalepack
 import inspect
+import datetime
+import os
 
-NUM_PARALLEL=14
+#TODO auto generate ideal, undamaged, damaged. not undamaged and damaged. (undamaged is called ideal)
+
+NUM_PARALLEL=1
 SEEDED = False
-RANDOM_WATER = True; NUM_RANDOM_WATER = 702;# RANDOM_WATER_EACH_TIME_STEP=True  #TODO implement rand water each time step
+RANDOM_WATER = False; NUM_RANDOM_WATER = 7020 # 702
 DEBUG_WATER = True
+QUICK_TEST = False
+SKIP_UNDAMAGED = False
+
+TARGET_HANDLE_DICT = dict(
+    #lys_salt = "lys_salt_solvated_fast_H_5",
+    #lys_no_salt =  "lys_solvated_fast_H_6"
+    lys_salt = "lys_salt_solvated_H_40_2",
+    lys_no_salt = "lys_solvated_H_40_3",
+    lys_high_damage= "lys_galli_HF_23",
+)
+target_options = ["lys_salt"]
+TAG = "testing"
+
+
+time_dict = dict(
+    lys_salt = [-18,18],
+    lys_no_salt = [-18,18],
+    lys_high_damage = [-48,48]
+)
+
 def main(par_idx):
+
+    cycles_per_bragg_set = 1 # leave at 1, should be fine
+    #num_bragg_sets = 25 # 25 # increase this for better stochastic
+    #num_unique_supercells = 20 # 20
+    num_bragg_sets = 1
+    num_unique_supercells = 1
 
     fig_width = 3.49751 # 20
     fig_height = fig_width*3/4 # 20
     ### Simulate
     #target_options = ["lys_salt","lys_no_salt","neutze","hen","tetra","glycine","fcc"]
-    target_options = ["lys_salt","lys_no_salt"]
+    #target_options = ["lys_salt","lys_no_salt"]
+    
     target = target_options[0]
-    if par_idx >= NUM_PARALLEL/2:
+    if par_idx >= NUM_PARALLEL/2 and len(target_options)==2:
         target = target_options[1]
-    par_idx_for_target = par_idx% int((NUM_PARALLEL/2))+1
+    if NUM_PARALLEL==1:
+        par_idx_for_target=1
+    else:
+        par_idx_for_target = par_idx% int((NUM_PARALLEL/2))+1
     #============------------User params---------==========#
-    assert target in target_options
+    assert target, start_time in target_options
     #target = "lys_no_salt"#"glycine"  #target_options[2]
     best_resolution = 1.3 # 1.58 (abdullah) # 2   # resolution (determining max q)
     worst_resolution = None#30 # 'resolution' corresponding to min q
 
-
     #---------------------------------#
     water_index = None # None TODO automate
-    if target == "lys_salt" or target == "lys_no_salt":
-        QUICK_TEST = False
-        SKIP_UNDAMAGED = False
+    if target in TARGET_HANDLE_DICT:
 
-        cycles_per_bragg_set = 1
-        num_bragg_sets = 25
-        num_unique_supercells = 20
+
         include_symmetries=True
         if QUICK_TEST:
             num_bragg_sets = 1
             num_unique_supercells = 1
             include_symmetries=False
-        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.4.hkl"
-        unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"
+        unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.5.hkl"
+        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"
 
-        target_handle = dict(
-            lys_salt = "lys_salt_solvated_fast_H_5",
-            lys_no_salt =  "lys_solvated_fast_H_6"
-        )[target]
+        target_handle = TARGET_HANDLE_DICT[target]
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb" 
         CNO_to_N = False; S_to_N = False
         folder = ""
-        allowed_atoms = ["C","N","O","S"]
+        allowed_atoms = ["C","N","O","S","Na","Cl"]
     else:
-        raise Exception("'target' invalid")
+        raise Exception(f"{target} invalid target")
 
 
     #### Individual experiment arguments 
-    tag = f"SC{num_unique_supercells}" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
-    start_time = -18#-12#-6
-    end_time = 18#12#6
+    #tag = f"SC{num_unique_supercells}" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
+
     laser_firing_qwargs = dict(
         # pixel sampling method (Neutze) if True - Miller indices if False
         SPI = False,  # sampling method, if False, bragg spots. if True, detector pixels. TODO change name
@@ -69,10 +95,10 @@ def main(par_idx):
         supercell_scale = 1,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
         num_supercells = 10000,#100, # 35409
         supercell_simulations = num_unique_supercells, #150
-        positional_stdv = 0.1,#0.2,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
+        # BFACTORS positional_stdv = 0.1,#0.2,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
         include_symmetries = include_symmetries,  # should unit cell contain symmetries?
         cell_packing = "SC",
-        random_waters=702,
+        random_waters=NUM_RANDOM_WATER*(RANDOM_WATER==True),
     )
     show_crystal = False
 
@@ -108,33 +134,35 @@ def main(par_idx):
 
 
     #---------------------------Result handle names---------------------------#
-
     exp1_qualifier = "real"
     exp2_qualifier = "ideal"
     if chosen_root_handle is None:
-        version_number = 1
-        count = 0
+        #version_number = 1
+        #count = 0
+        tag = TAG
         if tag != "":
             tag = "_" + tag        
-        while True:
-            if count > 299:
-                raise Exception("could not find valid file in " + str(count) + " loops")
-            root_handle = f"{target}{tag}"
-            exp_name1 = f"{root_handle}_{exp1_qualifier}"
-            exp_name2 = f"{root_handle}_{exp2_qualifier}"
-            results1_parent_folder = f"{RESULTS_LOCAL_PATH}{exp_name1}_v{version_number}/" 
-            results2_parent_folder = f"{RESULTS_LOCAL_PATH}{exp_name2}_v{version_number}/" 
-            exp_name1 += f"-{par_idx_for_target}"
-            exp_name2 += f"-{par_idx_for_target}"
-            
-            
+        #while True:
+        # if count > 299:
+        #     raise Exception("could not find valid file in " + str(count) + " loops")
+        #root_handle = f"{target}{tag}"
+        root_handle = f"{target_handle}{tag}"
+        exp_name1 = f"{root_handle}_{exp1_qualifier}"
+        exp_name2 = f"{root_handle}_{exp2_qualifier}"
+        results1_parent_folder = f"{RESULTS_LOCAL_PATH}{exp_name1}/" #_v{version_number}/" 
+        results2_parent_folder = f"{RESULTS_LOCAL_PATH}{exp_name2}/" #_v{version_number}/" 
+        exp_name1 += f"-{par_idx_for_target}"
+        exp_name2 += f"-{par_idx_for_target}"
+        
+        
 
-            assert(exp_name1!=exp_name2)
-            if path.exists(path.dirname(results1_parent_folder + exp_name1 + "/")) or path.exists(path.dirname(results2_parent_folder + exp_name2 + "/")):
-                version_number+=1
-                count+=1
-                continue 
-            break
+        assert(exp_name1!=exp_name2)
+        # commented out because parallel
+        # if path.exists(path.dirname(results1_parent_folder + exp_name1 + "/")) or path.exists(path.dirname(results2_parent_folder + exp_name2 + "/")):
+        #     version_number+=1
+        #     count+=1
+        #     continue 
+        # break
     else:
         exp_name1 = chosen_root_handle + "_" + exp1_qualifier
         exp_name2 = chosen_root_handle + "_" + exp2_qualifier
@@ -182,10 +210,55 @@ def main(par_idx):
             create_reflection_file(exp_name2,results_parent_dir=results2_parent_folder)
             rfl_to_sca(exp_name2)
 
-        #stylin(exp_name1,exp_name2,experiment1.q_to_X(experiment1.max_q)/1e7,results_parent_dir=results_parent_folder, custom_fig_width=fig_width,custom_fig_height=fig_height) # Note we are passing the max q, not max q_scr.
+    now = datetime.datetime.now().timestamp()
+    os.utime(results1_parent_folder[:-1], (now, now))
+    if not SKIP_UNDAMAGED:
+        os.utime(results2_parent_folder[:-1], (now, now)) # TODO since we are very stupidly and lazily calling scalepack based on most recent modified...
+
+        #stylin(exp_name1,exp_name2,experiment1.q_to_X(experiment1.max_q)/1e7,results_parent_dir=results_parent_folder, custom_fig_width=fig_width,custom_fig_height=fig_height,get_R_only=True) # Note we are passing the max q, not max q_scr.
+
+
+if __name__ == "__main__":
+    with Pool(NUM_PARALLEL) as p:
+        p.map(main,range(NUM_PARALLEL))
+    #all_reflections_to_scalepack() 
+
+
+# Combine everything into a merged and unmerged scalepack file
+if __name__ == "__main__":
+    import glob
+
+    src_file_path = inspect.getfile(lambda: None)
+    scattering_dir = path.abspath(path.join(src_file_path ,"../"))+"/"
+    RESULTS_LOCAL_PATH = "results/"
+
+
+    num_results = len(target_options)*1#(1+(SKIP_UNDAMAGED==False))
+    OldestToLatest = sorted(glob.glob(os.path.join(scattering_dir+RESULTS_LOCAL_PATH, '*/')), key=os.path.getmtime)
+    for n in range(num_results):
+        all_reflections_to_scalepack(
+            OldestToLatest[-n-1].split("/")[-2],
+            scattering_dir+RESULTS_LOCAL_PATH,
+            out_dir="/home/speno/PhenixWorkspace/data/",
+            tag_override=""
+        )  
+
+# # %%
+# # Combine everything into a merged and unmerged scalepack file
+# if __name__ == "__main__":
+#     import glob
+
+#     src_file_path = inspect.getfile(lambda: None)
+#     scattering_dir = path.abspath(path.join(src_file_path ,"../"))+"/"
+#     RESULTS_LOCAL_PATH = "results/"
+
+
+#     num_results = len(target_options)*(1+(SKIP_UNDAMAGED==False))
+#     OldestToLatest = sorted(glob.glob(os.path.join(scattering_dir+RESULTS_LOCAL_PATH, '*/')), key=os.path.getmtime)
+#     for n in range(num_results):
+#         all_reflections_to_scalepack(OldestToLatest[-n-1].split("/")[-2],scattering_dir+RESULTS_LOCAL_PATH) # 
 
 
 
-with Pool(NUM_PARALLEL) as p:
-    p.map(main,range(NUM_PARALLEL))
+
 # %%

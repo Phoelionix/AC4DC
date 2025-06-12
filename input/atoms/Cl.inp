@@ -1,4 +1,5 @@
 // Average over configuration fractional occupancy is supported, so closed orbitals can have occupancy between 0 and 4L+2.
+// TODO make ion
 
 #ATOM
 17            // Nuclear charge

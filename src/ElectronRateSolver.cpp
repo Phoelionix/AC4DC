@@ -61,6 +61,11 @@ state_type ElectronRateSolver::get_initial_state() {
         for(size_t i=1; i<initial_condition.atomP[a].size(); i++) {
             initial_condition.atomP[a][i] = 0.;
         }
+        for(size_t i=0; i<initial_condition.atomP_delta[a].size(); i++) {
+            for(size_t j=0; j<initial_condition.atomP_delta[a][i].size(); j++) {
+                initial_condition.atomP_delta[a][i][j] = 0.;
+            }
+        }
     }
     initial_condition.F=0;
     initial_condition.cumulative_photo = std::vector(input_params.Store.size(),0.0);
@@ -106,12 +111,12 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
                 _log << "[ Dynamic Grid ] Starting with initial grid guess"<<endl;
                 }
                 else{
-                   _log << "[ Dynamic Grid ] Initialising dummy grid"<<endl;
+                   _log << "[ Dynamic Grid - Loading] Initialising dummy grid"<<endl;
                 }
                 double e = 1/Constant::eV_per_Ha;
                 param_cutoffs.transition_e = 250*e;
                 regimes.mb_peak=0; regimes.mb_min=Distribution::get_lowest_allowed_knot(); regimes.mb_max=10*e;
-                // cast a wide net to ensure we capture all dirac peaks. // TODO? there has to be a much better way than this.
+                // cast a wide net to ensure we capture all dirac peaks. // TODO there has to be a much better way than this.
                 double photo_min = 1e9, photo_max = -1e9; 
                 for(auto& atom : input_params.Store) {
                     for(auto& r : atom.Photo) {      
@@ -377,6 +382,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         auto t9 = std::chrono::high_resolution_clock::now();
         const bound_t& P = s.atomP[a];
         bound_t& Pdot = sdot.atomP[a];
+        std::vector<bound_t>& Pdot_delta = sdot.atomP_delta[a];
         
         #ifdef DEBUG_BOUND
         for(size_t i=0;i < Pdot.size();i++){
@@ -388,6 +394,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         double J = pf(t); // photon flux in atomic units
         for ( auto& r : input_params.Store[a].Photo) {
             double tmp = r.val*J*P[r.from];
+            Pdot_delta[r.from][r.to]+=tmp;
             Pdot[r.to] += tmp;
             Pdot[r.from] -= tmp;
             sdot.F.addDeltaSpikePhoto(a,r.energy, r.val*J*P[r.from]);  // TODO change to tmp?
@@ -417,9 +424,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
 
         #ifndef NO_ELECTRON_SOURCE
         //PHOTOION. SOURCE
-        if((t < simulation_start_time + input_params.electron_source_duration*(timespan_au)))
-         
-        {
+        if((t < simulation_start_time + input_params.electron_source_duration*(timespan_au))){
             double injected_density = 0; 
             switch (input_params.electron_source_type){
                 case 'c':
@@ -450,6 +455,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         // FLUORESCENCE
         for ( auto& r : input_params.Store[a].Fluor) {
             double tmp = r.val*P[r.from];
+            Pdot_delta[r.from][r.to]+=tmp;
             Pdot[r.to] += tmp;
             Pdot[r.from] -= tmp;
             #ifdef RATES_TRACKING
@@ -465,6 +471,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         // AUGER
         for ( auto& r : input_params.Store[a].Auger) {
             double tmp = r.val*P[r.from];
+            Pdot_delta[r.from][r.to]+=tmp;
             Pdot[r.to] += tmp;
             Pdot[r.from] -= tmp;
             sdot.F.addDeltaSpikeAuger(a,r.energy, r.val*P[r.from]);
@@ -490,6 +497,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         if(input_params.Store[a].bound_free_excluded) continue;
 
         double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
+        double Pdot_delta_subst [Pdot_delta.size()][Pdot_delta.size()] ={{0}};
         double sdot_bound_charge_eii_subst = 0; 
         double sdot_bound_charge_tbr_subst = 0; 
         size_t N = Distribution::size; 

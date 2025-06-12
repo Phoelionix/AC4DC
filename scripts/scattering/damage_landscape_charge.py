@@ -483,7 +483,16 @@ if __name__ == "__main__":
         #kwargs["plasma_handles"] = ["lys_full-typical","lys_all_light-typical"]  
         #kwargs["plasma_handles"] = ["glycine_abdullah_4"]
         #kwargs["plasma_handles"] = ["lys_galli_LF_full_8","lys_galli_HF_full_2","lys_galli_LF_no_Gd_full_9","lys_galli_HF_no_Gd_full_6"]
-        kwargs["plasma_handles"] = ["lys_Gd_salt_solvated_fast_square_H_8","Gd_salt_5"]
+        #kwargs["plasma_handles"] = ["lys_Gd_salt_solvated_fast_square_H_8","Gd_salt_5"]
+        #kwargs["plasma_handles"] = ["lys_solvated_fast_1","lys_solvated_fast_9kev_1","lys_Gd_water_fast_2","lys_Gd_no_salt_fast_9kev_6"]
+        #kwargs["plasma_handles"] = ["lys_Gd_salt_square_4","lys_Gd_salt_fast_2"]
+        #kwargs["plasma_handles"] = ["lys_solvated_fast_1","lys_Gd_water_fast_2"]
+        kwargs["plasma_handles"] = ["lys_solvated_fast_1","lys_Gd_water_fast_2"]
+        #kwargs["plasma_handles"] = ["lys_solvated_fast_1","lys_salt_fast_4"]
+        #kwargs["plasma_handles"] = ["lys_salt_fast_4","lys_Gd_salt_fast_2"]
+        #kwargs["plasma_handles"] = ["lys_solvated_fast_9kev_1","lys_Gd_no_salt_fast_9kev_6"]
+        #kwargs["plasma_handles"] = ["lys_solvated_fast_1","CB_no_salt_6"]
+        
         
         #pdb_path = PDB_PATHS["fcc"]
         pdb_path = PDB_PATHS["lys"]
@@ -491,7 +500,7 @@ if __name__ == "__main__":
         #pdb_path = PDB_PATHS["glycine"]
         #pdb_path = PDB_PATHS["tetra"]
     
-
+ 
     num_loops = 1 if not multi_batch_mode else len(batch_handles)
     for i in range(num_loops):
         if multi_batch_mode: 

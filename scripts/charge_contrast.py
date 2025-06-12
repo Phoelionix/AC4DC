@@ -35,12 +35,14 @@ PLOT_PHOTO_RATES = False
 ###
 COLUMNWIDTH = 6
 
-
+PLT_CONTINUOUS_RATIO = True
 # FIGWIDTH = COLUMNWIDTH#/2
 # FIGHEIGHT = FIGWIDTH*1/2#*9/16
 
 FIGWIDTH = COLUMNWIDTH
 FIGHEIGHT = FIGWIDTH*9/16
+if PLT_CONTINUOUS_RATIO:
+    FIGWIDTH = 3.4975
 
 # FIGWIDTH = COLUMNWIDTH/2
 # FIGHEIGHT = FIGWIDTH*9/16
@@ -90,7 +92,7 @@ def make_plot(mol_name,sim_output_parent_dir, label,figure_output_dir):
     load_specific_atoms = None#["Fe_singleShell","C"] #None #["C","N","O"] #None  # If plotting free dsitribution, will combine the contributions from those specified here (e.g. if "C","N" then dist_C.csv and dist_N.csv ). If none is specified, will just use the full continuum freeDist.csv.
     label += "_chargeContrast"
 
-    plot_ratio = True
+    plot_ratio = False
     if plot_ratio:
         pl = Plotter(mol_name,sim_output_parent_dir,use_electron_density = ELECTRON_DENSITY,end_t = END_T,load_specific_atoms=load_specific_atoms)
         num_atoms = len(pl.statedict)
@@ -102,14 +104,15 @@ def make_plot(mol_name,sim_output_parent_dir, label,figure_output_dir):
         plt.gcf().set_figheight(FIGHEIGHT)
         plt.gcf().set_figwidth(FIGWIDTH)
         plt.savefig(figure_output_dir + label + figures_ext,dpi=DPI,bbox_extra_artists = extra_artists, bbox_inches='tight')
-    plot_ratio_continuous = False
+    plot_ratio_continuous = PLT_CONTINUOUS_RATIO
     if plot_ratio_continuous:
-        COLUMNWIDTHTMP = 3.4975
+        
 
 
         # FIGWIDTH = COLUMNWIDTH#/2
         # FIGHEIGHT = FIGWIDTH*1/2#*9/16
 
+        COLUMNWIDTHTMP = 3.4975
         FIGWIDTHTMP = COLUMNWIDTHTMP
         FIGHEIGHTTMP = FIGWIDTHTMP*9/16
 
@@ -118,7 +121,17 @@ def make_plot(mol_name,sim_output_parent_dir, label,figure_output_dir):
         pl.setup_axes(1)
 
         empirical_data_folder = path.abspath(path.join(__file__ ,"../nass_charge_contrast_data")) + "/"
-        pl.plot_charge_contrast("Gd_fast",light_element="C",ylim=[0,64/(6*20+7*10+8*10)],ylim_heavy=[0,64])
+        
+        reference_EDR=None
+        show_reference_EDR = True
+        if show_reference_EDR:
+            if "_HF_" in mol_name:  
+                reference_EDR = "Galli_HF"
+            elif "_LF_" in mol_name:
+                reference_EDR = "Galli_LF"
+            else:
+                raise Exception("Unimplemented")
+        pl.plot_charge_contrast("Gd_fast",light_element="C",ylim=[0,64/(6*20+7*10+8*10)],ylim_heavy=[0,64],reference_EDR=reference_EDR)
 
         plt.gcf().set_figheight(FIGHEIGHTTMP)
         plt.gcf().set_figwidth(FIGWIDTHTMP)

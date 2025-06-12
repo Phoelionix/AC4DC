@@ -1,11 +1,10 @@
-// Abdullah glycine supercell
 #ATOMS
-C 210
-N 105
-O 210
+C 2
+N 1
+O 2
 
 #VOLUME
-3432        // Volume per molecule in Angstrom^3.
+32.6842       // Volume per molecule in Angstrom^3.
 2000         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons.
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
@@ -13,18 +12,21 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 10000         // Photon energy in eV.
 10           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
+2.8
+1.4
 
 #USE_INTENSITY
 true         // enabled? true/false.
 15            // Maximum intensity in 10^19 * W/cm^2. Will give different fluence between square and gaussian.
 
 #NUMERICAL
-1000        // Initial guess for number of time step points for rate equation.
-18           // Number of threads in OpenMP.
+2000        // Initial guess for number of time step points for rate equation.
+24           // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
-medium          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
-1         // Grid update period in fs, (dynamic grid only).
+M          // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).
+5         // Grid update period in fs, (dynamic grid only).
+1
 
 #OUTPUT
 800          // Number of time steps in the output files.

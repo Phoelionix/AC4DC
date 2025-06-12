@@ -7,30 +7,38 @@ from diffpy.structure.spacegroups import GetSpaceGroup
 
 class Solvent:
     molecule_idx_iterator=0
-    def __init__(self,VS,VM=None):
+    def __init__(self,VS,VM=None,solution_density=None):
         self.molecules = []
         self.VS = VS # Solvent content %(v/v)
         self.VM = VM # Matthews Coefficient, Ang^3/Da  (note 1 Da -> 1 g/mol)
-    def add_molecule(self, molecule,M = None,solvent_v_on_v = None):
-        molecule.set_concentration(M,solvent_v_on_v)
+        self.solution_density=solution_density
+    def add_molecule(self, molecule,M = None,solvent_v_on_v = None,solvent_w_on_v=None):
+        if solvent_w_on_v is not None:
+            assert solvent_v_on_v is None
+            assert molecule.density is not None
+            assert False, "Not coded"
+            #solvent_v_on_v = solvent_w_on_v*
+        molecule.set_concentration(M,solvent_v_on_v,self.solution_density)
         self.molecules.append(molecule)
     def clear_molecules(self):
         self.molecules = []
     
 
 class Molecule:
-    def __init__(self,molar_mass=None,density=None,undiluted_molarity=None,**atom_dict):
+    def __init__(self,molar_mass=None,density_UNUSED=None,undiluted_molarity=None,**atom_dict):
+        if undiluted_molarity is not None:
+            print("WARNING this ignores density differences") # TODO
         self.idx = Solvent.molecule_idx_iterator
         Solvent.molecule_idx_iterator+=1
         self.undiluted_molarity = undiluted_molarity
         self.molar_mass=molar_mass
-        self.density=density
+        #self.density=density_in_water
         self.atom_dict = atom_dict
 
         # Properties of solvent
         self.fraction_of_solvent_volume=None
         self.M = None
-    def set_concentration(self,M = None,solvent_v_on_v = None):
+    def set_concentration(self,M = None,solvent_v_on_v = None,solution_density=None):
         have_measure = False
         for elem in solvent_v_on_v,M:
             if elem is not None:
@@ -39,19 +47,20 @@ class Molecule:
         assert have_measure, "Missing concentration information"
 
         if M is not None:
-            assert(self.molar_mass is not None and self.density is not None)
+            assert(self.molar_mass is not None and solution_density is not None)
             self.M = M
-            self.fraction_of_solvent_volume = M*self.molar_mass/(self.density*1e3)
+            self.fraction_of_solvent_volume = M*self.molar_mass/(solution_density*1e3)
         elif solvent_v_on_v is not None:
             self.fraction_of_solvent_volume = solvent_v_on_v/100
-            if self.density is not None and self.molar_mass is not None:
-                self.M = self.fraction_of_solvent_volume*self.density*1e3/self.molar_mass
-                print(self.density*1e3/self.molar_mass)
+            if solution_density is not None and self.molar_mass is not None:
+                self.M = self.fraction_of_solvent_volume*solution_density*1e3/self.molar_mass
             elif self.undiluted_molarity is not None:
                 self.M = self.undiluted_molarity*self.fraction_of_solvent_volume
             else:
                 print(f"Can't determine molarity of molecule in solution") 
 
+        #print("M",self.M)
+        #print("%(v/v)",self.fraction_of_solvent_volume*100)
         assert self.fraction_of_solvent_volume is not None
 
 
@@ -89,7 +98,7 @@ def calculate(solvent,protein_light_atoms,protein_heavy_atoms,lengths,angles,num
 
     # Combined
     asym_atoms = dict(protein_atoms)
-    print(asym_atoms)
+    #print(asym_atoms)
 
     # Num molecules in asymmetric unit
     def get_num_asymm_molecules(volume_fraction,M):
@@ -98,7 +107,6 @@ def calculate(solvent,protein_light_atoms,protein_heavy_atoms,lengths,angles,num
 
     for molecule in solvent.molecules:
         N = get_num_asymm_molecules(solvent.VS/100,molecule.M)
-        print(N)
         for element, num in molecule.atom_dict.items():
             if element in asym_atoms:
                 asym_atoms[element] += N*num
@@ -110,7 +118,7 @@ def calculate(solvent,protein_light_atoms,protein_heavy_atoms,lengths,angles,num
     print("-----------")
     for k,v in asym_atoms.items():
         print(k,f"{v:.3f}")
-    print(f"\nV: {V_cell/num_asymm_units:.1f}")
+    print(f"\nV: {V_cell/num_asymm_units:.1f} Ang^3")
 
 # MOLECULE DEFINITIONS
 
@@ -124,6 +132,7 @@ def PEG(peg_molar_mass):
 
 PEG_8000 = PEG(8000)
 
+
 sodium_cacodylate = Molecule(137.9977,1.1,
     C=2,
     H=7,
@@ -136,17 +145,36 @@ glycerol = Molecule(92.09382,1.26,
     O=3
 )
 
-water = Molecule(undiluted_molarity=55.56,
+water = Molecule(18.02, #undiluted_molarity=55.56,
     H = 2,
     O = 1
 )
 
-NaCl = Molecule(58.44,2.16,
+
+NaCl = Molecule(58.44,# 1.02,
     Na = 1,
     Cl = 1                
 )
 
+Gadoteridol = Molecule(558.69,#1.3,
+    Gd = 1,
+    C = 17,
+    H = 29,
+    N = 4,
+    O = 7
+)
 
+sodium_acetate = Molecule(82.0343,#1.02,
+C = 2,
+H = 3,
+Na = 1,
+O = 2,
+)
+
+KI=Molecule(166.0028, #1.31,  # https://advancedthermo.com/electrolytes/density_KI.html
+K=1,
+I=1
+)
 
 PEG_6000=PEG(6000)
 
@@ -203,6 +231,114 @@ if __name__ == "__main__":
     #solvent.add_molecule(NaOAc,M=0.05)
     solvent.add_molecule(PEG_6000,solvent_v_on_v=16.7)
     solvent.add_molecule(NaCl,M=1.7)
+    
+    calculate(solvent,protein_light_atoms,protein_heavy_atoms,lengths,angles,num_asymm_units)
+
+# %% 
+if __name__ == "__main__":
+    lengths = 79.470,  79.470,   38.320  
+    angles = 90, 90, 90
+    num_asymm_units=8
+
+    protein_light_atoms = dict(
+        C = 632*35.1/75,
+        N = 197*35.1/75,
+        O = 193*35.1/75,
+    )
+    protein_heavy_atoms = dict(
+        S=10*35.1/75,
+        #Gd=2
+    )
+    #solvent = Solvent(35.1,solution_density=1.1)
+    solvent = Solvent(75,solution_density=1.1)
+    #solvent.add_molecule(NaCl,M=1.71)
+    #solvent.add_molecule(sodium_acetate,M=0.1)
+    #solvent.add_molecule(Gadoteridol,M=0.1)
+    
+    calculate(solvent,protein_light_atoms,protein_heavy_atoms,lengths,angles,num_asymm_units)
+# %%
+
+
+# %% more solvent
+if __name__ == "__main__":
+    lengths = 79.470,  79.470,   38.320  
+    angles = 90, 90, 90
+    num_asymm_units=3
+
+    protein_light_atoms = dict(
+        C = 632,
+        N = 197,
+        O = 193,
+    )
+    protein_heavy_atoms = dict(
+        S=10,
+        Gd=2
+    )
+
+    solvent = Solvent(78.14)
+    #solvent.add_molecule(NaOAc,M=0.05)
+    #solvent.add_molecule(PEG_6000,solvent_v_on_v=16.7)
+    #solvent.add_molecule(NaCl,solvent_v_on_v=10)
+    #solvent.add_molecule(NaCl,M=1.71)
+    solvent.add_molecule(NaCl,M=1.71)
+    #solvent.add_molecule(NaCl,solvent_w_on_v=10)
+    #solvent.add_molecule(NaCl,solvent_v_on_v=9.7)
+    
+    calculate(solvent,protein_light_atoms,protein_heavy_atoms,lengths,angles,num_asymm_units)
+# %% 
+# 7W6B
+if __name__ == "__main__":
+    lengths = 52.271,  422.928,   48.391
+    angles = 90, 90, 90
+    num_asymm_units=2
+
+    protein_light_atoms = dict(
+        C = 3635,
+        N = 1022,
+        O = 1216,
+    )
+    protein_heavy_atoms = dict(
+        S = 4,
+        Mg=1,
+        Ca=1,
+    )
+
+    # https://advancedthermo.com/electrolytes/density_KI.html
+    # But PEG lighter
+
+    
+    solvent = Solvent(59.48,solution_density=1.1) 
+    solvent.add_molecule(KI,M=1)
+    solvent.add_molecule(PEG(3350),solvent_v_on_v=25)
+    #TODO 100 mM HEPES
+    
+    calculate(solvent,protein_light_atoms,protein_heavy_atoms,lengths,angles,num_asymm_units)
+# %% 
+# 7W6BnoKI
+if __name__ == "__main__":
+    lengths = 52.271,  422.928,   48.391
+    angles = 90, 90, 90
+    num_asymm_units=2
+
+    protein_light_atoms = dict(
+        C = 3635,
+        N = 1022,
+        O = 1216,
+    )
+    protein_heavy_atoms = dict(
+        S = 4,
+        Mg=1,
+        Ca=1,
+    )
+
+    # https://advancedthermo.com/electrolytes/density_KI.html
+    # But PEG lighter
+
+    
+    solvent = Solvent(59.48,solution_density=1.1) 
+    #solvent.add_molecule(KI,M=1)
+    solvent.add_molecule(PEG(3350),solvent_v_on_v=25)
+    #TODO 100 mM HEPES
     
     calculate(solvent,protein_light_atoms,protein_heavy_atoms,lengths,angles,num_asymm_units)
 

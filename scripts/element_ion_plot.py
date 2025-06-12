@@ -32,12 +32,13 @@ FIGHEIGHT = SCALE/2
 XLIM = [None,None]
 #YLIM=[0,6]
 #YLIM=[20,24]
+DPI=800
 
 ATOM = "C"
 #ATOMS = ("Cr_LDA",)
 
 CUSTOM_LEGEND = None#["light", "light+2000H","light+lessH"]#None
-#CUSTOM_LEGEND=("1s: CNO","2s: CNO","2p: CNO","1s: CNO,S,Gd","2s: CNO,S,Gd","2p: CNO,S,Gd")
+#CUSTOM_LEGEND=("1s: CNO","2s: CNO-","2p: CNO","1s: CNO,S,Gd","2s: CNO,S,Gd","2p: CNO,S,Gd")
 #CUSTOM_LEGEND = ("Primary ionization only", "All ionization",)
 def main():
     set_highlighted_excepthook()
@@ -71,7 +72,7 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,plo
     ############
     # File/directory names
     #######  
-    figures_ext = "" #.png
+    figures_ext = ".png" #.png
     for plot_mode in (PLOT_MODE,):
         fig, axs = plt.subplots(3, 3, sharey=True, facecolor='w')
 
@@ -113,7 +114,7 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,plo
             qualifier = f"_{ATOM}-OrbsComp"
         if PLOT_DERIVATIVE:
             qualifier+="-deriv"
-        plt.savefig(figure_output_dir + label +qualifier + figures_ext,bbox_inches='tight')
+        plt.savefig(figure_output_dir + label +qualifier + figures_ext,bbox_inches='tight',dpi=DPI)
         plt.close()
 
 if __name__ == "__main__":

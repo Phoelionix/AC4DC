@@ -23,7 +23,9 @@ import struct
 AVERAGE_CHARGES = None 
 
 if __name__=="__main__":
-    sim_handles = ["lys_salt_solvated_fast_H_4","lys_solvated_fast_H_4"]
+    #sim_handles = ["lys_salt_solvated_fast_H_4","lys_solvated_fast_H_4"]
+   # sim_handles = ["lys_solvated_H_2",]
+    sim_handles = ["lys_solvated_H_9","lys_salt_solvated_H_1"]
     num_steps = 3600  # best to go sim time in attoseconds
 
     #target = "4et8.gro"

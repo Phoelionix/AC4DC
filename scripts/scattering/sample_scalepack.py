@@ -53,17 +53,41 @@ import csv
 import glob
 import random 
 
-from scatter import rfl_to_sca, Results
+from scatter import rfl_to_sca, Results, ScalingByCopyingSigmaRatio
 
 import inspect
 
 
-RESULTS_LOCAL_PATH = "results/"
 
+def all_reflections_to_scalepack(result_handle,results_parent_dir,out_dir=None, reflections_dir=None,tag_override=None,scaling_method=None,scaling_thing=False):
+    sample_results_and_create_scalepack(result_handle,"ALL",results_parent_dir,out_dir=out_dir,reflections_dir=reflections_dir, tag_override=tag_override,scaling_thing=scaling_thing)
+    
+def sample_results_and_create_scalepack(result_handle,num_to_sample,results_parent_dir,out_dir=None, reflections_dir=None,tag_override=None,scaling_method=None,scaling_thing=False):
+    src_file_path = inspect.getfile(lambda: None)
+    scattering_dir = path.abspath(path.join(src_file_path ,"../"))+"/"
+    if out_dir is None:
+        out_dir=scattering_dir+"random_sample/scalepack/"
+    if reflections_dir is None:
+        reflections_dir = "random_sample/reflections/"
+        
+    reflections_handle= sample_results_and_create_reflection_file(result_handle,num_to_sample,results_parent_dir,out_directory=reflections_dir,tag_override=tag_override)
+    reflections_handle = reflections_handle.split("/")[-1]
+    if scaling_thing:
+        # TESTING TEMPORARY TODO
+        scaling_method=None
+        cif_file = f"/home/speno/PhenixWorkspace/data/4et8-sf.cif"
+        scaling_method = ScalingByCopyingSigmaRatio(cif_file,scattering_dir+"random_sample/reflections/"+ reflections_handle + ".rfl")
+        #
+    rfl_to_sca(reflections_handle,reflections_dir,out_dir,scaling_method=scaling_method)
+    rfl_to_sca(reflections_handle+"_unmerged",reflections_dir,out_dir,scaling_method=scaling_method)
+    
+    #reflections_dir=scattering_dir+"random_sample/reflections/"
+    #out_directory=scattering_dir+"random_sample/scalepack/"
 
-def sample_results_and_create_reflection_file(result_handle,num_to_sample,results_parent_dir = RESULTS_LOCAL_PATH,out_directory="random_sample/reflections/",tag_override=None):
+def sample_results_and_create_reflection_file(result_handle,num_to_sample,results_parent_dir,out_directory="random_sample/reflections/",tag_override=None):
     '''
-    Generates a .rfl file by sampling all result files in directory given by result_handle, including subdirectories
+    Generates a **merged** .rfl file by sampling all result files in directory given by result_handle, including subdirectories
+
     '''
     print("Creating reflection file for",result_handle)
     results_dir = results_parent_dir+ result_handle+"/"
@@ -72,6 +96,8 @@ def sample_results_and_create_reflection_file(result_handle,num_to_sample,result
     init = False
 
     filenames = glob.glob(results_dir+"/**/*.pickle",recursive=True)
+    if num_to_sample == "ALL":
+        num_to_sample = len(filenames)
     assert num_to_sample<=len(filenames), f"Only found {len(filenames)} files, but trying to sample {num_to_sample}"
 
     # Sample num_to_sample result files
@@ -105,7 +131,9 @@ def sample_results_and_create_reflection_file(result_handle,num_to_sample,result
             if tag > 9999:
                 raise Exception(f"Over {tag} folders with same handle in output directory")
     else: 
-        out_path = f"{out_directory}{result_handle}_{tag_override}"
+        out_path = f"{out_directory}{result_handle}"
+        if tag_override !="":
+            out_path +=f"_{tag_override}"
     #columns.reverse() #???
     df = df.sort_values(by=["l","k","h"],axis=0)
     for i in ("hkl"):
@@ -123,7 +151,10 @@ def sample_results_and_create_reflection_file(result_handle,num_to_sample,result
 
     return out_path
 
+
+
 if __name__ == "__main__":
+    RESULTS_LOCAL_PATH = "results/"
     src_file_path = inspect.getfile(lambda: None)
     scattering_dir = path.abspath(path.join(src_file_path ,"../"))+"/"
     assert len(sys.argv)==3 or len(sys.argv)==4 , "Usage: <scattering_results_handle> <number_of_result_files_to_sample> <(optional) file nametag override>"
@@ -133,6 +164,15 @@ if __name__ == "__main__":
         tag_override = sys.argv[3]
     num_to_sample = int(num_to_sample)
     
-    reflections_handle = sample_results_and_create_reflection_file(result_handle, num_to_sample,tag_override=tag_override,results_parent_dir=scattering_dir+RESULTS_LOCAL_PATH,out_directory=scattering_dir+"random_sample/reflections/")
-    reflections_handle = reflections_handle.split("/")[-1]
-    rfl_to_sca(reflections_handle,reflections_dir=scattering_dir+"random_sample/reflections/",out_directory=scattering_dir+"random_sample/scalepack/")
+   
+
+
+
+    reflections_dir =scattering_dir+"random_sample/reflections/"
+    sample_results_and_create_scalepack(result_handle, num_to_sample, scattering_dir+RESULTS_LOCAL_PATH, tag_override=tag_override,reflections_dir=reflections_dir,scaling_thing=True)
+    
+    # reflections_handle = sample_results_and_create_reflection_file(result_handle, num_to_sample, scattering_dir+RESULTS_LOCAL_PATH, tag_override=tag_override,out_directory=reflections_dir)
+    # reflections_handle = reflections_handle.split("/")[-1]
+
+    # rfl_to_sca(reflections_handle,reflections_dir=reflections_dir,out_directory=scattering_dir+"random_sample/scalepack/",scaling_method=scaling_method)
+    # rfl_to_sca(reflections_handle+"_unmerged",reflections_dir=reflections_dir,out_directory=scattering_dir+"random_sample/scalepack/",scaling_method=scaling_method)

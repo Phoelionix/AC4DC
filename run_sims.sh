@@ -41,15 +41,84 @@ set -x
 #./ac4dc input/abdullah/glycine_abdullah_high_H
 
 #   ./ac4dc input/lysozyme/lys_solvated_light_no_H.mol 
-#./ac4dc input/lysozyme/lys_solvated_light_H
-#./ac4dc input/lysozyme/lys_solvated_H
-./ac4dc input/lysozyme/lys_Gd_solvated_H
-./ac4dc input/lysozyme/lys_Gd_salt_solvated_H
-#./ac4dc_split input/lysozyme/lys_Gd_salt_solvated_fast_H
-./ac4dc input/lysozyme/lys_Gd_salt_solvated_fast_square_H
-./ac4dc input/lysozyme/lys_Gd_salt_solvated_fast_gauss_H
-./ac4dc input/lysozyme/lys_galli_HF_no_Gd_full
-./ac4dc input/lysozyme/lys_galli_LF_no_Gd_full
+
+
+
+#./ac4dc input/single_cascade/SC_500.mol
+#./ac4dc input/single_cascade/SC_2000.mol
+#./ac4dc input/single_cascade/SC_8500.mol
+
+#./ac4dc input/galli/lys_galli_HF_no_Gd_full
+#./ac4dc input/galli/lys_galli_LF_no_Gd_full
+
+#./ac4dc input/galli/lys_galli_HF_full
+# ./ac4dc input/galli/lys_galli_LF_full
+
+
+# ./ac4dc input/lysozyme/lys_Gd_salt_solvated_fast_square_H
+# ./ac4dc input/lysozyme/lys_Gd_salt_solvated_fast_gauss_H
+
+
+# ./ac4dc input/misc/carbon_ff_test_15.mol
+# ./ac4dc input/misc/carbon_ff_test_3.mol
+#./ac4dc input/misc/perrett_15.mol
+#./ac4dc input/misc/perrett_water_15.mol
+# ./ac4dc input/misc/dsba_probe.mol
+# ./ac4dc input/misc/dsba_water_probe.mol
+
+#./ac4dc input/lysozyme/lys_Gd_fast
+#./ac4dc input/lysozyme/lys_solvated_light_fast
+#./ac4dc input/lysozyme/lys_salt_fast
+#./ac4dc input/lysozyme/lys_solvated_fast
+
+## TODO ##
+
+#./ac4dc input/lysozyme/cheeky_beaky
+#./ac4dc input/lysozyme/cheeky_beaky_no_salt
+#./ac4dc input/lysozyme/lys_solvated
+#./ac4dc input/lysozyme/lys_solvated_light
+
+#./ac4dc input/galli/lys_galli_LF
+#./ac4dc input/galli/lys_galli_LF_water
+# ./ac4dc input/galli/lys_galli_HF
+# ./ac4dc input/galli/lys_galli_HF_water
+
+
+#./ac4dc input/lysozyme/lys_solvated_fast_9kev
+# ./ac4dc input/lysozyme/lys_salt_fast_high_fluence
+# ./ac4dc input/lysozyme/lys_solvated_fast_high_fluence
+#./ac4dc input/energy/7keVGd 
+#./ac4dc input/energy/9keVGd 
+# ./ac4dc input/misc/salt_high_solvent
+# ./ac4dc input/misc/water_high_solvent
+
+# ./ac4dc input/I3C/I3C_55fs
+# ./ac4dc input/lysozyme/lys_MPD
+# ./ac4dc input/lysozyme/lys_salt_solvated_H
+
+./ac4dc input/misc/test_salt 
+./ac4dc input/misc/test_solvent
+##TODOOOO!!#####
+#./ac4dc input/damage/very_high_damage_test
+#./ac4dc input/damage/high_damage_test
+#####!!#######
+
+#####
+
+# ./ac4dc input/galli/lys_galli_HF_salt
+# ./ac4dc input/galli/lys_galli_LF_salt
+
+# #./ac4dc_split input/lysozyme/lys_Gd_salt_solvated_fast_H
+
+
+
+
+# ./ac4dc input/lysozyme/lys_Gd_solvated_H
+# ./ac4dc input/lysozyme/lys_Gd_salt_solvated_H
+
+
+
+
 
 
 

@@ -279,6 +279,7 @@ for symbol in ATOMS:
     i += 1
 i = 1 
 ATOMNO["Gd"] = ATOMNO["Gd_fast"] = ATOMNO["Gd_galli"]  = 64 
+ATOMNO["Gd"] = ATOMNO["Ac_fast"] = 89 
 ATOMNO["Fe_singleShell"] = ATOMNO["Fe"]
 for symbol in list(ATOMNO.keys()):
     if "_" not in symbol:

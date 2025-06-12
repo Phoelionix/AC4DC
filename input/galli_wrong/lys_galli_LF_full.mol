@@ -1,0 +1,59 @@
+#ATOMS
+H 2398
+C 615.16
+N 195.16
+O 887.2
+Na 15.768
+S 10
+Cl 14.688
+Gd_fast 3.08
+
+#BOUND_FREE_EXCLUSIONS
+Gd_fast
+Na
+Cl
+S
+
+
+#VOLUME
+30820         // Volume per molecule in Angstrom^3.
+500         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons (assumes surrounded by a void).
+none // Spatial boundary shape - options are none, spherical, cylindrical, planar
+
+#PULSE
+8480         // Photon energy in eV.
+40           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+gaussian       // Pulse shape
+
+#USE_COUNT
+true    // active (using count)?
+0.13  // Photon density (x10^12 ph.µm-2)
+
+#NUMERICAL
+15000      // Initial guess for number of time step points for rate equation.
+24            // Number of threads in OpenMP.
+
+#DYNAMIC_GRID
+N           // L  // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
+10.05            // Grid update period in fs, (dynamic grid only).
+2
+
+#OUTPUT
+800         // Number of time steps in the output files.
+4000        // number of free-electron grid points in output file.
+N            // Write atomic charges in a separate file (Y/N)?
+Y            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
+
+#LOAD
+lys_galli_LF_full_7
+
+#DEBUG
+99 //10     // Simulation cutoff time in fs
+0.01    // Interval to update current timestep [fs].
+####END#####
+
+Notes:
+Solvated
+Requires a very large amount of memory as the second shell is able to be ionised.
+Pulse set so that theoretical average of 1 photoionisation event per Gd 

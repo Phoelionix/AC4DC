@@ -1,0 +1,99 @@
+#ATOMS
+C 295.776
+N 92.196
+O 924.374
+S 4.680
+H 2151.179
+
+#BOUND_FREE_EXCLUSIONS
+S
+
+#VOLUME
+30251.2     // Volume per molecule in Angstrom^3.
+500         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons (assumes surrounded by a void).
+none // Spatial boundary shape - options are none, spherical, cylindrical, planar
+
+
+#PULSE
+7112         // Photon energy in eV.
+15           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+gaussian       // Pulse shape
+
+#USE_COUNT
+true    // active (using count)?
+1.75  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
+
+#NUMERICAL
+2000      // Initial guess for number of time step points for rate equation.
+10            // Number of threads in OpenMP.
+
+#DYNAMIC_GRID
+M              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
+5.05            // Grid update period in fs, (dynamic grid only).
+2            // Time before transforming initial guess grid to dynamic grid in fs.  
+
+#OUTPUT
+800         // Number of time steps in the output files.
+4000        // number of free-electron grid points in output file.
+N            // Write atomic charges in a separate file (Y/N)?
+Y            // Write intensity in a separate file (Y/N)?
+Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
+
+#DEBUG
+99 //10     // Simulation cutoff time in fs
+0.01    // Interval to update current timestep [fs].
+20 // Interval **in steps** between live plot (_live_plot.png) updates
+120 // Period between backups in minutes  
+####END#####
+
+Notes:
+
+Hen egg-white lysozyme https://files.rcsb.org/pub/pdb/validation_reports/et/4et8/4et8_full_validation.pdf
+gadolinium included
+
+Using solvent parameters of Nass et al 2020 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7156470/  :
+
+Storage solution:
+
+10% NaCl, 0.1 M Na acetate pH 4.0
+
+Slurry supplemented with:
+0.1 M gadoteridol
+
+-> 1.71 M NaCl  
++ 0.1 M Na
++ 0.2 M C 
++ 0.2 M O
++ 0.3 M H ( ignored )
++ 0.1 M Gd
+
+-> additional 18 Na, 17 Cl, 2 C, 2 O for every solvated Gd.
+
+
+
+
+
+Protein: 
+
+C 613
+N 193
+O 185
+S 10
+Gd_fast 2
+
+volume 20k
+----
+
+Solvated - solvent content is 35.11 based on 6sr5, and noting that Gd density is basically same in solution and protein, get Gd + 1.08.
+Molarity of water, assume about 50 M (1 Gd for every 500 O):
+
+
+C 615.16
+N 195.16
+O 887.2
+Na 19.44
+Cl 18.36
+S 10
+Gd_fast 3.08
+
+volume  30.82k

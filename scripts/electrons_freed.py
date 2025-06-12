@@ -123,7 +123,8 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,com
     continuums_set = []
     colors = []
     for c, continuum_fname in enumerate(pl.split_freeFiles):   
-
+        if pl.get_element_and_e_type(c)[0] == "H":
+            continue
         if combine_element_primary_electrons:
             assert(len(pl.split_freeFiles)%2==0)
             if c%2==1:
@@ -254,7 +255,6 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,com
         gap_title = 1
 
         title = 'Pht.'+'\\ '*gap_title+'Aug.'
-        print(title)
         handles = []
         handles.extend(photo_handles)
         handles.extend(aug_handles)

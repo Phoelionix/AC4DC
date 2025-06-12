@@ -187,7 +187,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
                     "#437c34",
                     
                 ] 
-        pl.plot_tot_charge(colours=abdullah_colors,ylim=[0,3],every=1,charge_difference=False,legend_loc="best",legend_frame=False,profile_height_factor=0.87,legend_kwargs=legend_kwargs)  
+        pl.plot_tot_charge(colours=abdullah_colors,ylim=[0,3],every=1,charge_difference=False,legend_loc="best",legend_frame=False,profile_height_factor=0.87,legend_kwargs=legend_kwargs,right_aligned=True)  
         #pl.plot_tot_charge(ylim=[None,None],xlim=[-18,18],every=1,charge_difference=False,legend_loc="best")  
         #pl.plot_tot_charge(ylim=[None,None],every=1,charge_difference=True,legend_loc="best",atoms=["C","N","O"])  
         #pl.plot_tot_charge(ylim=[0,6],every=1,charge_difference=False,legend_loc="best",atoms=["C","N","O"])  

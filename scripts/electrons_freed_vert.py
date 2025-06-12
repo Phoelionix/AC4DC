@@ -39,16 +39,15 @@ DASHED_AUGER = True
 # ignore_CNO = False  # implemented in very hacky way
 # CNO_only = True  # implemented in very hacky way
 
-COMBINE_HEAVY_AND_LIGHT = False
+COMBINE_HEAVY_AND_LIGHT = True
 
-SHOW_LEGEND = None# [False,True]
+SHOW_LEGEND = [True,True]# [False,True]
 CUSTOM_LEGEND = None
 #CUSTOM_LEGEND=("1s: CNO","2s: CNO","2p: CNO","1s: CNO,S,Gd","2s: CNO,S,Gd","2p: CNO,S,Gd")
 #CUSTOM_LEGEND = ("Primary ionization only", "All ionization",)
 def main():
     set_highlighted_excepthook()
 
-    assert not (COMBINE_HEAVY_AND_LIGHT and (CNO_only == True or ignore_CNO == True))
 
     # Basic num arguments check
     assert len(sys.argv[1:]) > 0, "Usage: python compare_ion.py <sim_handle_1> <sim_handle_2> ..."
@@ -67,13 +66,15 @@ def main():
     if len(data_folders) > 1:
          label+= "_"+data_folders[1]
     for ignore_CNO, CNO_only in [False,False],[False,True],[True,False]:
-        for i, combined_primary in enumerate([False]):#enumerate([True,False]):
+        for i, combined_primary in enumerate([False,True]):#enumerate([True,False]):
             
-            ##The 3 graphs###
-            if combined_primary and (ignore_CNO == True or CNO_only == True):
+            ##The interesting graphs ###
+            if (combined_primary or COMBINE_HEAVY_AND_LIGHT) and (ignore_CNO == True or CNO_only == True):
                 continue
-            if not combined_primary and (ignore_CNO == False and CNO_only == False):
+            if (not combined_primary and not COMBINE_HEAVY_AND_LIGHT) and (ignore_CNO == False and CNO_only == False):
                 continue 
+
+
 
             
             ####
@@ -104,24 +105,26 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,com
     if distinguish_by_color_not_line:
         cmap = plt.get_cmap("tab20")
     split_continuums_to_load="all"
-    e_cutoff = 500 # eV
+    e_cutoff = 999999999 # eV
     every = 1
 
     # Hacky way to get overlaid plots TODO
     pl = Plotter(mol_names[0],sim_output_parent_dir,split_continuums_to_load=split_continuums_to_load)
     
     pl.setup_axes(1)
-    pl.fig.subplots_adjust(left=0.01,bottom=0.2,top=0.9,right=0.88)  # must not have tight bbox to avoid cutting off ylabel
+    pl.fig.subplots_adjust(left=0.01,bottom=0.2,top=0.9,right=0.87)  # must not have tight bbox to avoid cutting off ylabel
     if ignore_CNO:
         pl.split_freeFiles = pl.split_freeFiles[6:] #hacky
     elif CNO_only:
         pl.split_freeFiles = pl.split_freeFiles[:6] #hacky
     continuums_set = []
     colors = []
-    for c, continuum_fname in enumerate(pl.split_freeFiles):   
+    for c, continuum_fname in enumerate(pl.split_freeFiles): 
+        if pl.get_element_and_e_type(c)[0] == "H":
+            continue
 
         if combine_element_primary_electrons:
-            assert(len(pl.split_freeFiles)%2==0)
+            #assert(len(pl.split_freeFiles)%2==0) # commenting out because for hydrogen don't load auger.
             if c%2==1:
                 continue
             else:
@@ -250,7 +253,6 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,com
         gap_title = 1
 
         title = 'Phot.'+'\\ '*gap_title+'Aug.'
-        print(title)
         handles = []
         handles.extend(photo_handles)
         handles.extend(aug_handles)
@@ -277,7 +279,7 @@ def make_some_plots(mol_names,sim_output_parent_dir, label,figure_output_dir,com
         #      ncol=3, numpoints=1, handletextpad=-0.5)
 
     handles = []
-    for i, continuums in enumerate(continuums_set):    
+    for i, continuums in enumerate(continuums_set):   
         pl.update_free
         pl.num_plotted = 0 # ƪ（˘へ˘ ƪ）
         show_pulse_profile = True

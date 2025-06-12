@@ -35,7 +35,7 @@ XLIM = [None,None]
 #YLIM=[0,6]
 #YLIM=[20,24]
 
-ATOMS = ("C","N","O","H")#,"S")
+ATOMS = ("C")#,"S")
 #ATOMS = ("Cr_LDA",)
 
 CUSTOM_LEGEND = None

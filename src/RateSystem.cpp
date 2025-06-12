@@ -31,8 +31,13 @@ vector<size_t> state_type::P_sizes  = vector<size_t>(0);
 
 state_type::state_type() {
     atomP.resize(P_sizes.size());
+    atomP_delta.resize(P_sizes.size());
     for (size_t i = 0; i < atomP.size(); i++) {
         atomP[i].resize(P_sizes[i]);
+        atomP_delta[i].resize(P_sizes[i]); // Chance each state...
+        for (size_t j = 0; j < P_sizes[i]; j++) {
+            atomP_delta[i][j].resize(P_sizes[i]);   // ...went to another state
+        }
     }
     cumulative_photo.resize(atomP.size());
 }

@@ -1,13 +1,12 @@
 #ATOMS
-C 615.16
-N 195.16
-O 890.08
+C 632.000
+N 197.000
 S 10
-
-
+O 548.273
+H 1742.766
 
 #VOLUME
-30820        // Volume per molecule in Angstrom^3.
+30251.2        // Volume per molecule in Angstrom^3.
 500         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons (assumes surrounded by a void).
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
@@ -23,10 +22,10 @@ true    // active (using count)?
 
 #NUMERICAL
 2000      // Initial guess for number of time step points for rate equation.
-24            // Number of threads in OpenMP.
+20            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
-M              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
+N              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
 5.05            // Grid update period in fs, (dynamic grid only).
 2            // Time before transforming initial guess grid to dynamic grid in fs. 
 

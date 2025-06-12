@@ -69,6 +69,8 @@ from IPython.display import display, HTML
 from IPython import get_ipython
 from string import ascii_uppercase, ascii_lowercase, ascii_letters, digits
 from core_functions import get_sim_elements
+from plot_I_vs_Isigma import read_validation_file
+import scipy
 interactive = True
 if interactive and __name__ == "__main__":
     get_ipython().run_line_magic('colors', 'nocolor')
@@ -207,7 +209,7 @@ class Results_Grid():
     pass    
 
 class Crystal():
-    def __init__(self, struct_file_path, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = None, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1, S_to_N=False,convert_excluded_elements_to_N=False,random_waters=None):
+    def __init__(self, struct_file_path, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = None, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1, S_to_N=False,convert_excluded_elements_to_N=False,random_waters=None,use_bfactors=True,zero_bfactors=False):
         '''
         rocking_angle [degrees]
         cell_packing ("SC","BCC","FCC","FCC-D")
@@ -219,7 +221,13 @@ class Crystal():
             print("Using gromacs file")
             assert include_symmetries == False
             assert num_supercells == 1
+        if zero_bfactors:
+            assert use_bfactors, "Can't set zero B factors - B factors aren't being used."
 
+        self.stochastic_positions_set=False
+        
+        self.use_bfactors = use_bfactors
+        self.zero_bfactors = zero_bfactors
         self.cell_packing = cell_packing
         self.rocking_angle = rocking_angle * np.pi/180            
         self.is_damaged = is_damaged
@@ -251,6 +259,8 @@ class Crystal():
             self.add_symmetry_to_cells(np.identity(3),np.zeros((3)),"(X,Y,Z)")
 
         
+        if not self.ignore_deviations and self.use_bfactors:
+            print("Warning: Using both deviations and B factors")
 
         self.supercell_dim = self.cell_dim*supercell_scale 
 
@@ -258,7 +268,8 @@ class Crystal():
         ## Dictionary for going from pdb to ac4dc names.
         # different names
         PDB_to_AC4DC_dict = dict(
-            NA = "Sodion", CL = "Chloride",
+            #NA = "Sodion", CL = "Chloride",
+            NA = "Na", CL = "Cl",
         )
         # Same names
         for elem in ["H","He","C","N","O","P","S","Gd","I"]:  # pdb names # TODO automate this...
@@ -313,7 +324,7 @@ class Crystal():
                 PDB_to_AC4DC_dict[atom.element]=name
                 species_dict[name] = Atomic_Species(name,self) 
                 pdb_atoms.append(atom.element)
-            species_dict[name].add_atom(atom.get_serial_number(),R)
+            species_dict[name].add_atom(atom.get_serial_number(),R,atom.get_bfactor())
 
 
         ac4dc_atoms_ignored = ""
@@ -332,10 +343,16 @@ class Crystal():
         
         self.species_dict = species_dict 
 
-        self.set_stochastic_positions(first_call=True)
+        #self.set_stochastic_positions(first_call=True)
+    def disable_pos_deviations(self):
+        self.positional_stdv=0
+        self.ignore_deviations=True
 
-
-    def set_stochastic_positions(self,first_call=False):
+    def set_stochastic_positions(self,q):
+        first_call=True
+        if self.stochastic_positions_set:
+            self.stochastic_positions_set=True
+            first_call = False
         def num_atoms_no_symm():
             return np.sum([len(self.species_dict[k].coords) for k in self.species_dict])
         if self.random_waters is not None:
@@ -346,9 +363,9 @@ class Crystal():
             if first_call:
                 print(f"Added {self.random_waters} O atoms to random coordinates. Structure now has {num_atoms_no_symm()} atoms.")
         if first_call:
-            print(f"Adding stdv of {self.positional_stdv} Angstroms.")
+            print(f"Adding stdv of {self.positional_stdv*ang_per_bohr} Angstroms.")
         for species in self.species_dict.values():
-            species.set_coord_deviation()
+            species.set_coord_deviation(q)
         
 
     def reinitialize_random_waters(self):
@@ -356,8 +373,9 @@ class Crystal():
         if DEBUG or DEBUG_WATER:
             print(f"Placing {self.random_waters} O atoms in random positions")
         for _ in range(self.random_waters):
-            self.species_dict["O"].add_atom("WATER",Bio_Vect((np.random.rand(3)-0.5)*1e3))
-    def set_ff_calculator(self,ff_calculator):
+            random_water_bfactor=100
+            self.species_dict["O"].add_atom("WATER",Bio_Vect((np.random.rand(3)-0.5)*1e3),random_water_bfactor) # make water b factor high instead?
+    def set_ff_calculator(self,ff_calculator : Plotter):
         self.ff_calculator = ff_calculator                  
     
     def add_symmetry_to_cells(self,symmetry_factor,symmetry_translation,symmetry_label="Symmetry Operation:"):
@@ -879,20 +897,37 @@ CRYST1   {a*self.supercell_scale:.3f}   {b*self.supercell_scale:.3f}   {c*self.s
 
 
 class Atomic_Species():
-    def __init__(self,name,crystal):
+    def __init__(self,name,crystal: Crystal):
         self.name = name 
         self.crystal = crystal 
         self.ff = 0 # form_factor
         self.coords = []  # coord of each atom in species in asymmetric unit
         self.serial_numbers = [] # Corresponding serial number of each atom 
+        self.B_factors = [] 
+        self.debye_waller_factor=None
 
-    def add_atom(self,serial_number,vector):
+    def add_atom(self,serial_number,vector,B_factor):
         '''
         This function adds an atom to the asymmetric unit of the crystal. 
         We do not store additional coordinates, instead storing the symmetries, and an array of atomic states corresponding to each atom, for each symmetry. (so num symmetries * num atoms added)
         '''           
         self.serial_numbers.append(serial_number)
         self.coords.append(vector.get_array()/ang_per_bohr)
+        if not self.crystal.zero_bfactors:
+            self.B_factors.append(B_factor/(ang_per_bohr**2))
+    def set_debye_waller(self,q):
+        if self.crystal.zero_bfactors:
+            return 1
+        assert len(self.B_factors) == len(self.coords)
+        factor = np.array(self.B_factors)/(8*3*np.pi**2) # isotropic assumption
+        #factor = np.array(self.B_factors)/(10*3*np.pi**2) # testing
+        if len(q.shape)==1:
+            self.debye_waller_factor = np.exp(-np.square(q)[None,...]*factor[:,None])
+        elif len(q.shape)==2: # better way to do this...?
+            self.debye_waller_factor = np.exp(-np.square(q)[None,...]*factor[:,None,None])
+
+        #print(np.array(self.B_factors))
+        #print(self.debye_waller.shape)
         
     def set_stochastic_electronic_states(self):
         '''
@@ -906,7 +941,9 @@ class Atomic_Species():
             print("Creating time-varying states for atom "+self.name+" from plasma simulation's data")
         self.times_used = self.crystal.ff_calculator.get_times_used()
         num_atoms = self.get_num_atoms()
-        if self.num_atoms_on_coord_deviation != num_atoms:
+        
+        if ( self.B_factors and (len(self.B_factors)!=len(self.coords))) \
+        or ((not self.B_factors and not crystal.zero_bfactors) and  (self.num_atoms_on_coord_deviation != num_atoms)):
             raise Exception("num atoms was not same on set_stochastic_electronic_states call as when set by set_coord_deviation")
         
         if self.crystal.is_damaged:
@@ -920,10 +957,18 @@ class Atomic_Species():
                     seed = idx
                 self.orb_occs[idx],_dummy,self.orb_occ_dict = self.crystal.ff_calculator.random_state_snapshots(self.name,seed) 
         else:
-           self.ground_state = self.crystal.ff_calculator.get_ground_state_shells(self.name)       
+            pass
+           #self.ground_state = self.crystal.ff_calculator.get_ground_state_shells(self.name)       
     def get_num_atoms(self):
         return len(self.crystal.sym_rotations)*len(self.coords)    
-    def set_coord_deviation(self):
+    def set_coord_deviation(self,q):
+        # B factor
+        if self.crystal.use_bfactors:
+            self.set_debye_waller(q)
+        self.set_coord_deviation_no_B()
+    
+    def set_coord_deviation_no_B(self):
+        # Random deviation for each snapshot
         num_atoms = self.num_atoms_on_coord_deviation = self.get_num_atoms()
         self.error = np.empty((num_atoms,3))
         if not self.crystal.ignore_deviations:
@@ -960,7 +1005,7 @@ class Atomic_Species():
             # Undamaged case, no stochastic dynamics.
             if not self.crystal.is_damaged: 
                 def tmp_func(atom_idx,q_arr): 
-                    return self.crystal.ff_calculator.f_undamaged(q_arr,self.name,self.ground_state)[0]
+                    return self.crystal.ff_calculator.f_undamaged(q_arr,self.name)[0]
             # Damaged, we 
             else:
                 def tmp_func(atom_idx,q_arr): 
@@ -1083,7 +1128,7 @@ class XFEL():
         ff_calculator.initialise_form_factor_params(start_time,end_time,self.max_q,self.photon_energy,t_fineness=self.t_fineness) # q_fineness isn't used for our purposes.   
         return ff_calculator
     
-    def spooky_laser(self, start_time, end_time, sim_data_handle, sim_parent_dir_path, target, SPI_resolution = None, results_parent_dir = RESULTS_LOCAL_PATH, circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False):
+    def spooky_laser(self, start_time, end_time, sim_data_handle, sim_parent_dir_path, target : Crystal, SPI_resolution = None, results_parent_dir = RESULTS_LOCAL_PATH, circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False):
         """ 
         end_time: The end time of the photon capture in femtoseconds. Not a real thing experimentally, but useful for choosing 
         a level of damage. Explicitly, it is used to determine the upper time limit for the integration of the form factor.
@@ -1092,6 +1137,7 @@ class XFEL():
             Number of unique y axis rotations to sample crystal. x_axis_rotations not implemented (yet?).
         random_orientation overrides the XFEL class's orientation_set, replacing each with a random orientation. (get same number of orientations though at present TODO.) 
         """
+        print("Beginning laser")
         ff_calculator = self.get_ff_calculator(start_time,end_time,sim_data_handle,sim_parent_dir_path)     
         target.set_ff_calculator(ff_calculator)    
         self.target = target
@@ -1269,6 +1315,7 @@ class XFEL():
             if random_orientation:
                 self.orientation_set = [(0,0,0)]*self.num_orientations  # Dummy orientations
             
+            orientation_indices_override=None
             RANDOM_MILLER_FRAC = True
             if not RANDOM_MILLER_FRAC:
                 if self.miller_indices_override is not None:
@@ -1412,12 +1459,64 @@ class XFEL():
 
 
         #print("phi",point.phi,"q_parr_screen",point.q_parr_screen)
+
+        def X_to_q(x):
+            '''
+            Returns q [1/a0]
+            '''
+            theta = X_to_theta(x)
+            k0 = self.photon_momentum #2*np.pi/E_to_lamb(photon_energy)
+            return 2*k0*np.sin(theta)   
+
+        def q_to_X(self,q):
+            '''
+            Assumes screen distance in same units as x (a0)
+            '''
+            theta = self.q_to_theta(q)
+            return np.abs(self.detector_distance*np.tan(2*theta))   
+        def X_to_theta(x):
+            '''
+            Assumes screen distance in same units as x (a0)
+            '''
+            return 0.5*np.arctan2(x,self.detector_distance)
+            
+
+
+
+        dumb_smear_thing = False
+        if dumb_smear_thing:
+            xpoints = ypoints = np.linspace(0.99,1.01,3)
+            G_list = []
+            q_list = []
+            for x in xpoints:
+                for y in ypoints:
+                    G_copy = G.copy()
+                    G_copy[0]*=x
+                    G_copy[1]*=y
+                    G_copy[2]*=x*y  # this is so dumb ugh 
+                    G_list.append(G_copy)
+                    q_list.append(np.sqrt(np.power(G_copy[0],2)+np.power(G_copy[1],2)+np.power(G_copy[2],2)))  
+            point.I = None
+            for _G, _q, in zip(G_list,q_list):
+                pointCopy = self.Spot(_q,X,self.q_to_theta(_q))
+                pointCopy.phi = np.arctan2(_G[1],_G[0])
+                pointCopy.G = _G
+                if point.I is None:
+                    point.I = self.illuminate(pointCopy,cardan_angles=None)
+                else:
+                    point.I += self.illuminate(pointCopy,cardan_angles=None)
+        else:
+            point.I = self.illuminate(point,cardan_angles=cardan_angles)
+
+
+
+
+        #Using formula in caleman 2011 but arbitrary scale
+        #lamb =  E_to_lamb(self.photon_energy)
+        #lorentzFactor = lamb**3/np.sin(point.phi)
+        #lorentzCorrection = 1/np.sin(2*self.q_to_theta(point.q))
+        #point.I*=lorentzCorrection
         
-        point.I = self.illuminate(point,cardan_angles=cardan_angles)
-        # # Trig check      
-        # check = smth  # check = np.sqrt(G[0]**2+G[1]**2)
-        # if q_parr_screen != check:
-        #     print("Error, q_parr_screen =",q_parr_screen,"but expected",check)  
         return point   
     
 
@@ -1430,6 +1529,7 @@ class XFEL():
         # if phis == None:
         #     phis = self.phi_array
 
+
         if seed is not None:
             np.random.seed(seed)
         
@@ -1440,20 +1540,20 @@ class XFEL():
 
         F_shape = tuple()
         if type(feature) is self.Spot:
-            F_shape += (self.t_fineness,)           
+            F_shape += (self.t_fineness+1,)           
             if len(feature.G.shape) > 1:
                 F_shape += (len(feature.G[2]),) #[times,num_G]   
         else:
             if type(feature) is self.Ring:
                 F_shape += phis.shape  
-            F_shape += (self.t_fineness,)# [?phis?,times]
+            F_shape += (self.t_fineness+1,)# [?phis?,times]
             if type(feature.q) is np.ndarray:
                 F_shape += feature.q.shape          # [?phis?,times,feature.q.shape]
         F_supercells = np.zeros(self.target.supercell_simulations,dtype="object")
         for S in range(self.target.supercell_simulations):   
             print("Simulating supercell", S)
             times_used = None
-            self.target.set_stochastic_positions()
+            self.target.set_stochastic_positions(feature.q)
             for species in self.target.species_dict.values():
                 species.set_stochastic_electronic_states()   
                 species.set_scalar_form_factor()
@@ -1489,7 +1589,7 @@ class XFEL():
                         # Rotate to target's current orientation 
                         # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
                         R = np.array(species.coords[relative_atm_idx[0]:relative_atm_idx[-1]+1]) 
-                        if self.target.ignore_deviations:
+                        if self.target.ignore_deviations:# or self.target.use_bfactors:
                             coord = self.target.get_sym_xfmed_point(R,s)
                         else:
                             coord = self.target.get_sym_xfmed_point(R,s)  + species.error[relative_atm_idx] # dim = [ N, 3], where N is number of coords.
@@ -1501,6 +1601,8 @@ class XFEL():
                             T = self.SPI_interference_factor(phis,coord,feature)  # if grid: [phis,qx,qy]  if ring: [phis,q] (unimplemented)
                         else:
                             T= self.interference_factor(coord,feature,cardan_angles)  #[num_G] 
+                        if self.target.use_bfactors and not self.target.zero_bfactors:
+                            T*=species.debye_waller_factor[relative_atm_idx[0]:relative_atm_idx[-1]+1]
                         f = species.get_stochastic_f(atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
                         same_each_sym = False # (debug)
                         if same_each_sym:
@@ -1561,38 +1663,12 @@ class XFEL():
         print("Total screen-incident intensity = ","{:e}".format(np.sum(I)))
         return I
 
-    # def illuminate_average(self,feature,phis = None,cardan_angles = None):  # Feature = ring or spot.
-    #     """Returns the intensity at q. Not crystalline yet."""
-    #     if phis == None:
-    #         phis = self.phi_array
-    #     F = np.zeros(phis.shape,dtype="complex_")
-    #     for species in self.target.species_dict.values():
-    #         species.set_scalar_form_factor(feature.q)
-    #         # iterate through each symmetry of unit cell (each asymmetric unit)
-    #         for s in range(len(self.target.sym_rotations)):
-    #             for R in species.coords:
-    #                     # Rotate to crystal's current orientation 
-    #                     R = R.left_multiply(self.y_rot_matrix)  
-    #                     R = R.left_multiply(self.x_rot_matrix)   
-    #                     # PDB format note: if x axis has dim of X, we have a point between [- X, X].
-    #                     coord = np.multiply(R.get_array(),self.target.sym_rotations[s]) + np.multiply(self.target.supercell_dim,self.target.sym_translations[s])
-    #                     # Get spatial factor T
-    #                     T = np.zeros(phis.shape,dtype="complex_")
-    #                     if SPI:
-    #                         T = self.SPI_interference_factor(phis,coord,feature)
-    #                     else:
-    #                         T= self.interference_factor(coord,feature,cardan_angles)
-    #                     F += species.ff_average*T   
-    #                     # Rotate atom for next sample            
-    #     I = np.square(np.abs(F))        
-        
 
-    #     return I 
-
-    def interference_factor(self,coord,feature,cardan_angles):
+    def interference_factor(self,coord,feature,cardan_angles): # TODO Remove cardan_angles input
         """ theta = scattering angle relative to z-y plane """ 
-        # Rotate our G vector BACK to the real laser orientation relative to the crystal.
-        q_vect = self.rotate_G_to_orientation(feature.G.copy(),*cardan_angles,inverse=True)[0]       
+        q_vect = feature.G.copy()
+        #Rotate our G vector BACK to the real laser orientation relative to the crystal. -> this won't have any effect.
+        #q_vect = self.rotate_G_to_orientation(feature.G.copy(),*cardan_angles,inverse=True)[0]       
         coord = np.moveaxis(coord,0,-1)  #  dim = [xyz,atoms]
         q_vect = np.moveaxis(q_vect,0,-1) # dim = [momenta,xyz]
         q_dot_r = np.apply_along_axis(np.dot,len(q_vect.shape)-1,q_vect,coord) # dim = [num_G]  
@@ -1795,6 +1871,7 @@ class XFEL():
             if actual_max_q < q:
                 actual_max_q = q
                 max_q_indices = h,k,l
+        assert max_q_indices != [0,0,0]
         print(f"Best resolution point {max_q_indices}: {q_to_res(actual_max_q)*ang_per_bohr} angstrom." )
 
 
@@ -2902,7 +2979,123 @@ def create_reflection_file(result_handle,results_parent_dir = RESULTS_LOCAL_PATH
 
     df_merged.to_csv(out_path+".rfl",header=False,index=False,float_format='%10f', sep=" ", quoting=csv.QUOTE_NONE, escapechar=" ")
 
-def rfl_to_sca(result_handle,reflections_dir = "reflections/",out_directory = "scalepack/",overwrite=True):
+
+class ScalingMethod:
+    def __init__():
+        pass
+    def get_I_norm(self,rfl_file_path,photon_energy="same"):
+        print("implement")
+        raise Exception()
+    def get_scaled(self,h,k,l):
+        pass
+
+
+def noise_and_photon_count_curve(x,a,b,c,d):
+    if a < 0:  # Enforce positive photon counting error. Probably not how you're meant to do it.
+        return -9999999
+    if b < 0 or d < 0:  # Enforce that other sources of error are positive
+        return -9999999
+    y = a * x**0.5 +b*x**c + d 
+    return y
+
+
+class ScalingByReference(ScalingMethod):
+    '''
+    Scales I based on reference reflection photon count.
+    '''
+    # def __init__(self,h,k,l,I_meas,I_sigma,photon_energy):
+    #     self.reference_reflection = (h,k,l,I_meas,I_sigma)
+    #     self.photon_energy = photon_energy
+        
+    #     self.photon_count = 
+    def __init__(self,h,k,l,I_meas,I_sigma,photon_energy):
+        self.reference_reflection = (h,k,l,I_meas,I_sigma)
+        self.photon_energy = photon_energy
+        
+        pass
+
+    def get_I_norm(self,rfl_file_path,photon_energy="same"):
+        '''
+        A .rfl file only ever has one set of reflections, either from single experiement or merged data. Regardless, we make the same treatment. 
+        '''
+        if photon_energy == "same":
+            photon_energy = self.photon_energy
+        
+        #photon_count = I/
+
+def read_rfl_file(rflFile):
+    data_dict = dict (h=0,
+                    k=1,
+                    l=2,
+                    I_sim=3,
+                )
+    rows =[]
+    with open(rflFile, 'r') as f:
+        for line in f:
+            data = line.split()
+            row = []
+            for k,idx in data_dict.items():
+                row.append(float(data[idx]))
+            rows.append(row)
+    return pd.DataFrame(rows, columns=list(data_dict.keys()))
+
+class ScalingByCopyingSigmaRatio(ScalingMethod): # Should be valid for ideal sim. 
+    def __init__(self,cifFile,rflFile):
+        df_sim = read_rfl_file(rflFile)#.astype(int)
+        df_real = read_validation_file(cifFile)#.astype(int)
+        #self.df = pd.concat([df_sim, df_real], ignore_index=True, sort=False)
+        self.df = pd.merge(df_sim,df_real, on=['h','k','l'])
+        assert self.df.shape[1]==6, f"{self.df.shape}"
+
+    def get_scaled(self,h,k,l):
+        df = self.df
+
+        data = df[df['h']==float(h)][df['k']==float(k)][df['l']==float(l)]
+        # if not (data['I_meas'].notnull().all() and data['I_sigma'].notnull().all()):
+        #     return None,None
+        if data.shape[0]==0:
+            return None,None
+        I_scaled = data['I_sim']*self.get_I_norm()
+        I_sigma = data['I_sigma']/data['I_meas']*I_scaled
+        assert I_scaled.shape[0] == I_sigma.shape[0] == 1
+        I_scaled = I_scaled.iloc[0]
+        I_sigma= I_sigma.iloc[0]
+        assert I_scaled==I_scaled
+        assert I_sigma==I_sigma
+        return I_scaled,I_sigma
+    def get_I_norm(self):
+        # compare total irradiance over shared points.
+        df = self.df[self.df['I_meas'].notnull()][self.df['I_sim'].notnull()]
+        return df['I_meas'].sum()/df['I_sim'].sum()
+
+
+
+# Won't work... we need different fluences
+# class ScalingByFit(ScalingMethod):
+#     def __init__(self):
+#         self.curve=noise_and_photon_count_curve
+#         self.popt=None
+#         self.pcov=None
+#     def get_I_norm(self,rfl_file_path,photon_energy="same"):
+#         self.curve_fit(cifFile="TODO")
+
+#         total_I, reflections_observed = getTotalReflectionI(cifFile)
+#         I_norm = total_I/
+#         return number 
+#     def curve_fit(self,cifFile="TODO"):
+#         #TODO IMPLEMENT
+#         self.popt,self.pcov = (1.42845205e-06, 2.78574265e-01, 9.21457720e-01, 1.91285876e+01),None
+#         self.plot_curve_fit()
+#         #scipy.optimize.curve_fit(curve,df['I_meas'],df['I_sigma'],sigma=df['I_meas'], absolute_sigma=True)
+#     def plot_curve_fit(self,log=False):
+#         if log:
+#             x = np.logspace(0,5,100)
+#         else:
+#             x = np.linspace(0,5e4,100)
+#         plt.scatter(x,self.curve(x,*self.popt),s=1)
+
+
+def rfl_to_sca(result_handle, reflections_dir = "reflections/",out_directory = "scalepack/",overwrite=True,detector_gain=0.6,scaling_method : ScalingMethod = None):
     '''Converts .rfl file to scalepack .sca file
     See https://www.ccp4.ac.uk/html/scala.html#files
     '''
@@ -2919,11 +3112,13 @@ def rfl_to_sca(result_handle,reflections_dir = "reflections/",out_directory = "s
     with open(rfl_file_path, 'r') as a:
         for line in a:
             entries = line.split()
+            assert len(entries) >=3, entries
             if entries[0]+entries[1]+entries[2] == '0'*3: 
                 continue # Ignore (0,0,0) reflection
             
             max_length = max(max_length,len(line.split()[3].split('.')[0]))
     #
+    #I_norm = scaling_method.get_I_norm(rfl_file_path)
     with open(rfl_file_path, 'r') as a, open(out_path, save_action) as b:
         # placeholder boilerplate 
         indent = ' '*3
@@ -2935,7 +3130,7 @@ def rfl_to_sca(result_handle,reflections_dir = "reflections/",out_directory = "s
             # Initialise elements
             h=k=l = ' '*4
             I_mean=sigI_mean = ' '*8
-            I_scaling_power = max_length - 7
+            
 
             # convert data to usable format from .rfl file
             entries = line.split()
@@ -2943,9 +3138,21 @@ def rfl_to_sca(result_handle,reflections_dir = "reflections/",out_directory = "s
             if entries[0]+entries[1]+entries[2] == '0'*3:
                 continue # Ignore (0,0,0) reflection
             #   I
-            entries[3] =  '%.0f'%(float(entries[3])/10**I_scaling_power)
-            # Add in entry for sigmaI_mean
-            entries.append('50.0')
+            if scaling_method is not None:
+                Isim, Isigma = scaling_method.get_scaled(*entries[:3])
+                if Isim is None:
+                    continue
+            else:
+                I_scaling_power = max_length - 7
+                Isim = float(entries[3])/10**I_scaling_power
+                Isigma = np.sqrt(Isim)
+
+            entries[3] ='%.0f'%(Isim)
+            # I sigma
+            entries.append('%.1f'%Isigma) # .rfl doesn't have sigma.
+
+  
+
 
             # Populate elements
             for i,q in enumerate([h,k,l,I_mean,sigI_mean]):
@@ -3115,40 +3322,46 @@ if __name__ == "__main__":
     fig_width = 3.49751 # 20
     fig_height = fig_width*3/4 # 20
     ### Simulate
-    target_options = ["lys_salt","lys_no_salt","neutze","hen","tetra","glycine","fcc"]
+    target_options = ["lys_salt","lys_no_salt","lys_salt_HF","neutze","hen","tetra","glycine","fcc","galliHigh"
+                      "lys_nass_probe_35",]
     #============------------User params---------==========#
 
     #R:  0.03453990841341609
     #R:  0.039555455273223315
-    target = "lys_salt"#"glycine"  #target_options[2]
-    best_resolution = 1.3 # 1.58 (abdullah) # 2   # resolution (determining max q)
-    worst_resolution = None#30 # 'resolution' corresponding to min q
+    target = "lys_nass_probe_35"#"glycine"  #target_options[2]
+    best_resolution = 2 # 1.58 (abdullah) # 1.3 # 2   # resolution (determining max q)
+    worst_resolution = 30 #None #30 # 'resolution' corresponding to min q
 
     #### Individual experiment arguments 
-    tag = "25_20" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
-    start_time = -18#-12#-6
+    tag = "probe" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
+    start_time = -18#-18#-12#-6
     end_time = 18#12#6
     laser_firing_qwargs = dict(
         # pixel sampling method (Neutze) if True - Miller indices if False
         SPI = False,  # sampling method, if False, bragg spots. if True, detector pixels. TODO change name
         SPI_resolution = best_resolution,
-        pixels_across = 300,  # for SPI TODO shld go on xfel exp params.
+        pixels_across = 100,  # for SPI TODO shld go on xfel exp params.
         # miller
         random_orientation = False, #bragg spot sampling only, TODO refactor to be in same place as other orients...# orientation is synced with second 
     )
     ##### Crystal params
     crystal_qwargs = dict(
         supercell_scale = 1,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
-        num_supercells = 10000,#100, # 35409
-        supercell_simulations = 1, #150
-        positional_stdv = 0.1,#0.2,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
+        num_supercells = 29*33*37,#100, # 35409
+        supercell_simulations = 30, #150
+        positional_stdv = 0,#0.2,  #Intro   duces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
+        #supercell_simulations = 900, #150
+        #positional_stdv = 0.05,#0.2,  #Intro   duces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
         include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
         #rocking_angle = 0.1,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         rocking_angle = 0.02,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         #CNO_to_N = True,   # whether the plasma simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
-        random_waters=702,
+        random_waters=None,
+        zero_bfactors=False
     )
+    crystal_2_has_deviations=False
+
     show_crystal = False
 
     #### XFEL params
@@ -3162,7 +3375,7 @@ if __name__ == "__main__":
         t_fineness=25,   
         #####crystal stuff (miller)
         max_miller_idx = 25, #None, # = m, [overrides max q so given by q with miller indices (m,m,m)]
-        all_miller_indices = True, # False, whether to find all bragg points at or below the max miller index (and between min and max q)
+        all_miller_indices = True, # False, # whether to find all bragg points at or below the max miller index AND between min and max q
         miller_indices_override=None,
         spot_fraction_per_orient=None,
         ####SPI stuff ( ab initio)
@@ -3181,12 +3394,11 @@ if __name__ == "__main__":
         #orientation_axis_crys = [0,0,1],#None,#[1,1,0]
         
         # for debugging/comparison with other works
-        custom_cell_dims_for_miller_indices = None,#[17.174,14.93,13.384], # None # Implemented for comparison with others that use supercells.  
+        custom_cell_dims_for_miller_indices = None, #[17.174,14.93,13.384], # None # Implemented for comparison with others that use supercells.  
         override_max_q = False # False # Also special, implemented for comparison purposes but should be left as False by default.
         ######
     )
     same_deviations = False # whether same position deviations between damaged and undamaged crystal 
-    
 
     # Optional: Choose previous folder for crystal results
     chosen_root_handle = None # None for new. use e.g. "tetra_v1", if want to add images under same params to same results.
@@ -3194,8 +3406,8 @@ if __name__ == "__main__":
 
     ## DEBUG
     # WARNING we often assume that first crystal is damaged and second is undamaged when plotting. 
-    first_crystal_is_damaged = True # True  
-    second_crystal_is_damaged = False  # False
+    crystal1_is_damaged = True # True  
+    crystal2_is_damaged = False  # False
 
 
 
@@ -3227,34 +3439,91 @@ if __name__ == "__main__":
 
     #---------------------------------#
     water_index = None # None TODO automate
-    if target == "lys_salt" or target == "lys_no_salt":
+    pdb_path2 = None
+    if target in["lys_salt","lys_no_salt","lys_salt_HF","lys_no_salt_HF","galliHigh", "lys_nass_probe_35"]:
         QUICK_TEST = False
-
+        IDEAL = False
+        COMPARE_REFINED = False
+        include_H=False
+        
+        SPI = False
+        #num_bragg_sets = 25
+        #num_unique_supercells = 20
+        #random_waters=702
+        ####
         cycles_per_bragg_set = 1
-        num_bragg_sets = 25
-        num_unique_supercells = 20
-        if QUICK_TEST:
+        num_bragg_sets = 1
+        num_unique_supercells = 50
+        positional_stdv = 0
+        num_supercells = 29*33*37
+        #num_unique_supercells = 1
+        #positional_stdv = 0.05
+        #num_supercells = 29*33*37
+        supercell_scale = 1
+        random_waters=None
+        zero_bfactors=False
+        t_fineness=20
+        crystal_qwargs["include_symmetries"]=True
+        ###
+        if QUICK_TEST or IDEAL:
             num_bragg_sets = 1
             num_unique_supercells = 1
-            crystal_qwargs["include_symmetries"]=False
-        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.4.hkl"
+            if QUICK_TEST:
+                crystal_qwargs["include_symmetries"]=False
+            if IDEAL:
+                positional_stdv=0
+        if COMPARE_REFINED:
+            positional_stdv=0
+            random_waters=None
+            num_supercells=1
+        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.5.hkl"
         unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"
         exp_qwargs["miller_indices_override"] = read_hkl(unique_hkl)
         exp_qwargs["spot_fraction_per_orient"] = 1/cycles_per_bragg_set
         exp_qwargs["num_orients_crys"] = cycles_per_bragg_set*num_bragg_sets
+        exp_qwargs["t_fineness"]=t_fineness
         crystal_qwargs["supercell_simulations"] = num_unique_supercells
+        crystal_qwargs["num_supercells"] = num_supercells
+        crystal_qwargs["supercell_scale"] = supercell_scale
+        crystal_qwargs["random_waters"] = random_waters
+        crystal_qwargs["zero_bfactors"] = zero_bfactors
+        crystal_qwargs["positional_stdv"]=positional_stdv
+        laser_firing_qwargs["SPI"]=SPI
 
         target_handle = dict(
             lys_salt = "lys_salt_solvated_fast_H_5",
-            lys_no_salt =  "lys_solvated_fast_H_6"
-        )[target]
+            lys_no_salt =  "lys_solvated_fast_H_6",
+            lys_salt_HF =  "lys_salt_fast_high_fluence_2",
+            lys_no_salt_HF =  "lys_solvated_fast_high_fluence_2",
+            galliHigh = "lys_galli_HF_23",
+            lys_nass_probe_35 = "nass_probe_35_1"
+        )[target]        
+        # TODO make this more sytematic.
+        probe_delay = 0
+        if target=="nass_probe_35":
+            probe_delay = 35
+        start_time += probe_delay
+        end_time += probe_delay
+
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb" 
+        if include_H:
+            pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8H.pdb" 
+        if COMPARE_REFINED:
+            pdb_path2 = dict(
+                lys_salt = "/home/speno/AC4DC/scripts/scattering/targets/salt_group_1.pdb",
+                lys_no_salt = "/home/speno/AC4DC/scripts/scattering/targets/no_salt_group_1.pdb", 
+            )[target]
+            crystal1_is_damaged = False
+        else:
+            assert(crystal1_is_damaged)
         #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632
         CNO_to_N = False
         S_to_N = False
         folder = ""
-        allowed_atoms = ["C","N","O","S"]
-        assert(first_crystal_is_damaged)
+        #allowed_atoms = ["H","C","N","O","S","Na","Cl","Gd_fast"]
+        #allowed_atoms = ["H","C","N","O","S","Na","Cl"]
+        allowed_atoms = ["C","N","O","S","Gd_fast"]
+
         if not laser_firing_qwargs["SPI"]:
             pass
             #exp_name2 = None # Don't do the undamaged target
@@ -3265,7 +3534,7 @@ if __name__ == "__main__":
         allowed_atoms = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb"
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8H.pdb"
         # Solvated targets
         #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_asym.xpdb"; water_index = 1089
         #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_unit_cell.pdb"; water_index = 8705
@@ -3298,15 +3567,16 @@ if __name__ == "__main__":
     elif target == "tetra": 
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/5zck.pdb" 
         folder = ""#"tetra_CNO"
-        target_handle = "lys_all_light-typical"#"6-5-2_tetra_CNO_3"
+        target_handle = "lys_solvated_fast_high_fluence_2"#"lys_all_light-typical"#"6-5-2_tetra_CNO_3"
         #allowed_atoms = ["N_fast"]
         allowed_atoms = ["C","N","O"]
         CNO_to_N = False
         S_to_N = False
     elif target == "glycine":
+        exp_qwargs["custom_cell_dims_for_miller_indices"] = [17.174,14.93,13.384]# # None,
         pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/glycine.pdb" 
         folder = ""
-        target_handle = "glycine_abdullah_4"
+        target_handle = "lys_salt_fast_high_fluence_2" #"glycine_abdullah_high_H_6" #"lys_solvated_fast_high_fluence_2" # "glycine_abdullah_high_H_6" #"glycine_abdullah_4"
         allowed_atoms = ["C","N","O"]
         CNO_to_N = False
         S_to_N = False
@@ -3326,20 +3596,28 @@ if __name__ == "__main__":
     experiment2 = XFEL(exp_name2,energy,**exp_qwargs)
     # Create Crystals
 
-    crystal = Crystal(pdb_path,allowed_atoms,is_damaged=first_crystal_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N, **crystal_qwargs)
+    crystal = Crystal(pdb_path,allowed_atoms,is_damaged=crystal1_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N, **crystal_qwargs)
     # The undamaged crystal uses the initial state but still performs the same integration step with the pulse profile weighting.
-    if same_deviations:
-        # we copy the other crystal so that it has the same deviations in coords
-        crystal_undmged = copy.deepcopy(crystal)#Crystal(pdb_path,allowed_atoms,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
-        crystal_undmged.is_damaged = second_crystal_is_damaged
+    if pdb_path2 is None:
+        if same_deviations:
+            assert crystal_2_has_deviations
+            # we copy the other crystal so that it has the same deviations in coords
+            crystal2 = copy.deepcopy(crystal)#Crystal(pdb_path,allowed_atoms,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
+            crystal2.is_damaged = crystal2_is_damaged
+        else:
+            crystal2 = Crystal(pdb_path,allowed_atoms,is_damaged=crystal2_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N, **crystal_qwargs)
+        if not crystal_2_has_deviations:
+            crystal2.disable_pos_deviations()
+        if show_crystal:
+            crystal.plot_me(300000,water_index = water_index,template="plotly_dark")
+
     else:
-        crystal_undmged = Crystal(pdb_path,allowed_atoms,is_damaged=second_crystal_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N, **crystal_qwargs)
-    if show_crystal:
-        crystal.plot_me(300000,water_index = water_index,template="plotly_dark")
+        print("Setting second experiment to DIFFERENT crystal")
+        crystal2 = Crystal(pdb_path2,allowed_atoms,is_damaged=crystal2_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N, **crystal_qwargs)
 #%
     if laser_firing_qwargs["SPI"]:
         SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal,results_parent_dir=results_parent_folder, **laser_firing_qwargs)
-        SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged,results_parent_dir=results_parent_folder,  **laser_firing_qwargs)
+        SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal2,results_parent_dir=results_parent_folder,  **laser_firing_qwargs)
         stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2,custom_fig_width=fig_width,custom_fig_height=fig_height)
     else:
         exp1_orientations = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal, results_parent_dir=results_parent_folder, **laser_firing_qwargs)
@@ -3348,7 +3626,7 @@ if __name__ == "__main__":
         if exp_name2 != None:
             laser_firing_qwargs["random_orientation"] = False
             experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
-            experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged, results_parent_dir=results_parent_folder, **laser_firing_qwargs)
+            experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal2, results_parent_dir=results_parent_folder, **laser_firing_qwargs)
             create_reflection_file(exp_name2,results_parent_dir=results_parent_folder)
             rfl_to_sca(exp_name2)
 
