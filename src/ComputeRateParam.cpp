@@ -149,7 +149,7 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 		for (int i = 0;i < dimension - 1; i++){
 			unsigned short N_elec = 0;
 			for (size_t j = 0;j < orbitals.size(); j++) {
-				N_elec+=orbitals[j].occupancy();
+				N_elec+=orbitals[j].occupancy() - Index[i][j];
 			}
 			Store.conf_N_elec_dict[i]=N_elec;
 		}

@@ -395,6 +395,8 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         auto& conf_N_elec_dict = input_params.Store[a].conf_N_elec_dict;
         for ( auto& r : input_params.Store[a].Photo) {
             double tmp = r.val*J*P[r.from];
+            auto& A = conf_N_elec_dict[r.from];
+            auto& B = conf_N_elec_dict[r.to];
             Pdot_delta[conf_N_elec_dict[r.from]][conf_N_elec_dict[r.to]]+=tmp;
             Pdot[r.to] += tmp;
             Pdot[r.from] -= tmp;
