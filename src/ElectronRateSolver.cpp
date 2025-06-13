@@ -531,7 +531,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
                 for (size_t init=0;  init<RATE_TBR[a][k].size(); init++) {
                     for (auto& finPair : RATE_TBR[a][k][init]) {
                         tmp = finPair.val*s.F[0][n]*s.F[0][m]*P[init]*2;  
-                        Pdot_delta_subst[init][finPair.idx]+=tmp;
+                        Pdot_delta_subst[conf_N_elec_dict[init]][conf_N_elec_dict[finPair.idx]]+=tmp;
                         Pdot_subst[finPair.idx] += tmp;
                         Pdot_subst[init] -= tmp;
                         sdot_bound_charge_tbr_subst -= tmp;
@@ -543,7 +543,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             for (size_t init=0;  init<RATE_TBR[a][n].size(); init++) {
                 for (auto& finPair : RATE_TBR[a][n][init]) {
                     tmp = finPair.val*s.F[0][n]*s.F[0][n]*P[init];
-                    Pdot_delta_subst[init][finPair.idx]+=tmp;
+                    Pdot_delta_subst[conf_N_elec_dict[init]][conf_N_elec_dict[finPair.idx]]+=tmp;
                     Pdot_subst[finPair.idx] += tmp;
                     Pdot_subst[init] -= tmp;
                     sdot_bound_charge_tbr_subst -= tmp;
@@ -557,15 +557,17 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         // Add parallel containers to their parent containers.
         for(size_t i=0;i < Pdot.size();i++){
             Pdot[i] += Pdot_subst[i];
-            for(size_t j=0;j < Pdot_delta[i].size();j++){
-                Pdot_delta[i][j] += Pdot_delta_subst[i][j];
-            }
             #ifdef DEBUG_BOUND
                 assert(Pdot[i] + P[i] >= 0);
                 // if(Pdot[i] + P[i] < 0){
                 //     Pdot[i]= -P[i]*1.00001;
                 // }
             #endif
+        }
+        for(size_t i=0;i < Pdot_delta.size();i++){
+            for(size_t j=0;j < Pdot_delta[i].size();j++){
+                Pdot_delta[i][j] += Pdot_delta_subst[i][j];
+            }
         }
         sdot.bound_charge += sdot_bound_charge_eii_subst + sdot_bound_charge_tbr_subst;
         #ifdef RATES_TRACKING

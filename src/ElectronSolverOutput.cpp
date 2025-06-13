@@ -311,19 +311,17 @@ void ElectronRateSolver::saveBoundOccDelta(const std::string& dir) {
     ofstream f;    
     // Iterate over atom types
     for (size_t a=0; a<input_params.Store.size(); a++) {
-        string fname = dir+"delta_occupancy_"+input_params.Store[a].name+".csv";
-        string header;
-            fname = dir+"dist_"+input_params.Store[a].name+".csv";
-            header = string("# Ionic electron dynamics\n") 
-            + string("# Charge ---- Time (fs) | transition to charge \n");
-            std::cout << "Bound: \033[94m'"<<fname<<"'\033[95m | "<<std::endl;
-            
-        file_delete_check(fname);
-        f.open(fname);
-        f << header<<std::flush;
-        int idx = 0;
         for (int k=0; k<input_params.Store[a].max_atom_occ+1; k++) {
-            f << "Occupancy: "<<input_params.Store[a].max_atom_occ-k<<std::flush;
+            string fname = dir+"delta_occupancy_from_"
+            +std::to_string(input_params.Store[a].max_atom_occ-k)+"_"
+            +input_params.Store[a].name+".csv";
+            string header = string("# Ionic changes\n") 
+            + string("# Time (fs) | transition to charge \n");
+            std::cout << "BoundDelta: \033[94m'"<<fname<<"'\033[95m | "<<std::endl;
+                
+            file_delete_check(fname);
+            f.open(fname);
+            f << header<<std::flush;
 
             // Iterate over time.
             double t_fineness = timespan_au  / num_steps_out;
@@ -340,9 +338,8 @@ void ElectronRateSolver::saveBoundOccDelta(const std::string& dir) {
                         f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i].atomP_delta[a][k]<<endl;   // Multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au                    
                 previous_t = t[i];
             }
-            idx++;
+            f.close();  
         }
-        f.close();  
 
     }
   

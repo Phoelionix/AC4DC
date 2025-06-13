@@ -90,7 +90,7 @@ void state_type::set_P_shape(const vector<RateData::Atom>& atomsys) {
     // make the P's the right size lmao
     for (size_t a = 0; a < atomsys.size(); a++) {
         P_sizes[a] = atomsys[a].num_conf;
-        occ_sizes[a] = atomsys[a].max_atom_occ;
+        occ_sizes[a] = atomsys[a].max_atom_occ+1;
     }
 }
 
