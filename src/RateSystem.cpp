@@ -51,6 +51,12 @@ state_type& state_type::operator+=(const state_type &s) {
         for (size_t i = 0; i < atomP[r].size(); i++) {
             atomP[r][i] += s.atomP[r][i];
         }
+        for (size_t i = 0; i < atomP_delta[r].size();i++){
+            for (size_t j = 0; j < atomP_delta[r][i].size();j++){
+                atomP_delta[r][i][j]+=s.atomP_delta[r][i][j];
+            }
+        }
+
     }
     F += s.F;
     bound_charge += s.bound_charge;
