@@ -71,7 +71,7 @@ state_type& state_type::operator*=(const double x) {
         }
         for (size_t i = 0; i < atomP_delta[r].size();i++){
             for (size_t j = 0; j < atomP_delta[r][i].size();j++){
-                atomP_delta[r][i][j]*=s.atomP_delta[r][i][j];
+                atomP_delta[r][i][j]*=x;
             }
         }
     }
@@ -91,7 +91,7 @@ state_type& state_type::operator=(const double x) {
     }
     for (auto& PD : atomP_delta) {
         for (auto& p1 : PD) {
-            for (auto& p2 : P1) 
+            for (auto& p2 : p1) 
                 p2=x;
         }
     }
