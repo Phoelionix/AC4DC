@@ -69,6 +69,11 @@ state_type& state_type::operator*=(const double x) {
         for (size_t i = 0; i < atomP[r].size(); i++) {
             atomP[r][i] *= x;
         }
+        for (size_t i = 0; i < atomP_delta[r].size();i++){
+            for (size_t j = 0; j < atomP_delta[r][i].size();j++){
+                atomP_delta[r][i][j]*=s.atomP_delta[r][i][j];
+            }
+        }
     }
     F *= x;
     bound_charge *=x;
@@ -82,6 +87,12 @@ state_type& state_type::operator=(const double x) {
     for (auto& P : atomP) {
         for (auto& p : P) {
             p=x;
+        }
+    }
+    for (auto& PD : atomP_delta) {
+        for (auto& p1 : PD) {
+            for (auto& p2 : P1) 
+                p2=x;
         }
     }
     F = x;
