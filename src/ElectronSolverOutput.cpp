@@ -50,6 +50,7 @@ void ElectronRateSolver::save(const std::string& _dir) {
     saveFreeRaw(dir+"freeDistRaw.csv");
     saveKnots(dir + "knotHistory.csv");
     saveBound(dir);
+    saveBoundOccDelta(dir);
     std::cout <<"\033[0m"<<std::endl;
 
     // Save intensity
@@ -215,7 +216,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
     assert(y.size() == t.size());
     ofstream f;    
     // Iterate over save file type { 0: bound | 1: photoionisation | }
-    for (size_t mode=0; mode < 2; mode++)
+    for (size_t mode=0; mode < 2; mode++){
         // Iterate over atom types
         for (size_t a=0; a<input_params.Store.size(); a++) {
             string fname;
@@ -275,6 +276,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
             }
             f.close();  
         }
+    }
     // save rates. // DISABLED as rates not integrated with solver properly yet.
     /*
     string fname = dir+"rates.csv";
@@ -301,6 +303,51 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
     f.close(); 
     */
 }
+
+
+void ElectronRateSolver::saveBoundOccDelta(const std::string& dir) {
+    // saves a table of bound-electron dynamics , split by atom, to folder dir.
+    assert(y.size() == t.size());
+    ofstream f;    
+    // Iterate over atom types
+    for (size_t a=0; a<input_params.Store.size(); a++) {
+        string fname = dir+"delta_occupancy_"+input_params.Store[a].name+".csv";
+        string header;
+            fname = dir+"dist_"+input_params.Store[a].name+".csv";
+            header = string("# Ionic electron dynamics\n") 
+            + string("# Charge ---- Time (fs) | transition to charge \n");
+            std::cout << "Bound: \033[94m'"<<fname<<"'\033[95m | "<<std::endl;
+            
+        file_delete_check(fname);
+        f.open(fname);
+        f << header<<std::flush;
+        int idx = 0;
+        for (int k=0; k<input_params.Store[a].max_atom_occ+1; k++) {
+            f << "Occupancy: "<<input_params.Store[a].max_atom_occ-k<<std::flush;
+
+            // Iterate over time.
+            double t_fineness = timespan_au  / num_steps_out;
+            double previous_t = t[0]-t_fineness;
+            int i = -1;
+            while (i <  static_cast<int>(t.size())-1){
+                i++;
+                if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){ 
+                    continue;
+                }            
+                        // Make sure all "natom-dimensioned" objects are the size expected //TODO failsafe?
+                        assert(input_params.Store.size() == y[i].atomP.size());
+                        
+                        f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i].atomP_delta[a][k]<<endl;   // Multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au                    
+                previous_t = t[i];
+            }
+            idx++;
+        }
+        f.close();  
+
+    }
+  
+}
+
 
 
 void ElectronRateSolver::saveKnots(const std::string& fname) {

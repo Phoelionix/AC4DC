@@ -2,13 +2,9 @@
 C 642.870
 N 199.558
 O 537.481
-S 10.000
-Gd_fast 2.639
-H 1730.773
 
 #BOUND_FREE_EXCLUSIONS
-Gd_fast 
-S
+O
 
 #VOLUME
 30251.2     // Volume per molecule in Angstrom^3.
@@ -27,7 +23,7 @@ true    // active (using count)?
 
 #NUMERICAL
 3000      // Initial guess for number of time step points for rate equation.
-24            // Number of threads in OpenMP.
+8            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
 M               // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)

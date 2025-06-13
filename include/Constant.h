@@ -27,6 +27,7 @@ This file is part of AC4DC.
 #include <vector>
 #include <string>
 #include <cassert>
+#include <unordered_map>
 using namespace std;
 
 namespace Constant
@@ -184,10 +185,13 @@ namespace RateData {
 		double nAtoms = 1.;// atomic number density
 		// double R = 189.; // 100nm focal spot radius.
 		unsigned int num_conf = 1;
+		unsigned int max_atom_occ = 1;
 		vector<RateData::Rate> Photo = vector<RateData::Rate>(0);
 		vector<RateData::Rate> Fluor = vector<RateData::Rate>(0);
 		vector<RateData::Rate> Auger = vector<RateData::Rate>(0);
 		vector<RateData::EIIdata> EIIparams = vector<RateData::EIIdata>(0);
+
+		std::unordered_map<long int,unsigned short int> conf_N_elec_dict=std::unordered_map<long int, unsigned short int>();
 		// Tacked on energy_config here.
 		vector<CustomDataType::energy_config> EnergyConfig = vector<CustomDataType::energy_config>(0);
 	};

@@ -41,7 +41,7 @@ class state_type
 public:
     /// Probabilities of state for all atoms.
     std::vector<bound_t> atomP; 
-    /// For continuity: represents flow of state changes from last step. (For each state, probability that it has changed to each state)
+    /// For continuity: represents flow of charge state changes from last step. (For each possible charge, probability that it has changed to each charge)
     std::vector<std::vector<bound_t>> atomP_delta;
     // Tracks sum total of photoionisation for all atoms.
     std::vector<double> cumulative_photo;     
@@ -79,6 +79,7 @@ public:
 
 private:
     static vector<size_t> P_sizes;
+    static vector<size_t> occ_sizes;
 };
 
 ostream& operator<<(ostream& os, const state_type& st);

@@ -27,6 +27,7 @@ This file is part of AC4DC.
 
 
 vector<size_t> state_type::P_sizes  = vector<size_t>(0);
+vector<size_t> state_type::occ_sizes  = vector<size_t>(0);
 
 
 state_type::state_type() {
@@ -34,9 +35,9 @@ state_type::state_type() {
     atomP_delta.resize(P_sizes.size());
     for (size_t i = 0; i < atomP.size(); i++) {
         atomP[i].resize(P_sizes[i]);
-        atomP_delta[i].resize(P_sizes[i]); // Chance each state...
-        for (size_t j = 0; j < P_sizes[i]; j++) {
-            atomP_delta[i][j].resize(P_sizes[i]);   // ...went to another state
+        atomP_delta[i].resize(occ_sizes[i]); // Chance each state...
+        for (size_t j = 0; j < occ_sizes[i]; j++) {
+            atomP_delta[i][j].resize(occ_sizes[i]);   // ...went to another state
         }
     }
     cumulative_photo.resize(atomP.size());
@@ -85,9 +86,11 @@ state_type& state_type::operator=(const double x) {
 // Resizes the container to fit all of the states present in the atom ensemble
 void state_type::set_P_shape(const vector<RateData::Atom>& atomsys) {
     P_sizes.resize(atomsys.size());
+    occ_sizes.resize(atomsys.size());
     // make the P's the right size lmao
     for (size_t a = 0; a < atomsys.size(); a++) {
         P_sizes[a] = atomsys[a].num_conf;
+        occ_sizes[a] = atomsys[a].max_atom_occ;
     }
 }
 

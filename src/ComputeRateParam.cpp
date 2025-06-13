@@ -55,7 +55,10 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 	if (!SetupIndex(Max_occ, Final_occ, runlog)) return Store;
 
 	Store.num_conf = dimension;
-
+	Store.max_atom_occ = 0;
+	for (auto& orbital_occ : Max_occ){
+		Store.max_atom_occ+=orbital_occ;
+	}
 
 	string RateLocation = "./output/" + input.Name() + "/Xsections/";
 	if (!exists_test("./output/" + input.Name())) {
@@ -141,6 +144,15 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 
 
 		density.clear();
+		
+		// set up conf to occupancy dict
+		for (int i = 0;i < dimension - 1; i++){
+			unsigned short N_elec = 0;
+			for (size_t j = 0;j < orbitals.size(); j++) {
+				N_elec+=orbitals[j].occupancy();
+			}
+			Store.conf_N_elec_dict[i]=N_elec;
+		}
 
 		// Convert to correct units of the sim
 		for (size_t j = 0; j < photoion_omegas_to_save.size(); j++)

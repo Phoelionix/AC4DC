@@ -223,6 +223,7 @@ private:
     void saveFreeRaw(const std::string& fname);
     /// For each atom, saves a table of bound-electron dynamics to folder dir.
     void saveBound(const std::string& folder);
+    void saveBoundOccDelta(const std::string& folder);
 
     //// Loading
     void load_simulation_state(); // Controller function.
