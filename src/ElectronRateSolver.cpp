@@ -500,7 +500,10 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         if(input_params.Store[a].bound_free_excluded) continue;
 
         double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
-        double Pdot_delta_subst [Pdot_delta.size()][Pdot_delta.size()] ={{0}};
+        double Pdot_delta_subst [Pdot_delta.size()][Pdot_delta[0].size()] ={0};
+        // https://stackoverflow.com/questions/3948290/what-is-the-safe-way-to-fill-multidimensional-array-using-stdfill
+        std::fill(&Pdot_delta_subst[0][0],&Pdot_delta_subst[0][0]+sizeof(Pdot_delta_subst)/ sizeof(Pdot_delta_subst[0][0]),0); //have to do because array size defined by variable. otherwise don't get 0s. Very annoying.
+
         double sdot_bound_charge_eii_subst = 0; 
         double sdot_bound_charge_tbr_subst = 0; 
         size_t N = Distribution::size; 

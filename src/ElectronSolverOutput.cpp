@@ -316,7 +316,7 @@ void ElectronRateSolver::saveBoundOccDelta(const std::string& dir) {
             +std::to_string(input_params.Store[a].max_atom_occ-k)+"_"
             +input_params.Store[a].name+".csv";
             string header = string("# Ionic changes\n") 
-            + string("# Time (fs) | transition to charge \n");
+            + string("# Time (fs) | Transition to num bound electrons (increasing LtoR) \n");
             std::cout << "BoundDelta: \033[94m'"<<fname<<"'\033[95m | "<<std::endl;
                 
             file_delete_check(fname);

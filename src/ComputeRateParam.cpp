@@ -70,6 +70,15 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 		mkdir(dirstring.c_str(), ACCESSPERMS);
 	}
 
+	// set up conf to occupancy dict
+	for (int i = 0;i < dimension - 1; i++){
+		unsigned short N_elec = 0;
+		for (size_t j = 0;j < orbitals.size(); j++) {
+			N_elec+=orbitals[j].occupancy() - Index[i][j];
+		}
+		Store.conf_N_elec_dict[i]=N_elec;
+	}
+
 	bool have_Aug, have_EII, have_Pht, have_Flr;
 
 	if (recalculate) { // Hartree Fock is calculated once, at molinp photon energy 
@@ -145,14 +154,7 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 
 		density.clear();
 		
-		// set up conf to occupancy dict
-		for (int i = 0;i < dimension - 1; i++){
-			unsigned short N_elec = 0;
-			for (size_t j = 0;j < orbitals.size(); j++) {
-				N_elec+=orbitals[j].occupancy() - Index[i][j];
-			}
-			Store.conf_N_elec_dict[i]=N_elec;
-		}
+
 
 		// Convert to correct units of the sim
 		for (size_t j = 0; j < photoion_omegas_to_save.size(); j++)

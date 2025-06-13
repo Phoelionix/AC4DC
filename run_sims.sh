@@ -92,12 +92,13 @@ set -x
 # ./ac4dc input/misc/salt_high_solvent
 # ./ac4dc input/misc/water_high_solvent
 
-# ./ac4dc input/I3C/I3C_55fs
+./ac4dc input/I3C/I3C_25fs
+./ac4dc input/I3C/I3C_55fs
 # ./ac4dc input/lysozyme/lys_MPD
 # ./ac4dc input/lysozyme/lys_salt_solvated_H
 
-./ac4dc input/misc/test_salt 
-./ac4dc input/misc/test_solvent
+#./ac4dc input/misc/test_salt 
+#./ac4dc input/misc/test_solvent
 ##TODOOOO!!#####
 #./ac4dc input/damage/very_high_damage_test
 #./ac4dc input/damage/high_damage_test
