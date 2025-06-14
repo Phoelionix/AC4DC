@@ -455,7 +455,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             assert(Pdot[i] + P[i] >= 0);
         }
         #endif    
-        // FLUORESCENCE
+        // FLUORESCENCEchimer
         for ( auto& r : input_params.Store[a].Fluor) {
             double tmp = r.val*P[r.from];
             Pdot_delta[conf_N_elec_dict[r.from]][conf_N_elec_dict[r.to]]+=tmp;

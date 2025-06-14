@@ -9,7 +9,7 @@ import os.path as path
 import os
 import matplotlib.colors as colors
 import sys
-# import glob
+import glob
 import csv
 import subprocess
 from matplotlib.ticker import LogFormatter 
@@ -75,6 +75,7 @@ class Plotter:
         self.gridFile = self.outDir + "/knotHistory.csv"
 
         self.boundData={}
+        self.boundDeltaData={}
         self.photoData={}
         self.chargeData={}
         self.freeData=None
@@ -170,7 +171,9 @@ class Plotter:
                             'infile': file,
                             'mtime': path.getmtime(file),
                             'outfile': self.outDir+"/dist_%s.csv"%a,
-                            'photofile': self.outDir + "/photo_%s.csv"%a}
+                            'photofile': self.outDir + "/photo_%s.csv"%a,
+                            'deltafiles': glob.glob(f"{self.outDir}/delta_occupancy_from_*{a}.csv"),
+                            }
                     if len(a) != 0  and (split_continuums_to_load == "all" or a in split_continuums_to_load):
                         photo_file = "freeDist_"+a+"_photo.csv"
                         auger_file = "freeDist_"+a+"_auger.csv"
@@ -898,9 +901,9 @@ class Plotter:
             self.freeData = self.freeData[0:last_idx]
 
 
-    def update_outputs(self):
+
+    def update_outputs(self): # as in the outputs of ac4dc stored in this class
         
-        num_sample_lines = 10
         if self.sample_end_points:
             with open(self.intFile,'rb') as f:
                 lines = f.readlines()
@@ -918,7 +921,7 @@ class Plotter:
             if self.sample_end_points:
                 with open(self.atomdict[a]['outfile'],'rb') as f:
                     lines = f.readlines()
-                    raw = np.genfromtxt(lines[-num_sample_lines:], comments='#', dtype=np.float64)
+                    raw = np.genfromtxt(lines[-self.num_sample_lines:], comments='#', dtype=np.float64)
             else:
                 raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
 
@@ -929,7 +932,7 @@ class Plotter:
                 if self.sample_end_points:
                     with open(self.atomdict[a]['photofile'],'rb') as f:
                         lines = f.readlines()
-                        raw = np.genfromtxt(lines[-num_sample_lines:], comments='#', dtype=np.float64)
+                        raw = np.genfromtxt(lines[-self.num_sample_lines:], comments='#', dtype=np.float64)
                 else:
                     raw = np.genfromtxt(self.atomdict[a]['photofile'], comments='#', dtype=np.float64)
                 
@@ -937,6 +940,8 @@ class Plotter:
                 photo_data_present = True
             except:
                 print("Warning: Missing '" + self.atomdict[a]['photofile'] + "'.")
+        self.update_bound_delta_data()
+
         # Truncate data to time specified.
         if self.end_t_plotting is not None: 
             last_idx = np.searchsorted(self.timeData,self.end_t_plotting)
@@ -947,6 +952,8 @@ class Plotter:
                 self.boundData[a] = self.boundData[a][0:last_idx] 
                 if photo_data_present:
                     self.photoData[a] = self.photoData[a][0:last_idx]
+                for i in range(len(self.boundDeltaData[a])):
+                    self.boundDeltaData[a][i]=self.boundDeltaData[a][i][0:last_idx]   # shouldve created a class for each list of datapoints w.r.t. time...
                 
 
         self.atomic_numbers = self.get_atomic_numbers()
@@ -960,6 +967,34 @@ class Plotter:
                 self.grid_point_Data.append([float(elem) for elem in row[0].split()[1:]])
         self.grid_update_time_Data = np.array(self.grid_update_time_Data,dtype=np.float64)
         self.grid_point_Data = np.array(self.grid_point_Data,dtype=object)
+
+    def update_bound_delta_data(self):
+        for a in self.atomdict:
+            self.boundDeltaData[a] = []
+            for i, deltafile in enumerate(self.atomdict[a]['deltafiles']):
+                if self.sample_end_points:
+                    with open(deltafile,'rb') as f:
+                        lines = f.readlines()
+                        raw = np.genfromtxt(lines[-self.num_sample_lines:], comments='#', dtype=np.float64)
+                else:
+                    raw = np.genfromtxt(deltafile, comments='#', dtype=np.float64)
+                # get differences in density for each charge state between time points
+                dPQ = raw[:, 1:]
+                #dPQ = np.append(dPQ, dPQ[-1]*2 - dPQ[-2])   
+                dPQ = dPQ [1:] - dPQ[:-1]
+                self.boundDeltaData[a].append(dPQ)
+                # if i ==0:
+                #     print(self.boundData[a][0])
+                #     print("--")
+                #     print(dPQ[0])
+                #     print(self.boundData[a][1])
+                #     print("--")
+                #     print(dPQ[1])
+                #     print(self.boundData[a][2])
+                #     asdads
+        
+
+
 
 
     def go(self):

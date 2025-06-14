@@ -1,10 +1,8 @@
 #ATOMS
 C 642.870
-N 199.558
-O 537.481
 
 #BOUND_FREE_EXCLUSIONS
-O
+C
 
 #VOLUME
 30251.2     // Volume per molecule in Angstrom^3.

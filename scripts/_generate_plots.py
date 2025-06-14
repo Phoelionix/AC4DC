@@ -24,13 +24,13 @@ from QoL import set_highlighted_excepthook
 ####
 ELECTRON_DENSITY = None # Whether to use electron density for free distribution plots. If None, will do one or the other or both depending on the plot.
 ###
-PLOT_ELEMENT_CHARGE= True #
-PLOT_FREE_CONTINUUM = True
+PLOT_ELEMENT_CHARGE= False #
+PLOT_FREE_CONTINUUM = False
 PLOT_SPLIT_FREE_CONTINUUMS = False
 PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = False
-PLOT_FREE_SLICES=True
-PLOT_ION_RATIOS=True
-PLOT_ION_RATIOS_BARS= True
+PLOT_FREE_SLICES=False
+PLOT_ION_RATIOS=False
+PLOT_ION_RATIOS_BARS= False
 PLOT_ORBITAL_DENSITIES = True #
 PLOT_PHOTO_RATES = False
 
