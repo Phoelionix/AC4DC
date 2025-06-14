@@ -431,9 +431,12 @@ class Plotter:
             return val, time_step
         form_factors_sqrt_I,time_steps = np.fromfunction(snapshot,(self.t_fineness+1,))   # (Need to double check working as expected - not using np.vectorise)
         if len(time_steps) != len(np.unique(time_steps)):
-            print("Times used:", time_steps)
+            if not self.flagged_select_same_times:
+                print("Times used:", time_steps)
             if self.allow_select_same_times:
-                print("Warning: Selected same time step multiple times, you may want to choose a different fineness or a larger range!")
+                self.flagged_select_same_times = True
+                if not self.flagged_select_same_times:
+                    print("Warning: Selected same time step multiple times, you may want to choose a different fineness or a larger range!")
             else:
                 raise Exception("Error, used same times! Choose a different fineness or a larger range.")
         return form_factors_sqrt_I, time_steps
@@ -446,6 +449,61 @@ class Plotter:
         for i, state in enumerate(states_list):
             charges[i] = charge_dict[state]
         return charges  # (times,)
+        
+    def continuity_charge_snapshots(self,atom,seed=None):
+        time_steps = self.get_times_used()
+        self.aggregate_charges()
+
+        charges = np.empty(shape=(len(self.timeData),)) # charges corresponding to each time step in the simulation
+        # Get initial charge
+        initial_charge_state_densities= self.chargeData[atom][0]
+        atomic_density = np.sum(initial_charge_state_densities)
+        rng = np.random.default_rng(seed)
+        roll = rng.random()  
+        cumulative_chance = 0
+        found=False
+        for i in range(len(initial_charge_state_densities)):
+            cumulative_chance += initial_charge_state_densities[i]/atomic_density
+            if cumulative_chance >= roll:
+                charges[0] = i 
+                found=True
+                break
+        assert found
+        assert charges[0] == 0 # TEMPORARY
+
+        
+        for t_idx in range(len(self.timeData)-1): 
+
+            initial_charge = int(charges[t_idx])
+            delta_occs = self.boundDeltaData[atom][initial_charge][t_idx]
+            density_of_initial_charge_state = self.chargeData[atom][t_idx,initial_charge] 
+            #chance_change_to_state = np.zeros(shape=self.chargeData[atom].shape[-1])
+            chance_change_to_state = {}
+            for final_N_elec, delta_density in enumerate(delta_occs):
+                if delta_density == 0:
+                    continue
+                final_charge = int(ATOMNO[atom]-final_N_elec)
+                chance_change_to_state[final_charge] = delta_density/density_of_initial_charge_state
+            # chance to change charge state 
+            charges[t_idx+1]=initial_charge
+            rng = np.random.default_rng(seed)
+            cumulative_chance = 0
+            for final_charge, chance in chance_change_to_state.items(): 
+                cumulative_chance += chance
+                assert cumulative_chance < 1, f"Cumulative chance was {cumulative_chance}, but expected to be below 1" 
+                if cumulative_chance >= roll:
+                    charges[t_idx+1] = final_charge
+                    break
+
+        time_indices_used = np.searchsorted(self.timeData,time_steps)
+        #print(charges)
+        #print("----")
+        charges = charges[time_indices_used]
+        #print(charges)
+
+        return charges  # (times,)
+    
+    
         
         
     def get_charge_dict(self,atom):

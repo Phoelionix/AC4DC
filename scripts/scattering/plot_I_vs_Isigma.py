@@ -49,11 +49,10 @@ def read_validation_file(cif_file):
                 break
     return pd.DataFrame(rows, columns=list(data_dict.keys()))
 
-cif_file = "/home/speno/PhenixWorkspace/data/4et8-sf.cif"
-df = read_validation_file(cif_file)
 
 
-def plot_linear():
+
+def plot_linear(df):
     plt.figure()
     plt.scatter(df['I_meas'], df['I_sigma'], s=1)
     plt.xlabel('I_meas')
@@ -64,14 +63,14 @@ def plot_linear():
     plt.ylim(0,100)
 
 
-def plot_sqrt():
+def plot_sqrt(df):
     plt.figure()
     plt.scatter(np.sqrt(df['I_meas']), df['I_sigma'], s=1)
     plt.xlabel('sqrt I_meas')
     plt.ylabel('$\sigma_I$')
     plt.tight_layout()
 
-def plot_photon_count_error_analysis():
+def plot_photon_count_error_analysis(df):
     plt.figure()
     y = df['I_sigma']/np.sqrt(df['I_meas'])
     plt.scatter(df['I_meas'],y, s=10)
@@ -82,7 +81,7 @@ def plot_photon_count_error_analysis():
     plt.yscale('log')
 
 
-def plot_log(show_labels=False):
+def plot_log(df,show_labels=False):
     plt.figure()
     plt.scatter(df['I_meas'], df['I_sigma'], s=1)
     if show_labels:
@@ -132,8 +131,10 @@ def plot_curve_fit(log=False):
     plt.scatter(x,curve(x,*popt),s=1)
 
 if __name__ == "__main__":
-    plot_log()
-    plot_linear()
+    cif_file = "/home/speno/PhenixWorkspace/data/4et8-sf.cif"
+    df = read_validation_file(cif_file)
+    plot_log(df)
+    plot_linear(df)
 #plot_sqrt()
 #plot_photon_count_error_analysis()
 

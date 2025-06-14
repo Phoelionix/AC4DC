@@ -3,8 +3,9 @@ import sys
 import os
 import pandas as pd
 import os.path as path
-sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
-sys.path.append('/home/speno/AC4DC/scripts/scattering')
+sys.path.append('/home/speno20/AC4DC/scripts/pdb_parser')
+sys.path.append('/home/speno20/AC4DC/scripts/scattering')
+sys.path.append('/home/speno20/AC4DC/scripts/')
 from scatter import XFEL,Crystal,stylin
 from core_functions import get_sim_params,get_sim_elements,get_pdb_path,ATOMNO
 import imaging_params as imaging_params
@@ -21,13 +22,17 @@ import struct
 #target = "I3C.gro"
 #sim_handle = "lys_salt_solvated_fast_H_4"
 AVERAGE_CHARGES = None 
+ALLOW_SELECT_SAME_TIMES = True
 
 if __name__=="__main__":
     #sim_handles = ["lys_salt_solvated_fast_H_4","lys_solvated_fast_H_4"]
    # sim_handles = ["lys_solvated_H_2",]
-    sim_handles = ["lys_solvated_H_9","lys_salt_solvated_H_1"]
-    num_steps = 3600  # best to go sim time in attoseconds
+    #sim_handles = ["lys_solvated_H_9","lys_salt_solvated_H_1"]
+    sim_handles = ["Debug_2012"]
 
+    num_steps = 10 #3600 # best to go sim time in attoseconds
+
+    #target = "CNO_debug.gro"
     #target = "4et8.gro"
     target = "lys_example.gro"
     AVERAGE_CHARGES = False
@@ -43,7 +48,10 @@ if __name__=="__main__":
     )
 
 
-def get_random_charge_states(element):
+def get_charge_states(element,element_charge_snapshot_selector=None):
+    if element_charge_snapshot_selector is None:
+        #element_charge_snapshot_selector = element.crystal.ff_calculator.random_charge_snapshots
+        element_charge_snapshot_selector = element.crystal.ff_calculator.continuity_charge_snapshots
     SEEDED = False
     element.times_used = element.crystal.ff_calculator.get_times_used()
     if element.get_num_atoms() != len(element.crystal.sym_rotations)*len(element.coords):
@@ -54,7 +62,8 @@ def get_random_charge_states(element):
             seed = None
             if SEEDED:
                 seed = idx
-            charges[idx] = element.crystal.ff_calculator.random_charge_snapshots(element.name,seed) 
+            charges[idx] = element_charge_snapshot_selector(element.name,seed) 
+            #print(charges[idx])
             
             # TEMPORARY HACK COS UNSIGNED SHORT DUMBNESS
             # (Can't pass negative values...)
@@ -187,7 +196,7 @@ def charges(csv=False,individual_elements = False,average_charges=AVERAGE_CHARGE
         if average_charges:
             species_charges[element] = element_obj.crystal.ff_calculator.get_average_charge_ff_calculator(element_obj.name)
         else:
-            species_charges[element] = get_random_charge_states(element_obj)
+            species_charges[element] = get_charge_states(element_obj)
             # TEMPORARY HACK COS UNSIGNED SHORT DUMBNESS
             # (Can't pass negative values...)
             if element_obj.name == "I_fast":
@@ -281,9 +290,8 @@ if __name__ == "__main__":
         # Assign plotter object to calculate charges (because code debt)
         xfel = XFEL("dummy",energy,t_fineness=num_steps)
         ff_calculator = xfel.get_ff_calculator(start_time,end_time,sim_handle,MOLECULAR_PATH)   
-        ff_calculator.allow_select_same_times = True  
+        ff_calculator.allow_select_same_times = ALLOW_SELECT_SAME_TIMES  
         crystal.set_ff_calculator(ff_calculator)    
-
 
 
         DebyeLength(csv=False)
