@@ -40,7 +40,7 @@ class Plotter:
     # Example initialisation: Plotter(water,molecular/path)
     # --> Data is contained in molecular/path/water. 
     # Will use mol file within by default, or (with a warning) search input for matching name if none exists.  
-    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None,end_t=None,load_specific_atoms=None,sample_end_points_only=False,split_continuums_to_load=[],initialise=True):
+    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None,end_t=None,load_specific_atoms=None,sample_end_points_only=False,split_continuums_to_load=[],initialise=True,load_bound_delta_data=False):
         '''
         abs_molecular_path: The path to the folder containing the simulation output folder of interest.
         use_electron_density: If True, plot electron density rather than energy density
@@ -49,6 +49,7 @@ class Plotter:
         self.sample_end_points = sample_end_points_only
         self.num_sample_lines = 10
 
+        self.load_bound_delta_data=load_bound_delta_data
         self.use_electron_density = use_electron_density
         self.molecular_path = abs_molecular_path
         if self.molecular_path is None:
@@ -998,7 +999,9 @@ class Plotter:
                 photo_data_present = True
             except:
                 print("Warning: Missing '" + self.atomdict[a]['photofile'] + "'.")
-        self.update_bound_delta_data()
+        
+        if load_bound_delta_data:
+            self.update_bound_delta_data()
 
         # Truncate data to time specified.
         if self.end_t_plotting is not None: 
@@ -1010,8 +1013,9 @@ class Plotter:
                 self.boundData[a] = self.boundData[a][0:last_idx] 
                 if photo_data_present:
                     self.photoData[a] = self.photoData[a][0:last_idx]
-                for i in range(len(self.boundDeltaData[a])):
-                    self.boundDeltaData[a][i]=self.boundDeltaData[a][i][0:last_idx]   # shouldve created a class for each list of datapoints w.r.t. time...
+                if load_bound_delta_data:
+                    for i in range(len(self.boundDeltaData[a])):
+                        self.boundDeltaData[a][i]=self.boundDeltaData[a][i][0:last_idx]   # shouldve created a class for each list of datapoints w.r.t. time...
                 
 
         self.atomic_numbers = self.get_atomic_numbers()
