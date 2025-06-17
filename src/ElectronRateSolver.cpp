@@ -395,8 +395,6 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         auto& conf_N_elec_dict = input_params.Store[a].conf_N_elec_dict;
         for ( auto& r : input_params.Store[a].Photo) {
             double tmp = r.val*J*P[r.from];
-            auto& A = conf_N_elec_dict[r.from];
-            auto& B = conf_N_elec_dict[r.to];
             Pdot_delta[conf_N_elec_dict[r.from]][conf_N_elec_dict[r.to]]+=tmp;
             Pdot[r.to] += tmp;
             Pdot[r.from] -= tmp;
@@ -520,7 +518,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
                     tmp = finPair.val*s.F[0][n]*P[init];
                     Pdot_delta_subst[conf_N_elec_dict[init]][conf_N_elec_dict[finPair.idx]]+=tmp;
                     Pdot_subst[finPair.idx] += tmp;
-                    Pdot_subst[init] -= tmp;
+                    Pdot_subst[init] += -tmp;  // Doing += over -= because reduction, not sure if necessary.
                     sdot_bound_charge_eii_subst += tmp;   //TODO This is a positive sign, but it's negative in the TBR loops. Need to check what it should be. (this would only affect diagnostics) -S.P.
                 }
             }
@@ -596,7 +594,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             #warning No impact ionisation
                 #ifndef NO_TBR
                 Eigen::VectorXd vec_dqdt_scndry = Eigen::VectorXd::Zero(Distribution::size);
-                #warning ..but TBR is enabled (with no impact ionisation)!! This is generally a bad idea, unless you know what you're doing.
+                #warning ..but TBR is enabled (with no impact ionisation)!! This is generally a bad idea, unless you know what you are doing.
                 #endif
             #else
             Eigen::VectorXd vec_dqdt_scndry = Eigen::VectorXd::Zero(Distribution::size);
