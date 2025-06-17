@@ -109,7 +109,7 @@ void Distribution::get_Q_eii (const size_t& _c, Eigen::VectorXd& v, const size_t
     for (size_t xi=0; xi<P.size(); xi++) {
         // Loop over configurations that P refers to
         double v_copy [size] = {0};
-        #pragma omp parallel for num_threads(threads) reduction(+ : v_copy) // Do NOT use collapse(2), it's about twice as slow.
+        #pragma omp parallel for num_threads(threads) reduction(+ : v_copy[:size]) // Do NOT use collapse(2), it's about twice as slow.
         for (size_t J=0; J<size; J++) {
             for (size_t K=0; K<size; K++) {
                 v_copy[J] += P[xi]*f_array[_c][K]*basis.Q_EII[a][xi][J][K];
@@ -132,7 +132,7 @@ void Distribution::get_Q_tbr (const size_t& _c, Eigen::VectorXd& v, const size_t
     assert(basis.has_Qtbr());
     assert(P.size() == basis.Q_TBR[a].size());
     double v_copy [size] = {0}; 
-    #pragma omp parallel for num_threads(threads) reduction(+ : v_copy) collapse(2)
+    #pragma omp parallel for num_threads(threads) reduction(+ : v_copy[:size]) collapse(2)
     for (size_t eta=0; eta<P.size(); eta++) {          // eta -> configuration
         // Loop over configurations that P refers to
         for (size_t J=0; J<size; J++) {                   // J -> grid point
@@ -160,7 +160,7 @@ void Distribution::get_Q_ee(const size_t& _c, Eigen::VectorXd& v, const int & th
     // A guess. This should only happen when density is zero, so Debye length is infinity.
     // Guess the sample size is about 10^5 Bohr. This shouldn't ultimately matter much.   /// Attention - S.P. // Actually it seems this isn't active? Something something fences on roads.
     double v_copy [size] = {0}; 
-    #pragma omp parallel for num_threads(threads) reduction(+ : v_copy)  collapse(2)       
+    #pragma omp parallel for num_threads(threads) reduction(+ : v_copy[:size])  collapse(2)       
     for (size_t J=0; J<size; J++) {
         for (size_t K=0; K<size; K++) {
             for (auto& q : basis.Q_EE[J][K]) {

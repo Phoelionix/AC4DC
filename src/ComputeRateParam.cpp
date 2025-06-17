@@ -205,8 +205,7 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 					size++;
 				}
 				LocalEIIparams.push_back(tmpEIIparams);
-
-				bool calc_bound_transport = true;
+				bool calc_bound_transport = false; //TODO MACRO IFDEF
 				if (calc_bound_transport){
 					assert(Max_occ.size() == Orbitals.size());
 					size = 0;
