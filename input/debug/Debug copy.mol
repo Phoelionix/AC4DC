@@ -1,9 +1,7 @@
 #ATOMS
-C 1000
-N 125
 
-
-
+C 1000 
+N 750
 
 #VOLUME
 40000        // Volume per molecule in Angstrom^3.
@@ -16,7 +14,7 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 gaussian       // Pulse shape
 
 #PROBE_PULSE
-55
+25
 
 #USE_COUNT
 true    // active (using count)?
@@ -67,3 +65,13 @@ O 4
 #USE_INTENSITY
 true         // enabled? true/false.
 0.15            // Maximum intensity in 10^19 * W/cm^2. Will give different fluence between square and gaussian.
+
+#ATOMS
+H 500
+C 1000
+N 125
+O 500
+I_fast 375
+
+#LOAD
+I3C_25fs_backup

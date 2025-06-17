@@ -34,7 +34,6 @@ inline bool exists_test(const std::string& name)
 	return (stat(name.c_str(), &buffer) == 0);
 }
 
-
 using namespace CustomDataType;
 
 
@@ -47,10 +46,7 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 	// Final_occ defines the lowest possible occupancies for the initial orbital.
 	// Intermediate orbitals are recalculated to obtain the corresponding rates.
 
-	const string PHOTO = "Photo.txt";
-	const string AUGER = "Auger.txt";
-	const string FLUOR = "Fluor.txt";
-	const string EII =  "EII.json";
+
 
 	if (!SetupIndex(Max_occ, Final_occ, runlog)) return Store;
 
@@ -83,16 +79,16 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 
 	if (recalculate) { // Hartree Fock is calculated once, at molinp photon energy 
 		have_Aug=false;
-		have_EII = (calculate_secondary_ionisation == false);
+		have_EII = (calculate_secondary_ionisation == false);  // Update: TODO this should always be false!!!! Don''t need to recalculate. 
 		have_Pht=false;
 		have_Flr=false;
 	} else { // First time: Save photoionization data for multiple photon energies. Second time: Interpolate from data.
 		// Check if there are pre-calculated rates
 		have_Pht = RateData::InterpolateRates(RateLocation, PHOTO, Store.Photo, input.Omega()); // Omega dependent
-		have_Flr = RateData::ReadDecayRates(RateLocation, FLUOR, Store.Fluor,dimension);  // Dependent on ionizable shells
-		have_Aug = RateData::ReadDecayRates(RateLocation, AUGER, Store.Auger,dimension);  // Dependent on ionizable shells
-		have_EII = (calculate_secondary_ionisation == false);
-		// Not sure if the below line will work properly, it would need to ensure that the energies of the knots are as expected. Not sure it does at present.
+		have_Flr = RateData::ReadRatesWithConfigTag(RateLocation, FLUOR, Store.Fluor,dimension);  // Dependent on ionizable shells
+		have_Aug = RateData::ReadRatesWithConfigTag(RateLocation, AUGER, Store.Auger,dimension);  // Dependent on ionizable shells
+		have_EII = RateData::ReadRatesWithConfigTag(RateLocation, EII, Store.EIIparams,dimension);//(calculate_secondary_ionisation == false);
+		// Not sure if the below line will work properly, it would need to ensure that the energies of the knots are as expected. Not sure it does at present. UPDATE TODO this doesn't care about the free grid.
 		//have_EII = RateData::ReadEIIParams(RateLocation + EII, Store.EIIparams) || (calculate_secondary_ionisation == false); // Dependent on the spline basis for electron distribution 
 		
 		cout <<"======================================================="<<endl;
@@ -354,7 +350,7 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 			RateData::WriteRates(dummy, Store.Auger);
 		}
 		if (!have_EII) {
-			string dummy = RateLocation +EII;
+			string dummy = RateLocation +  std::to_string(dimension)+"_"+EII;
 			cout<<"Saving EII data to "<<dummy<<"..."<<endl;
 			RateData::WriteEIIParams(dummy, Store.EIIparams);
 		}

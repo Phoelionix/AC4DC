@@ -15,6 +15,8 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 9200         // Photon energy in eV.
 0.5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 gaussian       // Pulse shape
+4 // sim. timespan in FWHM
+2 // sim. timespan before pulse peak in FWHM
 
 #USE_COUNT
 true    // active (using count)?
@@ -26,8 +28,8 @@ true    // active (using count)?
 
 #DYNAMIC_GRID
 N              // Grid regions preset, options are: dismal, low, medium, high, (referring to accuracy),  and no_dirac (static region is used rather than dynamic dirac regions)
-5.05            // Grid update period in fs, (dynamic grid only).
-2            // Time before transforming initial guess grid to dynamic grid in fs. 
+0.35            // Grid update period in fs, (dynamic grid only).
+0.25            // Time before transforming initial guess grid to dynamic grid in fs. 
 
 #OUTPUT
 800         // Number of time steps in the output files.
@@ -40,6 +42,7 @@ Y            // Write data for molecular dynamics (MD) in a separate file (Y/N)?
 99 //10     // Simulation cutoff time in fs
 0.01    // Interval to update current timestep [fs].
 20 // Interval **in steps** between live plot (_live_plot.png) updates
-120 // Period between backups in minutes  
+60 // Period between backups in minutes  
 ####END#####
 
+Notes:

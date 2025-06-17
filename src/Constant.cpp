@@ -268,7 +268,7 @@ namespace RateData{
 	 * @return true success
 	 * @return false fail
 	 */
-	bool ReadRates(const string & input, vector<Rate>& PutHere) {
+	bool ReadTransitionRates(const string & input, vector<Rate>& PutHere) {
 		PutHere.clear();
 
 		Rate Tmp;
@@ -295,8 +295,24 @@ namespace RateData{
 
 	}
 
-	bool ReadDecayRates(const string & rate_location, const string & rate_file_type, vector<RateData::Rate> & PutHere, int num_allowed_configs){
+	bool ReadRatesWithConfigTag(const string & rate_location, const string & rate_file_type, vector<RateData::EIIdata> & PutHere, int num_allowed_configs){
 		PutHere.clear();
+		string input_path = ReadRatesWithConfigTagMainCheck(rate_location,rate_file_type,num_allowed_configs);
+		if (input_path == ""){
+			return false;
+		}
+		return ReadEIIParams(input_path,PutHere);
+
+	}
+	bool ReadRatesWithConfigTag(const string & rate_location, const string & rate_file_type, vector<RateData::Rate> & PutHere, int num_allowed_configs){
+		PutHere.clear();
+		string input_path = ReadRatesWithConfigTagMainCheck(rate_location,rate_file_type,num_allowed_configs);
+		if (input_path == ""){
+			return false;
+		}
+		return ReadTransitionRates(input_path,PutHere);
+	}
+	string ReadRatesWithConfigTagMainCheck(const string & rate_location, const string & rate_file_type, int num_allowed_configs){
 		using namespace boost::filesystem; 
 		std::vector<double> energies_saved;
 		struct recursive_directory_range
@@ -322,10 +338,10 @@ namespace RateData{
 			double saved_configs = std::stod(saved_file_name.substr(0,split_pos)); // photon energy
 			if (saved_configs==num_allowed_configs){ 
 				// Saved this set of allowed configs before. Reuse them.
-				return ReadRates(rate_location+saved_file_name,PutHere);
+				return rate_location+saved_file_name;
 			}
 		}
-		return false;
+		return "";
 	}
 
 
@@ -359,7 +375,7 @@ namespace RateData{
 			if (saved_omega-tol < photon_energy && photon_energy < saved_omega + tol ){ // lazy 
 				// Saved this exact energy before. Reuse it.
 				
-				return ReadRates(rate_location+saved_file_name,PutHere);
+				return ReadTransitionRates(rate_location+saved_file_name,PutHere);
 			}
 			if (saved_omega < photon_energy && saved_omega > nearest_lower_energy){ // lower bound
 				nearest_lower_energy = saved_omega;
