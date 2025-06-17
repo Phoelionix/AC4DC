@@ -591,30 +591,37 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         #endif 
 
         for (;_c < Distribution::num_continuums; _c++){
-            Eigen::VectorXd vec_dqdt_scndry = Eigen::VectorXd::Zero(Distribution::size);
             // Contribution of EII / TBR to free-electron continuum
-            auto t1 = std::chrono::high_resolution_clock::now();
             #ifdef NO_EII
             #warning No impact ionisation
+                #ifndef NO_TBR
+                Eigen::VectorXd vec_dqdt_scndry = Eigen::VectorXd::Zero(Distribution::size);
+                #warning ..but TBR is enabled (with no impact ionisation)!! This is generally a bad idea, unless you know what you're doing.
+                #endif
             #else
+            Eigen::VectorXd vec_dqdt_scndry = Eigen::VectorXd::Zero(Distribution::size);
+            auto t1 = std::chrono::high_resolution_clock::now();
             s.F.get_Q_eii(_c,vec_dqdt_scndry, a, P, threads);
             auto t2 = std::chrono::high_resolution_clock::now();
             eii_time_free += t2 - t1;
             #endif
             
-            auto t3 = std::chrono::high_resolution_clock::now();
             #ifdef NO_TBR
             #warning No three-body recombination
             #else
+            auto t3 = std::chrono::high_resolution_clock::now();
             s.F.get_Q_tbr(_c,vec_dqdt_scndry, a, P, threads);  // Serially, this is the computational bulk of the program - S.P.
             auto t4 = std::chrono::high_resolution_clock::now();
             tbr_time_free += t4 - t3;
             #endif
+
+            #if !defined(NO_EII) || !defined(NO_TBR)
             // Add secondary ionization to distributions
             auto t7 = std::chrono::high_resolution_clock::now();
             sdot.F.applyDeltaF(_c-1,vec_dqdt_scndry,threads);
             auto t8 = std::chrono::high_resolution_clock::now();
             apply_delta_time += t8 - t7;
+            #endif
 
         }
         // Add primary ionization to distributions

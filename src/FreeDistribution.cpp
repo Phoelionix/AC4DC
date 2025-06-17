@@ -106,17 +106,19 @@ void Distribution::get_Q_eii (const size_t& _c, Eigen::VectorXd& v, const size_t
     assert(basis.has_Qeii());
     assert(P.size() == basis.Q_EII[a].size());
     assert((unsigned) v.size() == size);
-    for (size_t xi=0; xi<P.size(); xi++) {
+
+    //double* __restrict v_ptr = v.data();
+    double* v_ptr = v.data(); // This gives a significant speedup (__restrict qualifier is unecessary).  Alternatively we could  do: `double v_copy [size] = {0};`, replace v_ptr in the loop with v_copy, and then after the parallel loop do: `double v_copy [size] = {0};`
+    #pragma omp parallel for num_threads(threads) // Do NOT use collapse(2), it's about twice as slow.        
+     for (size_t J=0; J<size; J++) {
         // Loop over configurations that P refers to
-        double v_copy [size] = {0};
-        #pragma omp parallel for num_threads(threads) reduction(+ : v_copy[:size]) // Do NOT use collapse(2), it's about twice as slow.
-        for (size_t J=0; J<size; J++) {
+        for (size_t xi=0; xi<P.size(); xi++) {
             for (size_t K=0; K<size; K++) {
-                v_copy[J] += P[xi]*f_array[_c][K]*basis.Q_EII[a][xi][J][K];
+                v_ptr[J] += P[xi]*f_array[_c][K]*basis.Q_EII[a][xi][J][K]; 
             }
         }
-        v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
     }
+    //v += v_copy_map;
 }
 
 /**
@@ -131,19 +133,20 @@ void Distribution::get_Q_eii (const size_t& _c, Eigen::VectorXd& v, const size_t
 void Distribution::get_Q_tbr (const size_t& _c, Eigen::VectorXd& v, const size_t& a, const bound_t& P, const int & threads) const {
     assert(basis.has_Qtbr());
     assert(P.size() == basis.Q_TBR[a].size());
-    double v_copy [size] = {0}; 
-    #pragma omp parallel for num_threads(threads) reduction(+ : v_copy[:size]) collapse(2)
+    //double v_copy [size] = {0}; 
+    double* v_ptr = v.data();
+    #pragma omp parallel for num_threads(threads) reduction(+ : v_ptr[:size]) collapse(2)
     for (size_t eta=0; eta<P.size(); eta++) {          // eta -> configuration
         // Loop over configurations that P refers to
         for (size_t J=0; J<size; J++) {                   // J -> grid point
             for (auto& q : basis.Q_TBR[a][eta][J]) {   // Thousands of iterations for each J - S.P.
-                v_copy[J] += q.val * P[eta] * (f_array[_c][q.K] * f_array[0][q.L] + f_array[0][q.K] * f_array[_c][q.L])*0.5; //Correct?
+                v_ptr[J] += q.val * P[eta] * (f_array[_c][q.K] * f_array[0][q.L] + f_array[0][q.K] * f_array[_c][q.L])*0.5; //Correct?
                 //v_copy[J] += q.val * P[eta] * f_array[_c][q.K] * f_array[_c][q.L];
 
             }
         }
     }
-    v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
+    //v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
 }
 
 // Puts the Q_EE changes in the supplied vector v
@@ -159,17 +162,18 @@ void Distribution::get_Q_ee(const size_t& _c, Eigen::VectorXd& v, const int & th
     // cerr<<"LnDebLen = "<<LnLambdaD<<endl;
     // A guess. This should only happen when density is zero, so Debye length is infinity.
     // Guess the sample size is about 10^5 Bohr. This shouldn't ultimately matter much.   /// Attention - S.P. // Actually it seems this isn't active? Something something fences on roads.
-    double v_copy [size] = {0}; 
-    #pragma omp parallel for num_threads(threads) reduction(+ : v_copy[:size])  collapse(2)       
+    //double v_copy [size] = {0}; 
+    double* v_ptr = v.data();
+    #pragma omp parallel for num_threads(threads) reduction(+ : v_ptr[:size])  collapse(2)       
     for (size_t J=0; J<size; J++) {
         for (size_t K=0; K<size; K++) {
             for (auto& q : basis.Q_EE[J][K]) {
                  //v_copy[J] += q.val * f_array[0][K] * f_array[0][q.idx] * CoulombLog;  
-                 v_copy[J] += q.val * (f_array[_c][K] * f_array[0][q.idx] + f_array[0][K] * f_array[_c][q.idx])*0.5 * CoulombLog; 
+                 v_ptr[J] += q.val * (f_array[_c][K] * f_array[0][q.idx] + f_array[0][K] * f_array[_c][q.idx])*0.5 * CoulombLog; 
             }
         }
     }
-    v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
+    //v += Eigen::Map<Eigen::VectorXd>(v_copy,size);
 }
 
 
