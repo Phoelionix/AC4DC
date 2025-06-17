@@ -509,7 +509,8 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         size_t N = Distribution::size; 
         auto t11 = std::chrono::high_resolution_clock::now();
 
-        #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_delta_subst, Pdot_subst,sdot_bound_charge_eii_subst,sdot_bound_charge_tbr_subst)     
+        // Commenting out for now, might be causing rare segmentation faults. Uncomment if issue doesn't go away.
+        //#pragma omp parallel for num_threads(threads) reduction(+ : Pdot_delta_subst, Pdot_subst,sdot_bound_charge_eii_subst,sdot_bound_charge_tbr_subst)     
         for (size_t n=0; n<N; n++) {
             double tmp=0; // aggregator
             
