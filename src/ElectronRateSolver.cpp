@@ -500,8 +500,16 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
         double Pdot_delta_subst [Pdot_delta.size()][Pdot_delta[0].size()] ={0};
         // https://stackoverflow.com/questions/3948290/what-is-the-safe-way-to-fill-multidimensional-array-using-stdfill
-        std::fill(&Pdot_delta_subst[0][0],&Pdot_delta_subst[0][0]+sizeof(Pdot_delta_subst)/ sizeof(Pdot_delta_subst[0][0]),0); //have to do because array size defined by variable. otherwise don't get 0s. Very annoying.
-
+        //std::fill(&Pdot_delta_subst[0][0],&Pdot_delta_subst[0][0]+sizeof(Pdot_delta_subst)/ sizeof(Pdot_delta_subst[0][0]),0); //have to do because array size defined by variable. otherwise don't get 0s. Very annoying.
+        //std::fill_n(&Pdot_delta_subst[0][0],Pdot_delta.size()*Pdot_delta[0].size(),0)
+        //for (auto & row: Pdot_delta_subst){
+        for (size_t i=0; i<Pdot_delta.size();i++){
+            //std::fill_n(Pdot_delta_subst[i].begin(),Pdot_delta.size(),0);
+            //std::fill_n(row.begin(),row.size(),0);
+            for (size_t j=0; i<Pdot_delta[0].size();i++){
+                Pdot_delta_subst[i][j]=0;
+            }
+        }
         double sdot_bound_charge_eii_subst = 0; 
         double sdot_bound_charge_tbr_subst = 0; 
         size_t N = Distribution::size; 
