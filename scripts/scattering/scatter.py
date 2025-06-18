@@ -42,6 +42,7 @@ from Bio.PDB.vectors import rotaxis2m
 #from Bio.PDB.PDBParser import PDBParser
 #from Bio.PDB.PDBIO import PDBIO
 #from Bio.PDB.StructureBuilder import StructureBuilder
+from Bio.PDB.MMCIFParser import MMCIFParser # no xpdb verion
 from xpdb import sloppyparser as xPDBParser
 from xpdb import SloppyPDBIO as xPDBIO
 from xpdb import SloppyStructureBuilder as xStructureBuilder  # Hack, enables atom counts over 10,000
@@ -214,10 +215,11 @@ class Crystal():
         rocking_angle [degrees]
         cell_packing ("SC","BCC","FCC","FCC-D")
         '''
-        self.gromacs_config = struct_file_path.split('.')[-1]=="gro"
+        self.gromacs_config_file = struct_file_path.split('.')[-1]=="gro"
+        self.cif_file = struct_file_path.split('.')[-1]=="cif"
         if include_symmetries is None:
-            include_symmetries = not self.gromacs_config
-        if self.gromacs_config:
+            include_symmetries = not self.gromacs_config_file
+        if self.gromacs_config_file:
             print("Using gromacs file")
             assert include_symmetries == False
             assert num_supercells == 1
@@ -250,7 +252,7 @@ class Crystal():
         self.cell_dim = None   # unit cell length parameters. Angles not implemented yet.        
         self.parse_data_from_pdb() # All asymmetric units in unit cell
 
-        if self.gromacs_config:
+        if self.gromacs_config_file:
             self.cell_dim = [0,0,0]
 
         if not include_symmetries:
@@ -286,8 +288,11 @@ class Crystal():
             if convert_excluded_elements_to_N and v not in allowed_atoms: 
                     v = "N"    
             PDB_to_AC4DC_dict[k] = v       
-        if self.gromacs_config:
+        if self.gromacs_config_file:
             parser = Custom_Gromacs_Parser()
+        elif self.cif_file:
+            parser = MMCIFParser()
+            assert False, "cif not supported"
         else:
             # Get structure using Bio.PDB's parser
             parser=copy.deepcopy(xPDBParser)
@@ -3323,12 +3328,12 @@ if __name__ == "__main__":
     fig_height = fig_width*3/4 # 20
     ### Simulate
     target_options = ["lys_salt","lys_no_salt","lys_salt_HF","neutze","hen","tetra","glycine","fcc","galliHigh"
-                      "lys_nass_probe_35",]
+                      "lys_nass_probe_35","copper_sulfate"]
     #============------------User params---------==========#
 
     #R:  0.03453990841341609
     #R:  0.039555455273223315
-    target = "lys_nass_probe_35"#"glycine"  #target_options[2]
+    target = "copper_sulfate" #lys_nass_probe_35"#"glycine"  #target_options[2]
     best_resolution = 2 # 1.58 (abdullah) # 1.3 # 2   # resolution (determining max q)
     worst_resolution = 30 #None #30 # 'resolution' corresponding to min q
 
@@ -3362,7 +3367,7 @@ if __name__ == "__main__":
     )
     crystal_2_has_deviations=False
 
-    show_crystal = False
+    show_crystal = True
 
     #### XFEL params
     #TODO make it so reflections don't overwrite same orientation, as stochastic now.
@@ -3440,6 +3445,8 @@ if __name__ == "__main__":
     #---------------------------------#
     water_index = None # None TODO automate
     pdb_path2 = None
+    CNO_to_N = False
+    S_to_N = False
     if target in["lys_salt","lys_no_salt","lys_salt_HF","lys_no_salt_HF","galliHigh", "lys_nass_probe_35"]:
         QUICK_TEST = False
         IDEAL = False
@@ -3580,6 +3587,12 @@ if __name__ == "__main__":
         allowed_atoms = ["C","N","O"]
         CNO_to_N = False
         S_to_N = False
+    elif target == "copper_sulfate":
+        allowed_atoms = ["Cu,S,O,H"]
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/CuS_1010527.cif" 
+        target_handle = "copper_sulfate_above_e11_3"
+        folder = ""
+
     else:
         raise Exception("'target' invalid")
     #-------------------------------#
