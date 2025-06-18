@@ -40,7 +40,7 @@ class Plotter:
     # Example initialisation: Plotter(water,molecular/path)
     # --> Data is contained in molecular/path/water. 
     # Will use mol file within by default, or (with a warning) search input for matching name if none exists.  
-    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None,end_t=None,load_specific_atoms=None,sample_end_points_only=False,split_continuums_to_load=[],initialise=True,load_bound_delta_data=False):
+    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None,end_t=None,load_specific_atoms=None,sample_end_points_only=False,split_continuums_to_load=[],initialise=True,load_bound_delta_data=True):
         '''
         abs_molecular_path: The path to the folder containing the simulation output folder of interest.
         use_electron_density: If True, plot electron density rather than energy density
@@ -84,7 +84,7 @@ class Plotter:
         self.energyKnot=None
         self.timeData=None
 
-        self.preferred_element_order = ["C","N","O","S","Gd","Na","Cl"] # Order of split continuum files. Any others go after all these
+        self.preferred_element_order = ["H","C","N","O","S","Gd","Na","Cl"] # Order of split continuum files. Any others go after all these
 
         self.split_continuums_mode = None  
 
@@ -476,6 +476,10 @@ class Plotter:
         for t_idx in range(len(self.timeData)-1): 
 
             initial_charge = int(charges[t_idx])
+            print(len(self.timeData))
+            print(atom,initial_charge,t_idx)
+            print(len(self.boundDeltaData[atom]))
+            print(self.boundDeltaData[atom][initial_charge].shape)
             delta_occs = self.boundDeltaData[atom][initial_charge][t_idx]
             density_of_initial_charge_state = self.chargeData[atom][t_idx,initial_charge] 
             #chance_change_to_state = np.zeros(shape=self.chargeData[atom].shape[-1])
@@ -1000,7 +1004,7 @@ class Plotter:
             except:
                 print("Warning: Missing '" + self.atomdict[a]['photofile'] + "'.")
         
-        if load_bound_delta_data:
+        if self.load_bound_delta_data:
             self.update_bound_delta_data()
 
         # Truncate data to time specified.
@@ -1013,7 +1017,7 @@ class Plotter:
                 self.boundData[a] = self.boundData[a][0:last_idx] 
                 if photo_data_present:
                     self.photoData[a] = self.photoData[a][0:last_idx]
-                if load_bound_delta_data:
+                if self.load_bound_delta_data:
                     for i in range(len(self.boundDeltaData[a])):
                         self.boundDeltaData[a][i]=self.boundDeltaData[a][i][0:last_idx]   # shouldve created a class for each list of datapoints w.r.t. time...
                 
@@ -1276,7 +1280,7 @@ class Plotter:
         ax.legend(loc='upper left',bbox_to_anchor=(1, 1),fontsize=4,ncol=num_cols)
         return ax
 
-    def plot_charges_bar(self, a, ion_fract = True, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[0,1],**kwargs):
+    def plot_charges_bar(self, a, ion_fract = True, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=None,**kwargs):
         if show_pulse_profile:  
             ax, ax2 = self.setup_intensity_plot(self.get_next_ax(),col="white")
         else:
@@ -1307,7 +1311,9 @@ class Plotter:
         if ion_fract:
             ax.set_ylabel(a+r" charge")
         old_ytop = ax.get_ylim()[1]
-        ax.set_ylim([-0.5,len(Y)-0.5])
+        if ylim is None:
+            ylim = [-0.5,len(Y)-0.5]
+        ax.set_ylim(ylim)
 
 
 
@@ -1890,7 +1896,8 @@ class Plotter:
         
 
     def plot_all_charges(self, ion_fract = True, rseed=404,plot_legend=True,show_pulse_profile=True,xlim=[None,None],ylim=[None,None],**kwargs):
-        for a in self.atomdict:
+        atoms = self.get_ordered_atoms(self.preferred_element_order)   
+        for a in atoms:
             self.plot_charges(a, ion_fract, rseed,plot_legend,show_pulse_profile=show_pulse_profile,xlim=xlim,ylim=ylim,**kwargs)
     def plot_charge_contrast_custom_thing(self,heavy_element,every=1, xlim=[None,None], plot_legend=True,cmap=None,empirical_data_paths=[],**kwargs):
         plot_pulse_energy = False
