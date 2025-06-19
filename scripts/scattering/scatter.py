@@ -213,7 +213,7 @@ class Crystal():
     def __init__(self, struct_file_path, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = None, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1, S_to_N=False,convert_excluded_elements_to_N=False,random_waters=None,use_bfactors=True,zero_bfactors=False):
         '''
         rocking_angle [degrees]
-        cell_packing ("SC","BCC","FCC","FCC-D")
+        cell_packing ("SC","BCC","FCC","FCC-D", "triclinic")
         '''
         self.gromacs_config_file = struct_file_path.split('.')[-1]=="gro"
         self.cif_file = struct_file_path.split('.')[-1]=="cif"
@@ -223,6 +223,7 @@ class Crystal():
             print("Using gromacs file")
             assert include_symmetries == False
             assert num_supercells == 1
+        assert not self.cif_file, "cif not supported"
         if zero_bfactors:
             assert use_bfactors, "Can't set zero B factors - B factors aren't being used."
 
@@ -249,7 +250,8 @@ class Crystal():
         assert self.supercell_simulations <= num_supercells
         ## Parameters to be parsed by custom function because I cannot understand Bio.PDB.PDBParser's documentation.
         self.sym_rotations = []; self.sym_translations = [];   # Symmetry for each asymmetric unit simulated. If non-SPI, this is defining the supercell.
-        self.cell_dim = None   # unit cell length parameters. Angles not implemented yet.        
+        self.cell_dim = None   # unit cell basis vector lengths. 
+        self.cell_angles = None       
         self.parse_data_from_pdb() # All asymmetric units in unit cell
 
         if self.gromacs_config_file:
@@ -271,7 +273,7 @@ class Crystal():
         # different names
         PDB_to_AC4DC_dict = dict(
             #NA = "Sodion", CL = "Chloride",
-            NA = "Na", CL = "Cl",
+            NA = "Na", CL = "Cl", CU="Cu",
         )
         # Same names
         for elem in ["H","He","C","N","O","P","S","Gd","I"]:  # pdb names # TODO automate this...
@@ -292,7 +294,7 @@ class Crystal():
             parser = Custom_Gromacs_Parser()
         elif self.cif_file:
             parser = MMCIFParser()
-            assert False, "cif not supported"
+            assert False, "cif formats not supported"
         else:
             # Get structure using Bio.PDB's parser
             parser=copy.deepcopy(xPDBParser)
@@ -388,8 +390,14 @@ class Crystal():
         Takes in the symmetry factor and translation of the unit cell, and translates them across each unit cell
         '''
         symmetry_translation/= ang_per_bohr
+
+        if self.cell_packing == "triclinic":
+            symmetry_factor = get_triclinic_basis(self.cell_angles) @ symmetry_factor #get_triclinic_basis(self.cell_angles)@symmetry_factor
         # Simple cubic packing. (actually it's all rectangular prisms, TODO)
-        if self.cell_packing == "SC":  
+        if self.cell_packing == "SC" or self.cell_packing == "triclinic":  
+            if self.cell_packing == "SC":
+                assert self.cell_angles[0] == self.cell_angles[1] == self.cell_angles[2]==90
+
             self.num_cells = self.supercell_scale**3
             # Generate the coordinates of the cube (performance: defining scaling matrix/cube coords outside of here would be more efficient). But only runs once  \_( '_')_/ ¯\_(ツ)_/¯.
             x, y, z= np.meshgrid(np.arange(0, self.supercell_scale), np.arange(0, self.supercell_scale), np.arange(0, self.supercell_scale))
@@ -399,14 +407,22 @@ class Crystal():
             if DEBUG or DEBUG_MODERATE:
                 print_thing = np.array(["][x]   [","][y] + [","][z]   ["],dtype=object)
                 print(symmetry_label,"\n",np.c_[symmetry_factor, print_thing ,symmetry_translation],sep="")
+          
+            if self.cell_packing == "triclinic":
+                a = get_triclinic_basis(self.cell_angles)
             for coord in cube_coords:
+                if self.cell_packing == "triclinic":
+                    coord_scaled = a@(coord*self.cell_dim)  # ahhhhh forgot to multiply coord by cell dim first
+                    assert(coord.shape == (3,))
+                    translation = coord_scaled + symmetry_translation 
+
                 #print(coord)
-                translation = coord*self.cell_dim + symmetry_translation
+                else:
+                    translation = coord*self.cell_dim + symmetry_translation
                 self.sym_translations.append(translation)
                 self.sym_rotations.append(symmetry_factor)
                  
         else:
-            #Can just duplicate symmetries if not SPI since equivalent for crystal.
             raise Exception("Lacking implementation")
             
     def parse_data_from_pdb(target):
@@ -455,6 +471,9 @@ class Crystal():
                     entries = line.split()[1:]
                     target.cell_dim = [float(a) for a in entries[0:3]]
                     target.cell_dim = np.array(target.cell_dim)/ang_per_bohr 
+                    target.cell_angles = [float(a) for a in entries[3:6]]
+                    T = target.cell_angles
+                    target.cell_angles = [T[0],T[1],T[2]] 
 
                 ## Start data - Check if this line marks the next as the beginning of a desired data section.                    
                 # Symmetry operators
@@ -657,9 +676,20 @@ CRYST1   {a*self.supercell_scale:.3f}   {b*self.supercell_scale:.3f}   {c*self.s
                 if i >= num_test_points:
                     break      
         plot_coords = []
+
         for i in range(len(self.sym_rotations)):
             coord_list = self.get_sym_xfmed_point(test_points,i).tolist()
             plot_coords.extend(coord_list)  
+
+        plot_coords = np.array(plot_coords)*ang_per_bohr # convert to angstrom
+        raise_non_unique_exception = False
+        if np.unique(plot_coords,axis=0).shape != plot_coords.shape:
+            a, unique_indices = np.unique(plot_coords,axis=0,return_index = True)
+            num_non_unique = len(plot_coords)-len(unique_indices)
+            print("WARNING", num_non_unique, "non-unique coords found:")
+            raise_non_unique_exception = True
+            #plot_coords = np.delete(plot_coords, unique_indices,axis=1)  # delete anyway.            
+            #plot_coords = plot_coords[unique_indices]
 
         #Colors - which to highlight (root atom is first atom of cell)
         c_first_root_atom = False # red
@@ -698,14 +728,7 @@ CRYST1   {a*self.supercell_scale:.3f}   {b*self.supercell_scale:.3f}   {c*self.s
             color = np.concatenate((kernel_color,bg_color))
             #alpha = np.concatenate((kernel_alpha,bg_alpha))
         
-        plot_coords = np.array(plot_coords)*ang_per_bohr # convert to angstrom
-        raise_non_unique_exception = False
-        if np.unique(plot_coords,axis=0).shape != plot_coords.shape:
-            a, unique_indices = np.unique(plot_coords,axis=0,return_index = True)
-            print("WARNING", len(np.delete(plot_coords, unique_indices)), "non-unique coords found:")
-            raise_non_unique_exception = True
-            print(np.delete(plot_coords, unique_indices))  # delete anyway.            
-                            
+
             #color[color!='y'] = '#0f0f0f00'   # example to see just one atom type
         x_range = np.array([np.min(plot_coords[:,0]),np.max(plot_coords[:,0])])
         y_range = np.array([np.min(plot_coords[:,1]),np.max(plot_coords[:,1])])
@@ -898,7 +921,7 @@ CRYST1   {a*self.supercell_scale:.3f}   {b*self.supercell_scale:.3f}   {c*self.s
         #fig.write_html("Structure.html")
 
         if raise_non_unique_exception:
-            raise Exception(str(len(np.delete(plot_coords, unique_indices))) + " non-unique coords found:")
+            raise Exception(str(num_non_unique) + " non-unique coords found:")
 
 
 class Atomic_Species():
@@ -1744,16 +1767,19 @@ class XFEL():
 
 
         # (h,k,l) is G (subject to selection condition) in lattice vector basis (lattice vector length = 1 in each dimension):
-        # a = lattice vectors, b = reciprocal lattice vector
-        if cell_packing == "SC" or cell_packing == "FCC" or cell_packing == "BCC" or cell_packing == "FCC-D":
+        # a = primitive lattice vectors, b = reciprocal lattice vectors
+        if cell_packing == "SC" or cell_packing == "triclinic" or cell_packing == "FCC" or cell_packing == "BCC" or cell_packing == "FCC-D":
             if cell_packing == "SC":
                 a = np.array([[1,0,0],[0,1,0],[0,0,1]])
             if cell_packing == "BCC":
                 a = 0.5*np.array([[-1,1,1],[1,-1,1],[1,1,-1]])
             if cell_packing == "FCC":
                 a = 0.5*np.array([[0,1,1],[1,0,1],[1,1,0]])
+            if cell_packing == "triclinic":
+                a =get_triclinic_basis(crystal.cell_angles)
+                
             if self.custom_cell_dims_for_miller_indices is None:
-                a = np.multiply(a,crystal.cell_dim)
+                a = np.multiply(a,crystal.cell_dim)  # TODO assert that multiplying along correct dimension.... D:
             else:
                 a = np.multiply(a,self.custom_cell_dims_for_miller_indices) 
         else: 
@@ -1764,6 +1790,8 @@ class XFEL():
         b2 = np.cross(a[2],a[0])
         b3 = np.cross(a[0],a[1])
         b = 2*np.pi*np.array([b1,b2,b3])/(np.dot(a[0],np.cross(a[1],a[2])))
+        
+        assert not np.isnan(b).any() , f"primitive vectors {a} reciprocal vectors {b}"
         
         ###################### NOT TESTED TODO
         if indices_override is not None:
@@ -1805,13 +1833,14 @@ class XFEL():
                     and l_max < self.max_miller_idx):
                     l_max += 1     
 
+                q1 = sum(pow(h_max*element, 2) for element in b[0])
+                q2 = sum(pow(k_max*element, 2) for element in b[1])
+                q3 = sum(pow(l_max*element, 2) for element in b[2])
+                highest_possible_q = np.sqrt(q1+q2+q3)
                 if DEBUG or DEBUG_MODERATE:
-                    q1 = sum(pow(h_max*element, 2) for element in b[0])
-                    q2 = sum(pow(k_max*element, 2) for element in b[1])
-                    q3 = sum(pow(l_max*element, 2) for element in b[2])
-                    highest_possible_q = np.sqrt(q1+q2+q3)/ang_per_bohr
-                    print(f"q for ({h_max},{k_max},{l_max}): {highest_possible_q}, resolution: {q_to_res(highest_possible_q)}")
-                    
+                    print(f"q for ({h_max},{k_max},{l_max}): {highest_possible_q/ang_per_bohr}, resolution: {q_to_res(highest_possible_q/ang_per_bohr)}")
+                assert(highest_possible_q > self.min_q), f"highest allowed q{ {highest_possible_q/ang_per_bohr}} < smallest q {self.min_q/ang_per_bohr}"
+
             h_set = np.arange(-h_max,h_max+1,1)
             k_set = np.arange(-k_max,k_max+1,1)
             l_set = np.arange(-l_max,l_max+1,1)
@@ -1819,7 +1848,7 @@ class XFEL():
             indices = np.array([*set(indices)])   
         
             # Selection rules
-            if cell_packing == "SC":
+            if cell_packing == "SC" or cell_packing == "triclinic":
                 selection_rule = lambda f: True
             if cell_packing == "BCC":
                 selection_rule = lambda f: (f[0]+f[1]+f[2])%2==0  # All even
@@ -1852,10 +1881,11 @@ class XFEL():
                 return self.min_q <= np.sqrt(((g[0])**2+(g[1])**2+(g[2])**2)) <= self.max_q
             #max_q_rule = lambda f: np.sqrt(((f[0]*np.average(cell_dim))**2+(f[1]*np.average(cell_dim))**2+(f[2]*np.average(cell_dim))**2))<= self.max_q
             def select_friedel(indices):
-                return np.all(indices>0)
+                return np.all(indices>=0)
             # Catch the miller indices with a boolean mask
             if self.all_miller_indices:
-                mask=np.apply_along_axis(miller_selection_rule,1,indices)*np.apply_along_axis(selection_rule,1,indices)
+                mask= np.apply_along_axis(miller_selection_rule,1,indices)
+                mask *= np.apply_along_axis(selection_rule,1,indices)
                 mask *= np.apply_along_axis(select_friedel,1,indices)
                 #TODO select for just one symmetry.
                 if not self.override_max_q:
@@ -1865,6 +1895,8 @@ class XFEL():
                 if self.max_miller_idx != None:
                     mask*=np.apply_along_axis(miller_selection_rule,1,indices)
             indices = indices[mask]
+        assert(len(indices) > 0)
+
 
         actual_max_q = 0
         max_q_indices= [0,0,0]
@@ -2011,6 +2043,33 @@ class XFEL():
     # def r_to_q_scr(self,r):
     #     q = self.r_to_q(r)
     #     return self.q_to_q_scr(q)
+
+# Rotate to non-orthogonal axis
+def get_triclinic_basis(primitive_angles): # angles in degrees
+    # is this the transverse?
+    #a =  np.array([[1,0,0],[0,1,0],[0,0,1]]).astype(np.float64)
+    A,B,C = np.deg2rad(primitive_angles)
+
+    c_1 =  np.cos(B)
+    c_2 = (np.cos(A)-np.cos(B)*np.cos(C))/np.sin(C)
+    c_3 = np.sqrt(1-c_1**2-c_2**2)
+
+    return np.array(
+        [[1,0,0],
+        [np.cos(C),np.sin(C),0],
+        [c_1,c_2,c_3]]
+    )
+    #for i,  angle in zip(range(len(a)),primitive_angles):
+        #angles = np.array([0,0,0],dtype=np.float64)
+        #angles[i] = angle-90
+        #angles = np.array(primitive_angles) - 90
+        
+        #a_vector = np.array([0,0,0])
+        #a_vector = a[i]
+        #a[i] = #a_vector @ Rotation.from_euler('xyz',angles,degrees=True).as_matrix()
+
+        #a[0] = np.cos() + np.sin()
+    #return a
 
 def E_to_lamb(photon_energy):
     """Energy (eV) to wavelength in A.U."""
@@ -2159,6 +2218,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             plt.bar(stringified,np.sqrt(I_ideal),alpha=1)
             plt.bar(stringified,np.sqrt(I_real),alpha=1,color='r',width=0.4)
             plt.ylim(0,np.sqrt(max(np.max(I_ideal),np.max(I_real))))
+            plt.xticks(rotation="vertical")
             plt.show()
         def plot_sectors(sector_histogram):            
             plt.close()
@@ -2242,7 +2302,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             radial_axis = radial_axis[0]    
 
             # Plot spot intensities
-            plot_all_the_spots = False
+            plot_all_the_spots = True
             if plot_all_the_spots:
                 if result2 != None and crystal_aligned_frame:
                     plot_spots(result2.I.flatten(), result1.I.flatten(),result1.miller_indices)
@@ -3334,13 +3394,13 @@ if __name__ == "__main__":
     #R:  0.03453990841341609
     #R:  0.039555455273223315
     target = "copper_sulfate" #lys_nass_probe_35"#"glycine"  #target_options[2]
-    best_resolution = 2 # 1.58 (abdullah) # 1.3 # 2   # resolution (determining max q)
+    best_resolution = 0.5 # 1.58 (abdullah) # 1.3 # 2   # resolution (determining max q)
     worst_resolution = 30 #None #30 # 'resolution' corresponding to min q
 
     #### Individual experiment arguments 
     tag = "probe" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
-    start_time = -18#-18#-12#-6
-    end_time = 18#12#6
+    start_time = 0.8 #-18#-18#-12#-6
+    end_time = 1 #18#12#6
     laser_firing_qwargs = dict(
         # pixel sampling method (Neutze) if True - Miller indices if False
         SPI = False,  # sampling method, if False, bragg spots. if True, detector pixels. TODO change name
@@ -3353,11 +3413,11 @@ if __name__ == "__main__":
     crystal_qwargs = dict(
         supercell_scale = 1,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
         num_supercells = 29*33*37,#100, # 35409
-        supercell_simulations = 30, #150
+        supercell_simulations = 100, #150
         positional_stdv = 0,#0.2,  #Intro   duces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
         #supercell_simulations = 900, #150
         #positional_stdv = 0.05,#0.2,  #Intro   duces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
-        include_symmetries = True,  # should unit cell contain symmetries?
+        include_symmetries = False,  # should unit cell contain symmetries?
         cell_packing = "SC",
         #rocking_angle = 0.1,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         rocking_angle = 0.02,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
@@ -3371,7 +3431,7 @@ if __name__ == "__main__":
 
     #### XFEL params
     #TODO make it so reflections don't overwrite same orientation, as stochastic now.
-    energy = 7112#7100 # eV
+    energy = 9200#7100 # eV
     exp_qwargs = dict(
         detector_distance_mm = 100,
         screen_type = "flat",#"hemisphere"
@@ -3588,10 +3648,12 @@ if __name__ == "__main__":
         CNO_to_N = False
         S_to_N = False
     elif target == "copper_sulfate":
-        allowed_atoms = ["Cu,S,O,H"]
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/CuS_1010527.cif" 
-        target_handle = "copper_sulfate_above_e11_3"
+        allowed_atoms = ["Cu","S","O","H"]
+        #allowed_atoms = ["Cu"]
+        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/CuSO4.pdb" 
+        target_handle = "copper_sulfate_above_e12_1fs_1"
         folder = ""
+        crystal_qwargs["cell_packing"]="triclinic"
 
     else:
         raise Exception("'target' invalid")
