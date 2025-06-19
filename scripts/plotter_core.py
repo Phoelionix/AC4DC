@@ -420,9 +420,9 @@ class Plotter:
         
         Returns array with element f_sqrtI(t_i, q_j) given by f_sqrtI_{i,j}
         '''
-        def snapshot(idx):
-            # We pass in indices from 0 to fineness-1, transform to time:
-            t = self.start_t + idx/self.t_fineness*(self.end_t-self.start_t)  # TODO end_t and start_t are defined in scattering code and have no defaults!!!!!!!!
+        def snapshot(snapshot_idx):
+            # We pass in indices from 0 to t_fineness, transform to time:
+            t = self.time_snapshot(snapshot_idx)
             if stochastic:
                 val, time_step = self.get_stochastic_form_factor(q,atom,t)
             else:
@@ -452,7 +452,7 @@ class Plotter:
         return charges  # (times,)
         
     def continuity_charge_snapshots(self,atom,seed=None):
-        time_steps = self.get_times_used()
+        time_steps = self.get_times_SCATTER()
         self.aggregate_charges()
 
         charges = np.empty(shape=(len(self.timeData),)) # charges corresponding to each time step in the simulation
@@ -544,7 +544,7 @@ class Plotter:
         '''
         occ_dict = self.get_occ_dict(atom)
 
-        time_steps = self.get_times_used()
+        time_steps = self.get_times_SCATTER()
         orb_occs,time_steps = self.get_random_states(time_steps,atom,seed)
 
         return orb_occs, time_steps, occ_dict
@@ -609,7 +609,7 @@ class Plotter:
         Returns a stochastic form factor for each momentum transfer 'k' at 'time' [fs], and time used.
         Returns array with element f(t_i, q_j) given by f_{i,j}
         '''        
-        orb_occs, time_steps = self.get_random_states(self.get_times_used(),atom)
+        orb_occs, time_steps = self.get_random_states(self.get_times_SCATTER(),atom)
 
         ff = self.ff_from_state(time,orb_occs,k,atom) 
 
@@ -658,16 +658,33 @@ class Plotter:
         f_sqrt_I = ff[...,None] * np.array(np.sqrt(I_avg)*np.ones(len(time_steps)))
         return np.moveaxis(f_sqrt_I,len(f_sqrt_I.shape)-1,0), time_steps                     
     # why did I do thissss
-    def get_times_used(self):
-        def snapshot(idx):
-            # We pass in indices from 0 to fineness-1, transform to time:
-            idx = np.searchsorted(self.timeData, self.start_t + idx/self.t_fineness*(self.end_t-self.start_t))            
-            try:
-                return self.timeData[idx]
-            except:
-                raise Exception("Start and end times provided seem to be outside the range of the output data.")
-        time_steps = np.fromfunction(snapshot,(self.t_fineness+1,))
-        if len(time_steps) != len(np.unique(time_steps)):
+    def get_nearest_time(self,time,tol=None):
+        if tol is None:
+            tol = min(5e-1,(self.timeData[-1]-self.timeData[0])/100) 
+        n = np.argmin(np.abs(self.timeData - time))
+        assert np.all(np.abs(self.timeData[n]-time)<tol) , f"would use time at {self.timeData[n]} fs not {t} fs" 
+        n = np.array(n).reshape((n.size,))
+        return n, self.timeData[n]
+    def time_snapshot(self,snapshot_idx: int):
+        # We pass in indices from 0 to fineness, transform to time:
+        t = self.start_t + snapshot_idx/self.t_fineness*(self.end_t-self.start_t)  # TODO end_t and start_t are defined in scattering code and have no defaults!!!!!!!!
+        #t = np.array([t]).reshape((1,)*len(idx.shape))
+        if self.t_fineness == 0:
+            t = (self.start_t + self.end_t)/2
+        idx,time = self.get_nearest_time(t)#np.searchsorted(self.timeData, t)    
+        return time #np.array(time).reshape(time.size,)
+        '''
+        try:
+            return self.timeData[idx]
+        except: 
+            if len(np.array(t)==1):
+                raise Exception(f"time provided ({t} fs) seems to be outside the range of the simulation's output data ({self.timeData[0]}, {self.timeData[-1]}).")
+            else:
+                raise Exception(f"range of times provided ({np.min(t)}, {np.max(t)} fs) seem to be outside the range of the simulation's output data ({self.timeData[0]}, {self.timeData[-1]}).")
+        '''
+    def get_times_SCATTER(self):
+        time_steps = np.fromfunction(self.time_snapshot,(self.t_fineness+1,))
+        if time_steps.shape[0] != np.unique(time_steps).shape[0]:
             if not self.flagged_select_same_times:
                 print("Times used:", time_steps)
             if self.allow_select_same_times:
@@ -676,11 +693,11 @@ class Plotter:
                     print("Warning: Selected same time step multiple times, you may want to choose a different fineness or a larger range!")
             else:
                 raise Exception("Error, used same times! Choose a different fineness or a larger range.")
-        return time_steps      
+        return time_steps   
     def I_avg(self): # average intensity for pulse 
-        def snapshot(idx):
+        def snapshot(snapshot_idx):
             # We pass in indices from 0 to fineness-1, transform to time:
-            t = self.start_t + idx/self.t_fineness*(self.end_t-self.start_t)
+            t = self.time_snapshot(snapshot_idx)
             idx = np.searchsorted(self.timeData,t)  # SAME AS IN get_average_form_factor()
             time_step = self.timeData[idx]
             val = self.intensityData[idx]
@@ -1481,7 +1498,7 @@ class Plotter:
 
 
     def get_average_charge_ff_calculator(self,a,every=1,charge_difference=False,densities=False):
-        T = self.get_times_used()
+        T = self.get_times_SCATTER()
 
         self.aggregate_charges(charge_difference)
         atomic_charge = np.zeros(T.shape[0])

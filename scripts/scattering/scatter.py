@@ -31,8 +31,8 @@ This file is part of AC4DC.
 import os
 os.getcwd()
 import sys
-sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
-sys.path.append('/home/speno/AC4DC/scripts/')
+sys.path.append('/home/speno20/AC4DC/scripts/pdb_parser')
+sys.path.append('/home/speno20/AC4DC/scripts/')
 ######
 
 import os.path as path
@@ -376,6 +376,8 @@ class Crystal():
         
 
     def reinitialize_random_waters(self):
+        if "O" not in self.species_dict:
+            return
         self.species_dict["O"].coords = self.species_dict["O"].coords[:self.num_non_water_oxygens]
         if DEBUG or DEBUG_WATER:
             print(f"Placing {self.random_waters} O atoms in random positions")
@@ -988,8 +990,8 @@ class Atomic_Species():
         '''
         if DEBUG or DEBUG_MODERATE:
             print("Creating time-varying states for atom "+self.name+" from plasma simulation's data")
-        self.times_used = self.crystal.ff_calculator.get_times_used()
-        print("times",self.times_used)
+        self.times_used = self.crystal.ff_calculator.get_times_SCATTER()
+        print(f"Snapshot times:",self.times_used)
         num_atoms = self.get_num_atoms()
         
         if ( self.B_factors and (len(self.B_factors)!=len(self.coords))) \
@@ -1104,7 +1106,7 @@ class XFEL():
         self.override_max_q = override_max_q # whether should override max q when searching all miller indices 
 
         if self.miller_indices_override is None:
-            assert spot_fraction_per_orient is None
+            assert spot_fraction_per_orient is None # seems unnecessary. If can't simply remove this assertion at least generate the miller indices and plug it into same logic.
         else:
             self.spot_fraction_per_orient = spot_fraction_per_orient
             if spot_fraction_per_orient is None or spot_fraction_per_orient > 1 :
@@ -1612,7 +1614,7 @@ class XFEL():
                 else:
                     if DEBUG:
                         assert np.all(times_used == species.times_used)
-            if (times_used[-1] == times_used[0]):   
+            if (times_used[-1] == times_used[0] and times_used.size!=1):   
                 raise Exception("Intensity array's final time equals its initial time")                  
             # Technically sum of F(t)*sqrt(J(t)), where F = sum(f(q,t)*T(q)), and J(t) is the incident intensity, thus accounting for the pulse profile. (J(t) is accounted for in get_stochastic_f)
             F_sum = np.zeros(F_shape,dtype="complex_")  
@@ -1685,13 +1687,13 @@ class XFEL():
         super_cube_coords = np.stack([ y.flatten(), x.flatten(), z.flatten()], axis = -1) # sadly not dimensionally-transcendental enough to be prefixed "hyper"        
         curr_cube_idx = 0
 
-        if self.cell_packing == "triclinic":
-            triclinic_basis = get_triclinic_basis(self.cell_angles)
+        if self.target.cell_packing == "triclinic":
+            triclinic_basis = get_triclinic_basis(self.target.cell_angles)
         while supercells_remaining > 0:
             end_cube_idx = min(supercells_remaining,super_batch_size)
             super_coords = np.empty((self.target.num_supercells,3))  
             super_coords = super_cube_coords[curr_cube_idx:end_cube_idx]*self.target.supercell_dim
-            if self.cell_packing == "triclinic":
+            if self.target.cell_packing == "triclinic":
                 super_coords= (super_coords*self.target.supercell_dim)@triclinic_basis
                
 
@@ -1706,12 +1708,16 @@ class XFEL():
             F_cry += np.sum(F_supercell_copies*T_supercell[:,None],axis=0)
             supercells_remaining -= super_batch_size
             curr_cube_idx = end_cube_idx
-        # Integrate over time to get the intensity
-        time_axis = 0
-        if type(feature) is self.Ring:
-            time_axis = 1
-        I = np.trapz(np.square(np.abs(F_cry)),times_used,axis = time_axis) / (times_used[-1]-times_used[0])       #[num_G] for points, or for SPI: [phis,feature.q.shape], corresponding to rings or square grid
-            
+        
+        I = np.square(np.abs(F_cry))
+        if times_used.size>1:
+            # Integrate over time to get the intensity
+            time_axis = 0
+            if type(feature) is self.Ring:
+                time_axis = 1
+            I = np.trapz(I,times_used,axis = time_axis) / (times_used[-1]-times_used[0])       #[num_G] for points, or for SPI: [phis,feature.q.shape], corresponding to rings or square grid
+        else:
+            I = I[0]  
 
         # For unpolarised light (as used by Neutze 2000). (1/2)r_e^2(1+cos^2(theta)) is thomson scattering - recovering the correct equation for a lone electron, where |f|^2 = 1 by definition.    
         # Generally not important due to small angles involved.
@@ -3437,8 +3443,8 @@ if __name__ == "__main__":
 
     #### Individual experiment arguments 
     tag = "probe" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
-    start_time = 4.9 #-18#-18#-12#-6
-    end_time = 5.1 #18#12#6
+    start_time = 0.9 #-18#-18#-12#-6
+    end_time = 1.1 #18#12#6
     laser_firing_qwargs = dict(
         # pixel sampling method (Neutze) if True - Miller indices if False
         SPI = False,  # sampling method, if False, bragg spots. if True, detector pixels. TODO change name
@@ -3449,9 +3455,9 @@ if __name__ == "__main__":
     )
     ##### Crystal params
     crystal_qwargs = dict(
-        supercell_scale = 3,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
+        supercell_scale = 1,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
         num_supercells = 29*33*37,#100, # 35409
-        supercell_simulations = 100, #150
+        supercell_simulations = 2, #150
         positional_stdv = 0.1,#0.2,  #Intro   duces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
         #supercell_simulations = 900, #150
         #positional_stdv = 0.05,#0.2,  #Intro   duces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
@@ -3581,8 +3587,8 @@ if __name__ == "__main__":
             positional_stdv=0
             random_waters=None
             num_supercells=1
-        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.5.hkl"
-        unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"
+        #unique_hkl ="/home/speno20/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.5.hkl"
+        unique_hkl ="/home/speno20/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"
         exp_qwargs["miller_indices_override"] = read_hkl(unique_hkl)
         exp_qwargs["spot_fraction_per_orient"] = 1/cycles_per_bragg_set
         exp_qwargs["num_orients_crys"] = cycles_per_bragg_set*num_bragg_sets
@@ -3610,18 +3616,18 @@ if __name__ == "__main__":
         start_time += probe_delay
         end_time += probe_delay
 
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb" 
+        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/4et8.pdb" 
         if include_H:
-            pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8H.pdb" 
+            pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/4et8H.pdb" 
         if COMPARE_REFINED:
             pdb_path2 = dict(
-                lys_salt = "/home/speno/AC4DC/scripts/scattering/targets/salt_group_1.pdb",
-                lys_no_salt = "/home/speno/AC4DC/scripts/scattering/targets/no_salt_group_1.pdb", 
+                lys_salt = "/home/speno20/AC4DC/scripts/scattering/targets/salt_group_1.pdb",
+                lys_no_salt = "/home/speno20/AC4DC/scripts/scattering/targets/no_salt_group_1.pdb", 
             )[target]
             crystal1_is_damaged = False
         else:
             assert(crystal1_is_damaged)
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632
+        #pdb_path = "/home/speno20/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632
         CNO_to_N = False
         S_to_N = False
         folder = ""
@@ -3633,18 +3639,18 @@ if __name__ == "__main__":
             pass
             #exp_name2 = None # Don't do the undamaged target
     elif target == "neutze": #T4 virus lys
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/2lzm.pdb"
+        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/2lzm.pdb"
         target_handle = "lys-1_2"  
         folder = "lys" # If sim output folders are nested within subdir of __Molecular
         allowed_atoms = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8H.pdb"
+        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/4et8H.pdb"
         # Solvated targets
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_asym.xpdb"; water_index = 1089
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_unit_cell.pdb"; water_index = 8705
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"; water_index = 
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
+        #pdb_path = "/home/speno20/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_asym.xpdb"; water_index = 1089
+        #pdb_path = "/home/speno20/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_unit_cell.pdb"; water_index = 8705
+        #pdb_path = "/home/speno20/AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"; water_index = 
+        #pdb_path = "/home/speno20/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
         # target_handle = "lys_nass_2"
         # folder = "lys"
         #'''
@@ -3670,7 +3676,7 @@ if __name__ == "__main__":
         S_to_N = True
         #//
     elif target == "tetra": 
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/5zck.pdb" 
+        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/5zck.pdb" 
         folder = ""#"tetra_CNO"
         target_handle = "lys_solvated_fast_high_fluence_2"#"lys_all_light-typical"#"6-5-2_tetra_CNO_3"
         #allowed_atoms = ["N_fast"]
@@ -3679,7 +3685,7 @@ if __name__ == "__main__":
         S_to_N = False
     elif target == "glycine":
         exp_qwargs["custom_cell_dims_for_miller_indices"] = [17.174,14.93,13.384]# # None,
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/glycine.pdb" 
+        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/glycine.pdb" 
         folder = ""
         target_handle = "lys_salt_fast_high_fluence_2" #"glycine_abdullah_high_H_6" #"lys_solvated_fast_high_fluence_2" # "glycine_abdullah_high_H_6" #"glycine_abdullah_4"
         allowed_atoms = ["C","N","O"]
@@ -3688,11 +3694,14 @@ if __name__ == "__main__":
     elif target == "copper_sulfate":
         allowed_atoms = ["Cu","S","O","H"]
         #allowed_atoms = ["Cu"]
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/CuSO4.pdb" 
-        target_handle = "copper_sulfate_above_e12_14" #"copper_sulfate_below_e13_3#"copper_sulfate_above_e12_long_1"#"copper_sulfate_above_e12_14"
+        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/CuSO4.pdb" 
+        target_handle = "copper_sulfate_above_e12_1fs_1" #"copper_sulfate_above_e12_14" #"copper_sulfate_below_e13_3#"copper_sulfate_above_e12_long_1"#"copper_sulfate_above_e12_14"
         folder = ""
         crystal_qwargs["cell_packing"]="triclinic"
         exp_qwargs["t_fineness"]=1
+        slice_time = 1
+        exp_qwargs["start_time"] = slice_time-0.1
+        exp_qwargs["end_time"] = slice_time+0.1
 
     else:
         raise Exception("'target' invalid")

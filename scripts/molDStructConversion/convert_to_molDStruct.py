@@ -54,7 +54,7 @@ def get_charge_states(element,element_charge_snapshot_selector=None):
         #element_charge_snapshot_selector = element.crystal.ff_calculator.random_charge_snapshots
         element_charge_snapshot_selector = element.crystal.ff_calculator.continuity_charge_snapshots
     SEEDED = False
-    element.times_used = element.crystal.ff_calculator.get_times_used()
+    element.times_used = element.crystal.ff_calculator.get_times_SCATTER()
     if element.get_num_atoms() != len(element.crystal.sym_rotations)*len(element.coords):
         raise Exception("num atoms was not same on set_stochastic_states call as when set by set_coord_deviation")
     if element.crystal.is_damaged:
@@ -183,7 +183,7 @@ def charges(csv=False,individual_elements = False,average_charges=AVERAGE_CHARGE
     out_folder = OUTPUT_PATH + get_save_folder() + "/"
     print(OUTPUT_PATH)
     
-    num_steps = len(ff_calculator.get_times_used())
+    num_steps = len(ff_calculator.get_times_SCATTER())
     species_charges = {}
     num_atoms = 0
     print(f"Processing charges at {num_steps} time steps for:")
@@ -236,7 +236,7 @@ def DebyeLength(csv=False):
 
     tempList = []
     denseList = []
-    for t in ff_calculator.get_times_used():
+    for t in ff_calculator.get_times_SCATTER():
         tempList.append( pl.get_temp(t, 1000) ) # eV
         # denseList.append( pl.get_free_electron_density(t) ) # per angstrom cube
 
