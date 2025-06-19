@@ -3,9 +3,9 @@ import sys
 import os
 import pandas as pd
 import os.path as path
-sys.path.append('/home/speno20/AC4DC/scripts/pdb_parser')
-sys.path.append('/home/speno20/AC4DC/scripts/scattering')
-sys.path.append('/home/speno20/AC4DC/scripts/')
+sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
+sys.path.append('/home/speno/AC4DC/scripts/scattering')
+sys.path.append('/home/speno/AC4DC/scripts/')
 from scatter import XFEL,Crystal,stylin
 from core_functions import get_sim_params,get_sim_elements,get_pdb_path,ATOMNO
 import imaging_params as imaging_params
@@ -23,14 +23,15 @@ import struct
 #sim_handle = "lys_salt_solvated_fast_H_4"
 AVERAGE_CHARGES = None 
 ALLOW_SELECT_SAME_TIMES = True
+SAVE_CSV_COPY = True
 
 if __name__=="__main__":
     #sim_handles = ["lys_salt_solvated_fast_H_4","lys_solvated_fast_H_4"]
    # sim_handles = ["lys_solvated_H_2",]
     #sim_handles = ["lys_solvated_H_9","lys_salt_solvated_H_1"]
-    sim_handles = ["Debug_2012"]
+    sim_handles = ["I3C_25fs_combined"]
 
-    num_steps = 10 #3600 # best to go sim time in attoseconds
+    num_steps = 4900 #3600 # best to go sim time in attoseconds
 
     #target = "CNO_debug.gro"
     #target = "4et8.gro"
@@ -293,9 +294,8 @@ if __name__ == "__main__":
         ff_calculator.allow_select_same_times = ALLOW_SELECT_SAME_TIMES  
         crystal.set_ff_calculator(ff_calculator)    
 
-
-        DebyeLength(csv=False)
-        charges(csv=False)
+        charges(csv=SAVE_CSV_COPY)
+        DebyeLength(csv=SAVE_CSV_COPY)
         #LennardJones()
         print("Done! Remember to sit straight!")
 

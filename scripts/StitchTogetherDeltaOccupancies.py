@@ -92,7 +92,7 @@ if __name__ == "__main__":
     handles = ["I3C_25fs_backup","I3C_25fs_backup2","I3C_25fs_1"]
     out_handle = "I3C_stitched"
     StitchTogetherDeltaOccupancies(handles,out_handle)
-
+    
 
             
 

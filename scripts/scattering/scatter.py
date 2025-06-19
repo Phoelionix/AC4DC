@@ -85,7 +85,7 @@ plt.ioff()  # stops weird vscode stuff
 
 DEBUG = False; DEBUG = False; DEBUG_MODERATE = False; DEBUG_WATER = True
 SEEDED = False# TODO check fully implemented for all random stuff
-
+DELETENONUNIQUE=True
 
 if SEEDED:
     np.random.seed(0)
@@ -392,7 +392,7 @@ class Crystal():
         symmetry_translation/= ang_per_bohr
 
         if self.cell_packing == "triclinic":
-            symmetry_factor = get_triclinic_basis(self.cell_angles) @ symmetry_factor #get_triclinic_basis(self.cell_angles)@symmetry_factor
+            symmetry_factor = symmetry_factor @ get_triclinic_basis(self.cell_angles) #get_triclinic_basis(self.cell_angles)@symmetry_factor
         # Simple cubic packing. (actually it's all rectangular prisms, TODO)
         if self.cell_packing == "SC" or self.cell_packing == "triclinic":  
             if self.cell_packing == "SC":
@@ -412,7 +412,7 @@ class Crystal():
                 a = get_triclinic_basis(self.cell_angles)
             for coord in cube_coords:
                 if self.cell_packing == "triclinic":
-                    coord_scaled = a@(coord*self.cell_dim)  # ahhhhh forgot to multiply coord by cell dim first
+                    coord_scaled = (coord*self.cell_dim)@a  # ahhhhh forgot to multiply coord by cell dim first
                     assert(coord.shape == (3,))
                     translation = coord_scaled + symmetry_translation 
 
@@ -488,6 +488,26 @@ class Crystal():
             target.add_symmetry_to_cells(sym_factor.copy(),sym_trans.copy(),sym_labels.pop(0))
         return sym_mtces_parsed
     
+    unique_points=None
+    def reset_unique_points(self):
+        self.unique_points = None
+    def get_sym_xfmed_point_unique_mask(self,R,symmetry_index):
+        i = symmetry_index
+        points = self.get_sym_xfmed_point(R,i)
+        if self.unique_points is None:
+            self.unique_points = np.array([],dtype=points.dtype).reshape(0,3)
+   
+        is_unique_check = (self.unique_points[:, None] == points).all(axis=2).any(axis=0) ==False
+        points = points[is_unique_check]
+        # for i, point in enumerate(points):
+        #     if point in self.unique_points:
+        #         del points[i]
+        self.unique_points = np.append(self.unique_points,points,axis=0)
+                
+        assert np.unique(self.unique_points,axis=0).shape==self.unique_points.shape, f"{np.unique(self.unique_points,axis=0).shape} {self.unique_points.shape}"
+        return is_unique_check
+        
+
     def get_sym_xfmed_point(self,R,symmetry_index):
         '''
         R = 1D or 2D array of shape (3,N)
@@ -687,7 +707,8 @@ CRYST1   {a*self.supercell_scale:.3f}   {b*self.supercell_scale:.3f}   {c*self.s
             a, unique_indices = np.unique(plot_coords,axis=0,return_index = True)
             num_non_unique = len(plot_coords)-len(unique_indices)
             print("WARNING", num_non_unique, "non-unique coords found:")
-            raise_non_unique_exception = True
+            if not DELETENONUNIQUE:
+                raise_non_unique_exception = True
             #plot_coords = np.delete(plot_coords, unique_indices,axis=1)  # delete anyway.            
             #plot_coords = plot_coords[unique_indices]
 
@@ -968,6 +989,7 @@ class Atomic_Species():
         if DEBUG or DEBUG_MODERATE:
             print("Creating time-varying states for atom "+self.name+" from plasma simulation's data")
         self.times_used = self.crystal.ff_calculator.get_times_used()
+        print("times",self.times_used)
         num_atoms = self.get_num_atoms()
         
         if ( self.B_factors and (len(self.B_factors)!=len(self.coords))) \
@@ -1602,6 +1624,7 @@ class XFEL():
                     raise Exception("Times used don't match between species.")        
                 # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
                 max_atoms_per_loop = 1000 # Restrict array size to prevent computer explosions. 
+                self.target.reset_unique_points()
                 for s in range(len(self.target.sym_rotations)):
                     #print("Working through symmetry",s)
                     num_atom_batches = int(len(species.coords)/max_atoms_per_loop)+1
@@ -1617,10 +1640,16 @@ class XFEL():
                         # Rotate to target's current orientation 
                         # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
                         R = np.array(species.coords[relative_atm_idx[0]:relative_atm_idx[-1]+1]) 
-                        if self.target.ignore_deviations:# or self.target.use_bfactors:
-                            coord = self.target.get_sym_xfmed_point(R,s)
-                        else:
-                            coord = self.target.get_sym_xfmed_point(R,s)  + species.error[relative_atm_idx] # dim = [ N, 3], where N is number of coords.
+                        coord = self.target.get_sym_xfmed_point(R,s)
+                        if not self.target.ignore_deviations:# or self.target.use_bfactors:
+                            coord += species.error[relative_atm_idx] # dim = [ N, 3], where N is number of coords.
+                        if DELETENONUNIQUE:
+                            unique_mask = self.target.get_sym_xfmed_point_unique_mask(R,s)
+                            coord = coord[unique_mask]
+                            atm_idx = atm_idx[unique_mask]
+                            relative_atm_idx = relative_atm_idx[unique_mask]
+                            #print(species.name,coord.shape)
+                        
                         coord = coord @ self.x_rot_matrix  
                         coord = coord @ self.y_rot_matrix
                         coord = coord @ self.z_rot_matrix
@@ -1630,7 +1659,7 @@ class XFEL():
                         else:
                             T= self.interference_factor(coord,feature,cardan_angles)  #[num_G] 
                         if self.target.use_bfactors and not self.target.zero_bfactors:
-                            T*=species.debye_waller_factor[relative_atm_idx[0]:relative_atm_idx[-1]+1]
+                            T*=species.debye_waller_factor[relative_atm_idx]
                         f = species.get_stochastic_f(atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
                         same_each_sym = False # (debug)
                         if same_each_sym:
@@ -1655,10 +1684,18 @@ class XFEL():
         x, y, z= np.meshgrid(np.arange(0, length), np.arange(0, length), np.arange(0, length))
         super_cube_coords = np.stack([ y.flatten(), x.flatten(), z.flatten()], axis = -1) # sadly not dimensionally-transcendental enough to be prefixed "hyper"        
         curr_cube_idx = 0
+
+        if self.cell_packing == "triclinic":
+            triclinic_basis = get_triclinic_basis(self.cell_angles)
         while supercells_remaining > 0:
             end_cube_idx = min(supercells_remaining,super_batch_size)
             super_coords = np.empty((self.target.num_supercells,3))  
             super_coords = super_cube_coords[curr_cube_idx:end_cube_idx]*self.target.supercell_dim
+            if self.cell_packing == "triclinic":
+                super_coords= (super_coords*self.target.supercell_dim)@triclinic_basis
+               
+
+
             F_supercell_copies = np.zeros(shape=(len(super_coords),)+(F_supercells[0].shape),dtype=complex)
             for p in range(len(F_supercell_copies)):
                 F_supercell_copies[p] = np.random.choice(F_supercells)
@@ -2209,12 +2246,13 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             return numerators,denominators
 
 
-        def plot_spots(I_ideal,I_real, miller_indices):
+        def plot_spots(I_ideal,I_real, miller_indices,normalise=False):
             plt.close()
             stringified = []
             for elem in miller_indices:
                 stringified.append(str(elem[0])+str(elem[1])+str(elem[2])) 
-            I_real *= np.sum(I_ideal)/np.sum(I_real) #normalise
+            if normalise:
+                I_real *= np.sum(I_ideal)/np.sum(I_real) #normalise
             plt.bar(stringified,np.sqrt(I_ideal),alpha=1)
             plt.bar(stringified,np.sqrt(I_real),alpha=1,color='r',width=0.4)
             plt.ylim(0,np.sqrt(max(np.max(I_ideal),np.max(I_real))))
@@ -3399,8 +3437,8 @@ if __name__ == "__main__":
 
     #### Individual experiment arguments 
     tag = "probe" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
-    start_time = 0.8 #-18#-18#-12#-6
-    end_time = 1 #18#12#6
+    start_time = 4.9 #-18#-18#-12#-6
+    end_time = 5.1 #18#12#6
     laser_firing_qwargs = dict(
         # pixel sampling method (Neutze) if True - Miller indices if False
         SPI = False,  # sampling method, if False, bragg spots. if True, detector pixels. TODO change name
@@ -3411,13 +3449,13 @@ if __name__ == "__main__":
     )
     ##### Crystal params
     crystal_qwargs = dict(
-        supercell_scale = 1,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
+        supercell_scale = 3,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
         num_supercells = 29*33*37,#100, # 35409
         supercell_simulations = 100, #150
-        positional_stdv = 0,#0.2,  #Intro   duces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
+        positional_stdv = 0.1,#0.2,  #Intro   duces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
         #supercell_simulations = 900, #150
         #positional_stdv = 0.05,#0.2,  #Intro   duces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
-        include_symmetries = False,  # should unit cell contain symmetries?
+        include_symmetries = True,  # should unit cell contain symmetries?
         cell_packing = "SC",
         #rocking_angle = 0.1,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         rocking_angle = 0.02,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
@@ -3650,10 +3688,11 @@ if __name__ == "__main__":
     elif target == "copper_sulfate":
         allowed_atoms = ["Cu","S","O","H"]
         #allowed_atoms = ["Cu"]
-        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/CuSO4.pdb" 
-        target_handle = "copper_sulfate_above_e12_1fs_1"
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/CuSO4.pdb" 
+        target_handle = "copper_sulfate_above_e12_14" #"copper_sulfate_below_e13_3#"copper_sulfate_above_e12_long_1"#"copper_sulfate_above_e12_14"
         folder = ""
         crystal_qwargs["cell_packing"]="triclinic"
+        exp_qwargs["t_fineness"]=1
 
     else:
         raise Exception("'target' invalid")
@@ -3732,22 +3771,22 @@ if interactive and __name__ == "__main__":
 if interactive and __name__ == "__main__":
     ##### Crystal params
     #pdb_file = "4et8.pdb"
-    pdb_file = "I3C.pdb"
+    #pdb_file = "I3C.pdb"
+    pdb_file ="CuSO4.pdb"
     targets_dir = path.abspath(path.join(__file__ ,"../")) + "/targets/"
     pdb_path = targets_dir + pdb_file
     crystal_qwargs = dict(
-        supercell_scale = 3,  # for SC: supercell_scale^3 unit cells
-        positional_stdv = 0,  # Not used
+        supercell_scale = 1,  # for SC: supercell_scale^3 unit cells
+        positional_stdv = 0, 
         include_symmetries = True,  # should unit cell contain symmetries or just one asymmetric unit?
-        cell_packing = "SC",
-        rocking_angle = 0.1,  # (approximating mosaicity - use 0.02 for proper, use a high value, like 1, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
-        CNO_to_N = False,
+        cell_packing = "triclinic",#"SC",
     )
     custom_residue_name=None
     #allowed_atoms = ["C","N","O","S"]
      #I3C
     # custom_residue_name="I3C"
-    allowed_atoms = ["C","N","O","I","H"]
+    #allowed_atoms = ["C","N","O","I","H"]
+    allowed_atoms =["O","S","H","Cu"]
     crystal = Crystal(pdb_path,allowed_atoms,is_damaged=False, **crystal_qwargs)
 
     #crystal.save_structure(custom_residue_name=custom_residue_name,chain_name="A")

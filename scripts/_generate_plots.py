@@ -24,14 +24,14 @@ from QoL import set_highlighted_excepthook
 ####
 ELECTRON_DENSITY = None # Whether to use electron density for free distribution plots. If None, will do one or the other or both depending on the plot.
 ###
-PLOT_ELEMENT_CHARGE= False #
-PLOT_FREE_CONTINUUM = False
-PLOT_SPLIT_FREE_CONTINUUMS = False
+PLOT_ELEMENT_CHARGE= True #
+PLOT_FREE_CONTINUUM = True
+PLOT_SPLIT_FREE_CONTINUUMS = True
 PLOT_COMBINED_SPLIT_FREE_CONTINUUMS = False
 PLOT_FREE_SLICES=False
 PLOT_ION_RATIOS=True
-PLOT_ION_RATIOS_BARS= False
-PLOT_ORBITAL_DENSITIES = False #
+PLOT_ION_RATIOS_BARS= True
+PLOT_ORBITAL_DENSITIES = True #
 PLOT_PHOTO_RATES = False
 
 TIGHT_LAYOUT = True
@@ -203,7 +203,8 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
  
 
     if bound_ionisation_bar:
-        pl.plot_charges_bar("C",show_pulse_profile=True)
+        #pl.plot_charges_bar("C",show_pulse_profile=True)
+        pl.plot_charges_bar("Cu",show_pulse_profile=True)
         #plt.gcf().set_figwidth(15)        
     if orbital_densities_bar:
         pl.plot_orbitals_bar(atoms=None,atoms_excluded=None,show_pulse_profile=False,normalise = True,
