@@ -703,6 +703,8 @@ class Plotter:
             val = self.intensityData[idx]
             return val, time_step      
         I,time_steps = np.fromfunction(snapshot,(self.t_fineness+1,))
+        if time_steps.size==1:
+            return I, time_steps
         I_avg = np.trapz(I,time_steps)/(time_steps[-1]-time_steps[0])
         return I_avg,time_steps
 

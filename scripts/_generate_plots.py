@@ -204,7 +204,7 @@ def make_some_plots(mol_name,sim_output_parent_dir, label,figure_output_dir, tot
 
     if bound_ionisation_bar:
         #pl.plot_charges_bar("C",show_pulse_profile=True)
-        pl.plot_charges_bar("Cu",show_pulse_profile=True)
+        pl.plot_charges_bar("Cu",show_pulse_profile=True,ylim=[2,20])
         #plt.gcf().set_figwidth(15)        
     if orbital_densities_bar:
         pl.plot_orbitals_bar(atoms=None,atoms_excluded=None,show_pulse_profile=False,normalise = True,
