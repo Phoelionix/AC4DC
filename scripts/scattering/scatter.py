@@ -31,8 +31,8 @@ This file is part of AC4DC.
 import os
 os.getcwd()
 import sys
-sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
-sys.path.append('/home/speno/AC4DC/scripts/')
+sys.path.append('/home/speno20/AC4DC/scripts/pdb_parser')
+sys.path.append('/home/speno20/AC4DC/scripts/')
 ######
 
 import os.path as path
@@ -1180,7 +1180,7 @@ class XFEL():
         ff_calculator.initialise_form_factor_params(start_time,end_time,self.max_q,self.photon_energy,t_fineness=self.t_fineness) # q_fineness isn't used for our purposes.   
         return ff_calculator
     
-    def spooky_laser(self, start_time, end_time, sim_data_handle, sim_parent_dir_path, target : Crystal, SPI_resolution = None, results_parent_dir = RESULTS_LOCAL_PATH, circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False):
+    def spooky_laser(self, start_time, end_time, sim_data_handle, sim_parent_dir_path, target : Crystal, SPI_resolution = None, results_parent_dir = RESULTS_LOCAL_PATH, circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False,do_not_integrate_times=False):
         """ 
         end_time: The end time of the photon capture in femtoseconds. Not a real thing experimentally, but useful for choosing 
         a level of damage. Explicitly, it is used to determine the upper time limit for the integration of the form factor.
@@ -1193,6 +1193,7 @@ class XFEL():
         ff_calculator = self.get_ff_calculator(start_time,end_time,sim_data_handle,sim_parent_dir_path)     
         target.set_ff_calculator(ff_calculator)    
         self.target = target
+        self.integrate_times = not do_not_integrate_times
 
         if random_orientation == True and self.orientation_set != None:
             raise Exception("Ambiguity: random orientations set to True, but set orientations were provided.")
@@ -1395,6 +1396,8 @@ class XFEL():
                 used_orientations.append(cardan_angles)
                 num_points = int(len(bragg_points))
                 result = Results(num_points,j)
+                if do_not_integrate_times:
+                    result.I = np.zeros((self.t_fineness+1,)+result.I.shape) # prepend axis for time
                 # Get the q vectors where non-zero
                 i = 0
                 #TODO vectorise
@@ -1427,6 +1430,8 @@ class XFEL():
                 result.X = point.X
                 result.q = point.q
                 result.I += point.I
+                if do_not_integrate_times:
+                    result.T = list(self.target.species_dict.values())[0].times_used # sorryyyy
                 
                 for_plotting = False
                 if len(bragg_points)>1e4:
@@ -1710,14 +1715,15 @@ class XFEL():
             curr_cube_idx = end_cube_idx
         
         I = np.square(np.abs(F_cry))
-        if times_used.size>1:
-            # Integrate over time to get the intensity
-            time_axis = 0
-            if type(feature) is self.Ring:
-                time_axis = 1
-            I = np.trapz(I,times_used,axis = time_axis) / (times_used[-1]-times_used[0])       #[num_G] for points, or for SPI: [phis,feature.q.shape], corresponding to rings or square grid
-        else:
-            I = I[0]  
+        if self.integrate_times:
+            if times_used.size>1:
+                # Integrate over time to get the intensity
+                time_axis = 0
+                if type(feature) is self.Ring:
+                    time_axis = 1
+                I = np.trapz(I,times_used,axis = time_axis) / (times_used[-1]-times_used[0])       #[num_G] for points, or for SPI: [phis,feature.q.shape], corresponding to rings or square grid
+            else:
+                I = I[0]  
 
         # For unpolarised light (as used by Neutze 2000). (1/2)r_e^2(1+cos^2(theta)) is thomson scattering - recovering the correct equation for a lone electron, where |f|^2 = 1 by definition.    
         # Generally not important due to small angles involved.
@@ -3057,7 +3063,7 @@ def create_reflection_file(result_handle,results_parent_dir = RESULTS_LOCAL_PATH
             break          
         miller_indices = result.miller_indices
         intensity = np.array([result.I]).T
-        data = np.concatenate((miller_indices,intensity),axis=1)
+        data = np.concatenate((miller_indices,intensity),axis=1) #TODO work with separate times
         # Put in data frame
         columns = ["h","k","l","I"]
         new_df = pd.DataFrame(data=data, columns=columns)
@@ -3587,8 +3593,8 @@ if __name__ == "__main__":
             positional_stdv=0
             random_waters=None
             num_supercells=1
-        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.5.hkl"
-        unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"
+        #unique_hkl ="/home/speno20/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.5.hkl"
+        unique_hkl ="/home/speno20/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"
         exp_qwargs["miller_indices_override"] = read_hkl(unique_hkl)
         exp_qwargs["spot_fraction_per_orient"] = 1/cycles_per_bragg_set
         exp_qwargs["num_orients_crys"] = cycles_per_bragg_set*num_bragg_sets
@@ -3616,18 +3622,18 @@ if __name__ == "__main__":
         start_time += probe_delay
         end_time += probe_delay
 
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb" 
+        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/4et8.pdb" 
         if include_H:
-            pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8H.pdb" 
+            pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/4et8H.pdb" 
         if COMPARE_REFINED:
             pdb_path2 = dict(
-                lys_salt = "/home/speno/AC4DC/scripts/scattering/targets/salt_group_1.pdb",
-                lys_no_salt = "/home/speno/AC4DC/scripts/scattering/targets/no_salt_group_1.pdb", 
+                lys_salt = "/home/speno20/AC4DC/scripts/scattering/targets/salt_group_1.pdb",
+                lys_no_salt = "/home/speno20/AC4DC/scripts/scattering/targets/no_salt_group_1.pdb", 
             )[target]
             crystal1_is_damaged = False
         else:
             assert(crystal1_is_damaged)
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632
+        #pdb_path = "/home/speno20/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632
         CNO_to_N = False
         S_to_N = False
         folder = ""
@@ -3639,18 +3645,18 @@ if __name__ == "__main__":
             pass
             #exp_name2 = None # Don't do the undamaged target
     elif target == "neutze": #T4 virus lys
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/2lzm.pdb"
+        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/2lzm.pdb"
         target_handle = "lys-1_2"  
         folder = "lys" # If sim output folders are nested within subdir of __Molecular
         allowed_atoms = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8H.pdb"
+        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/4et8H.pdb"
         # Solvated targets
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_asym.xpdb"; water_index = 1089
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_unit_cell.pdb"; water_index = 8705
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"; water_index = 
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
+        #pdb_path = "/home/speno20/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_asym.xpdb"; water_index = 1089
+        #pdb_path = "/home/speno20/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_unit_cell.pdb"; water_index = 8705
+        #pdb_path = "/home/speno20/AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"; water_index = 
+        #pdb_path = "/home/speno20/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
         # target_handle = "lys_nass_2"
         # folder = "lys"
         #'''
@@ -3676,7 +3682,7 @@ if __name__ == "__main__":
         S_to_N = True
         #//
     elif target == "tetra": 
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/5zck.pdb" 
+        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/5zck.pdb" 
         folder = ""#"tetra_CNO"
         target_handle = "lys_solvated_fast_high_fluence_2"#"lys_all_light-typical"#"6-5-2_tetra_CNO_3"
         #allowed_atoms = ["N_fast"]
@@ -3685,7 +3691,7 @@ if __name__ == "__main__":
         S_to_N = False
     elif target == "glycine":
         exp_qwargs["custom_cell_dims_for_miller_indices"] = [17.174,14.93,13.384]# # None,
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/glycine.pdb" 
+        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/glycine.pdb" 
         folder = ""
         target_handle = "lys_salt_fast_high_fluence_2" #"glycine_abdullah_high_H_6" #"lys_solvated_fast_high_fluence_2" # "glycine_abdullah_high_H_6" #"glycine_abdullah_4"
         allowed_atoms = ["C","N","O"]
@@ -3694,7 +3700,7 @@ if __name__ == "__main__":
     elif target == "copper_sulfate":
         allowed_atoms = ["Cu","S","O","H"]
         #allowed_atoms = ["Cu"]
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/CuSO4.pdb" 
+        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/CuSO4.pdb" 
         target_handle = "copper_sulfate_above_e12_1fs_1" #"copper_sulfate_above_e12_14" #"copper_sulfate_below_e13_3#"copper_sulfate_above_e12_long_1"#"copper_sulfate_above_e12_14"
         folder = ""
         crystal_qwargs["cell_packing"]="triclinic"

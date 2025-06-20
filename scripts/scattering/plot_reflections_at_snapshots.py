@@ -31,7 +31,7 @@ QUICK_TEST = False
 SKIP_UNDAMAGED = False
 
 
-target_handle = "copper_sulfate_above_e12_15" #"copper_sulfate_above_e12_14" #"copper_sulfate_below_e13_3#"copper_sulfate_above_e12_long_1"#"copper_sulfate_above_e12_14"
+target_handle = "copper_sulfate_above_e12_1fs_1" # "copper_sulfate_above_e12_15" #"copper_sulfate_above_e12_14" #"copper_sulfate_below_e13_3#"copper_sulfate_above_e12_long_1"#"copper_sulfate_above_e12_14"
 
 # Ideal intensities purely as an extremely inefficient lazy way to scale by pulse profile
 def plot_spots_at_time_slices(Intensities, ideal_intensities, miller_indices,times,sqrt=False,normalize=True):
@@ -88,7 +88,7 @@ def plot_biggest_spots_over_time(Intensities, ideal_intensities, miller_indices,
         #m,c =  np.linalg.lstsq()
         
     #ax.set_yscale("log")
-    leg =ax.legend(loc="upper left",bbox_to_anchor=[1,1],ncol=1,title="$hkl\:$")
+    leg =ax.legend(loc="upper left",bbox_to_anchor=[1,1],ncol=1,title="$hkl\\:$")
     leg._legend_box.align = "right"
     ax.set_ylabel("$$I_{hkl}$$")
     if normalize:
@@ -131,31 +131,23 @@ if __name__ == "__main__":
     ideal_intensities=[]
     files = []
     subdirs =[]
-    times=[]
     for filepath in os.listdir(dir):
         subdir = dir+"/"+filepath
         for file in os.listdir(subdir):
             for i, c in  enumerate(filepath):
                 if c== "-":
                     break
-            times.append(float(filepath[i+1:]))
             files.append(file)
             subdirs.append(subdir)
-    sorts = np.argsort(times)
-    files  = np.array(files)[sorts]
-    subdirs  = np.array(subdirs)[sorts]
-    times = np.array(times)[sorts]
-    actual_times = []
-    for file,subdir,time in zip(files,subdirs,times):
+    assert len(files)==1
+    
+    for file,subdir in zip(files,subdirs):
         compare_dir=subdir.replace("_real","_ideal")
         dmged_result,undmged_result = get_result(file,subdir,compare_dir=compare_dir)
-        if np.sum(dmged_result.I) <=0:
-            continue
-        Intensities.append(dmged_result.I)
-        ideal_intensities.append(undmged_result.I)
-        actual_times.append(time)
+        Intensities = dmged_result.I
+        ideal_intensities = undmged_result.I
+        times = dmged_result.T
         miller_indices = dmged_result.miller_indices
-    times = actual_times
     #plot_spots_at_time_slices(Intensities,ideal_intensities,miller_indices,times)
     dir_figures = "../../../output/_Graphs/plots/"
     dir_figures = path.abspath(path.join(__file__ ,dir_figures)) + "/"

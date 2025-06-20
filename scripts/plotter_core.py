@@ -661,9 +661,16 @@ class Plotter:
     def get_nearest_time(self,time,tol=None):
         if tol is None:
             tol = min(5e-1,(self.timeData[-1]-self.timeData[0])/100) 
-        n = np.argmin(np.abs(self.timeData - time))
-        assert np.all(np.abs(self.timeData[n]-time)<tol) , f"would use time at {self.timeData[n]} fs not {t} fs" 
-        n = np.array(n).reshape((n.size,))
+        #n = np.argmin(np.abs(self.timeData[None,:] - time[:,None]))
+        #assert np.all(np.abs(self.timeData[n]-time)<tol) , f"would use time at {self.timeData[n]} fs not {t} fs" 
+
+        n = []
+        for t in time:
+            n.append(np.argmin(np.abs(t - self.timeData)))
+            assert np.abs(self.timeData[n[-1]]-t)<tol , f"would use time at {self.timeData[n[-1]]} fs not {t} fs" 
+
+        #n = np.array(n).reshape((n.size,))
+        n = np.array(n)
         return n, self.timeData[n]
     def time_snapshot(self,snapshot_idx: int):
         # We pass in indices from 0 to fineness, transform to time:

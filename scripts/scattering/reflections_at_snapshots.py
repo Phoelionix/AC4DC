@@ -31,15 +31,14 @@ QUICK_TEST = False
 SKIP_UNDAMAGED = False
 
 
-target_handle = "copper_sulfate_above_e12_15" #"copper_sulfate_above_e12_14" #"copper_sulfate_below_e13_3#"copper_sulfate_above_e12_long_1"#"copper_sulfate_above_e12_14"
+target_handle = "copper_sulfate_above_e12_1fs_1" #"copper_sulfate_above_e12_14" #"copper_sulfate_below_e13_3#"copper_sulfate_above_e12_long_1"#"copper_sulfate_above_e12_14"
 
 
-def reflections_at_time_slice(slice_time): 
+def generate_reflections(num_time_points,start_time,end_time): 
     print("=================================================")
-    print("Time slice:",slice_time)
     cycles_per_bragg_set = 1 # leave at 1, should be fine
     num_bragg_sets = 1 # 25 # increase this for better stochastic
-    num_unique_supercells = 100 # 20
+    num_unique_supercells = 2 # 20
     supercell_scale=1
 
     slice_width=0.5 # 99SLICE WIDTH ARBITRARY NOW
@@ -63,7 +62,7 @@ def reflections_at_time_slice(slice_time):
         include_symmetries=False
     #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.4.hkl"
 
-    pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/CuSO4.pdb" 
+    pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/CuSO4.pdb" 
     CNO_to_N = False; S_to_N = False
     allowed_atoms = ["Cu","S","O","H"]
     folder = ""
@@ -71,13 +70,14 @@ def reflections_at_time_slice(slice_time):
 
     #### Individual experiment arguments 
     #tag = f"SC{num_unique_supercells}" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
-    start_time = slice_time-slice_width/2#-12#-6
-    end_time = slice_time+slice_width/2#12#6
+    start_time = start_time#-12#-6
+    end_time = end_time#12#6
     laser_firing_qwargs = dict(
         # pixel sampling method (Neutze) if True - Miller indices if False
         SPI = False,  # sampling method, if False, bragg spots. if True, detector pixels. TODO change name
         SPI_resolution = best_resolution,
         pixels_across = 300,  # for SPI TODO shld go on xfel exp params.
+        do_not_integrate_times=True,
     )
     ##### Crystal params
     crystal_qwargs = dict(
@@ -100,7 +100,7 @@ def reflections_at_time_slice(slice_time):
         screen_type = "flat",#"hemisphere"
         q_minimum = res_to_q(worst_resolution),#None #angstrom
         q_cutoff = res_to_q(best_resolution), #(best_resolution),#2*np.pi/2
-        t_fineness=0,   
+        t_fineness=num_time_points-1,   
         #####crystal stuff (miller)
         max_miller_idx = 25, #None, # = m, [overrides max q so given by q with miller indices (m,m,m)]
         all_miller_indices = True, # False, whether to find all bragg points at or below the max miller index (and between min and max q)
@@ -140,8 +140,8 @@ def reflections_at_time_slice(slice_time):
         exp_name2 = f"{root_handle}_{exp2_qualifier}"
         results1_parent_folder = f"{RESULTS_LOCAL_PATH}{exp_name1}/" #_v{version_number}/" 
         results2_parent_folder = f"{RESULTS_LOCAL_PATH}{exp_name2}/" #_v{version_number}/" 
-        exp_name1 += f"-{slice_time}"
-        exp_name2 += f"-{slice_time}"
+        exp_name1 += f"-slices"
+        exp_name2 += f"-slices"
         
         
 
@@ -185,19 +185,17 @@ def reflections_at_time_slice(slice_time):
         crystal.plot_me(300000,water_index = water_index,template="plotly_dark")
     #%
     if laser_firing_qwargs["SPI"]:
-        SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal,results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
-        SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged,results_parent_dir=results2_parent_folder,  **laser_firing_qwargs)
-        #stylin(exp_name1,exp_name2,experiment1.max_q,results_parent_dir=results_parent_folder,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2,custom_fig_width=fig_width,custom_fig_height=fig_height)
+        assert False
     else:
         exp1_orientations = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal, results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
-        create_reflection_file(exp_name1,results_parent_dir=results1_parent_folder)
-        rfl_to_sca(exp_name1)
+        #create_reflection_file(exp_name1,results_parent_dir=results1_parent_folder)
+        #rfl_to_sca(exp_name1)
         if exp_name2 != None:
             laser_firing_qwargs["random_orientation"] = False
             experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
             experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged, results_parent_dir=results2_parent_folder, **laser_firing_qwargs)
-            create_reflection_file(exp_name2,results_parent_dir=results2_parent_folder)
-            rfl_to_sca(exp_name2)
+            #create_reflection_file(exp_name2,results_parent_dir=results2_parent_folder)
+            #rfl_to_sca(exp_name2)
 
     now = datetime.datetime.now().timestamp()
     os.utime(results1_parent_folder[:-1], (now, now))
@@ -208,9 +206,7 @@ def reflections_at_time_slice(slice_time):
 
 
 if __name__ == "__main__":
-    times = np.linspace(-5,0,20,endpoint=True)
-    for t in times:
-        reflections_at_time_slice(t)
+    generate_reflections(num_time_points=20,start_time=-1,end_time=1)
     #all_reflections_to_scalepack() 
 
 # %%
