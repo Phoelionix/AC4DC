@@ -1,4 +1,18 @@
 #%%
+import matplotlib
+#matplotlib.use("pgf")#
+matplotlib.rcParams.update({
+    "pgf.texsystem": "pdflatex",
+    'font.family': 'serif',
+    'text.usetex': True,
+    'pgf.rcfonts': False,
+    'axes.titlesize':8,     # fontsize of the axes title
+    'axes.labelsize':8,    # fontsize of the x and y labels   
+    'ytick.labelsize':8,
+    'xtick.labelsize':8,
+    'legend.fontsize':8,    
+    'lines.linewidth':1.5,
+})
 from scatter import *
 from multiprocessing import Pool
 from sample_scalepack import all_reflections_to_scalepack
@@ -11,20 +25,22 @@ NUM_PARALLEL=1
 SEEDED = False
 RANDOM_WATER = False; NUM_RANDOM_WATER = 0 # 702
 DEBUG_WATER = False
-QUICK_TEST = True
-SKIP_UNDAMAGED = True
+QUICK_TEST = False
+SKIP_UNDAMAGED = False
 
 
+target_handle = "copper_sulfate_above_e12_14" #"copper_sulfate_above_e12_14" #"copper_sulfate_below_e13_3#"copper_sulfate_above_e12_long_1"#"copper_sulfate_above_e12_14"
 
 
 def reflections_at_time_slice(slice_time,slice_width=0.5):
-    
+    print("=================================================")
+    print("Time slice:",slice_time)
     cycles_per_bragg_set = 1 # leave at 1, should be fine
     num_bragg_sets = 1 # 25 # increase this for better stochastic
-    num_unique_supercells = 1 # 20
+    num_unique_supercells = 2 # 20
+    supercell_scale=2
 
-    fig_width = 3.49751 # 20
-    fig_height = fig_width*3/4 # 20
+
     ### Simulate
     #target_options = ["lys_salt","lys_no_salt","neutze","hen","tetra","glycine","fcc"]
     #target_options = ["lys_salt","lys_no_salt"]
@@ -39,15 +55,13 @@ def reflections_at_time_slice(slice_time,slice_width=0.5):
     include_symmetries=True
     if QUICK_TEST:
         num_bragg_sets = 1
-        num_unique_supercells = 1
+        num_unique_supercells = 100
         include_symmetries=False
     #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.4.hkl"
 
-    target_handle = "CuSO4.pdb"
-    pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/CuSO4.pdb" 
+    pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/CuSO4.pdb" 
     CNO_to_N = False; S_to_N = False
-    allowed_atoms = ["O"]#["Cu","S","O","H"]
-    target_handle = "copper_sulfate_above_e12_1fs_1" #"copper_sulfate_above_e12_14" #"copper_sulfate_below_e13_3#"copper_sulfate_above_e12_long_1"#"copper_sulfate_above_e12_14"
+    allowed_atoms = ["Cu","S","O","H"]
     folder = ""
 
 
@@ -63,7 +77,7 @@ def reflections_at_time_slice(slice_time,slice_width=0.5):
     )
     ##### Crystal params
     crystal_qwargs = dict(
-        supercell_scale = 1,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
+        supercell_scale = supercell_scale,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
         num_supercells = 29*33*37,#100, # 35409
         supercell_simulations = num_unique_supercells, #150
         #BFACTORS positional_stdv = 0,#0.2,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
@@ -189,26 +203,81 @@ def reflections_at_time_slice(slice_time,slice_width=0.5):
 
 
 if __name__ == "__main__":
-    times = [-1,0,1]
+    times = np.linspace(-7.5,7.5,15,endpoint=True)
     for t in times:
         reflections_at_time_slice(t)
     #all_reflections_to_scalepack() 
 
 #%%
-def plot_spots_at_time_slices(Intensities, miller_indices):
+# Ideal intensities purely as an extremely inefficient lazy way to scale by pulse profile
+def plot_spots_at_time_slices(Intensities, ideal_intensities, miller_indices,times,sqrt=False,normalize=True):
     plt.close()
     stringified = []
-    scale_I = Intensities[0]
+    Intensities = copy.deepcopy(Intensities)
+    scale_I = np.sum(Intensities[0])
     for elem in miller_indices:
         stringified.append(str(elem[0])+str(elem[1])+str(elem[2])) 
-    for I,col, w,  in zip(Intensities,['b','g','r'],[1,0.7,0.4]):
-        I *= np.sum(scale_I)/np.sum(I) #normalise
-        plt.bar(stringified,np.sqrt(I),alpha=1,color=col,width=w)
+    for I,I_ideal,col, w,  in zip(Intensities,ideal_intensities,['b','g','r'],[1,0.7,0.4]):     
+        if normalize:
+            I *= scale_I/np.sum(I_ideal) #normalise
+        plt.bar(stringified,np.sqrt(I) if sqrt else I,alpha=1,color=col,width=w)
     plt.ylim(0,np.sqrt(np.max(Intensities)))
     plt.xticks(rotation="vertical")
     plt.show()
 
-#%%
+def plot_biggest_spots_over_time(Intensities, ideal_intensities, miller_indices,times,sqrt=False,normalize=False,num_points=4,save_path = None):
+    plt.close()
+    Intensities = copy.deepcopy(Intensities)
+  
+    scale_I = np.sum(ideal_intensities[0])
+    # initialise dict of reflection intensities 
+    data = {}
+    hkl_keys=[] #ordered keys
+    for elem in miller_indices:
+        k=str(elem[0])+str(elem[1])+str(elem[2])
+        data[k]=[]
+        hkl_keys.append(k)
+    for i in range(len(Intensities)): # for each time step
+        I = Intensities[i]; I_ideal = ideal_intensities[i]
+        if normalize:
+            I *= scale_I/np.sum(I_ideal)
+        for hkl, v in zip(hkl_keys,I):
+            data[hkl].append(np.sqrt(v) if sqrt else v)
+    
+        #plt.bar(stringified,np.sqrt(I),alpha=1,color=col,width=w)
+    fig_width = 3.49751*0.75 # 20
+    fig_height = fig_width*3/4 # 20
+    fig,ax = plt.subplots(figsize=(fig_width,fig_height))
+    
+
+    Y_list =np.array(list(data.values()))
+    sorts = np.argsort(Y_list[:,0])[::-1]
+    hkl_list = np.array(list(data.keys()))[sorts][:min(num_points,len(data))]
+    Y_list = Y_list[sorts][:min(num_points,len(data))]
+
+    for hkl, Y in zip(hkl_list,Y_list):
+        ax.scatter(times,Y,label=hkl)
+    ax.set_yscale("log")
+    ax.legend(loc="upper left",bbox_to_anchor=[1,1],ncol=1)
+    ax.set_ylabel("$$I$$")
+    if normalize:
+        #ax.set_ylabel("$$\\frac{I}{\\Omega}$$")
+        ax.set_ylabel("$$I/\\Omega$$")
+    assert(not sqrt)
+    ax.set_xlabel("Time (fs)")
+    fig.subplots_adjust(left=0.15, bottom=0.1, right=0.8, top=0.93, wspace=0.3, hspace=0.4) # 3 orb density plots row
+
+    #plt.ylim(0,None)
+
+    plt.tight_layout(pad=0)
+
+    if save_path is not None:
+        plt.savefig(save_path,dpi=300)
+    plt.show()
+
+
+
+
 if __name__ == "__main__":
     import glob
 
@@ -219,19 +288,39 @@ if __name__ == "__main__":
 
     #num_results = len(times)*(1+(SKIP_UNDAMAGED==False))
     #OldestToLatest = sorted(glob.glob(os.path.join(scattering_dir+RESULTS_LOCAL_PATH, '*/')), key=os.path.getmtime)
-    dir = scattering_dir+RESULTS_LOCAL_PATH+"copper_sulfate_above_e12_1fs_1_real"
-    Intensities = []
+    dir = scattering_dir+RESULTS_LOCAL_PATH+target_handle+"_real"
     #print (glob.glob(os.path.join(dir,"*/")))
     #    #for file in glob.glob(dir+"/*"):
+    Intensities = []
+    ideal_intensities=[]
+    files = []
+    subdirs =[]
+    times=[]
     for filepath in os.listdir(dir):
         subdir = dir+"/"+filepath
         for file in os.listdir(subdir):
-            print(file)
-            print(dir)
-            dmged_result,_ = get_result(file,subdir)
-            Intensities.append(dmged_result.I)
-            miller_indices = dmged_result.miller_indices
-    plot_spots_at_time_slices(Intensities,miller_indices)
+            for i, c in  enumerate(filepath):
+                if c== "-":
+                    break
+            times.append(float(filepath[i+1:]))
+            files.append(file)
+            subdirs.append(subdir)
+    sorts = np.argsort(times)
+    files  = np.array(files)[sorts]
+    subdirs  = np.array(subdirs)[sorts]
+    times = np.array(times)[sorts]
+    for file,subdir in zip(files,subdirs):
+        compare_dir=subdir.replace("_real","_ideal")
+        dmged_result,undmged_result = get_result(file,subdir,compare_dir=compare_dir)
+        Intensities.append(dmged_result.I)
+        ideal_intensities.append(undmged_result.I)
+        miller_indices = dmged_result.miller_indices
+    #plot_spots_at_time_slices(Intensities,ideal_intensities,miller_indices,times)
+    dir_figures = "../../../output/_Graphs/plots/"
+    dir_figures = path.abspath(path.join(__file__ ,dir_figures)) + "/"
+    plot_biggest_spots_over_time(Intensities,ideal_intensities,miller_indices,times,sqrt=False,num_points=5,save_path=dir_figures+target_handle+"_rfl.png")
+    plot_biggest_spots_over_time(Intensities,ideal_intensities,miller_indices,times,normalize=True,sqrt=False,num_points=5,save_path=dir_figures+target_handle+"pulse_scaled_rfl.png")
+    assert len(files)>0
     
     # for n in range(num_results):
     #     all_reflections_to_scalepack(
@@ -241,7 +330,9 @@ if __name__ == "__main__":
     #         tag_override=""
     #     )  
 
+## %%
+
+
+
+
 # %%
-
-
-
