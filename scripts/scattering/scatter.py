@@ -1703,9 +1703,10 @@ class XFEL():
         if self.target.cell_packing == "triclinic":
             triclinic_basis = get_triclinic_basis(self.target.cell_angles)
         while supercells_remaining > 0:
-            end_cube_idx = min(supercells_remaining,super_batch_size)
+            end_cube_idx = curr_cube_idx + min(supercells_remaining,super_batch_size)
             super_coords = np.empty((self.target.num_supercells,3))  
             super_coords = super_cube_coords[curr_cube_idx:end_cube_idx+1]*self.target.supercell_dim
+            assert (super_coords.shape[0]>0), f"{super_coords.shape[0]} {super_coords.shape} {curr_cube_idx} {end_cube_idx}"
             assert(super_coords.shape[0]>0)
             if self.target.cell_packing == "triclinic":
                 super_coords= (super_coords*self.target.supercell_dim)@triclinic_basis
@@ -1714,14 +1715,14 @@ class XFEL():
             F_supercell_copies = np.zeros(shape=(len(super_coords),)+(F_supercells[0].shape),dtype=complex)
             for p in range(len(F_supercell_copies)):
                 F_supercell_copies[p] = np.random.choice(F_supercells)
-            if self.all_miller_indices:
-                # Assume only constructive interference at Bragg conditions... I THINK THIS IS WRONG WE WILL NEED TO ROTATE G TO BRAGG CONDITION FOR EACH AND AVERAGE OVER.
-                T_supercell = np.ones((super_coords.shape[0],feature.G.shape[-1])) # Only constructive interference at bragg spots.
+            # if self.all_miller_indices:
+            #     # 
+            #     T_supercell = np.ones((super_coords.shape[0],feature.G.shape[-1])) # Only constructive interference at bragg spots.
+            # else:
+            if SPI:
+                T_supercell = self.SPI_interference_factor(phis,super_coords,feature)
             else:
-                if SPI:
-                    T_supercell = self.SPI_interference_factor(phis,super_coords,feature)
-                else:
-                    T_supercell = self.interference_factor(super_coords,feature,cardan_angles)
+                T_supercell = self.interference_factor(super_coords,feature,cardan_angles,rotate_back=False)
             F_cry += np.sum(F_supercell_copies*T_supercell[:,None],axis=0)
             supercells_remaining -= super_batch_size
             curr_cube_idx = end_cube_idx
@@ -1761,13 +1762,13 @@ class XFEL():
         return I
 
 
-    def interference_factor(self,coord,feature,cardan_angles): # TODO Remove cardan_angles input
+    def interference_factor(self,coord,feature,cardan_angles,rotate_back=True): # TODO Remove cardan_angles input
         """ theta = scattering angle relative to z-y plane """ 
         if DEBUG:
             assert coord.shape[0]>0
         q_vect = feature.G.copy()
         #Rotate our G vector BACK to the real laser orientation relative to the crystal.
-        if not self.all_miller_indices: # Should still be same result regardless of orientation TODO double check
+        if rotate_back: # Should still be same result regardless of orientation TODO double check
             q_vect = self.rotate_G_to_orientation(feature.G.copy(),*cardan_angles,inverse=True)[0]       
         coord = np.moveaxis(coord,0,-1)  #  dim = [xyz,atoms]
         q_vect = np.moveaxis(q_vect,0,-1) # dim = [momenta,xyz]
