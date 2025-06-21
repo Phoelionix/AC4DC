@@ -14,8 +14,9 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 #PULSE
 8700         // Photon energy in eV.
 5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
-triangle       // Pulse shape
-1 // sim. timespan in FWHM
+gaussian       // Pulse shape
+3 // sim. timespan in FWHM
+1.5 // sim. timespan before pulse peak in FWHM
 
 #USE_COUNT
 true    // active (using count)?
