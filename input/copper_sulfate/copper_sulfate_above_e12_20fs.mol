@@ -4,8 +4,6 @@ H 20
 O 18
 S 2
 
-#LOAD
-copper_sulfate_below_e12_21
 
 #VOLUME
 359.016     // Volume per molecule in Angstrom^3.
@@ -14,8 +12,8 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 
 
 #PULSE
-8700         // Photon energy in eV.
-5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
+9200         // Photon energy in eV.
+20           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 triangle       // Pulse shape
 1 // sim. timespan in FWHM
 
@@ -24,7 +22,7 @@ true    // active (using count)?
 1  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
-3000      // Initial guess for number of time step points for rate equation.
+5000      // Initial guess for number of time step points for rate equation.
 16            // Number of threads in OpenMP.
 
 #DYNAMIC_GRID
