@@ -127,8 +127,11 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 			if (pulse_shape == PulseShape::gaussian){
 				pulse_shape = PulseShape::pumpProbeGaussians;
 			}
-			else{
+			else if (pulse_shape == PulseShape::square){
 				pulse_shape = PulseShape::pumpProbeSquares;
+			}
+			else{
+				throw std::runtime_error("Unimplemented pulse shape for probe");
 			}
 		}
 	}

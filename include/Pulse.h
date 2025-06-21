@@ -27,7 +27,7 @@ This file is part of AC4DC.
 #include <iostream>
 
 enum class PulseShape {
-    square, gaussian, pumpProbeGaussians, pumpProbeSquares, none
+    square, gaussian, triangle, pumpProbeGaussians, pumpProbeSquares, none
 };
 
 
@@ -73,6 +73,9 @@ namespace {
         case PulseShape::square:
             os << "Rectangular";
             break;
+        case PulseShape::triangle:
+            os << "Triangular";
+            break;
         case PulseShape::pumpProbeGaussians:
             os << "Pump-probe Gaussians";
             break;
@@ -99,6 +102,8 @@ namespace {
         case 'g':
             ps = PulseShape::gaussian;
             break;
+        case 't':
+            ps = PulseShape::triangle;
         case 's':
         case 'r':
             ps = PulseShape::square;

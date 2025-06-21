@@ -64,6 +64,16 @@ double Pulse::operator()(double t) {
     case PulseShape::gaussian:
         return this->I0/norm*pow(2,-t*t*4/this->fwhm/this->fwhm);
         break;
+    case PulseShape::triangle:
+        if (t < -this->fwhm/2 || t >this->fwhm/2) {
+            return 0;
+        }
+        else if(t < 0){ // first half
+            return this-> I0 * 2*(1+2*t/fwhm);
+        }
+        else{ // second half
+            return this-> I0 * 2*(1-2*t/fwhm);
+        }
     case PulseShape::square:
         if (t < -this->fwhm || t >0) {
             return 0;
