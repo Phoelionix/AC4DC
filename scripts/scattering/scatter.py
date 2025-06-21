@@ -31,8 +31,8 @@ This file is part of AC4DC.
 import os
 os.getcwd()
 import sys
-sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
-sys.path.append('/home/speno/AC4DC/scripts/')
+sys.path.append('/home/speno//AC4DC/scripts/pdb_parser')
+sys.path.append('/home/speno//AC4DC/scripts/')
 ######
 
 import os.path as path
@@ -1703,9 +1703,10 @@ class XFEL():
         if self.target.cell_packing == "triclinic":
             triclinic_basis = get_triclinic_basis(self.target.cell_angles)
         while supercells_remaining > 0:
-            end_cube_idx = min(supercells_remaining,super_batch_size)
+            end_cube_idx = curr_cube_idx + min(supercells_remaining,super_batch_size)
             super_coords = np.empty((self.target.num_supercells,3))  
             super_coords = super_cube_coords[curr_cube_idx:end_cube_idx+1]*self.target.supercell_dim
+            assert (super_coords.shape[0]>0), f"{super_coords.shape[0]} {super_coords.shape} {curr_cube_idx} {end_cube_idx}"
             assert(super_coords.shape[0]>0)
             if self.target.cell_packing == "triclinic":
                 super_coords= (super_coords*self.target.supercell_dim)@triclinic_basis
@@ -1715,13 +1716,13 @@ class XFEL():
             for p in range(len(F_supercell_copies)):
                 F_supercell_copies[p] = np.random.choice(F_supercells)
             if self.all_miller_indices:
-                # Assume only constructive interference at Bragg conditions... I THINK THIS IS WRONG WE WILL NEED TO ROTATE G TO BRAGG CONDITION FOR EACH AND AVERAGE OVER.
+                # Assume at Bragg conditions... I THINK THIS IS WRONG WE WILL NEED TO ROTATE G TO BRAGG CONDITION FOR EACH AND AVERAGE OVER.
                 T_supercell = np.ones((super_coords.shape[0],feature.G.shape[-1])) # Only constructive interference at bragg spots.
             else:
                 if SPI:
                     T_supercell = self.SPI_interference_factor(phis,super_coords,feature)
                 else:
-                    T_supercell = self.interference_factor(super_coords,feature,cardan_angles)
+                    T_supercell = self.interference_factor(super_coords,feature,cardan_angles,rotate_back=False)
             F_cry += np.sum(F_supercell_copies*T_supercell[:,None],axis=0)
             supercells_remaining -= super_batch_size
             curr_cube_idx = end_cube_idx
@@ -1761,13 +1762,13 @@ class XFEL():
         return I
 
 
-    def interference_factor(self,coord,feature,cardan_angles): # TODO Remove cardan_angles input
+    def interference_factor(self,coord,feature,cardan_angles,rotate_back=True): # TODO Remove cardan_angles input
         """ theta = scattering angle relative to z-y plane """ 
         if DEBUG:
             assert coord.shape[0]>0
         q_vect = feature.G.copy()
         #Rotate our G vector BACK to the real laser orientation relative to the crystal.
-        if not self.all_miller_indices: # Should still be same result regardless of orientation TODO double check
+        if rotate_back: # Should still be same result regardless of orientation TODO double check
             q_vect = self.rotate_G_to_orientation(feature.G.copy(),*cardan_angles,inverse=True)[0]       
         coord = np.moveaxis(coord,0,-1)  #  dim = [xyz,atoms]
         q_vect = np.moveaxis(q_vect,0,-1) # dim = [momenta,xyz]
@@ -3618,8 +3619,8 @@ if __name__ == "__main__":
             positional_stdv=0
             random_waters=None
             num_supercells=1
-        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.5.hkl"
-        unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"
+        #unique_hkl ="/home/speno//AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.5.hkl"
+        unique_hkl ="/home/speno//AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"
         exp_qwargs["miller_indices_override"] = read_hkl(unique_hkl)
         exp_qwargs["spot_fraction_per_orient"] = 1/cycles_per_bragg_set
         exp_qwargs["num_orients_crys"] = cycles_per_bragg_set*num_bragg_sets
@@ -3647,18 +3648,18 @@ if __name__ == "__main__":
         start_time += probe_delay
         end_time += probe_delay
 
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb" 
+        pdb_path = "/home/speno//AC4DC/scripts/scattering/targets/4et8.pdb" 
         if include_H:
-            pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8H.pdb" 
+            pdb_path = "/home/speno//AC4DC/scripts/scattering/targets/4et8H.pdb" 
         if COMPARE_REFINED:
             pdb_path2 = dict(
-                lys_salt = "/home/speno/AC4DC/scripts/scattering/targets/salt_group_1.pdb",
-                lys_no_salt = "/home/speno/AC4DC/scripts/scattering/targets/no_salt_group_1.pdb", 
+                lys_salt = "/home/speno//AC4DC/scripts/scattering/targets/salt_group_1.pdb",
+                lys_no_salt = "/home/speno//AC4DC/scripts/scattering/targets/no_salt_group_1.pdb", 
             )[target]
             crystal1_is_damaged = False
         else:
             assert(crystal1_is_damaged)
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632
+        #pdb_path = "/home/speno//AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632
         CNO_to_N = False
         S_to_N = False
         folder = ""
@@ -3670,18 +3671,18 @@ if __name__ == "__main__":
             pass
             #exp_name2 = None # Don't do the undamaged target
     elif target == "neutze": #T4 virus lys
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/2lzm.pdb"
+        pdb_path = "/home/speno//AC4DC/scripts/scattering/targets/2lzm.pdb"
         target_handle = "lys-1_2"  
         folder = "lys" # If sim output folders are nested within subdir of __Molecular
         allowed_atoms = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8H.pdb"
+        pdb_path = "/home/speno//AC4DC/scripts/scattering/targets/4et8H.pdb"
         # Solvated targets
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_asym.xpdb"; water_index = 1089
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_unit_cell.pdb"; water_index = 8705
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"; water_index = 
-        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
+        #pdb_path = "/home/speno//AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_asym.xpdb"; water_index = 1089
+        #pdb_path = "/home/speno//AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_unit_cell.pdb"; water_index = 8705
+        #pdb_path = "/home/speno//AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"; water_index = 
+        #pdb_path = "/home/speno//AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
         # target_handle = "lys_nass_2"
         # folder = "lys"
         #'''
@@ -3707,7 +3708,7 @@ if __name__ == "__main__":
         S_to_N = True
         #//
     elif target == "tetra": 
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/5zck.pdb" 
+        pdb_path = "/home/speno//AC4DC/scripts/scattering/targets/5zck.pdb" 
         folder = ""#"tetra_CNO"
         target_handle = "lys_solvated_fast_high_fluence_2"#"lys_all_light-typical"#"6-5-2_tetra_CNO_3"
         #allowed_atoms = ["N_fast"]
@@ -3716,7 +3717,7 @@ if __name__ == "__main__":
         S_to_N = False
     elif target == "glycine":
         exp_qwargs["custom_cell_dims_for_miller_indices"] = [17.174,14.93,13.384]# # None,
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/glycine.pdb" 
+        pdb_path = "/home/speno//AC4DC/scripts/scattering/targets/glycine.pdb" 
         folder = ""
         target_handle = "lys_salt_fast_high_fluence_2" #"glycine_abdullah_high_H_6" #"lys_solvated_fast_high_fluence_2" # "glycine_abdullah_high_H_6" #"glycine_abdullah_4"
         allowed_atoms = ["C","N","O"]
@@ -3725,7 +3726,7 @@ if __name__ == "__main__":
     elif target == "copper_sulfate":
         allowed_atoms = ["Cu","S","O","H"]
         #allowed_atoms = ["Cu"]
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/CuSO4.pdb" 
+        pdb_path = "/home/speno//AC4DC/scripts/scattering/targets/CuSO4.pdb" 
         target_handle = "copper_sulfate_above_e12_1fs_1" #"copper_sulfate_above_e12_14" #"copper_sulfate_below_e13_3#"copper_sulfate_above_e12_long_1"#"copper_sulfate_above_e12_14"
         folder = ""
         crystal_qwargs["cell_packing"]="triclinic"
