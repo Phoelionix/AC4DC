@@ -31,14 +31,14 @@ QUICK_TEST = False
 SKIP_UNDAMAGED = False
 
 
-target_handle = "copper_sulfate_above_e12_1fs_1" #"copper_sulfate_above_e12_14" #"copper_sulfate_below_e13_3#"copper_sulfate_above_e12_long_1"#"copper_sulfate_above_e12_14"
+target_handle = "copper_sulfate_above_e12_15" #"copper_sulfate_above_e12_14" #"copper_sulfate_below_e13_3#"copper_sulfate_above_e12_long_1"#"copper_sulfate_above_e12_14"
 
 
 def generate_reflections(num_time_points,start_time,end_time): 
     print("=================================================")
     cycles_per_bragg_set = 1 # leave at 1, should be fine
     num_bragg_sets = 1 # 25 # increase this for better stochastic
-    num_unique_supercells = 100 # 20
+    num_unique_supercells = 2 # 20
     supercell_scale=1
 
     slice_width=0.5 # 99SLICE WIDTH ARBITRARY NOW
@@ -62,7 +62,7 @@ def generate_reflections(num_time_points,start_time,end_time):
         include_symmetries=False
     #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.4.hkl"
 
-    pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/CuSO4.pdb" 
+    pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/CuSO4_SC.pdb" 
     CNO_to_N = False; S_to_N = False
     allowed_atoms = ["Cu","S","O","H"]
     folder = ""
@@ -206,7 +206,7 @@ def generate_reflections(num_time_points,start_time,end_time):
 
 
 if __name__ == "__main__":
-    generate_reflections(num_time_points=20,start_time=-1,end_time=1)
+    generate_reflections(num_time_points=20,start_time=-4.995,end_time=0)
     #all_reflections_to_scalepack() 
 
 # %%

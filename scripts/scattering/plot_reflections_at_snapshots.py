@@ -31,7 +31,7 @@ QUICK_TEST = False
 SKIP_UNDAMAGED = False
 
 
-target_handle = "copper_sulfate_above_e12_1fs_1" # "copper_sulfate_above_e12_15" #"copper_sulfate_above_e12_14" #"copper_sulfate_below_e13_3#"copper_sulfate_above_e12_long_1"#"copper_sulfate_above_e12_14"
+target_handle = "copper_sulfate_above_e12_15" #"copper_sulfate_above_e12_14" #"copper_sulfate_below_e13_3#"copper_sulfate_above_e12_long_1"#"copper_sulfate_above_e12_14"
 
 # Ideal intensities purely as an extremely inefficient lazy way to scale by pulse profile
 def plot_spots_at_time_slices(Intensities, ideal_intensities, miller_indices,times,sqrt=False,normalize=True):
@@ -49,7 +49,7 @@ def plot_spots_at_time_slices(Intensities, ideal_intensities, miller_indices,tim
     plt.xticks(rotation="vertical")
     #plt.show()
 
-def plot_biggest_spots_over_time(Intensities, ideal_intensities, miller_indices,times,ylim=[None,None],sqrt=False,normalize=False,num_points=4,save_path = None,title="",true_normed=False):
+def plot_biggest_spots_over_time(Intensities, ideal_intensities, miller_indices,times,xlim=[0,5],ylim=[None,None],sqrt=False,normalize=False,num_points=4,save_path = None,title="",true_normed=False):
     plt.close()
     Intensities = copy.deepcopy(Intensities)
     
@@ -62,8 +62,13 @@ def plot_biggest_spots_over_time(Intensities, ideal_intensities, miller_indices,
         k=str(elem[0])+str(elem[1])+str(elem[2])
         data[k]=[]
         hkl_keys.append(k)
+    # square=True
+    # if square:
+    #     times = np.insert(times,0,0)
+    #     Intensities = np.insert(Intensities,0,ideal_intensities[i])
     for i in range(len(Intensities)): # for each time step
         I = Intensities[i]; I_ideal = ideal_intensities[i]
+        assert(np.sum(I)>0)
         if normalize:
             I *= scale_I/np.sum(I_ideal)
         if true_normed:
@@ -87,7 +92,7 @@ def plot_biggest_spots_over_time(Intensities, ideal_intensities, miller_indices,
         #A = np.vstack([times, np.ones(len(times))]).T
         #m,c =  np.linalg.lstsq()
         
-    #ax.set_yscale("log")
+    ax.set_yscale("log")
     leg =ax.legend(loc="upper left",bbox_to_anchor=[1,1],ncol=1,title="$hkl\\:$")
     leg._legend_box.align = "right"
     ax.set_ylabel("$$I_{hkl}$$")
@@ -100,9 +105,11 @@ def plot_biggest_spots_over_time(Intensities, ideal_intensities, miller_indices,
     assert(not sqrt)
     ax.set_xlabel("Time (fs)")
     ax.set_title(title)
+    ax.set_xticks((0,1,2,3,4,5))
     fig.subplots_adjust(left=0.15, bottom=0.1, right=0.8, top=0.93, wspace=0.3, hspace=0.4) # 3 orb density plots row
 
     ax.set_ylim(*ylim)
+    ax.set_xlim(*xlim)
     #plt.ylim(0,None)
 
     plt.tight_layout(pad=0)
@@ -159,9 +166,10 @@ if __name__ == "__main__":
     note = f"Decay of strongest {num_points} Bragg peaks"
     #title = f"Pulse: "+"$10_power_photon_coun$"+f" ${energy/1000}$"+" keV ph $\\cdot$µm$^"+"{-2}$"+f", ${fwhm}$ fs FWHM"
     title = f"Pulse: "+"$10^{12}$"+f" ${energy/1000}$"+" keV ph $\\cdot$µm$^"+"{-2}$"+f", ${fwhm}$ fs FWHM"
-    plot_biggest_spots_over_time(Intensities,ideal_intensities,miller_indices,times,ylim=[0,None],sqrt=False,num_points=num_points,save_path=dir_figures+target_handle+"_rfl.png",title=title)
+    times+=5
     plot_biggest_spots_over_time(Intensities,ideal_intensities,miller_indices,times,ylim=[2e4,4e4],sqrt=False,num_points=num_points,save_path=dir_figures+target_handle+"_high_rfl.png",title=title)
     plot_biggest_spots_over_time(Intensities,ideal_intensities,miller_indices,times,ylim=[0,1.2e4],sqrt=False,num_points=num_points,save_path=dir_figures+target_handle+"_low_rfl.png",title=title)
+    plot_biggest_spots_over_time(Intensities,ideal_intensities,miller_indices,times,ylim=[0,None],sqrt=False,num_points=num_points,save_path=dir_figures+target_handle+"_rfl.png",title=title)
     #plot_biggest_spots_over_time(Intensities,ideal_intensities,miller_indices,times,normalize=True,sqrt=False,num_points=num_points,save_path=dir_figures+target_handle+"pulse_scaled_rfl.png",title=title)
     #plot_biggest_spots_over_time(Intensities,ideal_intensities,miller_indices,times,normalize=True,sqrt=False,num_points=num_points,save_path=dir_figures+target_handle+"normed_rfl.png",title=title,true_normed=True)
     assert len(files)>0
@@ -173,6 +181,7 @@ if __name__ == "__main__":
     #         out_dir="/home/speno/PhenixWorkspace/data/",
     #         tag_override=""
     #     )  
+
 
 # %%
 from core_functions import get_sim_params
