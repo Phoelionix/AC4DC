@@ -12,14 +12,14 @@ none // Spatial boundary shape - options are none, spherical, cylindrical, plana
 
 
 #PULSE
-9200         // Photon energy in eV.
+15000         // Photon energy in eV.
 5           // Pulse width in femtoseconds (defined as FWHM for Gaussian pulse).
 square       // Pulse shape
 1.2 // sim. timespan in FWHM
 
 #USE_COUNT
 true    // active (using count)?
-10  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
+1  // Photon density (x10^12 ph.µm-2) (3.5e12 um-2)
 
 #NUMERICAL
 3000      // Initial guess for number of time step points for rate equation.
