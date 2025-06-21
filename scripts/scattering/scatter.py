@@ -31,8 +31,8 @@ This file is part of AC4DC.
 import os
 os.getcwd()
 import sys
-sys.path.append('/home/speno20/AC4DC/scripts/pdb_parser')
-sys.path.append('/home/speno20/AC4DC/scripts/')
+sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
+sys.path.append('/home/speno/AC4DC/scripts/')
 ######
 
 import os.path as path
@@ -995,7 +995,7 @@ class Atomic_Species():
         num_atoms = self.get_num_atoms()
         
         if ( self.B_factors and (len(self.B_factors)!=len(self.coords))) \
-        or ((not self.B_factors and not crystal.zero_bfactors) and  (self.num_atoms_on_coord_deviation != num_atoms)):
+        or ((not self.B_factors and not self.crystal.zero_bfactors) and  (self.num_atoms_on_coord_deviation != num_atoms)):
             raise Exception("num atoms was not same on set_stochastic_electronic_states call as when set by set_coord_deviation")
         
         if self.crystal.is_damaged:
@@ -1393,6 +1393,9 @@ class XFEL():
 
                 print("Imaging orientation",j)
                 bragg_points, miller_indices,cardan_angles = self.bragg_points(target,cell_packing = target.cell_packing, cardan_angles = cardan_angles,random_orientation=random_orientation,indices_override=orientation_indices_override)
+                #print(bragg_points[3],miller_indices[3])
+                #asdas
+
                 used_orientations.append(cardan_angles)
                 num_points = int(len(bragg_points))
                 result = Results(num_points,j)
@@ -1607,11 +1610,15 @@ class XFEL():
             if type(feature.q) is np.ndarray:
                 F_shape += feature.q.shape          # [?phis?,times,feature.q.shape]
         F_supercells = np.zeros(self.target.supercell_simulations,dtype="object")
+        non_empty_species_dict = {}
+        for k, v in self.target.species_dict.items():
+            if len(v.coords) >0:
+                non_empty_species_dict[k]=v
         for S in range(self.target.supercell_simulations):   
             print("Simulating supercell", S)
             times_used = None
             self.target.set_stochastic_positions(feature.q)
-            for species in self.target.species_dict.values():
+            for species in non_empty_species_dict.values():
                 species.set_stochastic_electronic_states()   
                 species.set_scalar_form_factor()
                 if times_used is None:
@@ -1623,7 +1630,7 @@ class XFEL():
                 raise Exception("Intensity array's final time equals its initial time")                  
             # Technically sum of F(t)*sqrt(J(t)), where F = sum(f(q,t)*T(q)), and J(t) is the incident intensity, thus accounting for the pulse profile. (J(t) is accounted for in get_stochastic_f)
             F_sum = np.zeros(F_shape,dtype="complex_")  
-            for species in self.target.species_dict.values():
+            for species in non_empty_species_dict.values():
                 if DEBUG or DEBUG_MODERATE:
                     print("------------------------------------------------------------")
                     print("Getting contribution to integrand from species",species.name)
@@ -1667,10 +1674,10 @@ class XFEL():
                             T= self.interference_factor(coord,feature,cardan_angles)  #[num_G] 
                         if self.target.use_bfactors and not self.target.zero_bfactors:
                             T*=species.debye_waller_factor[relative_atm_idx]
-                        f = species.get_stochastic_f(atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
+                        f = species.get_stochastic_f(atm_idx, feature.q)  / np.sqrt(self.target.num_cells*self.target.num_supercells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
                         same_each_sym = False # (debug)
                         if same_each_sym:
-                            f = species.get_stochastic_f(relative_atm_idx, feature.q)  / np.sqrt(self.target.num_cells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
+                            f = species.get_stochastic_f(relative_atm_idx, feature.q)  / np.sqrt(self.target.num_cells*self.target.num_supercells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
                         #print(F_sum.shape,T.shape,f.shape)                             
                         if SPI: 
                             if type(feature) is self.Cell:
@@ -1684,37 +1691,45 @@ class XFEL():
             F_supercells[S] = F_sum
         # Add supercells
         F_cry = np.zeros(F_shape,dtype="complex_")
+
         length = np.ceil(self.target.num_supercells**(1/3)) 
-        super_batch_size = 50
-        supercells_remaining = self.target.num_supercells
-            
+
         x, y, z= np.meshgrid(np.arange(0, length), np.arange(0, length), np.arange(0, length))
         super_cube_coords = np.stack([ y.flatten(), x.flatten(), z.flatten()], axis = -1) # sadly not dimensionally-transcendental enough to be prefixed "hyper"        
         curr_cube_idx = 0
-
+        super_batch_size = 50
+        supercells_remaining = self.target.num_supercells
+            
         if self.target.cell_packing == "triclinic":
             triclinic_basis = get_triclinic_basis(self.target.cell_angles)
         while supercells_remaining > 0:
             end_cube_idx = min(supercells_remaining,super_batch_size)
             super_coords = np.empty((self.target.num_supercells,3))  
-            super_coords = super_cube_coords[curr_cube_idx:end_cube_idx]*self.target.supercell_dim
+            super_coords = super_cube_coords[curr_cube_idx:end_cube_idx+1]*self.target.supercell_dim
+            assert(super_coords.shape[0]>0)
             if self.target.cell_packing == "triclinic":
                 super_coords= (super_coords*self.target.supercell_dim)@triclinic_basis
-               
 
 
             F_supercell_copies = np.zeros(shape=(len(super_coords),)+(F_supercells[0].shape),dtype=complex)
             for p in range(len(F_supercell_copies)):
                 F_supercell_copies[p] = np.random.choice(F_supercells)
-            if SPI:
-                T_supercell = self.SPI_interference_factor(phis,super_coords,feature)
+            if self.all_miller_indices:
+                # Assume only constructive interference at Bragg conditions... I THINK THIS IS WRONG WE WILL NEED TO ROTATE G TO BRAGG CONDITION FOR EACH AND AVERAGE OVER.
+                T_supercell = np.ones((super_coords.shape[0],feature.G.shape[-1])) # Only constructive interference at bragg spots.
             else:
-                T_supercell = self.interference_factor(super_coords,feature,cardan_angles)
+                if SPI:
+                    T_supercell = self.SPI_interference_factor(phis,super_coords,feature)
+                else:
+                    T_supercell = self.interference_factor(super_coords,feature,cardan_angles)
             F_cry += np.sum(F_supercell_copies*T_supercell[:,None],axis=0)
             supercells_remaining -= super_batch_size
             curr_cube_idx = end_cube_idx
         
         I = np.square(np.abs(F_cry))
+        I_ref, _ = self.target.ff_calculator.I_avg()
+        I/=1e15 
+        I_ref/=1e15
         if self.integrate_times:
             if times_used.size>1:
                 # Integrate over time to get the intensity
@@ -1727,28 +1742,38 @@ class XFEL():
 
         # For unpolarised light (as used by Neutze 2000). (1/2)r_e^2(1+cos^2(theta)) is thomson scattering - recovering the correct equation for a lone electron, where |f|^2 = 1 by definition.    
         # Generally not important due to small angles involved.
-        thet = self.q_to_theta(feature.q)
         r_e_sqr = 2.83570628e-9
-        I*= r_e_sqr*(1/2)*(1+np.square(np.cos(2*thet))) 
+        I*= r_e_sqr*(1/2)
+        I_ref*= r_e_sqr*(1/2)
+        if not self.all_miller_indices:  # TODO maybe turn this off in gneeral since we are assuming it is corrected for
+            thet = self.q_to_theta(feature.q)
+            I*=(1+np.square(np.cos(2*thet))) 
+        else:
+            I/=I.size # spread between spots
 
         if SPI:
             # For crystal we can approximate infinitely small pixels and just consider bragg points.
             # But for SPI need to take the pixel's size into account. Neutze 2000 makes the following approximation:
             I *=  SPI_proj_solid_angle    # equiv. to *= solid_angle
         
-        I/=10**12  # Scale down intensity.
-        print("Total screen-incident intensity = ","{:e}".format(np.sum(I)))
+        print("Total screen-incident intensity TODO not matching below with all miller  = ","{:e}".format(np.sum(I)))
+        print("Intensity scattered by free electron TODO not matching above with all miller = ","{:e}".format(I_ref))
         return I
 
 
     def interference_factor(self,coord,feature,cardan_angles): # TODO Remove cardan_angles input
         """ theta = scattering angle relative to z-y plane """ 
+        if DEBUG:
+            assert coord.shape[0]>0
         q_vect = feature.G.copy()
-        #Rotate our G vector BACK to the real laser orientation relative to the crystal. -> this won't have any effect.
-        #q_vect = self.rotate_G_to_orientation(feature.G.copy(),*cardan_angles,inverse=True)[0]       
+        #Rotate our G vector BACK to the real laser orientation relative to the crystal.
+        if not self.all_miller_indices: # Should still be same result regardless of orientation TODO double check
+            q_vect = self.rotate_G_to_orientation(feature.G.copy(),*cardan_angles,inverse=True)[0]       
         coord = np.moveaxis(coord,0,-1)  #  dim = [xyz,atoms]
         q_vect = np.moveaxis(q_vect,0,-1) # dim = [momenta,xyz]
+        #q_dot_r = np.apply_along_axis(np.dot,len(q_vect.shape)-1,q_vect,coord) # dim = [num_G]  
         q_dot_r = np.apply_along_axis(np.dot,len(q_vect.shape)-1,q_vect,coord) # dim = [num_G]  
+
         q_dot_r = np.moveaxis(q_dot_r,-1,0)
         coord = np.moveaxis(coord,-1,0)                            
         T = np.exp(-1j*q_dot_r)
@@ -3593,8 +3618,8 @@ if __name__ == "__main__":
             positional_stdv=0
             random_waters=None
             num_supercells=1
-        #unique_hkl ="/home/speno20/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.5.hkl"
-        unique_hkl ="/home/speno20/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"
+        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.5.hkl"
+        unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"
         exp_qwargs["miller_indices_override"] = read_hkl(unique_hkl)
         exp_qwargs["spot_fraction_per_orient"] = 1/cycles_per_bragg_set
         exp_qwargs["num_orients_crys"] = cycles_per_bragg_set*num_bragg_sets
@@ -3622,18 +3647,18 @@ if __name__ == "__main__":
         start_time += probe_delay
         end_time += probe_delay
 
-        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/4et8.pdb" 
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb" 
         if include_H:
-            pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/4et8H.pdb" 
+            pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8H.pdb" 
         if COMPARE_REFINED:
             pdb_path2 = dict(
-                lys_salt = "/home/speno20/AC4DC/scripts/scattering/targets/salt_group_1.pdb",
-                lys_no_salt = "/home/speno20/AC4DC/scripts/scattering/targets/no_salt_group_1.pdb", 
+                lys_salt = "/home/speno/AC4DC/scripts/scattering/targets/salt_group_1.pdb",
+                lys_no_salt = "/home/speno/AC4DC/scripts/scattering/targets/no_salt_group_1.pdb", 
             )[target]
             crystal1_is_damaged = False
         else:
             assert(crystal1_is_damaged)
-        #pdb_path = "/home/speno20/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632
         CNO_to_N = False
         S_to_N = False
         folder = ""
@@ -3645,18 +3670,18 @@ if __name__ == "__main__":
             pass
             #exp_name2 = None # Don't do the undamaged target
     elif target == "neutze": #T4 virus lys
-        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/2lzm.pdb"
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/2lzm.pdb"
         target_handle = "lys-1_2"  
         folder = "lys" # If sim output folders are nested within subdir of __Molecular
         allowed_atoms = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
-        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/4et8H.pdb"
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8H.pdb"
         # Solvated targets
-        #pdb_path = "/home/speno20/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_asym.xpdb"; water_index = 1089
-        #pdb_path = "/home/speno20/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_unit_cell.pdb"; water_index = 8705
-        #pdb_path = "/home/speno20/AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"; water_index = 
-        #pdb_path = "/home/speno20/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_asym.xpdb"; water_index = 1089
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_unit_cell.pdb"; water_index = 8705
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"; water_index = 
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
         # target_handle = "lys_nass_2"
         # folder = "lys"
         #'''
@@ -3682,7 +3707,7 @@ if __name__ == "__main__":
         S_to_N = True
         #//
     elif target == "tetra": 
-        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/5zck.pdb" 
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/5zck.pdb" 
         folder = ""#"tetra_CNO"
         target_handle = "lys_solvated_fast_high_fluence_2"#"lys_all_light-typical"#"6-5-2_tetra_CNO_3"
         #allowed_atoms = ["N_fast"]
@@ -3691,7 +3716,7 @@ if __name__ == "__main__":
         S_to_N = False
     elif target == "glycine":
         exp_qwargs["custom_cell_dims_for_miller_indices"] = [17.174,14.93,13.384]# # None,
-        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/glycine.pdb" 
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/glycine.pdb" 
         folder = ""
         target_handle = "lys_salt_fast_high_fluence_2" #"glycine_abdullah_high_H_6" #"lys_solvated_fast_high_fluence_2" # "glycine_abdullah_high_H_6" #"glycine_abdullah_4"
         allowed_atoms = ["C","N","O"]
@@ -3700,7 +3725,7 @@ if __name__ == "__main__":
     elif target == "copper_sulfate":
         allowed_atoms = ["Cu","S","O","H"]
         #allowed_atoms = ["Cu"]
-        pdb_path = "/home/speno20/AC4DC/scripts/scattering/targets/CuSO4.pdb" 
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/CuSO4.pdb" 
         target_handle = "copper_sulfate_above_e12_1fs_1" #"copper_sulfate_above_e12_14" #"copper_sulfate_below_e13_3#"copper_sulfate_above_e12_long_1"#"copper_sulfate_above_e12_14"
         folder = ""
         crystal_qwargs["cell_packing"]="triclinic"
