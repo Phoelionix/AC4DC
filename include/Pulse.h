@@ -104,6 +104,7 @@ namespace {
             break;
         case 't':
             ps = PulseShape::triangle;
+            break;
         case 's':
         case 'r':
             ps = PulseShape::square;
