@@ -72,6 +72,7 @@ from string import ascii_uppercase, ascii_lowercase, ascii_letters, digits
 from core_functions import get_sim_elements
 from plot_I_vs_Isigma import read_validation_file
 import scipy
+import subprocess
 interactive = True
 if interactive and __name__ == "__main__":
     get_ipython().run_line_magic('colors', 'nocolor')
@@ -90,7 +91,7 @@ DELETENONUNIQUE=True
 if SEEDED:
     np.random.seed(0)
 
-c_au = 137.036; eV_per_Ha = 27.211385; ang_per_bohr = 1/1.88973  # > 1 ang = 1.88973 bohr
+c_au = 137.036; eV_per_Ha = 27.211385; ang_per_bohr = 1/1.8897259886 # > 1 ang = 1.88973 bohr
 
 RESULTS_LOCAL_PATH = "results/"
 
@@ -355,20 +356,20 @@ class Crystal():
         self.positional_stdv=0
         self.ignore_deviations=True
 
+    def num_atoms_no_symm(self):
+        return np.sum([len(self.species_dict[k].coords) for k in self.species_dict])
     def set_stochastic_positions(self,q):
         first_call=True
         if self.stochastic_positions_set:
             self.stochastic_positions_set=True
             first_call = False
-        def num_atoms_no_symm():
-            return np.sum([len(self.species_dict[k].coords) for k in self.species_dict])
         if self.random_waters is not None:
             if first_call:
-                self.random_water_start_idx = num_atoms_no_symm()
-                self.num_non_water_oxygens = len(self.species_dict["O"].coords)
+                self.random_water_start_idx = self.num_atoms_no_symm()
+                self.num_non_water_oxygens = 0 if "O" not in self.species_dict else len(self.species_dict["O"].coords)
             self.reinitialize_random_waters()
             if first_call:
-                print(f"Added {self.random_waters} O atoms to random coordinates. Structure now has {num_atoms_no_symm()} atoms.")
+                print(f"Added {self.random_waters} O atoms to random coordinates. Structure now has {self.num_atoms_no_symm()} atoms.")
         if first_call:
             print(f"Adding stdv of {self.positional_stdv*ang_per_bohr} Angstroms.")
         for species in self.species_dict.values():
@@ -970,8 +971,7 @@ class Atomic_Species():
         if self.crystal.zero_bfactors:
             return 1
         assert len(self.B_factors) == len(self.coords)
-        factor = np.array(self.B_factors)/(8*3*np.pi**2) # isotropic assumption
-        #factor = np.array(self.B_factors)/(10*3*np.pi**2) # testing
+        factor = np.array(self.B_factors)/(16*np.pi**2) 
         if len(q.shape)==1:
             self.debye_waller_factor = np.exp(-np.square(q)[None,...]*factor[:,None])
         elif len(q.shape)==2: # better way to do this...?
@@ -1750,7 +1750,7 @@ class XFEL():
             thet = self.q_to_theta(feature.q)
             I*=(1+np.square(np.cos(2*thet))) 
         else:
-            I/=I.size # spread between spots
+            I/=I.size # divvied up by spots
 
         if SPI:
             # For crystal we can approximate infinitely small pixels and just consider bragg points.
@@ -1769,15 +1769,18 @@ class XFEL():
         q_vect = feature.G.copy()
         #Rotate our G vector BACK to the real laser orientation relative to the crystal.
         if rotate_back: # Should still be same result regardless of orientation TODO double check
-            q_vect = self.rotate_G_to_orientation(feature.G.copy(),*cardan_angles,inverse=True)[0]       
+            q_vect = self.rotate_G_to_orientation(feature.G.copy(),*cardan_angles,inverse=True)[0]     
         coord = np.moveaxis(coord,0,-1)  #  dim = [xyz,atoms]
         q_vect = np.moveaxis(q_vect,0,-1) # dim = [momenta,xyz]
         #q_dot_r = np.apply_along_axis(np.dot,len(q_vect.shape)-1,q_vect,coord) # dim = [num_G]  
         q_dot_r = np.apply_along_axis(np.dot,len(q_vect.shape)-1,q_vect,coord) # dim = [num_G]  
 
         q_dot_r = np.moveaxis(q_dot_r,-1,0)
-        coord = np.moveaxis(coord,-1,0)                            
+        coord = np.moveaxis(coord,-1,0)     
         T = np.exp(-1j*q_dot_r)
+        # T = np.exp(0*q_dot_r)
+        # print(T)
+        # adsads
         return T  # [Num_atoms, num_G (bragg spots)]
     
     def random_water_time_interference_factor(self,coord,feature,cardan_angles,times,target):
@@ -3072,7 +3075,7 @@ def get_result(filename,results_dir,compare_dir = None):
 #TODO figure out why we get zeros for reflection intensities sometimes.
 import pandas as pd
 import csv
-def create_reflection_file(result_handle,results_parent_dir = RESULTS_LOCAL_PATH,out_directory="reflections/",overwrite=False):
+def create_reflection_file(result_handle,results_parent_dir = RESULTS_LOCAL_PATH,out_directory="reflections/",overwrite=False,artificial_I_scale=1):
     '''
     Generates a .rfl file, compatible with Superflip
     '''
@@ -3088,7 +3091,8 @@ def create_reflection_file(result_handle,results_parent_dir = RESULTS_LOCAL_PATH
         if result == None:
             break          
         miller_indices = result.miller_indices
-        intensity = np.array([result.I]).T
+        intensity = np.array([result.I]).T * artificial_I_scale
+        print("Shape I",intensity.shape)
         data = np.concatenate((miller_indices,intensity),axis=1) #TODO work with separate times
         # Put in data frame
         columns = ["h","k","l","I"]
@@ -3112,12 +3116,13 @@ def create_reflection_file(result_handle,results_parent_dir = RESULTS_LOCAL_PATH
     df["I"] = df["I"].astype('float')
     df = df.round(6)
     #df.drop_duplicates(subset = ["h","k","l"],inplace=True) # TODO should take average.
-    df = df[df['I']>=0.01] # TODO temporary fix for appearance of low values that needs to be squashed.
+    #df = df[df['I']>=0.01] # Update: This is silly TODO temporary fix for appearance of low values that needs to be squashed.
     df.to_csv(out_path+"_unmerged.rfl",header=False,index=False,float_format='%10f', sep=" ", quoting=csv.QUOTE_NONE, escapechar=" ")
+    
 
     df_merged = df.groupby(["h","k","l"]).mean().reset_index()
+    print("shape merged",df_merged.shape)
     df_merged = df_merged.sort_values(by=["l","k","h"],axis=0)
-
     df_merged.to_csv(out_path+".rfl",header=False,index=False,float_format='%10f', sep=" ", quoting=csv.QUOTE_NONE, escapechar=" ")
 
 
@@ -3236,7 +3241,7 @@ class ScalingByCopyingSigmaRatio(ScalingMethod): # Should be valid for ideal sim
 #         plt.scatter(x,self.curve(x,*self.popt),s=1)
 
 
-def rfl_to_sca(result_handle, reflections_dir = "reflections/",out_directory = "scalepack/",overwrite=True,detector_gain=0.6,scaling_method : ScalingMethod = None):
+def rfl_to_sca(result_handle, reflections_dir = "reflections/",out_directory = "scalepack/",overwrite=True,detector_gain=0.6,scaling_method : ScalingMethod = None,create_mtz=True):
     '''Converts .rfl file to scalepack .sca file
     See https://www.ccp4.ac.uk/html/scala.html#files
     '''
@@ -3266,6 +3271,7 @@ def rfl_to_sca(result_handle, reflections_dir = "reflections/",out_directory = "
         b.write(indent+' 1\n -987\n')
         # Cell geometry TODO integrate with actual input.
         b.write(indent+' 79.000    79.000    38.000    90.000    90.000    90.000 P43212\n')
+        #b.write(indent+' 79.000    79.000    38.000    90.000    90.000    90.000 P1\n')
         # Miller indices (hkl) | IMEAN_dataset | SIGIMEAN_dataset
         for line in a:
             # Initialise elements
@@ -3301,6 +3307,83 @@ def rfl_to_sca(result_handle, reflections_dir = "reflections/",out_directory = "
                 q = q[:-len(entries[i])]+ entries[i]
                 b.write(q)
             b.write('\n')
+    
+    
+    # Create mtz file too using phenix (if installed).
+    mtz_file = None
+    if create_mtz:
+        mtz_file = f"{path.abspath(out_path)[:-4]}.mtz"
+        create_mtz_args =[
+            "phenix.reflection_file_converter",
+            path.abspath(out_path),
+            f"--mtz={mtz_file}",
+        ]
+        print (f"Running {create_mtz_args}")
+        subprocess.run(create_mtz_args)
+
+    return path.abspath(out_path), mtz_file
+
+# For some reason passing in the miller indices does not produce the right map, probably due to wrong phases since R factor is unchanged.
+# So need to specify resolution sadly. 
+# Unfortunately this also makes working with it slower.
+#def phenix_fcalc(pdb_file,miller_indices_mtz):
+def phenix_fcalc(pdb_file,high_resolution,real=False):
+    out_file_name = f"{pdb_file[:-4]}_fcalc.mtz"
+    if path.exists(out_file_name):
+        os.remove(out_file_name)
+    args =[
+        "phenix.fmodel",
+        pdb_file,
+        #miller_indices_mtz,
+        f"high_resolution={high_resolution}",
+        f"file_name={out_file_name}",
+        "use_asu_masks=False",
+        "algorithm = fft *direct",
+        #"algorithm = *fft direct",
+        #"type=*real complex",
+        "type=real" if real else "type=complex",
+        "obs_type=amplitudes",
+        "grid_resolution_factor = 1/3"
+        #f"high_res={high_resolution}",
+    ]
+    print (f"Running {args}")
+    subprocess.run(args)#,stdout=log)
+    return out_file_name
+
+def phenix_fcalc_from_file(pdb_file,miller_indices_mtz,real=False):
+    assert real
+    out_file_name = f"{pdb_file[:-4]}_fcalc.mtz"
+    if path.exists(out_file_name):
+        os.remove(out_file_name)
+    args =[
+        "phenix.fmodel",
+        pdb_file,
+        miller_indices_mtz,
+        f"file_name={out_file_name}",
+        "use_asu_masks=False",
+        "algorithm = fft *direct",
+        #"algorithm = *fft direct",
+        #"type=*real complex",
+        "type=real" if real else "type=complex",
+        "obs_type=amplitudes",
+        "grid_resolution_factor = 1/3"
+        #f"high_res={high_resolution}",
+    ]
+    print (f"Running {args}")
+    subprocess.run(args)#,stdout=log)
+    return out_file_name
+
+
+
+def phenix_R(pdb_file,reflections):
+    args =[
+        "phenix.model_vs_data",
+        pdb_file,
+        reflections,
+        #f"high_res={high_resolution}",
+    ]
+    print (f"Running {args}")
+    subprocess.run(args)#,stdout=log)
 
 def read_scalepack(result_handle,scalepack_dir = "scalepack/",skip_header=3):
     file_path = scalepack_dir + result_handle + ".sca"
