@@ -12,7 +12,7 @@ SEEDED = False
 RANDOM_WATER = False; NUM_RANDOM_WATER = 0 # 702
 DEBUG_WATER = False
 QUICK_TEST = False
-SKIP_UNDAMAGED = True
+SKIP_UNDAMAGED = False
 
 TARGET_HANDLE_DICT = dict(
     #lys_salt = "lys_salt_solvated_fast_H_5",
@@ -21,8 +21,8 @@ TARGET_HANDLE_DICT = dict(
     lys_no_salt = "lys_solvated_H_40_3",
     lys_high_damage= "lys_galli_HF_23",
 )
-target_options = ["lys_salt"]
-TAG = "dmg"
+target_options = ["lys_high_damage"]
+TAG = "Aug"
 
 
 def main(par_idx):
@@ -64,18 +64,19 @@ def main(par_idx):
         unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"
 
         target_handle = TARGET_HANDLE_DICT[target]
-        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb" 
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb" 
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8H.pdb" 
         CNO_to_N = False; S_to_N = False
         folder = ""
-        allowed_atoms = ["C","N","O","S","Na","Cl"]
+        allowed_atoms = ["C","N","O","S","Na","Cl","H"]
     else:
         raise Exception(f"{target} invalid target")
 
 
     #### Individual experiment arguments 
     #tag = f"SC{num_unique_supercells}" # Non-SPI i.e. Crystal only, tag to add to folder name. Reflections saved in directory named version_number + target + tag named according to orientation .
-    start_time = -18#-12#-6
-    end_time = 18#12#6
+    start_time = -48#-18#-12#-6
+    end_time = 48#18#12#6
     laser_firing_qwargs = dict(
         # pixel sampling method (Neutze) if True - Miller indices if False
         SPI = False,  # sampling method, if False, bragg spots. if True, detector pixels. TODO change name
@@ -192,15 +193,23 @@ def main(par_idx):
         SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged,results_parent_dir=results2_parent_folder,  **laser_firing_qwargs)
         #stylin(exp_name1,exp_name2,experiment1.max_q,results_parent_dir=results_parent_folder,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2,custom_fig_width=fig_width,custom_fig_height=fig_height)
     else:
+        I_scale=1e5/crystal_qwargs["num_supercells"]
         exp1_orientations = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal, results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
-        create_reflection_file(exp_name1,results_parent_dir=results1_parent_folder)
-        rfl_to_sca(exp_name1)
+        create_reflection_file(exp_name1,results_parent_dir=results1_parent_folder,
+                               artificial_I_scale=I_scale)
+        _, mtz_file1 = rfl_to_sca(exp_name1)
         if exp_name2 != None:
             laser_firing_qwargs["random_orientation"] = False
             experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
             experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged, results_parent_dir=results2_parent_folder, **laser_firing_qwargs)
-            create_reflection_file(exp_name2,results_parent_dir=results2_parent_folder)
-            rfl_to_sca(exp_name2)
+            create_reflection_file(exp_name2,results_parent_dir=results2_parent_folder,
+                                   artificial_I_scale=I_scale)
+            _, mtz_file2 = rfl_to_sca(exp_name2)
+            #fcalc = phenix_fcalc(pdb_path,best_resolution,real=True)
+            phenix_R(pdb_path,mtz_file2)
+        phenix_R(pdb_path,mtz_file1)
+        fcalc = phenix_fcalc_from_file(pdb_path,mtz_file1,real=True)
+        phenix_R(pdb_path,fcalc)
 
     now = datetime.datetime.now().timestamp()
     os.utime(results1_parent_folder[:-1], (now, now))

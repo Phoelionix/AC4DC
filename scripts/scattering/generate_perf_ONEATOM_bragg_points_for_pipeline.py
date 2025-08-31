@@ -198,8 +198,10 @@ def main(par_idx):
             laser_firing_qwargs["random_orientation"] = False
             #experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
             experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged, results_parent_dir=results2_parent_folder, **laser_firing_qwargs)
-            create_reflection_file(exp_name2,results_parent_dir=results2_parent_folder)
-            rfl_to_sca(exp_name2)
+            create_reflection_file(exp_name2,results_parent_dir=results2_parent_folder,artificial_I_scale=1e6/crystal.num_atoms_no_symm())
+            _, mtz_file = rfl_to_sca(exp_name2)
+            phenix_fcalc(pdb_path,mtz_file)
+            phenix_R(pdb_path,mtz_file)
 
         #stylin(exp_name1,exp_name2,experiment1.q_to_X(experiment1.max_q)/1e7,results_parent_dir=results_parent_folder, custom_fig_width=fig_width,custom_fig_height=fig_height) # Note we are passing the max q, not max q_scr.
 
@@ -226,7 +228,8 @@ if __name__ == "__main__":
             OldestToLatest[-n-1].split("/")[-2],
             scattering_dir+RESULTS_LOCAL_PATH,
             out_dir="/home/speno/PhenixWorkspace/data/",
-            tag_override=""
+            tag_override="",
+            create_mtz=False
         )  
 
 # %%
