@@ -1,9 +1,9 @@
 # Instructions for a fresh install for C++ beginners.
 # --Compiling--
 #(0. Run 'sudo apt-get install build-essential' )
-# 1. Install brew (e.g. linux: https://docs.brew.sh/Homebrew-on-Linux#requirements)
-# 2. Run 'brew install [formula]' on following formulae: gcc@10, eigen, ncurses
-# 3. Ensure correct links for INC and LIB in this file. 
+# 1. Install brew (e.g. linux: https://docs.brew.sh/Homebrew-on-Linux#requirements and https://brew.sh/)
+# 2. Run 'brew install [formula]' on following formulae: gcc@10, eigen, ncurses, boost (all at once: brew install gcc@10 eigen ncurses boost)
+# 3. Ensure correct links for INC and LIB in this file.  (TODO how?)
 # 4. Run 'make'
 #
 # Optional (well not yet optional TODO), live plotting:
