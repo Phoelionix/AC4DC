@@ -12,13 +12,14 @@ import imaging_params as imaging_params
 import numpy as np
 from scipy import constants as C
 import struct
+import textwrap
 
 # Converts AC4DC data to IONIZATION_DATA used for input to MolDStruct CR-MD.
 
 # sim_handle = "tmp_I3C_2"
 # num_steps = 500
 #sim_handle = "I3C_55fs_4"
-#num_steps = 4900  
+#num_steps = 4900   # NOT in attoseconds when doing i3c 55 fs
 #target = "I3C.gro"
 #sim_handle = "lys_salt_solvated_fast_H_4"
 AVERAGE_CHARGES = None 
@@ -168,19 +169,27 @@ MOLECULAR_PATH = path.abspath(path.join(SCRIPTS_DIR, "../output/__Molecular/")) 
 
 
 # def LennardJones():
-#     out_folder = OUTPUT_PATH + get_save_folder() + "/"
+#     out_folder = get_save_folder()
 #     f = open(out_folder+"/lennard_jones_parameters.txt", "w") 
 
 #     for i, j in zip(types, atom_number):
 #         f.writelines("{0} 0 0\n".format(j))
 #     f.close()
 
+def get_save_folder():
+    if AVERAGE_CHARGES:
+        tag = "avg"
+    else:
+        tag = "stoch"
+    folder_name = f"{sim_handle}_{tag}"
+    return OUTPUT_PATH + folder_name + "/"
+
 def charges(csv=False,individual_elements = False,average_charges=AVERAGE_CHARGES):
     if average_charges is None:
         average_charges = True 
     print("Beginning writing of charges...")
 
-    out_folder = OUTPUT_PATH + get_save_folder() + "/"
+    out_folder = get_save_folder()
     print(OUTPUT_PATH)
     
     num_steps = len(ff_calculator.get_times_SCATTER())
@@ -257,7 +266,7 @@ def DebyeLength(csv=False):
     lambdaD=np.sqrt(C.epsilon_0 * C.nano * T *C.eV / n /C.e/C.e) # should have units nm
     #lambdaD=np.sqrt(C.epsilon_0 * C.angstrom * T *C.eV / n /C.e/C.e) # should have units Angstrom
 
-    out_folder = OUTPUT_PATH + get_save_folder() + "/"
+    out_folder = get_save_folder()
     create_data_file(T*11606,"electron_temperature",out_folder,csv=csv) # K
     create_data_file(n/C.nano**3,"electron_density",out_folder,csv=csv) # nm^-3
     create_data_file(lambdaD,"debye_data",out_folder,csv=csv) # nm
@@ -267,15 +276,6 @@ if __name__ == "__main__":
     for sim_handle in sim_handles:
 
         allowed_atoms = get_sim_elements(sim_handle)
-
-
-        def get_save_folder():
-            if AVERAGE_CHARGES:
-                tag = "avg"
-            else:
-                tag = "stoch"
-            return f"{sim_handle}_{tag}"
-
 
         crystal = Crystal(TARGET_DIR + target,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=False,**crystal_params)
 
@@ -293,6 +293,15 @@ if __name__ == "__main__":
         ff_calculator = xfel.get_ff_calculator(start_time,end_time,sim_handle,MOLECULAR_PATH)   
         ff_calculator.allow_select_same_times = ALLOW_SELECT_SAME_TIMES  
         crystal.set_ff_calculator(ff_calculator)    
+
+        # TODO json format.
+        log_file = get_save_folder() + "log.txt"
+        with open(log_file,'w') as f:
+            f.write(textwrap.dedent(f"""\
+                    target: {target}
+                    plasma simulation: {sim_handle}
+                    p. sim. parameters: {param_dict}
+                    """))
 
         charges(csv=SAVE_CSV_COPY)
         DebyeLength(csv=SAVE_CSV_COPY)
