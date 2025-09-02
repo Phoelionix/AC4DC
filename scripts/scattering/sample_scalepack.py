@@ -59,10 +59,10 @@ import inspect
 
 
 
-def all_reflections_to_scalepack(result_handle,results_parent_dir,out_dir=None, reflections_dir=None,tag_override=None,scaling_method=None,scaling_thing=False):
-    sample_results_and_create_scalepack(result_handle,"ALL",results_parent_dir,out_dir=out_dir,reflections_dir=reflections_dir, tag_override=tag_override,scaling_thing=scaling_thing)
+def all_reflections_to_scalepack(result_handle,results_parent_dir,out_dir=None, reflections_dir=None,tag_override=None,scaling_method=None,scaling_thing=False,create_mtz=False):
+    sample_results_and_create_scalepack(result_handle,"ALL",results_parent_dir,out_dir=out_dir,reflections_dir=reflections_dir, tag_override=tag_override,scaling_thing=scaling_thing,create_mtz=create_mtz)
     
-def sample_results_and_create_scalepack(result_handle,num_to_sample,results_parent_dir,out_dir=None, reflections_dir=None,tag_override=None,scaling_method=None,scaling_thing=False):
+def sample_results_and_create_scalepack(result_handle,num_to_sample,results_parent_dir,out_dir=None, reflections_dir=None,tag_override=None,scaling_method=None,scaling_thing=False,create_mtz=False):
     src_file_path = inspect.getfile(lambda: None)
     scattering_dir = path.abspath(path.join(src_file_path ,"../"))+"/"
     if out_dir is None:
@@ -78,8 +78,8 @@ def sample_results_and_create_scalepack(result_handle,num_to_sample,results_pare
         cif_file = f"/home/speno/PhenixWorkspace/data/4et8-sf.cif"
         scaling_method = ScalingByCopyingSigmaRatio(cif_file,scattering_dir+"random_sample/reflections/"+ reflections_handle + ".rfl")
         #
-    rfl_to_sca(reflections_handle,reflections_dir,out_dir,scaling_method=scaling_method)
-    rfl_to_sca(reflections_handle+"_unmerged",reflections_dir,out_dir,scaling_method=scaling_method)
+    rfl_to_sca(reflections_handle,reflections_dir,out_dir,scaling_method=scaling_method,create_mtz=create_mtz)
+    rfl_to_sca(reflections_handle+"_unmerged",reflections_dir,out_dir,scaling_method=scaling_method,create_mtz=create_mtz)
     
     #reflections_dir=scattering_dir+"random_sample/reflections/"
     #out_directory=scattering_dir+"random_sample/scalepack/"

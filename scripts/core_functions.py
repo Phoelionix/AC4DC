@@ -4,7 +4,7 @@ import numpy as np
 import sys
 import re
 
-def get_sim_params(handle,input_path=None,molecular_path=None):
+def get_sim_params(handle,input_path=None,molecular_path=None,get_intensities_at_times=None):
     '''
     Reads the control file and returns the relevant parameters within
     By default use input_path = "input/"
@@ -20,6 +20,8 @@ def get_sim_params(handle,input_path=None,molecular_path=None):
     raw = np.genfromtxt(intFile, comments='#', dtype=np.float64)
     #intensityData = raw[:,1]
     timeData = raw[:, 0]    
+    if get_intensities_at_times is not None:
+        intensityData = raw[:,1]
     start_t = timeData[0]; end_t = timeData[-1]
     # for convenience the input file has multiple options for determining fluence: "Count", "Fluence", or "Intensity"    
     active_photon_measure_found = False
@@ -118,7 +120,20 @@ def get_sim_params(handle,input_path=None,molecular_path=None):
         source_duration = source_duration,
         probe_delay = probe_delay,
     )
-    return param_dict, param_name_list,unit_list
+    #SORRY
+    if get_intensities_at_times is None:
+
+        return param_dict, param_name_list,unit_list
+    else:
+        def get_I_at_nearest_time(time,tol=None):
+            if tol is None:
+                tol = min(5e-1,(timeData[-1]-timeData[0])/100) 
+            n = []
+            for t in time:
+                n.append(np.argmin(np.abs(t - timeData)))
+                assert np.abs(timeData[n[-1]]-t)<tol , f"would use time at {self.timeData[n[-1]]} fs not {t} fs" 
+            return intensityData[np.array(n)]
+        return param_dict, param_name_list,unit_list,get_I_at_nearest_time(get_intensities_at_times)
 
 def get_sim_elements(handle,input_path=None,molecular_path=None):
     if input_path is None:
@@ -288,7 +303,9 @@ for symbol in list(ATOMNO.keys()):
 
 
 
+#from core_variables import *
 def get_data_point(ax,stem,mol_name,mode,SCATTERING_TARGET_DICT,SCATTERING_TARGET,EDGE_SEPARATION,INDEP_VARIABLE,DEP_VARIABLE):
+    assert False, "Sorry, this function seems to be improperly setup"
     im_params,_ = SCATTERING_TARGET_DICT[SCATTERING_TARGET]
     indep_variable_key = str(INDEP_VARIABLE)
     dep_variable_key = str(DEP_VARIABLE)

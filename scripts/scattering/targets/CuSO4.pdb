@@ -27,7 +27,7 @@ REMARK 290   SMTRY3   2  0.000000  0.000000 -1.000000        0.00000
 REMARK 290                                                                      
 REMARK 290 REMARK: NULL                                                                     
 REMARK 300                                                                      
-CRYST1    6.12   10.7  5.987  82.27  107.43 102.67        P -1    2
+CRYST1     6.12     10.7    5.987  82.27 107.43 102.67 P -1          4
 HETATM    1  CU  COP A   1       0.      0.      0.     1.00 2.000          CU  
 HETATM    2  CU   CU A   2       3.06    5.35    0.00   1.00 2.000          CU  
 HETATM    3  S   COP A   3       0.00    3.00    3.82   1.00 2.000           S  

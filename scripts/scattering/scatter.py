@@ -152,7 +152,8 @@ class Results():
         self.image_index = image_index 
         self.for_plotting=True
         
-    def get_result(_, filename,results_dir,compare_dir = None):
+    @staticmethod
+    def get_result(filename,results_dir,compare_dir = None):
         #Requires all orientations of result_handle in compare_handle, but not vice versa.
         fpath = os.path.join(results_dir, filename)
         if os.path.isfile(fpath):
@@ -218,13 +219,14 @@ class Crystal():
         '''
         self.gromacs_config_file = struct_file_path.split('.')[-1]=="gro"
         self.cif_file = struct_file_path.split('.')[-1]=="cif"
+        assert not self.cif_file, "cif not supported"
         if include_symmetries is None:
             include_symmetries = not self.gromacs_config_file
         if self.gromacs_config_file:
             print("Using gromacs file")
             assert include_symmetries == False
             assert num_supercells == 1
-        assert not self.cif_file, "cif not supported"
+            
         if zero_bfactors:
             assert use_bfactors, "Can't set zero B factors - B factors aren't being used."
 
@@ -1205,7 +1207,7 @@ class XFEL():
             raise Exception("Require pixels_across argument for rectangular screen")
         
         # Create output folder for results
-        directory = path.abspath(path.join(__file__ ,"../")) + "/"+ results_parent_dir + self.experiment_name + "/"
+        directory = path.abspath(path.join(__file__ ,"../")) + "/"+ results_parent_dir + self.experiment_name + "/"  #TODO use path module properly (all should be done in function, to make end in separator have empty final arg)
         print("creating folder:",directory)
         exist_ok = True
         if (os.path.exists(directory)):
@@ -1362,7 +1364,7 @@ class XFEL():
             #result.package_up()
             return result        
 
-        else:
+        else: # Bragg reflections
             # Iterate through each orientation of crystal, picklin' up a file for each orientation
             used_orientations = []
             if random_orientation:
@@ -1579,6 +1581,9 @@ class XFEL():
         
         return point   
     
+
+
+
 
     # Returns the relative intensity at point q for the target's unit cell, i.e. ignoring crystalline effects.
     # If the feature is a bragg spot, this gives its relative intensity, but due to photon conservation won't be the same as the intensity without crystallinity - additionally different factors for non-zero form factors occur across different crystal patterns.
@@ -3366,16 +3371,18 @@ def phenix_fcalc_from_file(pdb_file,miller_indices_mtz,real=False):
         #"type=*real complex",
         "type=real" if real else "type=complex",
         "obs_type=amplitudes",
-        "grid_resolution_factor = 1/3"
+        "grid_resolution_factor = 1/3",
+        "ignore_hydrogens = False",
         #f"high_res={high_resolution}",
     ]
     print (f"Running {args}")
-    subprocess.run(args)#,stdout=log)
+    subprocess.run(args,stdout=subprocess.PIPE)
     return out_file_name
 
 
 
 def phenix_R(pdb_file,reflections):
+    tmp_log_file = "tmp_R_read.txt"
     args =[
         "phenix.model_vs_data",
         pdb_file,
@@ -3383,7 +3390,11 @@ def phenix_R(pdb_file,reflections):
         #f"high_res={high_resolution}",
     ]
     print (f"Running {args}")
-    subprocess.run(args)#,stdout=log)
+    proc = subprocess.run(args,encoding='utf-8',stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    for line in proc.stdout.split('\n'):
+        if line.startswith("  r_work:"):
+            print(line)
+
 
 def read_scalepack(result_handle,scalepack_dir = "scalepack/",skip_header=3):
     file_path = scalepack_dir + result_handle + ".sca"
