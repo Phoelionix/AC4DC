@@ -10,6 +10,8 @@ S 2
 99999999         // Length scale of sample in Angstrom. Used for effective escape rate of photo-electrons (assumes surrounded by a void).
 none // Spatial boundary shape - options are none, spherical, cylindrical, planar
 
+#LOAD
+cubackup
 
 #PULSE
 9200         // Photon energy in eV.

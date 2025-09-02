@@ -2,11 +2,15 @@
 from scatter import XFEL, Crystal,Results,RESULTS_LOCAL_PATH
 from core_functions import get_sim_params
 import os.path as path
+import numpy as np
 
 
 
     # def set_ff_calculator_snapshot_time(self,time):
     #     self.xfel.target.ff_calculator.initialise_form_factor_params(time,time,self.max_q,self.photon_energy,t_fineness=self.t_fineness)
+
+
+
 
 class MD_Crystal:
     def __init__(self,num_times, md_struct_path, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = False, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1, S_to_N=False,convert_excluded_elements_to_N=False,random_waters=None,use_bfactors=True,zero_bfactors=False):
@@ -21,8 +25,26 @@ class MD_Crystal:
         #t_fineness = num_times-1
         # in picoseconds
         self.times = [T[0] + n/(num_times-1)*(T[-1]-T[0]) for n in range(num_times)]
+        self.times = self.get_nearest_time(self.times,T,tol_fs=1)
         print("set times:", [t_pico*1e3 for t_pico in self.times])
          
+    @staticmethod
+    def get_nearest_time(times,allowed_times,tol_fs=None):
+        allowed_times=np.array(allowed_times)
+        if tol_fs is None:
+            tol_fs = min(5e-1,(times[-1]-times[0])/100) 
+        
+        tol = tol_fs/1000 # convert to ps
+        #n = np.argmin(np.abs(self.timeData[None,:] - time[:,None]))
+        #assert np.all(np.abs(self.timeData[n]-time)<tol) , f"would use time at {self.timeData[n]} fs not {t} fs" 
+
+        n = []
+        for t in times:
+            n.append(np.argmin(np.abs(t - allowed_times)))
+            assert np.abs(allowed_times[n[-1]]-t)<tol , f"would use time at {allowed_times[n[-1]]*1e3} fs not {t*1e3} fs" 
+
+        return allowed_times[np.array(n)]
+
     @staticmethod
     def read_times(num_times, md_struct_path):
         times:list[float] = []
@@ -41,19 +63,22 @@ class MD_Crystal:
         snapshot_lines:list[str] = []
 
         with open(self.md_struct_path) as f:
+            reading_block=False
             for line in f:
                 if line.startswith("TITLE") and float(line.split()[-1]) == t:
-                    snapshot_lines.append(line)
-                    break
+                    reading_block = True
+                if not reading_block:
+                    continue
 
-            for line in f:
                 snapshot_lines.append(line)
                 if line.startswith("TER"):
                     continue
                 if line.startswith("ENDMDL"):
                     break
+        assert reading_block
         with open(tmp_file_path,'w') as f_snap:
-            f_snap.writelines([f"{l}\n" for l in snapshot_lines])
+            #f_snap.writelines([f"{l}\n" for l in snapshot_lines])
+            f_snap.writelines(snapshot_lines)
 
         self.crystal_snapshot = Crystal(tmp_file_path,**self.crystal_kwargs)
     # def set_base_crystal(self, struct_file_path, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = None, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1, S_to_N=False,convert_excluded_elements_to_N=False,random_waters=None,use_bfactors=True,zero_bfactors=False):
@@ -66,7 +91,8 @@ class MD_Crystal:
 
 # MolDStruct or any dynamical structure input
 class MD_XFEL:
-    def __init__(self, experiment_name, photon_energy, detector_distance_mm=100, q_minimum = None, q_cutoff = None, max_miller_idx = None, screen_type = "hemisphere", num_orients_crys=1, orientation_axis_crys = None, x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100,SPI_y_rotation = 0,SPI_x_rotation = 0,SPI_z_rotation = 0,all_miller_indices=False, custom_cell_dims_for_miller_indices=None,override_max_q = False,miller_indices_override=None,spot_fraction_per_orient=None):
+    def __init__(self, experiment_name, photon_energy, detector_distance_mm=100, q_minimum = None, q_cutoff = None, max_miller_idx = None, screen_type = "hemisphere", num_orients_crys=1, orientation_axis_crys = None, x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=0,SPI_y_rotation = 0,SPI_x_rotation = 0,SPI_z_rotation = 0,all_miller_indices=False, custom_cell_dims_for_miller_indices=None,override_max_q = False,miller_indices_override=None,spot_fraction_per_orient=None):
+        assert t_fineness==0
         args = {k: v for k, v in locals().items() if k != "self"}
         self.xfel = XFEL(**args)
     
@@ -93,7 +119,9 @@ class MD_XFEL:
                                    md_target.crystal_snapshot,
                                    **laser_kwargs)
             I = I + results.I if I is not None else I
-
+        out_results = results #XXX 
+        out_results.I = I
+        return out_results
         
     def set_orientation_set(self,orientation_set):
         self.xfel.set_orientation_set(orientation_set)

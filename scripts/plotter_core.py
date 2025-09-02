@@ -414,8 +414,7 @@ class Plotter:
 
     def f_snapshots(self,q,atom,stochastic=False):
         '''
-        Get t_fineness form factors, distributed as evenly between plotter_obj.start_t and plotter_obj.end_t as possible.
-        t_fineness = number of snapshots
+        Get t_fineness + 1 form factors, distributed as evenly between plotter_obj.start_t and plotter_obj.end_t as possible.
         f is modified from the typical definition is multiplied by the scalar sqrt(I(t)) to deal with gaussian case.
         
         Returns array with element f_sqrtI(t_i, q_j) given by f_sqrtI_{i,j}
@@ -539,7 +538,7 @@ class Plotter:
     def random_state_snapshots(self,atom,seed=None):
         '''
         Get t_fineness form factors, distributed as evenly between plotter_obj.start_t and plotter_obj.end_t as possible.
-        t_fineness = number of snapshots
+        t_fineness = number of snapshots #TODO is it not num snapshots minus 1?
         f is modified from the typical definition is multiplied by the scalar sqrt(I(t)) to deal with gaussian case.
         '''
         occ_dict = self.get_occ_dict(atom)
@@ -677,7 +676,7 @@ class Plotter:
         t = self.start_t + snapshot_idx/self.t_fineness*(self.end_t-self.start_t)  # TODO end_t and start_t are defined in scattering code and have no defaults!!!!!!!!
         #t = np.array([t]).reshape((1,)*len(idx.shape))
         if self.t_fineness == 0:
-            t = (self.start_t + self.end_t)/2
+            t = np.array([(self.start_t + self.end_t)/2])
         idx,time = self.get_nearest_time(t)#np.searchsorted(self.timeData, t)    
         return time #np.array(time).reshape(time.size,)
         '''
@@ -711,7 +710,8 @@ class Plotter:
             return val, time_step      
         I,time_steps = np.fromfunction(snapshot,(self.t_fineness+1,))
         if time_steps.size==1:
-            return I, time_steps
+            assert I.size==1
+            return I[0], time_steps
         I_avg = np.trapz(I,time_steps)/(time_steps[-1]-time_steps[0])
         return I_avg,time_steps
 

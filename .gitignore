@@ -51,3 +51,8 @@ scripts/scattering/*.pdf
 *results/*
 */.goldilocks_saves/*
 *moldstruct.pdb
+scripts/scattering/random_sample/*
+*.mtz
+*.hkl
+*:Zone.Identifier
+scripts/scattering/snapshot.pdb

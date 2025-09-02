@@ -1762,6 +1762,8 @@ class XFEL():
             # But for SPI need to take the pixel's size into account. Neutze 2000 makes the following approximation:
             I *=  SPI_proj_solid_angle    # equiv. to *= solid_angle
         
+        print(I)
+        print(I_ref)
         print("Total screen-incident intensity TODO not matching below with all miller  = ","{:e}".format(np.sum(I)))
         print("Intensity scattered by free electron TODO not matching above with all miller = ","{:e}".format(I_ref))
         return I

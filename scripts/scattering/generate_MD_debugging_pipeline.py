@@ -21,7 +21,7 @@ PLASMA_SIM_HANDLE_DICT = dict(
     lys_high_damage= "lys_galli_HF_23",
     I3C="I3C_55fs_1"
 )
-target_options = ["I3C"]
+target_options = ["lys_high_damage"]
 TAG = "MD"
 
 
@@ -61,10 +61,11 @@ def main(par_idx):
         assert include_symmetries == False
 
         #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.4.hkl"; best_resolution=1.4
-        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"; best_resolution=2
-        unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_I3C_1.5.hkl"; best_resolution=1.5
+        unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"; best_resolution=2
+        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_I3C_1.5.hkl"; best_resolution=1.5
         plasma_sim_handle = PLASMA_SIM_HANDLE_DICT[sim_key]
-        pdb_md_snapshots_path = "/home/speno/AC4DC/scripts/scattering/targets/I3C_moldstruct.pdb" 
+        #pdb_md_snapshots_path = "/home/speno/AC4DC/scripts/scattering/targets/I3C_moldstruct.pdb" 
+        pdb_md_snapshots_path = "/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct.pdb" 
         CNO_to_N = False; S_to_N = False
         folder = ""
         allowed_atoms = get_sim_elements(plasma_sim_handle)
@@ -100,7 +101,7 @@ def main(par_idx):
         screen_type = "flat",#"hemisphere"
         q_minimum = res_to_q(worst_resolution),#None #angstrom
         q_cutoff = res_to_q(best_resolution), #(best_resolution),#2*np.pi/2
-        t_fineness=1,   
+        t_fineness=0,   # 1 time point
         #####crystal stuff (miller)
         max_miller_idx = 25, #None, # = m, [overrides max q so given by q with miller indices (m,m,m)]
         all_miller_indices = True, # False, whether to find all bragg points at or below the max miller index (and between min and max q)
