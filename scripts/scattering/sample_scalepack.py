@@ -103,7 +103,7 @@ def sample_results_and_create_reflection_file(result_handle,num_to_sample,result
     # Sample num_to_sample result files
     random.shuffle(filenames)
     for filename in filenames[0:num_to_sample]:
-        result = Results().get_result(filename,"")[0]
+        result = Results.get_result(filename,"")[0]
         if result == "__PASS__":
             continue
         if result == None:

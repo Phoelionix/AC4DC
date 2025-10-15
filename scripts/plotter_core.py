@@ -445,9 +445,10 @@ class Plotter:
     def random_charge_snapshots(self,atom,seed=None):
         charge_dict = self.get_charge_dict(atom)
         states_list,_,_ = self.random_state_snapshots(atom,seed)
-        charges = np.empty(shape=(len(states_list),))
+        charges = np.empty(shape=(len(states_list),),dtype=int)
         for i, state in enumerate(states_list):
             charges[i] = charge_dict[state]
+            assert charges[i] <= ATOMNO[atom], (i, charges[i], atom, ATOMNO[atom])        
         return charges  # (times,)
         
     def continuity_charge_snapshots(self,atom,seed=None):

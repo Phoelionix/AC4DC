@@ -6,7 +6,7 @@ import re
 
 def get_sim_params(handle,input_path=None,molecular_path=None,get_intensities_at_times=None):
     '''
-    Reads the control file and returns the relevant parameters within
+    Reads the control file and returns the relevant parameters within.
     By default use input_path = "input/"
     '''    
     if input_path is None:
@@ -109,17 +109,23 @@ def get_sim_params(handle,input_path=None,molecular_path=None,get_intensities_at
     param_name_list = ["Energy","Width",photon_measure,"R"]  #TODO Poor format given source energy is now a thing.
     unit_list = [" eV"," fs",photon_unit,""]
     #TODO check that time range is satisfied by files.
+    ########################
+    ########################
+    # TODO make this a class
     param_dict = dict(
         start_t=start_t,
         end_t=end_t,
         energy=photon_energy,
         width=fwhm,
         fluence=photon_measure_val,
-        source_fraction = source_fraction,
-        source_energy = source_energy,
-        source_duration = source_duration,
+        # injected electron source params:
+        source_fraction = source_fraction, 
+        source_energy = source_energy, 
+        source_duration = source_duration, 
         probe_delay = probe_delay,
     )
+    ########################
+    ########################
     #SORRY
     if get_intensities_at_times is None:
 

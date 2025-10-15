@@ -123,7 +123,10 @@ class Custom_Gromacs_Parser():
                             oom = len(str(i))
                             vals.insert(2,vals[1][-oom:])
                             vals[1] = vals[1][:-oom]
-                                
+
+                        element = None    
+                        if vals[1].strip() in ("NA","CL"):
+                            element = vals[1]
                         atom = PDB_Atom(
                             name = vals[1],
                             coord = (float(vals[3])*10,float(vals[4])*10,float(vals[5])*10), # converts from nm to angstrom
@@ -131,7 +134,8 @@ class Custom_Gromacs_Parser():
                             occupancy = None,
                             altloc = None,
                             fullname = " " + vals[1] + " ",
-                            serial_number = int(vals[2])
+                            serial_number = int(vals[2]),
+                            element=element
                         )
                         atoms.append(atom)
                         assert(int(vals[2])==i)
@@ -143,7 +147,11 @@ class Custom_Gromacs_Parser():
             return self.Structure(structure_id,conf_path)
 
 class Results():
-    def __init__(self,num_points=None,image_index=None):
+    def __init__(self,target:'Crystal',num_points=None,image_index=None):
+        self.cell_dims= [v*ang_per_bohr for v in target.cell_dim]
+        self.cell_angles=target.cell_angles
+        self.symmetry=target.symmetry
+        
         self.phi = np.zeros(num_points)
         self.phi_aligned = np.zeros(num_points)
         self.I = np.zeros(num_points)
@@ -151,6 +159,7 @@ class Results():
         self.X = np.zeros(num_points)
         self.image_index = image_index 
         self.for_plotting=True
+
         
     @staticmethod
     def get_result(filename,results_dir,compare_dir = None):
@@ -238,7 +247,7 @@ class Crystal():
         self.rocking_angle = rocking_angle * np.pi/180            
         self.is_damaged = is_damaged
         self.supercell_scale = supercell_scale  # TODO allow for non-cubic crystals and non SC cell packing.
-        self.num_supercells = num_supercells
+        self.num_supercells = int(num_supercells)
         self.supercell_simulations = supercell_simulations
         if positional_stdv == 0 and is_damaged == False:
             self.supercell_simulations = 1
@@ -250,7 +259,7 @@ class Crystal():
         if self.positional_stdv == 0 and self.random_waters is None:
             self.ignore_deviations = True
 
-        assert self.supercell_simulations <= num_supercells
+        assert self.supercell_simulations <= self.num_supercells
         ## Parameters to be parsed by custom function because I cannot understand Bio.PDB.PDBParser's documentation.
         self.sym_rotations = []; self.sym_translations = [];   # Symmetry for each asymmetric unit simulated. If non-SPI, this is defining the supercell.
         self.cell_dim = None   # unit cell basis vector lengths. 
@@ -259,6 +268,7 @@ class Crystal():
 
         if self.gromacs_config_file:
             self.cell_dim = [0,0,0]
+            self.cell_angles = [90,90,90]
 
         if not include_symmetries:
             # Ignore parsed symmetries and use a single asymmetric unit per cell.
@@ -302,7 +312,10 @@ class Crystal():
             # Get structure using Bio.PDB's parser
             parser=copy.deepcopy(xPDBParser)
         structure_id = os.path.basename(self.struct_file_path)
-        structure = parser.get_structure(structure_id, self.struct_file_path)     
+        structure = parser.get_structure(structure_id, self.struct_file_path)   
+        for atom in structure.get_atoms(): # XXX Patch
+            if atom.name in ("NA","CL"):
+                atom.element = atom.name  
         # Get those cheeky charge clusters
         species_dict = {}
         pdb_atoms = []
@@ -371,7 +384,9 @@ class Crystal():
                 self.num_non_water_oxygens = 0 if "O" not in self.species_dict else len(self.species_dict["O"].coords)
             self.reinitialize_random_waters()
             if first_call:
-                print(f"Added {self.random_waters} O atoms to random coordinates. Structure now has {self.num_atoms_no_symm()} atoms.")
+                print(f"Added {self.random_waters} O atoms to random coordinates. Structure now has {self.num_atoms_no_symm()} atoms (asu).")
+        else:
+            print(f"Structure has {self.num_atoms_no_symm()} atoms (asu).")
         if first_call:
             print(f"Adding stdv of {self.positional_stdv*ang_per_bohr} Angstroms.")
         for species in self.species_dict.values():
@@ -479,6 +494,8 @@ class Crystal():
                     target.cell_angles = [float(a) for a in entries[3:6]]
                     T = target.cell_angles
                     target.cell_angles = [T[0],T[1],T[2]] 
+                    target.symmetry = entries[6:-1]
+
 
                 ## Start data - Check if this line marks the next as the beginning of a desired data section.                    
                 # Symmetry operators
@@ -1400,7 +1417,7 @@ class XFEL():
 
                 used_orientations.append(cardan_angles)
                 num_points = int(len(bragg_points))
-                result = Results(num_points,j)
+                result = Results(self.target,num_points,j)
                 if do_not_integrate_times:
                     result.I = np.zeros((self.t_fineness+1,)+result.I.shape) # prepend axis for time
                 # Get the q vectors where non-zero
@@ -1447,11 +1464,12 @@ class XFEL():
                 if self.all_miller_indices:
                     version = path.basename(directory).split("_")[-1] # TODO do this in safer way
                     fpath = directory + str(j) + "_" + version + ".pickle"
+                result.save_path = fpath
                 with open(fpath,"wb") as pickle_out:
                     pickle.dump(result,pickle_out)
 
-
-            return used_orientations
+            self.used_orientations = used_orientations
+            return result
 
     class Feature:
         def __init__(self,q,X,theta):
@@ -1762,8 +1780,6 @@ class XFEL():
             # But for SPI need to take the pixel's size into account. Neutze 2000 makes the following approximation:
             I *=  SPI_proj_solid_angle    # equiv. to *= solid_angle
         
-        print(I)
-        print(I_ref)
         print("Total screen-incident intensity TODO not matching below with all miller  = ","{:e}".format(np.sum(I)))
         print("Intensity scattered by free electron TODO not matching above with all miller = ","{:e}".format(I_ref))
         return I
@@ -3074,7 +3090,7 @@ def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
 #     return result1, result2
 
 def get_result(filename,results_dir,compare_dir = None):
-    return Results().get_result(filename,results_dir,compare_dir)
+    return Results.get_result(filename,results_dir,compare_dir)
 
 
 ##### https://scripts.iucr.org/cgi-bin/paper?S0021889807029238, http://superflip.fzu.cz/
@@ -3082,7 +3098,7 @@ def get_result(filename,results_dir,compare_dir = None):
 #TODO figure out why we get zeros for reflection intensities sometimes.
 import pandas as pd
 import csv
-def create_reflection_file(result_handle,results_parent_dir = RESULTS_LOCAL_PATH,out_directory="reflections/",overwrite=False,artificial_I_scale=1):
+def create_reflection_file(result_handle,results_parent_dir = RESULTS_LOCAL_PATH,out_directory="reflections/",overwrite=False,artificial_I_scale=1,symmetry_override=None):
     '''
     Generates a .rfl file, compatible with Superflip
     '''
@@ -3092,7 +3108,7 @@ def create_reflection_file(result_handle,results_parent_dir = RESULTS_LOCAL_PATH
     os.makedirs(out_directory, exist_ok=True) 
     init = False
     for filename in os.listdir(results_dir):
-        result = get_result(filename,results_dir)[0]
+        result:Results = get_result(filename,results_dir)[0]
         if result == "__PASS__":
             continue
         if result == None:
@@ -3124,14 +3140,28 @@ def create_reflection_file(result_handle,results_parent_dir = RESULTS_LOCAL_PATH
     df = df.round(6)
     #df.drop_duplicates(subset = ["h","k","l"],inplace=True) # TODO should take average.
     #df = df[df['I']>=0.01] # Update: This is silly TODO temporary fix for appearance of low values that needs to be squashed.
-    df.to_csv(out_path+"_unmerged.rfl",header=False,index=False,float_format='%10f', sep=" ", quoting=csv.QUOTE_NONE, escapechar=" ")
+    
+    cell_geom = []
+    symmetry = result.symmetry if symmetry_override is None else symmetry_override
+    for l in (result.cell_dims, result.cell_angles,symmetry):
+        cell_geom += [str(v) for v in l]
+    cell_geom = ' '.join(cell_geom)
+    print(cell_geom)
+
+    def make_file(_path,_df:pd.DataFrame):
+        with open(_path,'w') as f:
+            f.write(f'# {cell_geom}\n')
+        _df.to_csv(_path,mode='a',header=False,index=False,float_format='%10f', sep=" ", quoting=csv.QUOTE_NONE, escapechar=" ")
+        
+    make_file(out_path+"_unmerged.rfl",df)
+    #df.to_csv(,mode='a',header=False,index=False,float_format='%10f', sep=" ", quoting=csv.QUOTE_NONE, escapechar=" ")
     
 
     df_merged = df.groupby(["h","k","l"]).mean().reset_index()
     print("shape merged",df_merged.shape)
     df_merged = df_merged.sort_values(by=["l","k","h"],axis=0)
-    df_merged.to_csv(out_path+".rfl",header=False,index=False,float_format='%10f', sep=" ", quoting=csv.QUOTE_NONE, escapechar=" ")
-
+    #df_merged.to_csv(out_path+".rfl",mode='a',header=False,index=False,float_format='%10f', sep=" ", quoting=csv.QUOTE_NONE, escapechar=" ")
+    make_file(out_path+".rfl",df_merged)
 
 class ScalingMethod:
     def __init__():
@@ -3140,7 +3170,8 @@ class ScalingMethod:
         print("implement")
         raise Exception()
     def get_scaled(self,h,k,l):
-        pass
+        print("implement")
+        raise Exception()
 
 
 def noise_and_photon_count_curve(x,a,b,c,d):
@@ -3248,7 +3279,7 @@ class ScalingByCopyingSigmaRatio(ScalingMethod): # Should be valid for ideal sim
 #         plt.scatter(x,self.curve(x,*self.popt),s=1)
 
 
-def rfl_to_sca(result_handle, reflections_dir = "reflections/",out_directory = "scalepack/",overwrite=True,detector_gain=0.6,scaling_method : ScalingMethod = None,create_mtz=True):
+def rfl_to_sca(result_handle, reflections_dir = "reflections/", out_directory = "scalepack/",overwrite=True,detector_gain=0.6,scaling_method : ScalingMethod = None,create_mtz=True):
     '''Converts .rfl file to scalepack .sca file
     See https://www.ccp4.ac.uk/html/scala.html#files
     '''
@@ -3262,8 +3293,8 @@ def rfl_to_sca(result_handle, reflections_dir = "reflections/",out_directory = "
         save_action = "w"    
     # First find max length of intensities, so can scale values down.
     max_length = 0
-    with open(rfl_file_path, 'r') as a:
-        for line in a:
+    with open(rfl_file_path, 'r') as f_a:
+        for line in f_a:
             entries = line.split()
             assert len(entries) >=3, entries
             if entries[0]+entries[1]+entries[2] == '0'*3: 
@@ -3272,15 +3303,30 @@ def rfl_to_sca(result_handle, reflections_dir = "reflections/",out_directory = "
             max_length = max(max_length,len(line.split()[3].split('.')[0]))
     #
     #I_norm = scaling_method.get_I_norm(rfl_file_path)
-    with open(rfl_file_path, 'r') as a, open(out_path, save_action) as b:
+    # with open(rfl_file_path, 'r') as f_a:
+    #     for i, line in enumerate(f_a):
+    #         print(i,line)
+    with open(rfl_file_path, 'r') as f_a, open(out_path, save_action) as f_b:
         # placeholder boilerplate 
         indent = ' '*3
-        b.write(indent+' 1\n -987\n')
-        # Cell geometry TODO integrate with actual input.
-        b.write(indent+' 79.000    79.000    38.000    90.000    90.000    90.000 P43212\n')
+        f_b.write(indent+' 1\n -987\n')
+                
+        #CRYST1   79.200   79.200   37.800  90.00  90.00  90.00 P 1           1
+        
+        #b.write(indent+' 79.000    79.000    38.000    90.000    90.000    90.000 P43212\n')
         #b.write(indent+' 79.000    79.000    38.000    90.000    90.000    90.000 P1\n')
         # Miller indices (hkl) | IMEAN_dataset | SIGIMEAN_dataset
-        for line in a:
+        for i, line in enumerate(f_a):
+            if i == 0:
+                entries = line.split()[1:]  # format '# a b c A B C P x [x] [x]'
+                a,b,c,A,B,C = [float(s) for s in entries[:6]]
+                symm = ''.join(entries[6:])
+                # Cell geometry TODO integrate with actual input.]
+                def F(_c):
+                    return str(f"{_c:.6f}")[:6]
+                f_b.write(indent + f' {F(a)}    {F(b)}    {F(c)}    {F(A)}    {F(B)}    {F(C)} {symm}\n')
+                continue
+
             # Initialise elements
             h=k=l = ' '*4
             I_mean=sigI_mean = ' '*8
@@ -3312,8 +3358,8 @@ def rfl_to_sca(result_handle, reflections_dir = "reflections/",out_directory = "
             for i,q in enumerate([h,k,l,I_mean,sigI_mean]):
                 assert len(entries[i]) < len(q), "Error, entry of '"+entries[i]+"' has length >= "+str(len(q))   # Use '<' not '<=' because need a space.
                 q = q[:-len(entries[i])]+ entries[i]
-                b.write(q)
-            b.write('\n')
+                f_b.write(q)
+            f_b.write('\n')
     
     
     # Create mtz file too using phenix (if installed).
@@ -3359,7 +3405,8 @@ def phenix_fcalc(pdb_file,high_resolution,real=False):
 
 def phenix_fcalc_from_file(pdb_file,miller_indices_mtz,real=False):
     assert real
-    out_file_name = f"{pdb_file[:-4]}_fcalc.mtz"
+    type_tag = "real" if real else "cplx" 
+    out_file_name = f"{pdb_file[:-4]}_fcalc_{type_tag}.mtz"
     if path.exists(out_file_name):
         os.remove(out_file_name)
     args =[
@@ -3384,7 +3431,6 @@ def phenix_fcalc_from_file(pdb_file,miller_indices_mtz,real=False):
 
 
 def phenix_R(pdb_file,reflections):
-    tmp_log_file = "tmp_R_read.txt"
     args =[
         "phenix.model_vs_data",
         pdb_file,
@@ -3396,7 +3442,6 @@ def phenix_R(pdb_file,reflections):
     for line in proc.stdout.split('\n'):
         if line.startswith("  r_work:"):
             print(line)
-
 
 def read_scalepack(result_handle,scalepack_dir = "scalepack/",skip_header=3):
     file_path = scalepack_dir + result_handle + ".sca"
@@ -3871,7 +3916,8 @@ if __name__ == "__main__":
         SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal2,results_parent_dir=results_parent_folder,  **laser_firing_qwargs)
         stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2,custom_fig_width=fig_width,custom_fig_height=fig_height)
     else:
-        exp1_orientations = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal, results_parent_dir=results_parent_folder, **laser_firing_qwargs)
+        experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal, results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
+        exp1_orientations =experiment1.used_orientations
         create_reflection_file(exp_name1,results_parent_dir=results_parent_folder)
         rfl_to_sca(exp_name1)
         if exp_name2 != None:
@@ -3907,9 +3953,7 @@ if interactive and __name__ == "__main__":
 # Finally, the rest of the water drop could be calculated by generating a large distribution of water, then scaling its contribution to the form factor.
 if interactive and __name__ == "__main__":
     ##### Crystal params
-    #pdb_file = "4et8.pdb"
-    #pdb_file = "I3C.pdb"
-    pdb_file ="CuSO4.pdb"
+    pdb_file ="4et8H.pdb"
     targets_dir = path.abspath(path.join(__file__ ,"../")) + "/targets/"
     pdb_path = targets_dir + pdb_file
     crystal_qwargs = dict(
@@ -3923,7 +3967,8 @@ if interactive and __name__ == "__main__":
      #I3C
     # custom_residue_name="I3C"
     #allowed_atoms = ["C","N","O","I","H"]
-    allowed_atoms =["O","S","H","Cu"]
+    #allowed_atoms =["O","S","H","Cu"]
+    allowed_atoms =["C","N","O","H","S","Na","Cl","Gd"]
     crystal = Crystal(pdb_path,allowed_atoms,is_damaged=False, **crystal_qwargs)
 
     #crystal.save_structure(custom_residue_name=custom_residue_name,chain_name="A")
@@ -3956,3 +4001,6 @@ def plot_recovered_atoms():
 if interactive and __name__ == "__main__":
     plot_recovered_atoms()    
 # %%
+
+
+

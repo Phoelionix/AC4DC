@@ -19,20 +19,22 @@ PLASMA_SIM_HANDLE_DICT = dict(
     lys_salt = "lys_salt_solvated_H_40_2",
     lys_no_salt = "lys_solvated_H_40_3",
     lys_high_damage= "lys_galli_HF_23",
+    lys_high_fluence= "lys_salt_fast_high_fluence_2",
     I3C="I3C_55fs_1"
 )
-target_options = ["lys_high_damage"]
+target_options = ["lys_high_fluence"]
 TAG = "MD"
 
 
 def main(par_idx):
-    num_time_points = 10
+    num_time_points = 5
+    if QUICK_TEST:
+        num_time_points=2
+    #t_cutoff_frac=0.5
+    t_cutoff_frac=None
 
     fig_width = 3.49751 # 20
     fig_height = fig_width*3/4 # 20
-    ### Simulate
-    #target_options = ["lys_salt","lys_no_salt","neutze","hen","tetra","glycine","fcc"]
-    #target_options = ["lys_salt","lys_no_salt"]
     
     sim_key = target_options[0]
     if par_idx >= NUM_PARALLEL/2 and len(target_options)==2:
@@ -54,21 +56,41 @@ def main(par_idx):
     num_bragg_sets = 1
     num_unique_supercells = 1 
     include_symmetries=False
+    zero_bfactors=True
+    num_supercells=1e5
 
     if sim_key in PLASMA_SIM_HANDLE_DICT:
 
         assert num_unique_supercells == 1
         assert include_symmetries == False
 
+        compare_with_undamaged_symmetry=True
+
         #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.4.hkl"; best_resolution=1.4
         unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"; best_resolution=2
         #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_I3C_1.5.hkl"; best_resolution=1.5
         plasma_sim_handle = PLASMA_SIM_HANDLE_DICT[sim_key]
         #pdb_md_snapshots_path = "/home/speno/AC4DC/scripts/scattering/targets/I3C_moldstruct.pdb" 
-        pdb_md_snapshots_path = "/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct.pdb" 
+        #pdb_md_snapshots_path = "/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct.pdb" 
+        
+        pdb_md_snapshots_path_list = [
+            "/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct1.pdb",
+            "/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct2.pdb",
+            "/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct3.pdb"
+        ]
+        #ground_truth_pdb="/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_base_structure_moldstruct.pdb" 
+        ground_truth_pdb="/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct.pdb" 
+        ground_truth_symmetry_override=None
+        if compare_with_undamaged_symmetry:
+            ground_truth_pdb="/home/speno/AC4DC/scripts/scattering/targets/4et8H_zero_B.pdb" 
+            ground_truth_symmetry_override="P 43 21 2"
+        # TODO assert that ground truth has B factors of zero
         CNO_to_N = False; S_to_N = False
         folder = ""
         allowed_atoms = get_sim_elements(plasma_sim_handle)
+        #allowed_atoms = ["C","N","O","S","H"]
+        if QUICK_TEST:
+            allowed_atoms = ["C"]
     else:
         raise Exception(f"{sim_key} invalid sim_key")
 
@@ -84,12 +106,13 @@ def main(par_idx):
     ##### Crystal params
     crystal_qwargs = dict(
         supercell_scale = 1,  # for SC: supercell_scale^3 "unit" cells per supercell # Bragg spots will be sampled based on the cell scale, not the supercell scale.
-        num_supercells = 1,#100, # 35409
+        num_supercells = num_supercells,#100, # 35409
         supercell_simulations = num_unique_supercells, #150
         #BFACTORS positional_stdv = 0,#0.2,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
         include_symmetries = include_symmetries,  # should unit cell contain symmetries?
         cell_packing = "SC",
-        random_waters=NUM_RANDOM_WATER*(RANDOM_WATER==True),
+        random_waters= True if NUM_RANDOM_WATER>0 and RANDOM_WATER else None,
+        zero_bfactors=zero_bfactors
     )
     show_crystal = False
 
@@ -175,39 +198,49 @@ def main(par_idx):
     experiment2 = MD_XFEL(exp_name2,energy,**exp_qwargs)
     # Create Crystals
 
-    crystal = MD_Crystal(num_time_points,pdb_md_snapshots_path,allowed_atoms,is_damaged=first_crystal_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N, **crystal_qwargs)
+    dmged_crystal_targets:list[MD_Crystal] = []
+    for snapshots in pdb_md_snapshots_path_list: 
+        dmged_crystal_targets.append(
+            MD_Crystal(num_time_points,snapshots,allowed_atoms,t_cutoff_frac=t_cutoff_frac,
+                       is_damaged=first_crystal_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N, 
+                       **crystal_qwargs))
+    first_crystal = dmged_crystal_targets[0]
+    
     # The undamaged crystal uses the initial state but still performs the same integration step with the pulse profile weighting.
     if same_deviations:
         # we copy the other crystal so that it has the same deviations in coords
-        crystal_undmged = copy.deepcopy(crystal)#Crystal(pdb_md_snapshots_path,allowed_atoms,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
+        crystal_undmged = copy.deepcopy(first_crystal)#Crystal(pdb_md_snapshots_path,allowed_atoms,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
         crystal_undmged.is_damaged = second_crystal_is_damaged
     else:
-        crystal_undmged = MD_Crystal(num_time_points,pdb_md_snapshots_path,allowed_atoms,is_damaged=second_crystal_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N, **crystal_qwargs)
+        crystal_undmged = MD_Crystal(num_time_points,pdb_md_snapshots_path_list[0],allowed_atoms,is_damaged=second_crystal_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N, **crystal_qwargs)
     if show_crystal:
-        crystal.plot_me(300000,water_index = water_index,template="plotly_dark")
+        first_crystal.plot_me(300000,water_index = water_index,template="plotly_dark")
     #%
     if laser_firing_qwargs["SPI"]:
-        SPI_result1 = experiment1.spooky_laser(plasma_sim_handle,sim_data_dir,crystal,results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
-        SPI_result2 = experiment2.spooky_laser(plasma_sim_handle,sim_data_dir,crystal_undmged,results_parent_dir=results2_parent_folder,  **laser_firing_qwargs)
+        assert False
+        #SPI_result1 = experiment1.spooky_laser(plasma_sim_handle,sim_data_dir,crystal,results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
+        #SPI_result2 = experiment2.spooky_laser(plasma_sim_handle,sim_data_dir,crystal_undmged,results_parent_dir=results2_parent_folder,  **laser_firing_qwargs)
         #stylin(exp_name1,exp_name2,experiment1.max_q,results_parent_dir=results_parent_folder,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2,custom_fig_width=fig_width,custom_fig_height=fig_height)
     else:
         I_scale=1e5/crystal_qwargs["num_supercells"]
-        exp1_orientations = experiment1.spooky_laser(plasma_sim_handle,sim_data_dir,crystal, results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
+        experiment1.laser_multi_target(plasma_sim_handle,sim_data_dir,dmged_crystal_targets, results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
+        exp1_orientations =experiment1.used_orientations()
         create_reflection_file(exp_name1,results_parent_dir=results1_parent_folder,
-                               artificial_I_scale=I_scale)
+                               artificial_I_scale=I_scale,symmetry_override=ground_truth_symmetry_override)
         _, mtz_file1 = rfl_to_sca(exp_name1)
         if exp_name2 != None:
             laser_firing_qwargs["random_orientation"] = False
             experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
             experiment2.spooky_laser(plasma_sim_handle,sim_data_dir,crystal_undmged, results_parent_dir=results2_parent_folder, **laser_firing_qwargs)
             create_reflection_file(exp_name2,results_parent_dir=results2_parent_folder,
-                                   artificial_I_scale=I_scale)
+                                   artificial_I_scale=I_scale,symmetry_override=ground_truth_symmetry_override)
             _, mtz_file2 = rfl_to_sca(exp_name2)
             #fcalc = phenix_fcalc(pdb_md_snapshots_path,best_resolution,real=True)
-            phenix_R(pdb_md_snapshots_path,mtz_file2)
-        phenix_R(pdb_md_snapshots_path,mtz_file1)
-        fcalc = phenix_fcalc_from_file(pdb_md_snapshots_path,mtz_file1,real=True)
-        phenix_R(pdb_md_snapshots_path,fcalc)
+            phenix_R(ground_truth_pdb,mtz_file2)
+        phenix_R(ground_truth_pdb,mtz_file1)
+        #fcalc = phenix_fcalc(ground_truth_pdb,best_resolution,real=False)
+        fcalc = phenix_fcalc_from_file(ground_truth_pdb,mtz_file1,real=True)
+        phenix_R(ground_truth_pdb,fcalc)
 
     now = datetime.datetime.now().timestamp()
     os.utime(results1_parent_folder[:-1], (now, now))
@@ -234,7 +267,8 @@ if __name__ == "__main__":
     scattering_dir = path.abspath(path.join(src_file_path ,"../"))+"/"
     RESULTS_LOCAL_PATH = "results/"
 
-
+    # TODO FIX 
+    ''' 
     num_results = len(target_options)*(1+(SKIP_UNDAMAGED==False))
     OldestToLatest = sorted(glob.glob(os.path.join(scattering_dir+RESULTS_LOCAL_PATH, '*/')), key=os.path.getmtime)
     for n in range(num_results):
@@ -244,5 +278,6 @@ if __name__ == "__main__":
             out_dir="/home/speno/PhenixWorkspace/data/",
             tag_override=""
         )  
+    '''
 
 # %%

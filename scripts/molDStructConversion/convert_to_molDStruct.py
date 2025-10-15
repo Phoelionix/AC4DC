@@ -6,13 +6,14 @@ import os.path as path
 sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
 sys.path.append('/home/speno/AC4DC/scripts/scattering')
 sys.path.append('/home/speno/AC4DC/scripts/')
-from scatter import XFEL,Crystal,stylin
+from scattering.scatter import XFEL,Crystal,stylin,Atomic_Species
 from core_functions import get_sim_params,get_sim_elements,get_pdb_path,ATOMNO
-import imaging_params as imaging_params
+import scattering.imaging_params as imaging_params
 import numpy as np
 from scipy import constants as C
 import struct
 import textwrap
+from plotter_core import Plotter # For typing
 
 # Converts AC4DC data to IONIZATION_DATA used for input to MolDStruct CR-MD.
 
@@ -26,31 +27,8 @@ AVERAGE_CHARGES = None
 ALLOW_SELECT_SAME_TIMES = True
 SAVE_CSV_COPY = True
 
-if __name__=="__main__":
-    #sim_handles = ["lys_salt_solvated_fast_H_4","lys_solvated_fast_H_4"]
-   # sim_handles = ["lys_solvated_H_2",]
-    #sim_handles = ["lys_solvated_H_9","lys_salt_solvated_H_1"]
-    sim_handles = ["I3C_25fs_combined"]
 
-    num_steps = 4900 #3600 # best to go sim time in attoseconds
-
-    #target = "CNO_debug.gro"
-    #target = "4et8.gro"
-    target = "lys_example.gro"
-    AVERAGE_CHARGES = False
-
-    crystal_params = dict(
-        supercell_scale = 1,  ##3 # for SC: cell_scale^3 unit cells 
-        num_supercells = 1,
-        supercell_simulations = 1,        
-        include_symmetries = None, ##True  # should unit cell contain symmetries?
-        positional_stdv = 0, # Introduces disorder to positions. Note this is a deviation from the IDEAL structure, so is not a measure of similarity with undamaged and damaged structure but the ideal structure to recover and the dmaaged structure. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if quickly gauging serial crystallography R factor, as should somewhat average out.
-        cell_packing = "SC",
-        rocking_angle = 1.2,  # (approximating mosaicity, infinite crystal sim only)
-    )
-
-
-def get_charge_states(element,element_charge_snapshot_selector=None):
+def get_charge_states(element:Atomic_Species,element_charge_snapshot_selector=None):
     if element_charge_snapshot_selector is None:
         #element_charge_snapshot_selector = element.crystal.ff_calculator.random_charge_snapshots
         element_charge_snapshot_selector = element.crystal.ff_calculator.continuity_charge_snapshots
@@ -59,7 +37,7 @@ def get_charge_states(element,element_charge_snapshot_selector=None):
     if element.get_num_atoms() != len(element.crystal.sym_rotations)*len(element.coords):
         raise Exception("num atoms was not same on set_stochastic_states call as when set by set_coord_deviation")
     if element.crystal.is_damaged:
-        charges = np.empty(shape = (element.get_num_atoms(),len(element.times_used)))  # (num atoms, times)   
+        charges = np.empty(shape = (element.get_num_atoms(),len(element.times_used)),dtype=int)  # (num atoms, times)   
         for idx in range(element.get_num_atoms()):
             seed = None
             if SEEDED:
@@ -69,9 +47,8 @@ def get_charge_states(element,element_charge_snapshot_selector=None):
             
             # TEMPORARY HACK COS UNSIGNED SHORT DUMBNESS
             # (Can't pass negative values...)
-            if element.name == "I_fast":
-                charges[idx] = np.max(0,charges[idx])
-            
+            #if element.name == "I_fast":
+            charges[idx] = np.maximum(0,charges[idx])
             if not np.all(charges.astype(np.ushort)[idx] <= ATOMNO[element.name]):
                 print(charges.astype(np.ushort)[idx])
                 print(ATOMNO[element.name])
@@ -176,15 +153,21 @@ MOLECULAR_PATH = path.abspath(path.join(SCRIPTS_DIR, "../output/__Molecular/")) 
 #         f.writelines("{0} 0 0\n".format(j))
 #     f.close()
 
+RANDOM_CHARGES = True # TEMPORARY
+
 def get_save_folder():
     if AVERAGE_CHARGES:
         tag = "avg"
-    else:
+    elif RANDOM_CHARGES:
         tag = "stoch"
+    else: 
+        tag = "stoch_cont"
     folder_name = f"{sim_handle}_{tag}"
     return OUTPUT_PATH + folder_name + "/"
 
-def charges(csv=False,individual_elements = False,average_charges=AVERAGE_CHARGES):
+
+
+def charges(crystal:Crystal,ff_calculator:Plotter,csv=False,individual_elements = False,average_charges=AVERAGE_CHARGES):
     if average_charges is None:
         average_charges = True 
     print("Beginning writing of charges...")
@@ -195,22 +178,29 @@ def charges(csv=False,individual_elements = False,average_charges=AVERAGE_CHARGE
     num_steps = len(ff_calculator.get_times_SCATTER())
     species_charges = {}
     num_atoms = 0
+    num_atoms_for_print = 0
     print(f"Processing charges at {num_steps} time steps for:")
     for element in crystal.species_dict.keys():
+        num_atoms_for_print+=len(crystal.species_dict[element].serial_numbers)
         print(f"{len(crystal.species_dict[element].serial_numbers)} {element} atoms")
+    print(f"Total: {num_atoms_for_print}")
 
     print("Generating:")
-    for element in crystal.species_dict.keys():
+    #for element in crystal.species_dict.keys():
+    for element in ["Na","Cl","S","H","C","N","O"]:
         print(f"{element}...")
-        element_obj = crystal.species_dict[element]
+        element_obj:Atomic_Species = crystal.species_dict[element]
         if average_charges:
             species_charges[element] = element_obj.crystal.ff_calculator.get_average_charge_ff_calculator(element_obj.name)
         else:
-            species_charges[element] = get_charge_states(element_obj)
+            charge_selector = None
+            if RANDOM_CHARGES:
+                charge_selector = element_obj.crystal.ff_calculator.random_charge_snapshots
+            species_charges[element] = get_charge_states(element_obj,element_charge_snapshot_selector=charge_selector)
             # TEMPORARY HACK COS UNSIGNED SHORT DUMBNESS
             # (Can't pass negative values...)
-            if element_obj.name == "I_fast":
-                species_charges[element_obj] = np.max(0,species_charges[element_obj])
+            #if element_obj.name == "I_fast":
+            species_charges[element] = np.maximum(0,species_charges[element])
         num_atoms += element_obj.get_num_atoms()
     
  
@@ -239,7 +229,7 @@ def charges(csv=False,individual_elements = False,average_charges=AVERAGE_CHARGE
             assert q <= ATOMNO[a], f"{q},{ATOMNO[a]}"
 
 
-def DebyeLength(csv=False):
+def DebyeLength(ff_calculator:Plotter,csv=False):
     pl = ff_calculator
     
 
@@ -263,6 +253,8 @@ def DebyeLength(csv=False):
         if elem <= 0:
             print(f"Warning, n at step {i} = {elem}")
 
+    eps = 1e-12
+    n = np.maximum(eps,n)
     lambdaD=np.sqrt(C.epsilon_0 * C.nano * T *C.eV / n /C.e/C.e) # should have units nm
     #lambdaD=np.sqrt(C.epsilon_0 * C.angstrom * T *C.eV / n /C.e/C.e) # should have units Angstrom
 
@@ -271,15 +263,16 @@ def DebyeLength(csv=False):
     create_data_file(n/C.nano**3,"electron_density",out_folder,csv=csv) # nm^-3
     create_data_file(lambdaD,"debye_data",out_folder,csv=csv) # nm
 
-if __name__ == "__main__":
 
-    for sim_handle in sim_handles:
 
+def convert_to_molDStruct(sim_handle:str,target_path:str,num_steps:int):
         allowed_atoms = get_sim_elements(sim_handle)
+        #allowed_atoms = ["Na","Cl","S","H","C","N","O"]
 
-        crystal = Crystal(TARGET_DIR + target,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=False,**crystal_params)
+        crystal = Crystal(target_path,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=False,**crystal_params)
 
 
+        target_handle = '.'.join(os.path.basename(target_path).split('.')[:-1])
 
         param_dict,_,_ = get_sim_params(sim_handle)
         start_time = param_dict["start_t"]
@@ -292,21 +285,65 @@ if __name__ == "__main__":
         xfel = XFEL("dummy",energy,t_fineness=num_steps)
         ff_calculator = xfel.get_ff_calculator(start_time,end_time,sim_handle,MOLECULAR_PATH)   
         ff_calculator.allow_select_same_times = ALLOW_SELECT_SAME_TIMES  
+        #crystal.plot_me()
         crystal.set_ff_calculator(ff_calculator)    
 
         # TODO json format.
         log_file = get_save_folder() + "log.txt"
+        os.makedirs(get_save_folder(), exist_ok=True) 
         with open(log_file,'w') as f:
             f.write(textwrap.dedent(f"""\
-                    target: {target}
+                    target: {target_handle}
                     plasma simulation: {sim_handle}
                     p. sim. parameters: {param_dict}
                     """))
 
-        charges(csv=SAVE_CSV_COPY)
-        DebyeLength(csv=SAVE_CSV_COPY)
+        charges(crystal,ff_calculator,csv=SAVE_CSV_COPY)
+        DebyeLength(ff_calculator,csv=SAVE_CSV_COPY)
         #LennardJones()
         print("Done! Remember to sit straight!")
+
+if __name__ == "__main__":
+
+    #sim_handles = ["lys_salt_solvated_fast_H_4","lys_solvated_fast_H_4"]
+   # sim_handles = ["lys_solvated_H_2",]
+    #sim_handles = ["lys_solvated_H_9","lys_salt_solvated_H_1"]
+    #sim_handles = ["I3C_25fs_combined"]
+    #sim_handles = ["lys_salt_fast_high_fluence_2"]
+
+    #num_steps = 3600 #4900 #3600 #
+    if len(sys.argv)!=3:
+        print("Usage: python3.9 sim_output_handle path/to/gro/file")
+        quit()
+    sim_handle,target_path=sys.argv[1:3]
+
+    sim_params=get_sim_params(sim_handle)[0]
+    sim_duration_fs=sim_params["end_t"]-sim_params["start_t"]
+
+    num_steps = int(np.ceil(50*sim_duration_fs))
+    print(f"Creating charge file with {num_steps} steps")
+
+    #target = "CNO_debug.gro"
+    #target = "4et8.gro"
+    #target = "lys_example.gro"
+    #target = "4et8H_full_struct_Hfix.gro"
+    #target_path=TARGET_DIR + target
+    AVERAGE_CHARGES = False
+
+    crystal_params = dict(
+        supercell_scale = 1,  ##3 # for SC: cell_scale^3 unit cells 
+        num_supercells = 1,
+        supercell_simulations = 1,        
+        include_symmetries = None, ##True  # should unit cell contain symmetries?
+        positional_stdv = 0, # Introduces disorder to positions. Note this is a deviation from the IDEAL structure, so is not a measure of similarity with undamaged and damaged structure but the ideal structure to recover and the dmaaged structure. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if quickly gauging serial crystallography R factor, as should somewhat average out.
+        cell_packing = "SC",
+        rocking_angle = 1.2,  # (approximating mosaicity, infinite crystal sim only)
+    )
+
+    convert_to_molDStruct(sim_handle,target_path,num_steps)
+
+
+
 
 
 
