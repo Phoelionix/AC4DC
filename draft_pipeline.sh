@@ -54,7 +54,7 @@ TEMP_dt=0.00002
 
 echo Adding Lennard Jones params
 
-bash pipeline_scripting/add_lennard_jones.sh $gromacs_work_folder 
+bash pipeline_scripting/add_lennard_jones.sh $gromacs_work_folder $gromacs_file_path 
 
 echo "Running photon matter simulation"
 

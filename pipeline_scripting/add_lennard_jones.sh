@@ -1,13 +1,13 @@
 set -u 
 
 working_folder=$1
-
+gro_file=$2
 
 cd $(dirname $0)
 
-bash gmxdump.sh $working_folder
+bash gmxdump.sh $working_folder $gro_file
 
-python3.9 create_lennard_jones_file.py
+python3.9 create_lennard_jones_file.py 
 
 out_lj_file=lennard_jones_parameters.txt
 
@@ -21,7 +21,7 @@ fi
 
 
 rm -f $working_folder/IONIZATION_DATA/$out_lj_file
-mv $out_lj_file $working_folder/IONIZATION_DATA/
+mv $out_lj_file $working_folder/IONIZATION_DATA/ 
 
 
 rm gmxdump_out

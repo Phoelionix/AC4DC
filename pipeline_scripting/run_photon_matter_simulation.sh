@@ -23,7 +23,7 @@ mv tmp.$$ full_sim.mdp
 
 
 
-for ((idx=0; idx<1; idx++)) {
+for ((idx=1; idx<2; idx++)) {
     shaken_file=4et8H_full_struct_Hfix_shaken_${idx}.gro 
 
 
