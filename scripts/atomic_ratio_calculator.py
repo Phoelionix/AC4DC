@@ -12,7 +12,10 @@ class Solvent:
         self.VS = VS # Solvent content %(v/v)
         self.VM = VM # Matthews Coefficient, Ang^3/Da  (note 1 Da -> 1 g/mol)
         self.solution_density=solution_density
-    def add_molecule(self, molecule,M = None,solvent_v_on_v = None,solvent_w_on_v=None):
+    def add_molecule(self, molecule,M = None,solvent_v_on_v = None,solvent_w_on_v=None): # v_on_v and w_on_v given as percentages
+        measure_check=solvent_v_on_v if (solvent_v_on_v is not None) else (solvent_w_on_v if (solvent_w_on_v is not None) else None)
+        if measure_check is not None and measure_check < 1: 
+            print(f"Warning: v_on_v or w_on_v is {measure_check}% - make sure it is given as a percentage")
         if solvent_w_on_v is not None:
             assert solvent_v_on_v is None
             assert molecule.density is not None
@@ -153,6 +156,11 @@ water = Molecule(18.02, #undiluted_molarity=55.56,
 
 NaCl = Molecule(58.44,# 1.02,
     Na = 1,
+    Cl = 1                
+)
+
+CsCl = Molecule(168.36,# 1.02,
+    Cs = 1,
     Cl = 1                
 )
 
@@ -341,5 +349,90 @@ if __name__ == "__main__":
     #TODO 100 mM HEPES
     
     calculate(solvent,protein_light_atoms,protein_heavy_atoms,lengths,angles,num_asymm_units)
+
+# %%
+if __name__ == "__main__":
+    lengths = 29.53,  30,   30
+    angles = 90, 90, 90
+    num_asymm_units=1
+
+    protein_light_atoms = dict(
+    )
+    protein_heavy_atoms = dict(
+    )
+
+    # https://advancedthermo.com/electrolytes/density_KI.html
+    # But PEG lighter
+
+    
+    solvent = Solvent(100,solution_density=1.732) 
+    #solvent.add_molecule(KI,M=1)
+    solvent.add_molecule(CsCl,M=6)
+    #TODO 100 mM HEPES
+    
+    calculate(solvent,protein_light_atoms,protein_heavy_atoms,lengths,angles,num_asymm_units)# %%
+# %% Hemoglobin 3PEL
+# REMARK 280 CRYSTALLIZATION CONDITIONS: 1.7 M AMSO4, 100 MM GLYCINE PH 9.0,      
+# REMARK 280  0.6 M 3-(1-PYRIDINO)-1-PROPANE SULFONATE [NDSB-201] AND 21%         
+# REMARK 280  GLYCEROL, VAPOR DIFFUSION, SITTING DROP, TEMPERATURE 298.0K, PH     
+# REMARK 280  8.5  
+if __name__ == "__main__":
+    lengths = 87.973,   88.045,   53.073  
+    angles = 90.00, 103.37,  90.00
+    num_asymm_units=4
+
+    protein_light_atoms = dict(
+        C=1418,
+        N=380,
+        O=405,
+        H=2230
+    )
+    protein_heavy_atoms = dict(
+        S=5
+    )
+
+    # https://advancedthermo.com/electrolytes/density_KI.html
+    # But PEG lighter
+
+    
+    solvent = Solvent(61.54,solution_density=1.1) 
+    #solvent.add_molecule(KI,M=1)
+    solvent.add_molecule()
+    #TODO 100 mM HEPES
+    
+    calculate(solvent,protein_light_atoms,protein_heavy_atoms,lengths,angles,num_asymm_units)# %%
+
+
+
+# %% Hemoglobin 2QSP (using same atoms as 3PEL)
+# REMARK 280 CRYSTALLIZATION CONDITIONS: 0.4 M NA CACODYLATE 12-15% PEG 3350,     
+# REMARK 280  PH 5.7, VAPOR DIFFUSION, HANGING DROP, TEMPERATURE 298K  
+if __name__ == "__main__":
+    lengths = 65.033,   78.273,   109.085  
+    angles = 90.00, 90.00,  90.00
+    num_asymm_units=4
+
+    protein_light_atoms = dict(
+        C=1418,
+        N=380,
+        O=405,
+        H=2230
+    )
+    protein_heavy_atoms = dict(
+        S=5
+    )
+
+    # https://advancedthermo.com/electrolytes/density_KI.html
+    # But PEG lighter
+
+    
+    solvent = Solvent(44.97,solution_density=1.1) 
+    #solvent.add_molecule(KI,M=1)
+    solvent.add_molecule(PEG(3350),solvent_v_on_v=13.5)
+    solvent.add_molecule(sodium_cacodylate,M=0.4)
+    #TODO 100 mM HEPES
+    
+    calculate(solvent,protein_light_atoms,protein_heavy_atoms,lengths,angles,num_asymm_units)# %%
+
 
 # %%
