@@ -39,7 +39,7 @@ def plot_frame(ipl,energies,densities,knot_to_plot):
 
 def plot_frame_from_c(energies,densities,knot_points):
     knot_points = [27.211385*e for e in knot_points]  # knots are passed in Ha, sorry.
-    pio.renderers.default = "notebook"
+    #pio.renderers.default = "notebook"
     # Axis params
     log_ymin, log_ymax  = 1e-4, 1      
     xmin, xmax = 1, energies[np.max(np.nonzero(energies)) - 1]   # from 1 eV to max ignoring upper boundary knot.
@@ -65,8 +65,10 @@ if __name__ == "__main__":
     # Test whether frames are shown properly
     def plot_frame_from_py(energies,densities,knots_eV):
         knot_points = knots_eV
-        pio.renderers.default = "notebook"
+        print("TO")
+        #pio.renderers.default = "notebook"
         # Axis params
+        print("TO")
         log_ymin, log_ymax  = 1e-4, 1      
         xmin, xmax = 1, energies[np.max(np.nonzero(energies)) - 1]   # from 1 eV to max ignoring upper boundary knot.
         xlabel = 'Energy (eV)'
@@ -74,7 +76,9 @@ if __name__ == "__main__":
         x_log_args = {'title': {"text": xlabel + " - log scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(xmin),np.log10(xmax)]}
         y_log_args = {'title': {"text": ylabel + " - log scale", "font":{"size": 30,"family": "roboto"}}, 'tickfont': {"size": 20}, 'type' : "log", "range" : [np.log10(log_ymin),np.log10(log_ymax)]}
         #    
+        print("TO")
         ipl = Plotter()
+        print("TO")
         ipl.initialise_figure("Current Distribution", x_log_args,y_log_args) 
         plot_frame(ipl,energies,densities,knot_points)
         ###Modified past this point#####
@@ -84,7 +88,8 @@ if __name__ == "__main__":
             height=480,
         )
         ####
-        ipl.fig.show()  
+        #ipl.fig.show()  
+        pio.write_image(ipl.fig, "_live_plot_test.png");  
     #plt.ion()
     # Test the frame is shown properly
     plot_frame_from_py((0,0.5,1,2,3,20,300,3000),(0,0.5,5,1,0.3,0.3,0.3,0.3),[5, 10,50,100, 150])
