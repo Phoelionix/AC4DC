@@ -4,9 +4,10 @@ set -u
 
 gmx='/home/speno/programs/bin' # path to where GROMACS is installed
 
-working_folder=$1
-gromacs_file_path=$2
-out_folder=$3
+idx=$1
+working_folder=$2
+gromacs_file_path=$3
+out_folder=$4
 
 
 dt=0.001
@@ -14,17 +15,16 @@ dt=0.001
 
 handle=$(basename $working_folder)
 
-num=0
 
 
 #gro_file_handle=lys_example
 
-xtc_file=$working_folder/output_${num}.xtc
+xtc_file=$working_folder/output_${idx}.xtc
 struct_file=$gromacs_file_path
 
 
 
-out_file=$working_folder/${handle}_moldstruct${num}.pdb
+out_file=$working_folder/${handle}_moldstruct${idx}.pdb
 printf "0" | "$gmx/trjconv" -f $xtc_file -s $struct_file -dt $dt  -o  $out_file # printf "0" selects group 0 (the whole system) to output.
 
 remove_sol='true'

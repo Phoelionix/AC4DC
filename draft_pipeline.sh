@@ -3,6 +3,8 @@ set -u
 # Can do this at a higher level. Really just need beam parameters at sample, pdb file, and solvent information. 
 # From there the below files can be generated. 
 
+NUM_MD=10
+
 cd $(dirname "$0")
 
 sim_handle=high_dmg
@@ -20,7 +22,7 @@ mkdir -p $gromacs_work_folder
 
 
 echo "Running plasma simulation"
-./ac4dc_no_tbr $input_file_path
+#./ac4dc_no_tbr $input_file_path
 
 TEMP_serial_num=1 # TODO need to automate this.
 sim_output_handle=${sim_handle}_${TEMP_serial_num}
@@ -43,7 +45,7 @@ for expected_path in $input_file_path $gromacs_file_path; do
 done
 
 echo "Generating molDStruct inputs from AC4DC"
-python3.9 scripts/molDStructConversion/convert_to_molDStruct.py $sim_output_handle $gromacs_file_path
+#python3.9 scripts/molDStructConversion/convert_to_molDStruct.py $sim_output_handle $gromacs_file_path
 cp -r scripts/molDStructConversion/output/${sim_output_handle}${TEMP_conversion_output_tag}/IONIZATION_DATA $gromacs_work_folder
 
 
@@ -58,13 +60,17 @@ bash pipeline_scripting/add_lennard_jones.sh $gromacs_work_folder $gromacs_file_
 
 echo "Running photon matter simulation"
 
-bash pipeline_scripting/run_photon_matter_simulation.sh $gromacs_work_folder $gromacs_unitcell_target_handle.gro $TEMP_nsteps $TEMP_dt
-
-
 MD_output_dir=scripts/scattering/targets/${sim_output_handle}_${gromacs_unitcell_target_handle}
 mkdir -p MD_output_dir
 
-bash pipeline_scripting/trjconv.sh $gromacs_work_folder $gromacs_file_path $MD_output_dir
+for ((idx=1; idx<(NUM_MD+1); idx++)) {
+    bash pipeline_scripting/run_photon_matter_simulation.sh $idx $gromacs_work_folder $gromacs_unitcell_target_handle.gro $TEMP_nsteps $TEMP_dt
+    bash pipeline_scripting/trjconv.sh $idx $gromacs_work_folder $gromacs_file_path $MD_output_dir 
+}
+
+
+
+
 
 python3.9 scripts/scattering/generate_MD_reflections.py $sim_output_handle $MD_output_dir
 
