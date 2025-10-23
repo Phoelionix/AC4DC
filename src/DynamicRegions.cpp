@@ -191,6 +191,7 @@ void GridRegions::initialise_regions(DynamicGridPreset& preset){
             Region(25,-1,-1,Region::mb_log), // Maxwell-boltzmann distribution
         };        
         break;       
+      // M
       case DynamicGridPreset::mb_log_grid:  // Similar to preset "dirac", with lower min energy like "Galli_support". However MB region is logarithmic.
         preset_name = "Lower dirac regions, log MB";  // Support extends below bottom of transition region.
         preset.min_dirac_region_peak_energy  = 350;
@@ -206,7 +207,63 @@ void GridRegions::initialise_regions(DynamicGridPreset& preset){
             Region(7,preset.pulse_omega*6/4,max_knot_energy,Region::fixed), // high tail
             Region(25,-1,-1,Region::mb_log), // Maxwell-boltzmann distribution
         };        
-        break;      
+        break;    
+      // N
+      case DynamicGridPreset::mb_log_grid_lower_min:  // 
+        first_gp_min_E = 1;
+        preset_name = "Lower dirac regions, log MB, lower min Maxwellian knot";  // Support extends below bottom of transition region.
+        preset.min_dirac_region_peak_energy  = 350;
+        mb_max_over_kT = 2.3208*4/3;  
+        mb_min_over_kT = 0.2922*1/4; 
+        pts_per_dirac = 15;  
+        regions = {
+            Region(7,10,20, Region::fixed), Region(8,20,50, Region::fixed),  // low support
+            Region(10,50,200,Region::fixed), 
+            Region(15,200,600,Region::fixed), // auger
+            Region((int)(0.5+ 7*trans_scaling),600,preset.pulse_omega/4,Region::fixed), // transition
+            Region(25,preset.pulse_omega/4,preset.pulse_omega*6/4,Region::fixed),  // photo
+            Region(7,preset.pulse_omega*6/4,max_knot_energy,Region::fixed), // high tail
+            Region(25,-1,-1,Region::mb_log), // Maxwell-boltzmann distribution
+        };        
+        break; 
+      // X
+      case DynamicGridPreset::mb_log_grid_high_accuracy:  // Similar to preset "dirac", with lower min energy like "Galli_support". However MB region is logarithmic.
+        first_gp_min_E = 1;
+        preset_name = "Lower dirac regions, log MB";  // Support extends below bottom of transition region.
+        preset.min_dirac_region_peak_energy  = 350;
+        mb_max_over_kT = 2.3208*4/3 *1.2;  
+        mb_min_over_kT = 0.2922*1/4 /1.2; 
+        pts_per_dirac = 20;  
+        regions = {
+            Region(10,10,20, Region::fixed), Region(12,20,50, Region::fixed),  // low support
+            Region(20,50,200,Region::fixed), 
+            Region(20,200,600,Region::fixed), // auger
+            Region((int)(0.5+ 10*trans_scaling),600,preset.pulse_omega/4,Region::fixed), // transition
+            Region(35,preset.pulse_omega/4,preset.pulse_omega*6/4,Region::fixed),  // photo
+            Region(14,preset.pulse_omega*6/4,max_knot_energy,Region::fixed), // high tail
+            Region(40,-1,-1,Region::mb_log), // Maxwell-boltzmann distribution
+        };        
+        break;  
+ 
+    //   // for when H is present in simulation
+    //   // [todo diagnosis]
+    //   // NOT OPTIMIZED OR TESTED EXTENSIVELY.
+    //   case DynamicGridPreset::mb_log_grid_H_support:  
+    //     preset_name = "Lower dirac regions, log MB, H support";  
+    //     preset.min_dirac_region_peak_energy  = 350;
+    //     mb_max_over_kT = 2.3208*4/3;  
+    //     mb_min_over_kT = 0.2922*1/4; 
+    //     pts_per_dirac = 15;  
+    //     regions = {
+    //         Region(7,10,20, Region::fixed), Region(8,20,50, Region::fixed),  // low support
+    //         Region(10,50,200,Region::fixed), 
+    //         Region(15,200,600,Region::fixed), // auger
+    //         Region((int)(0.5+ 7*trans_scaling),600,preset.pulse_omega/4,Region::fixed), // transition
+    //         Region(25,preset.pulse_omega/4,preset.pulse_omega*6/4,Region::fixed),  // photo
+    //         Region(7,preset.pulse_omega*6/4,max_knot_energy,Region::fixed), // high tail
+    //         Region(25,-1,-1,Region::mb_log), // Maxwell-boltzmann distribution
+    //     };        
+    //     break;   
       case DynamicGridPreset::static_high_energy:  // i.e. Static dirac. Same as all_log_grid, except one big logarithmic static region past 1/4 photon energy.
         preset_name = "Static high energy regions, log all";  // Support extends below bottom of transition region.
         preset.min_dirac_region_peak_energy  = 350;

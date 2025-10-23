@@ -50,6 +50,7 @@ void ElectronRateSolver::save(const std::string& _dir) {
     saveFreeRaw(dir+"freeDistRaw.csv");
     saveKnots(dir + "knotHistory.csv");
     saveBound(dir);
+    saveBoundOccDelta(dir);
     std::cout <<"\033[0m"<<std::endl;
 
     // Save intensity
@@ -84,10 +85,42 @@ void ElectronRateSolver::file_delete_check(const std::string& fname){
 void ElectronRateSolver::saveFree(const std::string& base_fname) {
     for (size_t _c = 0; _c < Distribution::num_continuums; _c++){
         std::string fname = base_fname;
-        if (_c >= 1){
+
+        // Cascade distributions
+
+        if (_c != 0){
+            #ifndef TRACK_SINGLE_CONTINUUM
             fname.append("_");
-            fname.append(input_params.Store[_c-1].name); 
+            if(Distribution::photo_first_continuum_idx<=_c
+            &&_c<Distribution::auger_first_continuum_idx){
+                fname.append(input_params.Store[_c-Distribution::photo_first_continuum_idx].name); 
+                fname.append("_photo");
+            }
+            if(Distribution::auger_first_continuum_idx<=_c){
+                fname.append(input_params.Store[_c-Distribution::auger_first_continuum_idx].name); 
+                fname.append("_auger");
+            }
+                #ifndef NO_ELECTRON_SOURCE
+                
+                if(Distribution::external_continuum_idx==_c){
+                    fname.append("injected");
+                }
+                #endif
+            #endif
+
+
+            #ifdef TRACK_SINGLE_CASCADE
+            if(Distribution::single_cascade_continuum_idx==_c){
+                std::stringstream stream;
+                stream << std::fixed << std::setprecision(2) << actual_cascade_spawn_time*Constant::fs_per_au;
+                fname.append(stream.str());
+                fname.append("_cascade");
+
+            }
+            #endif
+
         }
+
         fname.append(".csv");
         file_delete_check(fname);
 
@@ -125,9 +158,9 @@ void ElectronRateSolver::saveFree(const std::string& base_fname) {
         size_t next_knot_update = 0;
         while (i <  static_cast<int>(t.size())-1){
             i++;
-            if (i == static_cast<int>(next_knot_update) or i == 0){
-                Distribution::load_knots_from_history(i);
-                next_knot_update = Distribution::next_knot_change_idx(i);
+            if (i == static_cast<int>(next_knot_update - (this->order-1) ) or i == 0){  // minus this-> order because basis was transformed
+                Distribution::load_knots_from_history(i+(this->order-1));
+                next_knot_update = Distribution::next_knot_change_idx(i+(this->order-1));
             } 
             if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){
                 continue;
@@ -163,9 +196,9 @@ void ElectronRateSolver::saveFreeRaw(const std::string& fname) {
     size_t next_knot_update = 0;
     while (i <  static_cast<int>(t.size())-1){
         i++;
-        if (i == static_cast<int>(next_knot_update) or i == 0){
-            Distribution::load_knots_from_history(i);
-            next_knot_update = Distribution::next_knot_change_idx(i);
+        if (i == static_cast<int>(next_knot_update - (this->order-1) ) or i == 0){  // minus this-> order because basis was transformed
+            Distribution::load_knots_from_history(i+(this->order-1));
+            next_knot_update = Distribution::next_knot_change_idx(i+(this->order-1));
         } 
         if(t[i] < previous_t + t_fineness && i<=static_cast<int>(t.size())-extra_fine_steps_out){
             continue;
@@ -183,7 +216,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
     assert(y.size() == t.size());
     ofstream f;    
     // Iterate over save file type { 0: bound | 1: photoionisation | }
-    for (size_t mode=0; mode < 2; mode++)
+    for (size_t mode=0; mode < 2; mode++){
         // Iterate over atom types
         for (size_t a=0; a<input_params.Store.size(); a++) {
             string fname;
@@ -243,6 +276,7 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
             }
             f.close();  
         }
+    }
     // save rates. // DISABLED as rates not integrated with solver properly yet.
     /*
     string fname = dir+"rates.csv";
@@ -271,6 +305,48 @@ void ElectronRateSolver::saveBound(const std::string& dir) {
 }
 
 
+void ElectronRateSolver::saveBoundOccDelta(const std::string& dir) {
+    // saves a table of bound-electron dynamics , split by atom, to folder dir.
+    assert(y.size() == t.size());
+    ofstream f;    
+    // Iterate over atom types
+    for (size_t a=0; a<input_params.Store.size(); a++) {
+        for (int k=0; k<input_params.Store[a].max_atom_occ+1; k++) {
+            string fname = dir+"delta_occupancy_from_"
+            +std::to_string(input_params.Store[a].max_atom_occ-k)+"_"
+            +input_params.Store[a].name+".csv";
+            string header = string("# Ionic changes\n") 
+            + string("# Time (fs) | Transition to num bound electrons (increasing LtoR) \n");
+            std::cout << "BoundDelta: \033[94m'"<<fname<<"'\033[95m | "<<std::endl;
+                
+            file_delete_check(fname);
+            f.open(fname);
+            f << header<<std::flush;
+
+            // Iterate over time.
+            double t_fineness = timespan_au  / num_steps_out;
+            double previous_t = t[0]-t_fineness;
+            int i = -1;
+            while (i <  static_cast<int>(t.size())-1){
+                i++;
+                if(t[i] < previous_t + t_fineness && i<= int(t.size())-extra_fine_steps_out){ 
+                    continue;
+                }            
+                        // Make sure all "natom-dimensioned" objects are the size expected //TODO failsafe?
+                        assert(input_params.Store.size() == y[i].atomP.size());
+                        
+                        f<<round_time(t[i]*Constant::fs_per_au) << ' ' << y[i].atomP_delta[a][k]<<endl;   // Multiplied by 1./Constant::Angs_per_au/Constant::Angs_per_au/Constant::Angs_per_au                    
+                previous_t = t[i];
+            }
+            f.close();  
+        }
+
+    }
+  
+}
+
+
+
 void ElectronRateSolver::saveKnots(const std::string& fname) {
     file_delete_check(fname);
 
@@ -282,10 +358,10 @@ void ElectronRateSolver::saveKnots(const std::string& fname) {
 
     assert(y.size() == t.size());
     size_t next_knot_update = 0;
-    for (size_t i=0; i<t.size(); i++) {
-        if (i == next_knot_update or i == 0){
-            Distribution::load_knots_from_history(i);
-            next_knot_update = Distribution::next_knot_change_idx(i);
+    for (int i=0; i<static_cast<int>(t.size()); i++) {
+        if (i == static_cast<int>(next_knot_update - (this->order-1) ) or i == 0){   // minus this-> order because basis was transformed
+            Distribution::load_knots_from_history(i+(this->order-1));
+            next_knot_update = Distribution::next_knot_change_idx(i+(this->order-1));
             f<<t[i]*Constant::fs_per_au<<" "<<Distribution::output_knots_eV()<<endl;
         } 
     }

@@ -27,6 +27,7 @@ This file is part of AC4DC.
 #include <vector>
 #include <string>
 #include <cassert>
+#include <unordered_map>
 using namespace std;
 
 namespace Constant
@@ -120,15 +121,26 @@ namespace CustomDataType
 	};	
 }
 
-typedef std::vector<double> bound_t; // TODO I'm debating removing this since there are lots of std::vector<double> declarations that this makes confusing -S.P.
+typedef std::vector<double> bound_t; // TODO I'm debating removing this since there are lots of std::vector<double> declarations that this makes confusing (though might just be a vscode issue) and this is used very few times in the code -S.P.
 
 
 namespace RateData {
 
 	struct EIIdata
 	{
-		//EIIdata() : init(0), fin(vector<int>(0)), occ(vector<int>(0)),ionB(vector<float>(0)),kin(vector<float>(0)) {}
+		// No idea if copy constructor is necessary. if not can comment out both these.
+		// EIIdata() : init(0), fin(vector<int>(0)), occ(vector<int>(0)),ionB(vector<float>(0)),kin(vector<float>(0)) {}
+		// EIIdata(const EIIdata& oldData){
+		// 	resize(oldData.size());
+		// 	for(size_t i=0; i <oldData.size();i++){
+		// 		fin[i]=oldData.fin[i];
+		// 		occ[i]=oldData.occ[i];
+		// 		ionB[i]=oldData.ionB[i];
+		// 		kin[i] = oldData.kin[i];
+		// 		init = oldData.init;
+		// 	}
 
+		// }
 		vector<int> fin; // final states
 		int init; // initial state
 		vector<int> occ; // occupancy of state
@@ -150,7 +162,7 @@ namespace RateData {
 			kin.push_back(U);
 		}
 
-		size_t size() {
+		size_t size() const {
 			#ifdef DEBUG
 			assert(fin.size() == occ.size());
 			assert(fin.size() == ionB.size());
@@ -161,7 +173,7 @@ namespace RateData {
 	};
 
 	// Though this structure is identical (but for the names) to EIIdata, it is made deliberately incompatible
-	// to prevent confusion.
+	// to prevent confusion. (edit: don't think it's incompatible...)
 	typedef EIIdata InverseEIIdata;
 
 	// Reorganises a EIIData tree by final index rather than initial
@@ -184,22 +196,32 @@ namespace RateData {
 		double nAtoms = 1.;// atomic number density
 		// double R = 189.; // 100nm focal spot radius.
 		unsigned int num_conf = 1;
+		unsigned int max_atom_occ = 1;
 		vector<RateData::Rate> Photo = vector<RateData::Rate>(0);
 		vector<RateData::Rate> Fluor = vector<RateData::Rate>(0);
 		vector<RateData::Rate> Auger = vector<RateData::Rate>(0);
 		vector<RateData::EIIdata> EIIparams = vector<RateData::EIIdata>(0);
+
+		std::unordered_map<long int,unsigned short int> conf_N_elec_dict=std::unordered_map<long int, unsigned short int>();
 		// Tacked on energy_config here.
 		vector<CustomDataType::energy_config> EnergyConfig = vector<CustomDataType::energy_config>(0);
 	};
 
-	bool ReadRates(const string & input, vector<RateData::Rate> & PutHere);
+	bool ReadTransitionRates(const string & input, vector<RateData::Rate> & PutHere);
 	bool ReadEIIParams(const string & input, vector<RateData::EIIdata> & PutHere);
-	bool ReadDecayRates(const string & rate_location, const string & rate_file_type, vector<RateData::Rate> & PutHere,int num_allowed_configs);
+	bool ReadRatesWithConfigTag(const string & rate_location, const string & rate_file_type, vector<RateData::Rate> & PutHere,int num_allowed_configs);
+	bool ReadRatesWithConfigTag(const string & rate_location, const string & rate_file_type, vector<RateData::EIIdata> & PutHere, int num_allowed_configs);
+	string ReadRatesWithConfigTagMainCheck(const string & rate_location, const string & rate_file_type, int num_allowed_configs);
 	bool InterpolateRates(const string & rate_location, const string & rate_file_type, vector<RateData::Rate> & PutHere, double photon_energy,double allowed_interp = 1000);
 	void WriteRates(const string& fname, const vector<RateData::Rate>& rateVector);
 	void WriteEIIParams(const string& fname, const vector<RateData::EIIdata>& eiiVector);
 }
 
+
+static const string PHOTO = "Photo.txt";
+static const string AUGER = "Auger.txt";
+static const string FLUOR = "Fluor.txt";
+static const string EII =  "EII.json";
 
 static const double Moulton_5[5] = { 251. / 720., 646. / 720., -264. / 720., 106. / 720., -19. / 720. }; //Adams-Moulton method
 static const double Bashforth_5[5] = { 1901. / 720., -1378. / 360., 109. / 30., -637. / 360., 251. / 720. }; //Adams-Bashforth method

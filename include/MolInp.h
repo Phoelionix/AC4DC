@@ -49,6 +49,7 @@ public:
 
 	double Omega() {return omega;}
 	double Width() {return width;}
+	double ProbeDelay() {return probe_delay;}
 	double Cutoff_Inputted() {return cutoff_flag;}
 	double Simulation_Cutoff() {return simulation_cutoff_time;}
 	double Fluence() {return fluence;}
@@ -67,6 +68,7 @@ public:
 	bool Using_Input_Timestep(){return loading_uses_input_timestep;}
 
 	double Grid_Update_Period(){return grid_update_period;}
+	double Guess_Grid_Duration(){return guess_grid_duration;}
 
 	string name = "";
 
@@ -89,18 +91,22 @@ public:
 
 	double time_update_gap = 0; // interval **in fs** between each cout'd time.	May be useful to set to a high number for HPC or when otherwise not using ncurses.
     int steps_per_live_plot_update = 20; // Interval  **in steps** between plotting of the free electron distribution to _live_plot.png. Setting to 1 (updating every step) has a negligible effect on speed outside of very fast high step count simulations. 
+	double minutes_per_save=60; // How often to save data backups
 
 	double electron_source_fraction = 0;
 	double electron_source_energy = -1;
 	double electron_source_duration = 1; // As fraction of entire pulse
 	char electron_source_type = 'c'; // (c)onstant: rate is ([intensity]/[initial intensity]) * [initial photoion. rate of atoms in target]  *  [electron source fraction]. | (p)roportional: rate is [source fraction] * [total photionisation rate of all atoms in target].   
 
+	double single_cascade_energy=4;
+	
 protected:
 
 	bool validate_inputs();
 
 	double omega = -1;// XFEL photon energy, au.
 	double width = -1; // XFEL pulse width in au. Gaussian profile hardcoded.
+	double probe_delay = -1;
 
 	bool use_fluence = false;
 	bool use_count = false;
@@ -130,6 +136,7 @@ protected:
 
 	// Dynamic grid
 	double grid_update_period; // time period between dynamic grid updates, fs.
+	double guess_grid_duration;  // When using a dynamic grid, the first knot basis is a guess. This is the time before switching to dynamic grid (assuming a dynamic grid is used).
 
 	// Rate calc exclusions
 	std::vector<bool> bound_free_exclusions;

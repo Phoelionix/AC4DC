@@ -73,7 +73,6 @@ class Hybrid : public Adams_BM<T>{
     double mini_dt;
 
     // Grid/timestep dynamics    
-    size_t steps_per_grid_transform;    
     Checkpoint old_checkpoint; // the checkpoint that is loaded.
     Checkpoint checkpoint; 
     int checkpoint_gap = 100; 

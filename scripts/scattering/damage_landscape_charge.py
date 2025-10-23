@@ -1,5 +1,6 @@
 #%%
-#Generates damage landscapes by performing scattering simulation across multiple simulations, either specifically chosen or through an entire folder.
+# Generates damage landscapes by performing scattering simulation across multiple simulations, either specifically chosen or through an entire folder.
+# Use as jupyter notebook.
 
 import numpy as np
 import os.path as path
@@ -147,8 +148,9 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
             c_IA = np.average(pl.get_total_charge(atoms=element_considered)*pl.intensityData)/np.average(pl.intensityData)  # Intensity scaled Average charge 
             
         dmg_data.append([c,c_IA])   
-        print("Average final carbon charge:",c)
-        print("Intensity-averaged carbon charge:",c_IA)
+        print(f"Average final charge of {element_considered}: {c}")
+        #print(f"Average charge of {element_considered} at time {}: {c}")
+        print(f"Intensity-averaged charge of {element_considered}: {c_IA}")
         print("")
     
     return np.array(pulse_params,dtype=float),np.array(dmg_data,dtype=object), np.array(resolutions_vect,dtype=object), names, param_name_list
@@ -430,7 +432,7 @@ if __name__ == "__main__":
         sctr_results_batch_dir = None, 
         get_R_only=True,
         eop_charge_only=False, # Only calculate the end of pulse charge (much faster as doesn't load whole data file)
-        element_considered = "Gd_fast"#"Gd_fast"#"C"
+        element_considered = "C"#"N"#"O"#"Gd_fast"#"C" # Element whose charge we are considering.
     )
 
 
@@ -470,18 +472,35 @@ if __name__ == "__main__":
         #kwargs["plasma_handles"] = ["lys_nass_no_S_2","lys_nass_HF","lys_nass_Gd_HF"]  
         #kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_square"]  
         #kwargs["plasma_handles"] = ["lys_galli_LF_no_Gd_6","lys_galli_LF_17"]
+        #kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_Gd_full_1","lys_nass_gauss_solvated_1","lys_nass_Gd_gauss_solvated_2"]
+        #kwargs["plasma_handles"] = ["lys_nass_water_solvent_2","lys_nass_water_solvent_9kev_2","lys_nass_gd_solvent_5","lys_nass_gd_solvent_9kev_5"]
+        #kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_Gd_full_1","lys_nass_gauss_solvated_1","lys_nass_Gd_gauss_solvated_2"]
+        #kwargs["plasma_handles"] = ["lys_salt_solvated_fast_1","lys_Gd_K_salt_solvated_fast_2","lys_K_salt_solvated_fast_2","lys_Gd_salt_solvated_fast_27",]
+        #kwargs["plasma_handles"] = ["lys_K_salt_solvated_1","lys_Gd_salt_solvated_1",]
         #kwargs["plasma_handles"] = ["lys_galli_HF_15","lys_galli_LF_17","lys_galli_HF_no_Gd_2","lys_galli_LF_no_Gd_6",]
-        kwargs["plasma_handles"] = ["lys_galli_HF_15","lys_galli_LF_17","lys_galli_LF_19"]
+        #kwargs["plasma_handles"] = ["lys_galli_HF_15","lys_galli_LF_17","lys_galli_LF_19"]
         #kwargs["plasma_handles"] = ["lys_nass_HF","lys_nass_Gd_HF"]  
         #kwargs["plasma_handles"] = ["lys_full-typical","lys_all_light-typical"]  
         #kwargs["plasma_handles"] = ["glycine_abdullah_4"]
+        #kwargs["plasma_handles"] = ["lys_galli_LF_full_8","lys_galli_HF_full_2","lys_galli_LF_no_Gd_full_9","lys_galli_HF_no_Gd_full_6"]
+        #kwargs["plasma_handles"] = ["lys_Gd_salt_solvated_fast_square_H_8","Gd_salt_5"]
+        #kwargs["plasma_handles"] = ["lys_solvated_fast_1","lys_solvated_fast_9kev_1","lys_Gd_water_fast_2","lys_Gd_no_salt_fast_9kev_6"]
+        #kwargs["plasma_handles"] = ["lys_Gd_salt_square_4","lys_Gd_salt_fast_2"]
+        #kwargs["plasma_handles"] = ["lys_solvated_fast_1","lys_Gd_water_fast_2"]
+        kwargs["plasma_handles"] = ["lys_solvated_fast_1","lys_Gd_water_fast_2"]
+        #kwargs["plasma_handles"] = ["lys_solvated_fast_1","lys_salt_fast_4"]
+        #kwargs["plasma_handles"] = ["lys_salt_fast_4","lys_Gd_salt_fast_2"]
+        #kwargs["plasma_handles"] = ["lys_solvated_fast_9kev_1","lys_Gd_no_salt_fast_9kev_6"]
+        #kwargs["plasma_handles"] = ["lys_solvated_fast_1","CB_no_salt_6"]
+        
+        
         #pdb_path = PDB_PATHS["fcc"]
         pdb_path = PDB_PATHS["lys"]
         #pdb_path = PDB_PATHS["lys_solvated"]
         #pdb_path = PDB_PATHS["glycine"]
         #pdb_path = PDB_PATHS["tetra"]
     
-
+ 
     num_loops = 1 if not multi_batch_mode else len(batch_handles)
     for i in range(num_loops):
         if multi_batch_mode: 
@@ -508,10 +527,10 @@ if __name__ == "__main__":
     #data_names = batch_handles
     #data_names = ["SH2_Se"]
     batch_mode = False; mode = 1  #TODO store batch_mode and mode in saved object.
-    damage_measure = "eop_charge"
-    cmax_contour = 6; contour_interval = 0.5
-    #damage_measure = "IA_charge"
-    #cmax_contour = 3; contour_interval = 0.25
+    #damage_measure = "eop_charge" 
+    #cmax_scatter=cmax_contour = 6; contour_interval = 0.5
+    damage_measure = "IA_charge"
+    cmax_scatter=cmax_contour = 3; contour_interval = 0.25
     connect_contour_gaps=False; round_fluence = True # Warning: enabling these options will create misleading graphs!
     for data_name in data_names:
         name_of_set = data_name
@@ -521,10 +540,10 @@ if __name__ == "__main__":
         neutze = False
         if MODE_DICT[mode] != "spi":
             print("-----------------Crystal----------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-            plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",connect_contour_gaps=connect_contour_gaps,round_fluence=round_fluence,use_neutze_units = neutze,cmax_contour=cmax_contour,contour_interval=contour_interval,dmg_measure = damage_measure) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+            plot_that_funky_thing(df,0,cmax_scatter,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",connect_contour_gaps=connect_contour_gaps,round_fluence=round_fluence,use_neutze_units = neutze,cmax_contour=cmax_contour,contour_interval=contour_interval,dmg_measure = damage_measure) # 'electric' #"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
         if MODE_DICT[mode] != "crystal":
             print("-------------------SPI------------------------")                                                    #"plotly" #"simple_white" #"plotly_white" #"plotly_dark"
-            plot_that_funky_thing(df,0,0.20,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",connect_contour_gaps=connect_contour_gaps,round_fluence=round_fluence,use_neutze_units=neutze,cmax_contour=cmax_contour,contour_interval=contour_interval,dmg_measure = damage_measure) # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
+            plot_that_funky_thing(df,0,cmax_scatter,"temps",name_of_set=name_of_set,**plot_2D_constants,template="plotly_dark",connect_contour_gaps=connect_contour_gaps,round_fluence=round_fluence,use_neutze_units=neutze,cmax_contour=cmax_contour,contour_interval=contour_interval,dmg_measure = damage_measure) # 'electric'#"fall" #"Temps" #"oxy" #RdYlGn_r #PuOr #PiYg_r #PrGn_r
     print("Done")
 
 

@@ -27,12 +27,18 @@ This file is part of AC4DC.
 
 
 vector<size_t> state_type::P_sizes  = vector<size_t>(0);
+vector<size_t> state_type::occ_sizes  = vector<size_t>(0);
 
 
 state_type::state_type() {
     atomP.resize(P_sizes.size());
+    atomP_delta.resize(P_sizes.size());
     for (size_t i = 0; i < atomP.size(); i++) {
         atomP[i].resize(P_sizes[i]);
+        atomP_delta[i].resize(occ_sizes[i]); // Chance each state...
+        for (size_t j = 0; j < occ_sizes[i]; j++) {
+            atomP_delta[i][j].resize(occ_sizes[i]);   // ...went to another state
+        }
     }
     cumulative_photo.resize(atomP.size());
 }
@@ -45,6 +51,12 @@ state_type& state_type::operator+=(const state_type &s) {
         for (size_t i = 0; i < atomP[r].size(); i++) {
             atomP[r][i] += s.atomP[r][i];
         }
+        for (size_t i = 0; i < atomP_delta[r].size();i++){
+            for (size_t j = 0; j < atomP_delta[r][i].size();j++){
+                atomP_delta[r][i][j]+=s.atomP_delta[r][i][j];
+            }
+        }
+
     }
     F += s.F;
     bound_charge += s.bound_charge;
@@ -56,6 +68,11 @@ state_type& state_type::operator*=(const double x) {
         cumulative_photo[r] *= x;
         for (size_t i = 0; i < atomP[r].size(); i++) {
             atomP[r][i] *= x;
+        }
+        for (size_t i = 0; i < atomP_delta[r].size();i++){
+            for (size_t j = 0; j < atomP_delta[r][i].size();j++){
+                atomP_delta[r][i][j]*=x;
+            }
         }
     }
     F *= x;
@@ -72,6 +89,12 @@ state_type& state_type::operator=(const double x) {
             p=x;
         }
     }
+    for (auto& PD : atomP_delta) {
+        for (auto& p1 : PD) {
+            for (auto& p2 : p1) 
+                p2=x;
+        }
+    }
     F = x;
     bound_charge = x;
     return *this;
@@ -80,9 +103,11 @@ state_type& state_type::operator=(const double x) {
 // Resizes the container to fit all of the states present in the atom ensemble
 void state_type::set_P_shape(const vector<RateData::Atom>& atomsys) {
     P_sizes.resize(atomsys.size());
+    occ_sizes.resize(atomsys.size());
     // make the P's the right size lmao
     for (size_t a = 0; a < atomsys.size(); a++) {
         P_sizes[a] = atomsys[a].num_conf;
+        occ_sizes[a] = atomsys[a].max_atom_occ+1;
     }
 }
 

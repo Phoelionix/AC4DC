@@ -40,6 +40,9 @@ struct DynamicGridPreset{
     const static char all_log_grid = 10;
     const static char mb_log_grid = 11;
     const static char static_high_energy = 12;
+    const static char mb_log_grid_lower_min = 13;
+    const static char mb_log_grid_high_accuracy = 14;
+    //const static char mb_log_grid_H_support = ;
     const static char unknown = 101;
     char selected = unknown;  
     double pulse_omega = -1;  // Photon energy [eV]
@@ -172,10 +175,19 @@ namespace {
             break;          
         case 'M':
             preset.selected = DynamicGridPreset::mb_log_grid;
-            break;           
+            break;               
+        case 'N': 
+            preset.selected = DynamicGridPreset::mb_log_grid_lower_min;
+            break;
+        case 'X':
+            preset.selected = DynamicGridPreset::mb_log_grid_high_accuracy;
+            break;
         case 'S':
             preset.selected = DynamicGridPreset::static_high_energy;
-            break;                                                     
+            break;       
+        // case 'H':
+        //     preset.selected = DynamicGridPreset::mb_log_grid_H_support;
+            // break;    
         default:
             std::cerr<<"Unrecognised grid preset \""<<tmp<<"\""<<std::endl;
             assert(false);

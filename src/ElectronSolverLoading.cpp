@@ -454,7 +454,7 @@ void ElectronRateSolver::loadBound() {
         transition_energy(n, param_cutoffs.transition_e);    
         param_cutoffs.transition_e = max(param_cutoffs.transition_e,2*regimes.mb_max); // mainly for case that transition region continues to dip into negative (in which case the transition region doesn't update).   
         // Set basis
-        Distribution::reset_on_next_grid_update = false;
+        Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots = false;
         Distribution::set_basis(n, param_cutoffs, regimes,  Distribution::get_knots_from_history(n)); 
         this->set_zero_y();     
     }    

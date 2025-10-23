@@ -72,6 +72,7 @@ public:
     std::vector<double> avg_e;
     std::vector<double> log_avg_e;
     std::vector<double> areas;
+    std::vector<double> inverse_areas; // Store so don't need to perform division.
     int i_from_e(double e);
     int lower_i_from_e(double e);  
     std::vector<double> set_knot(const GridSpacing& gt,FeatureRegimes& regimes, bool trial = false, bool do_not_update_regions = false);  // sets knot and returns it for convenience. if trial is true, only returns the knot without setting.

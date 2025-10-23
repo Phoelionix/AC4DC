@@ -20,16 +20,139 @@ set -x
 
 #############################
 
+#./ac4dc_split input/lysozyme/lys_Gd_salt_solvated_fast
+#./ac4dc_split input/lysozyme/lys_solvated_light
+# ./ac4dc_split input/lysozyme/lys_Gd_solvated_fast
+
+# ./ac4dc input/lysozyme/lys_solvated
+# ./ac4dc input/lysozyme/lys_Gd_salt_solvated
+# ./ac4dc input/lysozyme/lys_Gd_solvated
+
+# ./ac4dc input/lysozyme/lys_Gd_salt_solvated_fast_gauss
+# ./ac4dc input/lysozyme/lys_Gd_salt_solvated_fast_square
+
+# ./ac4dc_no_tbr input/misc/SH_Fe_squareSingleShell-15.mol 
+# ./ac4dc input/lysozyme/lys_K_salt_solvated.mol 
+
+
+#./ac4dc input/abdullah/glycine_abdullah_v_low_H
+#./ac4dc input/abdullah/glycine_abdullah_low_H
+#./ac4dc input/abdullah/glycine_abdullah_H
+#./ac4dc input/abdullah/glycine_abdullah_high_H
+
+#   ./ac4dc input/lysozyme/lys_solvated_light_no_H.mol 
+
+
+#./ac4dc_no_tbr input/copper_sulfate/copper_sulfate_below_e12_20fs.mol
+
+
+#./ac4dc_no_tbr input/copper_sulfate/copper_sulfate_above_e12_20fs.mol
+for f in input/_batches/batch_hemoglobin_2QSP/*; do ./ac4dc "$f"; done
+
+#./ac4dc_no_tbr input/copper_sulfate/copper_sulfate_above_e12
+
+#./ac4dc input/single_cascade/SC_500.mol
+#./ac4dc input/single_cascade/SC_2000.mol
+#./ac4dc input/single_cascade/SC_8500.mol
+
+#./ac4dc input/galli/lys_galli_HF_no_Gd_full
+#./ac4dc input/galli/lys_galli_LF_no_Gd_full
+
+#./ac4dc input/galli/lys_galli_HF_full
+# ./ac4dc input/galli/lys_galli_LF_full
+
+
+# ./ac4dc input/lysozyme/lys_Gd_salt_solvated_fast_square_H
+# ./ac4dc input/lysozyme/lys_Gd_salt_solvated_fast_gauss_H
+
+
+# ./ac4dc input/misc/carbon_ff_test_15.mol
+# ./ac4dc input/misc/carbon_ff_test_3.mol
+#./ac4dc input/misc/perrett_15.mol
+#./ac4dc input/misc/perrett_water_15.mol
+# ./ac4dc input/misc/dsba_probe.mol
+# ./ac4dc input/misc/dsba_water_probe.mol
+
+#./ac4dc input/lysozyme/lys_Gd_fast
+#./ac4dc input/lysozyme/lys_solvated_light_fast
+#./ac4dc input/lysozyme/lys_salt_fast
+#./ac4dc input/lysozyme/lys_solvated_fast
+
+## TODO ##
+
+#./ac4dc input/lysozyme/cheeky_beaky
+#./ac4dc input/lysozyme/cheeky_beaky_no_salt
+#./ac4dc input/lysozyme/lys_solvated
+#./ac4dc input/lysozyme/lys_solvated_light
+
+#./ac4dc input/galli/lys_galli_LF
+#./ac4dc input/galli/lys_galli_LF_water
+# ./ac4dc input/galli/lys_galli_HF
+# ./ac4dc input/galli/lys_galli_HF_water
+
+
+#./ac4dc input/lysozyme/lys_solvated_fast_9kev
+# ./ac4dc input/lysozyme/lys_salt_fast_high_fluence
+# ./ac4dc input/lysozyme/lys_solvated_fast_high_fluence
+#./ac4dc input/energy/7keVGd 
+#./ac4dc input/energy/9keVGd 
+# ./ac4dc input/misc/salt_high_solvent
+# ./ac4dc input/misc/water_high_solvent
+
+#./ac4dc input/I3C/I3C_25fs
+#./ac4dc input/I3C/I3C_55fs
+# ./ac4dc input/lysozyme/lys_MPD
+# ./ac4dc input/lysozyme/lys_salt_solvated_H
+
+#./ac4dc input/misc/test_salt 
+#./ac4dc input/misc/test_solvent
+##TODOOOO!!#####
+#./ac4dc input/damage/very_high_damage_test
+#./ac4dc input/damage/high_damage_test
+#####!!#######
+
+#####
+
+# ./ac4dc input/galli/lys_galli_HF_salt
+# ./ac4dc input/galli/lys_galli_LF_salt
+
+# #./ac4dc_split input/lysozyme/lys_Gd_salt_solvated_fast_H
+
+
+
+
+# ./ac4dc input/lysozyme/lys_Gd_solvated_H
+# ./ac4dc input/lysozyme/lys_Gd_salt_solvated_H
+
+
+
+
+
+
+
+
+#./ac4dc_split input/lysozyme/lys_solvated_light_H.mol 
+
+#./ac4dc input/nass/nass_probe_0
+#./ac4dc input/nass/nass_probe_35
+#./ac4dc input/nass/nass_probe_62
+# ./ac4dc input/I3C/I3C_5fs_olaf
+# ./ac4dc input/I3C/I3C_20fs_olaf
+
+
+
+# ./ac4dc input/_batches/batch_SH_Ag/SH_Ag-1hacky.mol
+# ./ac4dc input/_batches/batch_SH_Ag/SH_Ag-1.mol
 
 #./ac4dc input/nass/lys_nass_water_solvent
 #./ac4dc input/nass/lys_nass_water_solvent_9kev
 #./ac4dc input/nass/lys_nass_gd_solvent
-./ac4dc_continuum input/nass/lys_nass_gauss
+#./ac4dc_continuum input/nass/lys_nass_gauss
 
 #./ac4dc input/galli/lys_galli_LF_no_Gd
 # ./ac4dc input/galli/lys_galli_LF
 # ./ac4dc input/galli/lys_galli_HF_no_Gd
-./ac4dc input/galli/lys_galli_HF
+#./ac4dc input/galli/lys_galli_HF
 #./ac4dc_consta input/_batches/batch_ES_C/ES_C-0
 
 # #for f in input/_batches/batch_SH2_N/*; do ./ac4dc "$f"; done

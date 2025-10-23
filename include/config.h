@@ -16,8 +16,8 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 /// Disable plasma processes  
 //#define NO_TBR    //Three body recombination
 //#define NO_EE   // Electron-electron scattering. This seems to break the dynamic grid late in the simulation depending on pulse parameters.
-//#define NO_EII    // Electron impact ionisation0
-//#define NO_PLASMA // Disables all of the above. (i.e. primary - Photo,Auger,Fluoro, - ionisation only)
+//#define NO_EII    // Electron impact ionisation
+//#define NO_PLASMA // Disables all of the above. (i.e. primary - Photo,Auger,Fluoro - ionisation only)
 
 /// Disable features
 #define NO_PLOTTING // Turns off live saves of the free-electron energy distribution to _live_plot.png. Disables use of python 
@@ -39,8 +39,8 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
 
 
 /// Analytical testing
-//#define NO_ELECTRON_SOURCE  // Note this is equivalent to removing any #ELECTRON_SOURCE parameters in the .mol file.
-
+#define NO_ELECTRON_SOURCE  // Note this is equivalent to removing any #ELECTRON_SOURCE parameters in the .mol file.
+//#define TRACK_SINGLE_CASCADE // track a single cascade. Adds another continuum regardless of whether TRACK_SINGLE_CONTINUUM is defined.
 
 /// Thread capping. Often an easier option than regenerating batch files. (If multiple are left on, uses the lowest cap)
 #define THREAD_MAX_28
@@ -80,4 +80,7 @@ const int GLOBAL_BSPLINE_ORDER = 3;  // 1 = rectangles, 2=linear, 3=quadratic  A
     #ifndef NO_EII
     #define NO_EII
     #endif    
+    #ifndef NO_PLOTTING // There's a bug with this right now
+    #define NO_PLOTTING 
+    #endif
 #endif // NO_PLASMA

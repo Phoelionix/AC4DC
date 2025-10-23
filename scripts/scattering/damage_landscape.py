@@ -1,5 +1,6 @@
 #%%
-#Generates damage landscapes by performing scattering simulation across multiple simulations, either specifically chosen or through an entire folder.
+# Generates damage landscapes by performing scattering simulation across multiple simulations, either specifically chosen or through an entire folder.
+# Use as jupyter notebook.
 
 import numpy as np
 import os.path as path
@@ -153,7 +154,8 @@ def multi_damage(params,pdb_path,allowed_atoms_1,CNO_to_N,S_to_N,same_deviations
             #TODO apply_background([SPI_result1,SPI_result2])
             damage_dict = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=get_R_only,SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
         else:
-            exp1_orientations = experiment1.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal, results_parent_dir=sctr_results_batch_dir, **run_params["laser"])
+            experiment1.spooky_laser(start_time[i],end_time[i],sim_handle,sim_data_batch_dir,crystal, results_parent_dir=sctr_results_batch_dir, **run_params["laser"])
+            exp1_orientations =experiment1.used_orientations
             if exp_name2 != None:
                 # sync orientation with damage simulation
                 experiment2.set_orientation_set(exp1_orientations)  
@@ -490,7 +492,8 @@ if __name__ == "__main__":
         #kwargs["plasma_handles"] = ["lys_nass_no_S_3","lys_nass_gauss","lys_nass_Gd_full_1"]
         #kwargs["plasma_handles"] = ["lys_nass_gauss","lys_nass_Gd_full_1","lys_nass_gauss_solvated_1","lys_nass_Gd_gauss_solvated_2"]
         #kwargs["plasma_handles"] = ["lys_nass_gauss_dry_9kev_1","lys_nass_gauss_dry_1","lys_nass_light_dry_9kev_1","lys_nass_light_dry_1","lys_nass_Gd_gauss_dry_1","lys_nass_Gd_gauss_dry_9kev_1"]
-        kwargs["plasma_handles"] = ["lys_nass_water_solvent_2","lys_nass_water_solvent_9kev_2","lys_nass_gd_solvent_5","lys_nass_gd_solvent_9kev_5"]
+        #kwargs["plasma_handles"] = ["lys_nass_water_solvent_2","lys_nass_water_solvent_9kev_2","lys_nass_gd_solvent_5","lys_nass_gd_solvent_9kev_5"]
+        kwargs["plasma_handles"] = ["lys_nass_Gd_gauss_solvated_9kev_short_1","lys_nass_gd_solvent_9kev_5"]
         #kwargs["plasma_handles"] = ["lys_nass_water_solvent_1","lys_nass_water_solvent_9kev_1","lys_nass_gd_solvent_2","lys_nass_gd_solvent_9kev_1"]
         #kwargs["plasma_handles"] = ["lys_nass_no_S_3","lys_nass_Gd_full_1"]
         #kwargs["plasma_handles"] = ["lys_nass_HF","lys_nass_Gd_HF"]  

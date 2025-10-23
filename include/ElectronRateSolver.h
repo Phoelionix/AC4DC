@@ -57,12 +57,11 @@ public:
     {
         log_config_settings(log);
 
-        grid_update_period = input_params.Grid_Update_Period();  // TODO the grid update period should be made to be at least 3x (probably much more) longer with a gaussian pulse, since early times need it to be updated far less often to avoid instability for such a pulse. 
-
         param_cutoffs = input_params.param_cutoffs;
         
         pf.set_shape(input_params.pulse_shape);
-        pf.set_pulse(input_params.Fluence(), input_params.Width());
+        //pf.set_pulse(input_params.Fluence(), input_params.Width());
+        pf.set_pulse(input_params.Fluence(), input_params.Width(),input_params.ProbeDelay());
         
         timespan_au = round_time(input_params.timespan_factor*input_params.Width()); // 0 by default
         if (input_params.pulse_shape ==  PulseShape::square){  //-FWHM <= t <= 3FWHM (we've squished the pulse into the first FWHM.)
@@ -78,7 +77,7 @@ public:
                 simulation_start_time = -input_params.negative_timespan_factor*input_params.Width();
         }
         simulation_start_time = round_time(simulation_start_time);
-        simulation_end_time =  simulation_start_time + timespan_au; 
+        simulation_end_time =  simulation_start_time + timespan_au + max((double)0,input_params.ProbeDelay()); 
         std::cout<<"\033[33m"<<"Imaging from "<<simulation_start_time/input_params.Width() <<" FWHM to " 
         << simulation_end_time/input_params.Width() <<" FWHM"<<"\033[0m"<<std::endl;
         
@@ -106,6 +105,11 @@ public:
         }
 
         time_of_last_save = std::chrono::high_resolution_clock::now(); 
+        #ifndef NO_BACKUP_SAVING
+        minutes_per_save = std::chrono::minutes((int)input_params.minutes_per_save);
+        #else
+        minutes_per_save = std::chrono::minutes(99999999);
+        #endif
     }
     /// Motehr function for solving the rate equations, and running auxilliary functions (e.g. display, timers) 
     void execute_solver(ofstream & _log, const string& tmp_data_folder);
@@ -116,6 +120,8 @@ public:
     void compute_free_grid_rates();
     void tokenise(std::string str, std::vector<double> &out, const size_t start_idx = 0, const char delim = ' ');
 
+    // simulation start time
+    std::chrono::time_point<std::chrono::system_clock> start;
     /// Number of secs taken for simulation to run
     long secs;
 
@@ -123,16 +129,11 @@ public:
     std::chrono::duration<double, std::milli> 
     display_time, plot_time, dyn_dt_time, backup_time, pre_ode_time, // pre_ode
     dyn_grid_time, user_input_time, post_ode_time,  // post_ode
-    pre_tbr_time, transport_time, eii_time, tbr_time,  // sys_bound
+    decay_processes_time, bound_secondary_time, transport_time, eii_time_free, tbr_time_free,  // sys_bound  (sys_bound as in the function - eii_time_free and tbr_time_free correspond to free continuum calculations)
     ee_time, apply_delta_time; //sys_ee 
 
     std::chrono::_V2::system_clock::time_point time_of_last_save;   
-    #ifndef NO_BACKUP_SAVING
-    std::chrono::minutes minutes_per_save{60};
-    #else
-    std::chrono::minutes minutes_per_save{99999999};
-    #endif
-
+    std::chrono::minutes minutes_per_save;
 private:
     double IVP_step_tolerance = 5e-3;
     MolInp input_params;  // (Note this is initialised/constructed in the above constructor)  // TODO need to refactor to store variables that we change later rather than alter input_params directly. Currently doing a hybrid of this.
@@ -144,7 +145,13 @@ private:
     double simulation_resume_time; // [Au] same as simulation_start_time unless loading simulation state.
     double simulation_end_time;  // [Au]    
     double fraction_of_pulse_simulated;
-    double grid_update_period; // time period between dynamic grid updates.
+
+    
+    #ifdef TRACK_SINGLE_CASCADE
+    double cascade_spawn_time = -7.5/Constant::fs_per_au;
+    double actual_cascade_spawn_time = -999999999;
+    bool cascade_spawned = false;
+    #endif
 
     void load_filtration_file(){}; //TODO
     // Model parameters
@@ -166,6 +173,8 @@ private:
     std::vector<double> approx_regime_peaks(size_t step, double lower_bound, double upper_bound, double del_energy, size_t num_peaks = 1, double min_density = 0, double separation_div_omega = 0.0667);
     void precompute_gamma_coeffs(); // populates above two tensors
     void set_initial_conditions();
+    size_t steps_per_grid_transform;    
+    size_t steps_before_initialisation_reset; 
 
     // Dynamic time steps
     size_t load_checkpoint_and_decrease_dt(ofstream& _log, size_t current_n, Checkpoint _checkpoint);
@@ -214,6 +223,7 @@ private:
     void saveFreeRaw(const std::string& fname);
     /// For each atom, saves a table of bound-electron dynamics to folder dir.
     void saveBound(const std::string& folder);
+    void saveBoundOccDelta(const std::string& folder);
 
     //// Loading
     void load_simulation_state(); // Controller function.

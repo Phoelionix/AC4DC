@@ -21,27 +21,7 @@ pio.templates.default = "seaborn" #"plotly_dark" # "plotly"
 
 T_PRECISION = 6 # Truncate past 6 d.p. (millionth of an fs) to Avoid floating point error
 
-# ATOMS = 'H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'.split()
-# ATOMNO = {}
-# i = 1
-# for symbol in ATOMS:
-#     ATOMNO[symbol] = i
-#     ATOMNO[symbol + '_fast'] = i
-#     #ATOMNO[symbol + '_faster'] = i
-#     i += 1
-# ATOMNO["Gd"] = i 
-# ATOMNO["Gd_galli"] = i 
-# ATOMNO["Gd_fast"] = i
-# i+= 1
 
-
-# def get_colors(num, seed):
-#     idx = list(np.linspace(0, 1, num))[1:]
-#     random.seed(seed)
-#     # random.shuffle(idx)
-#     idx.insert(0,0)
-#     C = plt.get_cmap('nipy_spectral')
-#     return C(idx)
 
 class PlotData:
     def __init__(self, abs_molecular_path, mol_name,output_mol_query, max_final_t, max_points,custom_name = None):
@@ -61,8 +41,8 @@ class PlotData:
         self.statedict = {}
 
         # Stores the output of AC4DC
-        self.boundData={}
-        self.chargeData={}
+        #self.boundData={}
+        #self.chargeData={}
         self.freeData=None
         self.intensityData=None
         self.energyKnot=None
@@ -136,10 +116,10 @@ class PlotData:
         if  len(self.timeData) != len(raw[:,1]):
             raise Exception("time and free lengths don't match")
         self.freeData = raw[:,1:]   
-        for a in self.atomdict:
-            raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
-            self.boundData[a] = raw[:, 1:]
-            self.statedict[a] = self.get_bound_config_spec(a)   
+        # for a in self.atomdict:
+        #     raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
+        #     self.boundData[a] = raw[:, 1:]
+        #     self.statedict[a] = self.get_bound_config_spec(a)   
 
     def get_free_energy_spec(self):
         erow = []
@@ -272,20 +252,20 @@ class InteractivePlotter:
                 return False
         return True
 
-    def aggregate_charges(self):
-        # populates self.chargeData based on contents of self.boundData
-        for a in self.atomdict:
-            states = self.statedict[a]
-            if len(states) != self.boundData[a].shape[1]:
-                msg = 'states parsed from file header disagrees with width of data width'
-                msg += ' (got %d, expected %d)' % (len(states), self.boundData[a].shape[1])
-                raise RuntimeError(msg)
+    # def aggregate_charges(self):
+    #     # populates self.chargeData based on contents of self.boundData
+    #     for a in self.atomdict:
+    #         states = self.statedict[a]
+    #         if len(states) != self.boundData[a].shape[1]:
+    #             msg = 'states parsed from file header disagrees with width of data width'
+    #             msg += ' (got %d, expected %d)' % (len(states), self.boundData[a].shape[1])
+    #             raise RuntimeError(msg)
 
-            self.chargeData[a] = np.zeros((self.boundData[a].shape[0], ATOMNO[a]+1))
-            for i in range(len(states)):
-                orboccs = parse_elecs_from_latex(states[i])
-                charge = ATOMNO[a] - sum(orboccs.values())
-                self.chargeData[a][:, charge] += self.boundData[a][:, i]
+    #         self.chargeData[a] = np.zeros((self.boundData[a].shape[0], ATOMNO[a]+1))
+    #         for i in range(len(states)):
+    #             orboccs = parse_elecs_from_latex(states[i])
+    #             charge = ATOMNO[a] - sum(orboccs.values())
+    #             self.chargeData[a][:, charge] += self.boundData[a][:, i]
 
     def go(self):
         if not self.check_current():

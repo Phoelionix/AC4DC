@@ -4,9 +4,9 @@ import numpy as np
 import sys
 import re
 
-def get_sim_params(handle,input_path=None,molecular_path=None):
+def get_sim_params(handle,input_path=None,molecular_path=None,get_intensities_at_times=None):
     '''
-    Reads the control file and returns the relevant parameters within
+    Reads the control file and returns the relevant parameters within.
     By default use input_path = "input/"
     '''    
     if input_path is None:
@@ -20,18 +20,22 @@ def get_sim_params(handle,input_path=None,molecular_path=None):
     raw = np.genfromtxt(intFile, comments='#', dtype=np.float64)
     #intensityData = raw[:,1]
     timeData = raw[:, 0]    
+    if get_intensities_at_times is not None:
+        intensityData = raw[:,1]
     start_t = timeData[0]; end_t = timeData[-1]
     # for convenience the input file has multiple options for determining fluence: "Count", "Fluence", or "Intensity"    
     active_photon_measure_found = False
     photon_measure = None  
     reading_photons = False
     reading_pulse = False    
+    reading_probe_pulse = False
     reading_electron_source = False
     photon_unit = None
     photon_measure_val = None
     source_energy = None
     source_fraction = None
     source_duration = None
+    probe_delay = None
 
     def init_photon_read(param_type,unit):
         nonlocal reading_photons,photon_measure,photon_unit
@@ -57,15 +61,19 @@ def get_sim_params(handle,input_path=None,molecular_path=None):
                 continue
             elif line.startswith("#ELECTRON_SOURCE"):
                 reading_electron_source = True
-                continue                        
+                continue       
+            elif line.startswith("#PROBE_PULSE"):
+                reading_probe_pulse = True
+                continue 
+            elif line.startswith("####END####"):
+                break                     
             elif line.startswith("#") or line.startswith("//") or len(line.strip()) == 0:
                 reading_photons = False
                 reading_pulse = False
                 reading_electron_source = False 
+                reading_probe_pulse = False
                 n = 0
                 continue
-            if line.startswith("####END####"):
-                break
             if reading_pulse:
                 if n < 2:
                     val = float(line.split(' ')[0])         
@@ -91,6 +99,9 @@ def get_sim_params(handle,input_path=None,molecular_path=None):
                 if n == 2:
                     source_duration = float(line.split(' ')[0])  
                 n+=1            
+            if reading_probe_pulse:
+                if n == 0:
+                    probe_delay = float(line.split(' ')[0])
     print("Time range:",start_t,"-",end_t)
     print("Photon energy:", photon_energy)
     if source_energy is not None:
@@ -98,17 +109,37 @@ def get_sim_params(handle,input_path=None,molecular_path=None):
     param_name_list = ["Energy","Width",photon_measure,"R"]  #TODO Poor format given source energy is now a thing.
     unit_list = [" eV"," fs",photon_unit,""]
     #TODO check that time range is satisfied by files.
+    ########################
+    ########################
+    # TODO make this a class
     param_dict = dict(
         start_t=start_t,
         end_t=end_t,
         energy=photon_energy,
         width=fwhm,
         fluence=photon_measure_val,
-        source_fraction = source_fraction,
-        source_energy = source_energy,
-        source_duration = source_duration,
+        # injected electron source params:
+        source_fraction = source_fraction, 
+        source_energy = source_energy, 
+        source_duration = source_duration, 
+        probe_delay = probe_delay,
     )
-    return param_dict, param_name_list,unit_list
+    ########################
+    ########################
+    #SORRY
+    if get_intensities_at_times is None:
+
+        return param_dict, param_name_list,unit_list
+    else:
+        def get_I_at_nearest_time(time,tol=None):
+            if tol is None:
+                tol = min(5e-1,(timeData[-1]-timeData[0])/100) 
+            n = []
+            for t in time:
+                n.append(np.argmin(np.abs(t - timeData)))
+                assert np.abs(timeData[n[-1]]-t)<tol , f"would use time at {self.timeData[n[-1]]} fs not {t} fs" 
+            return intensityData[np.array(n)]
+        return param_dict, param_name_list,unit_list,get_I_at_nearest_time(get_intensities_at_times)
 
 def get_sim_elements(handle,input_path=None,molecular_path=None):
     if input_path is None:
@@ -223,6 +254,7 @@ def get_pdb_paths_dict(my_dir):
     '''
     my_dir = calling file's directory
     '''
+    #TODO use enum for keys
     PDB_PATHS = dict(
         tetra = "targets/5zck.pdb",
         lys = "targets/4et8.pdb", #"targets/2lzm.pdb",
@@ -258,7 +290,7 @@ def parse_elecs_from_latex(latexlike):
     return qdict
 
 ATOMS = ('H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'
-       +' Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe').split()
+       +' Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe').split()
 ATOMNO = {}
 i = 1
 for symbol in ATOMS:
@@ -268,13 +300,18 @@ for symbol in ATOMS:
     i += 1
 i = 1 
 ATOMNO["Gd"] = ATOMNO["Gd_fast"] = ATOMNO["Gd_galli"]  = 64 
+ATOMNO["Gd"] = ATOMNO["Ac_fast"] = 89 
+ATOMNO["Fe_singleShell"] = ATOMNO["Fe"]
 for symbol in list(ATOMNO.keys()):
-    ATOMNO[symbol + '_LDA'] = i
-    i += 1
+    if "_" not in symbol:
+        ATOMNO[symbol + '_LDA'] = i
+        i += 1
 
 
 
+#from core_variables import *
 def get_data_point(ax,stem,mol_name,mode,SCATTERING_TARGET_DICT,SCATTERING_TARGET,EDGE_SEPARATION,INDEP_VARIABLE,DEP_VARIABLE):
+    assert False, "Sorry, this function seems to be improperly setup"
     im_params,_ = SCATTERING_TARGET_DICT[SCATTERING_TARGET]
     indep_variable_key = str(INDEP_VARIABLE)
     dep_variable_key = str(DEP_VARIABLE)
@@ -356,3 +393,15 @@ def get_data_point(ax,stem,mol_name,mode,SCATTERING_TARGET_DICT,SCATTERING_TARGE
         save_dict["end_time"] = t
     save_data(mol_name,save_dict,delete_old=True)
     return x,y,t
+
+
+
+class HiddenPrints:
+    def __enter__(self):
+        self._original_stdout = sys.stdout
+        sys.stdout = open(os.devnull, 'w')
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout.close()
+        sys.stdout = self._original_stdout
+

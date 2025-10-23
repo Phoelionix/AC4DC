@@ -9,22 +9,20 @@ The main code of the suite, AC4DC (the literal acronym is no longer apt), simula
 + Computes cross-sections for atomic processes: photoionisation, fluorescence, Auger decay and electron-impact ionisation
 + Asynchronously solves for the time evolution of the non-equilibrium free electrons and the bound states of the atomic population, via the Boltzmann transport equation.
 + Allows for an arbitrary form of the free-electron distribution f(E) interpolated over a basis of B-splines. 
-  + The basis is adaptive; it is transformed periodically to automatically assign more splines where sharp, non-polynomial peaks are present in the distribution. 
-
-# DRAFT warning
-When the grid fails to cnverge, it loads a checkpoint and decreases time steps. However, sometimes ((always?)) the divergence to an oscillatory (incorrect) fit occurs over a small number of steps. If a grid update occurs during this period, the fit may then converge, and the fluctuation is uncaught. This is quite rare but means data should be double checked    
+  + The basis is adaptive; it is transformed periodically to automatically assign more splines where sharp, non-polynomial peaks are present in the distribution.     
 
 ## Scatter
 
-An auxilliary simulation, Scatter, generates scattering patterns off realistic targets constructed from PDB structure files, with the atoms’ states selected entirely based off the probability distributions produced by AC4DC, without regard for selections of prior snapshots. These are then compared with the scattering pattern produced by a structure in the 'ideal', undamaged case where no ionisation occurs. 
+Various scripts for generating scattering patterns from pdb files and AC4DC outputs are in scripts/scattering. This integrates snapshots of the target at times throughout the pulse, with the electronic states sampled from the time-dependent probability distribution.
 
-### Installing AC4DC
+## Installing AC4DC
 
 Compatibility is only promised for Linux variants and macOS. (lack of Windows support is mainly due to the UNIX-style path assumptions used throughout. In principle, this may be corrected for by rewriting with `boost::filesystem`.) Previous versions of AC4DC have been tested in the following environments:
 + Debian 10 (buster), gcc8
 + macOS 10.14.6 (Mojave), gcc8, gcc9, gcc10 This project is built with `make`, but does not have a `configure` script. Some fiddling may be required depending on your OS.
 The current version has been tested with:
 + WSl2 (Ubuntu), gcc10.
+
 **Note for macOS users**  - Apple's standard `gcc` distribution does not support openmp, used for parallelisation. Code was compiled with `g++-10` from Homebrew. In principle, Homebrew llvm's `clang++` should also work, however its implementation of `openmp` seems to cause runtime segfaults. Attention is needed from a C++ expert to refactor this code to resolve this issue.
 
 ### Instructions for a fresh install for C++ beginners. 
@@ -69,40 +67,6 @@ Live plotting may be disabled by uncommenting `#define NO_PLOTTING` in include/c
 AC4DC reads the composition of the target, the pulse parameters, and various hyperparameters (e.g pertaining to the spline knot grid) from the molecular (.mol) file it is provided. See AC4DC/input/mol_template.mol for the style of these files and the parameters available.     
 
 In AC4DC/include/config.h various features of the simulation can be disabled (e.g. plasma processes, live plotting, backing up of data). Most features are enabled by default, with the exception of tracking the electron cascades seeded by each element ("TRACK_SINGLE_CONTINUUM"), as this is computationally costly. 
-
-### Grid regions preset
-
-Relevant files:
-  include/GridSpacing.hpp
-  src/DynamicRegions.cpp
-
-        case 'd':
-            preset.selected = DynamicGridPreset::dismal_acc;
-            break;
-        case 'l':
-            preset.selected = DynamicGridPreset::low_acc;
-            break;
-        case 'm':
-            preset.selected = DynamicGridPreset::medium_acc;
-            break;
-        case 'h':
-            preset.selected = DynamicGridPreset::high_acc;
-            break;    
-        case 'n':
-            preset.selected = DynamicGridPreset::no_dirac;
-            break;         
-        case 't':
-            preset.selected = DynamicGridPreset::training_wheels;
-            break;                      
-        case 'A':
-            preset.selected = DynamicGridPreset::heavy_support;
-            break;  
-        case 'B':
-            preset.selected = DynamicGridPreset::Zr_support;
-            break;              
-        case 'D':
-            preset.selected = DynamicGridPreset::lower_dirac_support;
-            break;            
 
 ### Running AC4DC and workflow
 
@@ -176,17 +140,19 @@ EII parameters are stored in "sort-of-json" format - please note that the progra
 10. Fix bug where `-s` flag causes crash
 11. Move to a proper database system to store input/output data
 12. Implement 'output version control' for atomic parameters in storage: avoid unnecessary recalculation, guarantee recalculation if new input parameters are incompatible
-13. Add methods to `Input.cpp` to enable reading/writing salient parameters to file, e.g. `output/C/run_2021-04-11/input.txt`
 14. Add linear search implementation to input logic
 16. Incorporate minimum and maximum energy into GridSpacing (perhaps rename it to GridParams)
 17. Cmake build system
 18. Restructure parameter input and rate output files to use JSON format
 19. GUI (Curent candidate framework: Qt)
 20. Optimise with static arrays - promote state_type to a N_FREE-dimensioned template for faster reads.
-21. Upgrade dynamic grid algorithm to handle low-energy photoelectron peaks - currently mistakes them for MB peaks and so the solver fails.
+21. Upgrade dynamic grid algorithm to handle very low-energy photoelectron peaks - currently mistakes them for MB peaks and so the solver fails. 
+22. When the grid fails to converge, it loads a checkpoint and decreases time steps. However, sometimes the divergence to an oscillatory (incorrect) fit occurs over a small number of steps. If a grid update occurs during this period, the fit may then converge, and the fluctuation is uncaught. This is quite rare but means data should be double checked.
 
 ### Bibliography:
 
++ S. K. Passmore, A. L. Sanders, A. V. Martin, and H. M. Quiney, _Heavy-element damage seeding in proteins under XFEL illumination_, J. Synchrotron Radiat. **32**, 1124-1142 (2025). DOI: [10.1107/S1600577525005934](https://doi.org/10.1107/S1600577525005934
+)
 + A. Kozlov and H. M. Quiney, _Comparison of Hartree-Fock and local density exchange approximations for calculation of radiation damage dynamics of light and heavy atoms in the field of x-ray free electron laser_, Phys. Scripta **94**, 075404 (2019). DOI: [10.1088/1402-4896/ab097c](https://doi.org/10.1088/1402-4896/ab097c)
 + C. P. Bhalla, N. O. Folland, and M. A. Hein, _Theoretical K-Shell Auger Rates, Transition Energies, and Fluorescence Yields for Multiply Ionized Neon_, Phys. Rev. A **8**, 649 (1973). DOI: [10.1103/PhysRevA.8.649](https://doi.org/10.1103/PhysRevA.8.649)
 + O. Yu. Gorobtsov, U. Lorenz, N. M. Kabachnik, and I. A. Vartanyants, _Theoretical study of electronic damage in single-particle imaging experiments at x-ray free-electron lasers for pulse durations from 0.1 to 10 fs_, Phys. Rev. E **91**, 062712 (2015). DOI: [10.1103/PhysRevE.91.062712](https://doi.org/10.1103/PhysRevE.91.062712)

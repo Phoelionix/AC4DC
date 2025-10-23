@@ -34,7 +34,6 @@ inline bool exists_test(const std::string& name)
 	return (stat(name.c_str(), &buffer) == 0);
 }
 
-
 using namespace CustomDataType;
 
 
@@ -47,15 +46,15 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 	// Final_occ defines the lowest possible occupancies for the initial orbital.
 	// Intermediate orbitals are recalculated to obtain the corresponding rates.
 
-	const string PHOTO = "Photo.txt";
-	const string AUGER = "Auger.txt";
-	const string FLUOR = "Fluor.txt";
-	const string EII =  "EII.json";
+
 
 	if (!SetupIndex(Max_occ, Final_occ, runlog)) return Store;
 
 	Store.num_conf = dimension;
-
+	Store.max_atom_occ = 0;
+	for (auto& orbital_occ : Max_occ){
+		Store.max_atom_occ+=orbital_occ;
+	}
 
 	string RateLocation = "./output/" + input.Name() + "/Xsections/";
 	if (!exists_test("./output/" + input.Name())) {
@@ -67,20 +66,29 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 		mkdir(dirstring.c_str(), ACCESSPERMS);
 	}
 
+	// set up conf to occupancy dict
+	for (int i = 0;i < dimension - 1; i++){
+		unsigned short N_elec = 0;
+		for (size_t j = 0;j < orbitals.size(); j++) {
+			N_elec+=orbitals[j].occupancy() - Index[i][j];
+		}
+		Store.conf_N_elec_dict[i]=N_elec;
+	}
+
 	bool have_Aug, have_EII, have_Pht, have_Flr;
 
 	if (recalculate) { // Hartree Fock is calculated once, at molinp photon energy 
 		have_Aug=false;
-		have_EII = (calculate_secondary_ionisation == false);
+		have_EII = (calculate_secondary_ionisation == false);  // Update: TODO this should always be false!!!! Don''t need to recalculate. 
 		have_Pht=false;
 		have_Flr=false;
 	} else { // First time: Save photoionization data for multiple photon energies. Second time: Interpolate from data.
 		// Check if there are pre-calculated rates
 		have_Pht = RateData::InterpolateRates(RateLocation, PHOTO, Store.Photo, input.Omega()); // Omega dependent
-		have_Flr = RateData::ReadDecayRates(RateLocation, FLUOR, Store.Fluor,dimension);  // Dependent on ionizable shells
-		have_Aug = RateData::ReadDecayRates(RateLocation, AUGER, Store.Auger,dimension);  // Dependent on ionizable shells
-		have_EII = (calculate_secondary_ionisation == false);
-		// Not sure if the below line will work properly, it would need to ensure that the energies of the knots are as expected. Not sure it does at present.
+		have_Flr = RateData::ReadRatesWithConfigTag(RateLocation, FLUOR, Store.Fluor,dimension);  // Dependent on ionizable shells
+		have_Aug = RateData::ReadRatesWithConfigTag(RateLocation, AUGER, Store.Auger,dimension);  // Dependent on ionizable shells
+		have_EII = RateData::ReadRatesWithConfigTag(RateLocation, EII, Store.EIIparams,dimension);//(calculate_secondary_ionisation == false);
+		// Not sure if the below line will work properly, it would need to ensure that the energies of the knots are as expected. Not sure it does at present. UPDATE TODO this doesn't care about the free grid.
 		//have_EII = RateData::ReadEIIParams(RateLocation + EII, Store.EIIparams) || (calculate_secondary_ionisation == false); // Dependent on the spline basis for electron distribution 
 		
 		cout <<"======================================================="<<endl;
@@ -141,6 +149,8 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 
 
 		density.clear();
+		
+
 
 		// Convert to correct units of the sim
 		for (size_t j = 0; j < photoion_omegas_to_save.size(); j++)
@@ -191,8 +201,7 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 					size++;
 				}
 				LocalEIIparams.push_back(tmpEIIparams);
-
-				bool calc_bound_transport = true;
+				bool calc_bound_transport = false; //TODO MACRO IFDEF
 				if (calc_bound_transport){
 					assert(Max_occ.size() == Orbitals.size());
 					size = 0;
@@ -341,13 +350,14 @@ RateData::Atom ComputeRateParam::SolveAtomicRatesAndPlasmaBEB(vector<int> Max_oc
 			RateData::WriteRates(dummy, Store.Auger);
 		}
 		if (!have_EII) {
-			string dummy = RateLocation +EII;
+			string dummy = RateLocation +  std::to_string(dimension)+"_"+EII;
 			cout<<"Saving EII data to "<<dummy<<"..."<<endl;
 			RateData::WriteEIIParams(dummy, Store.EIIparams);
 		}
 
 
-		string dummy = RateLocation + std::to_string(input.Omega()*Constant::eV_per_Ha) + "_FormFactor.txt";
+		//string dummy = RateLocation + std::to_string(input.Omega()*Constant::eV_per_Ha) + "_FormFactor.txt";
+		string dummy = RateLocation + "FormFactor.txt";
 		cout<<"Saving form factor data to "<<dummy<<"..."<<endl;
 		FILE * fl = fopen(dummy.c_str(), "w");
 		for (auto& ff : FF) {

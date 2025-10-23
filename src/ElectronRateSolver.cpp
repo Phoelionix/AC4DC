@@ -58,8 +58,13 @@ state_type ElectronRateSolver::get_initial_state() {
     assert(initial_condition.atomP.size() == input_params.Store.size());
     for (size_t a=0; a<input_params.Store.size(); a++) {
         initial_condition.atomP[a][0] = input_params.Store[a].nAtoms;
-        for(size_t i=1; i<initial_condition.atomP.size(); i++) {
+        for(size_t i=1; i<initial_condition.atomP[a].size(); i++) {
             initial_condition.atomP[a][i] = 0.;
+        }
+        for(size_t i=0; i<initial_condition.atomP_delta[a].size(); i++) {
+            for(size_t j=0; j<initial_condition.atomP_delta[a][i].size(); j++) {
+                initial_condition.atomP_delta[a][i][j] = 0.;
+            }
         }
     }
     initial_condition.F=0;
@@ -91,10 +96,7 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
         std::cout << "[ HF ] Peforming Hartree-Fock calculations for species' allowed orbital configurations" << std::endl;
         input_params.calc_rates(_log, recalc);
         hasRates = true;
-        Distribution::num_continuums = 1;
-        #ifndef TRACK_SINGLE_CONTINUUM
-        Distribution::num_continuums = 1 + input_params.Store.size(); // Total + 1 for each atom
-        #endif
+        Distribution::initialise_num_continuums(input_params.Store.size());
     }
     
     
@@ -109,12 +111,12 @@ void ElectronRateSolver::set_up_grid_and_compute_cross_sections(std::ofstream& _
                 _log << "[ Dynamic Grid ] Starting with initial grid guess"<<endl;
                 }
                 else{
-                   _log << "[ Dynamic Grid ] Initialising dummy grid"<<endl;
+                   _log << "[ Dynamic Grid - Loading] Initialising dummy grid"<<endl;
                 }
                 double e = 1/Constant::eV_per_Ha;
                 param_cutoffs.transition_e = 250*e;
                 regimes.mb_peak=0; regimes.mb_min=Distribution::get_lowest_allowed_knot(); regimes.mb_max=10*e;
-                // cast a wide net to ensure we capture all dirac peaks. // TODO? there has to be a much better way than this.
+                // cast a wide net to ensure we capture all dirac peaks. // TODO there has to be a much better way than this.
                 double photo_min = 1e9, photo_max = -1e9; 
                 for(auto& atom : input_params.Store) {
                     for(auto& r : atom.Photo) {      
@@ -217,7 +219,7 @@ void ElectronRateSolver::set_grid_regions(ManualGridBoundaries gb){
 
 void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_data_folder) {
     assert (hasRates || "Rates weren't calculated!\n");
-    auto start = std::chrono::system_clock::now();
+    start = std::chrono::system_clock::now();
 
     data_backup_folder = tmp_data_folder;
 
@@ -239,7 +241,7 @@ void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_
     
     if (input_params.elec_grid_type.mode == GridSpacing::dynamic){
         plasma_header <<"[ Grid ] Preset: "<<input_params.elec_grid_preset.name<<"\n\r";
-        plasma_header <<"[ Grid ] Update period: "<<grid_update_period * Constant::fs_per_au<<" fs"<<"\n\r";
+        plasma_header <<"[ Grid ] Update period: "<<input_params.Grid_Update_Period() * Constant::fs_per_au<<" fs"<<"\n\r";
     }
     else 
         plasma_header << "[ Grid ] Using static grid" << "\n\r";
@@ -247,7 +249,8 @@ void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_
     plasma_header<<"[ Rate Solver ] Using initial timestep size of "<<this->dt*Constant::fs_per_au<<" fs"<<"\n\r";
     plasma_header<<banner<<"\n\r";
 
-    steps_per_grid_transform =  round(num_steps*(grid_update_period/(simulation_end_time-simulation_start_time)));
+    steps_per_grid_transform =  round(input_params.Grid_Update_Period()/this->dt + 1);
+    steps_before_initialisation_reset = round(input_params.Guess_Grid_Duration()/this->dt + 1);
 
 
     std::cout << plasma_header.str()<<std::flush; // display in regular terminal, so that it is still visible after end of program
@@ -286,16 +289,18 @@ void ElectronRateSolver::execute_solver(ofstream & _log, const std::string& tmp_
     std::vector<std::chrono::duration<double, std::milli>> times{
     display_time, plot_time, dyn_dt_time, backup_time, pre_ode_time,
     dyn_grid_time, user_input_time, post_ode_time,
-    pre_tbr_time, transport_time, eii_time, tbr_time,
+    decay_processes_time, bound_secondary_time, transport_time, eii_time_free, tbr_time_free,
     ee_time, apply_delta_time
     };
     std::vector<std::string> tags{
     "display", "live plotting", "dt updates", "data backups", "pre_ode()",
     "dynamic grid updates", "user input detection", "post_ode()",
-    "misc bound processes", "bound-e transport", "get_Q_eii()", "get_Q_tbr()",
+    "photoionization and decay", "Bound state EII/TBR", "bound-e transport", "Free electrons EII", "Free electrons TBR",
     "get_Q_ee()", "applyDeltaF()"
     };
     
+    assert(times.size()==tags.size()); // TODO useless assert, it's at end of simulation...
+
     stringstream solver_times;
     solver_times <<"\n[ Solver ] ODE iteration took "<< secs/60 <<"m "<< secs%60 << "s" << "\n";
     solver_times << its_dinner_time(times,tags);
@@ -377,6 +382,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         auto t9 = std::chrono::high_resolution_clock::now();
         const bound_t& P = s.atomP[a];
         bound_t& Pdot = sdot.atomP[a];
+        std::vector<bound_t>& Pdot_delta = sdot.atomP_delta[a];
         
         #ifdef DEBUG_BOUND
         for(size_t i=0;i < Pdot.size();i++){
@@ -386,20 +392,40 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         double old_bound_charge = sdot.bound_charge;
         // PHOTOIONISATION
         double J = pf(t); // photon flux in atomic units
+        auto& conf_N_elec_dict = input_params.Store[a].conf_N_elec_dict;
         for ( auto& r : input_params.Store[a].Photo) {
             double tmp = r.val*J*P[r.from];
+            Pdot_delta[conf_N_elec_dict[r.from]][conf_N_elec_dict[r.to]]+=tmp;
             Pdot[r.to] += tmp;
             Pdot[r.from] -= tmp;
-            sdot.F.addDeltaSpike(a,r.energy, r.val*J*P[r.from]);  // TODO change to tmp?
+            sdot.F.addDeltaSpikePhoto(a,r.energy, r.val*J*P[r.from]);  // TODO change to tmp?
             sdot.bound_charge +=  tmp;
+            #ifdef TRACK_SINGLE_CASCADE
+            if (t < cascade_spawn_time){ // in case reloaded to a previous point in time
+                cascade_spawned = false;
+            }
+            if (t > cascade_spawn_time && cascade_spawned == false){
+                double tmp=0;
+                tmp+=1;
+                if ((r.val*J*P[r.from]/1e3) > 0){
+                    sdot.F.addDeltaSpikeSpecificContinuum(Distribution::single_cascade_continuum_idx,input_params.single_cascade_energy, r.val*J*P[r.from]/1e3); // negligibly small magnitude
+                }
+                cascade_spawned=true;
+                actual_cascade_spawn_time=t;
+
+            }
+
+            #endif
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*J*P[r.from]);
         }
+
+
 
         sdot.cumulative_photo[a]+=sdot.bound_charge-old_bound_charge;
 
         #ifndef NO_ELECTRON_SOURCE
         //PHOTOION. SOURCE
-        if(t < simulation_start_time + input_params.electron_source_duration*(timespan_au)){
+        if((t < simulation_start_time + input_params.electron_source_duration*(timespan_au))){
             double injected_density = 0; 
             switch (input_params.electron_source_type){
                 case 'c':
@@ -414,7 +440,7 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
                 }
             }
             if (injected_density > 0)
-                sdot.F.addDeltaSpike(a,input_params.electron_source_energy,injected_density);
+                sdot.F.addDeltaSpikeExternal(a,input_params.electron_source_energy,injected_density);
         }
         #endif //NO_ELECTRON_SOURCE
         
@@ -427,9 +453,10 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
             assert(Pdot[i] + P[i] >= 0);
         }
         #endif    
-        // FLUORESCENCE
+        // FLUORESCENCEchimer
         for ( auto& r : input_params.Store[a].Fluor) {
             double tmp = r.val*P[r.from];
+            Pdot_delta[conf_N_elec_dict[r.from]][conf_N_elec_dict[r.to]]+=tmp;
             Pdot[r.to] += tmp;
             Pdot[r.from] -= tmp;
             #ifdef RATES_TRACKING
@@ -445,9 +472,10 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         // AUGER
         for ( auto& r : input_params.Store[a].Auger) {
             double tmp = r.val*P[r.from];
+            Pdot_delta[conf_N_elec_dict[r.from]][conf_N_elec_dict[r.to]]+=tmp;
             Pdot[r.to] += tmp;
             Pdot[r.from] -= tmp;
-            sdot.F.addDeltaSpike(a,r.energy, r.val*P[r.from]);
+            sdot.F.addDeltaSpikeAuger(a,r.energy, r.val*P[r.from]);
             // sdot.F.add_maxwellian(r.energy*2./3., r.val*P[r.from]);
             // Distribution::addDeltaLike(vec_dqdt, r.energy, r.val*P[r.from]);
             sdot.bound_charge +=  tmp;
@@ -463,110 +491,143 @@ void ElectronRateSolver::sys_bound(const state_type& s, state_type& sdot, state_
         }
         #endif        
         // Secondary ionization
-        // EII / TBR bound-state dynamics
-        #ifdef TRACK_SINGLE_CONTINUUM
-        size_t _c = 0; 
-        #else
-        size_t _c = 1;  // Iterates through the continuum corresponding to each element's initiated cascades and adds separately. // TODO check if having the full continuum contribute to the actual calcs is better.
-        #endif 
-        for (;_c < Distribution::num_continuums; _c++){
-            Eigen::VectorXd vec_dqdt_scndry = Eigen::VectorXd::Zero(Distribution::size);
-            if(input_params.Store[a].bound_free_excluded) continue;
+        auto t10 = std::chrono::high_resolution_clock::now();
+        decay_processes_time += t10 - t9;
+        // Loss of bound electrons from EII / TBR
 
-            double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
-            double sdot_bound_charge_eii_subst = 0; 
-            double sdot_bound_charge_tbr_subst = 0; 
-            size_t N = Distribution::size; 
-            #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_subst,sdot_bound_charge_eii_subst,sdot_bound_charge_tbr_subst)     
-            for (size_t n=0; n<N; n++) {
-                double tmp=0; // aggregator
-                
-                #ifndef NO_EII
-                for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
-                    for (auto& finPair : RATE_EII[a][n][init]) {
-                        tmp = finPair.val*s.F[_c][n]*P[init];
-                        Pdot_subst[finPair.idx] += tmp;
-                        Pdot_subst[init] -= tmp;
-                        sdot_bound_charge_eii_subst += tmp;   //TODO Not a minus sign like others, double check that's intentional. -S.P.
-                    }
+        if(input_params.Store[a].bound_free_excluded) continue;
+
+        double Pdot_subst [Pdot.size()] = {0};    // subst = substitute.
+        double Pdot_delta_subst [Pdot_delta.size()][Pdot_delta[0].size()] ={0};
+        // https://stackoverflow.com/questions/3948290/what-is-the-safe-way-to-fill-multidimensional-array-using-stdfill
+        //std::fill(&Pdot_delta_subst[0][0],&Pdot_delta_subst[0][0]+sizeof(Pdot_delta_subst)/ sizeof(Pdot_delta_subst[0][0]),0); //have to do because array size defined by variable. otherwise don't get 0s. Very annoying.
+        //std::fill_n(&Pdot_delta_subst[0][0],Pdot_delta.size()*Pdot_delta[0].size(),0)
+        //for (auto & row: Pdot_delta_subst){
+        for (size_t i=0; i<Pdot_delta.size();i++){
+            //std::fill_n(Pdot_delta_subst[i].begin(),Pdot_delta.size(),0);
+            //std::fill_n(row.begin(),row.size(),0);
+            for (size_t j=0; i<Pdot_delta[0].size();i++){
+                Pdot_delta_subst[i][j]=0;
+            }
+        }
+        double sdot_bound_charge_eii_subst = 0; 
+        double sdot_bound_charge_tbr_subst = 0; 
+        size_t N = Distribution::size; 
+        auto t11 = std::chrono::high_resolution_clock::now();
+
+        //----------------------///
+        #pragma omp parallel for num_threads(threads) reduction(+ : Pdot_delta_subst[:Pdot_delta.size()][:Pdot_delta[0].size()], Pdot_subst[:Pdot.size()],sdot_bound_charge_eii_subst,sdot_bound_charge_tbr_subst)     
+        for (size_t n=0; n<N; n++) {
+            double tmp=0; // aggregator
+            
+            #ifndef NO_EII
+            for (size_t init=0;  init<RATE_EII[a][n].size(); init++) {
+                for (auto& finPair : RATE_EII[a][n][init]) {
+                    tmp = finPair.val*s.F[0][n]*P[init];
+                    Pdot_delta_subst[conf_N_elec_dict[init]][conf_N_elec_dict[finPair.idx]]+=tmp;
+                    Pdot_subst[finPair.idx] += tmp;
+                    Pdot_subst[init] += -tmp;  // Doing += over -= because reduction, not sure if necessary.
+                    sdot_bound_charge_eii_subst += tmp;   //TODO This is a positive sign, but it's negative in the TBR loops. Need to check what it should be. (this would only affect diagnostics) -S.P.
                 }
-                #endif
-                
-                
-                #ifndef NO_TBR
-                // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
-                // Note that RATE_TBR has the same geometry as InverseEIIdata.
-                for (size_t m=n+1; m<N; m++) {
-                    size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
-                    // k = N... N(N+1)/2-1
-                    // W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
-                    for (size_t init=0;  init<RATE_TBR[a][k].size(); init++) {
-                        for (auto& finPair : RATE_TBR[a][k][init]) {
-                            #ifdef TRACK_SINGLE_CONTINUUM
-                            tmp = finPair.val*s.F[_c][n]*s.F[_c][m]*P[init]*2;   // _c = 0 (total continuum)
-                            #else
-                            tmp = finPair.val*(s.F[_c][n]*s.F[0][m] + s.F[_c][m]*s.F[0][n])*P[init]; // as we are distinguishing the electron continuum of interest from the full continuum now.
-                            #endif
-                            Pdot_subst[finPair.idx] += tmp;
-                            Pdot_subst[init] -= tmp;
-                            sdot_bound_charge_tbr_subst -= tmp;
-                        }
-                    }
-                }
-                // the diagonal
-                // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
-                for (size_t init=0;  init<RATE_TBR[a][n].size(); init++) {
-                    for (auto& finPair : RATE_TBR[a][n][init]) {
-                        tmp = finPair.val*s.F[_c][n]*s.F[0][n]*P[init];
+            }
+            #endif
+            
+            
+            #ifndef NO_TBR
+            // exploit the symmetry: strange indexing engineered to only store the upper triangular part.
+            // Note that RATE_TBR has the same geometry as InverseEIIdata.
+            for (size_t m=n+1; m<N; m++) {
+                size_t k = N + (N*(N-1)/2) - (N-n)*(N-n-1)/2 + m - n - 1;
+                // k = N... N(N+1)/2-1
+                // W += RATE_TBR[a][k]*s.F[n]*s.F[m]*2;
+                for (size_t init=0;  init<RATE_TBR[a][k].size(); init++) {
+                    for (auto& finPair : RATE_TBR[a][k][init]) {
+                        tmp = finPair.val*s.F[0][n]*s.F[0][m]*P[init]*2;  
+                        Pdot_delta_subst[conf_N_elec_dict[init]][conf_N_elec_dict[finPair.idx]]+=tmp;
                         Pdot_subst[finPair.idx] += tmp;
                         Pdot_subst[init] -= tmp;
                         sdot_bound_charge_tbr_subst -= tmp;
                     }
                 }
-                #endif
             }
-            // Add parallel containers to their parent containers.
-            for(size_t i=0;i < Pdot.size();i++){
-                Pdot[i] += Pdot_subst[i];
-                #ifdef DEBUG_BOUND
+            // the diagonal
+            // W += RATE_TBR[a][n]*s.F[n]*s.F[n];
+            for (size_t init=0;  init<RATE_TBR[a][n].size(); init++) {
+                for (auto& finPair : RATE_TBR[a][n][init]) {
+                    tmp = finPair.val*s.F[0][n]*s.F[0][n]*P[init];
+                    Pdot_delta_subst[conf_N_elec_dict[init]][conf_N_elec_dict[finPair.idx]]+=tmp;
+                    Pdot_subst[finPair.idx] += tmp;
+                    Pdot_subst[init] -= tmp;
+                    sdot_bound_charge_tbr_subst -= tmp;
+                }
+            }
+            #endif
+        }
+        //----------------------///
+        //     }
+        // }
+        auto t12 = std::chrono::high_resolution_clock::now();
+        // Add parallel containers to their parent containers.
+        for(size_t i=0;i < Pdot.size();i++){
+            Pdot[i] += Pdot_subst[i];
+            #ifdef DEBUG_BOUND
                 assert(Pdot[i] + P[i] >= 0);
                 // if(Pdot[i] + P[i] < 0){
                 //     Pdot[i]= -P[i]*1.00001;
                 // }
-                #endif
-            }
-            sdot.bound_charge += sdot_bound_charge_eii_subst + sdot_bound_charge_tbr_subst;
-            #ifdef RATES_TRACKING
-            eii_rate.back() += sdot_bound_charge_eii_subst;
-            tbr_rate.back() += sdot_bound_charge_tbr_subst;
             #endif
-        
+        }
+        for(size_t i=0;i < Pdot_delta.size();i++){
+            for(size_t j=0;j < Pdot_delta[i].size();j++){
+                Pdot_delta[i][j] += Pdot_delta_subst[i][j];
+            }
+        }
+        sdot.bound_charge += sdot_bound_charge_eii_subst + sdot_bound_charge_tbr_subst;
+        #ifdef RATES_TRACKING
+        eii_rate.back() += sdot_bound_charge_eii_subst;
+        tbr_rate.back() += sdot_bound_charge_tbr_subst;
+        #endif
 
-            auto t10 = std::chrono::high_resolution_clock::now();
-            pre_tbr_time += t10 - t9;
+        bound_secondary_time += t12 - t11;
 
-            // Free-electron parts
+        #ifdef TRACK_SINGLE_CONTINUUM
+        size_t _c = 0; 
+        #else
+        size_t _c = 1;  // Iterates through the continuum corresponding to each element's (or other source's) initiated cascades and adds separately
+        #endif 
+
+        for (;_c < Distribution::num_continuums; _c++){
+            // Contribution of EII / TBR to free-electron continuum
             #ifdef NO_EII
             #warning No impact ionisation
+                #ifndef NO_TBR
+                Eigen::VectorXd vec_dqdt_scndry = Eigen::VectorXd::Zero(Distribution::size);
+                #warning ..but TBR is enabled (with no impact ionisation)!! This is generally a bad idea, unless you know what you are doing.
+                #endif
             #else
+            Eigen::VectorXd vec_dqdt_scndry = Eigen::VectorXd::Zero(Distribution::size);
             auto t1 = std::chrono::high_resolution_clock::now();
             s.F.get_Q_eii(_c,vec_dqdt_scndry, a, P, threads);
             auto t2 = std::chrono::high_resolution_clock::now();
-            eii_time += t2 - t1;
+            eii_time_free += t2 - t1;
             #endif
+            
             #ifdef NO_TBR
             #warning No three-body recombination
             #else
             auto t3 = std::chrono::high_resolution_clock::now();
             s.F.get_Q_tbr(_c,vec_dqdt_scndry, a, P, threads);  // Serially, this is the computational bulk of the program - S.P.
             auto t4 = std::chrono::high_resolution_clock::now();
-            tbr_time += t4 - t3;
+            tbr_time_free += t4 - t3;
             #endif
+
+            #if !defined(NO_EII) || !defined(NO_TBR)
             // Add secondary ionization to distributions
             auto t7 = std::chrono::high_resolution_clock::now();
             sdot.F.applyDeltaF(_c-1,vec_dqdt_scndry,threads);
             auto t8 = std::chrono::high_resolution_clock::now();
             apply_delta_time += t8 - t7;
+            #endif
 
         }
         // Add primary ionization to distributions
@@ -599,6 +660,12 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot) {
     #ifdef NO_EE
     #warning No electron-electron interactions
     #else
+    
+    const int threads = input_params.Plasma_Threads(); 
+    auto t5 = std::chrono::high_resolution_clock::now();
+    std::vector<Eigen::VectorXd> vector_of_u;      
+    vector_of_u.resize(Distribution::num_continuums);
+
     #ifdef TRACK_SINGLE_CONTINUUM
     size_t _c = 0; 
     #else
@@ -606,27 +673,35 @@ void ElectronRateSolver::sys_ee(const state_type& s, state_type& sdot) {
     #endif 
     for (;_c < Distribution::num_continuums; _c++){
         Eigen::VectorXd vec_dqdt = Eigen::VectorXd::Zero(Distribution::size);
-        const int threads = input_params.Plasma_Threads(); 
-        // compute the dfdt vector
-        // Electron-electon repulsions
-        auto t5 = std::chrono::high_resolution_clock::now();
         s.F.get_Q_ee(_c, vec_dqdt, threads); 
-        auto t6 = std::chrono::high_resolution_clock::now();
-        ee_time += t6 - t5;
-        // 
-        // Add change to distribution
-        auto t7 = std::chrono::high_resolution_clock::now();
-        /*
-        #ifdef TRACK_SINGLE_CONTINUUM
-        sdot.F.applyDeltaF(-99,vec_dqdt,threads);  // -99 is a dummy value
-        #else
-        sdot.F.applyDeltaF_element_scaled(_c, vec_dqdt,threads);
-        #endif
-        */
-        sdot.F.applyDeltaF(_c-1,vec_dqdt,threads);
-        auto t8 = std::chrono::high_resolution_clock::now();
-        apply_delta_time += t8 - t7;
+        vector_of_u[_c] = (s.F.get_basis_Sinv(vec_dqdt)); 
     }
+    auto t6 = std::chrono::high_resolution_clock::now();
+    ee_time += t6 - t5;
+
+    auto t7 = std::chrono::high_resolution_clock::now();
+
+    
+    //////applyDeltaF() collapsed loop//////
+        //
+        #pragma omp parallel for num_threads(threads) collapse(2)
+        for (size_t i=0; i<Distribution::size; i++) {
+            #ifdef TRACK_SINGLE_CONTINUUM
+            for (size_t _c = 0; 
+            #else
+            for (size_t _c = 1;  // Iterates through the continuum corresponding to each element's initiated cascades and adds separately. // TODO check if having the full continuum contribute to the actual calcs is better.
+            #endif 
+            _c < Distribution::num_continuums; _c++){
+                sdot.F[0][i] += vector_of_u[_c][i];
+                #ifndef TRACK_SINGLE_CONTINUUM
+                sdot.F[_c][i] += vector_of_u[_c][i];
+                #endif
+            }
+        }
+    /////////////////////////////////////////
+    auto t8 = std::chrono::high_resolution_clock::now();
+    apply_delta_time += t8-t7;
+
     #endif // NO_EE
 }
 
@@ -796,13 +871,17 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
     ////// Display info ////// (only the regular stuff seen each step, not "popups" from popup_stream)
     auto t_start_disp = std::chrono::high_resolution_clock::now();
     if ((n-this->order)%steps_per_time_update == 0){
+        size_t* grid_T = &steps_per_grid_transform;
+        if (Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots){
+             grid_T= &steps_before_initialisation_reset;}
         Display::display_stream.str(Display::header); // clear display string
         Display::display_stream<< "\n\r"
         << "--- Press BACKSPACE/DEL to end simulation and save the data ---\n\r"   
+        << "--- Press 'B' to make a backup of the simulation data now ---\n\r"  
         << "[ sim ] Next data backup in "<<(minutes_per_save - std::chrono::duration_cast<std::chrono::minutes>(std::chrono::high_resolution_clock::now() - time_of_last_save)).count()<<" minute(s).\n\r"  
-        << "[ sim ] Current timestep size = "<<this->dt*Constant::fs_per_au<<" fs\n\r"   
-        << "[ sim ] t="
-        << this->t[n] * Constant::fs_per_au << " fs\n\r" 
+        << "[ sim ] Current timestep size = "<< this->dt*Constant::fs_per_au <<" fs\n\r"
+        << "[ sim ] t="<< this->t[n] * Constant::fs_per_au <<" fs\n\r" 
+        << "[ sim ] Next grid update: t="<< (this->t[n] + this->dt * (*grid_T - (n-this->order)%(*grid_T))) * Constant::fs_per_au<<" fs\n\r"
         << "[ sim ] " <<Distribution::size << " knots currently active\n\r";
         //<< Distribution::get_knot_energies() << "\n\r"; 
         // << flush; 
@@ -935,39 +1014,38 @@ void ElectronRateSolver::pre_ode_step(ofstream& _log, size_t& n,const int steps_
 int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
     auto t_start = std::chrono::high_resolution_clock::now();
 
-    //////  Dynamic grid updater ////// 
+    ////// Dynamic grid updater ////// 
     #ifndef SWITCH_OFF_ALL_DYNAMIC_UPDATES
     auto t_start_grid = std::chrono::high_resolution_clock::now();
-    if (input_params.elec_grid_type.mode == GridSpacing::dynamic && (n-this->order+1)%steps_per_grid_transform == 0){ // TODO if adaptive time step algo is improved would be good to have a variable that this is equal to that is modified to account for changes in time step size. If a dt decreases you push back the grid update. If you increase dt (which currently doesn't happen) you could 'miss' it .
-        Display::popup_stream << "\n\rUpdating grid... \n\r"; 
-        _log << "[ Dynamic Grid ] Updating grid" << endl;
+    if (Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots && 
+    input_params.elec_grid_type.mode == GridSpacing::dynamic && (n-this->order+1)%steps_before_initialisation_reset == 0){
+        auto end = chrono::system_clock::now(); chrono::duration<double> elapsed_seconds = end-start; secs = elapsed_seconds.count();
+        
+        // move from initial guess grid to dynamic grid shortly after a fresh simulation's start.
+        Display::popup_stream << "\n\r Moving to dynamic grid... \n\r"; 
+        _log << "[ Dynamic Grid ] Moving to dynamic grid"<<" runtime: "<<secs/60<<"m "<<secs%60<<"s"<<endl;
         Display::show(Display::display_stream,Display::popup_stream);  
         update_grid(_log,n+1,false);
-        if (Distribution::reset_on_next_grid_update){
-            dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
-            Distribution::reset_on_next_grid_update = false;
-            reinitialise_solver_with_current_grid(_log);    
-            return 1;        
-        } 
-    }   
-    // move from initial grid to dynamic grid shortly after a fresh simulation's start.
-    /*
-    else if (n-this->order == max(2,(int)(steps_per_grid_transform/10)) && (input_params.Load_Folder() == "") && !grid_initialised){  // TODO make this an input param
-        Display::popup_stream << "\n\rPerforming initial grid update... \n\r"; 
-        _log << "[ Dynamic Grid ] Performing initial grid update..." << endl;
-        Display::show(Display::display_stream,Display::popup_stream); 
-        update_grid(_log,n+1,true); 
-        //////// 
-        // TODO restart simulation with this better grid.
-        ////////
+        Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots = false;
+        dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
+        reinitialise_solver_with_current_grid(_log);    
+        return 1;        
     }
-    */
+    else if (input_params.elec_grid_type.mode == GridSpacing::dynamic && (n-this->order+1)%steps_per_grid_transform == 0){ // TODO if adaptive time step algo is improved would be good to have a variable that this is equal to that is modified to account for changes in time step size. If a dt decreases you push back the grid update. If you increase dt (which currently doesn't happen) you could 'miss' it .
+        auto end = chrono::system_clock::now(); chrono::duration<double> elapsed_seconds = end-start; secs = elapsed_seconds.count();
+
+        Display::popup_stream << "\n\rUpdating grid... \n\r"; 
+        _log << "[ Dynamic Grid ] Updating grid,"<<" runtime: "<<secs/60<<"m "<<secs%60<<"s"<<endl;
+        Display::show(Display::display_stream,Display::popup_stream);  
+        update_grid(_log,n+1,false);
+    }
     dyn_grid_time += std::chrono::high_resolution_clock::now() - t_start_grid;  
     #endif //SWITCH_OFF_ALL_DYNAMIC_UPDATES
     
-    //////  Check if user wants to end simulation early ////// 
+    ////// Check if user inputted command to do something mid-simulation ////// 
     auto t_start_usr = std::chrono::high_resolution_clock::now();
     auto ch = wgetch(Display::win);
+    ////// End simulation early  ////// 
     if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127){   
         flushinp(); // flush buffered inputs
         Display::popup_stream <<"\n\rExiting early... press backspace/del again to confirm or any other key to cancel and resume the simulation \n\r";
@@ -982,6 +1060,19 @@ int ElectronRateSolver::post_ode_step(ofstream& _log, size_t& n){
         nodelay(Display::win, true);
         Display::show(Display::display_stream);
     }     
+    ////// Backup  ////// 
+    if (ch == 'b'){ 
+        flushinp(); // flush buffered inputs
+        Display::popup_stream <<"\n\rSaving backup... press B again to confirm or any other key to cancel and resume the simulation \n\r";
+        Display::show(Display::display_stream,Display::popup_stream);
+        nodelay(Display::win, false);
+        ch = wgetch(Display::win);  // note implicitly refreshes screen
+        if (ch == 'b'){
+            time_of_last_save-=(minutes_per_save+std::chrono::minutes(1));
+        }
+        nodelay(Display::win, true);
+        Display::show(Display::display_stream);
+    }
     
     user_input_time += std::chrono::high_resolution_clock::now() - t_start_usr;  
     
@@ -1153,5 +1244,5 @@ void ElectronRateSolver::compute_free_grid_rates(){
 void ElectronRateSolver::set_zero_y(){
     // Makes a zero std::vector in a mildly spooky way 
     zero_y = get_initial_state(); // do this to make the underlying structure large enough
-    zero_y *= 0.; // set it to Z E R O
+    zero_y *= 0.; // To be safe, set to 0. Though I think the issue requiring this has been fixed now.
 }

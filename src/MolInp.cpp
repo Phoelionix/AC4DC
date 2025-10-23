@@ -120,6 +120,21 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (n == 3) stream >> timespan_factor;
 		if (n == 4) stream >> negative_timespan_factor;
 	}
+	for (size_t n = 0; n < FileContent["#PROBE_PULSE"].size(); n++) {  
+		stringstream stream(FileContent["#PROBE_PULSE"][n]);
+		if (n == 0) 
+			{stream >> probe_delay;
+			if (pulse_shape == PulseShape::gaussian){
+				pulse_shape = PulseShape::pumpProbeGaussians;
+			}
+			else if (pulse_shape == PulseShape::square){
+				pulse_shape = PulseShape::pumpProbeSquares;
+			}
+			else{
+				throw std::runtime_error("Unimplemented pulse shape for probe");
+			}
+		}
+	}
 
 	string tmp = "";
 	for (size_t n = 0; n < FileContent["#USE_COUNT"].size(); n++) {  
@@ -174,7 +189,11 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	for (size_t n = 0; n < FileContent["#DYNAMIC_GRID"].size(); n++) {
 		stringstream stream(FileContent["#DYNAMIC_GRID"][n]);
 		if (n == 0) stream >> elec_grid_preset;
-		if (n == 1) stream >> grid_update_period;
+		if (n == 1){ 
+			stream >> grid_update_period;
+			guess_grid_duration = grid_update_period;
+		}
+		if (n == 2) stream >> guess_grid_duration;
 	}	
 	for (size_t n = 0; n < FileContent["#ELECTRON_SOURCE"].size(); n++) {
 		stringstream stream(FileContent["#ELECTRON_SOURCE"][n]);
@@ -188,6 +207,11 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (n == 0){ stream >> filtration_file;
 			filtration_file = "output/__Molecular/" + filtration_file + "/freeDistRaw.csv";
 		}
+	}
+
+	for (size_t n = 0; n < FileContent["#ANALYTICAL"].size(); n++) {
+		stringstream stream(FileContent["#ANALYTICAL"][n]);
+		if (n == 0) stream >> single_cascade_energy;
 	}
 
 	for (size_t n = 0; n < FileContent["#LOAD"].size(); n++) {
@@ -208,6 +232,7 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (n == 0){ stream >> simulation_cutoff_time; cutoff_flag = true;}
 		if (n == 1) stream >> time_update_gap;
 		if (n == 2) stream >> steps_per_live_plot_update;
+		if (n == 3) stream >> minutes_per_save;
 
 	}	
 
@@ -246,6 +271,8 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		double I_units = pow(10,15); 
 		switch (pulse_shape)
 		{
+		// I = this->I0/norm*pow(2,-t*t*4/this->fwhm/this->fwhm);
+		// this->I0 = fluence/fwhm_param = fluence/width;
 		case PulseShape::gaussian:{
 			const double norm = sqrt(Constant::Pi/4/log(2)); // from  Pulse::operator() 
 			fluence = peak_intensity*I_units*norm*(width*t_units);
@@ -317,13 +344,16 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 	// Convert to number of photon flux.
 	omega /= Constant::eV_per_Ha;
 	electron_source_energy/= Constant::eV_per_Ha;
+	single_cascade_energy/=Constant::eV_per_Ha;
 	fluence *= 10000/Constant::Jcm2_per_Haa02/omega;
 
 	// Convert to atomic units.
 	width /= Constant::fs_per_au;
+	probe_delay /= Constant::fs_per_au;
 	simulation_cutoff_time /= Constant::fs_per_au;
 	time_update_gap /= Constant::fs_per_au;
 	grid_update_period /= Constant::fs_per_au;
+	guess_grid_duration /= Constant::fs_per_au;
 	loss_geometry.L0 /= Constant::Angs_per_au;
 	unit_V /= Constant::Angs_per_au*Constant::Angs_per_au*Constant::Angs_per_au;
 
@@ -393,16 +423,22 @@ bool MolInp::validate_inputs() { // TODO need to add checks probably -S.P. TODO 
 	if (width <= 0 ) { cerr<<"ERROR: pulse width must be positive"; is_valid=false; }
 	if (fluence <= 0 ) { cerr<<"ERROR: pulse fluence must be positive"; is_valid=false; }
 	if (num_time_steps <= 0 ) { cerr<<"ERROR: got negative number of timesteps"; is_valid=false; }
+	if (elec_grid_type.mode == GridSpacing::dynamic){
+		if (grid_update_period <= 0 ) {cerr<<"Grid update period must be positive, but is "<<grid_update_period;is_valid=false;}
+		if (guess_grid_duration <= 0 ) {cerr<<"Guess grid duration must be positive, but is "<<guess_grid_duration;is_valid=false;}
+		if (guess_grid_duration > grid_update_period ) {cerr<<"Guess grid duration (" <<guess_grid_duration<<") must be less than grid update period("<<guess_grid_duration<<")";is_valid=false;}}
 	if (out_T_size <= 0) { cerr<<"ERROR: system set to output zero timesteps"; is_valid=false; }
 	if (out_F_size <= 0) { cerr<<"ERROR: system set to output zero energy grid points"; is_valid=false; }
 	if (loss_geometry.L0 <= 0) { cerr<<"ERROR: radius must be positive"; is_valid=false; }
 	if (timespan_factor < 0 || negative_timespan_factor < 0) {cerr << "ERROR, timespan factors must be postive"; is_valid = false;}
-	if (timespan_factor < negative_timespan_factor){cerr << "ERROR, the timespan factor for the negative times must be smaller than the full timespan factor";is_valid=false;}
+	if (timespan_factor < negative_timespan_factor){cerr << "ERROR, the timespan factor for the negative times ("<< negative_timespan_factor <<") must be smaller than the full timespan factor ("<< timespan_factor <<")";is_valid=false;}
 	if (pulse_shape == PulseShape::square && (timespan_factor < 1 && timespan_factor !=0)){cerr << "ERROR, timespan too short to capture full square pulse";is_valid=false;}
 	if (pulse_shape == PulseShape::square && negative_timespan_factor != 0){cerr << "ERROR, timespan for negative times cannot be specified with square pulse";is_valid=false;}
+	if ((pulse_shape == PulseShape::pumpProbeGaussians || pulse_shape == PulseShape::pumpProbeSquares) && probe_delay < 0){cerr << "ERROR, probe delay unset or negative: " << probe_delay, is_valid=false;}
+	if ((pulse_shape != PulseShape::pumpProbeGaussians && pulse_shape != PulseShape::pumpProbeSquares) && probe_delay > 0){cerr << "ERROR, don't have pump probe shape",is_valid=false;}
 	if (use_fluence + use_count + use_intensity != 1) {cerr << "ERROR, require exactly one of #USE_FLUENCE, #USE_COUNT, and #USE_INTENSITY to be active ";is_valid = false;}
 	if (omp_threads <= 0) { omp_threads = 4; cerr<<"Defaulting number of OMP threads to 4"; }
-	if (steps_per_live_plot_update < 1){steps_per_live_plot_update = 1; cerr<<"Steps per live plot was raised to 1 from given value of "<<steps_per_live_plot_update;}
+	if (steps_per_live_plot_update < 1){cerr<<"Steps per live plot was raised to 1 from given value of "<<steps_per_live_plot_update; steps_per_live_plot_update = 1;}
 	if (electron_source_fraction != 0 && (electron_source_energy <= 0 || electron_source_fraction < 0)) {cerr<<"Invalid electron source parameters.";is_valid=false;}
 
 	if (elec_grid_type.mode == GridSpacing::unknown) {

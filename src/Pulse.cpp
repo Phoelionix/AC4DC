@@ -44,6 +44,11 @@ void Pulse::set_pulse(double fluence, double fwhm_param) {
     this->fwhm = fwhm_param;
 
 }
+void Pulse::set_pulse(double fluence, double fwhm_param, double probe_delay) {
+    set_pulse(fluence,fwhm_param);
+    this->probe_delay = probe_delay;
+
+}
 
 /**
  * @brief Returns pulse's flux at time t
@@ -59,6 +64,16 @@ double Pulse::operator()(double t) {
     case PulseShape::gaussian:
         return this->I0/norm*pow(2,-t*t*4/this->fwhm/this->fwhm);
         break;
+    case PulseShape::triangle:
+        if (t < -this->fwhm/2 || t >this->fwhm/2) {
+            return 0;
+        }
+        else if(t < 0){ // first half
+            return this-> I0 * 2*(1+2*t/fwhm);
+        }
+        else{ // second half
+            return this-> I0 * 2*(1-2*t/fwhm);
+        }
     case PulseShape::square:
         if (t < -this->fwhm || t >0) {
             return 0;
@@ -66,6 +81,25 @@ double Pulse::operator()(double t) {
             return I0;
         }
         break;
+    case PulseShape::pumpProbeGaussians:{
+        double t_offset = t - this->probe_delay;
+        return this->I0/norm*pow(2,-t*t*4/this->fwhm/this->fwhm) + this->I0/norm*pow(2,-t_offset*t_offset*4/this->fwhm/this->fwhm);
+        break;
+    }
+    case PulseShape::pumpProbeSquares:{
+        double t_offset = t - this->probe_delay;
+        double total = 0; 
+        if (t < -this->fwhm || t >0) {
+        } else {
+            total+=I0;
+        }
+        if (t_offset < -this->fwhm || t_offset >0) {
+            return total;
+        } else {
+            return total + I0;
+        }
+        break;
+    }
     default:
         throw runtime_error("Pulse shape has not been set.");
         break;
