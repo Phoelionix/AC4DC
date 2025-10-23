@@ -9,14 +9,11 @@ The main code of the suite, AC4DC (the literal acronym is no longer apt), simula
 + Computes cross-sections for atomic processes: photoionisation, fluorescence, Auger decay and electron-impact ionisation
 + Asynchronously solves for the time evolution of the non-equilibrium free electrons and the bound states of the atomic population, via the Boltzmann transport equation.
 + Allows for an arbitrary form of the free-electron distribution f(E) interpolated over a basis of B-splines. 
-  + The basis is adaptive; it is transformed periodically to automatically assign more splines where sharp, non-polynomial peaks are present in the distribution. 
-
-# DRAFT warning
-When the grid fails to cnverge, it loads a checkpoint and decreases time steps. However, sometimes ((always?)) the divergence to an oscillatory (incorrect) fit occurs over a small number of steps. If a grid update occurs during this period, the fit may then converge, and the fluctuation is uncaught. This is quite rare but means data should be double checked    
+  + The basis is adaptive; it is transformed periodically to automatically assign more splines where sharp, non-polynomial peaks are present in the distribution.     
 
 ## Scatter
 
-An auxilliary simulation, Scatter, generates scattering patterns off realistic targets constructed from PDB structure files, with the atoms’ states selected entirely based off the probability distributions produced by AC4DC, without regard for selections of prior snapshots. These are then compared with the scattering pattern produced by a structure in the 'ideal', undamaged case where no ionisation occurs. 
+Various scripts for generating scattering patterns from pdb files and AC4DC outputs are in scripts/scattering. This integrates snapshots of the target at times throughout the pulse, with the electronic states sampled from the time-dependent probability distribution.
 
 ### Installing AC4DC
 

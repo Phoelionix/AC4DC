@@ -20,14 +20,15 @@ PLASMA_SIM_HANDLE_DICT = dict(
     lys_no_salt = "lys_solvated_H_40_3",
     lys_high_damage= "lys_galli_HF_23",
     lys_high_fluence= "lys_salt_fast_high_fluence_2",
-    I3C="I3C_55fs_1"
+    I3C="I3C_55fs_1",
+    TMP="high_dmg_1",
 )
-target_options = ["lys_high_fluence"]
+target_options = ["TMP"]
 TAG = "MD"
 
 
 def main(par_idx):
-    num_time_points = 5
+    num_time_points = 7
     if QUICK_TEST:
         num_time_points=2
     #t_cutoff_frac=0.5
@@ -73,11 +74,7 @@ def main(par_idx):
         #pdb_md_snapshots_path = "/home/speno/AC4DC/scripts/scattering/targets/I3C_moldstruct.pdb" 
         #pdb_md_snapshots_path = "/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct.pdb" 
         
-        pdb_md_snapshots_path_list = [
-            "/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct1.pdb",
-            "/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct2.pdb",
-            "/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct3.pdb"
-        ]
+        pdb_md_snapshots_path_list = [f"/home/speno/AC4DC/scripts/scattering/targets/lys_pipeline_test_moldstruct{i+1}.pdb" for i in range(10)]
         #ground_truth_pdb="/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_base_structure_moldstruct.pdb" 
         ground_truth_pdb="/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct.pdb" 
         ground_truth_symmetry_override=None

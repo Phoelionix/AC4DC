@@ -413,24 +413,20 @@ if __name__ == "__main__":
     num_asymm_units=4
 
     protein_light_atoms = dict(
-        C=1418,
-        N=380,
-        O=405,
-        H=2230
+        C=1418+68,
+        N=380+8,
+        O=405+8,
+        H=2230+0
     )
     protein_heavy_atoms = dict(
-        S=5
+        S=5+0,
+        Fe=0+2
     )
-
-    # https://advancedthermo.com/electrolytes/density_KI.html
-    # But PEG lighter
 
     
     solvent = Solvent(44.97,solution_density=1.1) 
-    #solvent.add_molecule(KI,M=1)
     solvent.add_molecule(PEG(3350),solvent_v_on_v=13.5)
     solvent.add_molecule(sodium_cacodylate,M=0.4)
-    #TODO 100 mM HEPES
     
     calculate(solvent,protein_light_atoms,protein_heavy_atoms,lengths,angles,num_asymm_units)# %%
 

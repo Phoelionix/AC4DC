@@ -19,25 +19,26 @@ def main():
   # Choose set of parameters to vary
   PULSE_PARAMETERS = 0; SOURCE_PARAMETERS = 1
   ####
-  MODE = 0
-  ####
   GAUSSIAN = 0; SQUARE = 1
 
+  ##
+  MODE = PULSE_PARAMETERS
+  PULSE_SHAPE = GAUSSIAN
+  ##
+
   if MODE is PULSE_PARAMETERS:
-    GRID_TYPE = "M"
+    GRID_TYPE = "N" # N -> DynamicGridPreset::mb_log_grid_lower_min
   # https://www.xfel.eu/sites/sites_custom/site_xfel/content/e35165/e46561/e46876/e179573/e179574/xfel_file179576/19042023_Parameters_factsheet_2024-01_Final_eng.pdf
-    ENERGIES = [6000,7000,8000,9000,10000,11000,12000,13000,14000,15000]
-    FWHMS = [5,10,20,25]#[15]
-    PHOTON_COUNTS = [1]#[0.1,10**(0.5)/10,1,10**(0.5), 10]
+    #ENERGIES = [6000,9000,12000, 15000]
+    ENERGIES = [9000,15000]
+    FWHMS = [5,25,50]#[15]
+    PHOTON_COUNTS = [0.1,1,10]
 
-    SOURCE_FRACTION = None
-    SOURCE_ENERGY = None
-    SOURCE_DURATION = None
-    PULSE_SHAPE = GAUSSIAN
-
+    # Do not modify
+    SOURCE_FRACTION = SOURCE_ENERGY = SOURCE_DURATION =  None
 
   if MODE is SOURCE_PARAMETERS:
-     GRID_TYPE = "S"
+     GRID_TYPE = "N" # N -> DynamicGridPreset::mb_log_grid_lower_min
      ELECTRON_SOURCE = True 
      ENERGY = 10000
      FWHM = 15
@@ -46,7 +47,6 @@ def main():
      SOURCE_FRACTIONS = [3]
      SOURCE_ENERGIES = [0,50, 500, 1000, 1500, 2000, 3000, 4000, 5000,6000, 7000, 8000,9000, 10000,11000,12000,13000, 14000, 15000, 16000,17000,18000,19000,20000]
      SOURCE_DURATIONS = [1]
-     PULSE_SHAPE = GAUSSIAN
 
   ##########
 
@@ -208,7 +208,7 @@ def make_mol_file(fname, outfile, param_dictionary):
 
   plasma_file.write("""\n#NUMERICAL\n""")
   plasma_file.write("""%.0f         // Initial guess for number of time step points for rate equation (Note e-e scattering part takes num_stiff_ministeps = 500 substeps for each step).\n""" %num_guess_steps)
-  plasma_file.write("""26           // Number of threads in OpenMP.\n""")
+  plasma_file.write("""20           // Number of threads in OpenMP.\n""")
 
   plasma_file.write("""\n#DYNAMIC_GRID\n""")
   plasma_file.write(P.grid_type+"""            // Grid regions preset, options are 'low', 'medium', 'high', (accuracy) among others (see README).\n""")

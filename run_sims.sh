@@ -43,6 +43,13 @@ set -x
 #   ./ac4dc input/lysozyme/lys_solvated_light_no_H.mol 
 
 
+#./ac4dc_no_tbr input/copper_sulfate/copper_sulfate_below_e12_20fs.mol
+
+
+#./ac4dc_no_tbr input/copper_sulfate/copper_sulfate_above_e12_20fs.mol
+for f in input/_batches/batch_hemoglobin_2QSP/*; do ./ac4dc "$f"; done
+
+#./ac4dc_no_tbr input/copper_sulfate/copper_sulfate_above_e12
 
 #./ac4dc input/single_cascade/SC_500.mol
 #./ac4dc input/single_cascade/SC_2000.mol
@@ -92,8 +99,8 @@ set -x
 # ./ac4dc input/misc/salt_high_solvent
 # ./ac4dc input/misc/water_high_solvent
 
-./ac4dc input/I3C/I3C_25fs
-./ac4dc input/I3C/I3C_55fs
+#./ac4dc input/I3C/I3C_25fs
+#./ac4dc input/I3C/I3C_55fs
 # ./ac4dc input/lysozyme/lys_MPD
 # ./ac4dc input/lysozyme/lys_salt_solvated_H
 

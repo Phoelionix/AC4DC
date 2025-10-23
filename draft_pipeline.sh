@@ -7,8 +7,10 @@ NUM_MD=10
 
 cd $(dirname "$0")
 
+pdb_file="scripts/scattering/targets/4et8.pdb" 
+
 sim_handle=high_dmg
-gromacs_unitcell_target_handle=4et8H_full_struct_Hfix  # TODO automate generation using "#%%--------STRUCTURE CONSTRUCTOR------" in scripts/scattering/scatter.py
+gromacs_unitcell_target_handle=4et8H_full_struct_Hfix  # TODO automate generation using "#%%--------STRUCTURE CONSTRUCTOR------" in scripts/scattering/scatter.py + phenix.ready_set for hydrogens
 
 TEMP_conversion_output_tag="_stoch" # TODO remove 
 
@@ -44,9 +46,9 @@ for expected_path in $input_file_path $gromacs_file_path; do
     fi
 done
 
-echo "Generating molDStruct inputs from AC4DC"
-#python3.9 scripts/molDStructConversion/convert_to_molDStruct.py $sim_output_handle $gromacs_file_path
-cp -r scripts/molDStructConversion/output/${sim_output_handle}${TEMP_conversion_output_tag}/IONIZATION_DATA $gromacs_work_folder
+    # echo "Generating molDStruct inputs from AC4DC"
+    # #python3.9 scripts/molDStructConversion/convert_to_molDStruct.py $sim_output_handle $gromacs_file_path
+    # cp -r scripts/molDStructConversion/output/${sim_output_handle}${TEMP_conversion_output_tag}/IONIZATION_DATA $gromacs_work_folder
 
 
 
@@ -64,6 +66,11 @@ MD_output_dir=scripts/scattering/targets/${sim_output_handle}_${gromacs_unitcell
 mkdir -p MD_output_dir
 
 for ((idx=1; idx<(NUM_MD+1); idx++)) {
+    echo "Generating molDStruct inputs from AC4DC"
+    #python3.9 scripts/molDStructConversion/convert_to_molDStruct.py $sim_output_handle $gromacs_file_path
+    # TODO assert generated (mv "old/path" to "old/path#")
+    cp -r scripts/molDStructConversion/output/${sim_output_handle}${TEMP_conversion_output_tag}/IONIZATION_DATA $gromacs_work_folder
+
     bash pipeline_scripting/run_photon_matter_simulation.sh $idx $gromacs_work_folder $gromacs_unitcell_target_handle.gro $TEMP_nsteps $TEMP_dt
     bash pipeline_scripting/trjconv.sh $idx $gromacs_work_folder $gromacs_file_path $MD_output_dir 
 }
@@ -74,7 +81,7 @@ for ((idx=1; idx<(NUM_MD+1); idx++)) {
 
 python3.9 scripts/scattering/generate_MD_reflections.py $sim_output_handle $MD_output_dir
 
-phenix.refine $OG_pdb_file_TODO $mtz_out_from_scatter_TODO
+phenix.refine $pdb_file $mtz_out_from_scatter_TODO
 
 
 
