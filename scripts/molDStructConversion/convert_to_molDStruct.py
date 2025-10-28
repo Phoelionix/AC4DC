@@ -301,7 +301,7 @@ def convert_to_molDStruct(sim_handle:str,target_path:str,num_steps:int,allowed_a
 
     crystal = Crystal(target_path,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=False,**crystal_params)
     # Assign plotter object to calculate charges (this is code debt)
-    ff_calculator = get_plotter(sim_handle,sim_parent_dir_path,start_time,end_time,t_fineness=num_steps)   
+    ff_calculator = get_plotter(sim_handle,sim_parent_dir_path,start_time,end_time,t_fineness=num_steps-1)   
     ff_calculator.allow_select_same_times = ALLOW_SELECT_SAME_TIMES  
     crystal.set_ff_calculator(ff_calculator) 
 
