@@ -14,6 +14,8 @@ from scipy import constants as C
 import struct
 import textwrap
 from plotter_core import Plotter # For typing
+import matplotlib.pyplot as plt
+
 
 # Converts AC4DC data to IONIZATION_DATA used for input to MolDStruct CR-MD.
 
@@ -142,7 +144,8 @@ OUTPUT_PATH =  path.abspath(path.join(__file__ ,"../"))+ "/output/"
 TARGET_DIR = SCATTER_DIR+ "targets/"
 
 
-MOLECULAR_PATH = path.abspath(path.join(SCRIPTS_DIR, "../output/__Molecular/")) + "/" # directory of damage sim output folders
+# already defined in plotter_core
+#MOLECULAR_PATH = path.abspath(path.join(SCRIPTS_DIR, "../output/__Molecular/")) + "/" # directory of damage sim output folders
 
 
 # def LennardJones():
@@ -155,7 +158,7 @@ MOLECULAR_PATH = path.abspath(path.join(SCRIPTS_DIR, "../output/__Molecular/")) 
 
 RANDOM_CHARGES = True # TEMPORARY
 
-def get_save_folder():
+def get_save_folder(sim_handle):
     if AVERAGE_CHARGES:
         tag = "avg"
     elif RANDOM_CHARGES:
@@ -167,12 +170,12 @@ def get_save_folder():
 
 
 
-def charges(crystal:Crystal,ff_calculator:Plotter,csv=False,individual_elements = False,average_charges=AVERAGE_CHARGES):
+def charges(crystal:Crystal,ff_calculator:Plotter,sim_handle,csv=False,individual_elements = False,average_charges=AVERAGE_CHARGES):
     if average_charges is None:
         average_charges = True 
     print("Beginning writing of charges...")
 
-    out_folder = get_save_folder()
+    out_folder = get_save_folder(sim_handle)
     print(OUTPUT_PATH)
     
     num_steps = len(ff_calculator.get_times_SCATTER())
@@ -186,8 +189,8 @@ def charges(crystal:Crystal,ff_calculator:Plotter,csv=False,individual_elements 
     print(f"Total: {num_atoms_for_print}")
 
     print("Generating:")
-    #for element in crystal.species_dict.keys():
-    for element in ["Na","Cl","S","H","C","N","O"]:
+    for element in crystal.species_dict.keys():
+    #for element in ["Na","Cl","S","H","C","N","O"]:
         print(f"{element}...")
         element_obj:Atomic_Species = crystal.species_dict[element]
         if average_charges:
@@ -202,19 +205,27 @@ def charges(crystal:Crystal,ff_calculator:Plotter,csv=False,individual_elements 
             #if element_obj.name == "I_fast":
             species_charges[element] = np.maximum(0,species_charges[element])
         num_atoms += element_obj.get_num_atoms()
+    assert num_atoms > 0
     
  
     # Order charges in order that matches the structure file. 
     combined_charges = np.empty(shape = (num_atoms,num_steps))  # (num atoms, times)   
     species_list = np.empty(shape = (num_atoms,),dtype=object)
+    tuples=[]
         
+    # Need to track the serial numbers so that we can create charge file in order, while also allowing for possibility that there are jumps in serial num. 
+    j=0
     for element, charges in species_charges.items():
         for i, s_num in enumerate(crystal.species_dict[element].serial_numbers):
             if average_charges:
-                combined_charges[s_num-1] = charges
+                tuples.append((charges,element,s_num))
             else:
-                combined_charges[s_num-1] = charges[i]
-            species_list[s_num-1] = element
+                tuples.append((charges[i],element,s_num))
+            j+=1
+        tuples.sort(key=lambda x: x[2]) # sort by serial num
+        for i, (charges,_,_) in enumerate(tuples):
+            combined_charges[i]=charges
+
 
         if individual_elements:
             PDB_element = element.split("_")[0]
@@ -224,18 +235,18 @@ def charges(crystal:Crystal,ff_calculator:Plotter,csv=False,individual_elements 
         #     assert q < ATOMNO[element], f"{q},{ATOMNO[a]}"
         
     create_charge_file(combined_charges,None,out_folder,csv=csv)    # Each row is an atom. each column is a time step.
-    for charges, a in zip(combined_charges,species_list):
+    for charges, a, _ in tuples:
         for q in charges:
             assert q <= ATOMNO[a], f"{q},{ATOMNO[a]}"
 
 
-def DebyeLength(ff_calculator:Plotter,csv=False):
+def DebyeLength(ff_calculator:Plotter,sim_handle,csv=False):
     pl = ff_calculator
     
 
     tempList = []
     denseList = []
-    for t in ff_calculator.get_times_SCATTER():
+    for t in pl.get_times_SCATTER():
         tempList.append( pl.get_temp(t, 1000) ) # eV
         # denseList.append( pl.get_free_electron_density(t) ) # per angstrom cube
 
@@ -258,50 +269,118 @@ def DebyeLength(ff_calculator:Plotter,csv=False):
     lambdaD=np.sqrt(C.epsilon_0 * C.nano * T *C.eV / n /C.e/C.e) # should have units nm
     #lambdaD=np.sqrt(C.epsilon_0 * C.angstrom * T *C.eV / n /C.e/C.e) # should have units Angstrom
 
-    out_folder = get_save_folder()
+    out_folder = get_save_folder(sim_handle)
     create_data_file(T*11606,"electron_temperature",out_folder,csv=csv) # K
     create_data_file(n/C.nano**3,"electron_density",out_folder,csv=csv) # nm^-3
     create_data_file(lambdaD,"debye_data",out_folder,csv=csv) # nm
 
 
 
-def convert_to_molDStruct(sim_handle:str,target_path:str,num_steps:int):
-        allowed_atoms = get_sim_elements(sim_handle)
-        #allowed_atoms = ["Na","Cl","S","H","C","N","O"]
 
-        crystal = Crystal(target_path,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=False,**crystal_params)
+def get_plotter(handle,parent_dir_path,start_time,end_time,t_fineness)->Plotter:
+    ff_calculator = Plotter(handle,parent_dir_path,out_prefix_text = "Setting up plotter...",
+                            skip_mol_file=True,
+                            initialise=False)
+    plt.close()
+    ff_calculator.initialise_charges_only()
+    ff_calculator.initialise_form_factor_params(start_time,end_time,None,None,t_fineness=t_fineness) # q_fineness isn't used for our purposes.   
+    return ff_calculator
+
+def convert_to_molDStruct(sim_handle:str,target_path:str,num_steps:int,allowed_atoms,start_time,end_time,debye=True,sim_parent_dir_path=None,param_dict=None):
 
 
-        target_handle = '.'.join(os.path.basename(target_path).split('.')[:-1])
+    crystal_params = dict(
+        supercell_scale = 1,  ##3 # for SC: cell_scale^3 unit cells 
+        num_supercells = 1,
+        supercell_simulations = 1,        
+        include_symmetries = None, ##True  # should unit cell contain symmetries?
+        positional_stdv = 0, # Introduces disorder to positions. Note this is a deviation from the IDEAL structure, so is not a measure of similarity with undamaged and damaged structure but the ideal structure to recover and the dmaaged structure. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if quickly gauging serial crystallography R factor, as should somewhat average out.
+        cell_packing = "SC",
+        rocking_angle = 1.2,  # (approximating mosaicity, infinite crystal sim only)
+    )
 
-        param_dict,_,_ = get_sim_params(sim_handle)
+    crystal = Crystal(target_path,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=False,**crystal_params)
+    # Assign plotter object to calculate charges (this is code debt)
+    ff_calculator = get_plotter(sim_handle,sim_parent_dir_path,start_time,end_time,t_fineness=num_steps)   
+    ff_calculator.allow_select_same_times = ALLOW_SELECT_SAME_TIMES  
+    crystal.set_ff_calculator(ff_calculator) 
+
+
+    os.makedirs(get_save_folder(sim_handle), exist_ok=True) 
+    
+    charges(crystal,ff_calculator,sim_handle,csv=SAVE_CSV_COPY)
+    if debye:
+        DebyeLength(ff_calculator,sim_handle,csv=SAVE_CSV_COPY)
+
+
+    log_file = get_save_folder(sim_handle) + "log.txt"
+    target_handle = '.'.join(os.path.basename(target_path).split('.')[:-1])
+    with open(log_file,'w') as f:
+        f.write(textwrap.dedent(f"""\
+                target: {target_handle}
+                plasma simulation: {sim_handle}
+                p. sim. parameters: {param_dict if param_dict is not None else '-'}
+                """))
+    
+    print("Done! Remember to sit straight!")
+
+def convert_to_molDStruct_standard(sim_handle:str,target_path:str,num_steps:int,debye=True,sim_parent_dir_path=None):
+        allowed_atoms = get_sim_elements(sim_handle,molecular_path=sim_parent_dir_path)
+
+
+        param_dict,_,_ = get_sim_params(sim_handle,molecular_path=sim_parent_dir_path)
         start_time = param_dict["start_t"]
         end_time = param_dict["end_t"]
-        energy = param_dict["energy"]
+        #energy = param_dict["energy"]
 
 
 
-        # Assign plotter object to calculate charges (because code debt)
-        xfel = XFEL("dummy",energy,t_fineness=num_steps)
-        ff_calculator = xfel.get_ff_calculator(start_time,end_time,sim_handle,MOLECULAR_PATH)   
-        ff_calculator.allow_select_same_times = ALLOW_SELECT_SAME_TIMES  
-        #crystal.plot_me()
-        crystal.set_ff_calculator(ff_calculator)    
 
-        # TODO json format.
-        log_file = get_save_folder() + "log.txt"
-        os.makedirs(get_save_folder(), exist_ok=True) 
-        with open(log_file,'w') as f:
-            f.write(textwrap.dedent(f"""\
-                    target: {target_handle}
-                    plasma simulation: {sim_handle}
-                    p. sim. parameters: {param_dict}
-                    """))
+        convert_to_molDStruct(sim_handle,target_path,num_steps,allowed_atoms,start_time,end_time,debye,sim_parent_dir_path,param_dict)
 
-        charges(crystal,ff_calculator,csv=SAVE_CSV_COPY)
-        DebyeLength(ff_calculator,csv=SAVE_CSV_COPY)
-        #LennardJones()
-        print("Done! Remember to sit straight!")
+
+# def convert_to_molDStruct_standard(sim_handle:str,target_path:str,num_steps:int,debye=True,sim_parent_dir_path=None):
+#         allowed_atoms = get_sim_elements(sim_handle,molecular_path=sim_parent_dir_path)
+
+
+#         crystal_params = dict(
+#             supercell_scale = 1,  ##3 # for SC: cell_scale^3 unit cells 
+#             num_supercells = 1,
+#             supercell_simulations = 1,        
+#             include_symmetries = None, ##True  # should unit cell contain symmetries?
+#             positional_stdv = 0, # Introduces disorder to positions. Note this is a deviation from the IDEAL structure, so is not a measure of similarity with undamaged and damaged structure but the ideal structure to recover and the dmaaged structure. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if quickly gauging serial crystallography R factor, as should somewhat average out.
+#             cell_packing = "SC",
+#             rocking_angle = 1.2,  # (approximating mosaicity, infinite crystal sim only)
+#         )
+
+#         crystal = Crystal(target_path,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=False,**crystal_params)
+
+
+#         target_handle = '.'.join(os.path.basename(target_path).split('.')[:-1])
+
+#         param_dict,_,_ = get_sim_params(sim_handle,molecular_path=sim_parent_dir_path)
+#         start_time = param_dict["start_t"]
+#         end_time = param_dict["end_t"]
+#         energy = param_dict["energy"]
+
+
+
+#         # Assign plotter object to calculate charges (because code debt)
+#         xfel = XFEL("dummy",energy,t_fineness=num_steps)
+#         ff_calculator = xfel.get_ff_calculator(start_time,end_time,sim_handle,sim_parent_dir_path)   
+#         ff_calculator.allow_select_same_times = ALLOW_SELECT_SAME_TIMES  
+#         #crystal.plot_me()
+#         crystal.set_ff_calculator(ff_calculator)    
+
+#         # TODO json format.
+#         log_file = get_save_folder(sim_handle) + "log.txt"
+#         os.makedirs(get_save_folder(sim_handle), exist_ok=True) 
+
+#         charges(crystal,ff_calculator,csv=SAVE_CSV_COPY)
+#         if debye:
+#             DebyeLength(ff_calculator,csv=SAVE_CSV_COPY)
+
+#         with open(log_file,'w') as f:
 
 if __name__ == "__main__":
 
@@ -330,17 +409,7 @@ if __name__ == "__main__":
     #target_path=TARGET_DIR + target
     AVERAGE_CHARGES = False
 
-    crystal_params = dict(
-        supercell_scale = 1,  ##3 # for SC: cell_scale^3 unit cells 
-        num_supercells = 1,
-        supercell_simulations = 1,        
-        include_symmetries = None, ##True  # should unit cell contain symmetries?
-        positional_stdv = 0, # Introduces disorder to positions. Note this is a deviation from the IDEAL structure, so is not a measure of similarity with undamaged and damaged structure but the ideal structure to recover and the dmaaged structure. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if quickly gauging serial crystallography R factor, as should somewhat average out.
-        cell_packing = "SC",
-        rocking_angle = 1.2,  # (approximating mosaicity, infinite crystal sim only)
-    )
-
-    convert_to_molDStruct(sim_handle,target_path,num_steps)
+    convert_to_molDStruct_standard(sim_handle,target_path,num_steps)
 
 
 

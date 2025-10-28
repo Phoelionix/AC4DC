@@ -40,9 +40,9 @@ class Plotter:
     # Example initialisation: Plotter(water,molecular/path)
     # --> Data is contained in molecular/path/water. 
     # Will use mol file within by default, or (with a warning) search input for matching name if none exists.  
-    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None,end_t=None,load_specific_atoms=None,sample_end_points_only=False,split_continuums_to_load=[],initialise=True,load_bound_delta_data=True):
+    def __init__(self, data_folder_name, abs_molecular_path = None, num_subplots=None,use_electron_density = False,out_prefix_text = None,end_t=None,load_specific_atoms=None,sample_end_points_only=False,split_continuums_to_load=[],initialise=True,load_bound_delta_data=True,skip_mol_file=False):
         '''
-        abs_molecular_path: The path to the folder containing the simulation output folder of interest.
+        abs_molecular_path: The path to the folder containing the simulation output folder of interest. TODO change variable name, it's confusing
         use_electron_density: If True, plot electron density rather than energy density
         '''
         self.end_t_plotting = end_t
@@ -59,9 +59,9 @@ class Plotter:
         if out_prefix_text is None:
             out_prefix_text = "Initialising plotting with"
         molfile = get_mol_file(self.input_path,self.molecular_path,data_folder_name,"y",out_prefix_text = out_prefix_text) 
-        self.sim_params = get_sim_params(data_folder_name,self.input_path,self.molecular_path)[0]
-        
-        self.mol = {'name': data_folder_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}        
+        if not skip_mol_file:
+            self.sim_params = get_sim_params(data_folder_name,self.input_path,self.molecular_path)[0]
+            self.mol = {'name': data_folder_name, 'infile': molfile, 'mtime': path.getmtime(molfile)}        
 
         # Stores the atomic input files read by ac4dc
         self.atomdict = {}
@@ -991,6 +991,38 @@ class Plotter:
             self.freeData = self.freeData[0:last_idx]
 
 
+    def initialise_charges_only(self):
+        # just look at bound data available
+        for file in os.listdir(self.outDir):
+            if file.startswith("dist_"):
+                atom = file.split('.')[0][5:]
+                assert atom not in self.atomdict
+                self.atomdict[atom]={'outfile':path.join(self.outDir,file)}
+                
+        for a in self.atomdict:
+            if self.sample_end_points:
+                with open(self.atomdict[a]['outfile'],'rb') as f:
+                    lines = f.readlines()
+                    raw = np.genfromtxt(lines[-self.num_sample_lines:], comments='#', dtype=np.float64)
+            else:
+                raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
+            self.boundData[a] = raw[:, 1:]
+            self.statedict[a] = self.get_bound_config_spec(a)
+            self.timeData = raw[:, 0]
+        self.aggregate_charges()
+            # rates
+            # try:
+            #     if self.sample_end_points:
+            #         with open(self.atomdict[a]['photofile'],'rb') as f:
+            #             lines = f.readlines()
+            #             raw = np.genfromtxt(lines[-self.num_sample_lines:], comments='#', dtype=np.float64)
+            #     else:
+            #         raw = np.genfromtxt(self.atomdict[a]['photofile'], comments='#', dtype=np.float64)
+                
+            #     self.photoData[a] = raw[:, 1] 
+            #     photo_data_present = True
+            # except:
+            #     print("Warning: Missing '" + self.atomdict[a]['photofile'] + "'.")
 
     def update_outputs(self): # as in the outputs of ac4dc stored in this class
         
