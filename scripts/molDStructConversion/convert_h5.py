@@ -82,9 +82,9 @@ def gen_files(path,mimic_sim_out_dir):
 
         # do Debye separately since already have the data
         out_dir=get_save_folder(mimic_handle)
-        create_data_file(free_electron_temperature,"electron_temperature",out_dir,csv=False) # K
-        create_data_file(free_electron_density,"electron_density",out_dir,csv=False) # nm^-3
-        create_data_file(debye_length,"debye_data",out_dir,csv=False) # nm
+        create_data_file(free_electron_temperature*11606,"electron_temperature",out_dir,csv=False) # eV --> K
+        create_data_file(1e-9*free_electron_density,"electron_density",out_dir,csv=False) # cm^-3 --> nm^-3
+        create_data_file(1e9*debye_length,"debye_data",out_dir,csv=False) # m --> nm
             
 
             # df = pd.DataFrame(charge_states)
