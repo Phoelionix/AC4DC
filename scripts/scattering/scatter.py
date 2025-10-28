@@ -125,8 +125,13 @@ class Custom_Gromacs_Parser():
                             vals[1] = vals[1][:-oom]
 
                         element = None    
-                        if vals[1].strip() in ("NA","CL"):
-                            element = vals[1]
+                         # NOTE if modify here, need to modify in parser
+                        name = vals[1].strip()
+                        if name in ("NA","CL"):
+                            element = name
+                        special_convert_dict={"FE":"FE","CLA":"CL","SOD":"NA"}
+                        if name in special_convert_dict:
+                            element = special_convert_dict[name]
                         atom = PDB_Atom(
                             name = vals[1],
                             coord = (float(vals[3])*10,float(vals[4])*10,float(vals[5])*10), # converts from nm to angstrom
@@ -286,7 +291,7 @@ class Crystal():
         # different names
         PDB_to_AC4DC_dict = dict(
             #NA = "Sodion", CL = "Chloride",
-            NA = "Na", CL = "Cl", CU="Cu",
+            NA = "Na", CL = "Cl", CU="Cu",FE="Fe",CLA="CL",SOD="NA"
         )
         # Same names
         for elem in ["H","He","C","N","O","P","S","Gd","I"]:  # pdb names # TODO automate this...
@@ -312,7 +317,8 @@ class Crystal():
             # Get structure using Bio.PDB's parser
             parser=copy.deepcopy(xPDBParser)
         structure_id = os.path.basename(self.struct_file_path)
-        structure = parser.get_structure(structure_id, self.struct_file_path)   
+        structure = parser.get_structure(structure_id, self.struct_file_path)  
+        # NOTE if modify here, need to modify in pdb_to_AC4DC_dict 
         for atom in structure.get_atoms(): # XXX Patch
             if atom.name in ("NA","CL"):
                 atom.element = atom.name  
@@ -1031,7 +1037,7 @@ class Atomic_Species():
             pass
            #self.ground_state = self.crystal.ff_calculator.get_ground_state_shells(self.name)       
     def get_num_atoms(self):
-        return len(self.crystal.sym_rotations)*len(self.coords)    
+        return max(1,len(self.crystal.sym_rotations))*len(self.coords)    
     def set_coord_deviation(self,q):
         # B factor
         if self.crystal.use_bfactors:

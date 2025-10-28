@@ -24,7 +24,7 @@ SCATTER_DIR = SCRIPTS_DIR +"scattering/"
 OUTPUT_PATH =  path.abspath(path.join(__file__ ,"../"))+ "/output/"
 
 TARGET_DIR = SCATTER_DIR+ "targets/"
-TARGET_PATH= TARGET_DIR+"crystal_solv_w1950_eq.pdb"
+TARGET_PATH= TARGET_DIR+"hemoglobin_solv_Hfix.gro"
 
 
 def data_to_ac4dc_format(times,values):
@@ -90,7 +90,8 @@ def gen_files(path,mimic_sim_out_dir):
             # df = pd.DataFrame(charge_states)
             # df.to_csv("path/to/file.csv",header=False,index=False)
             
-for handle in ["3fs","10fs"]:
+#for handle in ["3fs","10fs"]:
+for handle in ["10fs"]:
     gen_files(f"hdf5_files/{handle}.h5",f"{handle}_converted/")
 
 
