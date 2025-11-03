@@ -18,6 +18,10 @@ gmx='/home/speno/programs/bin' # path to where GROMACS is installed
 
 working_folder=$1 # full path
 target_handle=$2
+a=$3
+b=$4
+c=$5
+add_disordered_water=$6
 
 working_folder="$(realpath $working_folder)"
 
@@ -33,22 +37,43 @@ mkdir topology
 
 out1=$working_folder/_bash/${target_handle}_pre_water_processed.gro
 rm -f $out1
-$gmx/pdb2gmx -f /home/speno/AC4DC/scripts/scattering/targets/${target_handle}.pdb -o $out1  -p  $working_folder/_bash/topol.top  -water spce  <<EOF
-15
+#$gmx/pdb2gmx -f /home/speno/AC4DC/scripts/scattering/targets/${target_handle}.pdb -o $out1  -p  $working_folder/_bash/topol.top  -water spce  <<EOF
+$gmx/pdb2gmx -f /home/speno/AC4DC/scripts/scattering/targets/${target_handle}.pdb -o $out1  -p  $working_folder/_bash/topol.top  -water spce  -nocmap <<EOF
+9
 EOF
+# 9  CHARMM36 (2020). (works for HISD, HIS1, HEME)
+# 8 CHARMM27
+# EOF
+# 15 OPLS-AA/L
+# EOF
+
+
+for expected_path in $out1; do 
+    if [ ! -f $expected_path ]; then 
+        echo "Error: $expected_path not found" 
+        exit 
+    fi
+done
 
 # https://pmc.ncbi.nlm.nih.gov/articles/PMC11457149/
 
-out2=$working_folder/_bash/${target_handle}_processed.gro
-rm -f $out2
-rm -f box.gro
-$gmx/editconf -f $out1 -o box.gro -c  -box 7.9 7.9 3.8
+out2=$out1
+if $add_disordered_water; then 
+    out2=$working_folder/_bash/${target_handle}_processed.gro
+    rm -f $out2
+    rm -f box.gro
+    $gmx/editconf -f $out1 -o box.gro -c  -box $a $b $c # 7.9 7.9 3.8
 
+    #NOte the p flag is to update the topology
+    $gmx/$name_of_solvate_program -cp box.gro -cs spc216.gro -o $out2 -p topol.top
+fi
 
-#NOte the p flag is to update the topology
-$gmx/$name_of_solvate_program -cp box.gro -cs spc216.gro -o $out2 -p topol.top
-
-
+for expected_path in $out2; do 
+    if [ ! -f $expected_path ]; then 
+        echo "Error: $expected_path not found" 
+        exit 
+    fi
+done
 
 
 ######$gmx/$name_of_solvate_program -cp $out1 -cs spc216.gro -o $out2 
@@ -64,8 +89,11 @@ EOF
 mv *.top topology/
 mv *.itp topology/
 
+if [ -d $working_folder/topology/ ]; then 
+    rm -r $working_folder/topology/
+fi
 
-#rm -r $working_folder/topology/
+
  
 cp -r topology/ $working_folder/topology/ 
 

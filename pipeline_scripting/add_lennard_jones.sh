@@ -23,5 +23,6 @@ fi
 rm -f $working_folder/IONIZATION_DATA/$out_lj_file
 mv $out_lj_file $working_folder/IONIZATION_DATA/ 
 
+echo "Added LJ"
 
 rm gmxdump_out

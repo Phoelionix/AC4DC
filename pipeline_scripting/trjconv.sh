@@ -10,7 +10,9 @@ gromacs_file_path=$3
 out_folder=$4
 
 
-dt=0.001
+dt=0.0004
+#dt=0.001
+#dt=0.001
 #out_folder="$(realpath ~/AC4DC/scripts/scattering/targets/)" 
 
 handle=$(basename $working_folder)

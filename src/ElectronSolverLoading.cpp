@@ -84,6 +84,9 @@ void ElectronRateSolver::loadFreeRaw_and_times() {
     cout << "\n[ Free ] Applying free distribution from file with order 64 gaussian quadrature: "<<fname<<"..."<<endl;
     cout << "[ Caution ] Ensure same atomic input files are used!"<<endl;
     
+
+    std::cout << "\n[ Dynamic Grid ] Loading density data from file path: "<<fname<<"..."<<std::endl;
+
     ifstream infile(fname);
 	if (infile.good())
         std::cout<<"Opened successfully!"<<endl;
@@ -286,7 +289,7 @@ void ElectronRateSolver::loadKnots() {
 
     const std::string& fname = input_params.Load_Folder() + "knotHistory.csv";
 
-    cout << "\n[ Dynamic Grid ] Loading knots from file path: "<<fname<<"..."<<endl;
+    std::cout << "\n[ Dynamic Grid ] Loading knots from file path: "<<fname<<"..."<<std::endl;
     
     ifstream infile(fname);
 	if (infile.good())
@@ -454,7 +457,9 @@ void ElectronRateSolver::loadBound() {
         transition_energy(n, param_cutoffs.transition_e);    
         param_cutoffs.transition_e = max(param_cutoffs.transition_e,2*regimes.mb_max); // mainly for case that transition region continues to dip into negative (in which case the transition region doesn't update).   
         // Set basis
-        Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots = false;
+        #ifdef FIND_INITIAL_DIRAC
+            Distribution::dynamic_grid_needs_to_be_reset_with_dynamically_chosen_knots = input_params.loaded_grid_needs_reset;
+        #endif
         Distribution::set_basis(n, param_cutoffs, regimes,  Distribution::get_knots_from_history(n)); 
         this->set_zero_y();     
     }    

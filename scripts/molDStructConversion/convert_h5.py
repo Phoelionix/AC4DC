@@ -1,7 +1,7 @@
 #%%
 import h5py
 import numpy as np
-import os
+import os,sys
 import os.path as path
 import pandas as pd
 from convert_to_molDStruct import create_data_file,convert_to_molDStruct,get_save_folder
@@ -17,7 +17,6 @@ for symbol in ATOMS:
     i += 1
 #####
 
-runid = 9
 SCRIPTS_DIR = path.abspath(path.join(__file__ ,"../../")) + "/"
 
 SCATTER_DIR = SCRIPTS_DIR +"scattering/"
@@ -34,7 +33,7 @@ def data_to_ac4dc_format(times,values):
 
     return np.column_stack((times,values))
 
-def gen_files(path,mimic_sim_out_dir):
+def gen_files(path,runid,mimic_sim_out_dir):
     with h5py.File(path, "r") as f:
         runname = f"run{runid:02d}"
         #runname = "run%02d" % runid
@@ -91,10 +90,14 @@ def gen_files(path,mimic_sim_out_dir):
             # df.to_csv("path/to/file.csv",header=False,index=False)
             
 #for handle in ["3fs","10fs"]:
-for handle in ["10fs"]:
-    gen_files(f"hdf5_files/{handle}.h5",f"{handle}_converted/")
+# for handle in ["10fs"]:
+#     gen_files(f"hdf5_files/{handle}.h5",f"{handle}_converted/")
 
-
+if __name__ == "__main__":
+    assert len(sys.argv)==4
+    hdf5_folder_path,handle,runid= sys.argv[1:]
+    gen_files(os.path.join(hdf5_folder_path,f"{handle}.h5"),int(runid),
+              mimic_sim_out_dir=os.path.join(path.abspath(path.join(__file__ ,"../")),"output",f"{handle}_{runid}_converted","")) 
 
     #np.savetxt('output.csv', data, delimiter=',', fmt='%f')
 # %%

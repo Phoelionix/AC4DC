@@ -220,8 +220,11 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 		if (n == 0){stream >> load_folder;
 			load_folder = "output/__Molecular/" + load_folder + "/";
 		}
-		if (n == 1) stream >> simulation_resume_time_max;
-		if (n == 2 && (stream.get() =='t'||stream.get() =='T')){
+		if (n == 1 && (stream.get() =='t'||stream.get() =='T')){
+			loaded_grid_needs_reset = true;
+		} 
+		if (n == 2) stream >> simulation_resume_time_max;
+		if (n == 3 && (stream.get() =='t'||stream.get() =='T')){
 			loading_uses_input_timestep = true;
 		} 
 	}

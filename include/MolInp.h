@@ -99,6 +99,8 @@ public:
 	char electron_source_type = 'c'; // (c)onstant: rate is ([intensity]/[initial intensity]) * [initial photoion. rate of atoms in target]  *  [electron source fraction]. | (p)roportional: rate is [source fraction] * [total photionisation rate of all atoms in target].   
 
 	double single_cascade_energy=4;
+
+	bool loaded_grid_needs_reset=false;
 	
 protected:
 

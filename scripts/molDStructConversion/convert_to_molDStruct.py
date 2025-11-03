@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 #sim_handle = "lys_salt_solvated_fast_H_4"
 AVERAGE_CHARGES = None 
 ALLOW_SELECT_SAME_TIMES = True
-SAVE_CSV_COPY = True
+SAVE_CSV_COPY = False
 
 
 def get_charge_states(element:Atomic_Species,element_charge_snapshot_selector=None):
@@ -172,7 +172,7 @@ def get_save_folder(sim_handle):
 
 def charges(crystal:Crystal,ff_calculator:Plotter,sim_handle,csv=False,individual_elements = False,average_charges=AVERAGE_CHARGES):
     if average_charges is None:
-        average_charges = True 
+        average_charges = False
     print("Beginning writing of charges...")
 
     out_folder = get_save_folder(sim_handle)

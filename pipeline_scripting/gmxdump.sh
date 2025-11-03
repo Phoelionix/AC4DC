@@ -11,7 +11,15 @@ cd $(dirname $0)
 rm -f gmxdump_out
 
 
-"$gmx/grompp"  -f $working_folder/full_sim.mdp -c $gro_file  -n $working_folder/index.ndx -p $working_folder/topology/topol.top -o $working_folder/output.tpr -maxwarn 3  # create .tpr file
+i=0
+while [ ! -f $working_folder/output.tpr ]; do
+    "$gmx/grompp"  -f $working_folder/full_sim.mdp -c $gro_file  -n $working_folder/index.ndx -p $working_folder/topology/topol.top -o $working_folder/output.tpr -maxwarn 3  # create .tpr file
+    i=$((i+1))
+    if [ "$i" -ge 99 ]; then
+        echo "Couldn't generate tpr file"
+        exit
+    fi 
+done
 
 rm mdout.mdp
 

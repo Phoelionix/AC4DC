@@ -448,7 +448,9 @@ class Plotter:
         charges = np.empty(shape=(len(states_list),),dtype=int)
         for i, state in enumerate(states_list):
             charges[i] = charge_dict[state]
-            assert charges[i] <= ATOMNO[atom], (i, charges[i], atom, ATOMNO[atom])        
+            assert charges[i] <= ATOMNO[atom], (i, charges[i], atom, ATOMNO[atom])    
+        if atom == "FE" or atom == "Fe":
+            print(charges)    
         return charges  # (times,)
         
     def continuity_charge_snapshots(self,atom,seed=None):

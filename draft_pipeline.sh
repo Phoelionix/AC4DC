@@ -5,6 +5,8 @@ set -u
 
 NUM_MD=10
 
+shake=0.01
+
 cd $(dirname "$0")
 
 pdb_file="scripts/scattering/targets/4et8.pdb" 
@@ -71,7 +73,11 @@ for ((idx=1; idx<(NUM_MD+1); idx++)) {
     # TODO assert generated (mv "old/path" to "old/path#")
     cp -r scripts/molDStructConversion/output/${sim_output_handle}${TEMP_conversion_output_tag}/IONIZATION_DATA $gromacs_work_folder
 
-    bash pipeline_scripting/run_photon_matter_simulation.sh $idx $gromacs_work_folder $gromacs_unitcell_target_handle.gro $TEMP_nsteps $TEMP_dt
+    if [ -f $gromacs_work_folder/output_$idx.xtc ]; then
+        mv $gromacs_work_folder/output_$idx.xtc $gromacs_work_folder/output_$idx.xtc#
+    fi
+
+    bash pipeline_scripting/run_photon_matter_simulation.sh $idx $gromacs_work_folder $gromacs_unitcell_target_handle.gro $TEMP_nsteps $TEMP_dt $shake
     bash pipeline_scripting/trjconv.sh $idx $gromacs_work_folder $gromacs_file_path $MD_output_dir 
 }
 
