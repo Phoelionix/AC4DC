@@ -27,7 +27,7 @@ if separate:
     for f in xvg_file_paths:
         assert f[-4:]==".xvg"
         x,y = np.loadtxt(f,comments=("@","#"),unpack=True)
-        plot_data(x,y,save_path=f"{f[:-4]}_rms.png")
+        plot_data(x,y,save_path=f"{f[:-4]}_xvgout.png")
 else:
     y_values=[] 
     x=None   
@@ -38,7 +38,7 @@ else:
         assert np.all(x==new_x) 
         y_values.append(y)
     y_mean = np.mean(y_values,axis=0)
-    plot_data(x,y_mean,save_path=f"{os.path.dirname(xvg_file_paths[0])}/out_rms_mean.png")
+    plot_data(x,y_mean,save_path=f"{os.path.dirname(xvg_file_paths[0])}/xvgout_mean.png")
 
 if block and GUI:
     plt.show()

@@ -47,8 +47,9 @@ while [ ! -f output_$idx.tpr ]; do
 done
 
 
+rm -f \#*.*.*\#  # Remove extra backup files like "#output_8.edr.10#"
 
-"$gmx/mdrun" -s output_$idx.tpr -v -deffnm output_$idx # run simulation, use -nt X, where X is number of cores you want to run with specific number of cores
+"$gmx/mdrun" -s output_$idx.tpr -deffnm output_$idx -v -nt 16 # run simulation, use -nt X, where X is number of cores you want to run with specific number of cores. -v is verbose
 
 rm MPI_slice_n*
 

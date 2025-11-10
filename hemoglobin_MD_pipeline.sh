@@ -71,7 +71,10 @@ fi
 
 echo "Running photon matter simulation"
 width=10fs
-for ((runid=1; runid<10; runid++)) {
+#for ((runid=1; runid<10; runid++)) {
+for ((idx=1; idx<(NUM_MD+1); idx++)) {
+for ((runid=9; runid<15; runid+=1)) {
+#for ((runid=9; runid>4; runid-=2)){
     plasma_tag=${width}_${runid}
     moldstruct_conversion_output_handle=converted_charges_${plasma_tag}
 
@@ -79,15 +82,18 @@ for ((runid=1; runid<10; runid++)) {
     #MD_output_dir=scripts/scattering/targets/
     mkdir -p $MD_output_dir
     
-    python3.9 scripts/molDStructConversion/convert_h5.py scripts/molDStructConversion/hdf5_files/ $width $runid
     ION_DATA_PATH=scripts/molDStructConversion/output/${moldstruct_conversion_output_handle}${TEMP_conversion_output_tag}/IONIZATION_DATA
     
     if [ ! -d $ION_DATA_PATH ]; then 
-        echo "$ION_DATA_PATH not found"
+        echo "Generating electron data"
+        python3.9 scripts/molDStructConversion/convert_h5.py scripts/molDStructConversion/hdf5_files/ $width $runid
         exit
     fi
-    
-    for ((idx=1; idx<(NUM_MD+1); idx++)) {
+    if [ ! -d $ION_DATA_PATH ]; then 
+        echo "$ION_DATA_PATH was not generated for unknown reason."
+        exit
+    fi
+    ####
         echo "Generating molDStruct inputs from AC4DC"
         #
         # 
@@ -108,9 +114,11 @@ for ((runid=1; runid<10; runid++)) {
             echo "output failed"
             exit
         fi
-        
-        bash pipeline_scripting/trjconv.sh $idx $gromacs_work_folder $gromacs_file_path $MD_output_dir
-    }
+
+        #bash pipeline_scripting/trjconv.sh $idx $gromacs_work_folder $gromacs_file_path $MD_output_dir
+        bash pipeline_scripting/trjcopy.sh $gromacs_work_folder/output_${idx}.xtc  $MD_output_dir
+    ####
+}
 }
 
 
