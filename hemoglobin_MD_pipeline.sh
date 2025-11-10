@@ -8,7 +8,9 @@ NUM_MD=10
 shake=0
 
 TEMP_nsteps=2000 # TODO read it
-TEMP_dt=0.00003
+#TEMP_dt=0.00003; width=10fs
+TEMP_dt=0.00001; width=3fs
+
 
 cd $(dirname "$0")
 
@@ -70,10 +72,9 @@ if $new_charges_each_loop; then
 fi
 
 echo "Running photon matter simulation"
-width=10fs
 #for ((runid=1; runid<10; runid++)) {
 for ((idx=1; idx<(NUM_MD+1); idx++)) {
-for ((runid=9; runid<15; runid+=1)) {
+for ((runid=9; runid<17; runid+=1)) {
 #for ((runid=9; runid>4; runid-=2)){
     plasma_tag=${width}_${runid}
     moldstruct_conversion_output_handle=converted_charges_${plasma_tag}
@@ -87,7 +88,6 @@ for ((runid=9; runid<15; runid+=1)) {
     if [ ! -d $ION_DATA_PATH ]; then 
         echo "Generating electron data"
         python3.9 scripts/molDStructConversion/convert_h5.py scripts/molDStructConversion/hdf5_files/ $width $runid
-        exit
     fi
     if [ ! -d $ION_DATA_PATH ]; then 
         echo "$ION_DATA_PATH was not generated for unknown reason."
