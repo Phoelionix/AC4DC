@@ -103,6 +103,7 @@ class Custom_Gromacs_Parser():
             self.conf_path = conf_path
         def get_atoms(self):
             atoms = []
+            NA_CL_warning=False
             with open(self.conf_path) as gromacs_config_file:
                 i = 1
                 header_remaining = 2
@@ -127,8 +128,11 @@ class Custom_Gromacs_Parser():
                         element = None    
                          # NOTE if modify here, need to modify in parser
                         name = vals[1].strip()
+
+                        # Commented out to avoid confusing with atom labelled NA in HEME.
                         if name in ("NA","CL"):
-                            element = name
+                            NA_CL_warning = True
+                            #element = name
                         special_convert_dict={"FE":"FE","CLA":"CL","SOD":"NA"}
                         if name in special_convert_dict:
                             element = special_convert_dict[name]
@@ -145,7 +149,8 @@ class Custom_Gromacs_Parser():
                         atoms.append(atom)
                         assert(int(vals[2])==i)
                         i+=1
-                    
+            if NA_CL_warning:
+                print(f"Warning: atom with name NA or CL not set to corresponding element")
             return atoms
 
     def get_structure(self,structure_id, conf_path):
