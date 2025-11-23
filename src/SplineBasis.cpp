@@ -489,7 +489,10 @@ std::vector<std::pair<double,double>> BasisSet::knots_between(double bottom, dou
     if (bottom >= top) return intervals;
     size_t bottomidx = lower_idx(bottom, knot);
     size_t topidx = lower_idx(top, knot) + 1;
-    if (topidx >= knot.size()) topidx = knot.size() -1;
+    //if (topidx >= knot.size()) topidx = knot.size() -1;
+    if (bottomidx >= knot.size() - 1)
+        return intervals;    
+    if (topidx >= knot.size()-1) topidx = knot.size() -2;
     for (size_t i = bottomidx; i<= topidx; i++){
         intervals.push_back(std::pair<double,double>(knot[i],knot[i+1]));
     }
