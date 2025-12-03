@@ -3,18 +3,18 @@ import sys
 import os
 import pandas as pd
 import os.path as path
-sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
-sys.path.append('/home/speno/AC4DC/scripts/scattering')
-sys.path.append('/home/speno/AC4DC/scripts/')
+sys.path.append('/home/spencer/AC4DC/scripts/pdb_parser')
+sys.path.append('/home/spencer/AC4DC/scripts/scattering')
+sys.path.append('/home/spencer/AC4DC/scripts/')
 from scattering.scatter import XFEL,Crystal,stylin,Atomic_Species
 from core_functions import get_sim_params,get_sim_elements,get_pdb_path,ATOMNO
-import scattering.imaging_params as imaging_params
 import numpy as np
 from scipy import constants as C
 import struct
 import textwrap
 from plotter_core import Plotter # For typing
 import matplotlib.pyplot as plt
+import conditional_charges
 
 
 # Converts AC4DC data to IONIZATION_DATA used for input to MolDStruct CR-MD.
@@ -40,6 +40,12 @@ def get_charge_states(element:Atomic_Species,element_charge_snapshot_selector=No
         raise Exception("num atoms was not same on set_stochastic_states call as when set by set_coord_deviation")
     if element.crystal.is_damaged:
         charges = np.empty(shape = (element.get_num_atoms(),len(element.times_used)),dtype=int)  # (num atoms, times)   
+        DEBUG_TEMP=False
+        if DEBUG_TEMP:
+            print("WARNING DONT USE THIS!!!!!")
+            if element.name == "H" or element.name == "C" or element.name == "O":
+              return np.zeros(shape = (element.get_num_atoms(),len(element.times_used)),dtype=int)  # (num atoms, times)   
+        
         for idx in range(element.get_num_atoms()):
             seed = None
             if SEEDED:
@@ -170,43 +176,55 @@ def get_save_folder(sim_handle):
 
 
 
-def charges(crystal:Crystal,ff_calculator:Plotter,sim_handle,csv=False,individual_elements = False,average_charges=AVERAGE_CHARGES):
-    if average_charges is None:
-        average_charges = False
-    print("Beginning writing of charges...")
-
+def charges(crystal:Crystal,ff_calculator:Plotter,sim_handle,csv=False,individual_elements = False,average_charges=AVERAGE_CHARGES,charge_states_override=None):
     out_folder = get_save_folder(sim_handle)
-    print(OUTPUT_PATH)
     
-    num_steps = len(ff_calculator.get_times_SCATTER())
-    species_charges = {}
-    num_atoms = 0
-    num_atoms_for_print = 0
-    print(f"Processing charges at {num_steps} time steps for:")
-    for element in crystal.species_dict.keys():
-        num_atoms_for_print+=len(crystal.species_dict[element].serial_numbers)
-        print(f"{len(crystal.species_dict[element].serial_numbers)} {element} atoms")
-    print(f"Total: {num_atoms_for_print}")
+    if charge_states_override is None:
+        '''
+        if average_charges is None:
+            average_charges = False
 
-    print("Generating:")
-    for element in crystal.species_dict.keys():
-    #for element in ["Na","Cl","S","H","C","N","O"]:
-        print(f"{element}...")
-        element_obj:Atomic_Species = crystal.species_dict[element]
-        if average_charges:
-            species_charges[element] = element_obj.crystal.ff_calculator.get_average_charge_ff_calculator(element_obj.name)
-        else:
-            charge_selector = None
-            if RANDOM_CHARGES:
-                charge_selector = element_obj.crystal.ff_calculator.random_charge_snapshots
-            species_charges[element] = get_charge_states(element_obj,element_charge_snapshot_selector=charge_selector)
-            # TEMPORARY HACK COS UNSIGNED SHORT DUMBNESS
-            # (Can't pass negative values...)
-            #if element_obj.name == "I_fast":
-            species_charges[element] = np.maximum(0,species_charges[element])
-        num_atoms += element_obj.get_num_atoms()
-    assert num_atoms > 0
-    
+        
+        num_steps = len(ff_calculator.get_times_SCATTER())
+        species_charges = {}
+        num_atoms = 0
+        num_atoms_for_print = 0
+        print(f"Processing charges at {num_steps} time steps for:")
+        for element in crystal.species_dict.keys():
+            num_atoms_for_print+=len(crystal.species_dict[element].serial_numbers)
+            print(f"{len(crystal.species_dict[element].serial_numbers)} {element} atoms")
+        print(f"Total: {num_atoms_for_print}")
+
+        print("Generating:")
+        for element in crystal.species_dict.keys():
+        #for element in ["Na","Cl","S","H","C","N","O"]:
+            print(f"{element}...")
+            element_obj:Atomic_Species = crystal.species_dict[element]
+            if average_charges:
+                species_charges[element] = element_obj.crystal.ff_calculator.get_average_charge_ff_calculator(element_obj.name)
+            else:
+                charge_selector = None
+                if RANDOM_CHARGES:
+                    charge_selector = element_obj.crystal.ff_calculator.random_charge_snapshots
+                    species_charges[element] = get_charge_states(element_obj,element_charge_snapshot_selector=charge_selector)
+                    # (Can't pass negative values...)
+                    #if element_obj.name == "I_fast":
+                    species_charges[element] = np.maximum(0,species_charges[element])
+            num_atoms += element_obj.get_num_atoms()
+        assert num_atoms > 0
+        '''
+        for element in crystal.species_dict: 
+            num_atoms=crystal.species_dict[element].get_num_atoms()
+            dQ_arrays = ff_calculator.boundDeltaData[element]
+            Q_array=ff_calculator.boundData[element]
+            charges[element]=conditional_charges.generate_charges(num_atoms,ff_calculator.timeData,dQ_arrays,Q_array,plot_tag=element)
+
+    species_charges=charge_states_override
+    num_atoms=np.sum([v.shape[0] for v in species_charges.values()])
+    for v in species_charges.values():
+        num_steps = v.shape[1]
+        break
+    print(f"Writing charges to {out_folder}")
  
     # Order charges in order that matches the structure file. 
     combined_charges = np.empty(shape = (num_atoms,num_steps))  # (num atoms, times)   
@@ -214,17 +232,20 @@ def charges(crystal:Crystal,ff_calculator:Plotter,sim_handle,csv=False,individua
     tuples=[]
         
     # Need to track the serial numbers so that we can create charge file in order, while also allowing for possibility that there are jumps in serial num. 
-    j=0
     for element, charges in species_charges.items():
         for i, s_num in enumerate(crystal.species_dict[element].serial_numbers):
             if average_charges:
                 tuples.append((charges,element,s_num))
             else:
                 tuples.append((charges[i],element,s_num))
-            j+=1
         tuples.sort(key=lambda x: x[2]) # sort by serial num
-        for i, (charges,_,_) in enumerate(tuples):
+        for i, (charges,element,s_num) in enumerate(tuples):
             combined_charges[i]=charges
+            # if i == 4457:
+            #     print("HERE")
+            #     print(charges[1182])
+            #     print(s_num)
+            #     print(element)
 
 
         if individual_elements:
@@ -234,6 +255,7 @@ def charges(crystal:Crystal,ff_calculator:Plotter,sim_handle,csv=False,individua
         # for q in charges:
         #     assert q < ATOMNO[element], f"{q},{ATOMNO[a]}"
         
+    #print(combined_charges[4457][1182])
     create_charge_file(combined_charges,None,out_folder,csv=csv)    # Each row is an atom. each column is a time step.
     for charges, a, _ in tuples:
         for q in charges:
@@ -286,7 +308,8 @@ def get_plotter(handle,parent_dir_path,start_time,end_time,t_fineness)->Plotter:
     ff_calculator.initialise_form_factor_params(start_time,end_time,None,None,t_fineness=t_fineness) # q_fineness isn't used for our purposes.   
     return ff_calculator
 
-def convert_to_molDStruct(sim_handle:str,target_path:str,num_steps:int,allowed_atoms,start_time,end_time,debye=True,sim_parent_dir_path=None,param_dict=None):
+def convert_to_molDStruct(sim_handle:str,target_path:str,num_steps:int,allowed_atoms,start_time,end_time,debye=True,
+sim_parent_dir_path=None,param_dict=None,charge_states_override=None):
 
 
     crystal_params = dict(
@@ -301,16 +324,24 @@ def convert_to_molDStruct(sim_handle:str,target_path:str,num_steps:int,allowed_a
 
     crystal = Crystal(target_path,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=False,**crystal_params)
     # Assign plotter object to calculate charges (this is code debt)
-    ff_calculator = get_plotter(sim_handle,sim_parent_dir_path,start_time,end_time,t_fineness=num_steps-1)   
-    ff_calculator.allow_select_same_times = ALLOW_SELECT_SAME_TIMES  
-    crystal.set_ff_calculator(ff_calculator) 
-
 
     os.makedirs(get_save_folder(sim_handle), exist_ok=True) 
+
     
-    charges(crystal,ff_calculator,sim_handle,csv=SAVE_CSV_COPY)
+    if charge_states_override is None:
+        ff_calculator = get_plotter(sim_handle,sim_parent_dir_path,start_time,end_time,t_fineness=num_steps-1)   
+        ff_calculator.allow_select_same_times = ALLOW_SELECT_SAME_TIMES  
+        crystal.set_ff_calculator(ff_calculator)
+    else:
+        assert False, "Disabled due to being slow and deprecated" # TODO remove or replace the code that calculates the charges with ff_calculator from the charges function.
+        ff_calculator=None
+
+    charges(crystal,ff_calculator,sim_handle,csv=SAVE_CSV_COPY,charge_states_override=charge_states_override)
     if debye:
         DebyeLength(ff_calculator,sim_handle,csv=SAVE_CSV_COPY)
+
+    
+
 
 
     log_file = get_save_folder(sim_handle) + "log.txt"
@@ -392,7 +423,7 @@ if __name__ == "__main__":
 
     #num_steps = 3600 #4900 #3600 #
     if len(sys.argv)!=3:
-        print("Usage: python3.9 sim_output_handle path/to/gro/file")
+        print("Usage: python sim_output_handle path/to/gro/file")
         quit()
     sim_handle,target_path=sys.argv[1:3]
 

@@ -5,6 +5,8 @@ import os,sys
 import os.path as path
 import pandas as pd
 from convert_to_molDStruct import create_data_file,convert_to_molDStruct,get_save_folder
+import approx_conditional_charges
+from scattering.scatter import Crystal,Atomic_Species
 
 
 #####
@@ -34,6 +36,16 @@ def data_to_ac4dc_format(times,values):
     return np.column_stack((times,values))
 
 def gen_files(path,runid,mimic_sim_out_dir):
+    mimic_handle=f"converted_charges_{os.path.basename(path).split('.')[0]}_{runid}"
+    elements_dict = {1:"H", 
+                2:"C",
+                3:"N",
+                4:"O",
+                5:"Na",
+                6:"S",
+                7:"Cl",
+                8:"Fe"}
+    charges = {}
     with h5py.File(path, "r") as f:
         runname = f"run{runid:02d}"
         #runname = "run%02d" % runid
@@ -47,43 +59,46 @@ def gen_files(path,runid,mimic_sim_out_dir):
 
         #df = pd.DataFrame(stime)
         
-        charge_states_dict={}
-        elements_dict = {1:"H", 
-                    2:"C",
-                    3:"N",
-                    4:"O",
-                    5:"Na",
-                    6:"S",
-                    7:"Cl",
-                    8:"Fe"}
+
         
-        for key,ele in elements_dict.items():
-            print(f"saving {key,ele}" )
-            charge_states = f[runname][f"yiso_{key}"]
-            assert charge_states.shape[-1]==ATOMNO[ele]+1
+        # for key,ele in elements_dict.items():
+        #     print(f"saving {key,ele}" )
+        #     charge_states = f[runname][f"yiso_{key}"]
+        #     assert charge_states.shape[-1]==ATOMNO[ele]+1
 
-            # $1s^{2}2p^{8}3p^{16}4p^{2}5p^{3}$ $1s^{2}2p^{8}3p^{16}4p^{2}5p^{2}$
-            orbitals_header = "#           | " + " ".join(["1s^{"+f"{ATOMNO[ele]-n}"+"}$" for n in range(ATOMNO[ele]+1)] )
-            print(orbitals_header)
+        #     # $1s^{2}2p^{8}3p^{16}4p^{2}5p^{3}$ $1s^{2}2p^{8}3p^{16}4p^{2}5p^{2}$
+        #     orbitals_header = "#           | " + " ".join(["1s^{"+f"{ATOMNO[ele]-n}"+"}$" for n in range(ATOMNO[ele]+1)] )
+        #     print(orbitals_header)
 
-            charge_states=data_to_ac4dc_format(stime,charge_states)
-            mimic_handle=f"converted_charges_{os.path.basename(path).split('.')[0]}_{runid}"
-            converted_data_folder=f"{mimic_sim_out_dir}/{mimic_handle}/"
-            os.makedirs(converted_data_folder,exist_ok=True)
-            np.savetxt(f"{converted_data_folder}/dist_{ele}.csv", charge_states, delimiter=" ",header=orbitals_header)
-            charge_states_dict[ele]=charge_states
+        #     charge_states=data_to_ac4dc_format(stime,charge_states)
+        #     converted_data_folder=f"{mimic_sim_out_dir}/{mimic_handle}/"
+        #     os.makedirs(converted_data_folder,exist_ok=True)
+        #     np.savetxt(f"{converted_data_folder}/dist_{ele}.csv", charge_states, delimiter=" ",header=orbitals_header)
+        #     charge_states_dict[ele]=charge_states
 
-        start_time,end_time= stime[0],stime[-1]
-        convert_to_molDStruct(sim_handle=mimic_handle,target_path=TARGET_PATH,num_steps=n_steps,
-            allowed_atoms=elements_dict.values(),start_time=start_time,end_time=end_time,
-            debye=False,sim_parent_dir_path=mimic_sim_out_dir
-            ) 
+        # start_time,end_time= stime[0],stime[-1]
+        crystal_params = dict(     
+            include_symmetries = None,
+        )
 
-        # do Debye separately since already have the data
-        out_dir=get_save_folder(mimic_handle)
-        create_data_file(free_electron_temperature*11606,"electron_temperature",out_dir,csv=False) # eV --> K
-        create_data_file(1e-9*free_electron_density,"electron_density",out_dir,csv=False) # cm^-3 --> nm^-3
-        create_data_file(1e9*debye_length,"debye_data",out_dir,csv=False) # m --> nm
+        crystal = Crystal(TARGET_PATH,allowed_atoms=elements_dict.values(),is_damaged=True,**crystal_params)
+        
+        for yiso_idx, element in elements_dict.items(): 
+            num_atoms=crystal.species_dict[element].get_num_atoms()
+            charge_distribution = f[runname][f"yiso_{yiso_idx}"][()]
+            charges[element]=approx_conditional_charges.generate_charges(num_atoms,stime,charge_distribution,plot_tag=element)
+        
+    convert_to_molDStruct(sim_handle=mimic_handle,target_path=TARGET_PATH,num_steps=n_steps,
+        allowed_atoms=elements_dict.values(),start_time=None,end_time=None,
+        debye=False,sim_parent_dir_path=mimic_sim_out_dir,
+        charge_states_override=charges
+        ) 
+
+    # do Debye separately since already have the data
+    out_dir=get_save_folder(mimic_handle)
+    create_data_file(free_electron_temperature*11606,"electron_temperature",out_dir,csv=False) # eV --> K
+    create_data_file(1e-9*free_electron_density,"electron_density",out_dir,csv=False) # cm^-3 --> nm^-3
+    create_data_file(1e9*debye_length,"debye_data",out_dir,csv=False) # m --> nm
             
 
             # df = pd.DataFrame(charge_states)

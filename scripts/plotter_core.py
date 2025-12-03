@@ -76,7 +76,7 @@ class Plotter:
         self.gridFile = self.outDir + "/knotHistory.csv"
 
         self.boundData={}
-        self.boundDeltaData={}
+        self.boundDeltaData:dict[list[np.typing.NDarray]]={}  # self.boundDeltaData[a][i][t][j] is the density contributed to atom a's charge state j by charge state i over time step t-1 to t
         self.photoData={}
         self.chargeData={}
         self.freeData=None
@@ -1105,11 +1105,14 @@ class Plotter:
                         raw = np.genfromtxt(lines[-self.num_sample_lines:], comments='#', dtype=np.float64)
                 else:
                     raw = np.genfromtxt(deltafile, comments='#', dtype=np.float64)
-                # get differences in density for each charge state between time points
+                # Arrays contain the *total* density contributed. But we want the 
+                # differences in density for each charge state between time points
                 dPQ = raw[:, 1:]
-                #dPQ = np.append(dPQ, dPQ[-1]*2 - dPQ[-2])   
+                #dPQ = np.append(dPQ, dPQ[-1]*2 - dPQ[-2])  
+                dPQ = np.append(dPQ[0]-dPQ[0],dPQ) # 0 for nstep=-1 to nstep=0 
                 dPQ = dPQ [1:] - dPQ[:-1]
-                self.boundDeltaData[a].append(dPQ)
+
+                self.boundDeltaData[a].append(dPQ)   
                 # if i ==0:
                 #     print(self.boundData[a][0])
                 #     print("--")
@@ -1119,8 +1122,11 @@ class Plotter:
                 #     print(dPQ[1])
                 #     print(self.boundData[a][2])
                 #     asdads
-        
-
+            if self.end_t_plotting is not None: 
+                last_idx = np.searchsorted(self.timeData,self.end_t_plotting)
+                for i in range(len(self.boundDeltaData[a])):
+                    self.boundDeltaData[a][i]=self.boundDeltaData[a][i][0:last_idx]   # shouldve created a class for each list of datapoints w.r.t. time...
+            
 
 
 
