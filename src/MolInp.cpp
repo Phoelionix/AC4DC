@@ -396,22 +396,22 @@ MolInp::MolInp(const char* filename, ofstream & _log)
 
 		Pots[i] = U;
 	}
-		// For specified atoms turn off secondary ionisation, i.e. EII and TBR. (Useful if have only small number of a species present and photoionisation dominates their contribution to the dynamics).
-		bound_free_exclusions = std::vector<bool>(num_atoms,false);
-		for (size_t i = 0; i < num_bound_free_exclusions; i++){
-			stringstream stream(FileContent["#BOUND_FREE_EXCLUSIONS"][i]);
-			string at_name;
-			stream >> at_name;
-			bool found_atom = false;
-			for (size_t j = 0; j < num_atoms; j++){
-				if(at_name == Store[j].name){
-					bound_free_exclusions[j] = true;
-					found_atom = true;
-					break;
-				}
+	// For specified atoms turn off secondary ionisation, i.e. EII and TBR. (Useful if have only small number of a species present and photoionisation dominates their contribution to the dynamics).
+	bound_free_exclusions = std::vector<bool>(num_atoms,false);
+	for (size_t i = 0; i < num_bound_free_exclusions; i++){
+		stringstream stream(FileContent["#BOUND_FREE_EXCLUSIONS"][i]);
+		string at_name;
+		stream >> at_name;
+		bool found_atom = false;
+		for (size_t j = 0; j < num_atoms; j++){
+			if(at_name == Store[j].name){
+				bound_free_exclusions[j] = true;
+				found_atom = true;
+				break;
 			}
-			assert(found_atom&&"Could not find matching atom present in #ATOMS that was specified in #BOUND_FREE_EXCLUSIONS");  
 		}
+		assert(found_atom&&"Could not find matching atom present in #ATOMS that was specified in #BOUND_FREE_EXCLUSIONS");  
+	}
 
 	if (!validate_inputs()) {
 		cerr<<endl<<endl<<endl<<"Exiting..."<<endl;

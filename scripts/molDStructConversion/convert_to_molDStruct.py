@@ -3,9 +3,9 @@ import sys
 import os
 import pandas as pd
 import os.path as path
-sys.path.append('/home/spencer/AC4DC/scripts/pdb_parser')
-sys.path.append('/home/spencer/AC4DC/scripts/scattering')
-sys.path.append('/home/spencer/AC4DC/scripts/')
+sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
+sys.path.append('/home/speno/AC4DC/scripts/scattering')
+sys.path.append('/home/speno/AC4DC/scripts/')
 from scattering.scatter import XFEL,Crystal,stylin,Atomic_Species
 from core_functions import get_sim_params,get_sim_elements,get_pdb_path,ATOMNO
 import numpy as np
@@ -213,13 +213,14 @@ def charges(crystal:Crystal,ff_calculator:Plotter,sim_handle,csv=False,individua
             num_atoms += element_obj.get_num_atoms()
         assert num_atoms > 0
         '''
+        species_charges={}
         for element in crystal.species_dict: 
             num_atoms=crystal.species_dict[element].get_num_atoms()
             dQ_arrays = ff_calculator.boundDeltaData[element]
-            Q_array=ff_calculator.boundData[element]
-            charges[element]=conditional_charges.generate_charges(num_atoms,ff_calculator.timeData,dQ_arrays,Q_array,plot_tag=element)
-
-    species_charges=charge_states_override
+            charge_data=ff_calculator.chargeData[element]
+            species_charges[element]=conditional_charges.generate_charges(num_atoms,ff_calculator.timeData,dQ_arrays,charge_data,ATOMNO[element],plot_tag=element,species_name_for_plot=element)
+    else:
+        species_charges=charge_states_override
     num_atoms=np.sum([v.shape[0] for v in species_charges.values()])
     for v in species_charges.values():
         num_steps = v.shape[1]
@@ -299,12 +300,15 @@ def DebyeLength(ff_calculator:Plotter,sim_handle,csv=False):
 
 
 
-def get_plotter(handle,parent_dir_path,start_time,end_time,t_fineness)->Plotter:
+def get_plotter(handle,parent_dir_path,start_time,end_time,t_fineness,load_bound=True)->Plotter:
     ff_calculator = Plotter(handle,parent_dir_path,out_prefix_text = "Setting up plotter...",
-                            skip_mol_file=True,
-                            initialise=False)
+                            skip_mol_file=not load_bound,
+                            initialise=load_bound)
     plt.close()
-    ff_calculator.initialise_charges_only()
+    if not load_bound:
+        ff_calculator.initialise_charges_only(load_bound_delta_data=load_bound,load_bound_data=load_bound)
+    else:
+        ff_calculator.aggregate_charges()
     ff_calculator.initialise_form_factor_params(start_time,end_time,None,None,t_fineness=t_fineness) # q_fineness isn't used for our purposes.   
     return ff_calculator
 

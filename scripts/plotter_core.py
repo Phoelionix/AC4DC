@@ -76,7 +76,8 @@ class Plotter:
         self.gridFile = self.outDir + "/knotHistory.csv"
 
         self.boundData={}
-        self.boundDeltaData:dict[list[np.typing.NDarray]]={}  # self.boundDeltaData[a][i][t][j] is the density contributed to atom a's charge state j by charge state i over time step t-1 to t
+        # NOTE index for bound delta data corresponds to number of bound electrons (so idx 0 is max charge)
+        self.boundDeltaData:dict[list[np.typing.NDarray]]={}  # self.boundDeltaData[a][i][t][j] is the density contributed to atoms of element a with j bound electrons by atoms of element a with i bound electrons over time step t-1 to t
         self.photoData={}
         self.chargeData={}
         self.freeData=None
@@ -932,7 +933,9 @@ class Plotter:
                 charge = ATOMNO[a] - sum(orboccs.values()) - initial_charge 
                 self.chargeData[a][:, charge] += self.boundData[a][:, i]  #TODO negative charges??
 
-
+    def initial_charge(self,a):
+        return self.get_charge_dict(a)[0]
+        #return ATOMNO[a] - sum(parse_elecs_from_latex(self.statedict[a][0]).values()) 
 
     def num_continuums(self):
         return len(self.split_freeFiles)+1 # last continuum is all the free files combined
@@ -993,12 +996,12 @@ class Plotter:
             self.freeData = self.freeData[0:last_idx]
 
 
-    def initialise_charges_only(self):
+    def initialise_charges_only(self,load_bound_data=False,load_bound_delta_data=False):
         # just look at bound data available
         for file in os.listdir(self.outDir):
             if file.startswith("dist_"):
                 atom = file.split('.')[0][5:]
-                assert atom not in self.atomdict
+                assert atom not in self.atomdict, atom
                 self.atomdict[atom]={'outfile':path.join(self.outDir,file)}
                 
         for a in self.atomdict:
@@ -1012,6 +1015,12 @@ class Plotter:
             self.statedict[a] = self.get_bound_config_spec(a)
             self.timeData = raw[:, 0]
         self.aggregate_charges()
+
+
+        if load_bound_data:
+            self.update_bound_data()
+        if load_bound_delta_data:
+            self.update_bound_delta_data()
             # rates
             # try:
             #     if self.sample_end_points:
@@ -1095,9 +1104,24 @@ class Plotter:
         self.grid_update_time_Data = np.array(self.grid_update_time_Data,dtype=np.float64)
         self.grid_point_Data = np.array(self.grid_point_Data,dtype=object)
 
+
+    def update_bound_data(self):
+        for a in self.atomdict:
+            if self.sample_end_points:
+                with open(self.atomdict[a]['outfile'],'rb') as f:
+                    lines = f.readlines()
+                    raw = np.genfromtxt(lines[-self.num_sample_lines:], comments='#', dtype=np.float64)
+            else:
+                raw = np.genfromtxt(self.atomdict[a]['outfile'], comments='#', dtype=np.float64)
+            if self.end_t_plotting is not None: 
+                last_idx = np.searchsorted(self.timeData,self.end_t_plotting)
+                self.boundData[a] = self.boundData[a][0:last_idx] 
+            else:
+                self.boundData[a] = raw[:, 1:]
+
     def update_bound_delta_data(self):
         for a in self.atomdict:
-            self.boundDeltaData[a] = []
+            self.boundDeltaData[a] = [None,]*len(self.atomdict[a]['deltafiles'])
             for i, deltafile in enumerate(self.atomdict[a]['deltafiles']):
                 if self.sample_end_points:
                     with open(deltafile,'rb') as f:
@@ -1107,12 +1131,16 @@ class Plotter:
                     raw = np.genfromtxt(deltafile, comments='#', dtype=np.float64)
                 # Arrays contain the *total* density contributed. But we want the 
                 # differences in density for each charge state between time points
+                # NOTE index corresponds to number of bound electrons (so idx 0 is max charge)
                 dPQ = raw[:, 1:]
                 #dPQ = np.append(dPQ, dPQ[-1]*2 - dPQ[-2])  
-                dPQ = np.append(dPQ[0]-dPQ[0],dPQ) # 0 for nstep=-1 to nstep=0 
+                dPQ=np.concatenate((dPQ,dPQ[0,None]+dPQ[-1]*2 - dPQ[-2])) #XXX
                 dPQ = dPQ [1:] - dPQ[:-1]
-
-                self.boundDeltaData[a].append(dPQ)   
+                #print(dPQ[1])
+                #print(dPQ.shape)
+                
+                num_e = ATOMNO[a]-int(path.basename(deltafile).split(".")[0].split("_")[3])
+                self.boundDeltaData[a][num_e] = dPQ   
                 # if i ==0:
                 #     print(self.boundData[a][0])
                 #     print("--")
@@ -1126,6 +1154,7 @@ class Plotter:
                 last_idx = np.searchsorted(self.timeData,self.end_t_plotting)
                 for i in range(len(self.boundDeltaData[a])):
                     self.boundDeltaData[a][i]=self.boundDeltaData[a][i][0:last_idx]   # shouldve created a class for each list of datapoints w.r.t. time...
+            self.boundDeltaData[a]=np.array(self.boundDeltaData[a])
             
 
 

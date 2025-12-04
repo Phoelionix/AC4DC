@@ -9,7 +9,7 @@ import scipy.optimize
 
 
 
-def read_validation_file(cif_file):
+def read_cif(cif_file):
     data_dict = dict (h='_refln.index_h',
                     k='_refln.index_k',
                     l='_refln.index_l',
@@ -132,7 +132,7 @@ def plot_curve_fit(log=False):
 
 if __name__ == "__main__":
     cif_file = "/home/speno/PhenixWorkspace/data/4et8-sf.cif"
-    df = read_validation_file(cif_file)
+    df = read_cif(cif_file)
     plot_log(df)
     plot_linear(df)
 #plot_sqrt()

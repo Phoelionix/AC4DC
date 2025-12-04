@@ -70,7 +70,7 @@ from IPython.display import display, HTML
 from IPython import get_ipython
 from string import ascii_uppercase, ascii_lowercase, ascii_letters, digits
 from core_functions import get_sim_elements
-from plot_I_vs_Isigma import read_validation_file
+from plot_I_vs_Isigma import read_cif
 import scipy
 import subprocess
 interactive = True
@@ -3237,7 +3237,7 @@ def read_rfl_file(rflFile):
 class ScalingByCopyingSigmaRatio(ScalingMethod): # Should be valid for ideal sim. 
     def __init__(self,cifFile,rflFile):
         df_sim = read_rfl_file(rflFile)#.astype(int)
-        df_real = read_validation_file(cifFile)#.astype(int)
+        df_real = read_cif(cifFile)#.astype(int)
         #self.df = pd.concat([df_sim, df_real], ignore_index=True, sort=False)
         self.df = pd.merge(df_sim,df_real, on=['h','k','l'])
         assert self.df.shape[1]==6, f"{self.df.shape}"
