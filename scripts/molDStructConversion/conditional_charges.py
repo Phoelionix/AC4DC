@@ -20,6 +20,10 @@ def generate_charges(num_to_sample,stime,dQ_arrays,charge_data,Z,plot=True,plot_
     for i in range(nstates):
         assert charge_data.shape==state_transitions.shape[1:]
         state_transitions[i,:,i] = (charge_data[:,i]-np.sum(state_transitions[i,:],axis=1)) # Include the probability of "no change" 
+        force_min_zero=True
+        if force_min_zero:
+            state_transitions[i,:,i]=np.maximum(state_transitions[i,:,i],0)
+        #state_transitions[i,:,i] = charge_data[:,i] # Include the probability of "no change" 
     del i
 
     charges = np.full((nsteps, N),99, dtype=np.int32) # matrix to store the charge of each the atom
@@ -30,6 +34,11 @@ def generate_charges(num_to_sample,stime,dQ_arrays,charge_data,Z,plot=True,plot_
     for step in range(1, nsteps):
         unique, counts = np.unique(charges[step-1],return_counts=True)
         for from_charge, num_from in zip(unique,counts):
+            TEMPORARY_BUG_PATCH=True
+            if TEMPORARY_BUG_PATCH and from_charge==Z:
+                atom_idxes = (charges[step-1]==from_charge)
+                charges[step][atom_idxes]=from_charge
+                continue
             pvals = state_transitions[from_charge][step]/np.sum(state_transitions[from_charge][step])
 
             # handle roundoff error
