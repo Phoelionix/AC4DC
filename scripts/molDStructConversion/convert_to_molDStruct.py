@@ -25,9 +25,7 @@ import conditional_charges
 #num_steps = 4900   # NOT in attoseconds when doing i3c 55 fs
 #target = "I3C.gro"
 #sim_handle = "lys_salt_solvated_fast_H_4"
-AVERAGE_CHARGES = None 
 ALLOW_SELECT_SAME_TIMES = True
-SAVE_CSV_COPY = False
 
 
 def get_charge_states(element:Atomic_Species,element_charge_snapshot_selector=None):
@@ -165,20 +163,14 @@ TARGET_DIR = SCATTER_DIR+ "targets/"
 RANDOM_CHARGES = True # TEMPORARY
 
 def get_save_folder(sim_handle):
-    if AVERAGE_CHARGES:
-        tag = "avg"
-    elif RANDOM_CHARGES:
-        tag = "stoch"
-    else: 
-        tag = "stoch_cont"
-    folder_name = f"{sim_handle}_{tag}"
+    folder_name = f"{sim_handle}"
     return OUTPUT_PATH + folder_name + "/"
 
 
 
-def charges(crystal:Crystal,ff_calculator:Plotter,sim_handle,csv=False,individual_elements = False,average_charges=AVERAGE_CHARGES,charge_states_override=None):
+def charges(crystal:Crystal,ff_calculator:Plotter,sim_handle,num_steps,csv=False,individual_elements = False,charge_states_override=None):
     out_folder = get_save_folder(sim_handle)
-    
+
     if charge_states_override is None:
         '''
         if average_charges is None:
@@ -219,11 +211,19 @@ def charges(crystal:Crystal,ff_calculator:Plotter,sim_handle,csv=False,individua
             dQ_arrays = ff_calculator.boundDeltaData[element]
             charge_data=ff_calculator.chargeData[element]
             species_charges[element]=conditional_charges.generate_charges(num_atoms,ff_calculator.timeData,dQ_arrays,charge_data,ATOMNO[element],plot_tag=element,species_name_for_plot=element)
+            indices = np.searchsorted(ff_calculator.timeData,ff_calculator.get_times_SCATTER())
+            species_charges[element] = species_charges[element][:,indices]
+        for element, element_obj in crystal.missing_species_dict.items():
+            print(f"WARNING: no charges for element {element}")
+            species_charges[element] =np.zeros(shape=[element_obj.get_num_atoms(),num_steps])
+            crystal.species_dict[element]=element_obj # Patch for tracking serial numbers
     else:
         species_charges=charge_states_override
     num_atoms=np.sum([v.shape[0] for v in species_charges.values()])
+    assert num_atoms == crystal.num_input_file_atoms, f"{num_atoms} != {crystal.num_input_file_atoms}"
     for v in species_charges.values():
-        num_steps = v.shape[1]
+        assert num_steps==v.shape[1]
+        #num_steps = v.shape[1]
         break
     print(f"Writing charges to {out_folder}")
  
@@ -235,10 +235,7 @@ def charges(crystal:Crystal,ff_calculator:Plotter,sim_handle,csv=False,individua
     # Need to track the serial numbers so that we can create charge file in order, while also allowing for possibility that there are jumps in serial num. 
     for element, charges in species_charges.items():
         for i, s_num in enumerate(crystal.species_dict[element].serial_numbers):
-            if average_charges:
-                tuples.append((charges,element,s_num))
-            else:
-                tuples.append((charges[i],element,s_num))
+            tuples.append((charges[i],element,s_num))
         tuples.sort(key=lambda x: x[2]) # sort by serial num
         for i, (charges,element,s_num) in enumerate(tuples):
             combined_charges[i]=charges
@@ -313,7 +310,7 @@ def get_plotter(handle,parent_dir_path,start_time,end_time,t_fineness,load_bound
     return ff_calculator
 
 def convert_to_molDStruct(sim_handle:str,target_path:str,num_steps:int,allowed_atoms,start_time,end_time,debye=True,
-sim_parent_dir_path=None,param_dict=None,charge_states_override=None):
+sim_parent_dir_path=None,param_dict=None,charge_states_override=None,save_csv_copy=False):
 
 
     crystal_params = dict(
@@ -326,7 +323,9 @@ sim_parent_dir_path=None,param_dict=None,charge_states_override=None):
         rocking_angle = 1.2,  # (approximating mosaicity, infinite crystal sim only)
     )
 
-    crystal = Crystal(target_path,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=False,**crystal_params)
+    crystal = Crystal(target_path,allowed_atoms,is_damaged=True,
+    allow_skip_species=True, # FIXME
+    **crystal_params)
     # Assign plotter object to calculate charges (this is code debt)
 
     os.makedirs(get_save_folder(sim_handle), exist_ok=True) 
@@ -340,9 +339,9 @@ sim_parent_dir_path=None,param_dict=None,charge_states_override=None):
         assert False, "Disabled due to being slow and deprecated" # TODO remove or replace the code that calculates the charges with ff_calculator from the charges function.
         ff_calculator=None
 
-    charges(crystal,ff_calculator,sim_handle,csv=SAVE_CSV_COPY,charge_states_override=charge_states_override)
+    charges(crystal,ff_calculator,sim_handle,num_steps,csv=save_csv_copy,charge_states_override=charge_states_override)
     if debye:
-        DebyeLength(ff_calculator,sim_handle,csv=SAVE_CSV_COPY)
+        DebyeLength(ff_calculator,sim_handle,csv=save_csv_copy)
 
     
 
@@ -359,7 +358,7 @@ sim_parent_dir_path=None,param_dict=None,charge_states_override=None):
     
     print("Done! Remember to sit straight!")
 
-def convert_to_molDStruct_standard(sim_handle:str,target_path:str,num_steps:int,debye=True,sim_parent_dir_path=None):
+def convert_to_molDStruct_standard(sim_handle:str,target_path:str,num_steps:int,debye=True,sim_parent_dir_path=None,save_csv_copy=False):
         allowed_atoms = get_sim_elements(sim_handle,molecular_path=sim_parent_dir_path)
 
 
@@ -371,51 +370,9 @@ def convert_to_molDStruct_standard(sim_handle:str,target_path:str,num_steps:int,
 
 
 
-        convert_to_molDStruct(sim_handle,target_path,num_steps,allowed_atoms,start_time,end_time,debye,sim_parent_dir_path,param_dict)
+        convert_to_molDStruct(sim_handle,target_path,num_steps,allowed_atoms,start_time,end_time,debye,sim_parent_dir_path,param_dict,None,save_csv_copy)
 
 
-# def convert_to_molDStruct_standard(sim_handle:str,target_path:str,num_steps:int,debye=True,sim_parent_dir_path=None):
-#         allowed_atoms = get_sim_elements(sim_handle,molecular_path=sim_parent_dir_path)
-
-
-#         crystal_params = dict(
-#             supercell_scale = 1,  ##3 # for SC: cell_scale^3 unit cells 
-#             num_supercells = 1,
-#             supercell_simulations = 1,        
-#             include_symmetries = None, ##True  # should unit cell contain symmetries?
-#             positional_stdv = 0, # Introduces disorder to positions. Note this is a deviation from the IDEAL structure, so is not a measure of similarity with undamaged and damaged structure but the ideal structure to recover and the dmaaged structure. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if quickly gauging serial crystallography R factor, as should somewhat average out.
-#             cell_packing = "SC",
-#             rocking_angle = 1.2,  # (approximating mosaicity, infinite crystal sim only)
-#         )
-
-#         crystal = Crystal(target_path,allowed_atoms,is_damaged=True,convert_excluded_elements_to_N=False,**crystal_params)
-
-
-#         target_handle = '.'.join(os.path.basename(target_path).split('.')[:-1])
-
-#         param_dict,_,_ = get_sim_params(sim_handle,molecular_path=sim_parent_dir_path)
-#         start_time = param_dict["start_t"]
-#         end_time = param_dict["end_t"]
-#         energy = param_dict["energy"]
-
-
-
-#         # Assign plotter object to calculate charges (because code debt)
-#         xfel = XFEL("dummy",energy,t_fineness=num_steps)
-#         ff_calculator = xfel.get_ff_calculator(start_time,end_time,sim_handle,sim_parent_dir_path)   
-#         ff_calculator.allow_select_same_times = ALLOW_SELECT_SAME_TIMES  
-#         #crystal.plot_me()
-#         crystal.set_ff_calculator(ff_calculator)    
-
-#         # TODO json format.
-#         log_file = get_save_folder(sim_handle) + "log.txt"
-#         os.makedirs(get_save_folder(sim_handle), exist_ok=True) 
-
-#         charges(crystal,ff_calculator,csv=SAVE_CSV_COPY)
-#         if debye:
-#             DebyeLength(ff_calculator,csv=SAVE_CSV_COPY)
-
-#         with open(log_file,'w') as f:
 
 if __name__ == "__main__":
 
@@ -426,25 +383,31 @@ if __name__ == "__main__":
     #sim_handles = ["lys_salt_fast_high_fluence_2"]
 
     #num_steps = 3600 #4900 #3600 #
-    if len(sys.argv)!=3:
-        print("Usage: python sim_output_handle path/to/gro/file")
+    if len(sys.argv) not in [3,4]:
+        print("Usage: python sim_output_handle path/to/gro/file [make_csv]")
         quit()
     sim_handle,target_path=sys.argv[1:3]
+    save_csv_copy=True
+    if len(sys.argv)==4:
+        save_csv_copy= (sys.argv[3].lower()=="true")
 
     sim_params=get_sim_params(sim_handle)[0]
     sim_duration_fs=sim_params["end_t"]-sim_params["start_t"]
 
-    num_steps = int(np.ceil(50*sim_duration_fs))
-    print(f"Creating charge file with {num_steps} steps")
+    #num_steps = min(2000,int(np.ceil(50*sim_duration_fs)))
+    num_steps = max(500,min(2000,int(np.ceil(20*sim_duration_fs))))
+    dt_ps = sim_duration_fs/num_steps/1e3
+    #num_steps = sim_params["nsteps"] # NOTE setting custom number of steps not supported in current build
+    #num_out_steps_mult=3 # e.g. if charge 1, 2, 2, 3  and this is set to 3 --> 1,1,1,2,2,2,2,2,2,3,3,3
+    print(f"Creating charge file with {num_steps} steps, {dt_ps:.9f} ps dt")
 
     #target = "CNO_debug.gro"
     #target = "4et8.gro"
     #target = "lys_example.gro"
     #target = "4et8H_full_struct_Hfix.gro"
     #target_path=TARGET_DIR + target
-    AVERAGE_CHARGES = False
 
-    convert_to_molDStruct_standard(sim_handle,target_path,num_steps)
+    convert_to_molDStruct_standard(sim_handle,target_path,num_steps,save_csv_copy=save_csv_copy)
 
 
 

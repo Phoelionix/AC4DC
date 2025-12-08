@@ -3,11 +3,11 @@ Protein atoms based on 3PEL
 #ATOMS
 C 1768.187
 N 388.000
-O 2440.721
-H 8914.836
+O 2422.376
+H 8878.147
 S 5.000
-Fe_fast 2.000
-As_fast 15.038
+Fe 2.000
+As 15.038
 
 #BOUND_FREE_EXCLUSIONS
 Fe_fast

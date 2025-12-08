@@ -677,10 +677,11 @@ class Plotter:
         return n, self.timeData[n]
     def time_snapshot(self,snapshot_idx: int):
         # We pass in indices from 0 to fineness, transform to time:
-        t = self.start_t + snapshot_idx/self.t_fineness*(self.end_t-self.start_t)  # TODO end_t and start_t are defined in scattering code and have no defaults!!!!!!!!
         #t = np.array([t]).reshape((1,)*len(idx.shape))
         if self.t_fineness == 0:
             t = np.array([(self.start_t + self.end_t)/2])
+        else:
+            t = self.start_t + snapshot_idx/self.t_fineness*(self.end_t-self.start_t)  # TODO end_t and start_t are defined in scattering code and have no defaults!!!!!!!!
         idx,time = self.get_nearest_time(t)#np.searchsorted(self.timeData, t)    
         return time #np.array(time).reshape(time.size,)
         '''
@@ -1398,7 +1399,7 @@ class Plotter:
             num_traces+=1 
 
         ax.set_facecolor('black')
-        cm = ax.pcolormesh(self.timeData, Y, Z, shading='inferno',cmap="inferno",rasterized=True)
+        cm = ax.pcolormesh(self.timeData, Y, Z, shading='auto',cmap="inferno",rasterized=True)
         cbar = self.fig.colorbar(cm,ax=ax,label="State density")
 
         ax.set_xlabel("Time (fs)")            
@@ -2535,7 +2536,7 @@ class Plotter:
     #         pass
     #     return ax
         
-    def plot_free(self, N=100, log=True, cmin = 1e-9, cmax=None, every = None,mask_below_min=True,cmap='magma',ylim=[None,None],xlim=[None,None],ymax=np.Infinity,leonov_style = False,keV=False,ylog=False,continuum=None,show_title=True,show_cbar=True,show_time_axis_label=True,every_e = 1,show_pulse_profile=True,show_energy_axis_label=True):
+    def plot_free(self, N=100, log=True, cmin = 1e-9, cmax=None, every = None,mask_below_min=True,cmap='magma',ylim=[None,None],xlim=[None,None],ymax=np.inf,leonov_style = False,keV=False,ylog=False,continuum=None,show_title=True,show_cbar=True,show_time_axis_label=True,every_e = 1,show_pulse_profile=True,show_energy_axis_label=True):
         
 
         old_energy_knot = self.energyKnot
@@ -2950,16 +2951,15 @@ class SlaterShielding:
         if ff_shape != ():
             ff = np.zeros(ff_shape)
         if type(ff) == np.ndarray:
-            for occ in occ_dict.keys():
-                s = self.s_p_slater_shielding(occ,occ_dict)
-                ff[occ_indices == occ] = self.calculate_config_ff(occ,k,s,occ_dict)[None,None]     # shell_occs -> [atoms,times,qx,qy]
+            for occ_index in occ_dict.keys():
+                s = self.s_p_slater_shielding(occ_dict[occ_index])
+                ff[occ_indices == occ_index] = self.calculate_config_ff(occ_dict[occ_index],k,s)[None,None]     # shell_occs -> [atoms,times,qx,qy]
         else:
             s = self.s_p_slater_shielding(occ_indices,occ_dict)
             ff = self.calculate_config_ff(occ_indices,k,s,occ_dict)
         return ff
 
-    def s_p_slater_shielding(self,occ_index,occ_dict):
-        shells_occ = occ_dict[occ_index]
+    def s_p_slater_shielding(self,shells_occ):
         s_list = []
         for n in range(len(shells_occ)): 
             s = 0
@@ -2985,17 +2985,20 @@ class SlaterShielding:
         if shell_num == 1:  
             return 16*lamb**4/np.power(D,2)
         if shell_num == 2:
-            return 64*lamb**6*(4*lamb**2-np.power(k,2))/np.power(D,4)
+            return 64*lamb**6*(4*lamb**2 - np.power(k,2))/np.power(D,4)
         if shell_num == 3:
-            return 128/6*lamb**7*(192*lamb**5-160*lamb**3*np.power(k,2)+12*lamb*np.power(k,4))/np.power(D,6)
+            #return 128/6*lamb**7*(192*lamb**5-160*lamb**3*np.power(k,2)+12*lamb*np.power(k,4))/np.power(D,6)
+            return 128/6*lamb**8*(192*lamb**4 - 160*lamb**2*np.power(k,2) + 12*np.power(k,4))/np.power(D,6)
+        if shell_num == 4:
+            return 64*lamb**10*(1024*lamb**6 - 1792*lamb**4*np.power(k,2) + 448*lamb**2*np.power(k,4) - 16*np.power(k,6))/np.power(D,8)
         else:
             raise Exception("ERROR! shell_num = "+str(shell_num))
         
     # Gets a configuration's form factor for array of k. 
-    def calculate_config_ff(self,occ_index, k,  s,occ_dict):
+    def calculate_config_ff(self, occ, k, s):
         # We calculate the form factor for each subshell, then we multiply by the corresponding subshell occupancies to get the form factor.
         debug_old_ff = "0"
-        occ = occ_dict[occ_index]
+        #occ = occ_dict[occ_index]
         num_subshells = len(occ)
         ff = 0
         for i in range(num_subshells):  

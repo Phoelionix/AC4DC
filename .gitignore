@@ -58,4 +58,4 @@ scripts/scattering/random_sample/*
 scripts/scattering/snapshot.pdb
 scripts/scattering/targets
 scripts/molDStructConversion/hdf5_files
-*NOCOMMIT
+*NOCOMMIT*

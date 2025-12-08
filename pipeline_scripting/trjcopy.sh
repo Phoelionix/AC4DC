@@ -5,7 +5,7 @@ gmx='/home/speno/programs/bin' # path to where GROMACS is installed
 xtc_file=$1
 out_folder=$2
 
-handle=$(basename $working_folder)
+
 
 #gro_file_handle=lys_example
 

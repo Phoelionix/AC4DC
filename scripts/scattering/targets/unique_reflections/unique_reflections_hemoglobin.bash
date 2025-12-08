@@ -4,15 +4,15 @@ set -u
 
 cd $(dirname "$0")
 
-high_res=1.5
-name="lysozyme"
+high_res=6.0
+name="hemoglobin"
 
 unique hklout x_unq.mtz <<eof-unique
 TITLE  Unique data for $name
 LABOUT  F=FP SIGF=SIGFP
-SYMM P43212
+SYMM P212121
 RESOL ${high_res}
-CELL 79.000   79.000   38.000
+CELL 65.033   78.273  109.085
 eof-unique
 
 freerflag HKLIN x_unq.mtz HKLOUT x_unq2.mtz <<eof-freerflag

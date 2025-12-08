@@ -331,7 +331,7 @@ void ElectronRateSolver::precompute_gamma_coeffs() {
         auto eiiVec = input_params.Store[a].EIIparams;
         vector<RateData::InverseEIIdata> tbrVec = RateData::inverse(eiiVec);
         size_t counter=1;
-        #pragma omp parallel default(none) shared(a, N, counter, tbrVec, eiiVec, RATE_EII, RATE_TBR, std::cout)
+        #pragma omp parallel num_threads(input_params.Plasma_Threads()) default(none) shared(a, N, counter, tbrVec, eiiVec, RATE_EII, RATE_TBR, std::cout)
 		{
 			#pragma omp for schedule(dynamic) nowait
             for (size_t n=0; n<N; n++) {
@@ -1238,7 +1238,7 @@ void ElectronRateSolver::compute_free_grid_rates(){
         }
     }
     precompute_gamma_coeffs();
-    Distribution::precompute_Q_coeffs(input_params.Store);    
+    Distribution::precompute_Q_coeffs(input_params.Store,input_params.Plasma_Threads());    
 }
 
 void ElectronRateSolver::set_zero_y(){

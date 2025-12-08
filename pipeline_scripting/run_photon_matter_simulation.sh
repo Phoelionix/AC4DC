@@ -1,7 +1,7 @@
 set -u
 idx=$1
 working_folder=$2 # full path
-filename=$3
+base_gro_file=$3
 num_steps=$4
 dt=$5
 shake=$6
@@ -12,6 +12,10 @@ shake_script=$(realpath $(dirname $0))/shake.py
 
 cd $(dirname $0)
 
+### .mdp file ###
+if [ -f "$working_folder/full_sim.mdp" ]; then
+    mv $working_folder/full_sim.mdp $working_folder/full_sim.mdp#
+fi
 cp template_run_file.mdp $working_folder/full_sim.mdp
 
 cd $working_folder
@@ -21,24 +25,25 @@ mv tmp.$$ full_sim.mdp
 
 sed "s/DT_PLACEHOLDER/${dt}/g" full_sim.mdp > tmp.$$
 mv tmp.$$ full_sim.mdp
+### end .mdp file ###
+# NOTE now in $working_folder
 
 
-
-
-shaken_file=4et8H_full_struct_Hfix_shaken_${idx}.gro 
-
-
-#filename="4et8.gro"
-
-
-python3.9 $shake_script $filename $shaken_file $shake
+if (( shake > 0 )); then
+    MD_input_gro_file=input_file_shaken${idx}.gro 
+    python $shake_script $base_gro_file $MD_input_gro_file $shake
+else
+    MD_input_gro_file=input_file${idx}.gro
+    cp $base_gro_file $MD_input_gro_file
+fi
 
 
 rm -f output_$idx.tpr
 # Loop because fails sometimes, maybe due to LD random seed? Need to test.
 i=0
 while [ ! -f output_$idx.tpr ]; do
-    "$gmx/grompp" -f full_sim.mdp -po mdout_$idx -c $shaken_file -n index.ndx -p ./topology/topol.top -o output_$idx.tpr -maxwarn 3  # create .tpr file
+    rm -f mdout.mdp
+    "$gmx/grompp" -f full_sim.mdp -po mdout -c $MD_input_gro_file -n index.ndx -p ./topology/topol.top -o output_$idx.tpr -maxwarn 3  # create .tpr file
     i=$((i+1))
     if [ "$i" -ge 99 ]; then
         echo "Couldn't generate tpr file"
@@ -49,7 +54,8 @@ done
 
 rm -f \#*.*.*\#  # Remove extra backup files like "#output_8.edr.10#"
 
-"$gmx/mdrun" -s output_$idx.tpr -deffnm output_$idx -v -nt 16 # run simulation, use -nt X, where X is number of cores you want to run with specific number of cores. -v is verbose
+#echo "Running:  "$gmx/mdrun" -s output_$idx.tpr -deffnm output_$idx -v -nt 24"
+"$gmx/mdrun" -s output_$idx.tpr -deffnm output_$idx -v -nt 32 # run simulation, use -nt X, where X is number of cores you want to run with specific number of cores. -v is verbose
 
 rm MPI_slice_n*
 

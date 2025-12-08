@@ -166,8 +166,8 @@ public:
     vector<double> get_knot(){return knot;}
 
     SplineIntegral() {};
-    void precompute_QEII_coeffs(vector<RateData::Atom>& Atoms);
-    void precompute_QTBR_coeffs(vector<RateData::Atom>& Atoms);
+    void precompute_QEII_coeffs(vector<RateData::Atom>& Atoms, int threads);
+    void precompute_QTBR_coeffs(vector<RateData::Atom>& Atoms, int threads);
     void precompute_QEE_coeffs();
     // Precalculators. These delete the vectors Gamma and populate them with the calculated coefficients.)
     void Gamma_eii( eiiGraph& Gamma, const std::vector<RateData::EIIdata>& eii, size_t J) const;

@@ -6,30 +6,39 @@ from sample_scalepack import all_reflections_to_scalepack
 import inspect
 import datetime
 
-#TODO auto generate ideal, undamaged, damaged. not undamaged and damaged. (undamaged is called ideal)
+#TODO turn into function that can be called by other script. Currently only works when run directly from command line.
 
 NUM_PARALLEL=1
 SEEDED = False
 RANDOM_WATER = False; NUM_RANDOM_WATER = 0 # 702
 DEBUG_WATER = False
 QUICK_TEST = False
-SKIP_UNDAMAGED = False
+SKIP_UNDAMAGED_CONTROL = False; FIRST_UNDAMAGED=False # not the contrtol
+DEBUG_IGNORE_FE=False
+IGNORE_MISSING_SPECIES=True
+
+
 
 PLASMA_SIM_HANDLE_DICT = dict(
-    command_line=sys.argv[1]
+    command_line_input=sys.argv[1]
 )
 pdb_snapshots_parent_dir=sys.argv[2]
 
+ground_truth_pdb=None if len(sys.argv)<4 else sys.argv[3]
 
-target_options = ["command_line"]
+
+target_options = ["command_line_input"]
 TAG = "MD"
 
+if FIRST_UNDAMAGED:
+    assert SKIP_UNDAMAGED_CONTROL
 
 def generate_single_snapshot_pdb(md_pdb_file,snapshot_index):
-    assert False, "Not implemented"
+    assert False, "Please provide ground truth input - automatic generation unimplemented. "
 
-def main(par_idx):
-    num_time_points = 5
+def main(par_idx,ground_truth_pdb):
+
+    num_time_points = None # use all
     if QUICK_TEST:
         num_time_points=2
     #t_cutoff_frac=0.5
@@ -68,9 +77,21 @@ def main(par_idx):
 
         compare_with_undamaged_symmetry=True
 
-        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.4.hkl"; best_resolution=1.4
-        unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"; best_resolution=2
-        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_I3C_1.5.hkl"; best_resolution=1.5
+        #XXX Put these (unique_hkl + best_resolution, ground_truth_symmetry) as arguments!!!!
+        ####XXX#####
+        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.4.hkl"; best_resolution=1.4; ground_truth_symmetry_override="P 43 21 2"
+        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"; best_resolution=2.0; ground_truth_symmetry_override="P 43 21 2"
+        unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_hemoglobin_1.5.hkl"; best_resolution=1.5;ground_truth_symmetry_override="P 21 21 21"
+        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_hemoglobin_2.0.hkl"; best_resolution=2.0; ground_truth_symmetry_override="P 21 21 21"
+        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_hemoglobin_3.0.hkl"; best_resolution=3.0; ground_truth_symmetry_override="P 21 21 21"
+        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_hemoglobin_6.0.hkl"; best_resolution=6.0; ground_truth_symmetry_override="P 21 21 21"
+        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_I3C_1.5.hkl"; best_resolution=1.5;ground_truth_symmetry_override=????
+        if not compare_with_undamaged_symmetry:
+            #ground_truth_pdb="/home/speno/AC4DC/scripts/scattering/targets/4et8H_zero_B.pdb" 
+            ground_truth_symmetry_override=None
+        ####XXX#####
+        
+        
         plasma_sim_handle = PLASMA_SIM_HANDLE_DICT[sim_key]
         #pdb_md_snapshots_path = "/home/speno/AC4DC/scripts/scattering/targets/I3C_moldstruct.pdb" 
         #pdb_md_snapshots_path = "/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct.pdb" 
@@ -80,18 +101,19 @@ def main(par_idx):
         #     "/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct2.pdb",
         #     "/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct3.pdb"
         # ]
-        pdb_md_snapshots_path_list = os.listdir(pdb_snapshots_parent_dir) # Each file in the directory contains a full MD simulation
-        ground_truth_pdb=generate_single_snapshot_pdb(pdb_md_snapshots_path_list[0],0)
+        pdb_md_snapshots_path_list = [f"{pdb_snapshots_parent_dir}/{f}" for f in os.listdir(pdb_snapshots_parent_dir)] # Each file in the directory contains a full MD simulation
+        if ground_truth_pdb is None:
+            ground_truth_pdb=generate_single_snapshot_pdb(pdb_md_snapshots_path_list[0],0)
         #ground_truth_pdb="/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_base_structure_moldstruct.pdb" 
         #ground_truth_pdb="/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct.pdb" 
-        ground_truth_symmetry_override=None
-        if compare_with_undamaged_symmetry:
-            ground_truth_pdb="/home/speno/AC4DC/scripts/scattering/targets/4et8H_zero_B.pdb" 
-            ground_truth_symmetry_override="P 43 21 2"
+
         # TODO assert that ground truth has B factors of zero
         CNO_to_N = False; S_to_N = False
         folder = ""
         allowed_atoms = get_sim_elements(plasma_sim_handle)
+        if DEBUG_IGNORE_FE and "Fe_fast" in allowed_atoms:
+            #allowed_atoms=["N"]
+            allowed_atoms.remove("Fe_fast")
         #allowed_atoms = ["C","N","O","S","H"]
         if QUICK_TEST:
             allowed_atoms = ["C"]
@@ -116,7 +138,8 @@ def main(par_idx):
         include_symmetries = include_symmetries,  # should unit cell contain symmetries?
         cell_packing = "SC",
         random_waters= True if NUM_RANDOM_WATER>0 and RANDOM_WATER else None,
-        zero_bfactors=zero_bfactors
+        zero_bfactors=zero_bfactors,
+        allow_skip_species=IGNORE_MISSING_SPECIES,
     )
     show_crystal = False
 
@@ -146,7 +169,7 @@ def main(par_idx):
 
     ## DEBUG
     # WARNING we often assume that first crystal is damaged and second is undamaged when plotting. 
-    first_crystal_is_damaged = True # True  
+    first_crystal_is_damaged = not FIRST_UNDAMAGED # True  
     second_crystal_is_damaged = False  # False
 
 
@@ -167,6 +190,8 @@ def main(par_idx):
         root_handle = f"{plasma_sim_handle}{tag}"
         exp_name1 = f"{root_handle}_{exp1_qualifier}"
         exp_name2 = f"{root_handle}_{exp2_qualifier}"
+
+        src_file_path = inspect.getfile(lambda: None)
         results1_parent_folder = f"{RESULTS_LOCAL_PATH}{exp_name1}/" #_v{version_number}/" 
         results2_parent_folder = f"{RESULTS_LOCAL_PATH}{exp_name2}/" #_v{version_number}/" 
         exp_name1 += f"-{par_idx_for_target}"
@@ -187,7 +212,7 @@ def main(par_idx):
 
     #exp_name2 = None
 
-    if SKIP_UNDAMAGED:
+    if SKIP_UNDAMAGED_CONTROL:
         exp_name2 = None
     #-------------------------------#
     if SEEDED:
@@ -212,11 +237,14 @@ def main(par_idx):
     
     # The undamaged crystal uses the initial state but still performs the same integration step with the pulse profile weighting.
     if same_deviations:
+        assert False
         # we copy the other crystal so that it has the same deviations in coords
         crystal_undmged = copy.deepcopy(first_crystal)#Crystal(pdb_md_snapshots_path,allowed_atoms,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
         crystal_undmged.is_damaged = second_crystal_is_damaged
     else:
-        crystal_undmged = MD_Crystal(num_time_points,pdb_md_snapshots_path_list[0],allowed_atoms,is_damaged=second_crystal_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N, **crystal_qwargs)
+        crystal_undmged = MD_Crystal(num_time_points,pdb_md_snapshots_path_list[0],allowed_atoms,
+                                     is_damaged=second_crystal_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N,
+                                     **crystal_qwargs)
     if show_crystal:
         first_crystal.plot_me(300000,water_index = water_index,template="plotly_dark")
     #%
@@ -242,24 +270,29 @@ def main(par_idx):
             #fcalc = phenix_fcalc(pdb_md_snapshots_path,best_resolution,real=True)
             phenix_R(ground_truth_pdb,mtz_file2)
         phenix_R(ground_truth_pdb,mtz_file1)
-        #fcalc = phenix_fcalc(ground_truth_pdb,best_resolution,real=False)
+        cplx_data = phenix_fcalc(ground_truth_pdb,best_resolution,real=False)
+        #cplx_data = phenix_fcalc_from_file(ground_truth_pdb,mtz_file1,real=False)
         fcalc = phenix_fcalc_from_file(ground_truth_pdb,mtz_file1,real=True)
         phenix_R(ground_truth_pdb,fcalc)
 
+    #FIXME
     now = datetime.datetime.now().timestamp()
-    os.utime(results1_parent_folder[:-1], (now, now))
-    if not SKIP_UNDAMAGED:
-        os.utime(results2_parent_folder[:-1], (now, now)) # since we are very stupidly and lazily calling scalepack based on most recent modified...
+    os.utime( path.abspath(path.join(__file__ ,"../")) + "/"+ results1_parent_folder[:-1], (now, now))
+    if not SKIP_UNDAMAGED_CONTROL:
+        os.utime(path.abspath(path.join(__file__ ,"../")) + "/"+ results2_parent_folder[:-1], (now, now)) # since we are very stupidly and lazily calling scalepack based on most recent modified...
     
         #stylin(exp_name1,exp_name2,experiment1.q_to_X(experiment1.max_q)/1e7,results_parent_dir=results_parent_folder, custom_fig_width=fig_width,custom_fig_height=fig_height) # Note we are passing the max q, not max q_scr.
 
+    print("TODO isomorphous difference map btwn fcalc and ideal")
 
 if __name__ == "__main__":
     if NUM_PARALLEL>1:
+        def pooled_func(par_idx):
+            main(par_idx,ground_truth_pdb)
         with Pool(NUM_PARALLEL) as p:
-            p.map(main,range(NUM_PARALLEL))
+            p.map(pooled_func,range(NUM_PARALLEL))
     else:
-        main(0)
+        main(0,ground_truth_pdb)
     #all_reflections_to_scalepack() 
 
 
@@ -270,10 +303,9 @@ if __name__ == "__main__":
     src_file_path = inspect.getfile(lambda: None)
     scattering_dir = path.abspath(path.join(src_file_path ,"../"))+"/"
     RESULTS_LOCAL_PATH = "results/"
-
     # TODO FIX 
     ''' 
-    num_results = len(target_options)*(1+(SKIP_UNDAMAGED==False))
+    num_results = len(target_options)*(1+(SKIP_UNDAMAGED_CONTROL==False))
     OldestToLatest = sorted(glob.glob(os.path.join(scattering_dir+RESULTS_LOCAL_PATH, '*/')), key=os.path.getmtime)
     for n in range(num_results):
         all_reflections_to_scalepack(

@@ -7,6 +7,7 @@
 ## Not so important 
 # - implement rhombic miller indices as the angle is actually 120 degrees on one unit cell lattice vector (or just do SPI)
 # - Select times and integrate snapshots of intensities with gaussian quadrature or some better method than trapezoid method. (I started this with scatter_quad.py)
+# - Make all paths absolute
 
 '''
 /*===========================================================================
@@ -130,10 +131,11 @@ class Custom_Gromacs_Parser():
                         name = vals[1].strip()
 
                         # Commented out to avoid confusing with atom labelled NA in HEME.
+                        # TODO put in pdb warning
                         if name in ("NA","CL"):
                             NA_CL_warning = True
                             #element = name
-                        special_convert_dict={"FE":"FE","CLA":"CL","SOD":"NA"}
+                        special_convert_dict={"FE":"FE","CLA":"CL","SOD":"NA"} # changes here should be made above
                         if name in special_convert_dict:
                             element = special_convert_dict[name]
                         atom = PDB_Atom(
@@ -231,7 +233,11 @@ class Results_Grid():
     pass    
 
 class Crystal():
-    def __init__(self, struct_file_path, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = None, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1, S_to_N=False,convert_excluded_elements_to_N=False,random_waters=None,use_bfactors=True,zero_bfactors=False):
+    def __init__(self, struct_file_path, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = None, rocking_angle = 0.3, 
+    cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1, 
+    S_to_N=False,convert_excluded_elements_to_H=False,convert_excluded_elements_to_N=False,allow_skip_species=False,random_waters=None,
+    use_bfactors=True,zero_bfactors=False):
+        allowed_atoms=copy.deepcopy(allowed_atoms)
         '''
         rocking_angle [degrees]
         cell_packing ("SC","BCC","FCC","FCC-D", "triclinic")
@@ -251,6 +257,8 @@ class Crystal():
 
         self.stochastic_positions_set=False
         
+        assert not (convert_excluded_elements_to_H and convert_excluded_elements_to_N)
+
         self.use_bfactors = use_bfactors
         self.zero_bfactors = zero_bfactors
         self.cell_packing = cell_packing
@@ -285,6 +293,8 @@ class Crystal():
             self.sym_rotations = []; self.sym_translations = []; 
             self.add_symmetry_to_cells(np.identity(3),np.zeros((3)),"(X,Y,Z)")
 
+
+        assert len(self.sym_rotations)!=0 and len(self.sym_translations)!=0
         
         if not self.ignore_deviations and self.use_bfactors:
             print("Warning: Using both deviations and B factors")
@@ -302,6 +312,8 @@ class Crystal():
         for elem in ["H","He","C","N","O","P","S","Gd","I"]:  # pdb names # TODO automate this...
             PDB_to_AC4DC_dict[elem] = elem   # ac4dc name
         # Modify the values in the dictionary according to arguments.
+        missing_species_names=[]
+        missing_species_elements=[]
         for k,v in PDB_to_AC4DC_dict.items():
             # Light atom approximation. 
             if CNO_to_N:
@@ -312,6 +324,10 @@ class Crystal():
                     v = "N"  
             if convert_excluded_elements_to_N and v not in allowed_atoms: 
                     v = "N"    
+            if convert_excluded_elements_to_H and v not in allowed_atoms: 
+                    v = "H"    
+
+            
             PDB_to_AC4DC_dict[k] = v       
         if self.gromacs_config_file:
             parser = Custom_Gromacs_Parser()
@@ -323,13 +339,14 @@ class Crystal():
             parser=copy.deepcopy(xPDBParser)
         structure_id = os.path.basename(self.struct_file_path)
         structure = parser.get_structure(structure_id, self.struct_file_path)  
+        self.num_input_file_atoms=len(list(structure.get_atoms()))
         # NOTE if modify here, need to modify in pdb_to_AC4DC_dict 
         for atom in structure.get_atoms(): # XXX Patch
             if atom.name in ("NA","CL"):
                 atom.element = atom.name  
         # Get those cheeky charge clusters
         species_dict = {}
-        pdb_atoms = []
+        pdb_atom_eles = []
         pdb_atoms_ignored = ""
         #TODO change to just reading data folder and only excluding atoms that are specified, rather than requiring user to pass in all allowed atoms.       
         for ac4dc_atom in allowed_atoms:
@@ -340,43 +357,62 @@ class Crystal():
                 #TODO read data folder to resolve ambiguity.
                 raise Exception("Ambiguity, both "+ac4dc_atom+" and "+ac4dc_atom+"_faster were given in allowed_atoms.")            
         for atom in structure.get_atoms():
+            special_convert_dict={"FE":"FE","CLA":"CL","SOD":"NA"} # changes here change in gromacs parser
+            if atom.get_name() in special_convert_dict:
+                atom.element = special_convert_dict[atom.get_name()]
+            if (atom.get_name() == "NA" and atom.get_parent() is not None 
+            and atom.get_parent().get_resname()=="HEM"):
+                atom.element="N"
             # Get ze data
             R = atom.get_vector()
-            name = PDB_to_AC4DC_dict.get(atom.element)
+            ac4dc_name = PDB_to_AC4DC_dict.get(atom.element)
             # Pop into our desired format
-            if name == None:
+            if ac4dc_name == None:
                 pdb_atoms_ignored += atom.element + " "
                 continue
             # TODO make this not suck.
-            if name not in allowed_atoms: 
-                name+= "_fast"
-                if name not in allowed_atoms: 
-                    name +="er"
-                    if name not in allowed_atoms:
-                        continue
-            if name not in species_dict.keys():
-                PDB_to_AC4DC_dict[atom.element]=name
-                species_dict[name] = Atomic_Species(name,self) 
-                pdb_atoms.append(atom.element)
-            species_dict[name].add_atom(atom.get_serial_number(),R,atom.get_bfactor())
+            original_ac4dc_name=ac4dc_name
+            if ac4dc_name not in allowed_atoms: 
+                ac4dc_name+= "_fast"
+                if ac4dc_name not in allowed_atoms: 
+                    ac4dc_name +="er"
+                    if ac4dc_name not in allowed_atoms:
+                        ac4dc_name = original_ac4dc_name
+                        ####
+                        if not allow_skip_species: 
+                            assert False, f"{ac4dc_name} was not in expected elements: {allowed_atoms}" 
+                        else:
+                            missing_species_names.append(ac4dc_name)
+                            missing_species_elements.append(atom.element)
+                            allowed_atoms.append(ac4dc_name)
+                        ####
+            if ac4dc_name not in species_dict.keys():
+                PDB_to_AC4DC_dict[atom.element]=ac4dc_name
+                species_dict[ac4dc_name] = Atomic_Species(ac4dc_name,self) 
+                pdb_atom_eles.append(atom.element)
+            species_dict[ac4dc_name].add_atom(atom.get_serial_number(),R,atom.get_bfactor())
 
+            
 
         ac4dc_atoms_ignored = ""
         for string in allowed_atoms:
             if string not in species_dict.keys():
                 ac4dc_atoms_ignored += string + " "
                 continue
-        print("The following atoms will be considered (AC4DC names ; pdb names):")
-        for p,a in zip([PDB_to_AC4DC_dict[x] for x in pdb_atoms], pdb_atoms): 
-            print("%-10s %10s" % (p, a))
+        print("The following atoms will be considered:\n(AC4DC names ; pdb names)")
+        for p,a in zip([PDB_to_AC4DC_dict[x] for x in pdb_atom_eles if x not in missing_species_elements], pdb_atom_eles): 
+            print(f"{p:<10} {a:>10}")
+        if len(missing_species_names)>0:
+            print("WARNING: The following atoms are present in the structure but ignored:\n(AC4DC names ; pdb names)")
+            for p,a in zip([PDB_to_AC4DC_dict[x] for x in missing_species_elements], missing_species_elements): 
+                print(f"{p:<10} {a:>10}")
         if pdb_atoms_ignored != "":
             print("The following pdb atoms were found but ignored:",pdb_atoms_ignored)
         if ac4dc_atoms_ignored != "":
             print("The following atoms were allowed but not found:",ac4dc_atoms_ignored)
         
-        
-        self.species_dict = species_dict 
-
+        self.missing_species_dict = {k:v for k,v in species_dict.items() if k in missing_species_names}         
+        self.species_dict = {k:v for k,v in species_dict.items() if k not in missing_species_names} 
         #self.set_stochastic_positions(first_call=True)
     def disable_pos_deviations(self):
         self.positional_stdv=0
@@ -402,7 +438,7 @@ class Crystal():
             print(f"Adding stdv of {self.positional_stdv*ang_per_bohr} Angstroms.")
         for species in self.species_dict.values():
             species.set_coord_deviation(q)
-        
+        print("coord deviations set")
 
     def reinitialize_random_waters(self):
         if "O" not in self.species_dict:
@@ -569,9 +605,10 @@ class Crystal():
         chainIDs = ascii_letters+digits
         num_chains = len(self.sym_rotations)
         one_chain_per_unit=False
+        num_reference_chains=len(list(reference_structure.get_chains()))
         if num_chains > len(chainIDs):
             one_chain_per_unit = True
-            num_chains = self.supercell_scale**2 
+            num_chains = self.supercell_scale**2*num_reference_chains
             assert num_chains < len(chainIDs)
             asym_per_cell = len(self.sym_rotations)/self.supercell_scale**2
             residues_per_asym = 0
@@ -579,32 +616,34 @@ class Crystal():
                 residues_per_asym+=1
         if num_chains < len(ascii_uppercase):
             chainIDs = ascii_uppercase
-        for i in range(len(self.sym_rotations)):
-            if one_chain_per_unit:
-                structure.init_chain(chainIDs[int(np.floor(i/asym_per_cell))])
-            else:
-                structure.init_chain(chainIDs[i]) # Share chain ids between unit cells
-
-            for j, reference_residue in enumerate(reference_structure.get_residues()):
-                hetflag, resseq, icode = reference_residue.get_id()
+        for c,chain in enumerate(reference_structure.get_chains()):
+            for i in range(len(self.sym_rotations)):
+                idx=num_reference_chains*c+i
                 if one_chain_per_unit:
-                    resseq = i*residues_per_asym+j+1
+                    structure.init_chain(chainIDs[int(np.floor(idx/asym_per_cell))])
+                else:
+                    structure.init_chain(chainIDs[idx]) # Share chain ids between unit cells
+                
+                for j, reference_residue in enumerate(chain.get_residues()):
+                    hetflag, resseq, icode = reference_residue.get_id()
+                    if one_chain_per_unit:
+                        resseq = i*residues_per_asym+j+1
 
-                r_args = (hetflag,resseq,icode)
+                    r_args = (hetflag,resseq,icode)
 
-                #get_resname()
-                #get_segid()
-                structure.init_residue(reference_residue.get_resname(),*r_args)
-                residue_id = r_args
-                residue = structure.chain[residue_id] 
-                for reference_atom in reference_residue.get_atoms():
-                    R = reference_atom.get_vector().get_array()/ang_per_bohr
+                    #get_resname()
+                    #get_segid()
+                    structure.init_residue(reference_residue.get_resname(),*r_args)
+                    residue_id = r_args
+                    residue = structure.chain[residue_id] 
+                    for reference_atom in reference_residue.get_atoms():
+                        R = reference_atom.get_vector().get_array()/ang_per_bohr
 
-                    coord = self.get_sym_xfmed_point(R,i)
-                    
-                    coord=tuple([c*ang_per_bohr for c in coord])
-                    residue.add(PDB_Atom(name=reference_atom.get_name(), coord=coord, bfactor=reference_atom.get_bfactor(), occupancy=1., altloc=' ', fullname=reference_atom.get_fullname(), serial_number=serial_number,element=reference_atom.element))                
-                    serial_number+=1
+                        coord = self.get_sym_xfmed_point(R,i)
+                        
+                        coord=tuple([c*ang_per_bohr for c in coord])
+                        residue.add(PDB_Atom(name=reference_atom.get_name(), coord=coord, bfactor=reference_atom.get_bfactor(), occupancy=1., altloc=' ', fullname=reference_atom.get_fullname(), serial_number=serial_number,element=reference_atom.element))                
+                        serial_number+=1
 
         
         # Save it
@@ -1671,7 +1710,7 @@ class XFEL():
                 if not np.array_equal(times_used,species.times_used):
                     raise Exception("Times used don't match between species.")        
                 # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
-                max_atoms_per_loop = 1000 # Restrict array size to prevent computer explosions. 
+                max_atoms_per_loop = 2000 # Restrict array size to prevent computer explosions. 
                 self.target.reset_unique_points()
                 for s in range(len(self.target.sym_rotations)):
                     #print("Working through symmetry",s)
@@ -3106,7 +3145,6 @@ def get_result(filename,results_dir,compare_dir = None):
 
 ##### https://scripts.iucr.org/cgi-bin/paper?S0021889807029238, http://superflip.fzu.cz/
 
-#TODO figure out why we get zeros for reflection intensities sometimes.
 import pandas as pd
 import csv
 def create_reflection_file(result_handle,results_parent_dir = RESULTS_LOCAL_PATH,out_directory="reflections/",overwrite=False,artificial_I_scale=1,symmetry_override=None):
@@ -3114,8 +3152,9 @@ def create_reflection_file(result_handle,results_parent_dir = RESULTS_LOCAL_PATH
     Generates a .rfl file, compatible with Superflip
     '''
     print("Creating reflection file for",result_handle)
-    results_dir = results_parent_dir+ result_handle+"/"
+    results_dir =  path.abspath(path.join(__file__ ,"../")) + "/"+ results_parent_dir + result_handle+"/"
     assert path.isdir(results_dir), f"Directory not found: {results_dir}" 
+    out_directory = path.abspath(path.join(__file__ ,"../")) + "/"+ out_directory
     os.makedirs(out_directory, exist_ok=True) 
     init = False
     for filename in os.listdir(results_dir):
@@ -3294,6 +3333,8 @@ def rfl_to_sca(result_handle, reflections_dir = "reflections/", out_directory = 
     '''Converts .rfl file to scalepack .sca file
     See https://www.ccp4.ac.uk/html/scala.html#files
     '''
+    out_directory=path.abspath(path.join(__file__ ,"../")) + "/"+ out_directory #XXX change default to none. assume not none is an absolute path
+    reflections_dir=path.abspath(path.join(__file__ ,"../")) + "/"+ reflections_dir #XXX
     os.makedirs(out_directory, exist_ok=True) 
     rfl_file_path = reflections_dir + result_handle + ".rfl"
     assert path.isfile(rfl_file_path), f"Reflection file not found: {rfl_file_path}" 
@@ -3362,7 +3403,7 @@ def rfl_to_sca(result_handle, reflections_dir = "reflections/", out_directory = 
             # I sigma
             entries.append('%.1f'%Isigma) # .rfl doesn't have sigma.
 
-  
+            
 
 
             # Populate elements
@@ -3382,8 +3423,8 @@ def rfl_to_sca(result_handle, reflections_dir = "reflections/", out_directory = 
             path.abspath(out_path),
             f"--mtz={mtz_file}",
         ]
-        print (f"Running {create_mtz_args}")
-        subprocess.run(create_mtz_args)
+        print (f"Running: {' '.join(create_mtz_args)}")
+        subprocess.run(create_mtz_args,stdout=subprocess.PIPE)
 
     return path.abspath(out_path), mtz_file
 
@@ -3392,7 +3433,8 @@ def rfl_to_sca(result_handle, reflections_dir = "reflections/", out_directory = 
 # Unfortunately this also makes working with it slower.
 #def phenix_fcalc(pdb_file,miller_indices_mtz):
 def phenix_fcalc(pdb_file,high_resolution,real=False):
-    out_file_name = f"{pdb_file[:-4]}_fcalc.mtz"
+    type_tag = "real" if real else "cplx" 
+    out_file_name = f"{pdb_file[:-4]}_fcalc_{type_tag}.mtz"
     if path.exists(out_file_name):
         os.remove(out_file_name)
     args =[
@@ -3402,16 +3444,16 @@ def phenix_fcalc(pdb_file,high_resolution,real=False):
         f"high_resolution={high_resolution}",
         f"file_name={out_file_name}",
         "use_asu_masks=False",
-        "algorithm = fft *direct",
-        #"algorithm = *fft direct",
-        #"type=*real complex",
+        "algorithm=direct",
         "type=real" if real else "type=complex",
         "obs_type=amplitudes",
-        "grid_resolution_factor = 1/3"
+        "grid_resolution_factor=1/3",
+        "ignore_hydrogens=False",
+        #"data_column_label=FOBS,SIGFOBS",
         #f"high_res={high_resolution}",
     ]
-    print (f"Running {args}")
-    subprocess.run(args)#,stdout=log)
+    print (f"Running: {' '.join(args)}")
+    subprocess.run(args,stdout=subprocess.PIPE)#,stdout=log)
     return out_file_name
 
 def phenix_fcalc_from_file(pdb_file,miller_indices_mtz,real=False):
@@ -3426,16 +3468,14 @@ def phenix_fcalc_from_file(pdb_file,miller_indices_mtz,real=False):
         miller_indices_mtz,
         f"file_name={out_file_name}",
         "use_asu_masks=False",
-        "algorithm = fft *direct",
-        #"algorithm = *fft direct",
-        #"type=*real complex",
+        "algorithm=direct", # *fft direct
         "type=real" if real else "type=complex",
         "obs_type=amplitudes",
-        "grid_resolution_factor = 1/3",
-        "ignore_hydrogens = False",
-        #f"high_res={high_resolution}",
+        "grid_resolution_factor=1/3",
+        "ignore_hydrogens=False",
+        #"data_column_label=FOBS,SIGFOBS",
     ]
-    print (f"Running {args}")
+    print (f"Running: {' '.join(args)}")
     subprocess.run(args,stdout=subprocess.PIPE)
     return out_file_name
 
@@ -3448,14 +3488,19 @@ def phenix_R(pdb_file,reflections):
         reflections,
         #f"high_res={high_resolution}",
     ]
-    print (f"Running {args}")
+    print (f"Running: {' '.join(args)}")
     proc = subprocess.run(args,encoding='utf-8',stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    found_line = False
     for line in proc.stdout.split('\n'):
         if line.startswith("  r_work:"):
             print(line)
+            found_line=True
+    if not found_line:
+        #print(proc.stdout)
+        print("Error! Are occupancies zero?")
 
 def read_scalepack(result_handle,scalepack_dir = "scalepack/",skip_header=3):
-    file_path = scalepack_dir + result_handle + ".sca"
+    file_path = path.abspath(path.join(__file__ ,"../")) + "/"+ scalepack_dir + result_handle + ".sca"
     indices = []
     I = []
     with open(file_path, 'r') as f:
@@ -3492,7 +3537,7 @@ def stylin(exp_name1,exp_name2,radial_lim,damaged_and_undamaged=False,get_R_only
     experiment2_name = exp_name2#"lys_9.80_random"#exp_name2 
 
     #####
-    results_dir = results_parent_dir+experiment1_name+"/"
+    results_dir = path.abspath(path.join(__file__ ,"../")) + "/"+ results_parent_dir +experiment1_name+"/"
     for filename in os.listdir(results_dir):
         result1,result2 = get_result(filename,results_dir)
         if not (result1.for_plotting):
@@ -3964,7 +4009,8 @@ if interactive and __name__ == "__main__":
 # Finally, the rest of the water drop could be calculated by generating a large distribution of water, then scaling its contribution to the form factor.
 if interactive and __name__ == "__main__":
     ##### Crystal params
-    pdb_file ="4et8H.pdb"
+    #pdb_file ="4et8H.pdb"
+    pdb_file ="2qspH.pdb"
     targets_dir = path.abspath(path.join(__file__ ,"../")) + "/targets/"
     pdb_path = targets_dir + pdb_file
     crystal_qwargs = dict(
@@ -3979,9 +4025,9 @@ if interactive and __name__ == "__main__":
     # custom_residue_name="I3C"
     #allowed_atoms = ["C","N","O","I","H"]
     #allowed_atoms =["O","S","H","Cu"]
-    allowed_atoms =["C","N","O","H","S","Na","Cl","Gd"]
+    #allowed_atoms =["C","N","O","H","S","Na","Cl","Gd"]
+    allowed_atoms=get_sim_elements("hemoglobin_2QSP-9")
     crystal = Crystal(pdb_path,allowed_atoms,is_damaged=False, **crystal_qwargs)
-
     #crystal.save_structure(custom_residue_name=custom_residue_name,chain_name="A")
     crystal.save_structure_by_reference()
     

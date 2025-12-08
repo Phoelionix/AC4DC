@@ -13,14 +13,17 @@ import pickle
 
 
 class MD_Crystal:
-    def __init__(self,num_times, md_struct_path, allowed_atoms, t_cutoff_frac=None, positional_stdv = 0, is_damaged=True, include_symmetries = False, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1, S_to_N=False,convert_excluded_elements_to_N=False,random_waters=None,use_bfactors=True,zero_bfactors=False):
+    def __init__(self,num_times, md_struct_path, allowed_atoms, t_cutoff_frac=None, positional_stdv = 0, is_damaged=True, include_symmetries = False, rocking_angle = 0.3,
+                 cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1,
+                 S_to_N=False,convert_excluded_elements_to_H=False,convert_excluded_elements_to_N=False,allow_skip_species=False,random_waters=None,
+                 use_bfactors=True,zero_bfactors=False):
         self.current_snapshot_time=None
         self.md_struct_path = md_struct_path
         self.is_damaged = is_damaged
         assert not include_symmetries, "symmetries not implemented for MD input"
         self.crystal_kwargs =  {k: v for k, v in locals().items() if k not in ("self","num_times","md_struct_path","is_damaged","t_cutoff_frac")}
 
-        assert path.exists(self.md_struct_path)
+        assert path.exists(self.md_struct_path), f"{self.md_struct_path} not found!" 
         T = self.read_times(num_times, self.md_struct_path)
 
         if t_cutoff_frac is not None: 
@@ -34,12 +37,18 @@ class MD_Crystal:
 
         #t_fineness = num_times-1
         # in picoseconds
-        self.times = [T[0] + n/(num_times-1)*(T[-1]-T[0]) for n in range(num_times)]  # test: self.times = T[0:2]
-        
-        self.times = self.get_nearest_time(self.times,T,tol_fs=1)
-        if not is_damaged:
-            self.times = [T[0]]
-        print("set times:", [t_pico*1e3 for t_pico in self.times])
+
+        if num_times is None:
+            if not is_damaged:
+                self.times=[T[0]]
+            elif len(T)>0:
+                self.times=T[1:]
+        else:
+            times_to_aim_for = [T[0] + n/(num_times-1)*(T[-1]-T[0]) for n in range(num_times)]  # test: self.times = T[0:2]
+            self.times = self.get_nearest_time(times_to_aim_for,T,tol_fs=1)
+            if not is_damaged:
+                self.times = [T[0]]
+        print("chose times:", [t_pico*1e3 for t_pico in self.times])
             
          
     @staticmethod

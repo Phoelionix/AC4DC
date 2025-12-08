@@ -30,7 +30,7 @@ def main():
     GRID_TYPE = "N" # N -> DynamicGridPreset::mb_log_grid_lower_min
   # https://www.xfel.eu/sites/sites_custom/site_xfel/content/e35165/e46561/e46876/e179573/e179574/xfel_file179576/19042023_Parameters_factsheet_2024-01_Final_eng.pdf
     #ENERGIES = [6000,9000,12000, 15000]
-    ENERGIES = [9000,15000]
+    ENERGIES = [9000]
     FWHMS = [5,25,50]#[15]
     PHOTON_COUNTS = [0.1,1,10]
 

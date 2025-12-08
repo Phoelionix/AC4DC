@@ -246,12 +246,12 @@ public:
     // and then saving values for grid points given the splines within their min and max support 
     // (i.e. for a cubic spline, the energies of the two knots higher than the knot considered)
     // would make it worthwhile to save this info. But that would be an endeavour.
-    static void precompute_Q_coeffs(vector<RateData::Atom>& Store) {
+    static void precompute_Q_coeffs(vector<RateData::Atom>& Store, int threads) {
         #ifndef NO_EII
-        basis.precompute_QEII_coeffs(Store);   
+        basis.precompute_QEII_coeffs(Store,threads);   
         #endif
         #ifndef NO_TBR
-        basis.precompute_QTBR_coeffs(Store);
+        basis.precompute_QTBR_coeffs(Store,threads);
         #endif
         #ifndef NO_EE
         basis.precompute_QEE_coeffs();     

@@ -14,7 +14,7 @@ def generate_charges(num_to_sample,stime,dQ_arrays,charge_data,Z,plot=True,plot_
     nstates_from,nsteps,nstates_to=state_transitions.shape
     assert nstates_from==nstates_to
     nstates=nstates_to
-    assert nsteps==len(stime)
+    assert nsteps==len(stime), (nsteps, len(stime),stime[0],stime[-1])
 
     og_state_transitions=np.copy(state_transitions)
     for i in range(nstates):
@@ -109,7 +109,7 @@ def generate_charges(num_to_sample,stime,dQ_arrays,charge_data,Z,plot=True,plot_
             ax.plot(stime, np.sum(charges == cs, axis=1))
         ax.set(xlabel="Time (s)", ylabel=f"Charge state distribution among {species_name_for_plot}")
         ax.legend(["+%d" % cs for cs in range(nstates)], fontsize=10)
-        pyplot.savefig(f"modified_charge_dist{plot_tag}.png")
+        pyplot.savefig(f"sample_charge_dist{plot_tag}.png")
         pyplot.close()
         #####
         fig, ax = pyplot.subplots()

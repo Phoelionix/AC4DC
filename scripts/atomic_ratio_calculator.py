@@ -136,10 +136,11 @@ def PEG(peg_molar_mass):
 PEG_8000 = PEG(8000)
 
 
-sodium_cacodylate = Molecule(137.9977,1.1,
+sodium_cacodylate = Molecule(159.98,1.1,
     C=2,
     H=7,
     As=1,
+    Na=1,
     O=2
 )
 glycerol = Molecule(92.09382,1.26,

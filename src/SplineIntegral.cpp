@@ -19,7 +19,7 @@ This file is part of AC4DC.
 #include "config.h"
 
 // Resizes containers and fills them with the appropriate values
-void SplineIntegral::precompute_QEII_coeffs(vector<RateData::Atom>& Atoms) {
+void SplineIntegral::precompute_QEII_coeffs(vector<RateData::Atom>& Atoms, int threads) {
     std::cout<<"[ Q precalc ] Beginning Q_eii computation...";
     // Size Q_EII appropriately
     Q_EII.resize(Atoms.size());
@@ -41,7 +41,7 @@ void SplineIntegral::precompute_QEII_coeffs(vector<RateData::Atom>& Atoms) {
         // (usually by 1 or 2, so dense matrices are fine)
 
         size_t counter=1;
-        #pragma omp parallel default(none) shared(a, counter, Atoms, std::cout)
+        #pragma omp parallel num_threads(threads) default(none) shared(a, counter, Atoms, std::cout)
 		{
 			#pragma omp for schedule(dynamic) nowait
             for (size_t J=0; J<num_funcs; J++) {
@@ -64,7 +64,7 @@ void SplineIntegral::precompute_QEII_coeffs(vector<RateData::Atom>& Atoms) {
 }
 
 // Resizes containers and fills them with the appropriate values
-void SplineIntegral::precompute_QTBR_coeffs(vector<RateData::Atom>& Atoms) {
+void SplineIntegral::precompute_QTBR_coeffs(vector<RateData::Atom>& Atoms, int threads) {
     std::cout<<"[ Q precalc ] Beginning Q_tbr computation..."<<std::endl;
     // Size Q_TBR appropriately
     Q_TBR.resize(Atoms.size());
@@ -87,7 +87,7 @@ void SplineIntegral::precompute_QTBR_coeffs(vector<RateData::Atom>& Atoms) {
         // (usually by 1 or 2, so dense matrices are fine)
 
         size_t counter=1;
-        #pragma omp parallel default(none) shared(a, counter, Atoms, std::cout)
+        #pragma omp parallel num_threads(threads) default(none) shared(a, counter, Atoms, std::cout)
 		{
 			#pragma omp for schedule(dynamic) nowait
             for (size_t J=0; J<num_funcs; J++) {
