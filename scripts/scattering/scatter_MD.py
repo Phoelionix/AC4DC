@@ -2,6 +2,7 @@
 from scatter import XFEL, Crystal,Results,RESULTS_LOCAL_PATH
 from core_functions import get_sim_params
 import os.path as path
+import os
 import numpy as np
 import pickle
 
@@ -13,18 +14,31 @@ import pickle
 
 
 class MD_Crystal:
-    def __init__(self,num_times, md_struct_path, allowed_atoms, t_cutoff_frac=None, positional_stdv = 0, is_damaged=True, include_symmetries = False, rocking_angle = 0.3,
+    def __init__(self,num_times, md_struct_path, allowed_atoms, 
+                 charges_path,debye_path,start_t,end_t, 
+                 t_cutoff_frac=None, positional_stdv = 0, is_damaged=True, include_symmetries = False, rocking_angle = 0.3,
                  cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1,
                  S_to_N=False,convert_excluded_elements_to_H=False,convert_excluded_elements_to_N=False,allow_skip_species=False,random_waters=None,
-                 use_bfactors=True,zero_bfactors=False):
+                 use_bfactors=True,zero_bfactors=False,ignore_water_H=True,electronic_only=False,nuclear_only=False):
         self.current_snapshot_time=None
         self.md_struct_path = md_struct_path
-        self.is_damaged = is_damaged
+        self.electronic_damage = is_damaged and not nuclear_only
+        self.nuclear_damage = is_damaged and not electronic_only
         assert not include_symmetries, "symmetries not implemented for MD input"
-        self.crystal_kwargs =  {k: v for k, v in locals().items() if k not in ("self","num_times","md_struct_path","is_damaged","t_cutoff_frac")}
+        self.crystal_kwargs =  {k: v for k, v in locals().items() if k not in ("self","num_times","md_struct_path","charges_path","debye_path","start_t","end_t",
+                                                                               "charges","is_damaged",
+                                                                               "t_cutoff_frac","electronic_only","nuclear_only")}
+
 
         assert path.exists(self.md_struct_path), f"{self.md_struct_path} not found!" 
-        T = self.read_times(num_times, self.md_struct_path)
+        T = self.read_times(self.md_struct_path)
+        if self.electronic_damage:
+            assert len(T)>0, T
+            all_charges=read_charges_binary(charges_path,debye_path)
+            all_times=np.linspace(start_t,end_t,all_charges.shape[0])
+            self.charges=all_charges[np.searchsorted(all_times,T)]
+
+
 
         if t_cutoff_frac is not None: 
             truncted_T = []
@@ -43,6 +57,9 @@ class MD_Crystal:
                 self.times=[T[0]]
             elif len(T)>0:
                 self.times=T[1:]
+            else:
+                self.times=T
+
         else:
             times_to_aim_for = [T[0] + n/(num_times-1)*(T[-1]-T[0]) for n in range(num_times)]  # test: self.times = T[0:2]
             self.times = self.get_nearest_time(times_to_aim_for,T,tol_fs=1)
@@ -69,7 +86,7 @@ class MD_Crystal:
         return allowed_times[np.array(n)]
 
     @staticmethod
-    def read_times(num_times, md_struct_path,t_cutoff=None):
+    def read_times(md_struct_path,t_cutoff=None):
         times:list[float] = []
         with open(md_struct_path) as f:
             for line in f:
@@ -80,7 +97,6 @@ class MD_Crystal:
         return times
 
     
-    EXCLUDE_WATER=True
     def set_crystal_snapshot(self,t:float,exclude_water=False,exclude_SOL=True,exclude_water_H=True):
         # if not self.is_damaged:
         #     assert self.current_snapshot_time is None
@@ -92,8 +108,10 @@ class MD_Crystal:
         #         print("Warning: Reusing mid-dynamics snapshot")
         #     return self.crystal_snapshot
             
+        if not self.nuclear_damage:
+            t=self.times[0]
 
-        tmp_file_path = path.abspath(path.join(__file__ ,"../","snapshot.pdb"))
+        tmp_file_path = path.abspath(path.join(__file__ ,"../",f"snapshot-{t}fs.pdb"))
 
         assert t in self.times, f"{t} not found in times ({self.times})"
         snapshot_lines:list[str] = []
@@ -140,7 +158,8 @@ class MD_Crystal:
             #f_snap.writelines([f"{l}\n" for l in snapshot_lines])
             f_snap.writelines(snapshot_lines)
 
-        self.crystal_snapshot = Crystal(tmp_file_path,is_damaged=self.is_damaged,**self.crystal_kwargs)
+        self.crystal_snapshot = Crystal(tmp_file_path,is_damaged=self.electronic_damage,charge_states=self.charges[self.times.index(t)],**self.crystal_kwargs)
+        os.remove(tmp_file_path)
         self.current_snapshot_time = t
         #self.crystal_snapshot.plot_me()
     # def set_base_crystal(self, struct_file_path, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = None, rocking_angle = 0.3, cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1, S_to_N=False,convert_excluded_elements_to_N=False,random_waters=None,use_bfactors=True,zero_bfactors=False):
@@ -168,16 +187,17 @@ class MD_XFEL:
             "md_target_list",
             )}
         I_tot = None
-        for md_target in md_target_list:
-            results = self.spooky_laser(sim_data_handle,sim_parent_dir_path,md_target,**kwargs)
+        for i, md_target in enumerate(md_target_list):
+            print(f"Capturing trajectory {i}/{len(md_target_list)}")
+            results = self.fire_laser(sim_data_handle,sim_parent_dir_path,md_target,**kwargs)
             I_tot = I_tot + results.I if I_tot is not None else results.I
         out_results = results
         out_results.I = I_tot/len(md_target_list)
         with open(out_results.save_path,"wb") as pickle_out:
             pickle.dump(out_results,pickle_out)
         return out_results
-    #def spooky_laser(self, start_time, end_time, sim_data_handle, sim_parent_dir_path, target : Crystal, SPI_resolution = None, results_parent_dir = RESULTS_LOCAL_PATH, circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False,do_not_integrate_times=False):
-    def spooky_laser(self, sim_data_handle, sim_parent_dir_path, md_target : MD_Crystal, SPI_resolution = None, results_parent_dir = RESULTS_LOCAL_PATH, circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False,do_not_integrate_times=False):
+    #def fire_laser(self, start_time, end_time, sim_data_handle, sim_parent_dir_path, target : Crystal, SPI_resolution = None, results_parent_dir = RESULTS_LOCAL_PATH, circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False,do_not_integrate_times=False):
+    def fire_laser(self, sim_data_handle, sim_parent_dir_path, md_target : MD_Crystal, SPI_resolution = None, results_parent_dir = RESULTS_LOCAL_PATH, circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False,do_not_integrate_times=False):
         laser_kwargs = {k: v for k, v in locals().items() if k not in (
             "self",
             "sim_data_handle",
@@ -188,14 +208,17 @@ class MD_XFEL:
         param,_,_ = get_sim_params(sim_data_handle)
 
         I = None
-        for t_pico in md_target.times:  # gromacs output is in picoseconds
+        for k, t_pico in enumerate(md_target.times):  # gromacs output is in picoseconds
             t = t_pico*1e3 + param["start_t"]  # AC4DC time
-            print(f"Snapshot t = {t} fs")
+            print(f"Snapshot t = {t} fs ({k+1}/{len(md_target.times)})")
             
-            md_target.set_crystal_snapshot(t_pico)
+            if md_target.nuclear_damage:
+                md_target.set_crystal_snapshot(t_pico)
+            elif k == 0:
+                md_target.set_crystal_snapshot(t_pico)
             
             
-            results:Results = self.xfel.spooky_laser(t,t,sim_data_handle,sim_parent_dir_path,
+            results:Results = self.xfel.fire_laser(t,t,sim_data_handle,sim_parent_dir_path,
                                    md_target.crystal_snapshot,
                                    **laser_kwargs)            
             I = I + results.I if I is not None else results.I
@@ -212,5 +235,17 @@ class MD_XFEL:
         
     def set_orientation_set(self,orientation_set):
         self.xfel.set_orientation_set(orientation_set)
-    def used_orientations(self):
-        return self.xfel.used_orientations
+    def get_used_orientations(self):
+        return self.xfel.get_used_orientations()
+    
+
+
+def read_charges_binary(charges_path,debye_path):
+    # NOTE debye_path is purely used to get times #XXX Change to just using num atoms
+    data_1d=np.fromfile(debye_path,dtype=np.float32)
+    num_timesteps = len(data_1d)
+
+    charges = np.fromfile(charges_path, dtype=np.ushort)    
+    charges=charges.reshape((num_timesteps,-1))
+    print(f"Charges shape (tsteps,atoms)={charges.shape}")
+    return charges

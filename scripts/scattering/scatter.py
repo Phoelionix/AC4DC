@@ -32,8 +32,8 @@ This file is part of AC4DC.
 import os
 os.getcwd()
 import sys
-sys.path.append('/home/speno//AC4DC/scripts/pdb_parser')
-sys.path.append('/home/speno//AC4DC/scripts/')
+sys.path.append('/home/speno/AC4DC/scripts/pdb_parser')
+sys.path.append('/home/speno/AC4DC/scripts/')
 ######
 
 import os.path as path
@@ -48,6 +48,7 @@ from xpdb import sloppyparser as xPDBParser
 from xpdb import SloppyPDBIO as xPDBIO
 from xpdb import SloppyStructureBuilder as xStructureBuilder  # Hack, enables atom counts over 10,000
 from Bio.PDB.Atom import Atom as PDB_Atom
+from Bio.PDB.Atom import DisorderedAtom
 #from sympy.utilities.iterables import multiset_permutations
 import itertools
 import matplotlib.pyplot as plt
@@ -63,14 +64,14 @@ from matplotlib import cm
 from matplotlib.colors import TwoSlopeNorm
 import copy
 import pickle
-import colorcet as cc; import cmasher as cmr
+#import colorcet as cc; import cmasher as cmr
 from mpl_toolkits.mplot3d import Axes3D
 import plotly.graph_objects as go
 import plotly.offline as pltly_offline
 from IPython.display import display, HTML
 from IPython import get_ipython
 from string import ascii_uppercase, ascii_lowercase, ascii_letters, digits
-from core_functions import get_sim_elements
+from core_functions import get_sim_elements,ATOMNO,parse_elecs_from_latex
 from plot_I_vs_Isigma import read_cif
 import scipy
 import subprocess
@@ -87,7 +88,7 @@ plt.ioff()  # stops weird vscode stuff
 
 DEBUG = False; DEBUG = False; DEBUG_MODERATE = False; DEBUG_WATER = True
 SEEDED = False# TODO check fully implemented for all random stuff
-DELETENONUNIQUE=True
+DELETENONUNIQUE=False
 
 if SEEDED:
     np.random.seed(0)
@@ -236,7 +237,7 @@ class Crystal():
     def __init__(self, struct_file_path, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = None, rocking_angle = 0.3, 
     cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1, 
     S_to_N=False,convert_excluded_elements_to_H=False,convert_excluded_elements_to_N=False,allow_skip_species=False,random_waters=None,
-    use_bfactors=True,zero_bfactors=False):
+    use_bfactors=True,zero_bfactors=False,ignore_water_H=False,charge_states=None):
         allowed_atoms=copy.deepcopy(allowed_atoms)
         '''
         rocking_angle [degrees]
@@ -356,7 +357,11 @@ class Crystal():
             if ac4dc_atom + "_faster" in allowed_atoms:
                 #TODO read data folder to resolve ambiguity.
                 raise Exception("Ambiguity, both "+ac4dc_atom+" and "+ac4dc_atom+"_faster were given in allowed_atoms.")            
-        for atom in structure.get_atoms():
+        charge_idxes={}
+        for i, atom in enumerate(structure.get_atoms()):
+            if ignore_water_H and atom.element=="H" and atom.get_parent() is not None and atom.get_parent().get_resname()=="HOH":
+                continue        
+    
             special_convert_dict={"FE":"FE","CLA":"CL","SOD":"NA"} # changes here change in gromacs parser
             if atom.get_name() in special_convert_dict:
                 atom.element = special_convert_dict[atom.get_name()]
@@ -389,9 +394,13 @@ class Crystal():
             if ac4dc_name not in species_dict.keys():
                 PDB_to_AC4DC_dict[atom.element]=ac4dc_name
                 species_dict[ac4dc_name] = Atomic_Species(ac4dc_name,self) 
+                charge_idxes[ac4dc_name]=[]
                 pdb_atom_eles.append(atom.element)
             species_dict[ac4dc_name].add_atom(atom.get_serial_number(),R,atom.get_bfactor())
-
+            charge_idxes[ac4dc_name].append(i)
+        if charge_states is not None:
+            for ac4dc_name in species_dict:
+                species_dict[ac4dc_name].set_charge_states(charge_states[charge_idxes[ac4dc_name]])
             
 
         ac4dc_atoms_ignored = ""
@@ -602,39 +611,60 @@ class Crystal():
 
         # Add atoms
         serial_number = 1
-        chainIDs = ascii_letters+digits
+        chainIDs = ascii_uppercase+ascii_lowercase+digits
         num_chains = len(self.sym_rotations)
         one_chain_per_unit=False
+
+        altloc_mode=True
         num_reference_chains=len(list(reference_structure.get_chains()))
-        if num_chains > len(chainIDs):
-            one_chain_per_unit = True
-            num_chains = self.supercell_scale**2*num_reference_chains
-            assert num_chains < len(chainIDs)
-            asym_per_cell = len(self.sym_rotations)/self.supercell_scale**2
-            residues_per_asym = 0
-            for reference_residue  in reference_structure.get_residues():
-                residues_per_asym+=1
+        if not altloc_mode:
+            if num_chains > len(chainIDs) or num_reference_chains>1:
+                one_chain_per_unit = True
+                num_chains = self.supercell_scale**2*num_reference_chains
+                assert num_chains < len(chainIDs)
+        asym_per_cell = len(self.sym_rotations)/self.supercell_scale**2
+        residues_per_asym=len(list(reference_structure.get_residues()))
         if num_chains < len(ascii_uppercase):
             chainIDs = ascii_uppercase
-        for c,chain in enumerate(reference_structure.get_chains()):
-            for i in range(len(self.sym_rotations)):
-                idx=num_reference_chains*c+i
+        abs_chain_idx=-1
+        chains_list = list(reference_structure.get_chains())
+        for i in range(len(self.sym_rotations)):
+            if  (i%asym_per_cell == 0):
+                chain_last_resnum_dict={}
+
+            unit_cell_idx=int(np.floor(i/asym_per_cell))
+            if altloc_mode:
+                altloc = ascii_letters[unit_cell_idx]
+            else:
+                altloc = ' '
+            print(altloc)
+            for c,chain in enumerate(chains_list):
+                abs_chain_idx+=1
+                #abs_chain_idx=num_reference_chains*asym_per_cell*c+i
                 if one_chain_per_unit:
-                    structure.init_chain(chainIDs[int(np.floor(idx/asym_per_cell))])
+                    chain_idx=unit_cell_idx
                 else:
-                    structure.init_chain(chainIDs[idx]) # Share chain ids between unit cells
+                    # Share chain ids between unit cells
+                    chain_idx=int(abs_chain_idx-unit_cell_idx*asym_per_cell*num_reference_chains)
+                chainID=chainIDs[chain_idx]
+                structure.init_chain(chainID) 
                 
                 for j, reference_residue in enumerate(chain.get_residues()):
                     hetflag, resseq, icode = reference_residue.get_id()
-                    if one_chain_per_unit:
-                        resseq = i*residues_per_asym+j+1
+                    if chainID not in chain_last_resnum_dict:
+                        chain_last_resnum_dict[chainID]=0
+                    chain_last_resnum_dict[chainID]+=1
+                    resseq=chain_last_resnum_dict[chainID]
+                    assert resseq <1e4, f"Residue number {resseq} too high!"
+                    print(resseq)
 
                     r_args = (hetflag,resseq,icode)
-
                     #get_resname()
                     #get_segid()
-                    structure.init_residue(reference_residue.get_resname(),*r_args)
+                    
                     residue_id = r_args
+                    if residue_id not in structure.chain:
+                        structure.init_residue(reference_residue.get_resname(),*r_args)
                     residue = structure.chain[residue_id] 
                     for reference_atom in reference_residue.get_atoms():
                         R = reference_atom.get_vector().get_array()/ang_per_bohr
@@ -642,7 +672,20 @@ class Crystal():
                         coord = self.get_sym_xfmed_point(R,i)
                         
                         coord=tuple([c*ang_per_bohr for c in coord])
-                        residue.add(PDB_Atom(name=reference_atom.get_name(), coord=coord, bfactor=reference_atom.get_bfactor(), occupancy=1., altloc=' ', fullname=reference_atom.get_fullname(), serial_number=serial_number,element=reference_atom.element))                
+
+
+                        atom = PDB_Atom(name=reference_atom.get_name(), coord=coord, bfactor=reference_atom.get_bfactor(), occupancy=1., 
+                                                altloc=altloc, fullname=reference_atom.get_fullname(), serial_number=serial_number,element=reference_atom.element)
+                        disordered_atom=None
+                        for a in residue.get_atoms():
+                            if a is None:
+                                continue
+                            if reference_atom.get_name()==a.get_name():
+                                disordered_atom=a
+                        if disordered_atom is None:
+                            disordered_atom=DisorderedAtom(atom.get_name())
+                            residue.add(disordered_atom)  
+                        disordered_atom.disordered_add(atom)
                         serial_number+=1
 
         
@@ -1021,11 +1064,20 @@ class Atomic_Species():
     def __init__(self,name,crystal: Crystal):
         self.name = name 
         self.crystal = crystal 
-        self.ff = 0 # form_factor
         self.coords = []  # coord of each atom in species in asymmetric unit
         self.serial_numbers = [] # Corresponding serial number of each atom 
         self.B_factors = [] 
         self.debye_waller_factor=None
+
+        self.charge_states=None # Charge states for all times and atom indices
+        self.ff_by_occupancy_and_time=None
+        # if self.charge_states is not None:
+        #     assert len(charge_states) == len() 
+
+    def set_charge_states(self,charge_states):
+        self.charge_states=charge_states
+    def Z(self):
+        return ATOMNO[self.name]
 
     def add_atom(self,serial_number,vector,B_factor):
         '''
@@ -1049,10 +1101,10 @@ class Atomic_Species():
         #print(np.array(self.B_factors))
         #print(self.debye_waller.shape)
         
-    def set_stochastic_electronic_states(self):
+    def set_stochastic_electronic_states(self,q_arr = None):
         '''
         We set a state for each atom, including symmetries, so that different q applied to the same atom at the same time corresponds to the same state. 
-        When we are finding the atomic form factors, we call get_stochastic_f() on these states.
+        When we are finding the atomic form factors, we call get_atomic_form_factors() on these states.
         The dimensionless nature of the model forces us to make the dubious approximation that an atom's state is independent of its prior states.
         With a hybrid molecular dynamics model informed by AC4DC, the nuclei's states could potentially be tracked properly through time, and this function would be replaced
         by a call to the data of the atomic nuclei's states.
@@ -1067,16 +1119,90 @@ class Atomic_Species():
         or ((not self.B_factors and not self.crystal.zero_bfactors) and  (self.num_atoms_on_coord_deviation != num_atoms)):
             raise Exception("num atoms was not same on set_stochastic_electronic_states call as when set by set_coord_deviation")
         
+        
         if self.crystal.is_damaged:
-            # Initialise an array that tracks the individual atoms' form factors.
+            # Initialise an array that tracks the form factors of individual atoms.
             orb_occs_shape = (num_atoms,len(self.times_used))  # [num atoms,times]
             # TODO instead of storing lists, replace with indices and a list with corresponding states. Also use index to get ff rather than orbocc list
             self.orb_occs= np.empty(orb_occs_shape,dtype=list)    # self.orb_occs[i] is an array of states corresponding to each time. We make the necessary approximation that an atom's state is independent of its prior states. This approximation is dubious at low unit cell numbers, but at higher numbers, because the contribution from an atom at the same relative cell coordinate and state as another atom will be equivalent, we get the same outcome so long as the probability distribution of states is representative of the actual distribution of states. i.e. tracking state history at the same global position is redundant at high unit cell counts where we can expect the distribution of states at a given coordinate to have a low deviation between species.  
-            for idx in range(num_atoms):
-                seed = None
-                if SEEDED:
-                    seed = idx
-                self.orb_occs[idx],_dummy,self.orb_occ_dict = self.crystal.ff_calculator.random_state_snapshots(self.name,seed) 
+            
+            if self.charge_states is None:
+                for idx in range(num_atoms): # XXX Super slow
+                    seed = None
+                    if SEEDED:
+                        seed = idx
+                    self.orb_occs[idx],_,self.orb_occ_dict = self.crystal.ff_calculator.random_state_snapshots(self.name,seed) 
+            else: 
+                # NOTE: Not stochastic
+                if self.ff_by_occupancy_and_time is not None:
+                    # Already set. 
+                    return 
+                assert q_arr is not None
+                self.atom_occupancies=self.Z()-self.charge_states
+                total_occupancies:dict[int,list]={}
+                config_strings= [occ_str for occ_str in self.crystal.ff_calculator.statedict[self.name]]
+                orb_occs = [parse_elecs_from_latex(occ_str) for occ_str in config_strings]
+                for config_str,occ in zip(config_strings,orb_occs):
+                    total_occupancy = np.sum(list(occ.values()))
+                    if total_occupancy not in total_occupancies:
+                        total_occupancies[total_occupancy]=[]
+                    total_occupancies[total_occupancy].append(config_str)
+                occupancy_indices={total_occ:i for i, total_occ in 
+                                    enumerate(sorted(list(total_occupancies.keys())))}
+                self.ff_by_occupancy_and_time = np.zeros(
+                    shape=(
+                        len(total_occupancies), 
+                        len(self.times_used),
+                        *q_arr.shape))
+                t_idx = np.searchsorted(self.crystal.ff_calculator.timeData,self.times_used)     
+                
+
+
+                #total_density=np.sum(self.crystal.ff_calculator.boundData[self.name][0,:])
+                occ_dict=self.crystal.ff_calculator.get_occ_dict(self.name)
+                got_ff_once=False
+                assert len(total_occupancies)>0
+                for occupancy,configs in total_occupancies.items():
+                    #print("occupancy:",occupancy)
+                    config_indices = [config_strings.index(config_str) for config_str in configs]
+
+                    total_density_of_occupancy_each_step=np.sum(self.crystal.ff_calculator.boundData[self.name][t_idx if len(t_idx)>1 else int(t_idx):int(t_idx+1),config_indices],axis=1) 
+                    #max_total_density_of_occupancy=np.max(total_density_of_occupancy_each_step)
+                    if occupancy not in self.Z() - self.charge_states:
+                        self.ff_by_occupancy_and_time[occupancy_indices[occupancy]]=np.nan
+                        continue
+                    config_ff={}
+                    for config_str in configs:
+                        config_idx=config_strings.index(config_str)
+                        if all([self.crystal.ff_calculator.boundData[self.name][single_t_idx, config_idx]/total_density_of_occupancy_each_step[i] < 1e-3 for (i, single_t_idx) in enumerate(t_idx)]):
+                            #print("Ignored",config_str)
+                            #print([self.crystal.ff_calculator.boundData[self.name][single_t_idx, config_idx]/total_density_of_occupancy_each_step[i] for (i, single_t_idx) in enumerate(t_idx)])
+                            config_ff[config_str]=None # don't bother calculating negligible contribution
+                        else:
+                            #print("PASSED",config_str)
+                            #print([self.crystal.ff_calculator.boundData[self.name][single_t_idx, config_idx]/total_density_of_occupancy_each_step[i] for (i, single_t_idx) in enumerate(t_idx)])
+                            #print(q_arr.shape)
+                            #print(orb_occs[config_idx])
+                            shell_occs=occ_dict[config_strings.index(config_str)]
+                            #print(shell_occs)
+                            got_ff_once=True
+                            config_ff[config_str]=self.crystal.ff_calculator.ff_from_state_sane(shell_occs,q_arr,self.name)
+
+                    for j,time in enumerate(self.times_used):
+                        total_weight=0
+                        ff=0
+                        for config_str in configs:
+                            if config_ff[config_str] is None:
+                                continue
+                            config_idx=config_strings.index(config_str)
+                            weight=self.crystal.ff_calculator.boundData[self.name][t_idx[j], config_idx]
+                            total_weight+=weight
+                            ff+=weight*config_ff[config_str]
+                        self.ff_by_occupancy_and_time[occupancy_indices[occupancy],j]=ff/total_weight
+                assert got_ff_once
+
+            #print(f"Set stochastic states for {self.name}")
+        
         else:
             pass
            #self.ground_state = self.crystal.ff_calculator.get_ground_state_shells(self.name)       
@@ -1104,17 +1230,17 @@ class Atomic_Species():
 
                 self.error[idx] = err_r*(np.sin(err_phi)*np.cos(err_thet),np.sin(err_phi)*np.cos(err_thet),np.cos(err_thet))
 
-    def get_stochastic_f(atom_idx,q_arr):
+    def get_atomic_form_factors(atom_idx,q_arr):
         '''
-        (Is defined by set_scalar_form_factor).
+        (Is defined by set_atomic_form_factors).
         Returns the form factor multiplied by sqrt(I). f.shape = ( len(times) , ) + momenta.shape  
         
         atom_idx, int or int array
         q_arr = mom. transfer [1/a0], scalar or array
         '''
-        raise Exception("Did not set_scalar_form_factor before calling stochastic f")
+        raise Exception("Did not set_atomic_form_factors before calling stochastic f")
         
-    def set_scalar_form_factor(self,stochastic=True):
+    def set_atomic_form_factors(self,stochastic=True):
         '''
         
         '''
@@ -1125,13 +1251,24 @@ class Atomic_Species():
         else:
             # Undamaged case, no stochastic dynamics.
             if not self.crystal.is_damaged: 
-                def tmp_func(atom_idx,q_arr): 
+                def get_atomic_form_factors(atom_idx,q_arr): 
                     return self.crystal.ff_calculator.f_undamaged(q_arr,self.name)[0]
             # Damaged, we 
             else:
-                def tmp_func(atom_idx,q_arr): 
-                    return self.crystal.ff_calculator.random_states_to_f_snapshots(self.times_used,self.orb_occs[atom_idx],q_arr,self.name,self.orb_occ_dict)[0]  # f has form  [times,momenta]
-            self.get_stochastic_f = tmp_func
+                if self.charge_states is None:
+                    def get_atomic_form_factors(atom_idx,q_arr): 
+                        return self.crystal.ff_calculator.random_states_to_f_snapshots(self.times_used,self.orb_occs[atom_idx],q_arr,self.name,self.orb_occ_dict)[0]  # f has form  [times,momenta]
+                else: 
+                    def get_atomic_form_factors(atom_idx,q_arr): 
+                        idx=np.searchsorted(self.crystal.ff_calculator.timeData,self.times_used)
+                        if len(q_arr.shape) == 1:
+                            return self.ff_by_occupancy_and_time[self.atom_occupancies[atom_idx]] * np.sqrt(self.crystal.ff_calculator.intensityData[idx][...,None])   # (Need to double check working as expected - not using np.vectorise)
+                        elif len(q_arr.shape) == 2:
+                            return self.ff_by_occupancy_and_time[self.atom_occupancies[atom_idx]] * np.sqrt(self.crystal.ff_calculator.intensityData[idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
+                        else:
+                            assert False, f"q had shape {q_arr.shape}"
+                        return self.crystal.ff_calculator.avg_charge_f_snapshots(self.times_used,self.orb_occs[atom_idx],q_arr,self.name,self.orb_occ_dict,self.Z() - self.charge_states)[0]  # f has form  [times,momenta]
+            self.get_atomic_form_factors = get_atomic_form_factors
 class XFEL():
     def __init__(self, experiment_name, photon_energy, detector_distance_mm=100, q_minimum = None, q_cutoff = None, max_miller_idx = None, screen_type = "hemisphere", num_orients_crys=1, orientation_axis_crys = None, x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100,SPI_y_rotation = 0,SPI_x_rotation = 0,SPI_z_rotation = 0,all_miller_indices=False, custom_cell_dims_for_miller_indices=None,override_max_q = False,miller_indices_override=None,spot_fraction_per_orient=None):
         """ #### Initialise the imaging experiment's controlled parameters
@@ -1249,7 +1386,7 @@ class XFEL():
         ff_calculator.initialise_form_factor_params(start_time,end_time,self.max_q,self.photon_energy,t_fineness=self.t_fineness) # q_fineness isn't used for our purposes.   
         return ff_calculator
     
-    def spooky_laser(self, start_time, end_time, sim_data_handle, sim_parent_dir_path, target : Crystal, SPI_resolution = None, results_parent_dir = RESULTS_LOCAL_PATH, circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False,do_not_integrate_times=False):
+    def fire_laser(self, start_time, end_time, sim_data_handle, sim_parent_dir_path, target : Crystal, SPI_resolution = None, results_parent_dir = RESULTS_LOCAL_PATH, circle_grid = False, pixels_across = 10, clear_output = False, random_orientation = False, SPI=False,do_not_integrate_times=False):
         """ 
         end_time: The end time of the photon capture in femtoseconds. Not a real thing experimentally, but useful for choosing 
         a level of damage. Explicitly, it is used to determine the upper time limit for the integration of the form factor.
@@ -1520,7 +1657,8 @@ class XFEL():
 
             self.used_orientations = used_orientations
             return result
-
+    def get_used_orientations(self):
+        return self.used_orientations
     class Feature:
         def __init__(self,q,X,theta):
             self.q = q
@@ -1683,7 +1821,7 @@ class XFEL():
             if type(feature.q) is np.ndarray:
                 F_shape += feature.q.shape          # [?phis?,times,feature.q.shape]
         F_supercells = np.zeros(self.target.supercell_simulations,dtype="object")
-        non_empty_species_dict = {}
+        non_empty_species_dict:dict[str,Atomic_Species] = {}
         for k, v in self.target.species_dict.items():
             if len(v.coords) >0:
                 non_empty_species_dict[k]=v
@@ -1692,8 +1830,8 @@ class XFEL():
             times_used = None
             self.target.set_stochastic_positions(feature.q)
             for species in non_empty_species_dict.values():
-                species.set_stochastic_electronic_states()   
-                species.set_scalar_form_factor()
+                species.set_stochastic_electronic_states(q_arr=feature.q)   
+                species.set_atomic_form_factors()
                 if times_used is None:
                     times_used = species.times_used
                 else:
@@ -1701,7 +1839,7 @@ class XFEL():
                         assert np.all(times_used == species.times_used)
             if (times_used[-1] == times_used[0] and times_used.size!=1):   
                 raise Exception("Intensity array's final time equals its initial time")                  
-            # Technically sum of F(t)*sqrt(J(t)), where F = sum(f(q,t)*T(q)), and J(t) is the incident intensity, thus accounting for the pulse profile. (J(t) is accounted for in get_stochastic_f)
+            # Technically sum of F(t)*sqrt(J(t)), where F = sum(f(q,t)*T(q)), and J(t) is the incident intensity, thus accounting for the pulse profile. (J(t) is accounted for in get_atomic_form_factors)
             F_sum = np.zeros(F_shape,dtype="complex_")  
             for species in non_empty_species_dict.values():
                 if DEBUG or DEBUG_MODERATE:
@@ -1710,22 +1848,16 @@ class XFEL():
                 if not np.array_equal(times_used,species.times_used):
                     raise Exception("Times used don't match between species.")        
                 # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
-                max_atoms_per_loop = 2000 # Restrict array size to prevent computer explosions. 
+                max_atoms_per_loop = 1000 # Restrict array size to prevent computer explosions. 
                 self.target.reset_unique_points()
                 for s in range(len(self.target.sym_rotations)):
                     #print("Working through symmetry",s)
                     num_atom_batches = int(len(species.coords)/max_atoms_per_loop)+1
                     for a_batch in range(num_atom_batches):
                         atm_idx = np.arange(len(species.coords)*s+max_atoms_per_loop*a_batch, len(species.coords)*s + min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
-                        if len(atm_idx) == 0:
+                        if len(atm_idx) == 0: 
                             break
-                        if DEBUG or DEBUG_MODERATE:
-                            if self.target.supercell_simulations < 10:
-                                if len(self.target.sym_rotations) < 50 or (len(self.target.sym_rotations) < 2000 and s%100 == 0)  or s%1000 == 0:
-                                    print("symmetry:",s,"atoms:",species.name,atm_idx[0],"-",atm_idx[-1])
                         relative_atm_idx = np.arange(max_atoms_per_loop*a_batch, min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
-                        # Rotate to target's current orientation 
-                        # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
                         R = np.array(species.coords[relative_atm_idx[0]:relative_atm_idx[-1]+1]) 
                         coord = self.target.get_sym_xfmed_point(R,s)
                         if not self.target.ignore_deviations:# or self.target.use_bfactors:
@@ -1736,7 +1868,9 @@ class XFEL():
                             atm_idx = atm_idx[unique_mask]
                             relative_atm_idx = relative_atm_idx[unique_mask]
                             #print(species.name,coord.shape)
-                        
+
+                        # Rotate to target's current orientation 
+                        # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
                         coord = coord @ self.x_rot_matrix  
                         coord = coord @ self.y_rot_matrix
                         coord = coord @ self.z_rot_matrix
@@ -1747,10 +1881,7 @@ class XFEL():
                             T= self.interference_factor(coord,feature,cardan_angles)  #[num_G] 
                         if self.target.use_bfactors and not self.target.zero_bfactors:
                             T*=species.debye_waller_factor[relative_atm_idx]
-                        f = species.get_stochastic_f(atm_idx, feature.q)  / np.sqrt(self.target.num_cells*self.target.num_supercells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
-                        same_each_sym = False # (debug)
-                        if same_each_sym:
-                            f = species.get_stochastic_f(relative_atm_idx, feature.q)  / np.sqrt(self.target.num_cells*self.target.num_supercells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
+                        f = species.get_atomic_form_factors(atm_idx, feature.q)  / np.sqrt(self.target.num_cells*self.target.num_supercells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
                         #print(F_sum.shape,T.shape,f.shape)                             
                         if SPI: 
                             if type(feature) is self.Cell:
@@ -3433,7 +3564,7 @@ def rfl_to_sca(result_handle, reflections_dir = "reflections/", out_directory = 
 # Unfortunately this also makes working with it slower.
 #def phenix_fcalc(pdb_file,miller_indices_mtz):
 def phenix_fcalc(pdb_file,high_resolution,real=False):
-    type_tag = "real" if real else "cplx" 
+    type_tag = "xyz" if real else "cplx" 
     out_file_name = f"{pdb_file[:-4]}_fcalc_{type_tag}.mtz"
     if path.exists(out_file_name):
         os.remove(out_file_name)
@@ -3458,7 +3589,7 @@ def phenix_fcalc(pdb_file,high_resolution,real=False):
 
 def phenix_fcalc_from_file(pdb_file,miller_indices_mtz,real=False):
     assert real
-    type_tag = "real" if real else "cplx" 
+    type_tag = "xyz" if real else "cplx" 
     out_file_name = f"{pdb_file[:-4]}_fcalc_{type_tag}.mtz"
     if path.exists(out_file_name):
         os.remove(out_file_name)
@@ -3816,8 +3947,8 @@ if __name__ == "__main__":
             positional_stdv=0
             random_waters=None
             num_supercells=1
-        #unique_hkl ="/home/speno//AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.5.hkl"
-        unique_hkl ="/home/speno//AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"
+        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.5.hkl"
+        unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"
         exp_qwargs["miller_indices_override"] = read_hkl(unique_hkl)
         exp_qwargs["spot_fraction_per_orient"] = 1/cycles_per_bragg_set
         exp_qwargs["num_orients_crys"] = cycles_per_bragg_set*num_bragg_sets
@@ -3845,18 +3976,18 @@ if __name__ == "__main__":
         start_time += probe_delay
         end_time += probe_delay
 
-        pdb_path = "/home/speno//AC4DC/scripts/scattering/targets/4et8.pdb" 
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8.pdb" 
         if include_H:
-            pdb_path = "/home/speno//AC4DC/scripts/scattering/targets/4et8H.pdb" 
+            pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8H.pdb" 
         if COMPARE_REFINED:
             pdb_path2 = dict(
-                lys_salt = "/home/speno//AC4DC/scripts/scattering/targets/salt_group_1.pdb",
-                lys_no_salt = "/home/speno//AC4DC/scripts/scattering/targets/no_salt_group_1.pdb", 
+                lys_salt = "/home/speno/AC4DC/scripts/scattering/targets/salt_group_1.pdb",
+                lys_no_salt = "/home/speno/AC4DC/scripts/scattering/targets/no_salt_group_1.pdb", 
             )[target]
             crystal1_is_damaged = False
         else:
             assert(crystal1_is_damaged)
-        #pdb_path = "/home/speno//AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632
         CNO_to_N = False
         S_to_N = False
         folder = ""
@@ -3868,18 +3999,18 @@ if __name__ == "__main__":
             pass
             #exp_name2 = None # Don't do the undamaged target
     elif target == "neutze": #T4 virus lys
-        pdb_path = "/home/speno//AC4DC/scripts/scattering/targets/2lzm.pdb"
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/2lzm.pdb"
         target_handle = "lys-1_2"  
         folder = "lys" # If sim output folders are nested within subdir of __Molecular
         allowed_atoms = ["N_fast","S_fast"]
         CNO_to_N = True
     elif target == "hen": # egg white lys
-        pdb_path = "/home/speno//AC4DC/scripts/scattering/targets/4et8H.pdb"
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/4et8H.pdb"
         # Solvated targets
-        #pdb_path = "/home/speno//AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_asym.xpdb"; water_index = 1089
-        #pdb_path = "/home/speno//AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_unit_cell.pdb"; water_index = 8705
-        #pdb_path = "/home/speno//AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"; water_index = 
-        #pdb_path = "/home/speno//AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_asym.xpdb"; water_index = 1089
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/sol_4et8_full_struct_unit_cell.pdb"; water_index = 8705
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_asym_water.xpdb"; water_index = 
+        #pdb_path = "/home/speno/AC4DC/scripts/scattering/solvate_1.0/lys_8_cell.xpdb"; water_index = 69632      
         # target_handle = "lys_nass_2"
         # folder = "lys"
         #'''
@@ -3905,7 +4036,7 @@ if __name__ == "__main__":
         S_to_N = True
         #//
     elif target == "tetra": 
-        pdb_path = "/home/speno//AC4DC/scripts/scattering/targets/5zck.pdb" 
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/5zck.pdb" 
         folder = ""#"tetra_CNO"
         target_handle = "lys_solvated_fast_high_fluence_2"#"lys_all_light-typical"#"6-5-2_tetra_CNO_3"
         #allowed_atoms = ["N_fast"]
@@ -3914,7 +4045,7 @@ if __name__ == "__main__":
         S_to_N = False
     elif target == "glycine":
         exp_qwargs["custom_cell_dims_for_miller_indices"] = [17.174,14.93,13.384]# # None,
-        pdb_path = "/home/speno//AC4DC/scripts/scattering/targets/glycine.pdb" 
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/glycine.pdb" 
         folder = ""
         target_handle = "lys_salt_fast_high_fluence_2" #"glycine_abdullah_high_H_6" #"lys_solvated_fast_high_fluence_2" # "glycine_abdullah_high_H_6" #"glycine_abdullah_4"
         allowed_atoms = ["C","N","O"]
@@ -3923,7 +4054,7 @@ if __name__ == "__main__":
     elif target == "copper_sulfate":
         allowed_atoms = ["Cu","S","O","H"]
         #allowed_atoms = ["Cu"]
-        pdb_path = "/home/speno//AC4DC/scripts/scattering/targets/CuSO4.pdb" 
+        pdb_path = "/home/speno/AC4DC/scripts/scattering/targets/CuSO4.pdb" 
         target_handle = "copper_sulfate_above_e12_1fs_1" #"copper_sulfate_above_e12_14" #"copper_sulfate_below_e13_3#"copper_sulfate_above_e12_long_1"#"copper_sulfate_above_e12_14"
         folder = ""
         crystal_qwargs["cell_packing"]="triclinic"
@@ -3968,18 +4099,18 @@ if __name__ == "__main__":
         crystal2 = Crystal(pdb_path2,allowed_atoms,is_damaged=crystal2_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N, **crystal_qwargs)
 #%
     if laser_firing_qwargs["SPI"]:
-        SPI_result1 = experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal,results_parent_dir=results_parent_folder, **laser_firing_qwargs)
-        SPI_result2 = experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal2,results_parent_dir=results_parent_folder,  **laser_firing_qwargs)
+        SPI_result1 = experiment1.fire_laser(start_time,end_time,target_handle,sim_data_dir,crystal,results_parent_dir=results_parent_folder, **laser_firing_qwargs)
+        SPI_result2 = experiment2.fire_laser(start_time,end_time,target_handle,sim_data_dir,crystal2,results_parent_dir=results_parent_folder,  **laser_firing_qwargs)
         stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2,custom_fig_width=fig_width,custom_fig_height=fig_height)
     else:
-        experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal, results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
+        experiment1.fire_laser(start_time,end_time,target_handle,sim_data_dir,crystal, results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
         exp1_orientations =experiment1.used_orientations
         create_reflection_file(exp_name1,results_parent_dir=results_parent_folder)
         rfl_to_sca(exp_name1)
         if exp_name2 != None:
             laser_firing_qwargs["random_orientation"] = False
             experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
-            experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal2, results_parent_dir=results_parent_folder, **laser_firing_qwargs)
+            experiment2.fire_laser(start_time,end_time,target_handle,sim_data_dir,crystal2, results_parent_dir=results_parent_folder, **laser_firing_qwargs)
             create_reflection_file(exp_name2,results_parent_dir=results_parent_folder)
             rfl_to_sca(exp_name2)
 
@@ -4014,7 +4145,7 @@ if interactive and __name__ == "__main__":
     targets_dir = path.abspath(path.join(__file__ ,"../")) + "/targets/"
     pdb_path = targets_dir + pdb_file
     crystal_qwargs = dict(
-        supercell_scale = 1,  # for SC: supercell_scale^3 unit cells
+        supercell_scale = 2,  # for SC: supercell_scale^3 unit cells
         positional_stdv = 0, 
         include_symmetries = True,  # should unit cell contain symmetries or just one asymmetric unit?
         cell_packing = "triclinic",#"SC",

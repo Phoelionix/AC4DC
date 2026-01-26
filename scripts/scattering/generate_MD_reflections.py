@@ -5,30 +5,42 @@ from multiprocessing import Pool
 from sample_scalepack import all_reflections_to_scalepack
 import inspect
 import datetime
+import sys
+sys.path.append('/home/speno/AC4DC')
+from scripts.core_functions import get_sim_params
+import glob
 
-#TODO turn into function that can be called by other script. Currently only works when run directly from command line.
+#TODO Make importable: convert from command line script.
 
 NUM_PARALLEL=1
 SEEDED = False
 RANDOM_WATER = False; NUM_RANDOM_WATER = 0 # 702
 DEBUG_WATER = False
 QUICK_TEST = False
-SKIP_UNDAMAGED_CONTROL = False; FIRST_UNDAMAGED=False # not the contrtol
+SKIP_UNDAMAGED_CONTROL = False; FIRST_UNDAMAGED=False # "second" is the undamaged control # XXX
 DEBUG_IGNORE_FE=False
 IGNORE_MISSING_SPECIES=True
+ELECTRONIC_ONLY=False
+NUCLEAR_ONLY=False
 
 
+assert NUCLEAR_ONLY+ELECTRONIC_ONLY <= 1
 
 PLASMA_SIM_HANDLE_DICT = dict(
     command_line_input=sys.argv[1]
 )
-pdb_snapshots_parent_dir=sys.argv[2]
+MD_results_parent_dir=sys.argv[2]
 
 ground_truth_pdb=None if len(sys.argv)<4 else sys.argv[3]
 
+assert ground_truth_pdb is not None # XXX
 
 target_options = ["command_line_input"]
-TAG = "MD"
+TAG = "All"
+if ELECTRONIC_ONLY:
+    TAG="Elect"
+if NUCLEAR_ONLY:
+    TAG="Nucle"
 
 if FIRST_UNDAMAGED:
     assert SKIP_UNDAMAGED_CONTROL
@@ -66,14 +78,12 @@ def main(par_idx,ground_truth_pdb):
     cycles_per_bragg_set = 1
     num_bragg_sets = 1
     num_unique_supercells = 1 
-    include_symmetries=False
     zero_bfactors=True
     num_supercells=1e5
 
     if sim_key in PLASMA_SIM_HANDLE_DICT:
 
         assert num_unique_supercells == 1
-        assert include_symmetries == False
 
         compare_with_undamaged_symmetry=True
 
@@ -81,8 +91,10 @@ def main(par_idx,ground_truth_pdb):
         ####XXX#####
         #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_1.4.hkl"; best_resolution=1.4; ground_truth_symmetry_override="P 43 21 2"
         #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_lysozyme_2.0.hkl"; best_resolution=2.0; ground_truth_symmetry_override="P 43 21 2"
-        unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_hemoglobin_1.5.hkl"; best_resolution=1.5;ground_truth_symmetry_override="P 21 21 21"
+        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_hemoglobin_1.5.hkl"; best_resolution=1.5;ground_truth_symmetry_override="P 21 21 21"
+        unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_hemoglobin_1.8.hkl"; best_resolution=1.8;ground_truth_symmetry_override="P 21 21 21"
         #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_hemoglobin_2.0.hkl"; best_resolution=2.0; ground_truth_symmetry_override="P 21 21 21"
+        #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_hemoglobin_2.3.hkl"; best_resolution=2.3; ground_truth_symmetry_override="P 21 21 21"
         #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_hemoglobin_3.0.hkl"; best_resolution=3.0; ground_truth_symmetry_override="P 21 21 21"
         #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_hemoglobin_6.0.hkl"; best_resolution=6.0; ground_truth_symmetry_override="P 21 21 21"
         #unique_hkl ="/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_I3C_1.5.hkl"; best_resolution=1.5;ground_truth_symmetry_override=????
@@ -101,7 +113,11 @@ def main(par_idx,ground_truth_pdb):
         #     "/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct2.pdb",
         #     "/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_moldstruct3.pdb"
         # ]
-        pdb_md_snapshots_path_list = [f"{pdb_snapshots_parent_dir}/{f}" for f in os.listdir(pdb_snapshots_parent_dir)] # Each file in the directory contains a full MD simulation
+        # XXX currently just checking for existence of snapshots.pdb to see if results is intended to be used as a sample. Fix this. 
+        MD_result_folder_list = [f"{MD_results_parent_dir}/{d}/" for d in os.listdir(MD_results_parent_dir) if os.path.exists(f"{MD_results_parent_dir}/{d}/snapshots.pdb")] # Each file in the directory contains a full MD simulation
+        pdb_md_snapshots_path_list=[f"{d}/snapshots.pdb" for d in MD_result_folder_list]
+        charges_path_list=[f"{d}/charges.bin" for d in MD_result_folder_list]
+        debye_path_list=[f"{d}/debye_data.bin" for d in MD_result_folder_list]
         if ground_truth_pdb is None:
             ground_truth_pdb=generate_single_snapshot_pdb(pdb_md_snapshots_path_list[0],0)
         #ground_truth_pdb="/home/speno/AC4DC/scripts/scattering/targets/Lys_salt_base_structure_moldstruct.pdb" 
@@ -135,11 +151,11 @@ def main(par_idx,ground_truth_pdb):
         num_supercells = num_supercells,#100, # 35409
         supercell_simulations = num_unique_supercells, #150
         #BFACTORS positional_stdv = 0,#0.2,  #Introduces disorder to positions. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if gauging serial crystallography R factor, as should average out. 0.2 neutze.
-        include_symmetries = include_symmetries,  # should unit cell contain symmetries?
         cell_packing = "SC",
         random_waters= True if NUM_RANDOM_WATER>0 and RANDOM_WATER else None,
         zero_bfactors=zero_bfactors,
         allow_skip_species=IGNORE_MISSING_SPECIES,
+        ignore_water_H=True,
     )
     show_crystal = False
 
@@ -224,16 +240,23 @@ def main(par_idx,ground_truth_pdb):
 
     # Set up experiments
     experiment1 = MD_XFEL(exp_name1,energy,**exp_qwargs)
-    experiment2 = MD_XFEL(exp_name2,energy,**exp_qwargs)
+    #experiment2 = MD_XFEL(exp_name2,energy,**exp_qwargs)
+    experiment2 = XFEL(exp_name2,energy,**exp_qwargs)
+    sim_params = get_sim_params(plasma_sim_handle)[0]
     # Create Crystals
 
     dmged_crystal_targets:list[MD_Crystal] = []
-    for snapshots in pdb_md_snapshots_path_list: 
+    for snapshots,charges,debye in zip(pdb_md_snapshots_path_list,charges_path_list,debye_path_list): 
         dmged_crystal_targets.append(
-            MD_Crystal(num_time_points,snapshots,allowed_atoms,t_cutoff_frac=t_cutoff_frac,
+            MD_Crystal(num_time_points,snapshots,allowed_atoms,
+                       charges,debye,sim_params["start_t"],sim_params["end_t"],
+                       t_cutoff_frac=t_cutoff_frac,
                        is_damaged=first_crystal_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N, 
+                       electronic_only=ELECTRONIC_ONLY,nuclear_only=NUCLEAR_ONLY,
+                       include_symmetries=False,
                        **crystal_qwargs))
     first_crystal = dmged_crystal_targets[0]
+
     
     # The undamaged crystal uses the initial state but still performs the same integration step with the pulse profile weighting.
     if same_deviations:
@@ -242,36 +265,44 @@ def main(par_idx,ground_truth_pdb):
         crystal_undmged = copy.deepcopy(first_crystal)#Crystal(pdb_md_snapshots_path,allowed_atoms,cell_dim,is_damaged=False,CNO_to_N = CNO_to_N, **crystal_qwargs)
         crystal_undmged.is_damaged = second_crystal_is_damaged
     else:
-        crystal_undmged = MD_Crystal(num_time_points,pdb_md_snapshots_path_list[0],allowed_atoms,
+        # crystal_undmged = MD_Crystal(num_time_points,pdb_md_snapshots_path_list[0],allowed_atoms,
+        #                              is_damaged=second_crystal_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N,
+        #                              **crystal_qwargs)
+        crystal_undmged = Crystal(ground_truth_pdb,allowed_atoms,
                                      is_damaged=second_crystal_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N,
+                                     include_symmetries=True, 
                                      **crystal_qwargs)
     if show_crystal:
+        assert False, "Unimplemented"
         first_crystal.plot_me(300000,water_index = water_index,template="plotly_dark")
     #%
     if laser_firing_qwargs["SPI"]:
         assert False
-        #SPI_result1 = experiment1.spooky_laser(plasma_sim_handle,sim_data_dir,crystal,results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
-        #SPI_result2 = experiment2.spooky_laser(plasma_sim_handle,sim_data_dir,crystal_undmged,results_parent_dir=results2_parent_folder,  **laser_firing_qwargs)
+        #SPI_result1 = experiment1.fire_laser(plasma_sim_handle,sim_data_dir,crystal,results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
+        #SPI_result2 = experiment2.fire_laser(plasma_sim_handle,sim_data_dir,crystal_undmged,results_parent_dir=results2_parent_folder,  **laser_firing_qwargs)
         #stylin(exp_name1,exp_name2,experiment1.max_q,results_parent_dir=results_parent_folder,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2,custom_fig_width=fig_width,custom_fig_height=fig_height)
     else:
         I_scale=1e5/crystal_qwargs["num_supercells"]
         experiment1.laser_multi_target(plasma_sim_handle,sim_data_dir,dmged_crystal_targets, results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
-        exp1_orientations =experiment1.used_orientations()
+
+        exp1_orientations = experiment1.get_used_orientations()
         create_reflection_file(exp_name1,results_parent_dir=results1_parent_folder,
                                artificial_I_scale=I_scale,symmetry_override=ground_truth_symmetry_override)
         _, mtz_file1 = rfl_to_sca(exp_name1)
         if exp_name2 != None:
             laser_firing_qwargs["random_orientation"] = False
             experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
-            experiment2.spooky_laser(plasma_sim_handle,sim_data_dir,crystal_undmged, results_parent_dir=results2_parent_folder, **laser_firing_qwargs)
+            #experiment2.fire_laser(plasma_sim_handle,sim_data_dir,crystal_undmged, results_parent_dir=results2_parent_folder, **laser_firing_qwargs)
+            experiment2.fire_laser(sim_params["start_t"],sim_params["end_t"],plasma_sim_handle,sim_data_dir,crystal_undmged, results_parent_dir=results2_parent_folder, **laser_firing_qwargs)
             create_reflection_file(exp_name2,results_parent_dir=results2_parent_folder,
                                    artificial_I_scale=I_scale,symmetry_override=ground_truth_symmetry_override)
             _, mtz_file2 = rfl_to_sca(exp_name2)
             #fcalc = phenix_fcalc(pdb_md_snapshots_path,best_resolution,real=True)
             phenix_R(ground_truth_pdb,mtz_file2)
         phenix_R(ground_truth_pdb,mtz_file1)
-        cplx_data = phenix_fcalc(ground_truth_pdb,best_resolution,real=False)
-        #cplx_data = phenix_fcalc_from_file(ground_truth_pdb,mtz_file1,real=False)
+        gen_true_phases=False
+        if gen_true_phases: # for e. dens. map making.
+            cplx_data = phenix_fcalc(ground_truth_pdb,best_resolution,real=False) 
         fcalc = phenix_fcalc_from_file(ground_truth_pdb,mtz_file1,real=True)
         phenix_R(ground_truth_pdb,fcalc)
 

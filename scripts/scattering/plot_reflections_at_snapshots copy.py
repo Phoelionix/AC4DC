@@ -188,14 +188,14 @@ def generate_reflections(num_time_points,start_time,end_time):
     if laser_firing_qwargs["SPI"]:
         assert False
     else:
-        experiment1.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal, results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
+        experiment1.fire_laser(start_time,end_time,target_handle,sim_data_dir,crystal, results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
         exp1_orientations =experiment1.used_orientations
         #create_reflection_file(exp_name1,results_parent_dir=results1_parent_folder)
         #rfl_to_sca(exp_name1)
         if exp_name2 != None:
             laser_firing_qwargs["random_orientation"] = False
             experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
-            experiment2.spooky_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged, results_parent_dir=results2_parent_folder, **laser_firing_qwargs)
+            experiment2.fire_laser(start_time,end_time,target_handle,sim_data_dir,crystal_undmged, results_parent_dir=results2_parent_folder, **laser_firing_qwargs)
             #create_reflection_file(exp_name2,results_parent_dir=results2_parent_folder)
             #rfl_to_sca(exp_name2)
 

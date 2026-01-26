@@ -321,6 +321,7 @@ sim_parent_dir_path=None,param_dict=None,charge_states_override=None,save_csv_co
         positional_stdv = 0, # Introduces disorder to positions. Note this is a deviation from the IDEAL structure, so is not a measure of similarity with undamaged and damaged structure but the ideal structure to recover and the dmaaged structure. Can roughly model atomic vibrations/crystal imperfections. Should probably set to 0 if quickly gauging serial crystallography R factor, as should somewhat average out.
         cell_packing = "SC",
         rocking_angle = 1.2,  # (approximating mosaicity, infinite crystal sim only)
+        ignore_water_H=False,
     )
 
     crystal = Crystal(target_path,allowed_atoms,is_damaged=True,
@@ -395,8 +396,11 @@ if __name__ == "__main__":
     sim_duration_fs=sim_params["end_t"]-sim_params["start_t"]
 
     #num_steps = min(2000,int(np.ceil(50*sim_duration_fs)))
-    num_steps = max(500,min(2000,int(np.ceil(20*sim_duration_fs))))
-    dt_ps = sim_duration_fs/num_steps/1e3
+    #num_steps = max(500,min(2000,int(np.ceil(15*sim_duration_fs))))
+    dt = 0.01 
+    num_steps=int(sim_duration_fs/dt)
+    #num_steps = max(500,min(2000,int(np.ceil(15*sim_duration_fs))))
+    dt_ps = dt/1e3
     #num_steps = sim_params["nsteps"] # NOTE setting custom number of steps not supported in current build
     #num_out_steps_mult=3 # e.g. if charge 1, 2, 2, 3  and this is set to 3 --> 1,1,1,2,2,2,2,2,2,3,3,3
     print(f"Creating charge file with {num_steps} steps, {dt_ps:.9f} ps dt")

@@ -523,6 +523,10 @@ class Plotter:
     
     #############Important bit#######################
     def get_occ_dict(self,atom):
+        # XXX TODO just do:
+        # config_strings= [occ_str for occ_str in self.crystal.ff_calculator.statedict[self.name]]
+        # orb_occs = [parse_elecs_from_latex(occ_str) for occ_str in config_strings]
+        # return {i:orb_occs[i] for i in range(len(orb_occs))}
         occ_dict = {} # dictionary that converts state index to subshell occupation list
         try:
             states = self.statedict[atom]
@@ -552,17 +556,25 @@ class Plotter:
 
         return orb_occs, time_steps, occ_dict
         
+    def avg_charge_f_snapshots(self,time_steps,orb_occ_arr, q, atom,orb_occ_dict,charge_states):
+            idx = np.searchsorted(self.timeData,time_steps)  # SAME AS IN get_average_form_factor()
+            assert type(q) is np.ndarray
+            assert len(q.shape)==2
+            form_factors_sqrt_I = self.ff_from_state(orb_occ_arr,q,atom,orb_occ_dict) * np.sqrt(self.intensityData[idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
+
+            return form_factors_sqrt_I, time_steps        
+
     def random_states_to_f_snapshots(self,time_steps,orb_occ_arr, q, atom,orb_occ_dict):
         idx = np.searchsorted(self.timeData,time_steps)  # SAME AS IN get_average_form_factor()
         if type(q) is np.ndarray:
             if len(q.shape) == 1:
-                form_factors_sqrt_I = self.ff_from_state(time_steps,orb_occ_arr,q,atom,orb_occ_dict) * np.sqrt(self.intensityData[idx][...,None])   # (Need to double check working as expected - not using np.vectorise)
+                form_factors_sqrt_I = self.ff_from_state(orb_occ_arr,q,atom,orb_occ_dict) * np.sqrt(self.intensityData[idx][...,None])   # (Need to double check working as expected - not using np.vectorise)
             elif len(q.shape) == 2:
-                form_factors_sqrt_I = self.ff_from_state(time_steps,orb_occ_arr,q,atom,orb_occ_dict) * np.sqrt(self.intensityData[idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
+                form_factors_sqrt_I = self.ff_from_state(orb_occ_arr,q,atom,orb_occ_dict) * np.sqrt(self.intensityData[idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
             else:
                 raise Exception("unexpected q shape",q.shape)
         else:
-            form_factors_sqrt_I = self.ff_from_state(time_steps,orb_occ_arr,q,atom,orb_occ_dict) * np.sqrt(self.intensityData[idx][...])   # (Need to double check working as expected - not using np.vectorise)
+            form_factors_sqrt_I = self.ff_from_state(orb_occ_arr,q,atom,orb_occ_dict) * np.sqrt(self.intensityData[idx][...])   # (Need to double check working as expected - not using np.vectorise)
         # print(time_steps)
         # print(idx)
         # print(form_factors_sqrt_I.shape)
@@ -572,9 +584,11 @@ class Plotter:
         # asdsd
         return form_factors_sqrt_I, time_steps        
     
-    def ff_from_state(self,time,orb_occ_arr,k,atom,orb_occ_dict):
+    def ff_from_state(self,orb_occ_arr,k,atom,orb_occ_dict):
         shielding = SlaterShielding(self.atomic_numbers[atom])    
         return shielding.get_ff(orb_occ_arr,k,orb_occ_dict)       
+    def ff_from_state_sane(self,shell_occs,k,atom):
+        return SlaterShielding(self.atomic_numbers[atom]).get_ff_sane(shell_occs,k)    
 
     def get_random_states(self,time_steps,atom,seed,suppress_error=True):  
         '''
@@ -2937,9 +2951,11 @@ class SlaterShielding:
     # shell_config: The number of electrons in each shell, passed as a list e.g. [1,8,8]
     def __init__(self,Z):
         self.Z = Z 
+    def get_ff_sane(self,shell_occs,k):
+        s = self.s_p_slater_shielding(shell_occs)
+        return self.calculate_config_ff(shell_occs,k,s)
     def get_ff(self,occ_indices,k, occ_dict):
         
-        all_possible_occs = occ_dict.values()
         ff_shape = () 
         if type(occ_indices) == np.ndarray:
             num_atoms = occ_indices.shape[0]
@@ -2955,8 +2971,9 @@ class SlaterShielding:
                 s = self.s_p_slater_shielding(occ_dict[occ_index])
                 ff[occ_indices == occ_index] = self.calculate_config_ff(occ_dict[occ_index],k,s)[None,None]     # shell_occs -> [atoms,times,qx,qy]
         else:
-            s = self.s_p_slater_shielding(occ_indices,occ_dict)
-            ff = self.calculate_config_ff(occ_indices,k,s,occ_dict)
+            assert False
+            # s = self.s_p_slater_shielding(occ_indices,occ_dict)
+            # ff = self.calculate_config_ff(occ_indices,k,s,occ_dict)
         return ff
 
     def s_p_slater_shielding(self,shells_occ):

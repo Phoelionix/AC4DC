@@ -160,7 +160,10 @@ for ((idx=1; idx<(NUM_MD+1); idx++)) {
             exit
         fi
 
-        bash pipeline_scripting/trjcopy.sh $gromacs_work_folder/output_${idx}.xtc  $MD_output_dir
+        bash pipeline_scripting/trjcopy.sh $gromacs_work_folder/output_${idx}.xtc  $ION_DATA_PATH $MD_output_dir
+        # if $new_charges_each_loop; then
+        #     rm -r $ION_DATA_PATH
+        # fi
         #bash pipeline_scripting/trjconv.sh $gromacs_work_folder/output_${idx}.xtc $MD_output_dir $gromacs_file_path
         
         if $DEBUG; then

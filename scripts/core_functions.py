@@ -115,6 +115,7 @@ def get_sim_params(handle,input_path=None,molecular_path=None,get_intensities_at
     ########################
     # TODO make this a class
     param_dict = dict(
+        timespan=end_t-start_t,
         start_t=start_t,
         end_t=end_t,
         energy=photon_energy,

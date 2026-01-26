@@ -31,7 +31,7 @@ from matplotlib import cm
 from matplotlib.colors import TwoSlopeNorm
 import copy
 import pickle
-import colorcet as cc; import cmasher as cmr
+#import colorcet as cc; import cmasher as cmr
 from mpl_toolkits.mplot3d import Axes3D
 import plotly.graph_objects as go
 import plotly.offline as pltly_offline

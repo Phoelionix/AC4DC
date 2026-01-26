@@ -79,6 +79,7 @@ def gen_files(path,runid,mimic_sim_out_dir):
         # start_time,end_time= stime[0],stime[-1]
         crystal_params = dict(     
             include_symmetries = None,
+            ignore_water_H=False,
         )
 
         crystal = Crystal(TARGET_PATH,allowed_atoms=elements_dict.values(),is_damaged=True,**crystal_params)

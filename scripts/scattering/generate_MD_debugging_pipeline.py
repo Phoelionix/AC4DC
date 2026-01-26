@@ -215,8 +215,8 @@ def main(par_idx):
     #%
     if laser_firing_qwargs["SPI"]:
         assert False
-        #SPI_result1 = experiment1.spooky_laser(plasma_sim_handle,sim_data_dir,crystal,results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
-        #SPI_result2 = experiment2.spooky_laser(plasma_sim_handle,sim_data_dir,crystal_undmged,results_parent_dir=results2_parent_folder,  **laser_firing_qwargs)
+        #SPI_result1 = experiment1.fire_laser(plasma_sim_handle,sim_data_dir,crystal,results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
+        #SPI_result2 = experiment2.fire_laser(plasma_sim_handle,sim_data_dir,crystal_undmged,results_parent_dir=results2_parent_folder,  **laser_firing_qwargs)
         #stylin(exp_name1,exp_name2,experiment1.max_q,results_parent_dir=results_parent_folder,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2,custom_fig_width=fig_width,custom_fig_height=fig_height)
     else:
         I_scale=1e5/crystal_qwargs["num_supercells"]
@@ -228,7 +228,7 @@ def main(par_idx):
         if exp_name2 != None:
             laser_firing_qwargs["random_orientation"] = False
             experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
-            experiment2.spooky_laser(plasma_sim_handle,sim_data_dir,crystal_undmged, results_parent_dir=results2_parent_folder, **laser_firing_qwargs)
+            experiment2.fire_laser(plasma_sim_handle,sim_data_dir,crystal_undmged, results_parent_dir=results2_parent_folder, **laser_firing_qwargs)
             create_reflection_file(exp_name2,results_parent_dir=results2_parent_folder,
                                    artificial_I_scale=I_scale,symmetry_override=ground_truth_symmetry_override)
             _, mtz_file2 = rfl_to_sca(exp_name2)

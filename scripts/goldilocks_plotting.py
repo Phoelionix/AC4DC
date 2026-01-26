@@ -614,8 +614,8 @@ def get_R(sim_handle,sim_handle_parent_folder,scattering_sim_parameters,allowed_
         crystal_real, crystal_ideal = grow_crystals(run_params,structure,allowed_atoms,plot_crystal=False)
     
         if run_params["laser"]["SPI"]:
-            SPI_result1 = experiment1.spooky_laser(start_time,end_time,sim_handle,sim_handle_parent_folder,crystal_real, **run_params["laser"])
-            SPI_result2 = experiment2.spooky_laser(start_time,end_time,sim_handle,sim_handle_parent_folder,crystal_ideal, **run_params["laser"])
+            SPI_result1 = experiment1.fire_laser(start_time,end_time,sim_handle,sim_handle_parent_folder,crystal_real, **run_params["laser"])
+            SPI_result2 = experiment2.fire_laser(start_time,end_time,sim_handle,sim_handle_parent_folder,crystal_ideal, **run_params["laser"])
             #TODO apply_background([SPI_result1,SPI_result2])
             damage_dict = stylin(exp_name1,exp_name2,experiment1.max_q,get_R_only=True,SPI=True,SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2)
         #pulse_params = [energy,fwhm,photon_count]

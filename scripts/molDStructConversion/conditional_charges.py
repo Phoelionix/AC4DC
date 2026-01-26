@@ -34,7 +34,7 @@ def generate_charges(num_to_sample,stime,dQ_arrays,charge_data,Z,plot=True,plot_
     for step in range(1, nsteps):
         unique, counts = np.unique(charges[step-1],return_counts=True)
         for from_charge, num_from in zip(unique,counts):
-            TEMPORARY_BUG_PATCH=True
+            TEMPORARY_BUG_PATCH=False
             if TEMPORARY_BUG_PATCH and from_charge==Z:
                 atom_idxes = (charges[step-1]==from_charge)
                 charges[step][atom_idxes]=from_charge

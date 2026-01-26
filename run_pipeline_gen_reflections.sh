@@ -7,19 +7,16 @@ SCRIPT_DIR=$(
 cd $SCRIPT_DIR
 
 
-num_traj_to_sample=5
-
-gmx='/home/speno/programs/bin'
-
+num_traj_to_sample=1
+num_snapshots=5 # per trajectory 
 
 
+
+dt_of_MD_sim=0.01 # TODO read this or num_frames from trj file
 
 stem=hemoglobin_2QSP
-#sample_interval=25 # 0.0004
-sample_interval=200 # 25
 
-#for sim_idx in 4 5 7 8; do 
-for sim_idx in 9; do 
+for sim_idx in 8; do 
 
   ###
   #gromacs_unitcell_target_handle=hemoglobin_solv_Hfix
@@ -38,23 +35,42 @@ for sim_idx in 9; do
 
 
   plasma_handle=$stem-$sim_idx 
-  MD_output_dir=scripts/scattering/targets/${plasma_handle}_${gromacs_unitcell_target_handle}/
+  MD_output_parent_dir=$SCRIPT_DIR/MD_output/${plasma_handle}_${gromacs_unitcell_target_handle}/
 
-  tmp_out_dir=$MD_output_dir/snapshots/
+  tmp_out_dir=$MD_output_parent_dir/snapshots/
 
-  rm -rf $tmp_out_dir
-  mkdir $tmp_out_dir
+  read -r timespan < <(python3.9 scripts/print_sim_params.py $plasma_handle timespan)
+  num_frames=`echo $timespan $dt_of_MD_sim  | awk '{print $1/$2}'` # duration/dt
+  sample_interval=`echo $num_frames $num_snapshots | awk '{print $1/$2}'`   # num_frames/num_snapshots
+  sample_interval=$( printf "%.0f" $sample_interval)
+
+
+  # Trajectory to pdb file of snapshots
   i=0
-  for xtc_file in $MD_output_dir/*.xtc; do    
-      bash pipeline_scripting/trjconv.sh $xtc_file $tmp_out_dir $gromacs_file_path $sample_interval
+  for old_snapshots in $MD_output_parent_dir/*/snapshots.pdb; do
+    rm $old_snapshots
+  done
+  for subdir in $MD_output_parent_dir/*/; do
+      echo $subdir
+      xtc_file=false
+      for tmp in $subdir/*.xtc; do
+        if $xtc_file; then 
+          echo "Error: More than 1 xtc file in $subdir"
+          exit
+        fi
+        xtc_file=$tmp
+      done
+      nice -n 5 bash pipeline_scripting/trjconv.sh $xtc_file $subdir/snapshots.pdb $gromacs_file_path $sample_interval
       i=$((i+1))
       if [ "$i" -ge $num_traj_to_sample ]; then
           break
       fi 
   done
 
-  python3.9 scripts/scattering/generate_MD_reflections.py $plasma_handle $tmp_out_dir $ordered_ground_truth_pdb # $ordered_ground_truth_pdb
+  
+nice -n 5 python3.9 scripts/scattering/generate_MD_reflections.py $plasma_handle $MD_output_parent_dir $ordered_ground_truth_pdb # $ordered_ground_truth_pdb
 
-  #rm -r $tmp_out_dir
+  rm -r $tmp_out_dir
 
 done
+wait

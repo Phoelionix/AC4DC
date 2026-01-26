@@ -4,7 +4,7 @@ set -u
 
 cd $(dirname "$0")
 
-high_res=6.0
+high_res=1.8
 name="hemoglobin"
 
 unique hklout x_unq.mtz <<eof-unique
