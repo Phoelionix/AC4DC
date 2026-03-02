@@ -5,6 +5,9 @@ import os.path as path
 import os
 import numpy as np
 import pickle
+import sys,pathlib
+sys.path.append(str(pathlib.Path(__file__).parent.parent.parent))
+from pipeline_scripting.UntanglerStuff.UntangleFunctions import prepare_pdb
 
 
     # def set_ff_calculator_snapshot_time(self,time):
@@ -37,6 +40,8 @@ class MD_Crystal:
             all_charges=read_charges_binary(charges_path,debye_path)
             all_times=np.linspace(start_t,end_t,all_charges.shape[0])
             self.charges=all_charges[np.searchsorted(all_times,T)]
+
+            #print(self.charges[:,0:30])
 
 
 
@@ -157,8 +162,16 @@ class MD_Crystal:
         with open(tmp_file_path,'w') as f_snap:
             #f_snap.writelines([f"{l}\n" for l in snapshot_lines])
             f_snap.writelines(snapshot_lines)
+        
+        prepare_pdb(tmp_file_path,tmp_file_path,allow_no_altloc=True,repeated_names_altlocs_are_new_residues=True) # Otherwise Bio.PDB.PDBParser will silently ignore repeat residues!!!
 
-        self.crystal_snapshot = Crystal(tmp_file_path,is_damaged=self.electronic_damage,charge_states=self.charges[self.times.index(t)],**self.crystal_kwargs)
+
+        print(f"Set crystal snapshot to t={t} fs, from {self.md_struct_path}")
+        self.crystal_snapshot = Crystal(tmp_file_path,is_damaged=self.electronic_damage,
+            use_intensity_for_time=t,
+            charge_states=(None if not self.electronic_damage else self.charges[self.times.index(t)]),
+            **self.crystal_kwargs
+        )
         os.remove(tmp_file_path)
         self.current_snapshot_time = t
         #self.crystal_snapshot.plot_me()

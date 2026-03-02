@@ -237,7 +237,7 @@ class Crystal():
     def __init__(self, struct_file_path, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = None, rocking_angle = 0.3, 
     cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1, 
     S_to_N=False,convert_excluded_elements_to_H=False,convert_excluded_elements_to_N=False,allow_skip_species=False,random_waters=None,
-    use_bfactors=True,zero_bfactors=False,ignore_water_H=False,charge_states=None):
+    use_bfactors=True,zero_bfactors=False,ignore_water_H=False,charge_states=None, use_intensity_for_time=None):
         allowed_atoms=copy.deepcopy(allowed_atoms)
         '''
         rocking_angle [degrees]
@@ -256,6 +256,10 @@ class Crystal():
         if zero_bfactors:
             assert use_bfactors, "Can't set zero B factors - B factors aren't being used."
 
+        if use_intensity_for_time is not None:
+            assert not is_damaged
+
+
         self.stochastic_positions_set=False
         
         assert not (convert_excluded_elements_to_H and convert_excluded_elements_to_N)
@@ -273,6 +277,9 @@ class Crystal():
         self.struct_file_path = struct_file_path
         self.positional_stdv = positional_stdv/ang_per_bohr # RMS error in coord positions, designed for SPI sim only but I guess it wouldn't be detrimental for crystal sim.
         self.random_waters = random_waters
+        self.use_intensity_for_time=use_intensity_for_time
+
+
 
         self.ignore_deviations = False
         if self.positional_stdv == 0 and self.random_waters is None:
@@ -358,6 +365,12 @@ class Crystal():
                 #TODO read data folder to resolve ambiguity.
                 raise Exception("Ambiguity, both "+ac4dc_atom+" and "+ac4dc_atom+"_faster were given in allowed_atoms.")            
         charge_idxes={}
+
+        # with open(self.struct_file_path) as f:
+        #     for line in f:
+        #         print(line)
+        # print("STRUCTURE FILE PATH:", self.struct_file_path)
+        # print("ATOM NAMES:", [a.get_name() for a in structure.get_atoms()])
         for i, atom in enumerate(structure.get_atoms()):
             if ignore_water_H and atom.element=="H" and atom.get_parent() is not None and atom.get_parent().get_resname()=="HOH":
                 continue        
@@ -408,9 +421,9 @@ class Crystal():
             if string not in species_dict.keys():
                 ac4dc_atoms_ignored += string + " "
                 continue
-        print("The following atoms will be considered:\n(AC4DC names ; pdb names)")
-        for p,a in zip([PDB_to_AC4DC_dict[x] for x in pdb_atom_eles if x not in missing_species_elements], pdb_atom_eles): 
-            print(f"{p:<10} {a:>10}")
+        print("The following atoms will be considered:\nAC4DC names ; pdb names (num / asu)")
+        for ac,pd in zip([PDB_to_AC4DC_dict[x] for x in pdb_atom_eles if x not in missing_species_elements], pdb_atom_eles): 
+            print(f"{ac:<10} {pd:>10} ({species_dict[ac].get_num_atoms()})")
         if len(missing_species_names)>0:
             print("WARNING: The following atoms are present in the structure but ignored:\n(AC4DC names ; pdb names)")
             for p,a in zip([PDB_to_AC4DC_dict[x] for x in missing_species_elements], missing_species_elements): 
@@ -422,6 +435,9 @@ class Crystal():
         
         self.missing_species_dict = {k:v for k,v in species_dict.items() if k in missing_species_names}         
         self.species_dict = {k:v for k,v in species_dict.items() if k not in missing_species_names} 
+
+        print("Number of atoms no symm",self.num_atoms_no_symm())
+
         #self.set_stochastic_positions(first_call=True)
     def disable_pos_deviations(self):
         self.positional_stdv=0
@@ -1252,7 +1268,11 @@ class Atomic_Species():
             # Undamaged case, no stochastic dynamics.
             if not self.crystal.is_damaged: 
                 def get_atomic_form_factors(atom_idx,q_arr): 
-                    return self.crystal.ff_calculator.f_undamaged(q_arr,self.name)[0]
+                    # print("====")
+                    # print("ff_times_I",self.crystal.ff_calculator.f_undamaged(q_arr,self.name)[0])
+                    # print("COORDS:",self.coords)
+                    # print("====")
+                    return self.crystal.ff_calculator.f_undamaged(q_arr,self.name,use_intensity_for_time=self.crystal.use_intensity_for_time)[0]
             # Damaged, we 
             else:
                 if self.charge_states is None:
@@ -1261,13 +1281,22 @@ class Atomic_Species():
                 else: 
                     def get_atomic_form_factors(atom_idx,q_arr): 
                         idx=np.searchsorted(self.crystal.ff_calculator.timeData,self.times_used)
+
                         if len(q_arr.shape) == 1:
-                            return self.ff_by_occupancy_and_time[self.atom_occupancies[atom_idx]] * np.sqrt(self.crystal.ff_calculator.intensityData[idx][...,None])   # (Need to double check working as expected - not using np.vectorise)
+                            return_val = self.ff_by_occupancy_and_time[self.atom_occupancies[atom_idx]] * np.sqrt(self.crystal.ff_calculator.intensityData[idx][...,None])   # (Need to double check working as expected - not using np.vectorise)
                         elif len(q_arr.shape) == 2:
-                            return self.ff_by_occupancy_and_time[self.atom_occupancies[atom_idx]] * np.sqrt(self.crystal.ff_calculator.intensityData[idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
+                            return_val = self.ff_by_occupancy_and_time[self.atom_occupancies[atom_idx]] * np.sqrt(self.crystal.ff_calculator.intensityData[idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
                         else:
                             assert False, f"q had shape {q_arr.shape}"
-                        return self.crystal.ff_calculator.avg_charge_f_snapshots(self.times_used,self.orb_occs[atom_idx],q_arr,self.name,self.orb_occ_dict,self.Z() - self.charge_states)[0]  # f has form  [times,momenta]
+                        # print("====")
+                        # print("OCC:",self.atom_occupancies[atom_idx])
+                        # print("ff",self.ff_by_occupancy_and_time[self.atom_occupancies[atom_idx]])
+                        # print("ff_times_I",return_val)
+                        # print("COORDS:",self.coords)
+                        # print("====")
+
+                        return return_val
+                       # return self.crystal.ff_calculator.avg_charge_f_snapshots(self.times_used,self.orb_occs[atom_idx],q_arr,self.name,self.orb_occ_dict,self.Z() - self.charge_states)[0]  # f has form  [times,momenta]
             self.get_atomic_form_factors = get_atomic_form_factors
 class XFEL():
     def __init__(self, experiment_name, photon_energy, detector_distance_mm=100, q_minimum = None, q_cutoff = None, max_miller_idx = None, screen_type = "hemisphere", num_orients_crys=1, orientation_axis_crys = None, x_orientations = 1, y_orientations = 1, pixels_per_ring = 400, num_rings = 50,t_fineness=100,SPI_y_rotation = 0,SPI_x_rotation = 0,SPI_z_rotation = 0,all_miller_indices=False, custom_cell_dims_for_miller_indices=None,override_max_q = False,miller_indices_override=None,spot_fraction_per_orient=None):
@@ -1882,6 +1911,12 @@ class XFEL():
                         if self.target.use_bfactors and not self.target.zero_bfactors:
                             T*=species.debye_waller_factor[relative_atm_idx]
                         f = species.get_atomic_form_factors(atm_idx, feature.q)  / np.sqrt(self.target.num_cells*self.target.num_supercells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
+                        # print("##########")
+                        # print("f",f)
+                        # print("T",T)
+                        # print(len(self.target.sym_rotations))
+                        # print("##########")
+                        
                         #print(F_sum.shape,T.shape,f.shape)                             
                         if SPI: 
                             if type(feature) is self.Cell:

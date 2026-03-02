@@ -652,7 +652,7 @@ class Plotter:
     #     normalization = ATOMNO[atom]/dynamic_k[0][0]
     #     dynamic_k*=normalization
 
-    def f_undamaged(self,q,atom):
+    def f_undamaged(self,q,atom,use_intensity_for_time=None):
         '''        
         Compared to f_average, we now include the stochastic contribution by picking the atomic state from the distribution.
         
@@ -669,7 +669,12 @@ class Plotter:
         # return undamaged form factor, multiplied by sqrt of average pulse intensity
 
         ground_state = self.get_ground_state_shells(atom)
-        I_avg, time_steps = self.I_avg()
+        if use_intensity_for_time is not None:
+            idx=np.searchsorted(self.timeData,use_intensity_for_time)
+            time_steps = [self.timeData[idx]]
+            I_avg = self.intensityData[idx]
+        else:
+            I_avg, time_steps = self.I_avg()
         shielding = SlaterShielding(self.atomic_numbers[atom])             
         ff = shielding.get_ff("dummy",q,{"dummy":ground_state})
         f_sqrt_I = ff[...,None] * np.array(np.sqrt(I_avg)*np.ones(len(time_steps)))

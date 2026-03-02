@@ -7,8 +7,8 @@ SCRIPT_DIR=$(
 cd $SCRIPT_DIR
 
 
-num_traj_to_sample=1
-num_snapshots=5 # per trajectory 
+num_traj_to_sample=10
+num_snapshots=10 # per trajectory 
 
 
 
@@ -16,7 +16,7 @@ dt_of_MD_sim=0.01 # TODO read this or num_frames from trj file
 
 stem=hemoglobin_2QSP
 
-for sim_idx in 8; do 
+for sim_idx in 1; do 
 
   ###
   #gromacs_unitcell_target_handle=hemoglobin_solv_Hfix
@@ -37,8 +37,6 @@ for sim_idx in 8; do
   plasma_handle=$stem-$sim_idx 
   MD_output_parent_dir=$SCRIPT_DIR/MD_output/${plasma_handle}_${gromacs_unitcell_target_handle}/
 
-  tmp_out_dir=$MD_output_parent_dir/snapshots/
-
   read -r timespan < <(python3.9 scripts/print_sim_params.py $plasma_handle timespan)
   num_frames=`echo $timespan $dt_of_MD_sim  | awk '{print $1/$2}'` # duration/dt
   sample_interval=`echo $num_frames $num_snapshots | awk '{print $1/$2}'`   # num_frames/num_snapshots
@@ -48,7 +46,9 @@ for sim_idx in 8; do
   # Trajectory to pdb file of snapshots
   i=0
   for old_snapshots in $MD_output_parent_dir/*/snapshots.pdb; do
-    rm $old_snapshots
+    if [ -f $old_snapshots ]; then
+     rm $old_snapshots
+    fi
   done
   for subdir in $MD_output_parent_dir/*/; do
       echo $subdir
@@ -60,6 +60,12 @@ for sim_idx in 8; do
         fi
         xtc_file=$tmp
       done
+      if [ ! -f $xtc_file ]; then 
+        continue
+      fi 
+      if [ ! -s $xtc_file ]; then 
+        continue
+      fi 
       nice -n 5 bash pipeline_scripting/trjconv.sh $xtc_file $subdir/snapshots.pdb $gromacs_file_path $sample_interval
       i=$((i+1))
       if [ "$i" -ge $num_traj_to_sample ]; then
@@ -69,8 +75,6 @@ for sim_idx in 8; do
 
   
 nice -n 5 python3.9 scripts/scattering/generate_MD_reflections.py $plasma_handle $MD_output_parent_dir $ordered_ground_truth_pdb # $ordered_ground_truth_pdb
-
-  rm -r $tmp_out_dir
 
 done
 wait

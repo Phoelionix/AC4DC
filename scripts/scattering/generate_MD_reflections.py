@@ -12,6 +12,8 @@ import glob
 
 #TODO Make importable: convert from command line script.
 
+USE_PHENIX=True
+
 NUM_PARALLEL=1
 SEEDED = False
 RANDOM_WATER = False; NUM_RANDOM_WATER = 0 # 702
@@ -20,7 +22,7 @@ QUICK_TEST = False
 SKIP_UNDAMAGED_CONTROL = False; FIRST_UNDAMAGED=False # "second" is the undamaged control # XXX
 DEBUG_IGNORE_FE=False
 IGNORE_MISSING_SPECIES=True
-ELECTRONIC_ONLY=False
+ELECTRONIC_ONLY=True
 NUCLEAR_ONLY=False
 
 
@@ -79,7 +81,8 @@ def main(par_idx,ground_truth_pdb):
     num_bragg_sets = 1
     num_unique_supercells = 1 
     zero_bfactors=True
-    num_supercells=1e5
+    #num_supercells=1e5
+    num_supercells=1
 
     if sim_key in PLASMA_SIM_HANDLE_DICT:
 
@@ -288,7 +291,7 @@ def main(par_idx,ground_truth_pdb):
         exp1_orientations = experiment1.get_used_orientations()
         create_reflection_file(exp_name1,results_parent_dir=results1_parent_folder,
                                artificial_I_scale=I_scale,symmetry_override=ground_truth_symmetry_override)
-        _, mtz_file1 = rfl_to_sca(exp_name1)
+        _, mtz_file1 = rfl_to_sca(exp_name1,create_mtz=USE_PHENIX)
         if exp_name2 != None:
             laser_firing_qwargs["random_orientation"] = False
             experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
@@ -296,15 +299,17 @@ def main(par_idx,ground_truth_pdb):
             experiment2.fire_laser(sim_params["start_t"],sim_params["end_t"],plasma_sim_handle,sim_data_dir,crystal_undmged, results_parent_dir=results2_parent_folder, **laser_firing_qwargs)
             create_reflection_file(exp_name2,results_parent_dir=results2_parent_folder,
                                    artificial_I_scale=I_scale,symmetry_override=ground_truth_symmetry_override)
-            _, mtz_file2 = rfl_to_sca(exp_name2)
+            _, mtz_file2 = rfl_to_sca(exp_name2,create_mtz=USE_PHENIX)
             #fcalc = phenix_fcalc(pdb_md_snapshots_path,best_resolution,real=True)
-            phenix_R(ground_truth_pdb,mtz_file2)
-        phenix_R(ground_truth_pdb,mtz_file1)
-        gen_true_phases=False
-        if gen_true_phases: # for e. dens. map making.
-            cplx_data = phenix_fcalc(ground_truth_pdb,best_resolution,real=False) 
-        fcalc = phenix_fcalc_from_file(ground_truth_pdb,mtz_file1,real=True)
-        phenix_R(ground_truth_pdb,fcalc)
+            if USE_PHENIX:
+                phenix_R(ground_truth_pdb,mtz_file2)
+        if USE_PHENIX:
+            phenix_R(ground_truth_pdb,mtz_file1)
+            gen_true_phases=False
+            if gen_true_phases: # for e. dens. map making.
+                cplx_data = phenix_fcalc(ground_truth_pdb,best_resolution,real=False) 
+            fcalc = phenix_fcalc_from_file(ground_truth_pdb,mtz_file1,real=True)
+            phenix_R(ground_truth_pdb,fcalc)
 
     #FIXME
     now = datetime.datetime.now().timestamp()
@@ -328,6 +333,7 @@ if __name__ == "__main__":
 
 
 # Combine everything into a merged and unmerged scalepack file
+# TODO GET WORKING
 if __name__ == "__main__":
     import glob
 
@@ -342,7 +348,7 @@ if __name__ == "__main__":
         all_reflections_to_scalepack(
             OldestToLatest[-n-1].split("/")[-2],
             scattering_dir+RESULTS_LOCAL_PATH,
-            out_dir="/home/speno/PhenixWorkspace/data/",
+            out_dir="/home/spencer/PhenixWorkspace/data/",
             tag_override=""
         )  
     '''
