@@ -236,8 +236,6 @@ class MD_XFEL:
                                    **laser_kwargs)            
             I = I + results.I if I is not None else results.I
 
-            if not md_target.crystal_snapshot.is_damaged:
-                break
         out_results = results #XXX 
         out_results.I = I
 
