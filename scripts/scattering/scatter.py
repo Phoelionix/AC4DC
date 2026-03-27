@@ -75,6 +75,9 @@ from core_functions import get_sim_elements,ATOMNO,parse_elecs_from_latex
 from plot_I_vs_Isigma import read_cif
 import scipy
 import subprocess
+from contextlib import contextmanager,redirect_stderr,redirect_stdout
+from os import devnull
+import labellines
 interactive = True
 if interactive and __name__ == "__main__":
     get_ipython().run_line_magic('colors', 'nocolor')
@@ -85,6 +88,8 @@ if interactive and __name__ == "__main__":
     # ))    
 
 plt.ioff()  # stops weird vscode stuff
+
+USE_PHENIX=True
 
 DEBUG = False; DEBUG = False; DEBUG_MODERATE = False; DEBUG_WATER = True
 SEEDED = False# TODO check fully implemented for all random stuff
@@ -97,7 +102,23 @@ c_au = 137.036; eV_per_Ha = 27.211385; ang_per_bohr = 1/1.8897259886 # > 1 ang =
 
 RESULTS_LOCAL_PATH = "results/"
 
-
+@contextmanager
+# def suppress_stdout():
+#     #https://stackoverflow.com/questions/2125702/how-to-suppress-console-output-in-python
+#     with open(os.devnull, "w") as devnull:
+#         old_stdout = sys.stdout
+#         sys.stdout = devnull
+#         try:  
+#             yield
+#         finally:
+#             sys.stdout = old_stdout
+def suppress_stdout_stderr():
+    #https://stackoverflow.com/questions/11130156/suppress-stdout-stderr-print-from-python-functions
+    with open(devnull, 'w') as fnull:
+        with redirect_stderr(fnull) as err, redirect_stdout(fnull) as out:
+            #yield (err, out)
+            yield (err, out)
+    
 class Custom_Gromacs_Parser():
     class Structure():
         def __init__(self,structure_id,conf_path):
@@ -120,9 +141,8 @@ class Custom_Gromacs_Parser():
                         if "." in vals[0]:
                             continue
                     ######
-
                         # After 10k the name and serial number columns are joined together
-                        elif i > 9999:
+                        elif i%1e5 > 9999: # NB: If reach  99999, then the index resets.
                             oom = len(str(i))
                             vals.insert(2,vals[1][-oom:])
                             vals[1] = vals[1][:-oom]
@@ -136,21 +156,22 @@ class Custom_Gromacs_Parser():
                         if name in ("NA","CL"):
                             NA_CL_warning = True
                             #element = name
-                        special_convert_dict={"FE":"FE","CLA":"CL","SOD":"NA"} # changes here should be made above
+                        special_convert_dict={"FE":"FE","CLA":"CL","SOD":"NA","ZN":"ZN","CAL":"CA"} # changes here should be made below
                         if name in special_convert_dict:
                             element = special_convert_dict[name]
-                        atom = PDB_Atom(
-                            name = vals[1],
-                            coord = (float(vals[3])*10,float(vals[4])*10,float(vals[5])*10), # converts from nm to angstrom
-                            bfactor = 0,
-                            occupancy = None,
-                            altloc = None,
-                            fullname = " " + vals[1] + " ",
-                            serial_number = int(vals[2]),
-                            element=element
-                        )
+                        with suppress_stdout_stderr():
+                            atom = PDB_Atom(
+                                name = vals[1],
+                                coord = (float(vals[3])*10,float(vals[4])*10,float(vals[5])*10), # converts from nm to angstrom
+                                bfactor = 0,
+                                occupancy = None,
+                                altloc = None,
+                                fullname = " " + vals[1] + " ",
+                                serial_number = i,
+                                element=element
+                            )
                         atoms.append(atom)
-                        assert(int(vals[2])==i)
+                        assert(int(vals[2])==i%1e5)
                         i+=1
             if NA_CL_warning:
                 print(f"Warning: atom with name NA or CL not set to corresponding element")
@@ -228,10 +249,10 @@ class Results():
         else:
             for i in range(len(self.q)):
                 self.R[i] = np.abs(np.sqrt(self.I[i])- np.sqrt(other.I[i]))/np.sqrt(max(self.I[i],other.I[i]))
+
 class Results_SPI():
-    pass
-class Results_Grid():
-    pass    
+    def package_up(self,for_plotting=True):
+        self.for_plotting=for_plotting
 
 class Crystal():
     def __init__(self, struct_file_path, allowed_atoms, positional_stdv = 0, is_damaged=True, include_symmetries = None, rocking_angle = 0.3, 
@@ -314,7 +335,7 @@ class Crystal():
         # different names
         PDB_to_AC4DC_dict = dict(
             #NA = "Sodion", CL = "Chloride",
-            NA = "Na", CL = "Cl", CU="Cu",FE="Fe",CLA="CL",SOD="NA"
+            NA = "Na", CL = "Cl", CU="Cu",FE="Fe",CLA="CL",SOD="NA",CAL="Ca",CA="Ca",ZN="Zn"
         )
         # Same names
         for elem in ["H","He","C","N","O","P","S","Gd","I"]:  # pdb names # TODO automate this...
@@ -346,11 +367,16 @@ class Crystal():
             # Get structure using Bio.PDB's parser
             parser=copy.deepcopy(xPDBParser)
         structure_id = os.path.basename(self.struct_file_path)
-        structure = parser.get_structure(structure_id, self.struct_file_path)  
+        try:
+            with suppress_stdout_stderr():
+                structure = parser.get_structure(structure_id, self.struct_file_path)  
+        except Exception as e:
+            print(f"error with {self.struct_file_path}")
+            raise e
         self.num_input_file_atoms=len(list(structure.get_atoms()))
         # NOTE if modify here, need to modify in pdb_to_AC4DC_dict 
         for atom in structure.get_atoms(): # XXX Patch
-            if atom.name in ("NA","CL"):
+            if atom.name in ("NA","CL","ZN"):
                 atom.element = atom.name  
         # Get those cheeky charge clusters
         species_dict = {}
@@ -375,9 +401,9 @@ class Crystal():
             if ignore_water_H and atom.element=="H" and atom.get_parent() is not None and atom.get_parent().get_resname()=="HOH":
                 continue        
     
-            special_convert_dict={"FE":"FE","CLA":"CL","SOD":"NA"} # changes here change in gromacs parser
+            special_convert_dict={"FE":"FE","CLA":"CL","SOD":"NA","ZN":"ZN","CAL":"CA"} # changes here change in gromacs parser
             if atom.get_name() in special_convert_dict:
-                atom.element = special_convert_dict[atom.get_name()]
+                atom.element = special_convert_dict[atom.get_name()]            
             if (atom.get_name() == "NA" and atom.get_parent() is not None 
             and atom.get_parent().get_resname()=="HEM"):
                 atom.element="N"
@@ -482,6 +508,13 @@ class Crystal():
         Takes in the symmetry factor and translation of the unit cell, and translates them across each unit cell
         '''
         symmetry_translation/= ang_per_bohr
+
+        if (self.cell_packing == "SC" or self.cell_packing == "triclinic")\
+            and (not self.cell_angles[0] == self.cell_angles[1] == self.cell_angles[2]==90):
+            print("Warning: Overriding with triclinic basis")
+            self.cell_packing="triclinic"
+
+
 
         if self.cell_packing == "triclinic":
             symmetry_factor = symmetry_factor @ get_triclinic_basis(self.cell_angles) #get_triclinic_basis(self.cell_angles)@symmetry_factor
@@ -689,7 +722,7 @@ class Crystal():
                         
                         coord=tuple([c*ang_per_bohr for c in coord])
 
-
+    
                         atom = PDB_Atom(name=reference_atom.get_name(), coord=coord, bfactor=reference_atom.get_bfactor(), occupancy=1., 
                                                 altloc=altloc, fullname=reference_atom.get_fullname(), serial_number=serial_number,element=reference_atom.element)
                         disordered_atom=None
@@ -1007,7 +1040,7 @@ CRYST1   {a*self.supercell_scale:.3f}   {b*self.supercell_scale:.3f}   {c*self.s
         ) 
         if custom_axes:
             # Remove default axis
-            axis_args = dict(showgrid = False, zeroline = False, showticklabels = False, title = dict(text = ""))
+            axis_args = dict(show_grid = False, zeroline = False, showticklabels = False, title = dict(text = ""))
             fig.update_layout(scene = dict(zaxis=axis_args,yaxis=axis_args,xaxis=axis_args))      
             # Add custom axis centred in the space
             x_tickvals = np.append(
@@ -1163,7 +1196,7 @@ class Atomic_Species():
                     if total_occupancy not in total_occupancies:
                         total_occupancies[total_occupancy]=[]
                     total_occupancies[total_occupancy].append(config_str)
-                occupancy_indices={total_occ:i for i, total_occ in 
+                self.occupancy_indices={total_occ:i for i, total_occ in 
                                     enumerate(sorted(list(total_occupancies.keys())))}
                 self.ff_by_occupancy_and_time = np.zeros(
                     shape=(
@@ -1178,6 +1211,7 @@ class Atomic_Species():
                 occ_dict=self.crystal.ff_calculator.get_occ_dict(self.name)
                 got_ff_once=False
                 assert len(total_occupancies)>0
+                self.unused_occupancy_indices=[]
                 for occupancy,configs in total_occupancies.items():
                     #print("occupancy:",occupancy)
                     config_indices = [config_strings.index(config_str) for config_str in configs]
@@ -1185,7 +1219,9 @@ class Atomic_Species():
                     total_density_of_occupancy_each_step=np.sum(self.crystal.ff_calculator.boundData[self.name][t_idx if len(t_idx)>1 else int(t_idx):int(t_idx+1),config_indices],axis=1) 
                     #max_total_density_of_occupancy=np.max(total_density_of_occupancy_each_step)
                     if occupancy not in self.Z() - self.charge_states:
-                        self.ff_by_occupancy_and_time[occupancy_indices[occupancy]]=np.nan
+                        # Never used.
+                        self.ff_by_occupancy_and_time[self.occupancy_indices[occupancy]]=np.nan
+                        self.unused_occupancy_indices.append(self.occupancy_indices[occupancy])
                         continue
                     config_ff={}
                     for config_str in configs:
@@ -1214,7 +1250,9 @@ class Atomic_Species():
                             weight=self.crystal.ff_calculator.boundData[self.name][t_idx[j], config_idx]
                             total_weight+=weight
                             ff+=weight*config_ff[config_str]
-                        self.ff_by_occupancy_and_time[occupancy_indices[occupancy],j]=ff/total_weight
+                        assert total_weight>0, (configs, config_ff)
+                        self.ff_by_occupancy_and_time[self.occupancy_indices[occupancy],j]=ff/total_weight
+                        assert not np.any(np.isnan(self.ff_by_occupancy_and_time[self.occupancy_indices[occupancy],j]))
                 assert got_ff_once
 
             #print(f"Set stochastic states for {self.name}")
@@ -1282,10 +1320,19 @@ class Atomic_Species():
                     def get_atomic_form_factors(atom_idx,q_arr): 
                         idx=np.searchsorted(self.crystal.ff_calculator.timeData,self.times_used)
 
+                        occ_idx = np.zeros(shape=self.atom_occupancies[atom_idx].shape,dtype=int) - 1
+                        for occ, idx in self.occupancy_indices.items():
+                            occ_idx[self.atom_occupancies[atom_idx]==occ] = idx
                         if len(q_arr.shape) == 1:
-                            return_val = self.ff_by_occupancy_and_time[self.atom_occupancies[atom_idx]] * np.sqrt(self.crystal.ff_calculator.intensityData[idx][...,None])   # (Need to double check working as expected - not using np.vectorise)
+                            return_val = self.ff_by_occupancy_and_time[occ_idx] * np.sqrt(self.crystal.ff_calculator.intensityData[idx][...,None])   # (Need to double check working as expected - not using np.vectorise)
                         elif len(q_arr.shape) == 2:
-                            return_val = self.ff_by_occupancy_and_time[self.atom_occupancies[atom_idx]] * np.sqrt(self.crystal.ff_calculator.intensityData[idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
+                            try:
+                                return_val = self.ff_by_occupancy_and_time[occ_idx] * np.sqrt(self.crystal.ff_calculator.intensityData[idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
+                            except Exception as e:
+                                print(self.name)
+                                print(np.array(self.ff_by_occupancy_and_time).shape)
+                                #print(self.atom_occupancies[atom_idx])
+                                raise e
                         else:
                             assert False, f"q had shape {q_arr.shape}"
                         # print("====")
@@ -1294,6 +1341,10 @@ class Atomic_Species():
                         # print("ff_times_I",return_val)
                         # print("COORDS:",self.coords)
                         # print("====")
+                        assert not np.any(np.isnan(return_val)),(
+                            np.unique(self.atom_occupancies[atom_idx]),
+                            self.ff_by_occupancy_and_time[np.unique(self.atom_occupancies[atom_idx])]
+                        )
 
                         return return_val
                        # return self.crystal.ff_calculator.avg_charge_f_snapshots(self.times_used,self.orb_occs[atom_idx],q_arr,self.name,self.orb_occ_dict,self.Z() - self.charge_states)[0]  # f has form  [times,momenta]
@@ -1313,7 +1364,7 @@ class XFEL():
             The number of different values for phi to plot. phi is the angle that the incident light makes with 
             the y axis, (z-axis is firing line. y-axis is any arbitrary axis perpendicular to z-axis.)
         num_rings: 
-            Determines the number of q to calculate. Note pixels are currently just points
+            Deperecated. Determines the number of q to calculate when doing rings. Note pixels are currently just points
         t_fineness:
             Number of time steps to calculate.
         alpha,beta,gamma:
@@ -1321,6 +1372,8 @@ class XFEL():
         orientation_set:
             contains each set of cardan angles for each orientation to images. Crystal only. 
             Overriden for imagings with random orientations. TODO replace x_orientations and y_orientations with this.
+        x/y_orientations: 
+            Number of unique x/y axis rotations to sample crystal.
         max_miller_idx:
             If specified, the maximum momentum transfer is set to that corresponding to (m,m,m), where m = max_miller_idx
         q_cutoff [1/angstrom]:
@@ -1332,8 +1385,8 @@ class XFEL():
         self.photon_energy = photon_energy  #eV Attention: not in atomic units
         self.pixels_per_ring = pixels_per_ring
         self.num_rings = num_rings
-        self.x_orientations = x_orientations
-        self.y_orientations = y_orientations
+        self.num_x_orientations = x_orientations
+        self.num_y_orientations = y_orientations
         self.max_miller_idx = max_miller_idx
         self.all_miller_indices = all_miller_indices
         self.miller_indices_override = miller_indices_override # overrides all selection rules TODO assert other selection rule options aren't enabled.
@@ -1381,12 +1434,19 @@ class XFEL():
 
         # SPI only... need to refactor
         self.phi_array = np.linspace(0,2*np.pi,self.pixels_per_ring,endpoint=False)  
-        self.z_rotation = SPI_z_rotation *np.pi/180
-        self.y_rotation = SPI_y_rotation *np.pi/180 # Current rotation of crystal (y axis currently) (did I mean z axis?)
-        self.x_rotation = SPI_x_rotation *np.pi/180# Current rotation of crystal (y axis currently)
-        self.z_rot_matrix = rotaxis2m(self.z_rotation,Bio_Vect(0, 0, 1))
-        self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))     
-        self.x_rot_matrix = rotaxis2m(self.x_rotation,Bio_Vect(1, 0, 0))   
+        self.SPI_z_rotation = SPI_z_rotation *np.pi/180
+        self.SPI_y_rotation = SPI_y_rotation *np.pi/180 # Current rotation of crystal (y axis currently) (did I mean z axis?)
+        self.SPI_x_rotation = SPI_x_rotation *np.pi/180# Current rotation of crystal (y axis currently)
+
+        ### XXX Just used for file naming purposes in scatter_MD. TODO get rid of modifying x y z rotation. 
+        self.input_SPI_x_rotation=SPI_x_rotation
+        self.input_SPI_y_rotation=SPI_y_rotation
+        self.input_SPI_z_rotation=SPI_z_rotation
+        ###
+
+        self.z_rot_matrix = rotaxis2m(self.SPI_z_rotation,Bio_Vect(0, 0, 1))
+        self.y_rot_matrix = rotaxis2m(self.SPI_y_rotation,Bio_Vect(0, 1, 0))     
+        self.x_rot_matrix = rotaxis2m(self.SPI_x_rotation,Bio_Vect(1, 0, 0))   
 
         # crystal only...
         self.num_orientations =  num_orients_crys
@@ -1420,15 +1480,17 @@ class XFEL():
         end_time: The end time of the photon capture in femtoseconds. Not a real thing experimentally, but useful for choosing 
         a level of damage. Explicitly, it is used to determine the upper time limit for the integration of the form factor.
         struct_file_path: The pdb/gromacs config file's path. Changes the variable self.atoms.
-        y_orientations: 
-            Number of unique y axis rotations to sample crystal. x_axis_rotations not implemented (yet?).
         random_orientation overrides the XFEL class's orientation_set, replacing each with a random orientation. (get same number of orientations though at present TODO.) 
         """
+
         print("Beginning laser")
         ff_calculator = self.get_ff_calculator(start_time,end_time,sim_data_handle,sim_parent_dir_path)     
         target.set_ff_calculator(ff_calculator)    
         self.target = target
         self.integrate_times = not do_not_integrate_times
+
+        self.used_orientations=[]
+
 
         if random_orientation == True and self.orientation_set != None:
             raise Exception("Ambiguity: random orientations set to True, but set orientations were provided.")
@@ -1460,13 +1522,13 @@ class XFEL():
             result.I = 0            
             q_sep = (self.max_q-self.min_q)/(self.num_rings)
             q_samples = np.linspace(self.min_q,self.max_q,self.num_rings) + q_sep/2
-            for rot_x in range(self.x_orientations):
-                self.x_rot_matrix = rotaxis2m(self.x_rotation,Bio_Vect(1, 0, 0))      
-                self.y_rotation = 0                 
-                for rot_y in range(self.y_orientations):              
-                    print("Imaging at x, y, rotations:",self.x_rotation,self.y_rotation)
-                    self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))      
-                    self.y_rotation += 2*np.pi/self.y_orientations              
+            for rot_x in range(self.num_x_orientations):
+                self.x_rot_matrix = rotaxis2m(self.SPI_x_rotation,Bio_Vect(1, 0, 0))      
+                self.SPI_y_rotation = 0                 
+                for rot_y in range(self.num_y_orientations):              
+                    print("Imaging at x, y, rotations:",self.SPI_x_rotation,self.SPI_y_rotation)
+                    self.y_rot_matrix = rotaxis2m(self.SPI_y_rotation,Bio_Vect(0, 1, 0))      
+                    self.SPI_y_rotation += 2*np.pi/self.num_y_orientations              
                     for i, q in enumerate(q_samples):
                         # approximate angle subtended
                         angle_subtended = self.q_to_theta(q+q_sep/2) - self.q_to_theta(q-q_sep/2)
@@ -1488,16 +1550,16 @@ class XFEL():
                         for pos in range(len(I[ang])):
                             I[ang][pos] = ring[pos].I[ang]                                         
                 
-                    result.I += I/(self.y_orientations*self.x_orientations)
-                self.x_rotation += 2*np.pi/self.x_orientations
-                result.phi = phi
-                result.q = q
+                    result.I += I/(self.num_y_orientations*self.num_x_orientations)
+                self.SPI_x_rotation += 2*np.pi/self.num_x_orientations
+                result.phi = self.phi_array
+                result.q = q; assert False  # ??? this doesnt make sense. Added in assert False
             #result.package_up()
             return result
         elif SPI:
             N = pixels_across#100  NxN cells
             cell = np.zeros((N,N),dtype="object")
-            result = Results_Grid()      
+            result = Results_SPI()      
             
             ### Geometry
             # In crystallography, for a resolution d we have q = 2*pi/d [atomic units] as lambda=2dsin(theta), q = (4pi/lambda)sin(theta). Possibly a questionable definition for SPI without periodicity, but it is used for consistency, and Neutze 2000 makes no distinction.
@@ -1509,9 +1571,11 @@ class XFEL():
                 d = SPI_resolution/ang_per_bohr # resolution
                 rim_q = res_to_q(d)
                 if self.max_q < rim_q:
-                    print ("WARNING: resolution of " + str(SPI_resolution) + " angstroms requires q to go beyond its maximum. Using max_q="+str(self.max_q/ang_per_bohr)+" instead.")
+                    print ("WARNING: resolution of " + str(SPI_resolution) + " angstroms requires q to go beyond its maximum. Using max_q="+f"{self.max_q/ang_per_bohr:.4f} (resolution {q_to_res(self.max_q/ang_per_bohr):.4f}  A) instead.")
                     rim_q = self.max_q
-            print("rim q:",rim_q)
+                print("SPI resolution:",SPI_resolution,"A", d,"a0")
+            print("rim q:",rim_q*ang_per_bohr,"A", rim_q,"a0")
+            #print("rim q:",rim_q)
 
             max_theta = self.q_to_theta(rim_q) # maximum theta of full ring.
             #screen_width = resolution_to_X(d) * 2
@@ -1553,13 +1617,13 @@ class XFEL():
             q_grid = np.empty(cell.shape)
             result.xy = np.empty(cell.shape+(2,))
             result.I = np.zeros(cell.shape) 
+            result.q = None
             result.zero_angle_I = 0 # In case dim of axis has even number of pixels           
             for i, x in enumerate(cell):
                 for j, y in enumerate(x):
                     x = result.cell_width*(i-(len(cell)-1)/2)
                     y = result.cell_width*(j-(len(cell)-1)/2)
-                    if self.hemisphere_screen:
-                        print ("hemisphere not supported for SPI yet")
+                    assert not self.hemisphere_screen, "hemisphere not supported for SPI yet"
                     
                     dist = np.sqrt(x**2+y**2)
                     q_grid[i,j] = X_to_q(dist)
@@ -1576,30 +1640,39 @@ class XFEL():
             result.full_ring_mask = mask
             #result.I*=mask
             # Calculate I for each cell from q (need to vectorise q)
-            for rot_x in range(self.x_orientations):
-                self.x_rot_matrix = rotaxis2m(self.x_rotation,Bio_Vect(1, 0, 0))      
-                #self.y_rotation = 0                 
-                for rot_y in range(self.y_orientations):                  
-                    print("Imaging at x, y, rotations:",self.x_rotation,self.y_rotation)
-                    self.y_rot_matrix = rotaxis2m(self.y_rotation,Bio_Vect(0, 1, 0))      
-                    self.y_rotation += 2*np.pi/self.y_orientations              
-                    result.I += self.generate_cell_intensity(q_grid,result.xy)
-                    result.zero_angle_I += self.generate_cell_intensity(np.array([[0]]),np.array([[[0,0]]]))
+            assert self.num_x_orientations == self.num_y_orientations==1
+            for rot_x in range(self.num_x_orientations):
+                self.x_rot_matrix = rotaxis2m(self.SPI_x_rotation,Bio_Vect(1, 0, 0))      
+                #self.SPI_y_rotation = 0                 
+                for rot_y in range(self.num_y_orientations):                  
+                    print("Imaging at x, y, rotations:",self.SPI_x_rotation,self.SPI_y_rotation)
+                    self.y_rot_matrix = rotaxis2m(self.SPI_y_rotation,Bio_Vect(0, 1, 0))      
+                    self.SPI_y_rotation += 2*np.pi/self.num_y_orientations              
+                    cell = self.generate_cell(q_grid,result.xy)
+                    result.I += cell.I
+                    if result.q is None:
+                        result.q = cell.q
+                        assert result.q.shape==result.I.shape
+                    else:
+                        assert result.q==cell.q
+                    result.zero_angle_I += self.generate_cell(np.array([[0]]),np.array([[[0,0]]])).I #XXX
 
-                self.x_rotation += 2*np.pi/self.x_orientations             
+                self.SPI_x_rotation += 2*np.pi/self.num_x_orientations             # XXX (yikes)
             # convert to angstrom
             result.xy *= ang_per_bohr
             result.cell_width *= ang_per_bohr
             result.q_xy /= ang_per_bohr
             # Average out intensity # NOTE intensities aren't aligned. Shouldn't be using R factor directly on result from multiple orientations for SPI.
             # TODO Intensity should really be a list of results.
-            result.I /= (self.y_orientations*self.x_orientations)
-            #result.package_up()
+            result.I /= (self.num_y_orientations*self.num_x_orientations)
+
+
+            result.save_path = directory + "SPI"+".pickle"
+            result.package_up()
             return result        
 
         else: # Bragg reflections
             # Iterate through each orientation of crystal, picklin' up a file for each orientation
-            used_orientations = []
             if random_orientation:
                 self.orientation_set = [(0,0,0)]*self.num_orientations  # Dummy orientations
             
@@ -1631,7 +1704,7 @@ class XFEL():
                 #print(bragg_points[3],miller_indices[3])
                 #asdas
 
-                used_orientations.append(cardan_angles)
+                self.used_orientations.append(cardan_angles)
                 num_points = int(len(bragg_points))
                 result = Results(self.target,num_points,j)
                 if do_not_integrate_times:
@@ -1684,7 +1757,6 @@ class XFEL():
                 with open(fpath,"wb") as pickle_out:
                     pickle.dump(result,pickle_out)
 
-            self.used_orientations = used_orientations
             return result
     def get_used_orientations(self):
         return self.used_orientations
@@ -1707,7 +1779,7 @@ class XFEL():
             super().__init__(*args)
             
     
-    def generate_cell_intensity(self,q,xy_grid):
+    def generate_cell(self,q,xy_grid):
         solid_angle = 1  # approximate all as same for now.
         theta = self.q_to_theta(q)
         X = self.q_to_X(q)     
@@ -1717,7 +1789,8 @@ class XFEL():
         cell.q_parr_screen = self.q_to_q_scr(q)
         phis = np.arctan2(xy_grid[:,:,1],xy_grid[:,:,0])
         #print("phis",phis)
-        return self.illuminate(cell,phis=phis,SPI_proj_solid_angle = solid_angle)
+        cell.I= self.illuminate(cell,phis=phis,SPI_proj_solid_angle = solid_angle)
+        return cell
 
     def generate_ring(self,q,phi_array,angle_subtended):
         '''Returns the intensity(phi) array and the radius for given q.'''
@@ -1854,6 +1927,8 @@ class XFEL():
         for k, v in self.target.species_dict.items():
             if len(v.coords) >0:
                 non_empty_species_dict[k]=v
+        for species in non_empty_species_dict.values():
+            species.ff_by_occupancy_and_time=None
         for S in range(self.target.supercell_simulations):   
             print("Simulating supercell", S)
             times_used = None
@@ -1898,11 +1973,12 @@ class XFEL():
                             relative_atm_idx = relative_atm_idx[unique_mask]
                             #print(species.name,coord.shape)
 
-                        # Rotate to target's current orientation 
-                        # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
-                        coord = coord @ self.x_rot_matrix  
-                        coord = coord @ self.y_rot_matrix
-                        coord = coord @ self.z_rot_matrix
+                        if SPI:
+                            # Rotate to target's current orientation 
+                            # rot matrices are from bio python and are LEFT multiplying. TODO should be consistent replace this with right mult. 
+                            coord = coord @ self.x_rot_matrix  
+                            coord = coord @ self.y_rot_matrix
+                            coord = coord @ self.z_rot_matrix
                         # Get spatial factor T
                         if SPI:
                             T = self.SPI_interference_factor(phis,coord,feature)  # if grid: [phis,qx,qy]  if ring: [phis,q] (unimplemented)
@@ -1911,6 +1987,11 @@ class XFEL():
                         if self.target.use_bfactors and not self.target.zero_bfactors:
                             T*=species.debye_waller_factor[relative_atm_idx]
                         f = species.get_atomic_form_factors(atm_idx, feature.q)  / np.sqrt(self.target.num_cells*self.target.num_supercells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
+                        if not self.miller_indices_override:
+                            # resolution limit imposed by wavelength 
+                            f*=(feature.q < self.max_q)
+                        assert np.sqrt(self.target.num_cells*self.target.num_supercells)>0
+                        assert not np.any(np.isnan(f)),f
                         # print("##########")
                         # print("f",f)
                         # print("T",T)
@@ -1991,11 +2072,15 @@ class XFEL():
         else:
             I/=I.size # divvied up by spots
 
+        assert not np.any(np.isnan(I)),I
+
         if SPI:
             # For crystal we can approximate infinitely small pixels and just consider bragg points.
             # But for SPI need to take the pixel's size into account. Neutze 2000 makes the following approximation:
             I *=  SPI_proj_solid_angle    # equiv. to *= solid_angle
         
+        assert not np.any(np.isnan(I)), (I,SPI_proj_solid_angle)
+
         print("Total screen-incident intensity TODO not matching below with all miller  = ","{:e}".format(np.sum(I)))
         print("Intensity scattered by free electron TODO not matching above with all miller = ","{:e}".format(I_ref))
         return I
@@ -2397,7 +2482,8 @@ def E_to_lamb(photon_energy):
         # Bragg's law: n*lambda = 2*d*sin(theta). d = gap between atoms n layers apart i.e. a measure of theoretical resolution.
 
 def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_frame = False ,SPI_result1 = None, SPI_result2 = None, full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, results_parent_dir = RESULTS_LOCAL_PATH, compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, 
-                         bg_colour = "grey",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None,spi_full_rings_only=True,min_R_dmg_pixel = 0.1,cmap2=None,log_range=None,custom_fig_width=None,custom_fig_height=None,log_diff_vmin = -0.5, log_diff_vmax = 0.5, normalize_to_centre = True, dpi=100):
+                         bg_colour = "grey",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None,
+                         spi_full_rings_only=True,min_R_dmg_pixel = 0.1,cmap2=None,log_range=None,custom_fig_width=None,custom_fig_height=None,log_diff_vmin = -0.5, log_diff_vmax = 0.5, normalize_to_centre = True, dpi=100):
     ''' (Complete spaghetti at this point.)
     Plots the simulated scattering image.
     result_handle:
@@ -2886,11 +2972,11 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
     
     ## Continuous (SPI)
     else:
-        result1 = copy.deepcopy(SPI_result1)
-        result2 = copy.deepcopy(SPI_result2)
-        if result1 is None:
+        if SPI_result1 is None:
             print("error, expected SPI but SPI_result1 is None")
             return     
+        result1 = copy.deepcopy(SPI_result1)
+        result2 = copy.deepcopy(SPI_result2)
         if normalize_to_centre:
             # # Normalize I to 1 at centre 
             # # Average out centre pixels/select central pixels depending on axis dimension's integer parity.
@@ -2900,21 +2986,24 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
             # if result2 != None:
             #     result2.I/=np.average(result2.I[A:B+1, C:D+1])  
             result1.I/=result1.zero_angle_I
-            result2.I/=result2.zero_angle_I
-            result1.zero_angle_I = result2.zero_angle_I = 1
+            result1.zero_angle_I = 1
+            if result2 is not None:
+                result2.I/=result2.zero_angle_I
+                result2.zero_angle_I = 1
         else:
             # Normalize  total magnitude of intensity to 1.
             result1.I/=np.sum(result1.I)
             result1.zero_angle_I/=np.sum(result1.I)
-            if result2 != None:
+            if result2 is not None:
                 result2.I/=np.sum(result2.I)
                 result2.zero_angle_I/=np.sum(result2.I)
         ## Square grid
-        if len(result1.I.shape) > 1:#if type(result1) == Results_Grid:
+        if len(result1.I.shape) > 1:#if type(result1) == Results_SPI:
             if spi_full_rings_only:
                 # for calculating R we remove the non-full rings - we represent this visually:
-                result1.I *=  (result1.full_ring_mask + 0.1)/1.1         
-                result2.I *= (result2.full_ring_mask+0.1)/1.1 
+                result1.I *=  (result1.full_ring_mask + 0.1)/1.1        
+                if result2 is not None:
+                    result2.I *= (result2.full_ring_mask+0.1)/1.1 
 
             if log_I: 
                 z1 = log_function(result1.I)   
@@ -2934,34 +3023,75 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                     #z2[z2<0] = 0
                     #z2 = result2.I.copy()/np.sum(result2.I)        
             if log_I and cutoff_log_intensity != None:
-                np.ma.array(z1, mask=(z1<cutoff_log_intensity)*(np.isnan(z2)))
+                #z1 = np.ma.array(z1, mask=(z1<cutoff_log_intensity)*(np.isnan(z1)))
+                z1 = np.ma.array(z1, mask=((z2<cutoff_log_intensity)|(np.isnan(z2))))
                 if result2 != None:
-                    z2 = np.ma.array(z2, mask=(z2<cutoff_log_intensity)*(np.isnan(z2)))
+                    #z2 = np.ma.array(z2, mask=(z2<cutoff_log_intensity)*(np.isnan(z2)))
+                    z2 = np.ma.array(z2, mask=((z2<cutoff_log_intensity)|(np.isnan(z2))))
             else:
                 z1 = np.ma.array(z1,mask = np.isnan(z1))
-                z2 = np.ma.array(z2,mask = np.isnan(z2)) 
+                if result2 is not None:
+                    z2 = np.ma.array(z2,mask = np.isnan(z2)) 
 
             if spi_full_rings_only:
                 # Now remove the non-full rings
-                result1.I *=  result1.full_ring_mask          
-                result2.I *= result2.full_ring_mask
+                result1.I *=  result1.full_ring_mask     
+                if result2 is not None:     
+                    result2.I *= result2.full_ring_mask
                         
             if result2 != None:
                 alpha2 = (result2.full_ring_mask + 1)/2             
             print("Result 1 (Damaged):")
             print("Total screen-incident intensity:","{:e}".format(np.sum(result1.I)))
+
             if result2 != None:
                 combined_data = np.array([z1,z2])
             else: 
                 combined_data = z1
-            z_min, z_max = np.nanmin(combined_data), np.nanmax(combined_data)       
+            z_min, z_max = np.nanmin(combined_data), np.nanmax(combined_data)      
+            #print("DEBUG",z_max,log_range,z_min)
             if log_I:
                 z_min = max(z_max-log_range,z_min)
+                
             current_cmap = plt.colormaps.get_cmap("plasma")
             current_cmap.set_bad(color='black')
             if not get_R_only:
+                #print(f"vmin, vmax: {z_min}, {result1.zero_angle_I}")
                 z1_map = plt.imshow(z1,vmin=z_min,vmax=result1.zero_angle_I,cmap=current_cmap)
-                plt.colorbar(z1_map)
+
+                if show_grid: # Resolution ring annotations
+                    radius = len(result1.q)/2
+                    skip = int(radius/5)
+                    grid_ring_radii = list(reversed(range(1,int(np.floor(radius))+1)))[::skip]
+                    print(grid_ring_radii)
+                    for r in grid_ring_radii:
+                        if len(result1.q)%2==1:
+                            resol = q_to_res(result1.q[int(radius)+r][int(radius)])*ang_per_bohr
+                            midpoint=radius-1
+                        else: # rough
+                            midpoint=radius-0.5
+                            resol = 0
+                            for x in (int(np.floor(radius)),int(np.ceil(radius))):
+                                row=x+r
+                                if x+r >= len(result1.q):
+                                    row-=1
+                                resol += 0.5 * q_to_res(result1.q[row][x])*ang_per_bohr
+                        theta=np.linspace(0, 2*np.pi, 1000)
+                        label=f"${resol:.1f} Å$"
+                        plt.gca().plot(midpoint + r*np.cos(theta), midpoint + r*np.sin(theta),
+                                       alpha = 0.8,
+                                       dashes=(5,10),
+                                       color="silver",label=label) #whitesmoke lightgray silver
+                        plt.gca().text(midpoint,midpoint+r,label,color="w",alpha=1,
+                                       horizontalalignment='center',
+                                       verticalalignment='top')
+                        plt.gca().set_ylim(-0.5,result1.q.shape[0]-0.5)
+                        plt.gca().set_xlim(-0.5,result1.q.shape[1]-0.5)
+                    #labellines.labelLines(plt.gca().get_lines())
+                
+                plt.colorbar(z1_map, label="Intensity (arb. units)",
+                             format=lambda x, _: "$10^{"+f"{x:.0f}"+"}$")
+                            
                 plt.gcf().set_figwidth(custom_fig_width); plt.gcf().set_figheight(custom_fig_height)
                 plt.savefig("tmp_I_real.pdf",format="pdf",dpi=dpi)
                 plt.show()
@@ -3281,7 +3411,7 @@ def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
         cdict['alpha'].append((si, a, a))
 
     newcmap = matplotlib.colors.LinearSegmentedColormap(name, cdict)
-    plt.register_cmap(cmap=newcmap)
+    matplotlib.colormaps.register(cmap=newcmap)
 
     return newcmap
 
@@ -3698,7 +3828,7 @@ def read_hkl(fpath):
 
 #####
 # stylin' 
-def stylin(exp_name1,exp_name2,radial_lim,damaged_and_undamaged=False,get_R_only = False,SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None,results_parent_dir = RESULTS_LOCAL_PATH,show_labels=False,**kwargs):
+def stylin(exp_name1,exp_name2,radial_lim,damaged_and_undamaged=False,get_R_only = False,SPI=False,SPI_max_q=None,SPI_result1=None,SPI_result2=None,results_parent_dir = RESULTS_LOCAL_PATH,show_labels=False,cutoff_log_intensity = None,**kwargs):
     experiment1_name = exp_name1#"Lys_9.95_random"#exp_name1
     experiment2_name = exp_name2#"lys_9.80_random"#exp_name2 
 
@@ -3718,14 +3848,19 @@ def stylin(exp_name1,exp_name2,radial_lim,damaged_and_undamaged=False,get_R_only
     use_q = False # TODO remove this option
     log_radial = False
     log_I = True
-    cutoff_log_intensity = -1#-1
+    #cutoff_log_intensity = -1#-1
     
     cmap = ""
     if not get_R_only:
         try:
             cmap = shiftedColorMap(matplotlib.cm.RdYlGn_r,midpoint=0.2,name="shiftedcmap")#"plasma"#"YlGnBu_r"#cc.m_fire#"inferno"#cmr.ghostlight#cmr.prinsenvlag_r#cmr.eclipse#cc.m_bjy#"viridis"#'Greys'#'binary'
-        except: 
-            cmap =  plt.get_cmap("shiftedcmap")
+        except Exception as e:
+            try:
+                cmap =  plt.get_cmap("shiftedcmap")
+            except Exception as e2:
+                print(e)
+                print(e2)
+                cmap =  plt.get_cmap("RdYlGn_r")
         cmap.set_bad(color='black')
     cmap_power = 1.6
     min_alpha = 0.3
@@ -3786,10 +3921,10 @@ def stylin(exp_name1,exp_name2,radial_lim,damaged_and_undamaged=False,get_R_only
            damage_dict = scatter_scatter_plot(get_R_only = True,crystal_aligned_frame = True,full_range = full_crange_sectors,num_arcs = 25, num_subdivisions = 40,result_handle = experiment1_name, compare_handle = experiment2_name, fixed_dot_size = True, results_parent_dir=results_parent_dir, cmap_power = cmap_power, min_alpha=min_alpha, max_alpha = max_alpha, solid_colour = colour, crystal_pattern_only = False,show_labels=show_labels,log_dot=True,dot_size=1,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,log_I=log_I,cutoff_log_intensity=cutoff_log_intensity,**kwargs)
 
     else:
-        use_q = True
+        use_q = False
         log_radial = False
         log_I = True
-        cutoff_log_intensity = None # -1 or None
+        #cutoff_log_intensity = None # -1 or None
         cmap = "PiYG_r"# "plasma"
         cmap2 = "seismic"
         radial_lim = SPI_max_q
@@ -3832,7 +3967,8 @@ if __name__ == "__main__":
 
     #R:  0.03453990841341609
     #R:  0.039555455273223315
-    target = "copper_sulfate" #lys_nass_probe_35"#"glycine"  #target_options[2]
+    #target = "copper_sulfate" #lys_nass_probe_35"#"glycine"  #target_options[2]
+    target = "lys_nass_probe_35" #lys_nass_probe_35"#"glycine"  #target_options[2]
     best_resolution = 0.5 # 1.58 (abdullah) # 1.3 # 2   # resolution (determining max q)
     worst_resolution = 30 #None #30 # 'resolution' corresponding to min q
 
@@ -3862,7 +3998,8 @@ if __name__ == "__main__":
         rocking_angle = 0.02,  #  (approximating mosaicity - use 0.02 for proper, use a high value, like 1-10, and set a low max triple miller indice to disallow seemingly impossible indices (due to rocking angle/our implementation of it via momentum conservation formulae) that mimic studies that use the first few miller indices )
         #CNO_to_N = True,   # whether the plasma simulation approximated CNO as N  #TODO move this to indiv exp. args or make automatic
         random_waters=None,
-        zero_bfactors=False
+        zero_bfactors=False,
+        allow_skip_species=True
     )
     crystal_2_has_deviations=False
 
@@ -4138,7 +4275,7 @@ if __name__ == "__main__":
         SPI_result2 = experiment2.fire_laser(start_time,end_time,target_handle,sim_data_dir,crystal2,results_parent_dir=results_parent_folder,  **laser_firing_qwargs)
         stylin(exp_name1,exp_name2,experiment1.max_q,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2,custom_fig_width=fig_width,custom_fig_height=fig_height)
     else:
-        experiment1.fire_laser(start_time,end_time,target_handle,sim_data_dir,crystal, results_parent_dir=results1_parent_folder, **laser_firing_qwargs)
+        experiment1.fire_laser(start_time,end_time,target_handle,sim_data_dir,crystal, results_parent_dir=results_parent_folder, **laser_firing_qwargs)
         exp1_orientations =experiment1.used_orientations
         create_reflection_file(exp_name1,results_parent_dir=results_parent_folder)
         rfl_to_sca(exp_name1)
