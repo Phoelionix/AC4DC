@@ -643,7 +643,7 @@ class Crystal():
         # Transpose because we've stored the vectors in the 0th axis. 
         return (self.sym_rotations[i] @ R.T).T+ self.sym_translations[i]   # dim = [xyz,xyz] x [xyz,N] or dim = [xyz,xyz] x [xyz,1]
             
-    def save_structure_by_reference(self,dir="targets",tag="constructed_struct"):
+    def save_structure_by_reference(self,dir="targets",tag="constructed_struct",allow_partial_occupancy=False):
         '''
         Version of save_structure with less misunderstandings
         '''
@@ -664,7 +664,7 @@ class Crystal():
         num_chains = len(self.sym_rotations)
         one_chain_per_unit=False
 
-        altloc_mode=True
+        altloc_mode=False
         num_reference_chains=len(list(reference_structure.get_chains()))
         if not altloc_mode:
             if num_chains > len(chainIDs) or num_reference_chains>1:
@@ -722,8 +722,9 @@ class Crystal():
                         
                         coord=tuple([c*ang_per_bohr for c in coord])
 
-    
-                        atom = PDB_Atom(name=reference_atom.get_name(), coord=coord, bfactor=reference_atom.get_bfactor(), occupancy=1., 
+                        if not allow_partial_occupancy:
+                            assert reference_atom.get_occupancy()==1, (reference_atom.get_occupancy(),reference_atom.full_id)
+                        atom = PDB_Atom(name=reference_atom.get_name(), coord=coord, bfactor=reference_atom.get_bfactor(), occupancy=reference_atom.get_occupancy(), 
                                                 altloc=altloc, fullname=reference_atom.get_fullname(), serial_number=serial_number,element=reference_atom.element)
                         disordered_atom=None
                         for a in residue.get_atoms():
@@ -766,7 +767,7 @@ REMARK 290   SMTRY1   1  1.000000  0.000000  0.000000        0.00000
 REMARK 290   SMTRY2   1  0.000000  1.000000  0.000000        0.00000            
 REMARK 290   SMTRY3   1  0.000000  0.000000  1.000000        0.00000                        
 REMARK 290   
-CRYST1   {a*self.supercell_scale:.3f}   {b*self.supercell_scale:.3f}   {c*self.supercell_scale:.3f}  90.00  90.00  90.00   P 1    1"""
+CRYST1   {a*self.supercell_scale:.3f}   {b*self.supercell_scale:.3f}   {c*self.supercell_scale:.3f}  {self.cell_angles[0]:.2f} {self.cell_angles[1]:.2f}  {self.cell_angles[2]:.2f}   P 1    1"""
 
         with open(dir+'/'+fname, 'r+') as f:
             content = f.read()
@@ -4313,7 +4314,8 @@ if interactive and __name__ == "__main__":
 if interactive and __name__ == "__main__":
     ##### Crystal params
     #pdb_file ="4et8H.pdb"
-    pdb_file ="2qspH.pdb"
+    #pdb_file ="2qspH.pdb"
+    pdb_file ="9EPD_Hfix_singleconf.pdb"
     targets_dir = path.abspath(path.join(__file__ ,"../")) + "/targets/"
     pdb_path = targets_dir + pdb_file
     crystal_qwargs = dict(
@@ -4333,6 +4335,8 @@ if interactive and __name__ == "__main__":
     crystal = Crystal(pdb_path,allowed_atoms,is_damaged=False, **crystal_qwargs)
     #crystal.save_structure(custom_residue_name=custom_residue_name,chain_name="A")
     crystal.save_structure_by_reference()
+
+    print("Check cryst1 symmetry is as desired (defaults to P1)") # TODO
     
    
 

@@ -21,7 +21,10 @@ target_handle=$2
 a=$3
 b=$4
 c=$5
-add_disordered_water=$6
+A=$6
+B=$7
+C=$8
+add_disordered_water=$9
 
 working_folder="$(realpath $working_folder)"
 
@@ -37,8 +40,10 @@ mkdir topology
 
 out1=$working_folder/_bash/${target_handle}_pre_water_processed.gro
 rm -f $out1
-#$gmx/pdb2gmx -f /home/speno/AC4DC/scripts/scattering/targets/${target_handle}.pdb -o $out1  -p  $working_folder/_bash/topol.top  -water spce  <<EOF
-$gmx/pdb2gmx -f /home/speno/AC4DC/scripts/scattering/targets/${target_handle}.pdb -o $out1  -p  $working_folder/_bash/topol.top  -water spce  -nocmap <<EOF
+
+#$gmx/editconf -f /home/speno/AC4DC/scripts/scattering/targets/${target_handle}.pdb -o $out1
+
+$gmx/pdb2gmx -f /home/speno/AC4DC/scripts/scattering/targets/${target_handle}.pdb -o $out1  -p  $working_folder/_bash/topol.top  -water spce  <<EOF
 9
 EOF
 # 9  CHARMM36 (2020). (works for HISD, HIS1, HEME)
@@ -46,7 +51,6 @@ EOF
 # EOF
 # 15 OPLS-AA/L
 # EOF
-
 
 for expected_path in $out1; do 
     if [ ! -f $expected_path ]; then 
@@ -62,7 +66,7 @@ if $add_disordered_water; then
     out2=$working_folder/_bash/${target_handle}_processed.gro
     rm -f $out2
     rm -f box.gro
-    $gmx/editconf -f $out1 -o box.gro -c  -box $a $b $c # 7.9 7.9 3.8
+    $gmx/editconf -f $out1 -o box.gro -c  -box $a $b $c -angles $A $B $C # 7.9 7.9 3.8
 
     #NOte the p flag is to update the topology
     $gmx/$name_of_solvate_program -cp box.gro -cs spc216.gro -o $out2 -p topol.top
