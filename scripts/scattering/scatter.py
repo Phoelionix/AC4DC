@@ -137,15 +137,18 @@ class Custom_Gromacs_Parser():
                         header_remaining -= 1
                         continue
                     if line[0] == " ":
-                        vals = line.split()
-                        if "." in vals[0]:
+                        if "." in line.split()[0]: # generally the last line with cell dimensions
                             continue
                     ######
+                        
+                        vals = line[0:8].strip(), line[11:15].strip(), line[15:20].strip(), *(line[20:].split())
                         # After 10k the name and serial number columns are joined together
-                        elif i%1e5 > 9999: # NB: If reach  99999, then the index resets.
-                            oom = len(str(i))
-                            vals.insert(2,vals[1][-oom:])
-                            vals[1] = vals[1][:-oom]
+                        #elif len(vals[1]) > 4: # NB: If reach  99999, then the index resets.
+                            # vals[2] = last_val+1
+                            # oom = len(str(i%1e5)) # NB: If reach  99999, then the index resets.
+                            # vals.insert(2,vals[1][-oom:])
+                            # vals[1] = vals[1][:-oom]
+
 
                         element = None    
                          # NOTE if modify here, need to modify in parser
@@ -171,7 +174,8 @@ class Custom_Gromacs_Parser():
                                 element=element
                             )
                         atoms.append(atom)
-                        assert(int(vals[2])==i%1e5)
+                        last_val = int(vals[2])
+                        assert(int(vals[2])==i%1e5), (vals[2],i)
                         i+=1
             if NA_CL_warning:
                 print(f"Warning: atom with name NA or CL not set to corresponding element")
@@ -455,7 +459,7 @@ class Crystal():
             for p,a in zip([PDB_to_AC4DC_dict[x] for x in missing_species_elements], missing_species_elements): 
                 print(f"{p:<10} {a:>10}")
         if pdb_atoms_ignored != "":
-            print("The following pdb atoms were found but ignored:",pdb_atoms_ignored)
+            print("The following pdb atoms were found but ignored:",list(set(pdb_atoms_ignored)))
         if ac4dc_atoms_ignored != "":
             print("The following atoms were allowed but not found:",ac4dc_atoms_ignored)
         
