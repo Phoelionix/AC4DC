@@ -520,8 +520,8 @@ class Crystal():
 
 
 
-        if self.cell_packing == "triclinic":
-            symmetry_factor = symmetry_factor @ get_triclinic_basis(self.cell_angles) #get_triclinic_basis(self.cell_angles)@symmetry_factor
+        # if self.cell_packing == "triclinic":
+        #     symmetry_factor = symmetry_factor #@ get_triclinic_basis(self.cell_angles) #get_triclinic_basis(self.cell_angles)@symmetry_factor
         # Simple cubic packing. (actually it's all rectangular prisms, TODO)
         if self.cell_packing == "SC" or self.cell_packing == "triclinic":  
             if self.cell_packing == "SC":
@@ -1992,7 +1992,7 @@ class XFEL():
                         if self.target.use_bfactors and not self.target.zero_bfactors:
                             T*=species.debye_waller_factor[relative_atm_idx]
                         f = species.get_atomic_form_factors(atm_idx, feature.q)  / np.sqrt(self.target.num_cells*self.target.num_supercells) # Dividing by np.sqrt(self.num_cells) so that fluence is same regardless of num cells. 
-                        if not self.miller_indices_override:
+                        if self.miller_indices_override is None:
                             # resolution limit imposed by wavelength 
                             f*=(feature.q < self.max_q)
                         assert np.sqrt(self.target.num_cells*self.target.num_supercells)>0
@@ -4323,7 +4323,7 @@ if interactive and __name__ == "__main__":
     targets_dir = path.abspath(path.join(__file__ ,"../")) + "/targets/"
     pdb_path = targets_dir + pdb_file
     crystal_qwargs = dict(
-        supercell_scale = 2,  # for SC: supercell_scale^3 unit cells
+        supercell_scale = 1,  # for SC: supercell_scale^3 unit cells
         positional_stdv = 0, 
         include_symmetries = True,  # should unit cell contain symmetries or just one asymmetric unit?
         cell_packing = "triclinic",#"SC",
@@ -4340,7 +4340,6 @@ if interactive and __name__ == "__main__":
     #crystal.save_structure(custom_residue_name=custom_residue_name,chain_name="A")
     crystal.save_structure_by_reference()
 
-    print("Check cryst1 symmetry is as desired (defaults to P1)") # TODO
     
    
 
