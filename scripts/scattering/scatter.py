@@ -317,7 +317,8 @@ class Crystal():
         self.cell_angles = None       
         self.parse_data_from_pdb() # All asymmetric units in unit cell
 
-        if self.gromacs_config_file:
+        if self.gromacs_config_file: 
+            print("!!Do not use for scattering!!")
             self.cell_dim = [0,0,0]
             self.cell_angles = [90,90,90]
 
@@ -521,7 +522,7 @@ class Crystal():
 
 
         # if self.cell_packing == "triclinic":
-        #     symmetry_factor = symmetry_factor #@ get_triclinic_basis(self.cell_angles) #get_triclinic_basis(self.cell_angles)@symmetry_factor
+        #     symmetry_factor = symmetry_factor @ get_triclinic_basis(self.cell_angles) #get_triclinic_basis(self.cell_angles)@symmetry_factor
         # Simple cubic packing. (actually it's all rectangular prisms, TODO)
         if self.cell_packing == "SC" or self.cell_packing == "triclinic":  
             if self.cell_packing == "SC":
@@ -541,9 +542,9 @@ class Crystal():
                 a = get_triclinic_basis(self.cell_angles)
             for coord in cube_coords:
                 if self.cell_packing == "triclinic":
-                    coord_scaled = (coord*self.cell_dim)@a  # ahhhhh forgot to multiply coord by cell dim first
+                    coord_scaled = (coord*self.cell_dim)@a
                     assert(coord.shape == (3,))
-                    translation = coord_scaled + symmetry_translation 
+                    translation = coord_scaled + symmetry_translation
 
                 #print(coord)
                 else:
@@ -601,8 +602,6 @@ class Crystal():
                     target.cell_dim = [float(a) for a in entries[0:3]]
                     target.cell_dim = np.array(target.cell_dim)/ang_per_bohr 
                     target.cell_angles = [float(a) for a in entries[3:6]]
-                    T = target.cell_angles
-                    target.cell_angles = [T[0],T[1],T[2]] 
                     target.symmetry = entries[6:-1]
 
 
@@ -1728,7 +1727,7 @@ class XFEL():
                     while num_points_left > 0:
                         np.random.seed(seed)  # reset seed to same as start of orientation. TODO use generator.
                         i = len(point.q); f = len(point.q) + min(num_points_left,max_BP)
-                        print(f"Iterating through Bragg points {i} - {f-1}")
+                        print(f"Iterating through Bragg points {i+1} - {f}")
                         
                         subpoint = self.generate_point(bragg_points[i:f],cardan_angles)                      
                         point.q = np.concatenate((point.q,subpoint.q),axis=0,dtype=float)
@@ -2186,8 +2185,9 @@ class XFEL():
                 a =get_triclinic_basis(crystal.cell_angles)
                 
             if self.custom_cell_dims_for_miller_indices is None:
-                a = np.multiply(a,crystal.cell_dim)  # TODO assert that multiplying along correct dimension.... D:
+                a = np.multiply(a.T,crystal.cell_dim).T
             else:
+                print(f"WARNING, using custom cell dims {self.custom_cell_dims_for_miller_indices}")
                 a = np.multiply(a,self.custom_cell_dims_for_miller_indices) 
         else: 
             raise Exception("Unknown cell packing type")
@@ -3798,7 +3798,7 @@ def phenix_R(pdb_file,reflections):
             found_line=True
     if not found_line:
         #print(proc.stdout)
-        print("Error! Are occupancies zero?")
+        print("Error! Are occupancies zero? Are symmetries the same?")
 
 def read_scalepack(result_handle,scalepack_dir = "scalepack/",skip_header=3):
     file_path = path.abspath(path.join(__file__ ,"../")) + "/"+ scalepack_dir + result_handle + ".sca"
