@@ -1322,16 +1322,16 @@ class Atomic_Species():
                         return self.crystal.ff_calculator.random_states_to_f_snapshots(self.times_used,self.orb_occs[atom_idx],q_arr,self.name,self.orb_occ_dict)[0]  # f has form  [times,momenta]
                 else: 
                     def get_atomic_form_factors(atom_idx,q_arr): 
-                        idx=np.searchsorted(self.crystal.ff_calculator.timeData,self.times_used)
+                        t_idx=np.searchsorted(self.crystal.ff_calculator.timeData,self.times_used)
 
                         occ_idx = np.zeros(shape=self.atom_occupancies[atom_idx].shape,dtype=int) - 1
                         for occ, idx in self.occupancy_indices.items():
                             occ_idx[self.atom_occupancies[atom_idx]==occ] = idx
                         if len(q_arr.shape) == 1:
-                            return_val = self.ff_by_occupancy_and_time[occ_idx] * np.sqrt(self.crystal.ff_calculator.intensityData[idx][...,None])   # (Need to double check working as expected - not using np.vectorise)
+                            return_val = self.ff_by_occupancy_and_time[occ_idx] * np.sqrt(self.crystal.ff_calculator.intensityData[t_idx][...,None])   # (Need to double check working as expected - not using np.vectorise)
                         elif len(q_arr.shape) == 2:
                             try:
-                                return_val = self.ff_by_occupancy_and_time[occ_idx] * np.sqrt(self.crystal.ff_calculator.intensityData[idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
+                                return_val = self.ff_by_occupancy_and_time[occ_idx] * np.sqrt(self.crystal.ff_calculator.intensityData[t_idx][...,None,None])   # (Need to double check working as expected - not using np.vectorise)
                             except Exception as e:
                                 print(self.name)
                                 print(np.array(self.ff_by_occupancy_and_time).shape)
@@ -1488,7 +1488,7 @@ class XFEL():
         """
 
         print("Beginning laser")
-        ff_calculator = self.get_ff_calculator(start_time,end_time,sim_data_handle,sim_parent_dir_path)     
+        ff_calculator = self.get_ff_calculator(start_time,end_time,sim_data_handle,sim_parent_dir_path)
         target.set_ff_calculator(ff_calculator)    
         self.target = target
         self.integrate_times = not do_not_integrate_times
