@@ -72,13 +72,14 @@ dt_of_MD_sim=0.01 # TODO read this or num_frames from trj file
         continue
       fi  
   
-      read -r traj_frames traj_dt  < <($gmx/gmxcheck -f $xtc_file | awk '/Time       /{print $1, $2}')
+      read -r traj_frames traj_dt  < <($gmx/gmxcheck -f $xtc_file 2>&1 | awk '/Time       /{print $1, $2}')
       traj_duration=`echo $traj_frames $traj_dt | awk '{print $1*$2 }'` 
       # TODO FIXME if traj_duration isn't as long as it should be, skip.
 
       start_t=`echo $timespan $traj_duration | awk '{print $1/1e3 - $2 }'` 
+      echo "Starting at $start_t ps"
 
-      nice -n 5 bash pipeline_scripting/trjconv.sh $xtc_file $subdir/snapshots.pdb $gromacs_file_path $sample_interval
+      nice -n 5 bash pipeline_scripting/trjconv.sh $xtc_file $subdir/snapshots.pdb $gromacs_file_path $sample_interval $start_t
       i=$((i+1))
       if [ "$i" -ge $num_traj_to_sample ]; then
           break
