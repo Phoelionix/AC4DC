@@ -136,47 +136,46 @@ class Custom_Gromacs_Parser():
                     if header_remaining > 0:
                         header_remaining -= 1
                         continue
-                    if line[0] == " ":
-                        if "." in line.split()[0]: # generally the last line with cell dimensions
-                            continue
-                    ######
-                        
-                        vals = line[0:8].strip(), line[11:15].strip(), line[15:20].strip(), *(line[20:].split())
-                        # After 10k the name and serial number columns are joined together
-                        #elif len(vals[1]) > 4: # NB: If reach  99999, then the index resets.
-                            # vals[2] = last_val+1
-                            # oom = len(str(i%1e5)) # NB: If reach  99999, then the index resets.
-                            # vals.insert(2,vals[1][-oom:])
-                            # vals[1] = vals[1][:-oom]
+                    if "." in line.split()[0]: # generally the last line with cell dimensions
+                        continue
+                ######
+                    assert len(line)>20
+                    vals = line[0:8].strip(), line[11:15].strip(), line[15:20].strip(), *(line[20:].split())
+                    # After 10k the name and serial number columns are joined together
+                    #elif len(vals[1]) > 4: # NB: If reach  99999, then the index resets.
+                        # vals[2] = last_val+1
+                        # oom = len(str(i%1e5)) # NB: If reach  99999, then the index resets.
+                        # vals.insert(2,vals[1][-oom:])
+                        # vals[1] = vals[1][:-oom]
 
 
-                        element = None    
-                         # NOTE if modify here, need to modify in parser
-                        name = vals[1].strip()
+                    element = None    
+                        # NOTE if modify here, need to modify in parser
+                    name = vals[1].strip()
 
-                        # Commented out to avoid confusing with atom labelled NA in HEME.
-                        # TODO put in pdb warning
-                        if name in ("NA","CL"):
-                            NA_CL_warning = True
-                            #element = name
-                        special_convert_dict={"FE":"FE","CLA":"CL","SOD":"NA","ZN":"ZN","CAL":"CA"} # changes here should be made below
-                        if name in special_convert_dict:
-                            element = special_convert_dict[name]
-                        with suppress_stdout_stderr():
-                            atom = PDB_Atom(
-                                name = vals[1],
-                                coord = (float(vals[3])*10,float(vals[4])*10,float(vals[5])*10), # converts from nm to angstrom
-                                bfactor = 0,
-                                occupancy = None,
-                                altloc = None,
-                                fullname = " " + vals[1] + " ",
-                                serial_number = i,
-                                element=element
-                            )
-                        atoms.append(atom)
-                        last_val = int(vals[2])
-                        assert(int(vals[2])==i%1e5), (vals[2],i)
-                        i+=1
+                    # Commented out to avoid confusing with atom labelled NA in HEME.
+                    # TODO put in pdb warning
+                    if name in ("NA","CL"):
+                        NA_CL_warning = True
+                        #element = name
+                    special_convert_dict={"FE":"FE","CLA":"CL","SOD":"NA","ZN":"ZN","CAL":"CA"} # changes here should be made below
+                    if name in special_convert_dict:
+                        element = special_convert_dict[name]
+                    with suppress_stdout_stderr():
+                        atom = PDB_Atom(
+                            name = vals[1],
+                            coord = (float(vals[3])*10,float(vals[4])*10,float(vals[5])*10), # converts from nm to angstrom
+                            bfactor = 0,
+                            occupancy = None,
+                            altloc = None,
+                            fullname = " " + vals[1] + " ",
+                            serial_number = i,
+                            element=element
+                        )
+                    atoms.append(atom)
+                    assert(int(vals[2])==i%1e5), (vals[2],i,"||", line, "||", vals,"||",last_val,last_i)
+                    last_val, last_i = int(vals[2]),i
+                    i+=1
             if NA_CL_warning:
                 print(f"Warning: atom with name NA or CL not set to corresponding element")
             return atoms
