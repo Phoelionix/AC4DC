@@ -4,14 +4,6 @@ gmx='/home/speno/programs/bin' # path to where GROMACS is installed
 
 #http://www.mdtutorials.com/gmx/lysozyme/01_pdb2gmx.html
 
-# BROAD outline of pipeline, still quite manual as need to fill in file params in each step currently.
-# Step 1 run AC4DC sim
-# Step 2 construct structure with symmetries (e.g. see "#%%--------STRUCTURE CONSTRUCTOR------" in scripts/scattering/scatter.py)
-# Step 3 run this file
-# Step 4 run scripts/molDStructConversion/convert_to_molDStruct.py and add necessary files (also lennard-jones)
-# step 4.5 YOU MUST RUN bash gmxdump.sh and then python3 create_lennard_jones_file.py and move the lennard jones file into IONIZATION_DATA!!!  
-# ^ There will be slight order changes in the lj file, possibly due to atom ordering. Just make sure you do this or you will be very confused (see dreaded "Negative" error) followed by "md->massT[ai]=..."
-# Step 5 bash run_photon_matter_simulation.sh
 
 # working_folder=Lys_salt
 # target_handle=4et8H_full_struct_Hfix
@@ -67,9 +59,10 @@ if $add_disordered_water; then
     rm -f $out2
     rm -f box.gro
     $gmx/editconf -f $out1 -o box.gro -c  -box $a $b $c -angles $A $B $C # 7.9 7.9 3.8
-
+    echo "Running: $gmx/$name_of_solvate_program -cp box.gro -cs spc216.gro -o $out2 -p topol.top -shell 1"
     #NOte the p flag is to update the topology
     $gmx/$name_of_solvate_program -cp box.gro -cs spc216.gro -o $out2 -p topol.top
+    #$gmx/$name_of_solvate_program -cp box.gro -cs spc216.gro -o $out2 -p topol.top -shell 1 # shell thickness is in nm
 fi
 
 for expected_path in $out2; do 
