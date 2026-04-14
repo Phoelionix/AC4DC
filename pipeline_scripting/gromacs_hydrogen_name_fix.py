@@ -2,8 +2,6 @@
 #%%
 # file = "scripts/scattering/targets/4et8H_full_struct.pdb"
 # out_file = "scripts/scattering/targets/4et8H_full_struct_Hfix.pdb"
-file = "../scripts/scattering/targets/2qspH_unit.pdb"
-out_file = "../scripts/scattering/targets/2qsp_unit_Hfix.pdb"
 
 OPLS_FORMAT = False
 
@@ -48,6 +46,8 @@ with open(file) as f_in, open(out_file, 'w') as f_out:
 
         name = line[12:16].strip()
         res_name = line[17:21].strip()
+        assert res_name != "HIS", "Please convert HIS to HISD"
+        assert res_name != "CMO", "Please convert CMO (carbon monoxide ligand for HEME) to CO"
 
 
         #new_convert_dict=dict(HT1="H ",HT2="HA",HT3="HB")

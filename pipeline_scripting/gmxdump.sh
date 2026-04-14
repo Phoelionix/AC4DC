@@ -16,7 +16,7 @@ while [ ! -f $working_folder/output.tpr ]; do
     rm -f mdout.mdp
     "$gmx/grompp"  -f $working_folder/full_sim.mdp -c $gro_file  -n $working_folder/index.ndx -p $working_folder/topology/topol.top -o $working_folder/output.tpr -maxwarn 3  # create .tpr file
     i=$((i+1))
-    if [ "$i" -ge 99 ]; then
+    if [ "$i" -ge 2 ]; then
         echo "Couldn't generate tpr file"
         exit
     fi 
