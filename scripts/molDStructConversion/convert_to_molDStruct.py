@@ -168,7 +168,7 @@ def get_save_folder(sim_handle):
 
 
 
-def charges(crystal:Crystal,ff_calculator:Plotter,sim_handle,num_steps,csv=False,individual_elements = False,charge_states_override=None):
+def charges(crystal:Crystal,ff_calculator:Plotter,sim_handle,num_steps,csv=False,individual_elements = False,charge_states_override=None,num_pad_steps=0):
     out_folder = get_save_folder(sim_handle)
 
     if charge_states_override is None:
@@ -220,7 +220,7 @@ def charges(crystal:Crystal,ff_calculator:Plotter,sim_handle,num_steps,csv=False
     else:
         species_charges=charge_states_override
     num_atoms=np.sum([v.shape[0] for v in species_charges.values()])
-    assert num_atoms == crystal.num_input_file_atoms, f"{num_atoms} != {crystal.num_input_file_atoms}"
+    assert num_atoms == crystal.num_input_file_atoms, f"{num_atoms} != {crystal.num_input_file_atoms}; {[v.shape[0] for v in species_charges.values()]}"
     for v in species_charges.values():
         assert num_steps==v.shape[1]
         #num_steps = v.shape[1]
@@ -228,12 +228,21 @@ def charges(crystal:Crystal,ff_calculator:Plotter,sim_handle,num_steps,csv=False
     print(f"Writing charges to {out_folder}")
  
     # Order charges in order that matches the structure file. 
-    combined_charges = np.empty(shape = (num_atoms,num_steps))  # (num atoms, times)   
+    combined_charges = np.empty(shape = (num_atoms,num_steps+num_pad_steps))  # (num atoms, times)   
     species_list = np.empty(shape = (num_atoms,),dtype=object)
     tuples=[]
         
+
+    left_pad_size = num_pad_steps#np.floor(num_pad_steps/2)
+    right_pad_size = 0#np.ceil(num_pad_steps/2)
+
     # Need to track the serial numbers so that we can create charge file in order, while also allowing for possibility that there are jumps in serial num. 
     for element, charges in species_charges.items():
+        #https://numpy.org/devdocs/reference/generated/numpy.c_.html
+        left_pad = np.tile(charges[:,0].reshape(-1,1),left_pad_size)
+        right_pad = np.tile(charges[:,-1].reshape(-1,1),right_pad_size)
+        charges = np.c_[left_pad, charges,right_pad]
+        
         for i, s_num in enumerate(crystal.species_dict[element].serial_numbers):
             tuples.append((charges[i],element,s_num))
         tuples.sort(key=lambda x: x[2]) # sort by serial num
@@ -246,6 +255,7 @@ def charges(crystal:Crystal,ff_calculator:Plotter,sim_handle,num_steps,csv=False
             #     print(element)
 
 
+        
         if individual_elements:
             PDB_element = element.split("_")[0]
             create_charge_file(charges,PDB_element,out_folder,csv=csv)    # Each row is an atom. each column is a time step.
@@ -255,12 +265,15 @@ def charges(crystal:Crystal,ff_calculator:Plotter,sim_handle,num_steps,csv=False
         
     #print(combined_charges[4457][1182])
     create_charge_file(combined_charges,None,out_folder,csv=csv)    # Each row is an atom. each column is a time step.
-    for charges, a, _ in tuples:
-        for q in charges:
-            assert q <= ATOMNO[a], f"{q},{ATOMNO[a]}"
+    
+    run_super_slow_assertions=False
+    if run_super_slow_assertions:
+        for charges, a, _ in tuples:
+            for q in charges:
+                assert q <= ATOMNO[a], f"{q},{ATOMNO[a]}"
 
 
-def DebyeLength(ff_calculator:Plotter,sim_handle,csv=False):
+def DebyeLength(ff_calculator:Plotter,sim_handle,csv=False,num_pad_steps=0):
     pl = ff_calculator
     
 
@@ -269,6 +282,10 @@ def DebyeLength(ff_calculator:Plotter,sim_handle,csv=False):
     for t in pl.get_times_SCATTER():
         tempList.append( pl.get_temp(t, 1000) ) # eV
         # denseList.append( pl.get_free_electron_density(t) ) # per angstrom cube
+
+    left_pad_size = num_pad_steps#np.floor(num_pad_steps/2)
+    right_pad_size = 0#np.ceil(num_pad_steps/2)
+    tempList = [tempList[0],]*left_pad_size + tempList + [tempList[-1],]*right_pad_size
 
     T = np.array(tempList)
     n = T [: ,1]
@@ -310,7 +327,7 @@ def get_plotter(handle,parent_dir_path,start_time,end_time,t_fineness,load_bound
     return ff_calculator
 
 def convert_to_molDStruct(sim_handle:str,target_path:str,num_steps:int,allowed_atoms,start_time,end_time,debye=True,
-sim_parent_dir_path=None,param_dict=None,charge_states_override=None,save_csv_copy=False):
+sim_parent_dir_path=None,param_dict=None,charge_states_override=None,save_csv_copy=False,num_pad_steps=0):
 
 
     crystal_params = dict(
@@ -340,9 +357,10 @@ sim_parent_dir_path=None,param_dict=None,charge_states_override=None,save_csv_co
         assert False, "Disabled due to being slow and deprecated" # TODO remove or replace the code that calculates the charges with ff_calculator from the charges function.
         ff_calculator=None
 
-    charges(crystal,ff_calculator,sim_handle,num_steps,csv=save_csv_copy,charge_states_override=charge_states_override)
     if debye:
-        DebyeLength(ff_calculator,sim_handle,csv=save_csv_copy)
+        #DebyeLength(ff_calculator,sim_handle,csv=save_csv_copy)
+        DebyeLength(ff_calculator,sim_handle,csv=True,num_pad_steps=num_pad_steps)
+    charges(crystal,ff_calculator,sim_handle,num_steps,csv=save_csv_copy,charge_states_override=charge_states_override,num_pad_steps=num_pad_steps)
 
     
 
@@ -359,7 +377,7 @@ sim_parent_dir_path=None,param_dict=None,charge_states_override=None,save_csv_co
     
     print("Done! Remember to sit straight!")
 
-def convert_to_molDStruct_standard(sim_handle:str,target_path:str,num_steps:int,debye=True,sim_parent_dir_path=None,save_csv_copy=False):
+def convert_to_molDStruct_standard(sim_handle:str,target_path:str,num_steps:int,debye=True,sim_parent_dir_path=None,save_csv_copy=False,num_pad_steps=0):
         allowed_atoms = get_sim_elements(sim_handle,molecular_path=sim_parent_dir_path)
 
 
@@ -371,7 +389,7 @@ def convert_to_molDStruct_standard(sim_handle:str,target_path:str,num_steps:int,
 
 
 
-        convert_to_molDStruct(sim_handle,target_path,num_steps,allowed_atoms,start_time,end_time,debye,sim_parent_dir_path,param_dict,None,save_csv_copy)
+        convert_to_molDStruct(sim_handle,target_path,num_steps,allowed_atoms,start_time,end_time,debye,sim_parent_dir_path,param_dict,None,save_csv_copy,num_pad_steps)
 
 
 
@@ -384,13 +402,24 @@ if __name__ == "__main__":
     #sim_handles = ["lys_salt_fast_high_fluence_2"]
 
     #num_steps = 3600 #4900 #3600 #
-    if len(sys.argv) not in [3,4]:
+    if len(sys.argv) not in [3,4,5,6]:
         print("Usage: python sim_output_handle path/to/gro/file [make_csv]")
         quit()
+
+
+
     sim_handle,target_path=sys.argv[1:3]
-    save_csv_copy=True
-    if len(sys.argv)==4:
+    save_csv_copy=False
+    if len(sys.argv)>=4:
         save_csv_copy= (sys.argv[3].lower()=="true")
+
+    force_timespan=None
+    if len(sys.argv)>=5:
+        force_timespan=float(sys.argv[4])
+
+    print_info_only=False
+    if len(sys.argv)>=6:
+        print_info_only = (sys.argv[5].lower()=="dry")
 
     sim_params=get_sim_params(sim_handle)[0]
     sim_duration_fs=sim_params["end_t"]-sim_params["start_t"]
@@ -399,11 +428,19 @@ if __name__ == "__main__":
     #num_steps = max(500,min(2000,int(np.ceil(15*sim_duration_fs))))
     dt = 0.01 
     num_steps=int(sim_duration_fs/dt)
+    num_pad_steps=0
+    if force_timespan is not None and force_timespan>sim_duration_fs:
+        num_pad_steps=int(force_timespan/dt)-num_steps
+        assert num_pad_steps>=0
     #num_steps = max(500,min(2000,int(np.ceil(15*sim_duration_fs))))
     dt_ps = dt/1e3
     #num_steps = sim_params["nsteps"] # NOTE setting custom number of steps not supported in current build
     #num_out_steps_mult=3 # e.g. if charge 1, 2, 2, 3  and this is set to 3 --> 1,1,1,2,2,2,2,2,2,3,3,3
-    print(f"Creating charge file with {num_steps} steps, {dt_ps:.9f} ps dt")
+    if print_info_only:
+        print(f"Charge file would be created with {num_steps+num_pad_steps} steps, {dt_ps:.9f} ps dt")
+    else: # XXX
+        print(f"Creating charge file with {num_steps+num_pad_steps} steps, {dt_ps:.9f} ps dt")
+        convert_to_molDStruct_standard(sim_handle,target_path,num_steps,num_pad_steps=num_pad_steps,save_csv_copy=save_csv_copy)
 
     #target = "CNO_debug.gro"
     #target = "4et8.gro"
@@ -411,7 +448,6 @@ if __name__ == "__main__":
     #target = "4et8H_full_struct_Hfix.gro"
     #target_path=TARGET_DIR + target
 
-    convert_to_molDStruct_standard(sim_handle,target_path,num_steps,save_csv_copy=save_csv_copy)
 
 
 
