@@ -4,7 +4,7 @@ set -u
 
 cd $(dirname "$0")
 
-high_res=1.5
+high_res=2.0
 name="lysozyme"
 
 unique hklout x_unq.mtz <<eof-unique

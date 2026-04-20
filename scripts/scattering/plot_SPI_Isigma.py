@@ -7,15 +7,18 @@ sys.path.append('/home/speno/AC4DC/scripts/')
 from plotter_core import Plotter
 from scatter import res_to_q, q_to_res
 
-SNAPSHOTS_NEED_PULSE_I_SCALING=True; plasma_sim_handle="giant_hemoglobin_solvated_1"
+SNAPSHOTS_NEED_PULSE_I_SCALING=False; plasma_sim_handle="giant_hemoglobin_solvated_1"
 EVEN_BIN_ALLOCATION=False
 #folder = "/home/speno/AC4DC/scripts/scattering/SPI_out/giant_hemoglobin_single_traj_data/"
-folder = "/home/speno/AC4DC/scripts/scattering/SPI_out/giant_hemoglobin_single_pattern_500x500px/"
-num_bins=50
+#folder = "/home/speno/AC4DC/scripts/scattering/SPI_out/giant_hemoglobin_monomer_single_pattern_500x500px"
+#folder = "/home/speno/AC4DC/scripts/scattering/SPI_out/giant_hemoglobin_single_pattern_500x500px/"
+#folder = "/home/speno/AC4DC/scripts/scattering/SPI_out/giant_hemoglobin_single_pattern_400x400px_10A/"
+folder = "/home/speno/AC4DC/scripts/scattering/SPI_out/GH_300x300px_10A"
+num_bins=30
 
 
-TEMP_TIMES = np.array([0.0075, 0.015, 0.0225, 0.03, 0.0375, 0.045, 0.0525])*1e3-30   
-
+TEMP_TIMES = np.array([-20., -10.,   0.,  10.,  20.])  
+#TEMP_TIMES = np.array([-30., -20., -10.,   0.,  10.,  20.,  30.])  
 
 if SNAPSHOTS_NEED_PULSE_I_SCALING:
     pl = Plotter(plasma_sim_handle)
@@ -23,6 +26,7 @@ if SNAPSHOTS_NEED_PULSE_I_SCALING:
 
 
 resolution_range = [9999, 2.066] # 2.066 = highest res for 6 keV 
+#resolution_range = [9999, 10] 
 all_rmsds=[]
 all_mean_I=[]
 all_I_by_time=[]
@@ -44,12 +48,13 @@ for file in list(os.listdir(folder)[:2]):
             if not (resolution_range[1] <= resolution <= resolution_range[0]):
                 continue
 
-            
             data.append((resolution,intensities))
     
     data.sort(key=lambda resI: resI[0])
 
     data_resolutions = [entry[0] for entry in data]
+    data_resolutions = list(sorted(data_resolutions))
+    print(data_resolutions)
 
     if EVEN_BIN_ALLOCATION:
         num_per_bin=int(np.ceil(len(data)/num_bins)) 
@@ -58,8 +63,23 @@ for file in list(os.listdir(folder)[:2]):
         #print([i*num_per_bin for i in range(num_bins)])
         bin_edges = [data[i*num_per_bin][0] for i in range(num_bins)] + [data[-1][0],]  
     else: # even spacing of q
-        bin_edges=np.linspace(res_to_q(data[0][0]),res_to_q(data[-1][0]),num_bins+1,endpoint=True)
+        try:
+            bin_edges=np.linspace(res_to_q(data[0][0]),res_to_q(data[-1][0]),num_bins+1,endpoint=True)
+        except:
+            print(data)
+            print(data[0])
+            print(data[0][0])
+            print(data[-1][0])
+            assert False
         bin_edges = q_to_res(np.array(bin_edges))
+        bin_edges[-1]=max(data_resolutions)
+        bin_edges[0]=min(data_resolutions)
+
+        print(max(data_resolutions))
+        print(max(bin_edges))
+        print(len(data_resolutions))
+        print(max(idx for idx in np.searchsorted(data_resolutions,bin_edges)) )
+        print(np.searchsorted(data_resolutions,max(bin_edges)))
         bin_edges = [data_resolutions[idx] for idx in np.searchsorted(data_resolutions,bin_edges) ]
         #bin_edges = list(sorted(bin_edges))
 
@@ -71,7 +91,7 @@ for file in list(os.listdir(folder)[:2]):
         last_idx=next_idx
         if EVEN_BIN_ALLOCATION:
             if abs(len(binned_intensities[-1])-num_per_bin) > 0.2*num_per_bin:
-                print(f"Warning, bin {i}, {bin_edges[i]} - {bin_edges[i+1]} A has: {len(binned_intensities)[-1]}")
+                print(f"Warning, bin {i}, {bin_edges[i]} - {bin_edges[i+1]} A has: {len(binned_intensities[-1])}")
 
     rmsd_array=[]
     mean_I_array=[]
@@ -82,8 +102,11 @@ for file in list(os.listdir(folder)[:2]):
     all_rmsd_by_time.append(r_arr)
     all_I_by_time.append(I_arr)
     for i, intensities in enumerate(binned_intensities):
+        if len(intensities)==0:
+            continue
         bin = bin_edges[i:i+2]
         tot_I = np.sum(np.array(list(intensities),dtype=float),axis=-1)
+        assert len(np.array(tot_I).shape)>0,intensities
         mean_I = np.mean(np.array(tot_I))
         rmsd = np.sqrt(np.mean([np.sum((I-mean_I)**2) for I in tot_I]))
         rmsd_array.append(rmsd)
@@ -107,7 +130,7 @@ ax2 = ax1.twiny()
 #for snapshot in [None]:
 #for snapshot in [0,1,2,3,4,5,6]:
 #for snapshot in [0,6]:
-for snapshot, label in zip([None,0,6],["Integrated","$t \\;\\; = -22.5$ fs","$t \\;\\; = +22.5$ fs"]):
+for snapshot, label in zip([None,0,-1],["Integrated","$t \\;\\; = -30$ fs","$t \\;\\; = +30$ fs"]):
     if snapshot is None:
         _rmsd_arr=all_rmsds
         _I_arr=all_mean_I

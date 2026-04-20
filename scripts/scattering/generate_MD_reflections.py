@@ -20,19 +20,20 @@ SEEDED = False
 RANDOM_WATER = False; NUM_RANDOM_WATER = 0 # 702
 DEBUG_WATER = False
 QUICK_TEST = False
-SKIP_UNDAMAGED_CONTROL = True; FIRST_UNDAMAGED=False # "second" is the undamaged control # XXX
+SKIP_FIRST_EXP=False
+SKIP_UNDAMAGED_CONTROL = False; FIRST_UNDAMAGED=False # "second" is the undamaged control # XXX
 DEBUG_IGNORE_FE=False
 IGNORE_MISSING_SPECIES=True
 
 
 
-if FIRST_UNDAMAGED:
-    assert SKIP_UNDAMAGED_CONTROL
+# if FIRST_UNDAMAGED:
+#     assert SKIP_UNDAMAGED_CONTROL
 
 def generate_single_snapshot_pdb(md_pdb_file,snapshot_index):
-    assert False, "Please provide ground-truth input - automatic generation unimplemented. "
+    assert False, "Please use ground-truth input - automatic generation unimplemented."
 
-def main(par_idx,ground_truth_pdb,plasma_sim_handle,MD_results_parent_dir,base_tag,extra_tag="",electronic_damage=True,nuclear_damage=True,SPI=False):
+def main(par_idx,ground_truth_pdb,plasma_sim_handle,MD_results_parent_dir,timespan_ps_MD,base_tag,extra_tag="",electronic_damage=True,nuclear_damage=True,start_time_ps=0, SPI=False):
     
     target_options = ["command_line_input"]
 
@@ -76,13 +77,14 @@ def main(par_idx,ground_truth_pdb,plasma_sim_handle,MD_results_parent_dir,base_t
     ####XXX#####
     # TODO generate the unique hkl file from calling targets/unique_reflections/unique_reflections_{target}.bash with script subprocess 
     if not SPI:
-        best_resolution="0.8"
-        unique_rfln_name="hemoglobin"
-        unique_hkl =f"/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_{unique_rfln_name}_{best_resolution}.hkl"; best_resolution=float(best_resolution);ground_truth_symmetry_override="P 21 21 21"
-        energy = 9000
+        #unique_rfln_name="hemoglobin"; ground_truth_symmetry_override="P 21 21 21"; best_resolution="1.3" #"1.8"# "1.3"
+        
+        unique_rfln_name="dtpaa" ; ground_truth_symmetry_override="P 1 21 1"; best_resolution="1.5" # "1.5" "2.5"
+        unique_hkl =f"/home/speno/AC4DC/scripts/scattering/targets/unique_reflections/unique_reflections_{unique_rfln_name}_{best_resolution}.hkl"; best_resolution=float(best_resolution);
+        energy = 12000
 
     else:
-        best_resolution=2
+        best_resolution=5
         ground_truth_symmetry_override = "P 1"
         energy = 6000 # eV
 
@@ -138,7 +140,7 @@ def main(par_idx,ground_truth_pdb,plasma_sim_handle,MD_results_parent_dir,base_t
         # pixel sampling method (Neutze) if True - Miller indices if False
         SPI = SPI,  # sampling method, if False, bragg spots. if True, detector pixels. TODO change name
         SPI_resolution = best_resolution,
-        pixels_across = 400 if not QUICK_TEST else 40,  # for SPI TODO shld go on xfel exp params.
+        pixels_across = 500 if not QUICK_TEST else 40,  # for SPI TODO shld go on xfel exp params.
     )
     ##### Crystal params
     crystal_qwargs = dict(
@@ -248,7 +250,7 @@ def main(par_idx,ground_truth_pdb,plasma_sim_handle,MD_results_parent_dir,base_t
     for snapshots,charges,debye in zip(pdb_md_snapshots_path_list,charges_path_list,debye_path_list): 
         try:
             md_crystal = MD_Crystal(plasma_sim_handle, num_time_points,snapshots,allowed_atoms,
-                       charges,debye,sim_params["start_t"],sim_params["end_t"],
+                       charges,debye,sim_params["start_t"],sim_params["end_t"],timespan_ps_MD,
                        t_cutoff_frac=t_cutoff_frac,
                        is_damaged=first_crystal_is_damaged,CNO_to_N = CNO_to_N,S_to_N=S_to_N, 
                        electronic_damage=electronic_damage,nuclear_damage=nuclear_damage,
@@ -289,16 +291,19 @@ def main(par_idx,ground_truth_pdb,plasma_sim_handle,MD_results_parent_dir,base_t
         #stylin(exp_name1,exp_name2,experiment1.max_q,results_parent_dir=results_parent_folder,SPI=laser_firing_qwargs["SPI"],SPI_max_q = None,SPI_result1=SPI_result1,SPI_result2=SPI_result2,custom_fig_width=fig_width,custom_fig_height=fig_height)
     #else:
     I_scale=1e5/crystal_qwargs["num_supercells"]
-    experiment1.laser_multi_target(plasma_sim_handle,sim_data_dir,dmged_crystal_targets, results_parent_dir=results1_parent_folder, 
-                                    artificial_I_scale=I_scale,reflections_file_symmetry_override=ground_truth_symmetry_override, 
-                                    ground_truth_pdb=ground_truth_pdb,
-                                    **laser_firing_qwargs)
-    exp1_orientations = experiment1.get_used_orientations()
+    #I_scale=1e8/crystal_qwargs["num_supercells"]
+    if not SKIP_FIRST_EXP:
+        experiment1.laser_multi_target(plasma_sim_handle,sim_data_dir,dmged_crystal_targets, results_parent_dir=results1_parent_folder, 
+                                        artificial_I_scale=I_scale,reflections_file_symmetry_override=ground_truth_symmetry_override, 
+                                        ground_truth_pdb=ground_truth_pdb,
+                                        **laser_firing_qwargs)
+        exp1_orientations = experiment1.get_used_orientations()
 
 
-    if exp_name2 != None:
+    if exp_name2 is not None:
         laser_firing_qwargs["random_orientation"] = False
-        experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
+        if not SKIP_FIRST_EXP:
+            experiment2.set_orientation_set(exp1_orientations)  # pass in orientations to next sim, random_orientation must be false!
         #experiment2.fire_laser(plasma_sim_handle,sim_data_dir,crystal_undmged, results_parent_dir=results2_parent_folder, **laser_firing_qwargs)
         experiment2.fire_laser(sim_params["start_t"],sim_params["end_t"],plasma_sim_handle,sim_data_dir,crystal_undmged, results_parent_dir=results2_parent_folder, **laser_firing_qwargs)
         if not SPI:
@@ -319,12 +324,17 @@ def main(par_idx,ground_truth_pdb,plasma_sim_handle,MD_results_parent_dir,base_t
     print("TODO isomorphous difference map btwn fcalc and ideal")
 
 
-def generate_MD_reflections(ground_truth_pdb,plasma_sim_handle,MD_results_parent_dir,base_tag,extra_tag="",electronic_damage=True,nuclear_damage=True,
+                            
+def generate_MD_reflections(ground_truth_pdb,plasma_sim_handle,MD_results_parent_dir,timespan_ps_MD,base_tag,
+                            extra_tag="",electronic_damage=True,nuclear_damage=True,
+                            start_time_ps=0, # Start time of plasma pulse after MD sim start
                             SPI=False):
-    args = (ground_truth_pdb,plasma_sim_handle,MD_results_parent_dir)
+    SPI=True############!!!!!!!!!!!!!!
+    args = (ground_truth_pdb,plasma_sim_handle,MD_results_parent_dir,timespan_ps_MD)
     kwargs = dict(base_tag=base_tag,extra_tag=extra_tag,
             electronic_damage=electronic_damage,
-            nuclear_damage=nuclear_damage,SPI=SPI)
+            nuclear_damage=nuclear_damage,
+            start_time_ps=start_time_ps, SPI=SPI,)
     if NUM_PARALLEL>1:
         def pooled_func(par_idx):
             main(par_idx,*args,**kwargs)

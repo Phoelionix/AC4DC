@@ -59,3 +59,10 @@ scripts/scattering/snapshot.pdb
 scripts/scattering/targets
 scripts/molDStructConversion/hdf5_files
 *NOCOMMIT*
+pipeline_scripting/Refinement/*/
+pipeline_scripting/*.pdf
+scripts/scattering/SPI_out/
+**.xtc
+*.pdb
+**.ipynb
+scripts/scattering/solvate_1.0/*.lis

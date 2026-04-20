@@ -78,6 +78,10 @@ import subprocess
 from contextlib import contextmanager,redirect_stderr,redirect_stdout
 from os import devnull
 import labellines
+from multiprocessing import Pool
+
+NUM_THREADS=20
+
 interactive = True
 if interactive and __name__ == "__main__":
     get_ipython().run_line_magic('colors', 'nocolor')
@@ -126,7 +130,7 @@ class Custom_Gromacs_Parser():
             self.conf_path = conf_path
         def get_atoms(self):
             atoms = []
-            NA_CL_warning=False
+            NA_warning=False; CL_warning=False
             with open(self.conf_path) as gromacs_config_file:
                 i = 1
                 header_remaining = 2
@@ -155,8 +159,10 @@ class Custom_Gromacs_Parser():
 
                     # Commented out to avoid confusing with atom labelled NA in HEME.
                     # TODO put in pdb warning
-                    if name in ("NA","CL"):
-                        NA_CL_warning = True
+                    if name == "NA":
+                        NA_warning = True
+                    if name == "CL":
+                        CL_warning=True
                         #element = name
                     special_convert_dict={"FE":"FE","CLA":"CL","SOD":"NA","ZN":"ZN","CAL":"CA"} # changes here should be made below
                     if name in special_convert_dict:
@@ -176,8 +182,10 @@ class Custom_Gromacs_Parser():
                     assert(int(vals[2])==i%1e5), (vals[2],i,"||", line, "||", vals,"||",last_val,last_i)
                     last_val, last_i = int(vals[2]),i
                     i+=1
-            if NA_CL_warning:
-                print(f"Warning: atom with name NA or CL not set to corresponding element")
+            if NA_warning:
+                print(f"Warning: atom with name NA will be treated as nitrogen")
+            if CL_warning:
+                print(f"Warning: atom with name CL will be treated as carbon")
             return atoms
 
     def get_structure(self,structure_id, conf_path):
@@ -595,7 +603,8 @@ class Crystal():
 
                 ## inline data
                 if line[0:6] == "CRYST1":
-                    if target.cell_dim != None:
+                    print(target.cell_dim)
+                    if target.cell_dim is not None:
                         raise Exception("Cannot handle multiple crystal entries")
                     entries = line.split()[1:]
                     target.cell_dim = [float(a) for a in entries[0:3]]
@@ -1243,6 +1252,7 @@ class Atomic_Species():
                             got_ff_once=True
                             config_ff[config_str]=self.crystal.ff_calculator.ff_from_state_sane(shell_occs,q_arr,self.name)
 
+                    all_zero_t0=None
                     for j,time in enumerate(self.times_used):
                         total_weight=0
                         ff=0
@@ -1253,7 +1263,13 @@ class Atomic_Species():
                             weight=self.crystal.ff_calculator.boundData[self.name][t_idx[j], config_idx]
                             total_weight+=weight
                             ff+=weight*config_ff[config_str]
-                        assert total_weight>0, (configs, config_ff)
+                        if total_weight==0 and j==0:
+                            all_zero_t0=True and (all_zero_t0 is None or all_zero_t0) 
+                            self.ff_by_occupancy_and_time[self.occupancy_indices[occupancy],j]=0
+                            continue
+                        if j==0:
+                            all_zero_t0=False
+                        assert total_weight>0, (configs, config_ff,time,occupancy,self.Z())
                         self.ff_by_occupancy_and_time[self.occupancy_indices[occupancy],j]=ff/total_weight
                         assert not np.any(np.isnan(self.ff_by_occupancy_and_time[self.occupancy_indices[occupancy],j]))
                 assert got_ff_once
@@ -1949,21 +1965,26 @@ class XFEL():
             # Technically sum of F(t)*sqrt(J(t)), where F = sum(f(q,t)*T(q)), and J(t) is the incident intensity, thus accounting for the pulse profile. (J(t) is accounted for in get_atomic_form_factors)
             F_sum = np.zeros(F_shape,dtype="complex_")  
             for species in non_empty_species_dict.values():
+                print(f"Atom {species.name}")
                 if DEBUG or DEBUG_MODERATE:
                     print("------------------------------------------------------------")
                     print("Getting contribution to integrand from species",species.name)
                 if not np.array_equal(times_used,species.times_used):
                     raise Exception("Times used don't match between species.")        
                 # iterate through every atom including in each symmetry of unit cell (each asymmetric unit)
-                max_atoms_per_loop = 1000 # Restrict array size to prevent computer explosions. 
+                max_atoms_per_loop = 20 # Restrict array size to prevent computer explosions. 
                 self.target.reset_unique_points()
                 for s in range(len(self.target.sym_rotations)):
                     #print("Working through symmetry",s)
                     num_atom_batches = int(len(species.coords)/max_atoms_per_loop)+1
-                    for a_batch in range(num_atom_batches):
+                    global inner_loop
+                    def inner_loop(a_batch):
+                        F_sum = np.zeros(F_shape,dtype="complex_")
+                        if a_batch%100==0:
+                            print(f"atom batch {a_batch}/{num_atom_batches}")
                         atm_idx = np.arange(len(species.coords)*s+max_atoms_per_loop*a_batch, len(species.coords)*s + min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
                         if len(atm_idx) == 0: 
-                            break
+                            return F_sum
                         relative_atm_idx = np.arange(max_atoms_per_loop*a_batch, min(len(species.coords), max_atoms_per_loop*(a_batch+1)))
                         R = np.array(species.coords[relative_atm_idx[0]:relative_atm_idx[-1]+1]) 
                         coord = self.target.get_sym_xfmed_point(R,s)
@@ -2010,7 +2031,13 @@ class XFEL():
                         else:
                             F_sum += np.sum(T[:,None,:] * f,axis=0)                           # [num_atoms,None,num_G]X[num_atoms,times,num_G]  ->[times,num_G] 
                         #print("s,F_sum",s,F_sum)
-                                                                            #I =  np.square(np.abs(F_sum[:,0]))  # 
+                                                                          #I =  np.square(np.abs(F_sum[:,0]))  # 
+                        return F_sum
+                    with Pool(NUM_THREADS,maxtasksperchild=100) as p:
+                        # Important that we iterate, and don't convert to list (e.g. F_sum+=np.sum(list(F_sums),axis=0)) as would be very big memory allocation
+                        for other_Fsum in p.map(inner_loop,range(num_atom_batches)):
+                            F_sum+=other_Fsum  
+                        
             F_supercells[S] = F_sum
         # Add supercells
         F_cry = np.zeros(F_shape,dtype="complex_")
@@ -2487,7 +2514,8 @@ def E_to_lamb(photon_energy):
 
 def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_frame = False ,SPI_result1 = None, SPI_result2 = None, full_range = True,num_arcs = 50,num_subdivisions = 40, result_handle = None, results_parent_dir = RESULTS_LOCAL_PATH, compare_handle = None, normalise_intensity_map = False, show_grid = False, cmap_power = 1, cmap = None, min_alpha = 0.05, max_alpha = 1, 
                          bg_colour = "grey",solid_colour = "white", show_labels = False, radial_lim = None, plot_against_q=False,log_I = True, log_dot = False,  fixed_dot_size = False, dot_size = 1, crystal_pattern_only = False, log_radial=False,cutoff_log_intensity = None,
-                         spi_full_rings_only=True,min_R_dmg_pixel = 0.1,cmap2=None,log_range=None,custom_fig_width=None,custom_fig_height=None,log_diff_vmin = -0.5, log_diff_vmax = 0.5, normalize_to_centre = True, dpi=100):
+                         spi_full_rings_only=True,min_R_dmg_pixel = 0.1,cmap2=None,log_range=None,custom_fig_width=None,custom_fig_height=None,log_diff_vmin = -0.5, log_diff_vmax = 0.5, normalize_to_centre = True, dpi=100,
+                         plot_handle="",show_plot=True):
     ''' (Complete spaghetti at this point.)
     Plots the simulated scattering image.
     result_handle:
@@ -2503,6 +2531,7 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
     if custom_fig_width is None:
         custom_fig_width = plt.rcParams['figure.figsize'][0]
     plt.rcParams['figure.figsize'] = [custom_fig_width,custom_fig_height]
+    plt.rcParams['figure.dpi'] = 800
     LOG10 = False
     if LOG10:
         log_function = np.log10
@@ -3097,8 +3126,13 @@ def scatter_scatter_plot(get_R_only = False,neutze_R = True, crystal_aligned_fra
                              format=lambda x, _: "$10^{"+f"{x:.0f}"+"}$")
                             
                 plt.gcf().set_figwidth(custom_fig_width); plt.gcf().set_figheight(custom_fig_height)
-                plt.savefig("tmp_I_real.pdf",format="pdf",dpi=dpi)
-                plt.show()
+                if plot_handle!="":
+                    plt.savefig("I_"+plot_handle+".png",format="png",dpi=dpi)
+                    plt.savefig("I_"+plot_handle+".pdf",format="pdf",dpi=dpi)
+                else:
+                    plt.savefig("tmp_I_real.pdf",format="pdf",dpi=dpi)
+                if show_plot:
+                    plt.show()
             if result2 != None:       
                 if not get_R_only:
                     print("Result 2 (Undamaged):")

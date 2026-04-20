@@ -23,3 +23,7 @@ done
 
 
 #for t in {5,5.05,5.1,5.15,5.2,5.25,5.3,5.35,5.4,5.45,5.5}; do ./solvate -t $thickness$ -n "2 4et8 lys_water/sol_4et8-$t"
+
+
+
+# ./scripts/scattering/solvate_1.0/solvate -t 10 -n 2 scripts/scattering/targets/2GTL_fullH_for_solvate scripts/scatterng/targets/2GTL_fullH_for_solvate-10

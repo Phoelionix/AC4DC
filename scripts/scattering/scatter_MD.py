@@ -13,13 +13,13 @@ from pipeline_scripting.UntanglerStuff.UntangleFunctions import prepare_pdb
 
     # def set_ff_calculator_snapshot_time(self,time):
     #     self.xfel.target.ff_calculator.initialise_form_factor_params(time,time,self.max_q,self.photon_energy,t_fineness=self.t_fineness)
-
+#NUM_THREADS=1
 
 
 
 class MD_Crystal:
     def __init__(self,name,num_times, md_struct_path, allowed_atoms, 
-                 charges_path,debye_path,start_t,end_t, 
+                 charges_path,debye_path,start_t,end_t, timespan_ps_MD,
                  t_cutoff_frac=None, positional_stdv = 0, is_damaged=True, include_symmetries = False, rocking_angle = 0.3,
                  cell_packing = "SC", CNO_to_N = False, supercell_scale = 1,num_supercells=1, supercell_simulations = 1,
                  S_to_N=False,convert_excluded_elements_to_H=False,convert_excluded_elements_to_N=False,allow_skip_species=False,random_waters=None,
@@ -30,28 +30,23 @@ class MD_Crystal:
         self.electronic_damage = is_damaged and electronic_damage
         self.nuclear_damage = is_damaged and nuclear_damage
         assert not include_symmetries, "symmetries not implemented for MD input"
-        self.crystal_kwargs =  {k: v for k, v in locals().items() if k not in ("self","name","num_times","md_struct_path","charges_path","debye_path","start_t","end_t",
+        self.crystal_kwargs =  {k: v for k, v in locals().items() if k not in ("self","name","num_times","md_struct_path","charges_path","debye_path","start_t","end_t","timespan_ps_MD",
                                                                                "charges","is_damaged",
-                                                                               "t_cutoff_frac","electronic_damage","nuclear_damage")}
+                                                                               "t_cutoff_frac","electronic_damage","nuclear_damage", "start_time_ps")}
 
 
         assert path.exists(self.md_struct_path), f"{self.md_struct_path} not found!" 
-        T = self.read_times(self.md_struct_path)
-        if self.electronic_damage:
-            assert len(T)>0, T
-            all_charges=read_charges_binary(charges_path,debye_path)
-            all_times=np.linspace(start_t,end_t,all_charges.shape[0])
-            self.charges=all_charges[np.searchsorted(all_times,T)]
+        T_ps = self.read_times(self.md_struct_path)
 
 
 
         if t_cutoff_frac is not None: 
-            truncted_T = []
+            truncated_T = []
             assert 0 <= t_cutoff_frac <= 1
-            for t in T:
-                if t <= t_cutoff_frac*T[-1]:
-                    truncted_T.append(t)
-            T = truncted_T
+            for t in T_ps:
+                if t <= t_cutoff_frac*T_ps[-1]:
+                    truncated_T.append(t)
+            T_ps = truncated_T
 
 
         #t_fineness = num_times-1
@@ -59,23 +54,32 @@ class MD_Crystal:
 
         if num_times is None:
             if not is_damaged:
-                self.times=[T[0]]
-            elif len(T)>0:
-                self.times=T[1:]
+                self.times_ps=[T_ps[0]]
+            elif len(T_ps)>0:
+                self.times_ps=T_ps[1:]
             else:
-                self.times=T
+                self.times_ps=T_ps
 
         else:
             if num_times == 2:
-                self.times=[T[1],T[-1]]
+                self.times_ps=[T_ps[1],T_ps[-1]]
             else:
                 assert False, "bugged"
-                times_to_aim_for = [T[0] + (n)/(num_times-1)*(T[-1]-T[0]) for n in range(num_times)]  # test: self.times = T[0:2]
-                self.times = list(self.get_nearest_time(times_to_aim_for,T,tol_fs=1))
+                times_to_aim_for = [T_ps[0] + (n)/(num_times-1)*(T_ps[-1]-T_ps[0]) for n in range(num_times)]  # test: self.times_ps = T_ps[0:2]
+                self.times_ps = list(self.get_nearest_time(times_to_aim_for,T_ps,tol_fs=1))
                 if not is_damaged:
-                    self.times = [T[0]]
-        print("chose times:", [t_pico*1e3 for t_pico in self.times])
+                    self.times_ps = [T_ps[0]]
+        print("chose times:", [t_pico*1e3 for t_pico in self.times_ps])
             
+        self.times_ac4dc_scale = np.array([t_pico*1e3 for t_pico in self.times_ps])
+        self.times_ac4dc_scale = self.times_ac4dc_scale -timespan_ps_MD*1e3 + end_t
+        if self.electronic_damage:
+            assert len(T_ps)>0, T_ps
+            all_charges=read_charges_binary(charges_path,debye_path)
+            all_times=np.linspace(0,timespan_ps_MD,all_charges.shape[0])
+            print(np.searchsorted(all_times,self.times_ps))
+            print(all_times, self.times_ps)
+            self.charges=all_charges[np.searchsorted(all_times,self.times_ps)]
          
     @staticmethod
     def get_nearest_time(times,allowed_times,tol_fs=None):
@@ -109,20 +113,19 @@ class MD_Crystal:
     def set_crystal_snapshot(self,t_pico:float,exclude_water=False,exclude_SOL=True,exclude_water_H=True):
         # if not self.is_damaged:
         #     assert self.current_snapshot_time is None
-        #     t = self.times[0]
+        #     t = self.times_ps[0]
         #     print(t)
 
         # if self.current_snapshot_time == t and skip_if_time_unchanged:
-        #     if t!= self.times[0]:
+        #     if t!= self.times_ps[0]:
         #         print("Warning: Reusing mid-dynamics snapshot")
         #     return self.crystal_snapshot
             
         if not self.nuclear_damage:
-            t_pico=self.times[0]
+            t_pico=self.times_ps[0]
 
-        tmp_file_path = path.abspath(path.join(__file__ ,"../",f"{self.name}_snapshot-{t_pico*1e3}fs.pdb"))
 
-        assert t_pico in self.times, f"{t_pico} not found in times ({self.times})"
+        assert t_pico in self.times_ps, f"{t_pico} not found in times ({self.times_ps})"
         snapshot_lines:list[str] = []
 
         print(f"Loading snapshot t = {t_pico*1e3} fs from {self.md_struct_path}")
@@ -162,7 +165,8 @@ class MD_Crystal:
                 if line.startswith("ENDMDL"):
                     break
 
-        assert reading_block
+        assert reading_block, (t_pico, self.md_struct_path)
+        tmp_file_path = path.abspath(path.join(__file__ ,"../",f"{self.name}_snapshot-{t_pico*1e3}fs.pdb"))
         with open(tmp_file_path,'w') as f_snap:
             #f_snap.writelines([f"{l}\n" for l in snapshot_lines])
             f_snap.writelines(snapshot_lines)
@@ -171,7 +175,7 @@ class MD_Crystal:
 
         self.crystal_snapshot = Crystal(tmp_file_path,is_damaged=self.electronic_damage,
             use_intensity_for_time=t_pico*1e3 if (self.nuclear_damage and not self.electronic_damage) else None,
-            charge_states=(None if not self.electronic_damage else self.charges[self.times.index(t_pico)]),
+            charge_states=(None if not self.electronic_damage else self.charges[self.times_ps.index(t_pico)]),
             **self.crystal_kwargs
         )
         os.remove(tmp_file_path)
@@ -217,13 +221,15 @@ class MD_XFEL:
             if kwargs["SPI"]:
                 assert self.xfel.num_x_orientations==self.xfel.num_y_orientations==1
                 rotation_str = '_'.join([f"{vars(self.xfel)['input_SPI_'+s+'_rotation']}" for s in ('x','y','z') ])
-                cell_intensity_log_path = path.abspath(path.join(__file__ ,"../","SPI_out",self.xfel.experiment_name+"_"+rotation_str+".csv"))
+                upper_resolution=scatter.q_to_res(self.xfel.max_q)*scatter.ang_per_bohr
+                out_handle="SPI_out",self.xfel.experiment_name+"_"+rotation_str+"_"+f"{upper_resolution}_A"
+                cell_intensity_log_path = path.abspath(path.join(__file__ ,"../",out_handle+".csv"))
                 os.makedirs(os.path.dirname(cell_intensity_log_path),exist_ok=True)
                 print(f"Writing intensities to {cell_intensity_log_path}")
                 with open(cell_intensity_log_path,'w') as f:
                     #f.write(f"q, I, pixel_idx_x, pixel_idx_y\n")
-                    assert all(mdt.times==md_target_list[0].times for mdt in md_target_list)
-                    f.write(f"row, col, resolution, intensity at t={', '.join([str(t) for t in md_target_list[0].times])} \n")
+                    assert all(mdt.times_ps==md_target_list[0].times_ps for mdt in md_target_list)
+                    f.write(f"row, col, resolution, intensity at t={', '.join([str(t) for t in md_target_list[0].times_ps])} \n")
                     #for q_val, I_val in zip(np.array(results.q).flatten(), np.array(results.I).flatten()):
                     #assert results.q.shape == results.I.shape
                     for x_idx in range(len(results.q)):
@@ -234,26 +240,43 @@ class MD_XFEL:
                 #cutoff_log_intensity = -1
                 #scatter.scatter_scatter_plot(SPI_result1=out_results,SPI_result2=None,radial_lim=radial_lim,plot_against_q = use_q,log_radial=log_radial,cmap=cmap,cmap2=cmap2,**kwargs)
                 #for log_range in (10,20,30):
-                for log_range in (10,20,30):
+                #for log_range in (10,20,30):
+                plot_kwargs=dict(
+                    SPI=True,
+                    SPI_result1=results,
+                    results_parent_dir=results_parent_dir,
+                    spi_full_rings_only=False,
+                    show_grid=True,
+                    show_plot=False,
+                )
+                for log_range in (15,):
                     scatter.stylin(self.xfel.experiment_name,None,self.xfel.max_q,
-                                SPI=True,SPI_result1=results,results_parent_dir=results_parent_dir,
-                                spi_full_rings_only=False,
+                                **plot_kwargs,
                                 log_range=log_range,
-                                show_grid=True)
+                                plot_handle="integrated_"+out_handle,
+                                )
+                for log_range in (20,):
+                    scatter.stylin(self.xfel.experiment_name,None,self.xfel.max_q,
+                                **plot_kwargs,
+                                log_range=log_range,
+                                plot_handle="integratedBrighter_"+out_handle,
+                                )
                 results.I = results.I_snapshots[0]
-                for log_range in (10,15,20):
+                #for log_range in (10,15,20):
+                for log_range in (15,):
                     scatter.stylin(self.xfel.experiment_name,None,self.xfel.max_q,
-                                SPI=True,SPI_result1=results,results_parent_dir=results_parent_dir,
-                                spi_full_rings_only=False,
                                 log_range=log_range,
-                                show_grid=True)
+                                plot_handle="undamaged_"+out_handle,
+                                **plot_kwargs,
+                                )
                 results.I = results.I_snapshots[-1]
-                for log_range in (10,15,20):
+                #for log_range in (10,15,20):
+                for log_range in (15,):
                     scatter.stylin(self.xfel.experiment_name,None,self.xfel.max_q,
-                                SPI=True,SPI_result1=results,results_parent_dir=results_parent_dir,
-                                spi_full_rings_only=False,
                                 log_range=log_range,
-                                show_grid=True)
+                                plot_handle="damaged_"+out_handle,
+                                **plot_kwargs,
+                                )
                                 
             else: # Reflections at Miller indices
                 scatter.create_reflection_file(self.xfel.experiment_name,results_parent_dir=results_parent_dir,
@@ -263,16 +286,38 @@ class MD_XFEL:
                     gen_true_phases=False
                     if gen_true_phases: # for e. dens. map making.
                         high_res=scatter.q_to_res(self.xfel.max_q)
-                        cplx_data = scatter.phenix_fcalc(ground_truth_pdb,high_res,real=False) 
-                    fcalc = scatter.phenix_fcalc_from_file(ground_truth_pdb,mtz_file,real=True)
+                        cplx_data = scatter.phenix_fcalc(ground_truth_pdb,high_res,real=False)
+                    FCALC_COMPARISON=False
+                    if FCALC_COMPARISON: 
+                        fcalc = scatter.phenix_fcalc_from_file(ground_truth_pdb,mtz_file,real=True)
+                        scatter.phenix_R(ground_truth_pdb,fcalc) # Should be ~0
                     scatter.phenix_R(ground_truth_pdb,mtz_file)
-                    scatter.phenix_R(ground_truth_pdb,fcalc) # Should be ~0
 
             return out_results
         
         I_tot = None
         I_tot_snapshots=None
+        
+        # def process(i):
+        #     md_target = md_target_list[i]
+        #     print(f"Capturing trajectory {i+1}/{len(md_target_list)}")
+        #     return self.fire_laser(sim_data_handle,sim_parent_dir_path,md_target,**kwargs)
+        #     #I_tot = I_tot + results.I if I_tot is not None else results.I
+        #     #I_tot_snapshots = I_tot_snapshots + results.I_snapshots if I_tot_snapshots is not None else results.I_snapshots
+
+        # with Pool(12) as p:
+        #     results_list = p.map(process,range(len(md_target_list)))
+        # I_tot = np.zeros(results_list[0].I.shape)
+        # I_tot_snapshots = np.zeros(results_list[0].I_snapshots.shape)
+        # for result in results_list:
+        #     I_tot+=results.I
+        #     I_tot_sn
+                
+        num_snapshots = max(len(md_target.times_ps) for md_target in md_target_list)
         for i, md_target in enumerate(md_target_list):
+            if len(md_target.times_ps)!=num_snapshots:
+                print(f"skipping target {i}, has only {len(md_target.times_ps)} snapshots (expected {num_snapshots})")
+                continue
             print(f"Capturing trajectory {i+1}/{len(md_target_list)}")
             results = self.fire_laser(sim_data_handle,sim_parent_dir_path,md_target,**kwargs)
             I_tot = I_tot + results.I if I_tot is not None else results.I
@@ -291,13 +336,13 @@ class MD_XFEL:
             "md_target"
             )}
 
-        param,_,_ = get_sim_params(sim_data_handle)
+        #param,_,_ = get_sim_params(sim_data_handle)
 
-        I = None
-        I_snapshots=[]
-        for k, t_pico in enumerate(md_target.times):  # gromacs output is in picoseconds
-            t = t_pico*1e3 + param["start_t"]  # AC4DC time
-            print(f"Snapshot t = {t} fs ({k+1}/{len(md_target.times)})")
+        global process
+        def process(k):
+            t_pico = md_target.times_ps[k] # gromacs output is in picoseconds
+            t = md_target.times_ac4dc_scale[k]
+            print(f"Snapshot t = {t} fs ({k+1}/{len(md_target.times_ps)})")
             
             try:
                 if md_target.nuclear_damage:
@@ -308,20 +353,28 @@ class MD_XFEL:
                 print(traceback.format_exc())
                 print(e)
                 print(f"Unexpected error for {sim_parent_dir_path} at snapshot {t} fs - skipping")
-                continue
+                return
             
             
             results:Results = self.xfel.fire_laser(t,t,sim_data_handle,sim_parent_dir_path,
                                    md_target.crystal_snapshot,
                                    **laser_kwargs)            
-            assert not np.any(np.isnan(results.I)), results.I
-            I_snapshots.append(results.I)
-            I = I + results.I if I is not None else results.I
-
-
-        out_results = results #XXX 
-        out_results.I = I
-        out_results.I_snapshots=np.array(I_snapshots)
+            print(f"Finished snapshot({k+1})")
+            assert not np.any(np.isnan(results.I)), (results.I, k)
+            #I_snapshots.append(results.I)
+            #I = I + results.I if I is not None else results.I
+            return results
+        # with Pool(NUM_THREADS) as p:
+        #      results_list = p.map(process,range(len(md_target.times_ps)))
+        results_list = [process(_i) for _i in range(len(md_target.times_ps))]
+        results_list = [r for r in results_list if r is not None]
+        out_results = results_list[0]
+        out_results.I_snapshots = np.array([result.I for result in results_list])
+        out_results.I = np.sum(out_results.I_snapshots,axis=0)
+        if len(results_list)>1:
+            assert out_results.I.shape == results_list[1].I.shape
+        else:
+            print(f"Warning, number of snapshots is {len(results_list)}")
 
         return out_results
         
